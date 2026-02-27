@@ -8,6 +8,13 @@ import * as Schema from "effect/Schema";
 import { CommonManifestFields } from "../common.js";
 
 /**
+ * Filename for MCP server manifest files.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
+
+/**
  * Schema for MCP server manifest files (axm-mcp-server.json).
  *
  * MCP servers provide Model Context Protocol endpoints that

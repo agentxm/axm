@@ -142,5 +142,61 @@ describe("parseSkillMd", () => {
       const skill = Option.getOrThrow(result);
       expect(Option.isNone(skill.metadata)).toBe(true);
     });
+
+    it("returns None metadata when metadata is an array", () => {
+      const content = [
+        "---",
+        "name: my-skill",
+        "description: A useful skill",
+        "metadata:",
+        "  - item1",
+        "  - item2",
+        "---",
+        "",
+        "# My Skill",
+      ].join("\n");
+
+      const result = parseSkillMd(content);
+
+      expect(Option.isSome(result)).toBe(true);
+      const skill = Option.getOrThrow(result);
+      expect(Option.isNone(skill.metadata)).toBe(true);
+    });
+
+    it("returns None metadata when metadata is a string", () => {
+      const content = [
+        "---",
+        "name: my-skill",
+        "description: A useful skill",
+        "metadata: just-a-string",
+        "---",
+        "",
+        "# My Skill",
+      ].join("\n");
+
+      const result = parseSkillMd(content);
+
+      expect(Option.isSome(result)).toBe(true);
+      const skill = Option.getOrThrow(result);
+      expect(Option.isNone(skill.metadata)).toBe(true);
+    });
+
+    it("returns None metadata when metadata is a number", () => {
+      const content = [
+        "---",
+        "name: my-skill",
+        "description: A useful skill",
+        "metadata: 42",
+        "---",
+        "",
+        "# My Skill",
+      ].join("\n");
+
+      const result = parseSkillMd(content);
+
+      expect(Option.isSome(result)).toBe(true);
+      const skill = Option.getOrThrow(result);
+      expect(Option.isNone(skill.metadata)).toBe(true);
+    });
   });
 });

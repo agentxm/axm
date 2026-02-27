@@ -56,6 +56,8 @@ export const createDefaultSettings = (): Settings => ({});
  * @experimental This API is unstable and may change without notice.
  */
 export const orderSettingsKeys = (settings: Settings): Settings => {
+  // Assertions needed: Settings has fixed keys, not a string index signature.
+  // Dynamic key access requires Record cast; result has same keys so Settings cast is safe.
   const ordered: Record<string, unknown> = {};
   for (const key of SETTINGS_KEY_ORDER) {
     if (key in settings) {
@@ -171,8 +173,10 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       ),
     );
 
-    // Serialize to JSON with pretty printing and trailing newline
-    // The encoded form has the same top-level keys as Settings, just different value types
+    // Serialize to JSON with pretty printing and trailing newline.
+    // Assertion needed: Schema.encode produces Encoded type with same top-level keys as Settings
+    // but different value types (e.g., string instead of URL). orderSettingsKeys only reads keys,
+    // so the cast is safe for key ordering.
     const content =
       JSON.stringify(orderSettingsKeys(encoded as unknown as Settings), null, 2) + "\n";
 

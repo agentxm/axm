@@ -18,9 +18,9 @@ const program = Effect.promise(() =>
     .fail((msg, _err, yargs) => {
       if (msg?.includes("Not enough non-option arguments")) {
         yargs.showHelp();
-        process.exit(0);
+        process.exit(1);
       }
-      console.error(msg ?? _err);
+      console.error(msg ?? (_err instanceof Error ? _err.message : String(_err)));
       process.exit(1);
     })
     .parseAsync(),

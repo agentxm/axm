@@ -7,9 +7,11 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { makeClackPromptTestLayer } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import { SourceHostProviders } from "../../../sources/index.js";
@@ -49,10 +51,19 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } as unknown as SourceHostProviders["Type"];
 
+const [promptLayer] = makeClackPromptTestLayer({
+  methodBehaviors: {
+    confirm: { type: "return", value: true },
+    text: { type: "return", value: "" },
+  },
+});
+
 const testLayer = Layer.mergeAll(
   Layer.succeed(Workspace, mockWorkspace),
   Layer.succeed(McpServerManager, mockMcpServerManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+  promptLayer,
+  NodeContext.layer,
 );
 
 const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);

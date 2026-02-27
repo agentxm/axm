@@ -102,6 +102,7 @@ export interface Job {
 }
 
 export interface Plan {
+  readonly _tag: "Plan";
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
@@ -117,6 +118,7 @@ export interface ExecutedJob {
 }
 
 export interface ExecutedPlan {
+  readonly _tag: "ExecutedPlan";
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<ExecutedJob>;

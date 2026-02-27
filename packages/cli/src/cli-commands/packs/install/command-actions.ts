@@ -538,6 +538,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         });
 
         return {
+          _tag: "Plan",
           name: "Install pack",
           description: Option.none(),
           jobs: [{ concurrency: 1 as const, steps }],

@@ -393,6 +393,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallSkillCommandIntent) =>
       Effect.succeed<Plan>({
+        _tag: "Plan",
         name: "Install skill(s)",
         description: Option.none(),
         jobs: [

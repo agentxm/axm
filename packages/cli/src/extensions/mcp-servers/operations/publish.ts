@@ -13,7 +13,11 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { McpServerManifestSchema, type McpServerManifest } from "../manifest-schema.js";
+import {
+  MCP_SERVER_MANIFEST_FILENAME,
+  McpServerManifestSchema,
+  type McpServerManifest,
+} from "../manifest-schema.js";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -48,12 +52,6 @@ export type PublishMcpServerOperation = Operation<
   "publish-mcp-server",
   PublishMcpServerOperationArgs
 >;
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
 
 // -----------------------------------------------------------------------------
 // Public API

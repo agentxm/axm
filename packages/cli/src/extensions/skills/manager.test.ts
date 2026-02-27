@@ -13,7 +13,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import { vi } from "vitest";
 import { SkillManager, SkillManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { SourceHostProviders, type SourceHostProvidersService } from "../../sources/index.js";
 import type { SkillExtensionRef } from "../../sources/types.js";
 
@@ -29,71 +29,18 @@ const makeLocalSkillRef = (name: string): SkillExtensionRef => ({
   location: "/tmp/skill",
 });
 
-// Minimal workspace mock — only methods used by SkillManager settings/lockfile ops
 const makeWsMock = (overrides?: {
   setSkill?: ReturnType<typeof vi.fn>;
   setSkillLock?: ReturnType<typeof vi.fn>;
   removeSkillFromSettings?: ReturnType<typeof vi.fn>;
   removeSkillLock?: ReturnType<typeof vi.fn>;
 }) =>
-  ({
-    ...taxonomyStubs,
-    global: false,
-    path: "/tmp/axm",
-    baseDir: "/tmp",
-    nonInteractive: true,
-    preview: false,
-    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
-    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () =>
-      Effect.succeed({
-        canonicalPath: "/tmp/.axm/extensions/external/skills/test",
-        skillSrcPath: "/tmp/.axm/extensions/external/skills/test",
-      }),
+  makeBaseWorkspaceMock("/tmp/axm", {
     setSkill: overrides?.setSkill ?? vi.fn(() => Effect.void),
     setSkillLock: overrides?.setSkillLock ?? vi.fn(() => Effect.void),
-    removeSkill: () => Effect.void,
     removeSkillFromSettings: overrides?.removeSkillFromSettings ?? vi.fn(() => Effect.void),
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "/tmp/.axm/extensions/@test/packs/test" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
     removeSkillLock: overrides?.removeSkillLock ?? vi.fn(() => Effect.void),
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-  }) as unknown as WorkspaceContextService;
+  });
 
 const makeSourcesMock = (): SourceHostProvidersService => ({
   find: () => Effect.succeed([]),

@@ -6,7 +6,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as crypto from "node:crypto";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -20,7 +19,9 @@ import {
   RawPackManifestSchema,
   type RawPackManifest,
 } from "../manifest-schema.js";
+import { parseFqnOrThrow } from "../../fqn.js";
 import { computePackPaths } from "../paths.js";
+import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -46,12 +47,6 @@ export interface AddToPackOperationArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs>;
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -131,10 +126,30 @@ export const addToPack: OperationHandler<
     )) as RawPackManifest;
 
     const currentSkills = { ...(manifest.skills ?? {}) };
+    const currentCommands = { ...(manifest.commands ?? {}) };
+    const currentMcpServers = { ...(manifest["mcp-servers"] ?? {}) };
+
     for (const [fqn, version] of Object.entries(additions)) {
-      currentSkills[fqn] = version;
+      const parsed = parseFqnOrThrow(fqn);
+      switch (parsed.type) {
+        case "skills":
+          currentSkills[fqn] = version;
+          break;
+        case "commands":
+          currentCommands[fqn] = version;
+          break;
+        case "mcp-servers":
+          currentMcpServers[fqn] = version;
+          break;
+        case "packs":
+          currentSkills[fqn] = version;
+          break;
+      }
     }
+
     manifest.skills = currentSkills;
+    manifest.commands = currentCommands;
+    manifest["mcp-servers"] = currentMcpServers;
 
     // 5. Write updated manifest
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(

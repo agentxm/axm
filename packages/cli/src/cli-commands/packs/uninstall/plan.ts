@@ -245,6 +245,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
     );
 
     return {
+      _tag: "Plan",
       name,
       description,
       jobs: [

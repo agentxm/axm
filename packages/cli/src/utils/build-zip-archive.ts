@@ -12,38 +12,67 @@ import * as Effect from "effect/Effect";
 import { makeCliError } from "../cli-error/index.js";
 
 /**
- * Build a zip archive of a directory.
- * Files are stored at the root of the zip (no enclosing directory).
+ * Check that a required system binary exists on PATH.
  */
-export const buildZipArchive = (dir: string, errorCode: string) =>
+const requireBinary = (name: string, errorCode: string) =>
   Effect.tryPromise({
     try: async () => {
       const { execFileSync } = await import("node:child_process");
-      const { readFile, mkdtemp, rm } = await import("node:fs/promises");
-      const { tmpdir } = await import("node:os");
-      const p = await import("node:path");
-
-      const tmpDir = await mkdtemp(p.join(tmpdir(), "axm-publish-"));
-      const archivePath = p.join(tmpDir, "archive.zip");
-
-      // Create deterministic zip (strip extra attributes, normalize timestamps)
-      // -X strips extra file attributes, -D disables directory entries
-      // find + touch normalizes file timestamps for reproducible archives
-      execFileSync("find", [dir, "-exec", "touch", "-t", "202001010000.00", "{}", "+"]);
-      execFileSync("zip", ["-r", "-q", "-X", "-D", archivePath, "."], {
-        cwd: dir,
-        stdio: "pipe",
-      });
-
-      const bytes = await readFile(archivePath);
-      await rm(tmpDir, { recursive: true, force: true });
-
-      return new Uint8Array(bytes);
+      execFileSync("which", [name], { stdio: "pipe" });
     },
-    catch: (e) =>
+    catch: () =>
       makeCliError({
         code: errorCode,
-        what: "Failed to build zip archive",
-        cause: e,
+        what: `Required system command "${name}" not found`,
+        howToFix: `Install "${name}" and ensure it is available on your PATH.`,
       }),
+  });
+
+/**
+ * Build a zip archive of a directory.
+ * Files are stored at the root of the zip (no enclosing directory).
+ *
+ * Copies the source directory to a temporary location before normalizing
+ * timestamps, so the original directory is never mutated.
+ */
+export const buildZipArchive = (dir: string, errorCode: string) =>
+  Effect.gen(function* () {
+    yield* requireBinary("find", errorCode);
+    yield* requireBinary("zip", errorCode);
+
+    return yield* Effect.tryPromise({
+      try: async () => {
+        const { execFileSync } = await import("node:child_process");
+        const { readFile, mkdtemp, rm, cp } = await import("node:fs/promises");
+        const { tmpdir } = await import("node:os");
+        const p = await import("node:path");
+
+        const tmpDir = await mkdtemp(p.join(tmpdir(), "axm-publish-"));
+        const copyDir = p.join(tmpDir, "content");
+        const archivePath = p.join(tmpDir, "archive.zip");
+
+        // Copy source to temp directory to avoid mutating original timestamps
+        await cp(dir, copyDir, { recursive: true });
+
+        // Create deterministic zip (strip extra attributes, normalize timestamps)
+        // -X strips extra file attributes, -D disables directory entries
+        // find + touch normalizes file timestamps for reproducible archives
+        execFileSync("find", [copyDir, "-exec", "touch", "-t", "202001010000.00", "{}", "+"]);
+        execFileSync("zip", ["-r", "-q", "-X", "-D", archivePath, "."], {
+          cwd: copyDir,
+          stdio: "pipe",
+        });
+
+        const bytes = await readFile(archivePath);
+        await rm(tmpDir, { recursive: true, force: true });
+
+        return new Uint8Array(bytes);
+      },
+      catch: (e) =>
+        makeCliError({
+          code: errorCode,
+          what: "Failed to build zip archive",
+          cause: e,
+        }),
+    });
   });

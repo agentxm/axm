@@ -249,29 +249,40 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   }
 
   // Step 7: Emit holdback warnings for registry skills held back by pack constraints
-  for (const item of resolved) {
-    if (item.type !== "match") continue;
-    if (item.ref.type !== "skill") continue;
-    if (item.ref.refType !== "registry") continue;
-    const registryRef = item.ref;
-    const skillFqn = `${registryRef.namespace}/skills/${registryRef.skill.name}`;
-    const packConstraints = packConstraintMap.get(skillFqn) ?? [];
-    if (packConstraints.length === 0) continue;
+  const holdbackWarnings = Array.flatMap(
+    resolved.filter(
+      (item): item is typeof item & { type: "match" } =>
+        item.type === "match" && item.ref.type === "skill" && item.ref.refType === "registry",
+    ),
+    (item) => {
+      const registryRef = item.ref as {
+        readonly namespace: string;
+        readonly skill: { readonly name: string };
+        readonly version: string;
+      };
+      const skillFqn = `${registryRef.namespace}/skills/${registryRef.skill.name}`;
+      const packConstraints = packConstraintMap.get(skillFqn) ?? [];
+      if (packConstraints.length === 0) return [];
 
-    // Get user constraint from the settings source string
-    const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
-    const userConstraint =
-      settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
+      const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
+      const userConstraint =
+        settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
 
-    const constraints: SkillConstraints = { userConstraint, packConstraints };
-    const warnings = detectHoldbackWarnings(
-      registryRef.version,
-      registryRef.version,
-      constraints,
-      skillFqn,
-    );
-    yield* Effect.forEach(warnings, (w) => log.warn(w), { discard: true });
-  }
+      const constraints: SkillConstraints = { userConstraint, packConstraints };
+      // TODO: Bug — registryRef.version is the already-resolved version, not the latest available.
+      // detectHoldbackWarnings compares latestVersion vs resolvedVersion to detect when a pack
+      // constraint holds back a skill. Passing the same value for both means warnings are never
+      // emitted. To fix properly, we need a separate registry query for the latest version
+      // (without constraints), which is not available in the current resolution flow.
+      return detectHoldbackWarnings(
+        registryRef.version,
+        registryRef.version,
+        constraints,
+        skillFqn,
+      );
+    },
+  );
+  yield* Effect.forEach(holdbackWarnings, (w) => log.warn(w), { discard: true });
 
   // Step 8: Build operations
   const ops = Array.flatMap(resolved, (item) =>
@@ -350,51 +361,48 @@ const collectPackConstraints = () =>
 
     const constraintMap = new Map<string, Array<PackConstraint>>();
 
-    // Read each pack's manifest from disk
-    yield* Effect.forEach(
-      Object.entries(lockedPacks),
-      ([packName, packEntry]) =>
-        Effect.gen(function* () {
-          // Skip builtin packs — they don't have on-disk manifests
-          if (packEntry.type === "builtin") return;
+    // Read each pack's manifest from disk (sequential to avoid data race on constraintMap)
+    yield* Effect.forEach(Object.entries(lockedPacks), ([packName, packEntry]) =>
+      Effect.gen(function* () {
+        // Skip builtin packs — they don't have on-disk manifests
+        if (packEntry.type === "builtin") return;
 
-          const packDir = path.join(
-            base,
-            REGISTRY_EXTENSIONS_DIR,
-            packEntry.namespace,
-            "packs",
-            packName,
-          );
-          const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+        const packDir = path.join(
+          base,
+          REGISTRY_EXTENSIONS_DIR,
+          packEntry.namespace,
+          "packs",
+          packName,
+        );
+        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
 
-          const exists = yield* fs
-            .exists(manifestPath)
-            .pipe(Effect.catchAll(() => Effect.succeed(false)));
-          if (!exists) return;
+        const exists = yield* fs
+          .exists(manifestPath)
+          .pipe(Effect.catchAll(() => Effect.succeed(false)));
+        if (!exists) return;
 
-          const content = yield* fs
-            .readFileString(manifestPath)
-            .pipe(Effect.catchAll(() => Effect.succeed("")));
-          if (content === "") return;
+        const content = yield* fs
+          .readFileString(manifestPath)
+          .pipe(Effect.catchAll(() => Effect.succeed("")));
+        if (content === "") return;
 
-          const json = yield* Effect.try(() => JSON.parse(content) as unknown).pipe(Effect.option);
-          if (Option.isNone(json)) return;
+        const json = yield* Effect.try(() => JSON.parse(content) as unknown).pipe(Effect.option);
+        if (Option.isNone(json)) return;
 
-          const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json.value).pipe(
-            Effect.option,
-          );
-          if (Option.isNone(manifest)) return;
+        const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json.value).pipe(
+          Effect.option,
+        );
+        if (Option.isNone(manifest)) return;
 
-          // Collect skill constraints from manifest
-          const skills = manifest.value.skills ?? {};
-          for (const [fqn, constraint] of Object.entries(skills)) {
-            if (constraint === "*" || constraint === "") continue;
-            const existing = constraintMap.get(fqn) ?? [];
-            existing.push({ packName, constraint });
-            constraintMap.set(fqn, existing);
-          }
-        }),
-      { concurrency: "unbounded" },
+        // Collect skill constraints from manifest
+        const skills = manifest.value.skills ?? {};
+        for (const [fqn, constraint] of Object.entries(skills)) {
+          if (constraint === "*" || constraint === "") continue;
+          const existing = constraintMap.get(fqn) ?? [];
+          existing.push({ packName, constraint });
+          constraintMap.set(fqn, existing);
+        }
+      }),
     );
 
     return constraintMap;

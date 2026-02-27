@@ -110,16 +110,30 @@ export function run<A>(
       })()
     : (program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
 
-  return provided.pipe(
-    Effect.catchAll((error) =>
-      Effect.sync(() => {
+  // Classify the error and propagate as a defect so ManagedRuntime can
+  // clean up scoped resources before we call process.exit.
+  return provided
+    .pipe(
+      Effect.catchAll((error) => {
         const result = classifyError(error);
         if (result.exitCode !== 0) {
           console.error(result.message);
         }
-        return process.exit(result.exitCode);
+        return Effect.die({ _tag: "CliExit", exitCode: result.exitCode });
       }),
-    ),
-    Runtime.runPromise,
-  );
+      Runtime.runPromise,
+    )
+    .catch((thrown: unknown) => {
+      // After runtime cleanup, exit with the classified code
+      if (
+        thrown !== null &&
+        typeof thrown === "object" &&
+        "_tag" in thrown &&
+        (thrown as { _tag: string })._tag === "CliExit" &&
+        "exitCode" in thrown
+      ) {
+        process.exit((thrown as unknown as { exitCode: number }).exitCode);
+      }
+      throw thrown;
+    });
 }

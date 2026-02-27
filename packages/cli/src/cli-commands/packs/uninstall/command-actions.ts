@@ -142,6 +142,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         if (intent.packsToUninstall.length === 0) {
           return {
+            _tag: "Plan",
             name: "Uninstall pack",
             description: Option.none(),
             jobs: [{ concurrency: 1 as const, steps: [] }],
@@ -235,6 +236,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         });
 
         return {
+          _tag: "Plan",
           name: intent.packsToUninstall.length > 1 ? "Uninstall pack(s)" : "Uninstall pack",
           description: Option.none(),
           jobs: [{ concurrency: 1 as const, steps }],

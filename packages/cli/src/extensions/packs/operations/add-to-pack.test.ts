@@ -39,7 +39,8 @@ const makeWorkspaceMock = (
     baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
-    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    resolvePlan: () =>
+      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -286,6 +287,100 @@ describe("addToPack", () => {
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
+      }),
+    );
+  });
+
+  describe("FQN routing", () => {
+    it.effect("routes command FQNs to manifest.commands section", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
+
+        const result = yield* addToPack(
+          makeOp({
+            additions: { "@acme/commands/my-cmd": "^1.0.0" },
+            manifestHash,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const manifestPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@myorg",
+          "packs",
+          "my-pack",
+          "axm-pack.json",
+        );
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^1.0.0");
+        expect(manifest.skills["@acme/commands/my-cmd"]).toBeUndefined();
+      }),
+    );
+
+    it.effect("routes mcp-server FQNs to manifest.mcp-servers section", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
+
+        const result = yield* addToPack(
+          makeOp({
+            additions: { "@acme/mcp-servers/my-server": "^2.0.0" },
+            manifestHash,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const manifestPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@myorg",
+          "packs",
+          "my-pack",
+          "axm-pack.json",
+        );
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^2.0.0");
+        expect(manifest.skills["@acme/mcp-servers/my-server"]).toBeUndefined();
+      }),
+    );
+
+    it.effect("routes mixed FQN types to correct sections", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
+
+        const result = yield* addToPack(
+          makeOp({
+            additions: {
+              "@acme/skills/my-skill": "^1.0.0",
+              "@acme/commands/my-cmd": "^2.0.0",
+              "@acme/mcp-servers/my-server": "^3.0.0",
+            },
+            manifestHash,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const manifestPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@myorg",
+          "packs",
+          "my-pack",
+          "axm-pack.json",
+        );
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
+        expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^2.0.0");
+        expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^3.0.0");
       }),
     );
   });

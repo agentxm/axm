@@ -259,6 +259,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
     });
 
     return {
+      _tag: "Plan",
       name,
       description,
       jobs: [

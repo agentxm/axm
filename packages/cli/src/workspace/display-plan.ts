@@ -40,17 +40,16 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
     });
     yield* log.info(heading);
 
-    // Determine if this is an executed plan by checking step shape
+    // Determine if this is an executed plan using _tag discriminant
     const firstJob = plan.jobs[0];
     if (!firstJob || firstJob.steps.length === 0) {
       return;
     }
 
-    const firstStep = firstJob.steps[0]!;
-    const isExecuted = "result" in firstStep;
+    const isExecuted = plan._tag === "ExecutedPlan";
 
     if (isExecuted) {
-      // ExecutedPlan: render completed steps
+      // Assertion safe: _tag === "ExecutedPlan" confirmed above; TS can't narrow union parameter
       const executedPlan = plan as ExecutedPlan;
       const allSteps = executedPlan.jobs.flatMap((job) => [...job.steps]);
       for (const step of allSteps) {
@@ -58,7 +57,7 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
       }
       yield* renderCompletedSummary(allSteps, log);
     } else {
-      // Plan: render planned steps
+      // Assertion safe: _tag === "Plan" (only alternative in union)
       const plannedPlan = plan as Plan;
       const allSteps = plannedPlan.jobs.flatMap((job) => [...job.steps]);
       for (const step of allSteps) {

@@ -48,6 +48,7 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
 });
 
 const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
+  _tag: "Plan",
   name: "Test plan",
   description: Option.none(),
   jobs: [],

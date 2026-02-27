@@ -33,6 +33,7 @@ type TestIntent = { readonly intentName: string };
 // -----------------------------------------------------------------------------
 
 const emptyExecutedPlan: ExecutedPlan = {
+  _tag: "ExecutedPlan",
   name: "test",
   description: Option.none(),
   jobs: [],
@@ -73,6 +74,7 @@ describe("runInstallCommandWorkflow", () => {
       Effect.gen(function* () {
         const callOrder: string[] = [];
         const testPlan: Plan = {
+          _tag: "Plan",
           name: "test-install",
           description: Option.none(),
           jobs: [],
@@ -127,6 +129,7 @@ describe("runInstallCommandWorkflow", () => {
   it.effect("passes the built plan to resolvePlan", () => {
     let capturedPlan: Plan | undefined;
     const testPlan: Plan = {
+      _tag: "Plan",
       name: "captured-plan",
       description: Option.some("test description"),
       jobs: [],
@@ -196,6 +199,7 @@ describe("runInstallCommandWorkflow", () => {
         buildPlan: (intent) => {
           capturedIntent = intent;
           return Effect.succeed({
+            _tag: "Plan" as const,
             name: "test",
             description: Option.none(),
             jobs: [],
@@ -226,7 +230,13 @@ describe("runInstallCommandWorkflow", () => {
         resolveSourceRequests: () => Effect.succeed([]),
         discoverRefs: () => Effect.succeed([]),
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
-        buildPlan: () => Effect.succeed({ name: "t", description: Option.none(), jobs: [] }),
+        buildPlan: () =>
+          Effect.succeed({
+            _tag: "Plan" as const,
+            name: "t",
+            description: Option.none(),
+            jobs: [],
+          }),
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
@@ -282,6 +292,7 @@ describe("runInstallCommandWorkflow", () => {
         buildPlan: () => {
           callOrder.push("buildPlan");
           return Effect.succeed({
+            _tag: "Plan" as const,
             name: "t",
             description: Option.none(),
             jobs: [],

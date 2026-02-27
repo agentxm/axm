@@ -108,6 +108,7 @@ export const buildSkillInstallPlan = ({
     });
 
     return {
+      _tag: "Plan",
       name: "Install skill(s)",
       description: Option.some(`Install skills from ${sources.origin(source)}`),
       jobs: [

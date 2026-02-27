@@ -119,6 +119,9 @@ const resolveRegistrySource = (
     const checked: string[] = [];
     const issues: RegistryLookupIssue[] = [];
 
+    // Sequential for...of + yield* with early return: first-match semantics.
+    // Effect.forEach doesn't fit because we return on the first successful match
+    // while accumulating errors/issues from non-matching registries.
     for (const regConfig of registrySources) {
       checked.push(regConfig.location.href);
       const client = yield* createRegistryClient(regConfig.location.href);
@@ -237,6 +240,9 @@ const resolveSkillRegistrySourceByName = (
 
     const checked: string[] = [];
     const issues: RegistryLookupIssue[] = [];
+    // Sequential for...of + yield* with early return: first-match semantics.
+    // Effect.forEach doesn't fit because we return on the first successful match
+    // while accumulating errors/issues from non-matching registries.
     for (const reg of registryHosts) {
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);

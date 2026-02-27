@@ -116,6 +116,7 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
     );
 
     return {
+      _tag: "ExecutedPlan",
       name: plan.name,
       description: plan.description,
       jobs: Array.map(jobResults, (steps, i) => ({

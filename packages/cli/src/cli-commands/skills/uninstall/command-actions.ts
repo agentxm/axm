@@ -146,6 +146,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
         });
 
         return {
+          _tag: "Plan",
           name: "Uninstall skill(s)",
           description: Option.none(),
           jobs: [

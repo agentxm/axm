@@ -120,21 +120,23 @@ export const newPack: OperationHandler<
       ),
     );
 
-    // 5. Register in settings
+    // 5. Register in settings (best-effort: directory/manifest already on disk)
     const now = new Date();
-    yield* ws.setPack({
-      namespace,
-      name,
-      resolvedVersion: "0.0.1",
-      integrity: "",
-      sourceName: "",
-      installedAt: now,
-      updatedAt: now,
-      resolvedSkills: {},
-      resolvedCommands: {},
-      resolvedMcpServers: {},
-      versionConstraint: Option.none(),
-    });
+    yield* ws
+      .setPack({
+        namespace,
+        name,
+        resolvedVersion: "0.0.1",
+        integrity: "",
+        sourceName: "",
+        installedAt: now,
+        updatedAt: now,
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        versionConstraint: Option.none(),
+      })
+      .pipe(Effect.ignoreLogged);
 
     return {
       result: "success",

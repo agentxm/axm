@@ -169,6 +169,9 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
+// TODO: (#44) getStringField/getNumberField/getArrayField use `as Record<string, unknown>` after
+// type guards. Could use Schema.decodeUnknown for problem detail parsing for consistency.
+// Low priority since type guards are functionally safe.
 const getStringField = (obj: unknown, field: string): string | undefined => {
   if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
     const value = (obj as Record<string, unknown>)[field];
@@ -268,11 +271,6 @@ const withRequestContext = (
   request: string,
   status: number | undefined,
 ): CliError => {
-  const howToFix = Option.match(error.howToFix, {
-    onNone: () => Option.none<string>(),
-    onSome: (value) => Option.some(value),
-  });
-
   return makeCliError({
     code: error.code,
     what: error.what,
@@ -281,7 +279,7 @@ const withRequestContext = (
       ...(status === undefined ? [] : [`HTTP status: ${String(status)}`]),
       ...error.details,
     ],
-    ...(Option.isSome(howToFix) && { howToFix: howToFix.value }),
+    ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
     cause: error.cause,
   });
 };

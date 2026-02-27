@@ -1,3 +1,5 @@
+// TODO: (#22) node:path is a convention violation (CLAUDE.md requires @effect/platform Path).
+// Intentional escape hatch: isPathSafe is a pure function with no Effect dependency chain.
 import * as path from "node:path";
 
 /**

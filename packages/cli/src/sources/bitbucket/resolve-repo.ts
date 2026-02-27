@@ -1,3 +1,5 @@
+// TODO: (#52) Uses raw fetch instead of @effect/platform HttpClient. Should be wrapped
+// with HttpClient and unit-tested with mock HTTP layer. Out of scope for code review sweep.
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 

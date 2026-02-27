@@ -8,6 +8,9 @@
  * @packageDocumentation
  */
 
+// TODO: (#20) node:os and node:path are convention violations (CLAUDE.md requires @effect/platform).
+// These are used for eager module-level initialization. Migrating requires making this module
+// effectful, which cascades to all consumers. Out of scope for this sweep.
 import * as os from "node:os";
 import * as path from "node:path";
 

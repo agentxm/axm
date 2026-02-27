@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../cli-error/index.js";
+import { isPathSafe } from "../../utils/path-safety.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../sources/types.js";
 import type { McpServerLockEntry } from "../../lockfile/schema.js";
 import type {
@@ -90,6 +91,13 @@ export const McpServerManagerLive = Layer.effect(
             registryRef.name,
           );
 
+          if (!isPathSafe(baseDir, canonicalPath)) {
+            return yield* makeCliError({
+              code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
+              what: `Path traversal detected: ${canonicalPath}`,
+            });
+          }
+
           const canonicalExists = yield* fs.exists(canonicalPath).pipe(
             Effect.mapError((e) =>
               makeCliError({
@@ -161,7 +169,7 @@ export const McpServerManagerLive = Layer.effect(
                   (entry) => {
                     const src = path.join(tmpDir, entry);
                     const dest = path.join(canonicalPath, entry);
-                    return fs.copy(src, dest).pipe(Effect.ignore);
+                    return fs.copy(src, dest).pipe(Effect.ignoreLogged);
                   },
                   { concurrency: "unbounded" },
                 );

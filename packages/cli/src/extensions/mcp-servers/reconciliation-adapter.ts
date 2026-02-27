@@ -3,14 +3,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../cli-error/index.js";
-import { McpServerManifestSchema } from "./manifest-schema.js";
+import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "./manifest-schema.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
   ReconciliationDeclaration,
 } from "../../workspace/reconciliation-types.js";
-
-const MCP_MANIFEST_FILENAME = "axm-mcp-server.json";
 
 const parseRegistryMcpSource = (
   source: string,
@@ -109,7 +107,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const manifestPath = env.path.join(canonicalPath, MCP_MANIFEST_FILENAME);
+      const manifestPath = env.path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME);
       const manifestRaw = yield* env.fs
         .readFileString(manifestPath)
         .pipe(Effect.catchAll(() => Effect.succeed("")));
@@ -122,13 +120,9 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const parsedJson = yield* Effect.sync(() => {
-        try {
-          return JSON.parse(manifestRaw) as unknown;
-        } catch {
-          return null;
-        }
-      });
+      const parsedJson = yield* Effect.try(() => JSON.parse(manifestRaw) as unknown).pipe(
+        Effect.catchAll(() => Effect.succeed<null>(null)),
+      );
 
       if (parsedJson === null) {
         return {

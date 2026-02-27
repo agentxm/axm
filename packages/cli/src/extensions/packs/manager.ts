@@ -33,7 +33,7 @@ import {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class PackManager extends Context.Tag("PackManager")<
+export class PackManager extends Context.Tag("@axm.sh/cli/PackManager")<
   PackManager,
   ExtensionManager<PackExtensionRef>
 >() {}

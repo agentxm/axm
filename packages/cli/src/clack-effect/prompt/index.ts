@@ -1,4 +1,4 @@
-export { ClackPrompt, ClackPromptLive, type ClackPromptService } from "./service.js";
+export { ClackPrompt, ClackPromptLive } from "./service.js";
 export type {
   ClackAutocompleteConfig,
   ClackAutocompleteMultiselectConfig,
@@ -13,6 +13,8 @@ export type {
   ClackTextConfig,
 } from "./types.js";
 export {
+  ClackPromptTest,
+  type ClackPromptCall,
   type ConfirmBehavior,
   type MultiselectBehavior,
   type SelectBehavior,
@@ -23,5 +25,4 @@ export {
   makeClackPromptTestLayer,
   makeMultiselectTestLayer,
   makeSelectTestLayer,
-  type MockClackPromptService,
-} from "./test.js";
+} from "./ClackPromptTest.js";

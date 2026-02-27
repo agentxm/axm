@@ -2,11 +2,11 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "vitest";
 import { ClackPrompt } from "./service.js";
-import { makeClackPromptTestLayer } from "./test.js";
+import { ClackPromptTest, makeClackPromptTestLayer } from "./ClackPromptTest.js";
 
 describe("ClackPrompt", () => {
   it("text returns string value", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: "hello" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "hello" });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.text({ message: "Enter name:" });
@@ -15,7 +15,7 @@ describe("ClackPrompt", () => {
   });
 
   it("confirm returns boolean", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const layer = makeClackPromptTestLayer({ type: "return", value: true });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.confirm({ message: "Continue?" });
@@ -24,7 +24,7 @@ describe("ClackPrompt", () => {
   });
 
   it("select returns typed value", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: "opt1" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "opt1" });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.select({
@@ -39,7 +39,7 @@ describe("ClackPrompt", () => {
   });
 
   it("multiselect returns ReadonlyArray", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: ["a", "b"] });
+    const layer = makeClackPromptTestLayer({ type: "return", value: ["a", "b"] });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.multiselect({
@@ -55,7 +55,7 @@ describe("ClackPrompt", () => {
   });
 
   it("cancellation maps to PromptCancelled", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "cancel" });
+    const layer = makeClackPromptTestLayer({ type: "cancel" });
     const exit = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.text({ message: "Enter:" });
@@ -73,19 +73,20 @@ describe("ClackPrompt", () => {
   });
 
   it("records calls with method name and config", async () => {
-    const [layer, mock] = makeClackPromptTestLayer({ type: "return", value: "val" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "val" });
     await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       yield* prompt.text({ message: "Name?" });
       yield* prompt.password({ message: "Secret?" });
+      const calls = yield* (yield* ClackPromptTest).get;
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toEqual({ method: "text", config: { message: "Name?" } });
+      expect(calls[1]).toEqual({ method: "password", config: { message: "Secret?" } });
     }).pipe(Effect.provide(layer), Effect.runPromise);
-    expect(mock.calls).toHaveLength(2);
-    expect(mock.calls[0]).toEqual({ method: "text", config: { message: "Name?" } });
-    expect(mock.calls[1]).toEqual({ method: "password", config: { message: "Secret?" } });
   });
 
   it("password returns string value", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: "secret123" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "secret123" });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.password({ message: "Enter password:" });
@@ -94,7 +95,7 @@ describe("ClackPrompt", () => {
   });
 
   it("path returns string value", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: "/usr/local" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "/usr/local" });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.path({ message: "Select path:" });
@@ -103,7 +104,7 @@ describe("ClackPrompt", () => {
   });
 
   it("selectKey returns string value", async () => {
-    const [layer] = makeClackPromptTestLayer({ type: "return", value: "y" });
+    const layer = makeClackPromptTestLayer({ type: "return", value: "y" });
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.selectKey({
@@ -118,7 +119,7 @@ describe("ClackPrompt", () => {
   });
 
   it("default test layer returns empty string", async () => {
-    const [layer] = makeClackPromptTestLayer();
+    const layer = makeClackPromptTestLayer();
     const result = await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       return yield* prompt.text({ message: "Enter:" });
@@ -127,7 +128,7 @@ describe("ClackPrompt", () => {
   });
 
   it("supports per-method behavior across mixed prompt methods", async () => {
-    const [layer, mock] = makeClackPromptTestLayer({
+    const layer = makeClackPromptTestLayer({
       defaultBehavior: { type: "return", value: "unused-default" },
       methodBehaviors: {
         text: { type: "return", value: "alice" },
@@ -138,7 +139,7 @@ describe("ClackPrompt", () => {
       },
     });
 
-    const result = await Effect.gen(function* () {
+    await Effect.gen(function* () {
       const prompt = yield* ClackPrompt;
       const text = yield* prompt.text({ message: "Name?" });
       const password = yield* prompt.password({ message: "Password?" });
@@ -158,27 +159,28 @@ describe("ClackPrompt", () => {
           { value: "c", label: "C" },
         ],
       });
-      return { text, password, confirm, select, multiselect };
-    }).pipe(Effect.provide(layer), Effect.runPromise);
 
-    expect(result).toEqual({
-      text: "alice",
-      password: "secret",
-      confirm: true,
-      select: "opt2",
-      multiselect: ["a", "c"],
-    });
-    expect(mock.calls.map((call) => call.method)).toEqual([
-      "text",
-      "password",
-      "confirm",
-      "select",
-      "multiselect",
-    ]);
+      expect({ text, password, confirm, select, multiselect }).toEqual({
+        text: "alice",
+        password: "secret",
+        confirm: true,
+        select: "opt2",
+        multiselect: ["a", "c"],
+      });
+
+      const calls = yield* (yield* ClackPromptTest).get;
+      expect(calls.map((call) => call.method)).toEqual([
+        "text",
+        "password",
+        "confirm",
+        "select",
+        "multiselect",
+      ]);
+    }).pipe(Effect.provide(layer), Effect.runPromise);
   });
 
   it("supports queued per-call behavior (global and per-method)", async () => {
-    const [layer] = makeClackPromptTestLayer({
+    const layer = makeClackPromptTestLayer({
       defaultBehavior: { type: "return", value: "method-default" },
       methodBehaviors: {
         password: { type: "return", value: "method-password" },

@@ -10,18 +10,16 @@ export interface ClackSpinnerOptions<A> {
   readonly failureMessage?: string;
 }
 
-export interface ClackSpinnerService {
-  readonly start: (message?: string) => Effect.Effect<ClackSpinnerHandle>;
-  readonly withSpinner: <A, E, R>(
-    message: string,
-    f: (handle: ClackSpinnerHandle) => Effect.Effect<A, E, R>,
-    options?: string | ClackSpinnerOptions<A>,
-  ) => Effect.Effect<A, E, R>;
-}
-
 export class ClackSpinner extends Context.Tag("@axm.sh/cli/clack-effect/ClackSpinner")<
   ClackSpinner,
-  ClackSpinnerService
+  {
+    readonly start: (message?: string) => Effect.Effect<ClackSpinnerHandle>;
+    readonly withSpinner: <A, E, R>(
+      message: string,
+      f: (handle: ClackSpinnerHandle) => Effect.Effect<A, E, R>,
+      options?: string | ClackSpinnerOptions<A>,
+    ) => Effect.Effect<A, E, R>;
+  }
 >() {}
 
 const makeHandle = (s: p.SpinnerResult): ClackSpinnerHandle => ({
@@ -32,7 +30,7 @@ const makeHandle = (s: p.SpinnerResult): ClackSpinnerHandle => ({
   clear: () => Effect.sync(() => s.clear()),
 });
 
-const makeLiveClackSpinnerService = (): ClackSpinnerService => ({
+const makeLiveClackSpinnerService = (): Context.Tag.Service<typeof ClackSpinner> => ({
   start: (message) =>
     Effect.sync(() => {
       const s = p.spinner();

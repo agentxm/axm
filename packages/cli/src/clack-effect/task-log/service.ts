@@ -4,13 +4,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { ClackTaskLogConfig, ClackTaskLogGroupHandle, ClackTaskLogHandle } from "./types.js";
 
-export interface ClackTaskLogService {
-  readonly start: (config: ClackTaskLogConfig) => Effect.Effect<ClackTaskLogHandle>;
-}
-
 export class ClackTaskLog extends Context.Tag("@axm.sh/cli/clack-effect/ClackTaskLog")<
   ClackTaskLog,
-  ClackTaskLogService
+  {
+    readonly start: (config: ClackTaskLogConfig) => Effect.Effect<ClackTaskLogHandle>;
+  }
 >() {}
 
 const wrapGroupHandle = (
@@ -28,7 +26,7 @@ const wrapTaskLogHandle = (handle: ReturnType<typeof p.taskLog>): ClackTaskLogHa
   success: (message) => Effect.sync(() => handle.success(message)),
 });
 
-const makeLiveClackTaskLogService = (): ClackTaskLogService => ({
+const makeLiveClackTaskLogService = (): Context.Tag.Service<typeof ClackTaskLog> => ({
   start: (config) => Effect.sync(() => wrapTaskLogHandle(p.taskLog(config))),
 });
 

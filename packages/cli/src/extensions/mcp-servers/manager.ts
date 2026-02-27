@@ -31,7 +31,7 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class McpServerManager extends Context.Tag("McpServerManager")<
+export class McpServerManager extends Context.Tag("@axm.sh/cli/McpServerManager")<
   McpServerManager,
   ExtensionManager<McpServerExtensionRef>
 >() {}

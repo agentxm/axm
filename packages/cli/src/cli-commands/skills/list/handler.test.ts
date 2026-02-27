@@ -8,26 +8,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
-import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  type Confirm,
-  type Log,
-  type Multiselect,
-  type Select,
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-} from "../../../clack-effect/index.js";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { handleList } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -76,17 +65,8 @@ describe("list.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-    );
+    const promptLayer = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       yes: true,
@@ -98,15 +78,11 @@ describe("list.handler", () => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide };
   };
 
   // ---------------------------------------------------------------------------
@@ -114,7 +90,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("displays all installed skills", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-one": makeLockEntry(),
       "skill-two": makeLockEntry(),
@@ -124,8 +100,12 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: [] });
 
-        expect(mockLog.logs.message.some((m) => m.includes("skill-one"))).toBe(true);
-        expect(mockLog.logs.message.some((m) => m.includes("skill-two"))).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-one")),
+        ).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-two")),
+        ).toBe(true);
       }),
     );
   });
@@ -135,14 +115,18 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows no skills message when lockfile is empty", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {
         yield* handleList({ agents: [] });
 
-        expect(mockLog.logs.info.some((m) => m.includes("No skills installed"))).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.info.some((m) =>
+            m.includes("No skills installed"),
+          ),
+        ).toBe(true);
       }),
     );
   });
@@ -152,7 +136,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("filters skills by single agent", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-claude": makeLockEntry(["claude-code"]),
       "skill-cursor": makeLockEntry(["cursor"]),
@@ -162,8 +146,12 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code"] });
 
-        expect(mockLog.logs.message.some((m) => m.includes("skill-claude"))).toBe(true);
-        expect(mockLog.logs.message.some((m) => m.includes("skill-cursor"))).toBe(false);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-claude")),
+        ).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-cursor")),
+        ).toBe(false);
       }),
     );
   });
@@ -173,7 +161,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("filters by multiple agents using OR logic", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-claude": makeLockEntry(["claude-code"]),
       "skill-cursor": makeLockEntry(["cursor"]),
@@ -184,9 +172,15 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code", "cursor"] });
 
-        expect(mockLog.logs.message.some((m) => m.includes("skill-claude"))).toBe(true);
-        expect(mockLog.logs.message.some((m) => m.includes("skill-cursor"))).toBe(true);
-        expect(mockLog.logs.message.some((m) => m.includes("skill-other"))).toBe(false);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-claude")),
+        ).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-cursor")),
+        ).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.message.some((m) => m.includes("skill-other")),
+        ).toBe(false);
       }),
     );
   });
@@ -196,7 +190,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows empty message when agent filter matches nothing", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-one": makeLockEntry(["claude-code"]),
     });
@@ -205,7 +199,11 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["nonexistent-agent"] });
 
-        expect(mockLog.logs.info.some((m) => m.includes("No skills installed"))).toBe(true);
+        expect(
+          (yield* (yield* ClackLogTest).get).logs.info.some((m) =>
+            m.includes("No skills installed"),
+          ),
+        ).toBe(true);
       }),
     );
   });

@@ -5,22 +5,20 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { ClackProgressConfig, ClackProgressHandle } from "./types.js";
 
-export interface ClackProgressService {
-  readonly start: (
-    config: ClackProgressConfig,
-    message?: string,
-  ) => Effect.Effect<ClackProgressHandle>;
-  readonly withProgress: <A, E, R>(
-    config: ClackProgressConfig,
-    message: string,
-    f: (handle: ClackProgressHandle) => Effect.Effect<A, E, R>,
-    stopMessage?: string,
-  ) => Effect.Effect<A, E, R>;
-}
-
 export class ClackProgress extends Context.Tag("@axm.sh/cli/clack-effect/ClackProgress")<
   ClackProgress,
-  ClackProgressService
+  {
+    readonly start: (
+      config: ClackProgressConfig,
+      message?: string,
+    ) => Effect.Effect<ClackProgressHandle>;
+    readonly withProgress: <A, E, R>(
+      config: ClackProgressConfig,
+      message: string,
+      f: (handle: ClackProgressHandle) => Effect.Effect<A, E, R>,
+      stopMessage?: string,
+    ) => Effect.Effect<A, E, R>;
+  }
 >() {}
 
 const makeHandle = (pr: p.ProgressResult): ClackProgressHandle => ({
@@ -32,7 +30,7 @@ const makeHandle = (pr: p.ProgressResult): ClackProgressHandle => ({
   advance: (step, message) => Effect.sync(() => pr.advance(step, message)),
 });
 
-const makeLiveClackProgressService = (): ClackProgressService => ({
+const makeLiveClackProgressService = (): Context.Tag.Service<typeof ClackProgress> => ({
   start: (config, message) =>
     Effect.sync(() => {
       const pr = p.progress(config);

@@ -1,7 +1,8 @@
-export { ClackSpinner, ClackSpinnerLive, type ClackSpinnerService } from "./service.js";
+export { ClackSpinner, ClackSpinnerLive } from "./service.js";
 export type { ClackSpinnerHandle } from "./types.js";
 export {
+  ClackSpinnerTest,
+  ClackSpinnerTestLayer,
   type ClackSpinnerCall,
-  makeClackSpinnerTestLayer,
-  type MockClackSpinnerService,
-} from "./test.js";
+  type ClackSpinnerRecord,
+} from "./ClackSpinnerTest.js";

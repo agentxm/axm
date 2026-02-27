@@ -1,7 +1,7 @@
-export { ClackProgress, ClackProgressLive, type ClackProgressService } from "./service.js";
+export { ClackProgress, ClackProgressLive } from "./service.js";
 export type { ClackProgressConfig, ClackProgressHandle } from "./types.js";
 export {
+  ClackProgressTest,
+  ClackProgressTestLayer,
   type ClackProgressCall,
-  makeClackProgressTestLayer,
-  type MockClackProgressService,
-} from "./test.js";
+} from "./ClackProgressTest.js";

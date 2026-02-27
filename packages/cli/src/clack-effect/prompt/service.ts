@@ -34,38 +34,36 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
     ),
   );
 
-export interface ClackPromptService {
-  readonly text: (config: ClackTextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
-  readonly password: (
-    config: ClackPasswordConfig,
-  ) => Effect.Effect<string, CliError | PromptCancelled>;
-  readonly confirm: (
-    config: ClackConfirmConfig,
-  ) => Effect.Effect<boolean, CliError | PromptCancelled>;
-  readonly select: <V>(
-    config: ClackSelectConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
-  readonly multiselect: <V>(
-    config: ClackMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-  readonly groupMultiselect: <V>(
-    config: ClackGroupMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-  readonly selectKey: <V extends string>(
-    config: ClackSelectKeyConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
-  readonly autocomplete: <V>(
-    config: ClackAutocompleteConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
-  readonly autocompleteMultiselect: <V>(
-    config: ClackAutocompleteMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-  readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
-}
-
 export class ClackPrompt extends Context.Tag("@axm.sh/cli/clack-effect/ClackPrompt")<
   ClackPrompt,
-  ClackPromptService
+  {
+    readonly text: (config: ClackTextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+    readonly password: (
+      config: ClackPasswordConfig,
+    ) => Effect.Effect<string, CliError | PromptCancelled>;
+    readonly confirm: (
+      config: ClackConfirmConfig,
+    ) => Effect.Effect<boolean, CliError | PromptCancelled>;
+    readonly select: <V>(
+      config: ClackSelectConfig<V>,
+    ) => Effect.Effect<V, CliError | PromptCancelled>;
+    readonly multiselect: <V>(
+      config: ClackMultiselectConfig<V>,
+    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+    readonly groupMultiselect: <V>(
+      config: ClackGroupMultiselectConfig<V>,
+    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+    readonly selectKey: <V extends string>(
+      config: ClackSelectKeyConfig<V>,
+    ) => Effect.Effect<V, CliError | PromptCancelled>;
+    readonly autocomplete: <V>(
+      config: ClackAutocompleteConfig<V>,
+    ) => Effect.Effect<V, CliError | PromptCancelled>;
+    readonly autocompleteMultiselect: <V>(
+      config: ClackAutocompleteMultiselectConfig<V>,
+    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+    readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+  }
 >() {}
 
 // Assertion needed: our readonly config types are structurally compatible with Clack's
@@ -73,7 +71,7 @@ export class ClackPrompt extends Context.Tag("@axm.sh/cli/clack-effect/ClackProm
 // We cast once at the boundary when passing to Clack functions.
 const asClack = <T>(config: unknown): T => config as T;
 
-const makeLiveClackPromptService = (): ClackPromptService => ({
+const makeLiveClackPromptService = (): Context.Tag.Service<typeof ClackPrompt> => ({
   text: (config) => wrapPrompt(() => p.text(asClack(config))),
 
   password: (config) => wrapPrompt(() => p.password(asClack(config))),

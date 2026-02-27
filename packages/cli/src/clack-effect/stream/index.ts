@@ -1,6 +1,2 @@
-export { ClackStream, ClackStreamLive, type ClackStreamService } from "./service.js";
-export {
-  type ClackStreamCall,
-  makeClackStreamTestLayer,
-  type MockClackStreamService,
-} from "./test.js";
+export { ClackStream, ClackStreamLive } from "./service.js";
+export { ClackStreamTest, ClackStreamTestLayer, type ClackStreamCall } from "./ClackStreamTest.js";

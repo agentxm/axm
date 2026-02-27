@@ -14,34 +14,19 @@ import * as os from "node:os";
 import * as path from "node:path";
 import YAML from "yaml";
 import type { Settings } from "../../settings/index.js";
-import type { FileSystem, Path } from "@effect/platform";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import { ClackLogTestLayer } from "../../clack-effect/log/ClackLogTest.js";
 import {
-  type Confirm,
-  type Log,
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  type Multiselect,
-  type Select,
-} from "../../clack-effect/index.js";
-import {
-  ClackLog,
-  ClackPrompt,
-  makeClackLogTestLayer,
   makeClackPromptTestLayer,
-} from "../../clack-effect/index.js";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../workspace/index.js";
+  type SelectBehavior,
+  type MultiselectBehavior,
+} from "../../clack-effect/prompt/ClackPromptTest.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../workspace/index.js";
 import { handleInit } from "./handler.js";
 
 describe("init.handler", () => {
@@ -60,13 +45,7 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Create individual TUI test layers
-  const [logLayer] = makeLogTestLayer();
-  const [confirmLayer] = makeConfirmTestLayer();
-  const [selectLayer] = makeSelectTestLayer();
-  const [multiselectLayer] = makeMultiselectTestLayer();
-  const [clackLogLayer] = makeClackLogTestLayer();
-  const [clackPromptLayer] = makeClackPromptTestLayer({
+  const clackPromptLayer = makeClackPromptTestLayer({
     methodBehaviors: {
       confirm: { type: "return", value: true },
       select: { type: "select", index: 0 },
@@ -74,36 +53,16 @@ describe("init.handler", () => {
     },
   });
 
-  const TestLayer = Layer.mergeAll(
-    NodeContext.layer,
-    logLayer,
-    confirmLayer,
-    selectLayer,
-    multiselectLayer,
-    clackLogLayer,
-    clackPromptLayer,
-  );
+  const TestLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, clackPromptLayer);
 
   /**
    * Create test layers including WorkspaceContext with the given options.
    */
   const withLayers = (wsOptions: WorkspaceContextOptions) => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), TestLayer);
-    return <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Log
-        | Confirm
-        | Select
-        | Multiselect
-        | ClackLog
-        | ClackPrompt
-        | Workspace
-      >,
-    ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    return <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
 
   const defaultWsOptions: WorkspaceContextOptions = {
@@ -366,29 +325,20 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       tuiConfig: {
-        selectBehavior?: import("../../clack-effect/index.js").SelectBehavior;
-        multiselectBehavior?: import("../../clack-effect/index.js").MultiselectBehavior;
+        selectBehavior?: SelectBehavior;
+        multiselectBehavior?: MultiselectBehavior;
       },
       wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
         scope: "project",
         agents: Option.none(),
       },
     ) => {
-      const [iLogLayer] = makeLogTestLayer();
-      const [iConfirmLayer] = makeConfirmTestLayer();
-      const [iSelectLayer] = makeSelectTestLayer(
-        tuiConfig.selectBehavior ?? { type: "return", index: 0 },
-      );
-      const [iMultiselectLayer] = makeMultiselectTestLayer(
-        tuiConfig.multiselectBehavior ?? { type: "return", indices: [] },
-      );
-      const [iClackLogLayer] = makeClackLogTestLayer();
       const selectBehavior = tuiConfig.selectBehavior ?? { type: "return", index: 0 };
       const multiselectBehavior = tuiConfig.multiselectBehavior ?? {
         type: "return",
         indices: [] as ReadonlyArray<number>,
       };
-      const [iClackPromptLayer] = makeClackPromptTestLayer({
+      const promptLayer = makeClackPromptTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: true },
           select:
@@ -401,15 +351,7 @@ describe("init.handler", () => {
               : { type: "multiselect", indices: multiselectBehavior.indices },
         },
       });
-      const BaseLayer = Layer.mergeAll(
-        NodeContext.layer,
-        iLogLayer,
-        iConfirmLayer,
-        iSelectLayer,
-        iMultiselectLayer,
-        iClackLogLayer,
-        iClackPromptLayer,
-      );
+      const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
       const WsLayer = Layer.provide(
         workspaceLayer({
           ...wsOptions,
@@ -419,21 +361,9 @@ describe("init.handler", () => {
         }),
         BaseLayer,
       );
-      return <A, E>(
-        effect: Effect.Effect<
-          A,
-          E,
-          | FileSystem.FileSystem
-          | Path.Path
-          | Log
-          | Confirm
-          | Select
-          | Multiselect
-          | ClackLog
-          | ClackPrompt
-          | Workspace
-        >,
-      ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+      return <A, E>(effect: Effect.Effect<A, E, any>) =>
+        effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
 
     it.effect("accepts auto-detected agents when user selects first option", () =>

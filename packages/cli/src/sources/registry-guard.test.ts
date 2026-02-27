@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeClackPromptTestLayer } from "../clack-effect/index.js";
+import { makeClackPromptTestLayer } from "../clack-effect/prompt/ClackPromptTest.js";
 import { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
@@ -92,7 +92,7 @@ describe("registryGuard", () => {
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
-      const [promptLayer] = makeClackPromptTestLayer();
+      const promptLayer = makeClackPromptTestLayer();
       const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
@@ -108,7 +108,7 @@ describe("registryGuard", () => {
         registrySources: [],
         nonInteractive: true,
       });
-      const [promptLayer] = makeClackPromptTestLayer();
+      const promptLayer = makeClackPromptTestLayer();
       const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       const result = yield* registryGuard.pipe(Effect.provide(testLayer), Effect.flip);
@@ -130,7 +130,7 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [promptLayer] = makeClackPromptTestLayer({
+      const promptLayer = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "/home/user/registry" },
         },
@@ -158,7 +158,7 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [promptLayer] = makeClackPromptTestLayer({
+      const promptLayer = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "~/my-registry" },
         },
@@ -197,7 +197,7 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [promptLayer] = makeClackPromptTestLayer({
+      const promptLayer = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "/new/registry" },
         },

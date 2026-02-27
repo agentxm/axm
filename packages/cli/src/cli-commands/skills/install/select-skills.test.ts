@@ -9,12 +9,10 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import {
-  type Log,
-  type Multiselect,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-} from "../../../clack-effect/index.js";
+import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeMultiselectTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import type { ClackLog } from "../../../clack-effect/log/service.js";
+import type { Multiselect } from "../../../clack-effect/legacy-prompt.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -31,11 +29,10 @@ const makeSkill = (name: string): SkillExtensionRef => ({
   location: `file:///fake/${name}`,
 });
 
-const [logLayer] = makeLogTestLayer();
-const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
-const TestLayer = Layer.mergeAll(logLayer, multiselectLayer);
+const multiselectLayer = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
+const TestLayer = Layer.mergeAll(ClackLogTestLayer, multiselectLayer);
 
-const provide = <A, E>(effect: Effect.Effect<A, E, Log | Multiselect>) =>
+const provide = <A, E>(effect: Effect.Effect<A, E, ClackLog | Multiselect>) =>
   effect.pipe(Effect.provide(TestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */

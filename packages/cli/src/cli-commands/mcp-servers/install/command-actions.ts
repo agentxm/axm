@@ -73,7 +73,7 @@ export interface McpServerInstallSourceRequest {
 // -----------------------------------------------------------------------------
 
 export class InstallMcpServerCommandWorkflowActions extends Context.Tag(
-  "InstallMcpServerCommandWorkflowActions",
+  "@axm.sh/cli/InstallMcpServerCommandWorkflowActions",
 )<
   InstallMcpServerCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<

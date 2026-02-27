@@ -79,7 +79,7 @@ export interface CommandInstallSourceRequest {
 // -----------------------------------------------------------------------------
 
 export class InstallCommandCommandWorkflowActions extends Context.Tag(
-  "InstallCommandCommandWorkflowActions",
+  "@axm.sh/cli/InstallCommandCommandWorkflowActions",
 )<
   InstallCommandCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<

@@ -7,8 +7,8 @@ import { ClackStreamLive } from "./stream/index.js";
 import { ClackTaskLogLive } from "./task-log/index.js";
 import { LegacyPromptLive } from "./legacy-prompt.js";
 import type { ClackPromptBehavior } from "./prompt/index.js";
-import { ClackLog, type ClackLogService } from "./log/service.js";
-import { ClackSpinner, type ClackSpinnerService } from "./spinner/service.js";
+import { ClackLog } from "./log/service.js";
+import { ClackSpinner } from "./spinner/service.js";
 
 // Re-export all sub-modules
 export * from "./prompt/index.js";
@@ -28,14 +28,10 @@ export { runTasks, type ClackTask } from "./tasks.js";
 export const Log = ClackLog;
 /** @deprecated Use {@link ClackLog} instead. */
 export type Log = ClackLog;
-/** @deprecated Use {@link ClackLogService} instead. */
-export type LogService = ClackLogService;
 /** @deprecated Use {@link ClackSpinner} instead. */
 export const Spinner = ClackSpinner;
 /** @deprecated Use {@link ClackSpinner} instead. */
 export type Spinner = ClackSpinner;
-/** @deprecated Use {@link ClackSpinnerService} instead. */
-export type SpinnerService = ClackSpinnerService;
 /** @deprecated Use {@link ClackPromptBehavior} instead. */
 export type PromptBehavior = ClackPromptBehavior;
 

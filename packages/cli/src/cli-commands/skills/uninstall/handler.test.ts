@@ -14,7 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -138,17 +139,8 @@ describe("uninstall.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-    );
+    const promptLayer = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       yes: true,
@@ -170,7 +162,7 @@ describe("uninstall.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide };
   };
 
   // ---------------------------------------------------------------------------
@@ -179,7 +171,7 @@ describe("uninstall.handler", () => {
 
   describe("full uninstall flow", () => {
     it.effect("uninstalls a skill from lockfile and disk", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-skill": makeLockEntry(),
       });
@@ -206,7 +198,9 @@ describe("uninstall.handler", () => {
           expect(lockfile.skills["my-skill"]).toBeUndefined();
 
           // Should show completed step
-          expect(mockLog.logs.success.some((m) => m.includes("my-skill"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("my-skill")),
+          ).toBe(true);
         }),
       );
     });
@@ -255,7 +249,7 @@ describe("uninstall.handler", () => {
     });
 
     it.effect("shows warning when glob matches no skills", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-skill": makeLockEntry(),
       });
@@ -264,8 +258,16 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"));
 
-          expect(mockLog.logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.warn.some((m) =>
+              m.includes("No skills matched"),
+            ),
+          ).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
+              m.includes("Nothing to uninstall"),
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -277,7 +279,7 @@ describe("uninstall.handler", () => {
 
   describe("literal name not in lockfile", () => {
     it.effect("builds no-op plan for literal name not in lockfile", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -285,7 +287,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(defaultArgs("nonexistent"));
 
           // Should show the no-op result
-          const allLogs = [...mockLog.logs.success, ...mockLog.logs.info, ...mockLog.logs.message];
+          const allLogs = [
+            ...(yield* (yield* ClackLogTest).get).logs.success,
+            ...(yield* (yield* ClackLogTest).get).logs.info,
+            ...(yield* (yield* ClackLogTest).get).logs.message,
+          ];
           expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
         }),
       );
@@ -340,7 +346,7 @@ describe("uninstall.handler", () => {
 
   describe("pack dependency retention", () => {
     it.effect("retains pack-referenced skill on disk but removes settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
       initWorkspace(
@@ -373,7 +379,9 @@ describe("uninstall.handler", () => {
 
           // Success log should mention retained
           expect(
-            mockLog.logs.success.some((m) => m.includes("retained") || m.includes("required")),
+            (yield* (yield* ClackLogTest).get).logs.success.some(
+              (m) => m.includes("retained") || m.includes("required"),
+            ),
           ).toBe(true);
         }),
       );

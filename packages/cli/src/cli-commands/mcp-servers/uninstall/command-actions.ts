@@ -47,7 +47,7 @@ export interface ParsedMcpServerUninstallArgs {
 // -----------------------------------------------------------------------------
 
 export class UninstallMcpServerCommandWorkflowActions extends Context.Tag(
-  "UninstallMcpServerCommandWorkflowActions",
+  "@axm.sh/cli/UninstallMcpServerCommandWorkflowActions",
 )<
   UninstallMcpServerCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<

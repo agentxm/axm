@@ -14,11 +14,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
 import {
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-} from "../../../clack-effect/index.js";
+  ClackSpinnerTestLayer,
+  ClackSpinnerTest,
+} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handlePublish, type PublishHandlerArgs } from "./handler.js";
@@ -110,18 +111,18 @@ describe("publish.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
-    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
+    const promptLayer = makeClackPromptTestLayer({
+      methodBehaviors: {
+        confirm: { type: "return", value: true },
+        select: { type: "select", index: 0 },
+        multiselect: { type: "multiselect", indices: [] },
+      },
+    });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      ClackLogTestLayer,
+      ClackSpinnerTestLayer,
+      promptLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -139,12 +140,12 @@ describe("publish.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    return { provide };
   };
 
   describe("publish with explicit registry", () => {
     it.effect("publishes an extension to a named registry", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "code-review", {
@@ -161,7 +162,9 @@ describe("publish.handler", () => {
             defaultArgs(["@test/skills/code-review"], { registry: Option.some("local") }),
           );
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Registry should have the published extension index
           const registryIndexPath = path.join(
@@ -180,7 +183,7 @@ describe("publish.handler", () => {
 
   describe("publish with default registry", () => {
     it.effect("publishes to the first configured registry when no --registry flag", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "my-skill", {
@@ -195,7 +198,9 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/my-skill"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Registry should have the published extension
           const registryIndexPath = path.join(
@@ -214,7 +219,7 @@ describe("publish.handler", () => {
 
   describe("bare name namespace resolution", () => {
     it.effect("resolves bare name using namespace from settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       // Create extension under @test namespace
@@ -231,7 +236,9 @@ describe("publish.handler", () => {
           // Pass bare name without namespace
           yield* handlePublish(defaultArgs(["code-review"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Should have published under @test namespace
           const registryIndexPath = path.join(
@@ -282,7 +289,7 @@ describe("publish.handler", () => {
 
   describe("non-installed skill error", () => {
     it.effect("fails when extension directory does not exist in .axm/extensions/", () => {
-      const { provide, mockSpinner } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -301,8 +308,10 @@ describe("publish.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Managed extension not found");
           expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
-          expect(mockSpinner.starts).toContain("Validating extensions...");
-          expect(mockSpinner.stops).toContain("Failed");
+          expect((yield* (yield* ClackSpinnerTest).get).starts).toContain(
+            "Validating extensions...",
+          );
+          expect((yield* (yield* ClackSpinnerTest).get).stops).toContain("Failed");
         }),
       );
     });
@@ -310,7 +319,7 @@ describe("publish.handler", () => {
 
   describe("glob expansion", () => {
     it.effect("expands glob pattern against installed skill names", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -344,7 +353,9 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Both effect- skills should be published
           expect(
@@ -382,7 +393,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("literal names pass through without glob expansion", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "commit", {
@@ -397,7 +408,9 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["commit"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
@@ -408,7 +421,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("mixed glob and literal deduplicates", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -437,7 +450,9 @@ describe("publish.handler", () => {
           // effect-basics matches both the glob and the literal
           yield* handlePublish(defaultArgs(["effect-*", "effect-basics", "commit"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -460,7 +475,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("glob matching zero skills warns and exits cleanly", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(
@@ -476,14 +491,22 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["nonexistent-*"]));
 
-          expect(mockLog.logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.warn.some((m) =>
+              m.includes("No skills matched"),
+            ),
+          ).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
+              m.includes("Nothing to publish"),
+            ),
+          ).toBe(true);
         }),
       );
     });
 
     it.effect("FQN input bypasses glob expansion", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "code-review", {
@@ -498,7 +521,9 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/code-review"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "code-review", "index.json"),
@@ -509,7 +534,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("all configured skills included in glob matches", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -531,7 +556,9 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
           // Only configured skill should be published
           expect(
             fs.existsSync(
@@ -553,7 +580,7 @@ describe("publish.handler", () => {
 
   describe("completion status", () => {
     it.effect("fails when plan contains failed publish steps", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -590,8 +617,14 @@ describe("publish.handler", () => {
             expect(result.details[0]).toContain("PUBLISH_SKILL_PUBLISH_FAILED");
             expect(result.details[0]).not.toContain("Registry URL:");
           }
-          expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.warn.some((m) =>
+              m.includes("Done with errors"),
+            ),
+          ).toBe(false);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(false);
         }),
       );
     });

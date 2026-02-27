@@ -1,124 +1,124 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { ClackLog } from "./service.js";
-import { makeClackLogTestLayer } from "./test.js";
+import { ClackLogTest, ClackLogTestLayer } from "./ClackLogTest.js";
 
 describe("ClackLog", () => {
-  it.effect("records message calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records message calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.message("hello");
-      expect(mock.calls).toEqual([{ method: "message", args: ["hello"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "message", args: ["hello"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records info calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records info calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.info("info msg");
-      expect(mock.calls).toEqual([{ method: "info", args: ["info msg"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "info", args: ["info msg"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records success calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records success calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.success("done");
-      expect(mock.calls).toEqual([{ method: "success", args: ["done"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "success", args: ["done"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records step calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records step calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.step("step 1");
-      expect(mock.calls).toEqual([{ method: "step", args: ["step 1"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "step", args: ["step 1"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records warn calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records warn calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.warn("caution");
-      expect(mock.calls).toEqual([{ method: "warn", args: ["caution"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "warn", args: ["caution"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records error calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records error calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.error("failure");
-      expect(mock.calls).toEqual([{ method: "error", args: ["failure"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "error", args: ["failure"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records intro calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records intro calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.intro("Welcome");
-      expect(mock.calls).toEqual([{ method: "intro", args: ["Welcome"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "intro", args: ["Welcome"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records outro calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records outro calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.outro("Goodbye");
-      expect(mock.calls).toEqual([{ method: "outro", args: ["Goodbye"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "outro", args: ["Goodbye"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records cancel calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records cancel calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.cancel("Cancelled");
-      expect(mock.calls).toEqual([{ method: "cancel", args: ["Cancelled"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "cancel", args: ["Cancelled"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records note calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records note calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.note("body", "title");
-      expect(mock.calls).toEqual([{ method: "note", args: ["body", "title"] }]);
-    }).pipe(Effect.provide(layer));
-  });
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([{ method: "note", args: ["body", "title"] }]);
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records box calls", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records box calls", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.box("content", "heading", { rounded: true });
-      expect(mock.calls).toEqual([
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([
         { method: "box", args: ["content", "heading", { rounded: true }] },
       ]);
-    }).pipe(Effect.provide(layer));
-  });
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 
-  it.effect("records multiple calls in order", () => {
-    const [layer, mock] = makeClackLogTestLayer();
-    return Effect.gen(function* () {
+  it.effect("records multiple calls in order", () =>
+    Effect.gen(function* () {
       const log = yield* ClackLog;
       yield* log.intro("start");
       yield* log.info("first");
       yield* log.success("second");
       yield* log.outro("end");
-      expect(mock.calls).toEqual([
+      const record = yield* (yield* ClackLogTest).get;
+      expect(record.calls).toEqual([
         { method: "intro", args: ["start"] },
         { method: "info", args: ["first"] },
         { method: "success", args: ["second"] },
         { method: "outro", args: ["end"] },
       ]);
-    }).pipe(Effect.provide(layer));
-  });
+    }).pipe(Effect.provide(ClackLogTestLayer)),
+  );
 });

@@ -1,120 +1,59 @@
-## Requirements
+## ADDED Requirements
 
-### Requirement: Uninstall pack and orphaned extensions
+### Requirement: Defense-in-depth retention check during uninstall execution
 
-`axm packs uninstall <name>` SHALL remove the pack and any dependency extensions (skills, commands, MCP servers) it brought in that are no longer needed.
+When a pack uninstall plan step executes an uninstall operation for a dependency extension (skill, command, or mcp-server), the operation SHALL perform a retention check as a safety net. If the extension is still required by another installed pack at execution time, the operation SHALL retain the extension on disk and in the lockfile, removing only the settings entry.
 
-The name SHALL support glob patterns to match multiple packs.
+This is a defense-in-depth guard that catches the case where a user directly uninstalls a pack-referenced extension (bypassing pack plan expansion). The primary orphan computation in the plan builder pre-filters targets so this guard is rarely triggered during pack uninstall flows.
 
-The plan builder SHALL compute which extensions to include as uninstall steps:
+#### Scenario: Retention guard prevents removal of still-referenced dependency
 
-**For skills** (`uninstall-skill` steps):
+- **WHEN** pack `@acme/frontend-pack` is being uninstalled
+- **AND** the plan includes an uninstall step for skill `code-review`
+- **AND** at execution time, `code-review` is still referenced by another installed pack
+- **THEN** the uninstall operation SHALL retain `code-review` on disk and in the lockfile
+- **AND** only the settings entry SHALL be removed
 
-1. Collect all skills from the target pack(s)' `resolvedSkills`
-2. Exclude skills referenced by any remaining pack's `resolvedSkills` (packs not being removed in this batch)
-3. Exclude skills that have a direct entry in project settings (i.e., directly installed by the user)
-4. Remaining skills become `uninstall-skill` plan steps
+#### Scenario: Retention guard allows removal of orphaned dependency
 
-**For commands** (`uninstall-command` steps):
+- **WHEN** pack `@acme/frontend-pack` is being uninstalled
+- **AND** the plan includes an uninstall step for skill `code-review`
+- **AND** at execution time, `code-review` is not referenced by any remaining installed pack
+- **THEN** the uninstall operation SHALL fully remove `code-review` from disk, lockfile, and settings
 
-1. Collect all commands from the target pack(s)' `resolvedCommands`
-2. Exclude commands referenced by any remaining pack's `resolvedCommands`
-3. Exclude commands that have a direct entry in project settings
-4. Remaining commands become `uninstall-command` plan steps
+### Requirement: Pack extension ref namespace
 
-**For MCP servers** (`uninstall-mcp-server` steps):
+Pack extension refs SHALL expose a canonical `namespace` field. For registry packs, the namespace SHALL be populated from the registry ref details. For builtin packs, the namespace SHALL be populated from the builtin manifest. This namespace is required for constructing pack extension targets used in uninstall operations.
 
-1. Collect all MCP servers from the target pack(s)' `resolvedMcpServers`
-2. Exclude MCP servers referenced by any remaining pack's `resolvedMcpServers`
-3. Exclude MCP servers that have a direct entry in project settings
-4. Remaining MCP servers become `uninstall-mcp-server` plan steps
+#### Scenario: Registry pack ref exposes namespace
 
-The plan SHALL order steps with `uninstall-pack` steps first, followed by `uninstall-skill`, `uninstall-command`, and `uninstall-mcp-server` steps.
+- **WHEN** a pack ref is created for registry pack `@acme/packs/frontend-tools`
+- **THEN** the ref SHALL have `namespace: "@acme"`
 
-The `uninstall-pack` operation handler SHALL only remove the pack itself (directory, settings, lockfile). It SHALL NOT detect or remove orphaned extensions — extension removal is delegated to the respective uninstall operation steps in the plan.
+#### Scenario: Builtin pack ref exposes namespace
 
-#### Scenario: Uninstall pack with dependency skills
+- **WHEN** a pack ref is created for builtin pack `effect`
+- **THEN** the ref SHALL have a namespace from the builtin manifest (e.g., `"@axm"`)
 
-- **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
-- **AND** the pack's `resolvedSkills` contains `@acme/skills/code-review`
-- **AND** `@acme/skills/code-review` has no direct settings entry and no other pack references it
-- **THEN** the plan includes an `uninstall-pack` step for `@acme/frontend-pack`
-- **AND** the plan includes an `uninstall-skill` step for `@acme/skills/code-review`
-- **AND** the `uninstall-pack` step appears before the `uninstall-skill` step
+### Requirement: Pack uninstall cascades to command and MCP server dependencies
 
-#### Scenario: Uninstall pack with dependency commands
+Pack uninstall SHALL compute orphaned dependencies across all supported extension types: skills, commands, and MCP servers. The orphan computation SHALL apply the same algorithm for each type:
+
+1. Collect all extensions from the target pack's resolved maps
+2. Exclude extensions referenced by any remaining pack's resolved maps
+3. Exclude extensions that have a direct entry in project settings
+4. Remaining extensions become uninstall plan steps
+
+#### Scenario: Orphaned command dependency removed with pack
 
 - **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
 - **AND** the pack's `resolvedCommands` contains `@acme/commands/formatter`
-- **AND** `@acme/commands/formatter` has no direct settings entry and no other pack references it
-- **THEN** the plan includes an `uninstall-command` step for `@acme/commands/formatter`
-- **AND** the `uninstall-pack` step appears before the `uninstall-command` step
+- **AND** `formatter` has no direct settings entry and no other pack references it
+- **THEN** the plan includes an uninstall step for command `formatter`
 
-#### Scenario: Uninstall pack with dependency MCP servers
+#### Scenario: Orphaned MCP server dependency removed with pack
 
 - **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
 - **AND** the pack's `resolvedMcpServers` contains `@acme/mcp-servers/db-connector`
-- **AND** `@acme/mcp-servers/db-connector` has no direct settings entry and no other pack references it
-- **THEN** the plan includes an `uninstall-mcp-server` step for `@acme/mcp-servers/db-connector`
-
-#### Scenario: Uninstall pack with shared skill
-
-- **WHEN** user runs `axm packs uninstall @acme/pack-a`
-- **AND** `@acme/skills/code-review` is in `pack-a`'s `resolvedSkills`
-- **AND** `@acme/skills/code-review` is also in `pack-b`'s `resolvedSkills`
-- **AND** `pack-b` is still installed
-- **THEN** the plan includes `uninstall-pack` for `pack-a`
-- **AND** `@acme/skills/code-review` is NOT included as an `uninstall-skill` step
-
-#### Scenario: Uninstall pack with shared command
-
-- **WHEN** user runs `axm packs uninstall @acme/pack-a`
-- **AND** `@acme/commands/formatter` is in `pack-a`'s `resolvedCommands`
-- **AND** `@acme/commands/formatter` is also in `pack-b`'s `resolvedCommands`
-- **AND** `pack-b` is still installed
-- **THEN** `@acme/commands/formatter` is NOT included as an `uninstall-command` step
-
-#### Scenario: Uninstall pack with directly installed skill
-
-- **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
-- **AND** the pack's `resolvedSkills` contains `@acme/skills/code-review`
-- **AND** `code-review` has a direct entry in project settings (e.g., user ran `axm skills install code-review`)
-- **THEN** `@acme/skills/code-review` is NOT included as an `uninstall-skill` step
-
-#### Scenario: Uninstall pack with directly installed command
-
-- **WHEN** user runs `axm packs uninstall @acme/frontend-pack`
-- **AND** the pack's `resolvedCommands` contains `@acme/commands/formatter`
-- **AND** `formatter` has a direct entry in the settings `commands` section
-- **THEN** `@acme/commands/formatter` is NOT included as an `uninstall-command` step
-
-#### Scenario: Glob pattern matches multiple packs with shared skill
-
-- **WHEN** user runs `axm packs uninstall "@acme/*"`
-- **AND** packs `@acme/pack-a` and `@acme/pack-b` are installed
-- **AND** both packs reference `@acme/skills/shared-skill` in their `resolvedSkills`
-- **AND** `@acme/skills/shared-skill` has no direct settings entry
-- **THEN** the plan includes `uninstall-pack` for both packs
-- **AND** the plan includes `uninstall-skill` for `@acme/skills/shared-skill` (since both referencing packs are being removed)
-
-### Requirement: Uninstall removes settings and lockfile entries
-
-After successful uninstall, the pack entry SHALL be removed from both settings.json and the lockfile `packs` section. Extension entries SHALL be removed by the respective uninstall operation handlers (`uninstall-skill`, `uninstall-command`, `uninstall-mcp-server`).
-
-#### Scenario: Clean removal from settings and lockfile
-
-- **WHEN** pack `@acme/frontend-pack` is successfully uninstalled
-- **THEN** the `packs` section in settings.json no longer contains `frontend-pack`
-- **AND** the `packs` section in the lockfile no longer contains `@acme/frontend-pack`
-
-#### Scenario: Dependency skill removed from lockfile after pack removal
-
-- **WHEN** pack `@acme/frontend-pack` is uninstalled
-- **AND** `@acme/skills/code-review` was a dependency skill with no other references
-- **THEN** the `uninstall-skill` operation removes `code-review` from the lockfile and disk
-
-#### Scenario: Dependency command removed from lockfile after pack removal
-
-- **WHEN** pack `@acme/frontend-pack` is uninstalled
-- **AND** `@acme/commands/formatter` was a dependency command with no other references
-- **THEN** the `uninstall-command` operation removes `formatter` from the lockfile and disk
+- **AND** `db-connector` has no direct settings entry and no other pack references it
+- **THEN** the plan includes an uninstall step for mcp-server `db-connector`

@@ -1,37 +1,37 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Spinner service provides animated progress indicator
 
-The Spinner service SHALL be a self-contained module under `src/tui/spinner/` with its own Effect service tag, live layer, types (`SpinnerHandle`), Ink component, and test layer factory. It SHALL provide a `start` method that accepts a message string and returns `Effect<SpinnerHandle>`. The `SpinnerHandle` SHALL provide `stop(message: string)` to halt the spinner and display a completion message. Active spinners SHALL be stopped before error rendering at the runtime boundary.
+The Spinner capability SHALL be provided by `ClackSpinner` under `src/clack-effect/spinner/` with an Effect service tag, live layer, types (`ClackSpinnerHandle`), and test layer factory. It SHALL provide `start(message?)` returning `Effect<ClackSpinnerHandle>`. `ClackSpinnerHandle` SHALL provide `stop(message?)`, `message(message)`, `cancel(message?)`, `error(message?)`, and `clear()`. Handlers that start a spinner SHALL finalize it through `stop/cancel/error` on all success and failure paths, or use `withSpinner`.
 
 #### Scenario: Start and stop spinner
 
 - **WHEN** a handler calls `spinner.start("Installing skills...")`
-- **THEN** an animated spinner SHALL render in the terminal with the message "Installing skills..."
-- **WHEN** the handler then calls `handle.stop("Done")`
-- **THEN** the spinner animation SHALL stop and "Done" SHALL be displayed
+- **THEN** a spinner SHALL render in the terminal with that message
+- **WHEN** the handler calls `handle.stop("Done")`
+- **THEN** the spinner SHALL stop and display completion output
+
+#### Scenario: Spinner failure path is finalized
+
+- **WHEN** a handler starts a spinner and a later effect fails
+- **THEN** the spinner SHALL be finalized before control returns to runtime error rendering
+- **AND** the final spinner state SHALL indicate cancellation or error
 
 #### Scenario: Spinner test layer records calls
 
-- **WHEN** a handler starts and stops a spinner using the test layer
-- **THEN** the mock service SHALL record the start and stop messages for assertion
+- **WHEN** code uses `makeClackSpinnerTestLayer()` and starts/stops a spinner
+- **THEN** the mock service SHALL record spinner method calls for assertion
 
-#### Scenario: Handler depends only on Spinner
+#### Scenario: Handler depends only on ClackSpinner
 
-- **WHEN** a handler uses only the Spinner service
-- **THEN** its Effect type signature SHALL require only `Spinner` — not all TUI services
-
-#### Scenario: Spinner stops on handler error
-
-- **WHEN** a handler has an active spinner and the handler's Effect fails
-- **THEN** the spinner SHALL be stopped before the error is rendered
-- **AND** the spinner SHALL display a failure indicator
+- **WHEN** a handler uses only spinner behavior
+- **THEN** its Effect type signature SHALL require only `ClackSpinner`
 
 ### Requirement: Dev demo for spinner
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `spinner` sub-command for manually testing the spinner.
+The dev command at `src/dev-cli-commands/tui/spinner/command.ts` SHALL provide a spinner demo backed by `ClackSpinner` and `ClackLive`.
 
 #### Scenario: Run spinner demo
 
-- **WHEN** a developer runs `pnpm tui spinner`
-- **THEN** the dev entry point SHALL start a spinner, wait briefly, then stop it with a completion message
+- **WHEN** a developer runs the dev CLI spinner demo command
+- **THEN** the command SHALL start a spinner, wait briefly, and stop with a completion message

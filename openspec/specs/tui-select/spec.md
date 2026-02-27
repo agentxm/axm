@@ -1,20 +1,20 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Select prompt collects single selection from a list
 
-The Select service SHALL be a self-contained module under `src/tui/select/` with its own Effect service tag, live layer, types (`SelectConfig`), Ink component, and test layer factory. It SHALL provide a `prompt` method that renders a list of options for single selection. It accepts a config with `message` (required), `items` (readonly array of `T`), and `toOption` (function mapping `T` to `{ label: string, hint: Option<string> }`). It returns `Effect<T, PromptError | PromptCancelled>`.
+The select capability SHALL be provided by `ClackPrompt.select` from `src/clack-effect/prompt/`. It SHALL accept `message` and `options: ReadonlyArray<ClackOption<V>>`, and return `Effect<V, CliError | PromptCancelled>`. Call sites that currently pass `items + toOption` SHALL map domain data to `options` before invoking the prompt.
 
 #### Scenario: Basic select
 
-- **WHEN** a handler calls `select.prompt({ message: "Template?", items: [a, b, c], toOption })`
-- **THEN** the prompt SHALL render the message and a navigable list of options
-- **WHEN** the user navigates to the second item and presses Enter
-- **THEN** the effect SHALL succeed with item `b` (the original item, not the label)
+- **WHEN** a handler calls `prompt.select({ message: "Template?", options })`
+- **THEN** the prompt SHALL render the message and a navigable option list
+- **WHEN** the user selects the second option and presses Enter
+- **THEN** the effect SHALL succeed with that option's `value`
 
 #### Scenario: Select with hints
 
-- **WHEN** `toOption` returns a hint for an item
-- **THEN** the hint text SHALL be displayed alongside the option label
+- **WHEN** an option includes `hint`
+- **THEN** the hint text SHALL be displayed with the option label
 
 #### Scenario: Select cancelled
 
@@ -23,25 +23,25 @@ The Select service SHALL be a self-contained module under `src/tui/select/` with
 
 ### Requirement: Select has a test layer
 
-The test layer factory SHALL return a `[Layer, MockSelectService]` tuple. The mock SHALL support configurable behavior: return by index, return by value, or simulate cancellation.
+Select tests SHALL use `makeClackPromptTestLayer()` and assert `select` calls and returned values.
 
-#### Scenario: Mock returns by index
+#### Scenario: Mock returns selected value
 
-- **WHEN** a test creates a select test layer with `{ type: "return", index: 1 }`
-- **AND** a handler calls `select.prompt(...)` with 3 items
-- **THEN** the mock SHALL return the second item without rendering any UI
+- **WHEN** a test configures the clack prompt mock to return a specific value
+- **AND** code calls `prompt.select(...)`
+- **THEN** the effect SHALL succeed with that value without rendering UI
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test creates a select test layer with `{ type: "cancel" }`
-- **AND** a handler calls `select.prompt(...)`
-- **THEN** the mock SHALL fail with `PromptCancelled`
+- **WHEN** a test configures the clack prompt mock to cancel
+- **AND** code calls `prompt.select(...)`
+- **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for select
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `select` sub-command for manually testing single selection.
+The dev command at `src/dev-cli-commands/tui/select/command.ts` SHALL provide a select demo backed by `ClackPrompt` and `ClackLive`.
 
 #### Scenario: Run select demo
 
-- **WHEN** a developer runs `pnpm tui select`
-- **THEN** the dev entry point SHALL render a select prompt with sample options and print the selection
+- **WHEN** a developer runs the dev CLI select demo command
+- **THEN** the command SHALL render a select prompt with sample options and print the selected value

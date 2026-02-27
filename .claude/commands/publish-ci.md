@@ -56,4 +56,5 @@ Publish @axm.sh/cli via the CI publish workflow.
 - Stop immediately if build, test, or lint fails
 - Confirm version bump type before bumping
 - Never push without a passing build
-- The publish workflow handles build + publish with provenance
+- The publish workflow uses npm trusted publishing (OIDC) — no tokens or secrets needed
+- The workflow handles build + publish with provenance

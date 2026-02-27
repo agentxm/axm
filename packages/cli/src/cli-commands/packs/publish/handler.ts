@@ -58,8 +58,6 @@ export interface PublishPackHandlerArgs {
   readonly pack: string;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
-  /** Skip confirmations. */
-  readonly yes: boolean;
   /** Publish locally managed dependency extensions alongside the pack. */
   readonly includeDependencies: boolean;
 }

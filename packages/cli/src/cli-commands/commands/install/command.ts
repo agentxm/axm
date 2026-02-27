@@ -22,10 +22,6 @@ import {
 interface InstallCommandCommandArgs {
   source: string;
   scope: WorkspaceScope;
-  yes: boolean;
-  force: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -45,27 +41,6 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("force", {
-        alias: "f",
-        type: "boolean",
-        describe: "Override constraints that would cause failure",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display installation plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 commands install @acme/commands/my-cmd", "Install a command from registry")
       .example("$0 commands install my-cmd", "Install using default namespace"),
   handler: async (argv) => {
@@ -79,19 +54,18 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
     const program = handleInstallCommand({
       source: argv.source,
       scope,
-      yes: argv.yes,
-      force: argv.force,
-      nonInteractive: Option.fromNullable(argv["non-interactive"]),
     }).pipe(Effect.provide(actionsLayer));
 
     await run(program, {
+      flags: {
+        nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+        yes: argv["yes"] as boolean,
+        force: argv["force"] as boolean,
+        preview: argv["preview"] as boolean,
+      },
       workspace: {
         scope,
-        yes: argv.yes,
-        nonInteractive: Option.fromNullable(argv["non-interactive"]),
-        preview: argv.preview,
         agents: Option.none(),
-        force: argv.force,
       },
     });
   },

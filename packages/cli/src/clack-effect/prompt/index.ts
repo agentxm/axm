@@ -20,6 +20,7 @@ export {
   type SelectBehavior,
   type ClackPromptBehavior,
   type ClackPromptMethod,
+  type MockClackPromptService,
   type ClackPromptTestLayerConfig,
   makeConfirmTestLayer,
   makeClackPromptTestLayer,

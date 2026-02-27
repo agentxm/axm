@@ -14,12 +14,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
 import {
-  ClackSpinnerTestLayer,
-  ClackSpinnerTest,
-} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleFork, type ForkHandlerArgs } from "./handler.js";
@@ -67,7 +67,6 @@ const defaultArgs = (
 ): ForkHandlerArgs => ({
   source,
   skills: [],
-  yes: true,
   ...overrides,
 });
 
@@ -91,24 +90,22 @@ describe("fork.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
       ...wsOverrides,
     };
@@ -120,12 +117,12 @@ describe("fork.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog, mockSpinner };
   };
 
   describe("single skill fork flow", () => {
     it.effect("forks an installed skill from source, publishes, and installs from registry", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       // Set up workspace with an installed local skill
@@ -152,9 +149,7 @@ describe("fork.handler", () => {
           yield* handleFork(defaultArgs("commit"));
 
           // Should have logged success
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Extension should exist in .axm/extensions/
           const managedDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", "commit");
@@ -187,7 +182,7 @@ describe("fork.handler", () => {
 
   describe("fork from local source string", () => {
     it.effect("discovers skills from a local directory and forks them", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       // Set up source skill directory
@@ -200,9 +195,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs(sourceDir));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Extension should exist
           const managedDir = path.join(
@@ -221,7 +214,7 @@ describe("fork.handler", () => {
 
   describe("fork with --skill glob filter", () => {
     it.effect("filters discovered skills by glob pattern", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       // Set up source directory with multiple skills
@@ -236,9 +229,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs(sourceDir, { skills: ["effect-*"] }));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Only effect-* skills should be forked
           for (const name of ["effect-basics", "effect-testing"]) {
@@ -283,7 +274,7 @@ describe("fork.handler", () => {
 
   describe("installed skill name resolution", () => {
     it.effect("resolves installed skill name via resolveSource", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
@@ -308,9 +299,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("my-skill"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Manifest should use the configured namespace
           const manifestPath = path.join(
@@ -333,7 +322,7 @@ describe("fork.handler", () => {
 
   describe("glob positional source", () => {
     it.effect("expands glob against lockfile skills and forks all matches", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       for (const name of ["effect-basics", "effect-stream", "effect-testing", "commit"]) {
@@ -359,9 +348,7 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("effect-*"));
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           for (const name of ["effect-basics", "effect-stream", "effect-testing"]) {
             expect(
@@ -432,7 +419,7 @@ describe("fork.handler", () => {
     });
 
     it.effect("deduplicates glob candidates across lockfile settings and on-disk sources", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       const sharedName = "shared-skill";
@@ -458,7 +445,7 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("shared-*"));
-          expect((yield* (yield* ClackSpinnerTest).get).stops).toContain("Found 1 skill(s)");
+          expect(mockSpinner.stops).toContain("Found 1 skill(s)");
         }),
       );
     });
@@ -594,7 +581,7 @@ describe("fork.handler", () => {
 
   describe("unknown skill name", () => {
     it.effect("fails with INVALID_SOURCE and includes a concrete reason", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -614,8 +601,8 @@ describe("fork.handler", () => {
           );
           expect(reason).toBeDefined();
           expect(reason).not.toBe("Reason:");
-          expect((yield* (yield* ClackSpinnerTest).get).starts).toContain("Resolving skills...");
-          expect((yield* (yield* ClackSpinnerTest).get).stops).toContain("Failed");
+          expect(mockSpinner.starts).toContain("Resolving skills...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

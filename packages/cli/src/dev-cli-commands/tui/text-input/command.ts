@@ -1,6 +1,8 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 
 export const textInputCommand: CommandModule = {
   command: "text-input",
@@ -15,6 +17,10 @@ export const textInputCommand: CommandModule = {
       });
       yield* log.success(`Hello, ${name}!`);
     });
-    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
+    return Effect.runPromise(
+      program.pipe(
+        Effect.provide(Layer.provide(ClackLive, CliFlagsTest({ nonInteractive: false }))),
+      ),
+    );
   },
 };

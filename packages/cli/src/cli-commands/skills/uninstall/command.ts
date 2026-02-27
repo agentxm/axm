@@ -9,15 +9,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleUninstall } from "./handler.js";
 import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 
 export interface UninstallCommandArgs {
   skill: string;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -31,21 +29,6 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
         describe: "Name of the skill to uninstall",
         demandOption: true,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display uninstall plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills uninstall my-skill", "Uninstall a skill")
       .example("$0 skills uninstall my-skill --preview", "Preview what would be uninstalled")
       .example("$0 skills uninstall my-skill --yes", "Uninstall without confirmation prompt"),
@@ -54,15 +37,12 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
     await run(
       handleUninstall({
         skill: argv.skill,
-        yes: argv.yes,
       }).pipe(Effect.provide(actionsLayer)),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
-          agents: Option.none(),
+          agents: Option.none<readonly string[]>(),
         },
       },
     );

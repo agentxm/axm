@@ -48,30 +48,12 @@ describe("mcp-servers install command", () => {
     expect(capturedPositionals["source"]?.demandOption).toBe(true);
   });
 
-  it("has --force option defaulting to false", () => {
+  it("does not define per-command --yes, --force, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (installMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["force"]).toBeDefined();
-    expect(capturedOptions["force"]?.default).toBe(false);
-  });
-
-  it("has --yes option defaulting to false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (installMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.default).toBe(false);
-  });
-
-  it("has --preview option defaulting to false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (installMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.default).toBe(false);
-  });
-
-  it("has --non-interactive option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (installMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["non-interactive"]).toBeDefined();
+    expect(capturedOptions["yes"]).toBeUndefined();
+    expect(capturedOptions["force"]).toBeUndefined();
+    expect(capturedOptions["preview"]).toBeUndefined();
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 });

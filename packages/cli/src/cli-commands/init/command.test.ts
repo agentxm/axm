@@ -43,21 +43,6 @@ describe("init command options", () => {
     return { mockYargs, capturedOptions };
   };
 
-  it("defines --yes option with boolean type and default false", () => {
-    const { mockYargs, capturedOptions } = createOptionCapturingMock();
-
-    if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as unknown as Argv);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
-    }
-  });
-
   it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
@@ -87,28 +72,13 @@ describe("init command options", () => {
     }
   });
 
-  it("defines --non-interactive option with boolean type and no default", () => {
+  it("does not define per-command --yes or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
       initCommand.builder(mockYargs as unknown as Argv);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect((capturedOptions["non-interactive"] as Options).default).toBeUndefined();
-    }
-  });
-
-  it("includes description for --yes option", () => {
-    const { mockYargs, capturedOptions } = createOptionCapturingMock();
-
-    if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as unknown as Argv);
-      const yesOption = capturedOptions["yes"] as Options;
-      expect(yesOption.describe).toBeDefined();
-      expect(yesOption.describe).toContain("Skip confirmation prompts");
+      expect(capturedOptions["yes"]).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 
@@ -131,17 +101,6 @@ describe("init command options", () => {
       const agentOption = capturedOptions["agent"] as Options;
       expect(agentOption.describe).toBeDefined();
       expect(agentOption.describe).toContain("agent");
-    }
-  });
-
-  it("includes description for --non-interactive option", () => {
-    const { mockYargs, capturedOptions } = createOptionCapturingMock();
-
-    if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as unknown as Argv);
-      const nonInteractiveOption = capturedOptions["non-interactive"] as Options;
-      expect(nonInteractiveOption.describe).toBeDefined();
-      expect(nonInteractiveOption.describe).toContain("Disable all interactive prompts");
     }
   });
 });
@@ -191,27 +150,13 @@ describe("init command parser", () => {
     const argv = await createParser().parse(["init"]);
 
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
     expect(argv["agent"]).toEqual([]);
-    expect(argv["non-interactive"]).toBeUndefined();
   });
 
   it("parses --scope user", async () => {
     const argv = await createParser().parse(["init", "--scope", "user"]);
 
     expect(argv["scope"]).toBe("user");
-  });
-
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["init", "--yes"]);
-
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["init", "-y"]);
-
-    expect(argv["yes"]).toBe(true);
   });
 
   it("parses single --agent value", async () => {
@@ -232,26 +177,10 @@ describe("init command parser", () => {
     expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
   });
 
-  it("parses --non-interactive flag", async () => {
-    const argv = await createParser().parse(["init", "--non-interactive"]);
-
-    expect(argv["non-interactive"]).toBe(true);
-  });
-
   it("parses combination of flags", async () => {
-    const argv = await createParser().parse([
-      "init",
-      "--scope",
-      "user",
-      "-y",
-      "--agent",
-      "claude-code",
-      "--non-interactive",
-    ]);
+    const argv = await createParser().parse(["init", "--scope", "user", "--agent", "claude-code"]);
 
     expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
     expect(argv["agent"]).toEqual(["claude-code"]);
-    expect(argv["non-interactive"]).toBe(true);
   });
 });

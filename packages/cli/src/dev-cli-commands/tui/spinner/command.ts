@@ -1,6 +1,8 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { ClackLive, ClackSpinner } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 
 export const spinnerCommand: CommandModule = {
   command: "spinner",
@@ -14,6 +16,10 @@ export const spinnerCommand: CommandModule = {
         "Done loading!",
       );
     });
-    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
+    return Effect.runPromise(
+      program.pipe(
+        Effect.provide(Layer.provide(ClackLive, CliFlagsTest({ nonInteractive: false }))),
+      ),
+    );
   },
 };

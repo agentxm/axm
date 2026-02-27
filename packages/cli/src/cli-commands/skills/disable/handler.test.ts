@@ -8,15 +8,27 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
+import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import {
+  type Confirm,
+  type Log,
+  type Multiselect,
+  type Select,
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
+import {
+  Workspace,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handleDisable, type DisableHandlerArgs } from "./handler.js";
 
@@ -60,7 +72,6 @@ const defaultArgs = (
   overrides: Partial<DisableHandlerArgs> = {},
 ): DisableHandlerArgs => ({
   name,
-  yes: true,
   ...overrides,
 });
 
@@ -84,24 +95,42 @@ describe("disable.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer();
+    const [selectLayer] = makeClackPromptTestLayer();
+    const [multiselectLayer] = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
+    );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
+    const provide = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        | FileSystem.FileSystem
+        | Path.Path
+        | Log
+        | Confirm
+        | Select
+        | Multiselect
+        | Workspace
+        | CliFlags
+      >,
+    ) => effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog };
   };
 
   // ---------------------------------------------------------------------------
@@ -136,7 +165,7 @@ describe("disable.handler", () => {
     });
 
     it.effect("no-op when skill is already disabled", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": { source: "local", enabled: false } },
@@ -147,16 +176,8 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.info.some((m) =>
-              m.includes("already disabled"),
-            ),
-          ).toBe(true);
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
-              m.includes("Nothing to do"),
-            ),
-          ).toBe(true);
+          expect(mockLog.logs.info.some((m) => m.includes("already disabled"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
         }),
       );
     });
@@ -209,7 +230,7 @@ describe("disable.handler", () => {
 
   describe("implicit skill disable (lockfile-only entry promotion)", () => {
     it.effect("creates direct entry when disabling implicit skill", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       // Implicit skill: in lockfile but not in settings, with native (registry) type
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -234,9 +255,7 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("code-review"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should have a new direct entry with enabled: false
           const settingsContent = fs.readFileSync(
@@ -272,7 +291,7 @@ describe("disable.handler", () => {
 
   describe("settings-only disable (no lock entry)", () => {
     it.effect("disables a configured skill with no lockfile entry", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       // Skill in settings as enabled (string form) but not in lockfile
       initWorkspace(path.join(tempDir, ".axm"), { "my-skill": "@acme/skills/my-skill" }, {}, [
         "claude-code",
@@ -282,9 +301,7 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should show disabled
           const settingsContent = fs.readFileSync(
@@ -307,7 +324,7 @@ describe("disable.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves disable plan for enabled skill", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
@@ -334,9 +351,7 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should show disabled
           const settingsContent = fs.readFileSync(

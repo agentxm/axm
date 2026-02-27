@@ -12,8 +12,6 @@ import {
 interface InitArgs {
   scope: WorkspaceScope;
   agent: ReadonlyArray<string>;
-  yes: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -34,16 +32,6 @@ export const initCommand: CommandModule<{}, InitArgs> = {
         describe: "Specify agent(s) to configure (skips auto-detection)",
         default: [],
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 init", "Detect installed agents and create .axm/settings.json")
       .example("$0 init --non-interactive", "Initialize with all detected agents (no prompts)")
       .example("$0 init --scope user", "Initialize in ~/.axm/ for user-scope configuration")
@@ -51,11 +39,14 @@ export const initCommand: CommandModule<{}, InitArgs> = {
   handler: async (argv) => {
     const scope = resolveWorkspaceScope(argv.scope);
     await run(handleInit(), {
+      flags: {
+        nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+        yes: argv["yes"] as boolean,
+        force: argv["force"] as boolean,
+        preview: argv["preview"] as boolean,
+      },
       workspace: {
         scope,
-        yes: argv.yes,
-        nonInteractive: Option.fromNullable(argv["non-interactive"]),
-        preview: false,
         agents: argv.agent.length > 0 ? Option.some(argv.agent) : Option.none(),
       },
     });

@@ -12,9 +12,6 @@ import { handlePacksAdd } from "./handler.js";
 export interface PacksAddCommandArgs {
   pack: string;
   extension: string;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -33,21 +30,6 @@ export const packsAddCommand: CommandModule<{}, PacksAddCommandArgs> = {
         describe: "Extension name or glob pattern",
         demandOption: true,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example(
         "$0 packs add frontend-tools @acme/skills/code-review",
         "Add a specific extension to a pack",
@@ -58,14 +40,16 @@ export const packsAddCommand: CommandModule<{}, PacksAddCommandArgs> = {
       handlePacksAdd({
         pack: argv.pack,
         extension: argv.extension,
-        yes: argv.yes,
       }),
       {
+        flags: {
+          nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+          yes: argv["yes"] as boolean,
+          force: argv["force"] as boolean,
+          preview: argv["preview"] as boolean,
+        },
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
         },
       },

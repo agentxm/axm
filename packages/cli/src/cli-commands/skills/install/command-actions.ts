@@ -15,6 +15,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import {
   SourceHostProviders,
@@ -24,7 +25,7 @@ import {
   type Source,
 } from "../../../sources/index.js";
 import type { InputParseResult } from "../../../sources/parser.js";
-import { ClackPrompt, Log, Spinner, Multiselect, TextInput } from "../../../clack-effect/index.js";
+import { Log, Spinner, Multiselect, TextInput } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
@@ -37,7 +38,6 @@ import {
   resolveSkillInstallSource,
   type RegistryLookupProbe,
 } from "./resolve-skill-install-source.js";
-import { isInteractive } from "../../../utils/tty.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -53,8 +53,6 @@ export interface ParsedSkillInstallArgs {
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedNamespace: Option.Option<string>;
   readonly all: boolean;
-  readonly yes: boolean;
-  readonly nonInteractive: boolean;
   readonly scope: WorkspaceScope;
 }
 
@@ -163,7 +161,7 @@ const extractRequestedNamespace = (
 type SkillsInstallHandlerArgs = InstallHandlerArgs;
 
 export class InstallSkillCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/InstallSkillCommandWorkflowActions",
+  "InstallSkillCommandWorkflowActions",
 )<
   InstallSkillCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
@@ -195,7 +193,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const textInput = yield* TextInput;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
-    const promptSvc = yield* ClackPrompt;
+    const flags = yield* CliFlags;
 
     // Build a service layer providing all services needed by inner effects
     // (registryGuard, resolveSkillInstallSource, determineSkillsToInstall, etc.)
@@ -208,27 +206,18 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(TextInput, textInput),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
-      Layer.succeed(ClackPrompt, promptSvc),
+      Layer.succeed(CliFlags, flags),
     );
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        | SourceHostProviders
-        | Log
-        | Spinner
-        | Workspace
-        | Multiselect
-        | TextInput
-        | Path.Path
-        | FileSystem.FileSystem
-        | ClackPrompt
-      >,
-    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
+    // Provide all captured services, bridging R to never and allowing
+    // PromptCancelled to narrow to CliError for the interface contract.
+    // PromptCancelled propagates at runtime to the command runner level.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service context
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
 
-    // Assertion needed: registryGuard introduces PromptCancelled which propagates
-    // at runtime to the run() handler but is not part of the interface contract.
+    // PromptCancelled from registryGuard/prompts propagates through the workflow
+    // to the run() handler. The provide() helper narrows E to CliError for the interface.
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
@@ -298,24 +287,16 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             yield* registryGuard;
           }
 
-          // Resolve nonInteractive: explicit flag, CI env, or non-TTY stdin
-          const resolvedNonInteractive = Option.getOrElse(
-            args.nonInteractive,
-            () => process.env["CI"] === "true" || !isInteractive(),
-          );
-
           return {
             source,
             versionConstraint,
             requestedSkills,
             requestedNamespace,
             all: args.all,
-            yes: args.yes,
-            nonInteractive: resolvedNonInteractive,
             scope: args.scope,
           } satisfies ParsedSkillInstallArgs;
         }),
-      ) as Effect.Effect<ParsedSkillInstallArgs, CliError>;
+      );
 
     const resolveSourceRequests = (parsed: ParsedSkillInstallArgs) =>
       Effect.succeed<ReadonlyArray<SkillSourceRequest>>([
@@ -341,42 +322,38 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           return yield* spinnerSvc.withSpinner(
             "Discovering skills...",
             () =>
-              Effect.scoped(
-                sources
-                  .find(req.source, {
-                    skillNames: req.requestedSkills,
-                    type: "skill" as const,
-                    namespace: req.requestedNamespace,
-                    versionConstraint: req.versionConstraint,
-                  })
-                  .pipe(
-                    Effect.map(
-                      Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
-                    ),
-                    Effect.mapError((error) => {
-                      const reason = summarizeDiscoverError(error);
-                      return makeCliError({
-                        code: "DISCOVER_FAILED",
-                        what: "Failed to discover skills from source",
-                        details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
-                        howToFix: discoverHowToFix(req.source, error),
-                        cause: error,
-                      });
-                    }),
-                    Effect.flatMap((discoveredSkills) =>
-                      Array.isNonEmptyReadonlyArray(discoveredSkills)
-                        ? Effect.succeed(discoveredSkills)
-                        : Effect.fail(
-                            makeCliError({
-                              code: "NO_SKILLS_FOUND",
-                              what: "No skills found in source",
-                              details: [`Source: ${sources.origin(req.source)}`],
-                              howToFix: noSkillsFoundHowToFix(req.source),
-                            }),
-                          ),
-                    ),
+              sources
+                .find(req.source, {
+                  skillNames: req.requestedSkills,
+                  type: "skill" as const,
+                  namespace: req.requestedNamespace,
+                  versionConstraint: req.versionConstraint,
+                })
+                .pipe(
+                  Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+                  Effect.mapError((error) => {
+                    const reason = summarizeDiscoverError(error);
+                    return makeCliError({
+                      code: "DISCOVER_FAILED",
+                      what: "Failed to discover skills from source",
+                      details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
+                      howToFix: discoverHowToFix(req.source, error),
+                      cause: error,
+                    });
+                  }),
+                  Effect.flatMap((discoveredSkills) =>
+                    Array.isNonEmptyReadonlyArray(discoveredSkills)
+                      ? Effect.succeed(discoveredSkills)
+                      : Effect.fail(
+                          makeCliError({
+                            code: "NO_SKILLS_FOUND",
+                            what: "No skills found in source",
+                            details: [`Source: ${sources.origin(req.source)}`],
+                            howToFix: noSkillsFoundHowToFix(req.source),
+                          }),
+                        ),
                   ),
-              ),
+                ),
             {
               successMessage: (discoveredSkills) => `Found ${discoveredSkills.length} skill(s)`,
             },
@@ -384,8 +361,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         }),
       );
 
-    // Assertion needed: Multiselect prompt introduces PromptCancelled which propagates
-    // at runtime to the run() handler but is not part of the interface contract.
     const finalizeIntent = (
       parsed: ParsedSkillInstallArgs,
       discoveredRefs: ReadonlyArray<SkillExtensionRef>,
@@ -398,8 +373,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             {
               requestedSkills: parsed.requestedSkills,
               all: parsed.all,
-              yes: parsed.yes,
-              nonInteractive: parsed.nonInteractive,
             },
           );
 
@@ -417,7 +390,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             })),
           } satisfies InstallSkillCommandIntent;
         }),
-      ) as Effect.Effect<InstallSkillCommandIntent, CliError>;
+      );
 
     const buildPlan = (intent: InstallSkillCommandIntent) =>
       Effect.succeed<Plan>({

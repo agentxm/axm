@@ -88,46 +88,30 @@ describe("skills disable command options", () => {
     }
   });
 
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define --yes option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof disableCommand.builder === "function") {
       disableCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["yes"]).toBeUndefined();
     }
   });
 
-  it("defines --preview option with boolean type and default false", () => {
+  it("does not define --preview option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof disableCommand.builder === "function") {
       disableCommand.builder(mockYargs);
-      expect(capturedOptions["preview"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["preview"]).toBeUndefined();
     }
   });
 
-  it("defines --non-interactive option with boolean type and no default", () => {
+  it("does not define --non-interactive option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof disableCommand.builder === "function") {
       disableCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 });
@@ -163,42 +147,11 @@ describe("skills disable command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["disable", "my-skill"]);
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
-    expect(argv["preview"]).toBe(false);
   });
 
   it("parses --scope user", async () => {
     const argv = await createParser().parse(["disable", "my-skill", "--scope", "user"]);
-    expect(argv["scope"]).toBe("user");
-  });
-
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["disable", "my-skill", "--yes"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["disable", "my-skill", "-y"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["disable", "my-skill", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
-  it("parses combination of flags", async () => {
-    const argv = await createParser().parse([
-      "disable",
-      "my-skill",
-      "--scope",
-      "user",
-      "-y",
-      "--preview",
-    ]);
     expect(argv["name"]).toBe("my-skill");
     expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
-    expect(argv["preview"]).toBe(true);
   });
 });

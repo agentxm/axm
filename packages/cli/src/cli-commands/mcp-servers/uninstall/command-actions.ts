@@ -31,7 +31,6 @@ import type { McpServerExtensionRef } from "../../../sources/types.js";
 
 export interface UninstallMcpServerHandlerArgs {
   readonly serverName: string;
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

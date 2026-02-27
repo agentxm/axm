@@ -13,7 +13,10 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import type * as Scope from "effect/Scope";
 
+import * as Option from "effect/Option";
+
 import type { CliError } from "../cli-error/index.js";
+import { type CliFlags, type CliFlagsInput, layer as cliFlagsLayer } from "../cli-flags/index.js";
 import {
   ClackLive,
   type ClackLog,
@@ -47,6 +50,7 @@ import { classifyError } from "./error-handling.js";
 export type AppLayer =
   | NodeContext.NodeContext
   | HttpClient.HttpClient
+  | CliFlags
   | ClackLog
   | ClackSpinner
   | ClackPrompt
@@ -60,12 +64,25 @@ export type AppLayer =
   | Multiselect;
 
 /**
+ * Default CliFlags layer using auto-detection for nonInteractive.
+ * Overridden per-invocation in run() when flags are provided.
+ */
+const DefaultCliFlagsLayer = cliFlagsLayer({
+  nonInteractive: Option.none(),
+  yes: false,
+  force: false,
+  preview: false,
+});
+
+/**
  * Layer providing all standard CLI dependencies.
+ * ClackLive depends on CliFlags (for prompt non-interactive guard).
  */
 export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   NodeContext.layer,
   FetchHttpClient.layer,
-  ClackLive,
+  Layer.provide(ClackLive, DefaultCliFlagsLayer),
+  DefaultCliFlagsLayer,
 );
 
 /**
@@ -74,9 +91,18 @@ export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
  */
 export const Runtime = ManagedRuntime.make(AppLayer);
 
+export interface RunOptions {
+  readonly flags?: CliFlagsInput;
+  readonly workspace?: WorkspaceContextOptions;
+}
+
 /**
  * Run an Effect program with CLI dependencies and error handling.
  * Exit codes: 0 (prompt cancelled), 1 (expected error).
+ *
+ * The CliFlags layer is always provided. When flags are not passed
+ * explicitly, they are derived from workspace options (transitional)
+ * or default to non-interactive with no overrides.
  *
  * When workspace options are provided, the WorkspaceContext layer is
  * composed into the runtime so handlers can yield WorkspaceContextTag
@@ -89,7 +115,7 @@ export function run<A>(
     CliError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
-  options: { readonly workspace: WorkspaceContextOptions },
+  options: RunOptions & { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
 export function run<A>(
   program: Effect.Effect<
@@ -97,18 +123,31 @@ export function run<A>(
     CliError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
-  options?: { readonly workspace: WorkspaceContextOptions },
+  options?: RunOptions,
 ): Promise<A> {
+  // Resolve flags: explicit flags > defaults
+  const flagsInput: CliFlagsInput = options?.flags ?? {
+    nonInteractive: Option.none(),
+    yes: false,
+    force: false,
+    preview: false,
+  };
+  const flagsLayer = cliFlagsLayer(flagsInput);
+
   const provided = options?.workspace
     ? (() => {
-        const wsLayer = workspaceLayer(options.workspace);
+        const wsLayer = Layer.provide(workspaceLayer(options.workspace), flagsLayer);
         const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
-          Effect.provide(Layer.mergeAll(wsLayer, sourceProvidersLayer)),
+          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer)),
           Effect.scoped,
         );
       })()
-    : (program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
+    : (program.pipe(Effect.provide(flagsLayer)) as Effect.Effect<
+        A,
+        CliError | PromptCancelled,
+        AppLayer
+      >);
 
   // Classify the error and propagate as a defect so ManagedRuntime can
   // clean up scoped resources before we call process.exit.

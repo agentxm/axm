@@ -39,8 +39,6 @@ export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
-  /** Skip confirmations. */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

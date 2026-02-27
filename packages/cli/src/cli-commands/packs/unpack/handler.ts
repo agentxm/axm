@@ -43,8 +43,6 @@ import { buildUnpackPlan } from "./plan.js";
 export interface UnpackHandlerArgs {
   /** Pack name (FQN like @namespace/name). */
   readonly name: string;
-  /** Skip confirmations. */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

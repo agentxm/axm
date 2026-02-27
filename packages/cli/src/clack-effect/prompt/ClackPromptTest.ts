@@ -41,6 +41,10 @@ export interface ClackPromptCall {
   readonly config: unknown;
 }
 
+export interface MockClackPromptService {
+  readonly calls: Array<ClackPromptCall>;
+}
+
 export type ConfirmBehavior =
   | { readonly type: "return"; readonly value: boolean }
   | { readonly type: "cancel" };
@@ -93,9 +97,14 @@ export class ClackPromptTest extends Context.Tag("@axm.sh/cli/test/ClackPromptTe
 
 export function makeClackPromptTestLayer(
   configOrBehavior: LegacyPromptBehavior | ClackPromptTestLayerConfig = defaultBehavior,
-): Layer.Layer<
-  ClackPrompt | ClackPromptTest | Confirm | Select | Multiselect | TextInput | PasswordInput
-> {
+): readonly [
+  Layer.Layer<
+    ClackPrompt | ClackPromptTest | Confirm | Select | Multiselect | TextInput | PasswordInput
+  >,
+  MockClackPromptService,
+] {
+  const mock: MockClackPromptService = { calls: [] };
+
   const resolvedConfig: ClackPromptTestLayerConfig = isBehavior(configOrBehavior)
     ? { defaultBehavior: normalizeBehavior(configOrBehavior) }
     : configOrBehavior;
@@ -129,7 +138,7 @@ export function makeClackPromptTestLayer(
       : (resolvedConfig.defaultBehavior ?? defaultBehavior);
   };
 
-  return Layer.effectContext(
+  const layer = Layer.effectContext(
     Effect.gen(function* () {
       const ref = yield* Ref.make<ReadonlyArray<ClackPromptCall>>([]);
 
@@ -137,7 +146,10 @@ export function makeClackPromptTestLayer(
         method: ClackPromptMethod,
         config: unknown,
       ): Effect.Effect<A, PromptCancelled> =>
-        Ref.update(ref, (calls) => [...calls, { method, config }]).pipe(
+        Effect.sync(() => {
+          mock.calls.push({ method, config });
+        }).pipe(
+          Effect.zipRight(Ref.update(ref, (calls) => [...calls, { method, config }])),
           Effect.map(() => resolveBehavior(method)),
           Effect.flatMap((behavior) =>
             behavior.type === "cancel"
@@ -239,6 +251,8 @@ export function makeClackPromptTestLayer(
       );
     }),
   );
+
+  return [layer, mock] as const;
 }
 
 export const makeConfirmTestLayer = (behavior: ConfirmBehavior = { type: "return", value: true }) =>

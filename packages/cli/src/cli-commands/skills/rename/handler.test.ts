@@ -8,15 +8,27 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
+import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import {
+  type Confirm,
+  type Log,
+  type Multiselect,
+  type Select,
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
+import {
+  Workspace,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handleRename, type RenameHandlerArgs } from "./handler.js";
 
@@ -57,7 +69,6 @@ const defaultArgs = (
 ): RenameHandlerArgs => ({
   oldName,
   newName,
-  yes: true,
   ...overrides,
 });
 
@@ -81,24 +92,42 @@ describe("rename.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer();
+    const [selectLayer] = makeClackPromptTestLayer();
+    const [multiselectLayer] = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
+    );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
+    const provide = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        | FileSystem.FileSystem
+        | Path.Path
+        | Log
+        | Confirm
+        | Select
+        | Multiselect
+        | Workspace
+        | CliFlags
+      >,
+    ) => effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog };
   };
 
   // ---------------------------------------------------------------------------
@@ -192,7 +221,7 @@ describe("rename.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves rename plan", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
@@ -214,9 +243,7 @@ describe("rename.handler", () => {
         Effect.gen(function* () {
           yield* handleRename(defaultArgs("my-skill", "new-skill"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should have the new name
           const settingsContent = fs.readFileSync(

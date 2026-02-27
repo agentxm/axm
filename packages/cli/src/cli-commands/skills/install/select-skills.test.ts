@@ -9,10 +9,13 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
-import { makeMultiselectTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
-import type { ClackLog } from "../../../clack-effect/log/service.js";
-import type { Multiselect } from "../../../clack-effect/legacy-prompt.js";
+import {
+  type Log,
+  type Multiselect,
+  makeLogTestLayer,
+  makeMultiselectTestLayer,
+} from "../../../clack-effect/index.js";
+import { type CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -29,11 +32,18 @@ const makeSkill = (name: string): SkillExtensionRef => ({
   location: `file:///fake/${name}`,
 });
 
-const multiselectLayer = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
-const TestLayer = Layer.mergeAll(ClackLogTestLayer, multiselectLayer);
+const [logLayer] = makeLogTestLayer();
+const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
+const TestLayer = Layer.mergeAll(logLayer, multiselectLayer, CliFlagsTest());
 
-const provide = <A, E>(effect: Effect.Effect<A, E, ClackLog | Multiselect>) =>
+const provide = <A, E>(effect: Effect.Effect<A, E, Log | Multiselect | CliFlags>) =>
   effect.pipe(Effect.provide(TestLayer));
+
+const provideWithFlags = (overrides: Parameters<typeof CliFlagsTest>[0]) => {
+  const layer = Layer.mergeAll(logLayer, multiselectLayer, CliFlagsTest(overrides));
+  return <A, E>(effect: Effect.Effect<A, E, Log | Multiselect | CliFlags>) =>
+    effect.pipe(Effect.provide(layer));
+};
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
 const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillExtensionRef> =>
@@ -51,8 +61,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr", "debug"), {
             requestedSkills: ["commit", "debug"],
             all: false,
-            yes: false,
-            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "debug"]);
@@ -66,8 +74,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["commit", "nonexistent"],
             all: false,
-            yes: false,
-            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
@@ -81,8 +87,6 @@ describe("determineSkillsToInstall", () => {
           const error = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["foo", "bar"],
             all: false,
-            yes: false,
-            nonInteractive: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("CliError");
@@ -99,8 +103,6 @@ describe("determineSkillsToInstall", () => {
             {
               requestedSkills: ["effect-*"],
               all: false,
-              yes: false,
-              nonInteractive: false,
             },
           );
 
@@ -117,8 +119,6 @@ describe("determineSkillsToInstall", () => {
             {
               requestedSkills: ["effect-*", "commit"],
               all: false,
-              yes: false,
-              nonInteractive: false,
             },
           );
 
@@ -139,8 +139,6 @@ describe("determineSkillsToInstall", () => {
             {
               requestedSkills: ["effect-*", "commit"],
               all: false,
-              yes: false,
-              nonInteractive: false,
             },
           );
 
@@ -159,8 +157,6 @@ describe("determineSkillsToInstall", () => {
           const error = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: ["effect-*"],
             all: false,
-            yes: false,
-            nonInteractive: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("CliError");
@@ -178,8 +174,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: true,
-            yes: false,
-            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
@@ -188,13 +182,11 @@ describe("determineSkillsToInstall", () => {
     );
 
     it.effect("returns all skills with --non-interactive", () =>
-      provide(
+      provideWithFlags({ nonInteractive: true })(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            yes: false,
-            nonInteractive: true,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
@@ -203,14 +195,12 @@ describe("determineSkillsToInstall", () => {
     );
 
     it.effect("--yes with multiple skills still prompts for selection", () =>
-      provide(
+      provideWithFlags({ nonInteractive: false })(
         Effect.gen(function* () {
           // --yes alone does NOT auto-select; falls through to multiselect prompt (rule 4)
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            yes: true,
-            nonInteractive: false,
           });
 
           // The multiselect test layer returns indices [0, 1], so both are selected via prompt
@@ -227,8 +217,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: [],
             all: false,
-            yes: false,
-            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
@@ -244,8 +232,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            yes: false,
-            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);

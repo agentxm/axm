@@ -130,61 +130,39 @@ describe("skills update command options", () => {
     }
   });
 
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define --yes option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["yes"]).toBeUndefined();
     }
   });
 
-  it("defines --force option with boolean type, alias, and default false", () => {
+  it("does not define --force option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["force"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "f",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["force"]).toBeUndefined();
     }
   });
 
-  it("defines --preview option with boolean type and default false", () => {
+  it("does not define --preview option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["preview"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["preview"]).toBeUndefined();
     }
   });
 
-  it("defines --non-interactive option with boolean type and no default", () => {
+  it("does not define --non-interactive option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 
@@ -205,25 +183,6 @@ describe("skills update command options", () => {
       updateCommand.builder(mockYargs);
       expect(capturedOptions["skill"]?.describe).toBeDefined();
       expect(capturedOptions["skill"]?.describe).toContain("skill");
-    }
-  });
-
-  it("includes description for --yes option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof updateCommand.builder === "function") {
-      updateCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]?.describe).toBeDefined();
-      expect(capturedOptions["yes"]?.describe).toContain("prompts");
-    }
-  });
-
-  it("includes description for --non-interactive option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof updateCommand.builder === "function") {
-      updateCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]?.describe).toBeDefined();
     }
   });
 });
@@ -286,9 +245,6 @@ describe("skills update command parser", () => {
     const argv = await createParser().parse(["update"]);
 
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
-    expect(argv["force"]).toBe(false);
-    expect(argv["preview"]).toBe(false);
     expect(argv["agent"]).toEqual([]);
     expect(argv["skill"]).toEqual([]);
   });
@@ -297,36 +253,6 @@ describe("skills update command parser", () => {
     const argv = await createParser().parse(["update", "--scope", "user"]);
 
     expect(argv["scope"]).toBe("user");
-  });
-
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["update", "--yes"]);
-
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["update", "-y"]);
-
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses --force flag", async () => {
-    const argv = await createParser().parse(["update", "--force"]);
-
-    expect(argv["force"]).toBe(true);
-  });
-
-  it("parses -f alias for --force", async () => {
-    const argv = await createParser().parse(["update", "-f"]);
-
-    expect(argv["force"]).toBe(true);
-  });
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["update", "--preview"]);
-
-    expect(argv["preview"]).toBe(true);
   });
 
   it("parses single --skill value", async () => {
@@ -359,16 +285,12 @@ describe("skills update command parser", () => {
       "owner/repo",
       "--scope",
       "user",
-      "-y",
-      "-f",
       "--skill",
       "pr-review",
     ]);
 
     expect(argv["source"]).toBe("owner/repo");
     expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
-    expect(argv["force"]).toBe(true);
     expect(argv["skill"]).toEqual(["pr-review"]);
   });
 });

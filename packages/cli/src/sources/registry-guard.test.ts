@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeClackPromptTestLayer } from "../clack-effect/prompt/ClackPromptTest.js";
+import { makeClackPromptTestLayer } from "../clack-effect/index.js";
+import { CliFlagsTest } from "../cli-flags/index.js";
 import { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
@@ -15,7 +16,6 @@ describe("registryGuard", () => {
 
   const makeWorkspaceLayer = (opts: {
     registrySources?: ReadonlyArray<RegistrySource>;
-    nonInteractive?: boolean;
     addSourceMock?: () => Effect.Effect<void, never>;
   }) => {
     const addSource = opts.addSourceMock ?? vi.fn(() => Effect.void);
@@ -26,8 +26,6 @@ describe("registryGuard", () => {
       scope: "project",
       path: "/test",
       baseDir: "/",
-      nonInteractive: opts.nonInteractive ?? false,
-      preview: false,
       resolvePlan: vi.fn(),
       getConfiguredSources: vi.fn(() => Effect.succeed([])),
       getConfiguredSourceByName: vi.fn(() => Effect.succeed(Option.none())),
@@ -92,8 +90,13 @@ describe("registryGuard", () => {
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
-      const promptLayer = makeClackPromptTestLayer();
-      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
+      const [promptLayer] = makeClackPromptTestLayer();
+      const testLayer = Layer.mergeAll(
+        workspaceLayer,
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest(),
+      );
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -106,10 +109,14 @@ describe("registryGuard", () => {
     Effect.gen(function* () {
       const workspaceLayer = makeWorkspaceLayer({
         registrySources: [],
-        nonInteractive: true,
       });
-      const promptLayer = makeClackPromptTestLayer();
-      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
+      const [promptLayer] = makeClackPromptTestLayer();
+      const testLayer = Layer.mergeAll(
+        workspaceLayer,
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest({ nonInteractive: true }),
+      );
 
       const result = yield* registryGuard.pipe(Effect.provide(testLayer), Effect.flip);
 
@@ -126,17 +133,21 @@ describe("registryGuard", () => {
       const addSourceMock = vi.fn(() => Effect.void);
       const workspaceLayer = makeWorkspaceLayer({
         registrySources: [],
-        nonInteractive: false,
         addSourceMock,
       });
 
-      const promptLayer = makeClackPromptTestLayer({
+      const [promptLayer] = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "/home/user/registry" },
         },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(
+        workspaceLayer,
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest({ nonInteractive: false }),
+      );
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -154,17 +165,21 @@ describe("registryGuard", () => {
       const addSourceMock = vi.fn(() => Effect.void);
       const workspaceLayer = makeWorkspaceLayer({
         registrySources: [],
-        nonInteractive: false,
         addSourceMock,
       });
 
-      const promptLayer = makeClackPromptTestLayer({
+      const [promptLayer] = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "~/my-registry" },
         },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(
+        workspaceLayer,
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest({ nonInteractive: false }),
+      );
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -193,17 +208,21 @@ describe("registryGuard", () => {
       const addSourceMock = vi.fn(() => Effect.void);
       const workspaceLayer = makeWorkspaceLayer({
         registrySources: [],
-        nonInteractive: false,
         addSourceMock,
       });
 
-      const promptLayer = makeClackPromptTestLayer({
+      const [promptLayer] = makeClackPromptTestLayer({
         methodBehaviors: {
           text: { type: "return", value: "/new/registry" },
         },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(
+        workspaceLayer,
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest({ nonInteractive: false }),
+      );
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 

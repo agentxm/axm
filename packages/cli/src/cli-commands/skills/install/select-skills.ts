@@ -9,6 +9,7 @@
 
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { Log, Multiselect } from "../../../clack-effect/index.js";
+import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
@@ -22,8 +23,6 @@ import * as Option from "effect/Option";
 interface SelectSkillsArgs {
   readonly requestedSkills: readonly string[];
   readonly all: boolean;
-  readonly yes: boolean;
-  readonly nonInteractive: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -45,6 +44,7 @@ export const determineSkillsToInstall = (
 ) =>
   Effect.gen(function* () {
     const log = yield* Log;
+    const flags = yield* CliFlags;
 
     // 1. --skill specified -> glob-aware matching
     if (args.requestedSkills.length > 0) {
@@ -66,7 +66,7 @@ export const determineSkillsToInstall = (
     }
 
     // 2. --all / --non-interactive -> return all
-    if (args.all || args.nonInteractive) {
+    if (args.all || flags.nonInteractive) {
       if (args.all) yield* log.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }

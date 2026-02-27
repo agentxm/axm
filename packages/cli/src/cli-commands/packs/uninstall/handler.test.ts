@@ -14,14 +14,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
-import { ClackSpinnerTestLayer } from "../../../clack-effect/spinner/ClackSpinnerTest.js";
 import {
   makeClackPromptTestLayer,
-  type ConfirmBehavior,
-  type SelectBehavior,
-  type MultiselectBehavior,
-} from "../../../clack-effect/prompt/ClackPromptTest.js";
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
@@ -65,7 +63,6 @@ const defaultArgs = (
   overrides: Partial<UninstallPackHandlerArgs> = {},
 ): UninstallPackHandlerArgs => ({
   name,
-  yes: true,
   ...overrides,
 });
 
@@ -112,30 +109,34 @@ describe("packs uninstall handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: ConfirmBehavior;
-      selectBehavior?: SelectBehavior;
-      multiselectBehavior?: MultiselectBehavior;
+      confirmBehavior?: import("../../../clack-effect/index.js").ConfirmBehavior;
+      selectBehavior?: import("../../../clack-effect/index.js").SelectBehavior;
+      multiselectBehavior?: import("../../../clack-effect/index.js").MultiselectBehavior;
     },
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
-        select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
-        multiselect: tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer(
+      tuiConfig?.confirmBehavior ?? { type: "return", value: true },
+    );
+    const [selectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
+    );
+    const [multiselectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
+    );
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
       ...wsOverrides,
     };
@@ -159,7 +160,7 @@ describe("packs uninstall handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog };
   };
 
   // ---------------------------------------------------------------------------
@@ -168,7 +169,7 @@ describe("packs uninstall handler", () => {
 
   describe("basic uninstall", () => {
     it.effect("uninstalls a pack and removes from lockfile", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -181,9 +182,7 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
           // Should show completed step for the pack
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("my-pack")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
 
           // Check lockfile no longer has the pack
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -194,7 +193,7 @@ describe("packs uninstall handler", () => {
     });
 
     it.effect("no-ops when pack is not installed", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -202,11 +201,7 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("nonexistent-pack"));
 
           // Plan still executes step (no-op since nothing to remove)
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
-              m.includes("nonexistent-pack"),
-            ),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
         }),
       );
     });
@@ -218,7 +213,7 @@ describe("packs uninstall handler", () => {
 
   describe("orphan detection", () => {
     it.effect("removes orphaned skills on pack uninstall", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -233,18 +228,14 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
           // Should show completed steps for pack and orphaned skill
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("my-pack")),
-          ).toBe(true);
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("skill-a")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("skill-a"))).toBe(true);
         }),
       );
     });
 
     it.effect("preserves skills referenced by another pack", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "pack-a": "@acme/packs/pack-a",
@@ -265,19 +256,15 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("pack-a"));
 
           // shared-skill is retained by pack-b, should not appear as a step
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("shared-skill")),
-          ).toBe(false);
+          expect(mockLog.logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
           // pack-a itself should be uninstalled
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("pack-a")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("pack-a"))).toBe(true);
         }),
       );
     });
 
     it.effect("preserves skills that are direct settings entries", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: { "promoted-skill": "@acme/skills/promoted-skill" },
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
@@ -293,15 +280,9 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
           // promoted-skill is directly configured, so excluded from orphan targets
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
-              m.includes("promoted-skill"),
-            ),
-          ).toBe(false);
+          expect(mockLog.logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
           // pack itself should be uninstalled
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("my-pack")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
         }),
       );
     });
@@ -313,7 +294,7 @@ describe("packs uninstall handler", () => {
 
   describe("glob patterns", () => {
     it.effect("expands glob pattern to match multiple packs", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "acme-tools": "@acme/packs/acme-tools",
@@ -332,12 +313,8 @@ describe("packs uninstall handler", () => {
           yield* handleUninstallPack(defaultArgs("acme-*"));
 
           // Should show completed steps for matched packs
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("acme-tools")),
-          ).toBe(true);
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("acme-utils")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("acme-utils"))).toBe(true);
 
           // Check lockfile - acme-tools and acme-utils should be removed, other-pack preserved
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -350,23 +327,15 @@ describe("packs uninstall handler", () => {
     });
 
     it.effect("warns when glob pattern matches nothing", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.warn.some((m) =>
-              m.includes("No packs matched"),
-            ),
-          ).toBe(true);
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
-              m.includes("Nothing to uninstall"),
-            ),
-          ).toBe(true);
+          expect(mockLog.logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
         }),
       );
     });

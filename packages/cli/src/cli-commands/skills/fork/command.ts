@@ -7,14 +7,12 @@
 import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleFork } from "./handler.js";
 
 export interface ForkCommandArgs {
   source: string;
   skill: string[];
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -35,21 +33,6 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
         describe: "Fork only specified skill(s) by name or glob pattern",
         default: [],
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display fork plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills fork my-skill", "Fork an installed skill to a managed extension")
       .example(
         '$0 skills fork "effect-*"',
@@ -65,15 +48,12 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
       handleFork({
         source: argv.source,
         skills: argv.skill,
-        yes: argv.yes,
       }),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
-          agents: Option.none(),
+          agents: Option.none<readonly string[]>(),
         },
       },
     );

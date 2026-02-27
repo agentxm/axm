@@ -19,8 +19,6 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   scope: "project",
   path: "/tmp/test-workspace",
   baseDir: "/tmp",
-  nonInteractive: true,
-  preview: false,
   resolvePlan: () => Effect.die("not implemented in test"),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>

@@ -11,9 +11,6 @@ import { handleUnpack } from "./handler.js";
 
 export interface UnpackCommandArgs {
   name: string;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -27,21 +24,6 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
         describe: "Pack name to unpack",
         demandOption: true,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display unpack plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 packs unpack @acme/frontend-tools", "Eject pack contents into settings")
       .example(
         "$0 packs unpack @acme/frontend-tools --preview",
@@ -51,14 +33,16 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
     await run(
       handleUnpack({
         name: argv.name,
-        yes: argv.yes,
       }),
       {
+        flags: {
+          nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+          yes: argv["yes"] as boolean,
+          force: argv["force"] as boolean,
+          preview: argv["preview"] as boolean,
+        },
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
         },
       },

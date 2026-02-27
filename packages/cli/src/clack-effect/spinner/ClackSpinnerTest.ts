@@ -17,6 +17,12 @@ export interface ClackSpinnerRecord {
   readonly stops: ReadonlyArray<string>;
 }
 
+export type MockClackSpinnerService = {
+  calls: Array<ClackSpinnerCall>;
+  starts: Array<string>;
+  stops: Array<string>;
+};
+
 const emptyRecord: ClackSpinnerRecord = {
   calls: [],
   starts: [],
@@ -65,24 +71,52 @@ const appendStop = (
     stops: [...r.stops, message],
   }));
 
-const makeMockHandle = (ref: Ref.Ref<ClackSpinnerRecord>): ClackSpinnerHandle => ({
-  stop: (message) => appendCall(ref, "handle.stop", [message]),
-  message: (message) => appendCall(ref, "handle.message", [message]),
-  cancel: (message) => appendCall(ref, "handle.cancel", [message]),
-  error: (message) => appendCall(ref, "handle.error", [message]),
-  clear: () => appendCall(ref, "handle.clear", []),
+const makeMockHandle = (
+  recordCall: (method: string, args: ReadonlyArray<unknown>) => Effect.Effect<void>,
+): ClackSpinnerHandle => ({
+  stop: (message) => recordCall("handle.stop", [message]),
+  message: (message) => recordCall("handle.message", [message]),
+  cancel: (message) => recordCall("handle.cancel", [message]),
+  error: (message) => recordCall("handle.error", [message]),
+  clear: () => recordCall("handle.clear", []),
 });
 
-export const ClackSpinnerTestLayer: Layer.Layer<ClackSpinner | ClackSpinnerTest> =
-  Layer.effectContext(
+export const makeClackSpinnerTestLayer = (): readonly [
+  Layer.Layer<ClackSpinner | ClackSpinnerTest>,
+  MockClackSpinnerService,
+] => {
+  const mock: MockClackSpinnerService = {
+    calls: [],
+    starts: [],
+    stops: [],
+  };
+
+  const layer: Layer.Layer<ClackSpinner | ClackSpinnerTest> = Layer.effectContext(
     Effect.gen(function* () {
       const ref = yield* Ref.make(emptyRecord);
+
+      const recordCall = (method: string, args: ReadonlyArray<unknown>) =>
+        Effect.sync(() => {
+          mock.calls.push({ method, args });
+        }).pipe(Effect.zipRight(appendCall(ref, method, args)));
+
+      const recordStart = (method: string, args: ReadonlyArray<unknown>, message: string) =>
+        Effect.sync(() => {
+          mock.calls.push({ method, args });
+          mock.starts.push(message);
+        }).pipe(Effect.zipRight(appendStart(ref, method, args, message)));
+
+      const recordStop = (method: string, args: ReadonlyArray<unknown>, message: string) =>
+        Effect.sync(() => {
+          mock.calls.push({ method, args });
+          mock.stops.push(message);
+        }).pipe(Effect.zipRight(appendStop(ref, method, args, message)));
 
       const service: Context.Tag.Service<typeof ClackSpinner> = {
         start: (message) =>
           Effect.zipRight(
-            appendStart(ref, "start", [message], message ?? ""),
-            Effect.succeed(makeMockHandle(ref)),
+            recordStart("start", [message], message ?? ""),
+            Effect.succeed(makeMockHandle(recordCall)),
           ),
         withSpinner: <A, E, R>(
           message: string,
@@ -90,7 +124,7 @@ export const ClackSpinnerTestLayer: Layer.Layer<ClackSpinner | ClackSpinnerTest>
           options?: string | ClackSpinnerOptions<A>,
         ): Effect.Effect<A, E, R> =>
           Effect.suspend(() => {
-            const handle = makeMockHandle(ref);
+            const handle = makeMockHandle(recordCall);
             const staticStopMessage =
               typeof options === "string"
                 ? options
@@ -103,25 +137,25 @@ export const ClackSpinnerTestLayer: Layer.Layer<ClackSpinner | ClackSpinnerTest>
                 : undefined;
             const failureMessage = typeof options === "object" ? options.failureMessage : undefined;
 
-            return appendStart(ref, "withSpinner.start", [message], message).pipe(
+            return recordStart("withSpinner.start", [message], message).pipe(
               Effect.zipRight(Effect.interruptible(f(handle))),
               Effect.matchCauseEffect({
                 onFailure: (cause) => {
                   if (Cause.isInterruptedOnly(cause)) {
                     return Effect.zipRight(
-                      appendStop(ref, "withSpinner.cancel", [], "Cancelled"),
+                      recordStop("withSpinner.cancel", [], "Cancelled"),
                       Effect.failCause(cause),
                     );
                   }
                   return Effect.zipRight(
-                    appendStop(ref, "withSpinner.error", [message], failureMessage ?? "Failed"),
+                    recordStop("withSpinner.error", [message], failureMessage ?? "Failed"),
                     Effect.failCause(cause),
                   );
                 },
                 onSuccess: (a) => {
                   const resolvedStopMessage = successMessageFn?.(a) ?? staticStopMessage;
                   return Effect.zipRight(
-                    appendStop(ref, "withSpinner.stop", [resolvedStopMessage], resolvedStopMessage),
+                    recordStop("withSpinner.stop", [resolvedStopMessage], resolvedStopMessage),
                     Effect.succeed(a),
                   );
                 },
@@ -142,3 +176,8 @@ export const ClackSpinnerTestLayer: Layer.Layer<ClackSpinner | ClackSpinnerTest>
       );
     }),
   );
+
+  return [layer, mock] as const;
+};
+
+export const [ClackSpinnerTestLayer] = makeClackSpinnerTestLayer();

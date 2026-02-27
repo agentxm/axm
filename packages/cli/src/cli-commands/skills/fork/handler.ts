@@ -47,8 +47,6 @@ export interface ForkHandlerArgs {
   readonly source: string;
   /** Fork only specified skill(s) by name or glob pattern. */
   readonly skills: readonly string[];
-  /** Skip confirmations. */
-  readonly yes: boolean;
 }
 
 type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;

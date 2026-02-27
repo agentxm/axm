@@ -1,6 +1,8 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 
 export const passwordInputCommand: CommandModule = {
   command: "password-input",
@@ -12,6 +14,10 @@ export const passwordInputCommand: CommandModule = {
       const token = yield* prompt.password({ message: "Enter your token:" });
       yield* log.success(`Token received (${String(token.length)} chars)`);
     });
-    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
+    return Effect.runPromise(
+      program.pipe(
+        Effect.provide(Layer.provide(ClackLive, CliFlagsTest({ nonInteractive: false }))),
+      ),
+    );
   },
 };

@@ -23,8 +23,6 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 export interface EnableHandlerArgs {
   /** Name of the skill to enable */
   readonly name: string;
-  /** Skip confirmations */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

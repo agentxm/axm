@@ -20,6 +20,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
+import { CliFlags } from "../../../cli-flags/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -56,12 +57,6 @@ export interface UpdateHandlerArgs {
   readonly agents: readonly string[];
   /** Specific skill(s) to update (by name/glob) */
   readonly skills: readonly string[];
-  /** Skip confirmations */
-  readonly yes: boolean;
-  /** Overwrite regardless of version */
-  readonly force: boolean;
-  /** Disable prompts */
-  readonly nonInteractive: Option.Option<boolean>;
 }
 
 // -----------------------------------------------------------------------------
@@ -94,6 +89,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const sources = yield* SourceHostProviders;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;
+  const flags = yield* CliFlags;
 
   yield* log.info(`axm skills update (${scopeLabel})`);
 
@@ -293,7 +289,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             name: "install-skill",
             args: {
               ref: item.ref,
-              force: args.force,
+              force: flags.force,
               versionConstraint: Option.none(),
               skipSettings: Option.none(),
             },
@@ -305,7 +301,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             name: "install-skill",
             args: {
               ref: item.newRef,
-              force: args.force,
+              force: flags.force,
               versionConstraint: Option.none(),
               skipSettings: Option.none(),
             },

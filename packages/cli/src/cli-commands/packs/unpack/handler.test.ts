@@ -15,12 +15,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
 import {
-  ClackSpinnerTestLayer,
-  ClackSpinnerTest,
-} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
@@ -107,7 +107,6 @@ const defaultArgs = (
   overrides: Partial<UnpackHandlerArgs> = {},
 ): UnpackHandlerArgs => ({
   name,
-  yes: true,
   ...overrides,
 });
 
@@ -131,24 +130,22 @@ describe("packs unpack.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
       ...wsOverrides,
     };
@@ -160,12 +157,12 @@ describe("packs unpack.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog, mockSpinner };
   };
 
   describe("full unpack", () => {
     it.effect("promotes resolved skills to direct entries and removes pack", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir, {
@@ -226,9 +223,7 @@ describe("packs unpack.handler", () => {
         Effect.gen(function* () {
           yield* handleUnpack(defaultArgs("frontend-tools"));
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Check settings: pack should be removed, skills should be added
           const settingsContent = JSON.parse(
@@ -336,7 +331,7 @@ describe("packs unpack.handler", () => {
 
   describe("pack not installed", () => {
     it.effect("fails when pack is not in lockfile", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir);
@@ -355,8 +350,8 @@ describe("packs unpack.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("not installed");
           expect((result as { howToFix: string }).howToFix).toContain("axm packs install");
-          expect((yield* (yield* ClackSpinnerTest).get).starts).toContain("Checking pack...");
-          expect((yield* (yield* ClackSpinnerTest).get).stops).toContain("Failed");
+          expect(mockSpinner.starts).toContain("Checking pack...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

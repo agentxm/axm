@@ -37,8 +37,6 @@ export interface PacksAddHandlerArgs {
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
-  /** Skip confirmations. */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

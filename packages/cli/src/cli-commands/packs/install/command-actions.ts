@@ -8,13 +8,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { CliFlags } from "../../../cli-flags/index.js";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import {
   parseInputPattern,
   resolveSource,
@@ -23,7 +22,7 @@ import {
 } from "../../../sources/index.js";
 import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
 import { Workspace } from "../../../workspace/index.js";
-import { ClackPrompt, Log, Spinner } from "../../../clack-effect/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { PackManager } from "../../../extensions/packs/manager.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -52,9 +51,6 @@ import type { InstallPackCommandIntent } from "./intent.js";
 export interface InstallPackHandlerArgs {
   readonly source: string;
   readonly scope: WorkspaceScope;
-  readonly yes: boolean;
-  readonly force: boolean;
-  readonly nonInteractive: Option.Option<boolean>;
 }
 
 /** Parsed and validated pack install args. */
@@ -151,7 +147,7 @@ const formatRegistrySourceLabel = ({
 // -----------------------------------------------------------------------------
 
 export class InstallPackCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/InstallPackCommandWorkflowActions",
+  "InstallPackCommandWorkflowActions",
 )<
   InstallPackCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
@@ -182,9 +178,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const mcpServerMgr = yield* McpServerManager;
-    const fsSvc = yield* FileSystem.FileSystem;
-    const pathSvc = yield* Path.Path;
-    const promptSvc = yield* ClackPrompt;
+    const cliFlags = yield* CliFlags;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. registryGuard, resolveSource).
@@ -193,24 +187,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(Log, log),
       Layer.succeed(Spinner, spinnerSvc),
-      Layer.succeed(FileSystem.FileSystem, fsSvc),
-      Layer.succeed(Path.Path, pathSvc),
-      Layer.succeed(ClackPrompt, promptSvc),
+      Layer.succeed(CliFlags, cliFlags),
     );
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        | SourceHostProviders
-        | Workspace
-        | Log
-        | Spinner
-        | FileSystem.FileSystem
-        | Path.Path
-        | ClackPrompt
-      >,
-    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
+    // Assertion needed: strips service requirements (R) from inner effects.
+    // PromptCancelled from registryGuard propagates at runtime but is erased here;
+    // the top-level `run()` function handles it as a clean exit.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
 
     const parseArgs = (args: InstallPackHandlerArgs) =>
       provide(
@@ -355,14 +340,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             () =>
               Effect.gen(function* () {
                 const findWith = (candidate: RegistrySource) =>
-                  Effect.scoped(
-                    sources.find(candidate, {
-                      skillNames: [req.packName],
-                      type: "pack",
-                      namespace: Option.some(req.namespace),
-                      versionConstraint: req.versionConstraint,
-                    }),
-                  );
+                  sources.find(candidate, {
+                    skillNames: [req.packName],
+                    type: "pack",
+                    namespace: Option.some(req.namespace),
+                    versionConstraint: req.versionConstraint,
+                  });
 
                 const probes: RegistryLookupProbe[] = [];
 

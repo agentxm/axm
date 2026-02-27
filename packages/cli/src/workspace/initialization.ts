@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
+import { CliFlags } from "../cli-flags/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { ClackPrompt } from "../clack-effect/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
@@ -33,15 +34,12 @@ import type { WorkspaceContextOptions } from "./service.js";
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
- * @param resolvedNonInteractive - Pre-resolved non-interactive flag (accounts for TTY/CI)
  * @returns Effect yielding selected agent IDs
  */
-export const initializeProjectWorkspace = (
-  localDir: string,
-  options: WorkspaceContextOptions,
-  resolvedNonInteractive: boolean,
-) =>
+export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
+    const flags = yield* CliFlags;
+
     // Select agents based on options
     let selectedAgents: ReadonlyArray<AgentDescriptor>;
 
@@ -60,7 +58,7 @@ export const initializeProjectWorkspace = (
         ),
       );
 
-      if (resolvedNonInteractive) {
+      if (flags.nonInteractive) {
         // Non-interactive mode: auto-select all detected agents
         selectedAgents = detectedAgents;
       } else {
@@ -156,7 +154,6 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
   options: WorkspaceContextOptions,
-  resolvedNonInteractive: boolean,
 ) =>
   Effect.gen(function* () {
     const localSettingsResult = yield* readSettings(localDir).pipe(
@@ -170,7 +167,7 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      return yield* initializeProjectWorkspace(localDir, options, resolvedNonInteractive);
+      return yield* initializeProjectWorkspace(localDir, options);
     }
 
     return localSettingsResult.settings;

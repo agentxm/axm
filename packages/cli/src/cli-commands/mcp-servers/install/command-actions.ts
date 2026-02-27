@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { ClackPrompt } from "../../../clack-effect/index.js";
+import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
 import {
@@ -40,9 +41,6 @@ import type { InstallMcpServerCommandIntent } from "./intent.js";
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
   readonly scope: WorkspaceScope;
-  readonly yes: boolean;
-  readonly force: boolean;
-  readonly nonInteractive: Option.Option<boolean>;
 }
 
 // -----------------------------------------------------------------------------
@@ -102,6 +100,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const prompt = yield* ClackPrompt;
+    const flags = yield* CliFlags;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. registryGuard, resolveSource).
@@ -111,13 +110,14 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(ClackPrompt, prompt),
+      Layer.succeed(CliFlags, flags),
     );
 
     const provide = <A, E>(
       effect: Effect.Effect<
         A,
         E,
-        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | ClackPrompt
+        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | ClackPrompt | CliFlags
       >,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
 
@@ -152,7 +152,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             serverName: pat.name.value,
             versionConstraint: pat.versionConstraint,
             resolvedInput: trimmed,
-            force: args.force,
+            force: flags.force,
           };
         }
 
@@ -164,7 +164,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             serverName: parsed.value.pattern.name,
             versionConstraint: Option.none<string>(),
             resolvedInput: `${namespace}/mcp-servers/${parsed.value.pattern.name}`,
-            force: args.force,
+            force: flags.force,
           };
         }
 

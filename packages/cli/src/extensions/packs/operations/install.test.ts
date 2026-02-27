@@ -15,9 +15,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
-import { ClackSpinnerTestLayer } from "../../../clack-effect/spinner/ClackSpinnerTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import {
+  makeClackLogTestLayer,
+  makeClackPromptTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import {
   SourceHostProviders,
@@ -117,24 +120,22 @@ describe("installPack operation handler", () => {
   });
 
   const makeLayers = (mockService: SourceHostProvidersService) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
@@ -145,7 +146,7 @@ describe("installPack operation handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog };
   };
 
   it.effect("fetches archive and extracts to managed pack directory", () => {

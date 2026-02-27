@@ -48,17 +48,11 @@ describe("mcp-servers uninstall command", () => {
     expect(capturedPositionals["name"]?.demandOption).toBe(true);
   });
 
-  it("has --yes option defaulting to false", () => {
+  it("does not define per-command --yes, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (uninstallMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.default).toBe(false);
-  });
-
-  it("has --preview option defaulting to false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (uninstallMcpServerCommand.builder as (y: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.default).toBe(false);
+    expect(capturedOptions["yes"]).toBeUndefined();
+    expect(capturedOptions["preview"]).toBeUndefined();
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 });

@@ -25,7 +25,7 @@ import { installMcpServer } from "../../../extensions/mcp-servers/operations/ins
 import { installPack } from "../../../extensions/packs/operations/install.js";
 import { Workspace } from "../../../workspace/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 
 /**
  * Union of operation types produced by the pack install plan builder.
@@ -174,7 +174,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
       return provideServices(
         // Assertion needed: handler union loses specific type after dynamic dispatch
-         
+
         (
           handler as (
             op: PackInstallOp,

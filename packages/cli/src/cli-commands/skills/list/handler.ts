@@ -7,7 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 
 // -----------------------------------------------------------------------------

@@ -7,8 +7,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeClackLogTestLayer, type MockClackLogService } from "../clack-effect/index.js";
 import { makeCliError } from "../cli-error/index.js";
-import { makeLogTestLayer } from "../tui/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
 
@@ -30,13 +30,19 @@ const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan =
   ...overrides,
 });
 
+const messagesByMethod = (
+  mockLog: MockClackLogService,
+  method: "message" | "info" | "success" | "warn" | "error",
+): ReadonlyArray<string> =>
+  mockLog.calls.filter((call) => call.method === method).map((call) => String(call.args[0] ?? ""));
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("displayPlan", () => {
   it.effect("uses plan name as heading", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -57,12 +63,12 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(mockLog.logs.info.some((m) => m.includes("Install skill(s)"))).toBe(true);
+      expect(messagesByMethod(mockLog, "info").some((m) => m.includes("Install skill(s)"))).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("shows description when present", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -84,13 +90,13 @@ describe("displayPlan", () => {
       );
 
       expect(
-        mockLog.logs.info.some((m) => m.includes("Install skills from github:owner/repo")),
+        messagesByMethod(mockLog, "info").some((m) => m.includes("Install skills from github:owner/repo")),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("lists ready items with + prefix for unapplied plan", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -115,15 +121,15 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(mockLog.logs.success.some((m) => m.includes("+") && m.includes("commit"))).toBe(true);
-      expect(mockLog.logs.success.some((m) => m.includes("+") && m.includes("review-pr"))).toBe(
+      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("+") && m.includes("commit"))).toBe(true);
+      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("+") && m.includes("review-pr"))).toBe(
         true,
       );
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("shows warn items with warning prefix and message", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -145,7 +151,7 @@ describe("displayPlan", () => {
       );
 
       expect(
-        mockLog.logs.warn.some(
+        messagesByMethod(mockLog, "warn").some(
           (m) => m.includes("\u26A0") && m.includes("commit") && m.includes("version mismatch"),
         ),
       ).toBe(true);
@@ -153,7 +159,7 @@ describe("displayPlan", () => {
   });
 
   it.effect("shows error readiness items with error prefix and message", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -174,7 +180,7 @@ describe("displayPlan", () => {
       );
 
       expect(
-        mockLog.logs.error.some(
+        messagesByMethod(mockLog, "error").some(
           (m) => m.includes("\u2717") && m.includes("commit") && m.includes("dependency missing"),
         ),
       ).toBe(true);
@@ -182,7 +188,7 @@ describe("displayPlan", () => {
   });
 
   it.effect("shows summary counts for unapplied plan", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -208,13 +214,13 @@ describe("displayPlan", () => {
       );
 
       expect(
-        mockLog.logs.message.some((m) => m.includes("1 to apply") && m.includes("1 error")),
+        messagesByMethod(mockLog, "message").some((m) => m.includes("1 to apply") && m.includes("1 error")),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("omits zero counts in summary", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -234,7 +240,7 @@ describe("displayPlan", () => {
         }),
       );
 
-      const summary = mockLog.logs.message.find((m) => m.includes("to apply"));
+      const summary = messagesByMethod(mockLog, "message").find((m) => m.includes("to apply"));
       expect(summary).toBeDefined();
       expect(summary).not.toContain("error");
       expect(summary).not.toContain("warning");
@@ -242,7 +248,7 @@ describe("displayPlan", () => {
   });
 
   it.effect("includes warn and error counts in unapplied summary", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -273,7 +279,7 @@ describe("displayPlan", () => {
         }),
       );
 
-      const summary = mockLog.logs.message.find((m) => m.includes("to apply"));
+      const summary = messagesByMethod(mockLog, "message").find((m) => m.includes("to apply"));
       expect(summary).toBeDefined();
       expect(summary).toContain("1 to apply");
       expect(summary).toContain("1 error");
@@ -282,7 +288,7 @@ describe("displayPlan", () => {
   });
 
   it.effect("shows success items with checkmark for applied plan", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -301,14 +307,14 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(mockLog.logs.success.some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(
+      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(
         true,
       );
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("shows error items for applied plan", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -332,16 +338,16 @@ describe("displayPlan", () => {
       );
 
       expect(
-        mockLog.logs.error.some(
+        messagesByMethod(mockLog, "error").some(
           (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
         ),
       ).toBe(true);
-      expect(mockLog.logs.error.some((m) => m.includes("commit: failed to apply"))).toBe(true);
+      expect(messagesByMethod(mockLog, "error").some((m) => m.includes("commit: failed to apply"))).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("shows cause lines for step errors in debug mode", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -370,15 +376,15 @@ describe("displayPlan", () => {
         { verbosity: { verbose: true, debug: true } },
       );
 
-      expect(mockLog.logs.error.some((m) => m.includes("Cause: connection refused"))).toBe(true);
+      expect(messagesByMethod(mockLog, "error").some((m) => m.includes("Cause: connection refused"))).toBe(true);
       expect(
-        mockLog.logs.error.some((m) => m.includes("Registry URL: https://registry.example.com")),
+        messagesByMethod(mockLog, "error").some((m) => m.includes("Registry URL: https://registry.example.com")),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
   it.effect("shows past tense summary for applied plan", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -405,7 +411,7 @@ describe("displayPlan", () => {
         }),
       );
 
-      const summary = mockLog.logs.message.find((m) => m.includes("applied"));
+      const summary = messagesByMethod(mockLog, "message").find((m) => m.includes("applied"));
       expect(summary).toBeDefined();
       expect(summary).toContain("1 applied");
       expect(summary).toContain("1 failed");
@@ -413,7 +419,7 @@ describe("displayPlan", () => {
   });
 
   it.effect("omits zero counts in applied summary", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
 
     return Effect.gen(function* () {
       yield* displayPlan(
@@ -432,7 +438,7 @@ describe("displayPlan", () => {
         }),
       );
 
-      const summary = mockLog.logs.message.find((m) => m.includes("applied"));
+      const summary = messagesByMethod(mockLog, "message").find((m) => m.includes("applied"));
       expect(summary).toBeDefined();
       expect(summary).not.toContain("failed");
     }).pipe(Effect.provide(logLayer));

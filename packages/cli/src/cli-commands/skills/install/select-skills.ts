@@ -8,7 +8,7 @@
  */
 
 import type { SkillExtensionRef } from "../../../sources/index.js";
-import { Log, Multiselect } from "../../../tui/index.js";
+import { Log, Multiselect } from "../../../clack-effect/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";

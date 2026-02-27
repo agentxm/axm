@@ -16,12 +16,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
@@ -132,11 +130,11 @@ describe("packs unpack.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -335,7 +333,7 @@ describe("packs unpack.handler", () => {
 
   describe("pack not installed", () => {
     it.effect("fails when pack is not in lockfile", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir);
@@ -354,6 +352,8 @@ describe("packs unpack.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("not installed");
           expect((result as { howToFix: string }).howToFix).toContain("axm packs install");
+          expect(mockSpinner.starts).toContain("Checking pack...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

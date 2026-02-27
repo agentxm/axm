@@ -15,17 +15,20 @@ import type * as Scope from "effect/Scope";
 
 import type { CliError } from "../cli-error/index.js";
 import {
-  TuiLive,
-  type Log,
-  Spinner,
-  type Note,
-  type TextInput,
-  type PasswordInput,
+  ClackLive,
+  type ClackLog,
+  type ClackProgress,
+  type ClackPrompt,
+  type ClackSpinner,
+  type ClackStream,
+  type ClackTaskLog,
   type Confirm,
-  type Select,
   type Multiselect,
-  type PromptCancelled,
-} from "../tui/index.js";
+  type PasswordInput,
+  type Select,
+  type TextInput,
+} from "../clack-effect/index.js";
+import type { PromptCancelled } from "../prompt-cancelled.js";
 import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
 import {
   Workspace,
@@ -38,14 +41,18 @@ import { classifyError } from "./error-handling.js";
  * Standard dependencies available to all CLI commands:
  * - FileSystem, Path (from @effect/platform-node)
  * - HttpClient (for network requests)
- * - TUI services (interactive prompts, logging, spinners)
+ * - Clack services (prompts, logging, spinner, stream, progress, task log)
+ * - Legacy prompt adapter tags (Confirm/Select/Multiselect/TextInput/PasswordInput)
  */
 export type AppLayer =
   | NodeContext.NodeContext
   | HttpClient.HttpClient
-  | Log
-  | Spinner
-  | Note
+  | ClackLog
+  | ClackSpinner
+  | ClackPrompt
+  | ClackProgress
+  | ClackTaskLog
+  | ClackStream
   | TextInput
   | PasswordInput
   | Confirm
@@ -58,7 +65,7 @@ export type AppLayer =
 export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   NodeContext.layer,
   FetchHttpClient.layer,
-  TuiLive,
+  ClackLive,
 );
 
 /**
@@ -104,12 +111,6 @@ export function run<A>(
     : (program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
 
   return provided.pipe(
-    Effect.onError(() =>
-      Effect.gen(function* () {
-        const spinner = yield* Spinner;
-        yield* spinner.stopAll;
-      }),
-    ),
     Effect.catchAll((error) =>
       Effect.sync(() => {
         const result = classifyError(error);

@@ -14,7 +14,7 @@ import {
   type Multiselect,
   makeLogTestLayer,
   makeMultiselectTestLayer,
-} from "../../../tui/index.js";
+} from "../../../clack-effect/index.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";

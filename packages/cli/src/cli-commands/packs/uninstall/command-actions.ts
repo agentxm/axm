@@ -28,7 +28,7 @@ import {
   type ExtensionTarget,
 } from "../../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { expandGlob } from "../../../skills/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
 import type {

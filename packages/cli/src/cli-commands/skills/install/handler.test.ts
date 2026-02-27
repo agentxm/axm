@@ -17,13 +17,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-  makeTextInputTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -117,15 +114,15 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, logMock] = makeLogTestLayer();
-    const [spinnerLayer] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer, multiselectMock] = makeMultiselectTestLayer({
-      type: "return",
+    const [logLayer, logMock] = makeClackLogTestLayer();
+    const [spinnerLayer, spinnerMock] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer, multiselectMock] = makeClackPromptTestLayer({
+      type: "multiselect",
       indices: [],
     });
-    const [textInputLayer] = makeTextInputTestLayer();
+    const [textInputLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -160,6 +157,7 @@ describe("skills install handler — error propagation", () => {
       provide,
       logMock,
       multiselectMock,
+      spinnerMock,
     };
   };
 
@@ -186,7 +184,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("returns INVALID_SOURCE for unparseable input", () => {
-    const { provide } = makeLayers();
+    const { provide, spinnerMock } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -195,6 +193,8 @@ describe("skills install handler — error propagation", () => {
         const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
         expect(error._tag).toBe("CliError");
         expect((error as CliError).code).toBe("INVALID_SOURCE");
+        expect(spinnerMock.starts).toContain("Parsing source...");
+        expect(spinnerMock.stops).toContain("Failed");
       }),
     );
   });

@@ -72,8 +72,8 @@ import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Confirm, Log, Multiselect } from "../tui/index.js";
-import { PromptCancelled } from "../tui/index.js";
+import { ClackLog, ClackPrompt } from "../clack-effect/index.js";
+import { PromptCancelled } from "../prompt-cancelled.js";
 import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
@@ -251,7 +251,7 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
 const augmentPlanWithReconciliation = (
   plan: Plan,
   getLockfileState: () => Effect.Effect<LockfileState, CliError>,
-  log: Log["Type"],
+  log: ClackLog["Type"],
   baseDir: string,
   workspaceDir: string,
   readSettingsSafe: (dir: string) => Effect.Effect<Settings, CliError>,
@@ -509,23 +509,22 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
         );
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
-        const multiselect = yield* Multiselect;
+        const prompt = yield* ClackPrompt;
         const allAgents = getAllAgents();
         const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
-        selectedAgents = yield* multiselect
-          .prompt<AgentDescriptor>({
-            message: "Select agents to configure",
-            items: allAgents,
-            toOption: (agent) => ({
-              value: agent.id,
-              label: agent.name,
-              hint: Option.some(`skills: ${agent.skills.dir}`),
-            }),
-            initialValues: detectedIds.length > 0 ? Option.some(detectedIds) : Option.none(),
-            required: Option.some(false),
-          })
-          .pipe(Effect.map((agents) => [...agents]));
+        const selectedIds = yield* prompt.multiselect<string>({
+          message: "Select agents to configure",
+          options: allAgents.map((agent) => ({
+            value: agent.id,
+            label: agent.name,
+            hint: `skills: ${agent.skills.dir}`,
+          })),
+          initialValues: detectedIds,
+          required: false,
+        });
+
+        selectedAgents = Array.filterMap([...selectedIds], (id) => getAgentById(id));
       }
     }
 
@@ -630,7 +629,7 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * TUI services are required for agent selection prompts.
+ * clack prompt service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Effect yielding WorkspaceContextService
@@ -657,6 +656,8 @@ const make = (options: WorkspaceContextOptions) =>
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const log = yield* ClackLog;
+    const prompt = yield* ClackPrompt;
     const semaphore = yield* Effect.makeSemaphore(1);
 
     const baseDir = path.dirname(workspaceDir);
@@ -1112,9 +1113,11 @@ const make = (options: WorkspaceContextOptions) =>
       preview: options.preview,
       resolvePlan: (plan: Plan) =>
         Effect.gen(function* () {
-          const log = yield* Log;
-          const confirm = yield* Confirm;
           const verbosity = resolveDiagnosticVerbosity();
+          const showPlan = (targetPlan: Plan | ExecutedPlan) =>
+            displayPlan(targetPlan, { verbosity }).pipe(
+              Effect.provide(Layer.succeed(ClackLog, log)),
+            );
 
           // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
           const augmentedPlan = yield* augmentPlanWithReconciliation(
@@ -1139,7 +1142,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           // Block entire plan when any step has error readiness
           if (hasErrors) {
-            yield* displayPlan(augmentedPlan, { verbosity });
+            yield* showPlan(augmentedPlan);
             return yield* makeCliError({
               code: "PLAN_BLOCKED_BY_ERRORS",
               what: "Plan has errors that prevent execution",
@@ -1149,7 +1152,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           // Warn prompting: prompt unless --force
           if (hasWarns && !(options.force ?? false)) {
-            yield* displayPlan(augmentedPlan, { verbosity });
+            yield* showPlan(augmentedPlan);
 
             if (resolvedNonInteractive) {
               return yield* makeCliError({
@@ -1162,7 +1165,7 @@ const make = (options: WorkspaceContextOptions) =>
             const warnMessages = allSteps
               .filter((s) => s.readiness === "warn")
               .map((s) => `${s.label}: ${s.warnMessage}`);
-            const confirmed = yield* confirm.prompt({
+            const confirmed = yield* prompt.confirm({
               message: `Plan has warnings:\n${warnMessages.join("\n")}\nProceed?`,
             });
             if (!confirmed) {
@@ -1174,7 +1177,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           if (options.preview) {
             yield* log.info("Previewing changes...");
-            yield* displayPlan(augmentedPlan, { verbosity });
+            yield* showPlan(augmentedPlan);
 
             // In non-interactive mode without --yes, preview is display-only (dry-run)
             if (resolvedNonInteractive && !options.yes) {
@@ -1186,7 +1189,7 @@ const make = (options: WorkspaceContextOptions) =>
             }
 
             if (!options.yes) {
-              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
+              const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
               if (!confirmed) {
                 yield* log.success("Cancelled.");
                 return {
@@ -1199,7 +1202,7 @@ const make = (options: WorkspaceContextOptions) =>
           }
 
           const executed = yield* applyPlan(augmentedPlan);
-          yield* displayPlan(executed, { verbosity });
+          yield* showPlan(executed);
           return executed;
         }),
 
@@ -2523,7 +2526,7 @@ const make = (options: WorkspaceContextOptions) =>
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * TUI services are required for agent selection prompts.
+ * clack prompt service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext
@@ -2560,9 +2563,7 @@ export interface WorkspaceContextService {
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, CliError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags. */
-  readonly resolvePlan: (
-    plan: Plan,
-  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, Log | Confirm>;
+  readonly resolvePlan: (plan: Plan) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */

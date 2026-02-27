@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
 import { enableSkill } from "../../../extensions/skills/operations/enable.js";

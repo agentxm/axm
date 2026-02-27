@@ -15,7 +15,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
@@ -62,33 +62,37 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   yield* log.info("axm packs unpack");
 
   // Validate pack exists in lockfile
-  const handle = yield* spinnerSvc.start("Checking pack...");
-  const lockedPack = yield* ws.getLockedPack(args.name);
+  const entry = yield* spinnerSvc.withSpinner(
+    "Checking pack...",
+    () =>
+      Effect.gen(function* () {
+        const lockedPack = yield* ws.getLockedPack(args.name);
 
-  if (Option.isNone(lockedPack)) {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "PACK_NOT_INSTALLED",
-        what: `Pack "${args.name}" is not installed`,
-        howToFix: "Install the pack first with `axm packs install`.",
+        if (Option.isNone(lockedPack)) {
+          return yield* Effect.fail(
+            makeCliError({
+              code: "PACK_NOT_INSTALLED",
+              what: `Pack "${args.name}" is not installed`,
+              howToFix: "Install the pack first with `axm packs install`.",
+            }),
+          );
+        }
+
+        const entry = lockedPack.value;
+
+        if (entry.type !== "registry") {
+          return yield* Effect.fail(
+            makeCliError({
+              code: "PACK_UNPACK_UNSUPPORTED",
+              what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+            }),
+          );
+        }
+
+        return entry;
       }),
-    );
-  }
-
-  const entry = lockedPack.value;
-
-  if (entry.type !== "registry") {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "PACK_UNPACK_UNSUPPORTED",
-        what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
-      }),
-    );
-  }
-
-  yield* handle.stop(`Found ${args.name}`);
+    { successMessage: `Found ${args.name}` },
+  );
 
   // Look up the registry source used for this pack
   const sourceOpt = yield* ws.getConfiguredSourceByName(entry.sourceName);

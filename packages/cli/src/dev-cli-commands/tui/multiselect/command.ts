@@ -1,24 +1,24 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { Log, Multiselect, TuiLive } from "../../../tui/index.js";
+import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
 
 export const multiselectCommand: CommandModule = {
   command: "multiselect",
   describe: "Demo multiselect prompt",
   handler: () => {
     const program = Effect.gen(function* () {
-      const multiselect = yield* Multiselect;
-      const log = yield* Log;
-      const choices = yield* multiselect.prompt({
+      const prompt = yield* ClackPrompt;
+      const log = yield* ClackLog;
+      const choices = yield* prompt.multiselect({
         message: "Pick your favorite fruits:",
-        items: ["Apple", "Banana", "Cherry", "Date", "Elderberry"],
-        toOption: (item) => ({ label: item, value: item, hint: Option.none() }),
-        initialValues: Option.none(),
-        required: Option.some(true),
+        options: ["Apple", "Banana", "Cherry", "Date", "Elderberry"].map((item) => ({
+          value: item,
+          label: item,
+        })),
+        required: true,
       });
       yield* log.success(`You picked: ${choices.join(", ")}`);
     });
-    return Effect.runPromise(program.pipe(Effect.provide(TuiLive)));
+    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
   },
 };

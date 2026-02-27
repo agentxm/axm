@@ -134,18 +134,12 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define --yes option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["yes"]).toBeUndefined();
     }
   });
 
@@ -163,18 +157,12 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --force option with boolean type and default false", () => {
+  it("does not define --force option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["force"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "f",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["force"]).toBeUndefined();
     }
   });
 
@@ -198,16 +186,6 @@ describe("skills install command options", () => {
     }
   });
 
-  it("includes description for --yes option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]?.describe).toBeDefined();
-      expect(capturedOptions["yes"]?.describe).toContain("prompts");
-    }
-  });
-
   it("includes description for --all option", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
@@ -218,26 +196,12 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --non-interactive option with boolean type and no default", () => {
+  it("does not define --non-interactive option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
-    }
-  });
-
-  it("includes description for --non-interactive option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]?.describe).toBeDefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 });
@@ -310,7 +274,6 @@ describe("skills install command parser", () => {
     const argv = await createParser().parse(["install", "owner/repo"]);
 
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
     expect(argv["all"]).toBe(false);
     expect(argv["skill"]).toEqual([]);
   });
@@ -321,34 +284,10 @@ describe("skills install command parser", () => {
     expect(argv["scope"]).toBe("user");
   });
 
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "--yes"]);
-
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "-y"]);
-
-    expect(argv["yes"]).toBe(true);
-  });
-
   it("parses --all flag", async () => {
     const argv = await createParser().parse(["install", "owner/repo", "--all"]);
 
     expect(argv["all"]).toBe(true);
-  });
-
-  it("parses --force flag", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "--force"]);
-
-    expect(argv["force"]).toBe(true);
-  });
-
-  it("parses -f alias for --force", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "-f"]);
-
-    expect(argv["force"]).toBe(true);
   });
 
   it("parses single --skill value", async () => {
@@ -376,14 +315,12 @@ describe("skills install command parser", () => {
       "owner/repo",
       "--scope",
       "user",
-      "-y",
       "--skill",
       "pr-review",
     ]);
 
     expect(argv["source"]).toBe("owner/repo");
     expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
     expect(argv["skill"]).toEqual(["pr-review"]);
   });
 });

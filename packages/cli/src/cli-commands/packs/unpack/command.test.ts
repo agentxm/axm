@@ -52,26 +52,11 @@ describe("packs unpack command", () => {
     expect(capturedPositionals["name"]?.demandOption).toBe(true);
   });
 
-  it("defines --yes flag with default false", () => {
+  it("does not define per-command --yes, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (unpackCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.type).toBe("boolean");
-    expect(capturedOptions["yes"]?.default).toBe(false);
-  });
-
-  it("defines --preview flag with default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (unpackCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.type).toBe("boolean");
-    expect(capturedOptions["preview"]?.default).toBe(false);
-  });
-
-  it("defines --non-interactive flag as optional boolean", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (unpackCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["non-interactive"]).toBeDefined();
-    expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
+    expect(capturedOptions["yes"]).toBeUndefined();
+    expect(capturedOptions["preview"]).toBeUndefined();
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 });

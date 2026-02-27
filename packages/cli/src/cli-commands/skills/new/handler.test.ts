@@ -15,8 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
@@ -53,7 +53,6 @@ const defaultArgs = (
   name,
   namespace: Option.none(),
   agents: Option.none(),
-  yes: true,
   ...overrides,
 });
 
@@ -76,16 +75,24 @@ describe("skills-new.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
+  const makeLayers = (
+    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+  ) => {
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer();
+    const [selectLayer] = makeClackPromptTestLayer();
+    const [multiselectLayer] = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest(flagsOverrides),
+    );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
-      ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
@@ -94,12 +101,12 @@ describe("skills-new.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog };
   };
 
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
-      const { provide } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme", agents: ["claude-code"] });
 
       return provide(
@@ -150,11 +157,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(symlinkPath)).toBe(true);
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
-              m.includes("@acme/skills/my-skill"),
-            ),
-          ).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
         }),
       );
     });
@@ -325,12 +328,12 @@ describe("skills-new.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide } = makeLayers({ preview: true, yes: false });
+      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
       initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { yes: false }));
+          yield* handleSkillsNew(defaultArgs("my-skill"));
 
           // Manifest should NOT be created
           const manifestPath = path.join(
@@ -354,9 +357,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(symlinkPath)).toBe(false);
 
           // Preview log message should appear
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.info.some((m) => m.includes("Previewing")),
-          ).toBe(true);
+          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
         }),
       );
     });

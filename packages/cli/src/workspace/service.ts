@@ -22,6 +22,7 @@
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import { getAgentById } from "../agents/index.js";
+import { CliFlags } from "../cli-flags/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -84,8 +85,6 @@ import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./rec
 import type { ReconciliationContext } from "./reconciliation-types.js";
 import { classifyExtensions } from "./classifier.js";
 import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
-import { isInteractive } from "../utils/tty.js";
-
 // Extracted modules
 import {
   BUILT_IN_SOURCES,
@@ -296,16 +295,8 @@ export type WorkspaceContextError = CliError | PromptCancelled;
 export interface WorkspaceContextOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
-  /** Auto-accept detected agents without prompting */
-  readonly yes: boolean;
-  /** Disable all prompts; Option.none() falls back to CI detection */
-  readonly nonInteractive: Option.Option<boolean>;
-  /** Show plan without applying (preview mode) */
-  readonly preview: boolean;
   /** Explicit agent IDs to use (overrides detection and prompting) */
   readonly agents: Option.Option<readonly string[]>;
-  /** Auto-accept warn-readiness steps without prompting (default: false) */
-  readonly force?: boolean;
 }
 
 /**
@@ -330,17 +321,10 @@ const make = (options: WorkspaceContextOptions) =>
     const localDir = yield* getAxmDir("project");
     const workspaceDir = isUserScope(options.scope) ? globalDir : localDir;
 
-    const resolvedNonInteractive = Option.getOrElse(
-      options.nonInteractive,
-      () => process.env["CI"] === "true" || !isInteractive(),
-    );
-
-    const resolvedYes = options.yes || resolvedNonInteractive;
-
     if (isUserScope(options.scope)) {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
-      yield* ensureProjectWorkspaceInitialized(localDir, options, resolvedNonInteractive);
+      yield* ensureProjectWorkspaceInitialized(localDir, options);
     }
 
     // Capture FileSystem and Path for use in closures
@@ -609,10 +593,10 @@ const make = (options: WorkspaceContextOptions) =>
       scope: options.scope,
       path: workspaceDir,
       baseDir,
-      nonInteractive: resolvedNonInteractive,
-      preview: options.preview,
       resolvePlan: (plan: Plan) =>
         Effect.gen(function* () {
+          const flags = yield* CliFlags;
+          const resolvedYes = flags.yes || flags.nonInteractive;
           const verbosity = resolveDiagnosticVerbosity();
           const showPlan = (targetPlan: Plan | ExecutedPlan) =>
             displayPlan(targetPlan, { verbosity }).pipe(
@@ -642,7 +626,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           // Block entire plan when any step has error readiness (unless --force)
           if (hasErrors) {
-            if (options.force) {
+            if (flags.force) {
               // --force: downgrade errors to warnings and proceed
               yield* Effect.forEach(errorMessages, (msg) => log.warn(msg));
             } else {
@@ -664,12 +648,12 @@ const make = (options: WorkspaceContextOptions) =>
             yield* Effect.forEach(warnMessages, (msg) => log.warn(msg));
           }
 
-          if (options.preview) {
+          if (flags.preview) {
             yield* log.info("Previewing changes...");
             yield* showPlan(augmentedPlan);
 
             // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
-            if (resolvedNonInteractive && !options.yes) {
+            if (flags.nonInteractive && !flags.yes) {
               return {
                 _tag: "ExecutedPlan",
                 name: augmentedPlan.name,
@@ -1613,14 +1597,12 @@ export interface WorkspaceContextService {
   readonly path: string;
   /** Project root directory (parent of .axm) */
   readonly baseDir: string;
-  /** Resolved nonInteractive flag (explicit value or CI detection fallback) */
-  readonly nonInteractive: boolean;
-  /** Whether to show plan without applying (preview mode) */
-  readonly preview: boolean;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, CliError>;
-  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags. */
-  readonly resolvePlan: (plan: Plan) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError>;
+  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags from CliFlags. */
+  readonly resolvePlan: (
+    plan: Plan,
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, CliFlags>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */

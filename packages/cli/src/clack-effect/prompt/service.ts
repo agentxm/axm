@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { CliFlags } from "../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../cli-error/index.js";
 import { PromptCancelled } from "../../prompt-cancelled.js";
 import type {
@@ -34,36 +35,38 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
     ),
   );
 
+export interface ClackPromptService {
+  readonly text: (config: ClackTextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+  readonly password: (
+    config: ClackPasswordConfig,
+  ) => Effect.Effect<string, CliError | PromptCancelled>;
+  readonly confirm: (
+    config: ClackConfirmConfig,
+  ) => Effect.Effect<boolean, CliError | PromptCancelled>;
+  readonly select: <V>(
+    config: ClackSelectConfig<V>,
+  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  readonly multiselect: <V>(
+    config: ClackMultiselectConfig<V>,
+  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+  readonly groupMultiselect: <V>(
+    config: ClackGroupMultiselectConfig<V>,
+  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+  readonly selectKey: <V extends string>(
+    config: ClackSelectKeyConfig<V>,
+  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  readonly autocomplete: <V>(
+    config: ClackAutocompleteConfig<V>,
+  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  readonly autocompleteMultiselect: <V>(
+    config: ClackAutocompleteMultiselectConfig<V>,
+  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+  readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+}
+
 export class ClackPrompt extends Context.Tag("@axm.sh/cli/clack-effect/ClackPrompt")<
   ClackPrompt,
-  {
-    readonly text: (config: ClackTextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
-    readonly password: (
-      config: ClackPasswordConfig,
-    ) => Effect.Effect<string, CliError | PromptCancelled>;
-    readonly confirm: (
-      config: ClackConfirmConfig,
-    ) => Effect.Effect<boolean, CliError | PromptCancelled>;
-    readonly select: <V>(
-      config: ClackSelectConfig<V>,
-    ) => Effect.Effect<V, CliError | PromptCancelled>;
-    readonly multiselect: <V>(
-      config: ClackMultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-    readonly groupMultiselect: <V>(
-      config: ClackGroupMultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-    readonly selectKey: <V extends string>(
-      config: ClackSelectKeyConfig<V>,
-    ) => Effect.Effect<V, CliError | PromptCancelled>;
-    readonly autocomplete: <V>(
-      config: ClackAutocompleteConfig<V>,
-    ) => Effect.Effect<V, CliError | PromptCancelled>;
-    readonly autocompleteMultiselect: <V>(
-      config: ClackAutocompleteMultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-    readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
-  }
+  ClackPromptService
 >() {}
 
 // Assertion needed: our readonly config types are structurally compatible with Clack's
@@ -71,29 +74,49 @@ export class ClackPrompt extends Context.Tag("@axm.sh/cli/clack-effect/ClackProm
 // We cast once at the boundary when passing to Clack functions.
 const asClack = <T>(config: unknown): T => config as T;
 
-const makeLiveClackPromptService = (): Context.Tag.Service<typeof ClackPrompt> => ({
-  text: (config) => wrapPrompt(() => p.text(asClack(config))),
+const guardedPrompt = <T>(
+  nonInteractive: boolean,
+  thunk: () => Promise<T | symbol>,
+): Effect.Effect<T, CliError | PromptCancelled> =>
+  nonInteractive
+    ? Effect.fail(
+        makeCliError({
+          code: "PROMPT_IN_NON_INTERACTIVE",
+          what: "Interactive prompt reached in non-interactive mode",
+          howToFix:
+            "This is a bug — the handler should bypass this prompt when --non-interactive is set",
+        }),
+      )
+    : wrapPrompt(thunk);
 
-  password: (config) => wrapPrompt(() => p.password(asClack(config))),
+const makeLiveClackPromptService = (nonInteractive: boolean): ClackPromptService => ({
+  text: (config) => guardedPrompt(nonInteractive, () => p.text(asClack(config))),
 
-  confirm: (config) => wrapPrompt(() => p.confirm(asClack(config))),
+  password: (config) => guardedPrompt(nonInteractive, () => p.password(asClack(config))),
 
-  select: (config) => wrapPrompt(() => p.select(asClack(config))),
+  confirm: (config) => guardedPrompt(nonInteractive, () => p.confirm(asClack(config))),
 
-  multiselect: (config) => wrapPrompt(() => p.multiselect(asClack(config))),
+  select: (config) => guardedPrompt(nonInteractive, () => p.select(asClack(config))),
 
-  groupMultiselect: (config) => wrapPrompt(() => p.groupMultiselect(asClack(config))),
+  multiselect: (config) => guardedPrompt(nonInteractive, () => p.multiselect(asClack(config))),
 
-  selectKey: (config) => wrapPrompt(() => p.selectKey(asClack(config))),
+  groupMultiselect: (config) =>
+    guardedPrompt(nonInteractive, () => p.groupMultiselect(asClack(config))),
 
-  autocomplete: (config) => wrapPrompt(() => p.autocomplete(asClack(config))),
+  selectKey: (config) => guardedPrompt(nonInteractive, () => p.selectKey(asClack(config))),
 
-  autocompleteMultiselect: (config) => wrapPrompt(() => p.autocompleteMultiselect(asClack(config))),
+  autocomplete: (config) => guardedPrompt(nonInteractive, () => p.autocomplete(asClack(config))),
 
-  path: (config) => wrapPrompt(() => p.path(asClack(config))),
+  autocompleteMultiselect: (config) =>
+    guardedPrompt(nonInteractive, () => p.autocompleteMultiselect(asClack(config))),
+
+  path: (config) => guardedPrompt(nonInteractive, () => p.path(asClack(config))),
 });
 
-export const ClackPromptLive: Layer.Layer<ClackPrompt> = Layer.succeed(
+export const ClackPromptLive: Layer.Layer<ClackPrompt, never, CliFlags> = Layer.effect(
   ClackPrompt,
-  makeLiveClackPromptService(),
+  Effect.gen(function* () {
+    const flags = yield* CliFlags;
+    return makeLiveClackPromptService(flags.nonInteractive);
+  }),
 );

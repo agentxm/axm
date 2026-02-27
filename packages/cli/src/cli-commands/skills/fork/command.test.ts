@@ -52,27 +52,22 @@ describe("skills fork command", () => {
     expect(capturedPositionals["source"]?.demandOption).toBe(true);
   });
 
-  it("defines --yes flag with default false", () => {
+  it("does not define --yes flag (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.type).toBe("boolean");
-    expect(capturedOptions["yes"]?.default).toBe(false);
+    expect(capturedOptions["yes"]).toBeUndefined();
   });
 
-  it("defines --preview flag with default false", () => {
+  it("does not define --preview flag (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.type).toBe("boolean");
-    expect(capturedOptions["preview"]?.default).toBe(false);
+    expect(capturedOptions["preview"]).toBeUndefined();
   });
 
-  it("defines --non-interactive flag as optional boolean", () => {
+  it("does not define --non-interactive flag (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["non-interactive"]).toBeDefined();
-    expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 
   it("defines --skill flag as string array with default empty", () => {

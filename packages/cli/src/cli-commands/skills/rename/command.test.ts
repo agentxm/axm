@@ -110,46 +110,30 @@ describe("skills rename command options", () => {
     }
   });
 
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define --yes option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof renameCommand.builder === "function") {
       renameCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["yes"]).toBeUndefined();
     }
   });
 
-  it("defines --preview option with boolean type and default false", () => {
+  it("does not define --preview option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof renameCommand.builder === "function") {
       renameCommand.builder(mockYargs);
-      expect(capturedOptions["preview"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          default: false,
-        }),
-      );
+      expect(capturedOptions["preview"]).toBeUndefined();
     }
   });
 
-  it("defines --non-interactive option with boolean type and no default", () => {
+  it("does not define --non-interactive option (global flag)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof renameCommand.builder === "function") {
       renameCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 });
@@ -197,8 +181,6 @@ describe("skills rename command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["rename", "old-skill", "new-skill"]);
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
-    expect(argv["preview"]).toBe(false);
   });
 
   it("parses --scope user", async () => {
@@ -212,35 +194,16 @@ describe("skills rename command parser", () => {
     expect(argv["scope"]).toBe("user");
   });
 
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["rename", "old-skill", "new-skill", "--yes"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["rename", "old-skill", "new-skill", "-y"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["rename", "old-skill", "new-skill", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
-  it("parses combination of flags", async () => {
+  it("parses combination of positionals and scope", async () => {
     const argv = await createParser().parse([
       "rename",
       "old-skill",
       "new-skill",
       "--scope",
       "user",
-      "-y",
-      "--preview",
     ]);
     expect(argv["old-name"]).toBe("old-skill");
     expect(argv["new-name"]).toBe("new-skill");
     expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
-    expect(argv["preview"]).toBe(true);
   });
 });

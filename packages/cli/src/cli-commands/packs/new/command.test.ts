@@ -58,49 +58,11 @@ describe("packs new command", () => {
     expect(capturedOptions["namespace"]?.type).toBe("string");
   });
 
-  it("defines --yes flag with default false", () => {
+  it("does not define per-command --yes, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (packsNewCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.type).toBe("boolean");
-    expect(capturedOptions["yes"]?.default).toBe(false);
-  });
-
-  it("defines --preview flag with default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (packsNewCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.type).toBe("boolean");
-    expect(capturedOptions["preview"]?.default).toBe(false);
-  });
-
-  it("defines --non-interactive flag as optional boolean", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (packsNewCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["non-interactive"]).toBeDefined();
-    expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
-  });
-});
-
-describe("packs new command parser", () => {
-  const createParser = () =>
-    yargs()
-      .command({
-        command: packsNewCommand.command,
-        describe: packsNewCommand.describe,
-        builder: packsNewCommand.builder,
-        handler: () => {},
-      })
-      .exitProcess(false)
-      .fail(false);
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["new", "my-pack", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
-  it("defaults --preview to false", async () => {
-    const argv = await createParser().parse(["new", "my-pack"]);
-    expect(argv["preview"]).toBe(false);
+    expect(capturedOptions["yes"]).toBeUndefined();
+    expect(capturedOptions["preview"]).toBeUndefined();
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 });

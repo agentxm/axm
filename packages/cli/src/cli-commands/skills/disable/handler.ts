@@ -24,8 +24,6 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 export interface DisableHandlerArgs {
   /** Name of the skill to disable */
   readonly name: string;
-  /** Skip confirmations */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

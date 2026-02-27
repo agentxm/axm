@@ -15,9 +15,6 @@ import { CommandManagerLive } from "../../../extensions/commands/manager.js";
 
 interface UninstallCommandCommandArgs {
   name: string;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -31,21 +28,6 @@ export const uninstallCommandCommand: CommandModule<{}, UninstallCommandCommandA
         describe: "Name of the command to uninstall",
         demandOption: true,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display uninstall plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 commands uninstall my-cmd", "Uninstall a command"),
   handler: async (argv) => {
     const actionsLayer = Layer.provide(
@@ -55,15 +37,17 @@ export const uninstallCommandCommand: CommandModule<{}, UninstallCommandCommandA
 
     const program = handleUninstallCommand({
       commandName: argv.name,
-      yes: argv.yes,
     }).pipe(Effect.provide(actionsLayer));
 
     await run(program, {
+      flags: {
+        nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+        yes: argv["yes"] as boolean,
+        force: argv["force"] as boolean,
+        preview: argv["preview"] as boolean,
+      },
       workspace: {
         scope: "project",
-        yes: argv.yes,
-        nonInteractive: Option.fromNullable(argv["non-interactive"]),
-        preview: argv.preview,
         agents: Option.none(),
       },
     });

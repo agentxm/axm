@@ -14,17 +14,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
-import {
-  ClackSpinnerTestLayer,
-  ClackSpinnerTest,
-} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
 import {
   makeClackPromptTestLayer,
-  type ConfirmBehavior,
-  type SelectBehavior,
-  type MultiselectBehavior,
-} from "../../../clack-effect/prompt/ClackPromptTest.js";
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -96,9 +91,6 @@ const defaultArgs = (
 ): InstallPackHandlerArgs => ({
   source,
   scope: "project",
-  yes: true,
-  force: false,
-  nonInteractive: Option.some(true),
   ...overrides,
 });
 
@@ -123,32 +115,35 @@ describe("packs install handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: ConfirmBehavior;
-      selectBehavior?: SelectBehavior;
-      multiselectBehavior?: MultiselectBehavior;
+      confirmBehavior?: import("../../../clack-effect/index.js").ConfirmBehavior;
+      selectBehavior?: import("../../../clack-effect/index.js").SelectBehavior;
+      multiselectBehavior?: import("../../../clack-effect/index.js").MultiselectBehavior;
     },
-    wsOverrides?: Partial<WorkspaceContextOptions>,
+    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
-        select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
-        multiselect: tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer(
+      tuiConfig?.confirmBehavior ?? { type: "return", value: true },
+    );
+    const [selectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
+    );
+    const [multiselectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
+    );
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest({ yes: true, ...flagsOverrides }),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
-      ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
@@ -170,33 +165,30 @@ describe("packs install handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog, mockSpinner };
   };
 
   const makeLayersWithMockSources = (
     mockService: SourceHostProvidersService,
-    wsOverrides?: Partial<WorkspaceContextOptions>,
+    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const promptLayer = makeClackPromptTestLayer({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
-    });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      CliFlagsTest({ yes: true, preview: true, ...flagsOverrides }),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: true,
       agents: Option.none(),
-      ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
@@ -218,7 +210,7 @@ describe("packs install handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return { provide, mockLog, mockSpinner };
   };
 
   // ---------------------------------------------------------------------------
@@ -425,7 +417,7 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
@@ -456,10 +448,10 @@ describe("packs install handler", () => {
           yield* handleInstallPack(defaultArgs("@acme/packs/my-pack"));
 
           const allLogs = [
-            ...(yield* (yield* ClackLogTest).get).logs.info,
-            ...(yield* (yield* ClackLogTest).get).logs.message,
-            ...(yield* (yield* ClackLogTest).get).logs.warn,
-            ...(yield* (yield* ClackLogTest).get).logs.success,
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.warn,
+            ...mockLog.logs.success,
           ].join("\n");
           // The shared workflow always builds install plan steps
           expect(allLogs).toContain("my-pack");
@@ -475,9 +467,9 @@ describe("packs install handler", () => {
 
   describe("preview mode", () => {
     it.effect("fails at source resolution when no registry configured", () => {
-      const { provide } = makeLayers(
+      const { provide, mockSpinner } = makeLayers(
         { confirmBehavior: { type: "return", value: false } },
-        { preview: true, yes: false, nonInteractive: Option.some(true) },
+        { preview: true, yes: false },
       );
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -488,8 +480,8 @@ describe("packs install handler", () => {
           );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("INVALID_SOURCE");
-          expect((yield* (yield* ClackSpinnerTest).get).starts).toContain("Parsing source...");
-          expect((yield* (yield* ClackSpinnerTest).get).stops).toContain("Failed");
+          expect(mockSpinner.starts).toContain("Parsing source...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });
@@ -562,17 +554,17 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
 
           const allLogs = [
-            ...(yield* (yield* ClackLogTest).get).logs.info,
-            ...(yield* (yield* ClackLogTest).get).logs.message,
-            ...(yield* (yield* ClackLogTest).get).logs.success,
-            ...(yield* (yield* ClackLogTest).get).logs.warn,
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
           ].join("\n");
           expect(allLogs).toContain("test-pack");
         }),
@@ -603,7 +595,7 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService, { preview: false });
+      const { provide } = makeLayersWithMockSources(mockService, { preview: false, yes: true });
 
       return provide(
         Effect.gen(function* () {
@@ -647,17 +639,17 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
 
           const allLogs = [
-            ...(yield* (yield* ClackLogTest).get).logs.info,
-            ...(yield* (yield* ClackLogTest).get).logs.message,
-            ...(yield* (yield* ClackLogTest).get).logs.success,
-            ...(yield* (yield* ClackLogTest).get).logs.warn,
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
           ].join("\n");
           // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
@@ -727,16 +719,14 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/effect"));
           expect(attemptedRemote).toBe(true);
           expect(attemptedFile).toBe(true);
-          expect((yield* (yield* ClackLogTest).get).logs.info).toContain(
-            "Registry source: local (file:///tmp/reg)",
-          );
+          expect(mockLog.logs.info).toContain("Registry source: local (file:///tmp/reg)");
         }),
       );
     });
@@ -776,17 +766,15 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("effect"));
 
-          expect((yield* (yield* ClackLogTest).get).logs.info).toContain(
-            "Source resolution: effect -> @axm/packs/effect",
-          );
+          expect(mockLog.logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
           expect(
-            (yield* (yield* ClackLogTest).get).logs.info.some(
+            mockLog.logs.info.some(
               (line) =>
                 line.includes("Host resolution:") &&
                 line.includes("http://localhost:4300/") &&
@@ -875,17 +863,17 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/multi-pack"));
 
           const allLogs = [
-            ...(yield* (yield* ClackLogTest).get).logs.info,
-            ...(yield* (yield* ClackLogTest).get).logs.message,
-            ...(yield* (yield* ClackLogTest).get).logs.success,
-            ...(yield* (yield* ClackLogTest).get).logs.warn,
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
           ].join("\n");
           // Plan should include the pack and all extension steps
           expect(allLogs).toContain("multi-pack");
@@ -927,17 +915,17 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/dep-pack"));
 
           const allLogs = [
-            ...(yield* (yield* ClackLogTest).get).logs.info,
-            ...(yield* (yield* ClackLogTest).get).logs.message,
-            ...(yield* (yield* ClackLogTest).get).logs.success,
-            ...(yield* (yield* ClackLogTest).get).logs.warn,
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
           ].join("\n");
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
@@ -954,7 +942,7 @@ describe("packs install handler", () => {
 
   describe("--force propagation", () => {
     it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-      const { provide } = makeLayers(undefined, { force: true });
+      const { provide, mockLog } = makeLayers(undefined, { force: true, yes: true });
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -979,11 +967,7 @@ describe("packs install handler", () => {
           };
           const result = yield* ws.resolvePlan(plan);
           // --force downgrades errors to warnings and proceeds
-          expect(
-            (yield* (yield* ClackLogTest).get).logs.warn.some((m: string) =>
-              m.includes("Test error step"),
-            ),
-          ).toBe(true);
+          expect(mockLog.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
           expect(result._tag).toBe("ExecutedPlan");
         }),
       );

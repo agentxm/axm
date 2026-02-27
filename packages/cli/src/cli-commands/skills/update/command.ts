@@ -1,6 +1,7 @@
 import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleUpdate } from "./handler.js";
 import {
   WORKSPACE_SCOPES,
@@ -14,10 +15,6 @@ interface UpdateCommandArgs {
   scope: WorkspaceScope;
   agent: ReadonlyArray<string>;
   skill: ReadonlyArray<string>;
-  yes: boolean;
-  force: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -48,27 +45,6 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
         describe: "Update only specified skill(s) by name or glob",
         default: [],
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("force", {
-        alias: "f",
-        type: "boolean",
-        describe: "Override constraints that would cause failure",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display update plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills update", "Update all installed skills")
       .example("$0 skills update owner/repo", "Update skills from a specific source")
       .example("$0 skills update --skill pr-review", "Update a specific skill by name")
@@ -81,18 +57,12 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
         scope,
         agents: argv.agent,
         skills: argv.skill,
-        yes: argv.yes,
-        force: argv.force,
-        nonInteractive: Option.fromNullable(argv["non-interactive"]),
       }),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope,
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
-          force: argv.force,
         },
       },
     );

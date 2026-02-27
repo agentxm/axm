@@ -24,8 +24,6 @@ export interface RenameHandlerArgs {
   readonly oldName: string;
   /** New name for the skill */
   readonly newName: string;
-  /** Skip confirmations */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

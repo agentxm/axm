@@ -1,6 +1,8 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { ClackLive, ClackLog } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 
 export const noteCommand: CommandModule = {
   command: "note",
@@ -11,6 +13,10 @@ export const noteCommand: CommandModule = {
       yield* log.note("This is a note with a title.", "Welcome");
       yield* log.note("This is a note without a title.");
     });
-    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
+    return Effect.runPromise(
+      program.pipe(
+        Effect.provide(Layer.provide(ClackLive, CliFlagsTest({ nonInteractive: false }))),
+      ),
+    );
   },
 };

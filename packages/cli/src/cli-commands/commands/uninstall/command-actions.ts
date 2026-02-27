@@ -31,7 +31,6 @@ import type { CommandExtensionRef } from "../../../sources/types.js";
 
 export interface UninstallCommandHandlerArgs {
   readonly commandName: string;
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

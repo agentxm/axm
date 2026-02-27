@@ -16,15 +16,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ClackLogTest, ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import {
-  ClackSpinnerTest,
-  ClackSpinnerTestLayer,
-} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
-import {
-  ClackPromptTest,
   makeClackPromptTestLayer,
-} from "../../../clack-effect/prompt/ClackPromptTest.js";
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer,
+} from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -95,10 +92,7 @@ const defaultArgs = (
   source,
   scope: "project",
   skills: [],
-  yes: true,
   all: false,
-  force: false,
-  nonInteractive: Option.some(true),
   ...overrides,
 });
 
@@ -121,28 +115,31 @@ describe("skills install handler — error propagation", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const promptLayer = makeClackPromptTestLayer({
-      defaultBehavior: { type: "return", value: "" },
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+  const makeLayers = (
+    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+  ) => {
+    const [logLayer, logMock] = makeClackLogTestLayer();
+    const [spinnerLayer, spinnerMock] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer, multiselectMock] = makeClackPromptTestLayer({
+      type: "multiselect",
+      indices: [],
     });
+    const [textInputLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      ClackLogTestLayer,
-      ClackSpinnerTestLayer,
-      promptLayer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+      textInputLayer,
+      CliFlagsTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      yes: true,
-      nonInteractive: Option.some(true),
-      preview: false,
       agents: Option.none(),
-      ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
@@ -157,7 +154,12 @@ describe("skills install handler — error propagation", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return {
+      provide,
+      logMock,
+      multiselectMock,
+      spinnerMock,
+    };
   };
 
   it.effect(
@@ -183,7 +185,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("returns INVALID_SOURCE for unparseable input", () => {
-    const { provide } = makeLayers();
+    const { provide, spinnerMock } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -192,9 +194,8 @@ describe("skills install handler — error propagation", () => {
         const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
         expect(error._tag).toBe("CliError");
         expect((error as CliError).code).toBe("INVALID_SOURCE");
-        const spinner = yield* (yield* ClackSpinnerTest).get;
-        expect(spinner.starts).toContain("Parsing source...");
-        expect(spinner.stops).toContain("Failed");
+        expect(spinnerMock.starts).toContain("Parsing source...");
+        expect(spinnerMock.stops).toContain("Failed");
       }),
     );
   });
@@ -224,9 +225,9 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
-    const { provide } = makeLayers({
+    const { provide, logMock, multiselectMock } = makeLayers({
       yes: false,
-      nonInteractive: Option.none(),
+      nonInteractive: false,
     });
 
     const registryDir = path.join(tempDir, "registry");
@@ -242,17 +243,10 @@ describe("skills install handler — error propagation", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleInstall(
-          defaultArgs("effect-basics", {
-            yes: false,
-            nonInteractive: Option.none(),
-          }),
-        );
+        yield* handleInstall(defaultArgs("effect-basics"));
 
-        const promptCalls = yield* (yield* ClackPromptTest).get;
-        expect(promptCalls).toHaveLength(0);
-        const logRecord = yield* (yield* ClackLogTest).get;
-        expect(logRecord.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
+        expect(multiselectMock.calls).toHaveLength(0);
+        expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
       }),
     );
   });
@@ -279,7 +273,7 @@ describe("skills install handler — error propagation", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-    const { provide } = makeLayers({ force: true });
+    const { provide, logMock } = makeLayers({ force: true });
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -304,8 +298,7 @@ describe("skills install handler — error propagation", () => {
         };
         const result = yield* ws.resolvePlan(plan);
         // --force downgrades errors to warnings and proceeds
-        const logRecord = yield* (yield* ClackLogTest).get;
-        expect(logRecord.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+        expect(logMock.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");
       }),
     );

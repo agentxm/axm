@@ -8,7 +8,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
 import { runInstallCommandWorkflow } from "../../../workflows/install-command/workflow.js";
 import type { WorkspaceScope } from "../../../workspace/scope.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
@@ -27,14 +26,8 @@ export interface InstallHandlerArgs {
   readonly scope: WorkspaceScope;
   /** Specific skill(s) to install (by name) */
   readonly skills: readonly string[];
-  /** Skip confirmations */
-  readonly yes: boolean;
   /** Install all available skills */
   readonly all: boolean;
-  /** Auto-accept plan warnings without prompting */
-  readonly force: boolean;
-  /** Disable all prompts */
-  readonly nonInteractive: Option.Option<boolean>;
 }
 
 // -----------------------------------------------------------------------------

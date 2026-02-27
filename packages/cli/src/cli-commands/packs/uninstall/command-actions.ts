@@ -46,7 +46,6 @@ import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 /** Raw handler args from yargs. */
 export interface UninstallPackHandlerArgs {
   readonly name: string;
-  readonly yes: boolean;
 }
 
 /** Parsed and validated pack uninstall args. */

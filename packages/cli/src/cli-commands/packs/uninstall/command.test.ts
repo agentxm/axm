@@ -78,46 +78,14 @@ describe("packs uninstall command positional", () => {
 });
 
 describe("packs uninstall command options", () => {
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define per-command --yes, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof uninstallPackCommand.builder === "function") {
       uninstallPackCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
-    }
-  });
-
-  it("defines --preview option with boolean type and default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof uninstallPackCommand.builder === "function") {
-      uninstallPackCommand.builder(mockYargs);
-      expect(capturedOptions["preview"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          default: false,
-        }),
-      );
-    }
-  });
-
-  it("defines --non-interactive option with boolean type and no default", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof uninstallPackCommand.builder === "function") {
-      uninstallPackCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+      expect(capturedOptions["yes"]).toBeUndefined();
+      expect(capturedOptions["preview"]).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 });
@@ -150,37 +118,14 @@ describe("packs uninstall command parser", () => {
     expect(argv["name"]).toBe("my-pack");
   });
 
-  it("parses with default values when no options provided", async () => {
-    const argv = await createParser().parse(["uninstall", "my-pack"]);
-    expect(argv["yes"]).toBe(false);
-    expect(argv["preview"]).toBe(false);
-  });
-
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["uninstall", "my-pack", "--yes"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["uninstall", "my-pack", "-y"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["uninstall", "my-pack", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
   it("parses glob pattern", async () => {
     const argv = await createParser().parse(["uninstall", "acme-*"]);
     expect(argv["name"]).toBe("acme-*");
   });
 
-  it("parses combination of flags", async () => {
-    const argv = await createParser().parse(["uninstall", "my-pack", "-y", "--preview"]);
+  it("parses name positional", async () => {
+    const argv = await createParser().parse(["uninstall", "my-pack"]);
     expect(argv["name"]).toBe("my-pack");
-    expect(argv["yes"]).toBe(true);
-    expect(argv["preview"]).toBe(true);
   });
 });
 

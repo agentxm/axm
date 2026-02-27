@@ -10,6 +10,7 @@
 import { homedir } from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import { CliFlags } from "../cli-flags/index.js";
 import { ClackPrompt } from "../clack-effect/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -26,13 +27,14 @@ import { Workspace } from "../workspace/index.js";
  */
 export const registryGuard = Effect.gen(function* () {
   const workspace = yield* Workspace;
+  const flags = yield* CliFlags;
   const registrySources = yield* workspace.getRegistrySourceHosts();
 
   // Already configured - no-op
   if (registrySources.length > 0) return;
 
   // Not configured in non-interactive mode - fail
-  if (workspace.nonInteractive) {
+  if (flags.nonInteractive) {
     return yield* makeCliError({
       code: "REGISTRY_NOT_CONFIGURED",
       what: `No registry source configured`,

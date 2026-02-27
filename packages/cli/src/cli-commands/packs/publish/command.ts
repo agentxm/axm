@@ -12,9 +12,6 @@ import { handlePublishPack } from "./handler.js";
 export interface PublishPackCommandArgs {
   pack: string;
   registry: string | undefined;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
   "include-dependencies": boolean;
 }
 
@@ -33,21 +30,6 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
         type: "string",
         describe: "Named registry source to publish to",
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display publish plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .option("include-dependencies", {
         alias: "d",
         type: "boolean",
@@ -64,15 +46,17 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
       handlePublishPack({
         pack: argv.pack,
         registry: Option.fromNullable(argv.registry),
-        yes: argv.yes,
         includeDependencies: argv["include-dependencies"],
       }),
       {
+        flags: {
+          nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+          yes: argv["yes"] as boolean,
+          force: argv["force"] as boolean,
+          preview: argv["preview"] as boolean,
+        },
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
         },
       },

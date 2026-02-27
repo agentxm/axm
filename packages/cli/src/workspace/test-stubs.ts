@@ -104,8 +104,6 @@ export const makeBaseWorkspaceMock = (
     scope: "project",
     path: axmDir,
     baseDir,
-    nonInteractive: true,
-    preview: false,
     resolvePlan: () =>
       Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),

@@ -9,8 +9,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { ClackLogTestLayer } from "../../clack-effect/log/ClackLogTest.js";
-import { makeClackPromptTestLayer } from "../../clack-effect/prompt/ClackPromptTest.js";
+import { makeClackLogTestLayer, makeClackPromptTestLayer } from "../../clack-effect/index.js";
+import { CliFlagsTest } from "../../cli-flags/index.js";
 import { makeCliError } from "../../cli-error/index.js";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
@@ -45,8 +45,6 @@ const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceConte
     scope: "project",
     path: "/tmp/test/.axm",
     baseDir: "/tmp/test",
-    nonInteractive: true,
-    preview: false,
     resolvePlan: (plan: Plan) => {
       onResolvePlan?.(plan);
       return Effect.succeed(emptyExecutedPlan);
@@ -54,16 +52,18 @@ const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceConte
   }) as unknown as WorkspaceContextService;
 
 const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
-  const promptLayer = makeClackPromptTestLayer({
+  const [logLayer] = makeClackLogTestLayer();
+  const [promptLayer] = makeClackPromptTestLayer({
     methodBehaviors: {
       confirm: { type: "return", value: true },
       multiselect: { type: "return", value: [] },
     },
   });
   return Layer.mergeAll(
-    ClackLogTestLayer,
+    logLayer,
     promptLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
+    CliFlagsTest(),
   );
 };
 

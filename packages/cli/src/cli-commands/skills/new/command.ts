@@ -7,15 +7,13 @@
 import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleSkillsNew } from "./handler.js";
 
 export interface SkillsNewCommandArgs {
   name: string;
   namespace: string | undefined;
   agent: string[] | undefined;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -38,21 +36,6 @@ export const skillsNewCommand: CommandModule<{}, SkillsNewCommandArgs> = {
         array: true,
         describe: "Agent IDs to target (can be repeated)",
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills new my-skill", "Create a new skill")
       .example("$0 skills new my-skill --namespace @acme", "Create with custom namespace"),
   handler: async (argv) => {
@@ -61,14 +44,11 @@ export const skillsNewCommand: CommandModule<{}, SkillsNewCommandArgs> = {
         name: argv.name,
         namespace: Option.fromNullable(argv.namespace),
         agents: Option.fromNullable(argv.agent),
-        yes: argv.yes,
       }),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.fromNullable(argv.agent),
         },
       },

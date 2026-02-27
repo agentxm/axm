@@ -56,49 +56,11 @@ describe("packs add command", () => {
     expect(capturedPositionals["extension"]?.demandOption).toBe(true);
   });
 
-  it("defines --yes flag with default false", () => {
+  it("does not define per-command --yes, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (packsAddCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["yes"]).toBeDefined();
-    expect(capturedOptions["yes"]?.type).toBe("boolean");
-    expect(capturedOptions["yes"]?.default).toBe(false);
-  });
-
-  it("defines --preview flag with default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (packsAddCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["preview"]).toBeDefined();
-    expect(capturedOptions["preview"]?.type).toBe("boolean");
-    expect(capturedOptions["preview"]?.default).toBe(false);
-  });
-
-  it("defines --non-interactive flag as optional boolean", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-    (packsAddCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["non-interactive"]).toBeDefined();
-    expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
-  });
-});
-
-describe("packs add command parser", () => {
-  const createParser = () =>
-    yargs()
-      .command({
-        command: packsAddCommand.command,
-        describe: packsAddCommand.describe,
-        builder: packsAddCommand.builder,
-        handler: () => {},
-      })
-      .exitProcess(false)
-      .fail(false);
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["add", "my-pack", "some-ext", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
-  it("defaults --preview to false", async () => {
-    const argv = await createParser().parse(["add", "my-pack", "some-ext"]);
-    expect(argv["preview"]).toBe(false);
+    expect(capturedOptions["yes"]).toBeUndefined();
+    expect(capturedOptions["preview"]).toBeUndefined();
+    expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
 });

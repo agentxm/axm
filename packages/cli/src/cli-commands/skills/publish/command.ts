@@ -7,14 +7,12 @@
 import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handlePublish } from "./handler.js";
 
 export interface PublishCommandArgs {
   extensions: string[];
   registry: string | undefined;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -33,21 +31,6 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
         type: "string",
         describe: "Named registry source to publish to",
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display publish plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills publish @acme/skills/code-review", "Publish a single extension")
       .example("$0 skills publish effect-* commit", "Publish extensions matching patterns")
       .example(
@@ -59,15 +42,12 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
       handlePublish({
         extensions: argv.extensions,
         registry: Option.fromNullable(argv.registry),
-        yes: argv.yes,
       }),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope: "project",
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
-          agents: Option.none(),
+          agents: Option.none<readonly string[]>(),
         },
       },
     );

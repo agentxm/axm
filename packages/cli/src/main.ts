@@ -35,6 +35,23 @@ export const program = Effect.promise(() =>
       type: "boolean",
       describe: "Disable all interactive prompts",
     })
+    .option("yes", {
+      alias: "y",
+      type: "boolean",
+      describe: "Auto-accept confirmation prompts",
+      default: false,
+    })
+    .option("force", {
+      alias: "f",
+      type: "boolean",
+      describe: "Override constraints that would cause failure",
+      default: false,
+    })
+    .option("preview", {
+      type: "boolean",
+      describe: "Display plan without applying",
+      default: false,
+    })
     .option("verbose", {
       alias: "v",
       type: "boolean",

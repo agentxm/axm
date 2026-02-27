@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleInstall } from "./handler.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -17,11 +18,7 @@ interface InstallCommandArgs {
   source: string;
   scope: WorkspaceScope;
   skill: ReadonlyArray<string>;
-  yes: boolean;
   all: boolean;
-  force: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -47,34 +44,12 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         describe: "Install only specified skill(s) by name",
         default: [],
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
       .option("all", {
         type: "boolean",
         describe: "Install all discovered skills",
         default: false,
       })
-      .option("force", {
-        alias: "f",
-        type: "boolean",
-        describe: "Override constraints that would cause failure",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display installation plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .group(["scope", "skill"], "Filtering:")
-      .group(["yes", "all", "force", "preview"], "Behavior:")
       .example("$0 skills install owner/repo", "Install skills interactively")
       .example(
         "$0 skills install owner/repo@v1.0.0",
@@ -91,19 +66,13 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         source: argv.source,
         scope,
         skills: argv.skill,
-        yes: argv.yes,
         all: argv.all,
-        force: argv.force,
-        nonInteractive: Option.fromNullable(argv["non-interactive"]),
       }).pipe(Effect.provide(actionsLayer)),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope,
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
-          force: argv.force,
         },
       },
     );

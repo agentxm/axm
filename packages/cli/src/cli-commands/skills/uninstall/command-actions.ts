@@ -36,8 +36,6 @@ import type { UninstallSkillCommandIntent } from "./intent.js";
 export interface UninstallHandlerArgs {
   /** Name or glob pattern of the skill to uninstall */
   readonly skill: string;
-  /** Skip confirmations */
-  readonly yes: boolean;
 }
 
 /**

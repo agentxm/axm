@@ -49,11 +49,14 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
         agents: argv.agent,
       }),
       {
+        flags: {
+          nonInteractive: Option.some(true),
+          yes: true,
+          force: false,
+          preview: false,
+        },
         workspace: {
           scope,
-          yes: true,
-          nonInteractive: Option.some(true),
-          preview: false,
           agents: Option.none(),
         },
       },

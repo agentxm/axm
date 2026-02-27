@@ -30,7 +30,6 @@ export interface SkillsNewHandlerArgs {
   readonly name: string;
   readonly namespace: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

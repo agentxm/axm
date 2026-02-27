@@ -92,61 +92,15 @@ describe("packs install command options", () => {
     }
   });
 
-  it("defines --yes option with boolean type, alias, and default false", () => {
+  it("does not define per-command --yes, --force, --preview, or --non-interactive (now global)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installPackCommand.builder === "function") {
       installPackCommand.builder(mockYargs);
-      expect(capturedOptions["yes"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "y",
-          default: false,
-        }),
-      );
-    }
-  });
-
-  it("defines --force option with boolean type, alias, and default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installPackCommand.builder === "function") {
-      installPackCommand.builder(mockYargs);
-      expect(capturedOptions["force"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "f",
-          default: false,
-        }),
-      );
-    }
-  });
-
-  it("defines --preview option with boolean type and default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installPackCommand.builder === "function") {
-      installPackCommand.builder(mockYargs);
-      expect(capturedOptions["preview"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          default: false,
-        }),
-      );
-    }
-  });
-
-  it("defines --non-interactive option with boolean type and no default", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installPackCommand.builder === "function") {
-      installPackCommand.builder(mockYargs);
-      expect(capturedOptions["non-interactive"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+      expect(capturedOptions["yes"]).toBeUndefined();
+      expect(capturedOptions["force"]).toBeUndefined();
+      expect(capturedOptions["preview"]).toBeUndefined();
+      expect(capturedOptions["non-interactive"]).toBeUndefined();
     }
   });
 });
@@ -182,56 +136,11 @@ describe("packs install command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["install", "@acme/packs/my-pack"]);
     expect(argv["scope"]).toBe("project");
-    expect(argv["yes"]).toBe(false);
-    expect(argv["force"]).toBe(false);
-    expect(argv["preview"]).toBe(false);
   });
 
   it("parses --scope user", async () => {
     const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--scope", "user"]);
     expect(argv["scope"]).toBe("user");
-  });
-
-  it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--yes"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "-y"]);
-    expect(argv["yes"]).toBe(true);
-  });
-
-  it("parses --force flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--force"]);
-    expect(argv["force"]).toBe(true);
-  });
-
-  it("parses -f alias for --force", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "-f"]);
-    expect(argv["force"]).toBe(true);
-  });
-
-  it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--preview"]);
-    expect(argv["preview"]).toBe(true);
-  });
-
-  it("parses combination of flags", async () => {
-    const argv = await createParser().parse([
-      "install",
-      "@acme/packs/my-pack",
-      "--scope",
-      "user",
-      "-y",
-      "-f",
-      "--preview",
-    ]);
-    expect(argv["source"]).toBe("@acme/packs/my-pack");
-    expect(argv["scope"]).toBe("user");
-    expect(argv["yes"]).toBe(true);
-    expect(argv["force"]).toBe(true);
-    expect(argv["preview"]).toBe(true);
   });
 
   it("parses versioned source", async () => {

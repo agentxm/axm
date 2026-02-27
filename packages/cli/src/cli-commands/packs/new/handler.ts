@@ -29,8 +29,6 @@ export interface PacksNewHandlerArgs {
   readonly name: string;
   /** Optional namespace override. */
   readonly namespace: Option.Option<string>;
-  /** Skip confirmations. */
-  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------

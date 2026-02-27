@@ -11,7 +11,8 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/index.js";
+import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import { SourceHostProviders } from "../../../sources/index.js";
@@ -35,7 +36,6 @@ const mockWorkspace = {
   isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   markDependencyRetainedInLockfile: () => Effect.void,
   resolvePlan: () => Effect.void,
-  nonInteractive: false,
 } as unknown as Workspace["Type"];
 
 const mockMcpServerManager = {
@@ -51,7 +51,7 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } as unknown as SourceHostProviders["Type"];
 
-const promptLayer = makeClackPromptTestLayer({
+const [promptLayer] = makeClackPromptTestLayer({
   methodBehaviors: {
     confirm: { type: "return", value: true },
     text: { type: "return", value: "" },
@@ -64,6 +64,7 @@ const testLayer = Layer.mergeAll(
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   promptLayer,
   NodeContext.layer,
+  CliFlagsTest(),
 );
 
 const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);
@@ -82,9 +83,6 @@ describe("parseMcpServerInstallArgs", () => {
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server",
         scope: "project",
-        yes: false,
-        force: false,
-        nonInteractive: Option.none(),
       }),
     );
     expect(result.namespace).toBe("@acme");
@@ -98,9 +96,6 @@ describe("parseMcpServerInstallArgs", () => {
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server@^2.0.0",
         scope: "project",
-        yes: false,
-        force: false,
-        nonInteractive: Option.none(),
       }),
     );
     expect(result.namespace).toBe("@acme");
@@ -113,9 +108,6 @@ describe("parseMcpServerInstallArgs", () => {
       actions.parseArgs({
         source: "my-server",
         scope: "project",
-        yes: false,
-        force: false,
-        nonInteractive: Option.none(),
       }),
     );
     expect(result.namespace).toBe("@test-ns");
@@ -129,9 +121,6 @@ describe("parseMcpServerInstallArgs", () => {
         actions.parseArgs({
           source: "@acme/skills/my-skill",
           scope: "project",
-          yes: false,
-          force: false,
-          nonInteractive: Option.none(),
         }),
       ),
     ).rejects.toThrow();
@@ -143,24 +132,30 @@ describe("parseMcpServerInstallArgs", () => {
         actions.parseArgs({
           source: "https://example.com/repo",
           scope: "project",
-          yes: false,
-          force: false,
-          nonInteractive: Option.none(),
         }),
       ),
     ).rejects.toThrow();
   });
 
-  it("passes force flag through", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
+  it("passes force flag through from CliFlags", async () => {
+    const forceActionsLayer = Layer.provide(
+      InstallMcpServerCommandWorkflowActionsLive,
+      Layer.mergeAll(
+        Layer.succeed(Workspace, mockWorkspace),
+        Layer.succeed(McpServerManager, mockMcpServerManager),
+        Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+        promptLayer,
+        NodeContext.layer,
+        CliFlagsTest({ force: true }),
+      ),
+    );
+    const result = await Effect.gen(function* () {
+      const actions = yield* InstallMcpServerCommandWorkflowActions;
+      return yield* actions.parseArgs({
         source: "my-server",
         scope: "project",
-        yes: false,
-        force: true,
-        nonInteractive: Option.none(),
-      }),
-    );
+      });
+    }).pipe(Effect.provide(forceActionsLayer), Effect.runPromise);
     expect(result.force).toBe(true);
   });
 });

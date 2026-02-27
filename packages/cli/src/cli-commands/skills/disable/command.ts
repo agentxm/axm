@@ -7,6 +7,7 @@
 import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
+import { extractFlags } from "../../../cli-flags/index.js";
 import { handleDisable } from "./handler.js";
 import {
   WORKSPACE_SCOPES,
@@ -18,9 +19,6 @@ import {
 export interface DisableCommandArgs {
   name: string;
   scope: WorkspaceScope;
-  yes: boolean;
-  preview: boolean;
-  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -40,21 +38,6 @@ export const disableCommand: CommandModule<{}, DisableCommandArgs> = {
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("yes", {
-        alias: "y",
-        type: "boolean",
-        describe: "Skip confirmation prompts",
-        default: false,
-      })
-      .option("preview", {
-        type: "boolean",
-        describe: "Display plan without applying",
-        default: false,
-      })
-      .option("non-interactive", {
-        type: "boolean",
-        describe: "Disable all interactive prompts",
-      })
       .example("$0 skills disable my-skill", "Disable a skill without uninstalling")
       .example("$0 skills disable my-skill --preview", "Preview what would be disabled"),
   handler: async (argv) => {
@@ -62,14 +45,11 @@ export const disableCommand: CommandModule<{}, DisableCommandArgs> = {
     await run(
       handleDisable({
         name: argv.name,
-        yes: argv.yes,
       }),
       {
+        flags: extractFlags(argv),
         workspace: {
           scope,
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
           agents: Option.none(),
         },
       },

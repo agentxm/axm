@@ -37,9 +37,28 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## CLI Conventions
 
-- `--yes` — Auto-accept all prompts (skip confirmations)
-- `--preview` — Display plan without applying (requires --yes or confirmation to apply)
-- `--non-interactive` — Suppress all prompts. Uses defaults where available; errors if a prompt is required (e.g., missing required env var with no default)
+### Global Flags
+
+Three distinct flags for prompt/safety control. Keep them independent — each serves a different purpose.
+
+- `--yes` (`-y`) — Auto-accept confirmation prompts ("are you sure?"). Does not supply missing input or override errors.
+  - Only affects yes/no confirmations, not selection prompts or text input
+  - The operation would succeed interactively — this just skips the pause
+  - Safe to use in scripts when the user knows what the command will do
+  - Does not change what the command does, only whether it asks first
+- `--non-interactive` — Suppress all interactive prompts. Uses defaults where available; errors if required input has no default. Implies `--yes`. Auto-enabled when stdin is not a TTY.
+  - Every prompt must have a flag/env var alternative or a sensible default
+  - Must never hang waiting for input — fail fast with a clear message
+  - Error messages should tell the user which flag to pass instead
+  - Commands should produce the same result as interactive use with the same inputs
+- `--force` (`-f`) — Override constraints that would otherwise cause failure (e.g., conflicting state, version mismatches). Does not imply `--yes` or `--non-interactive` — a user may want to force past a conflict but still be prompted for other input.
+  - Without `--force`, the command fails with an error explaining the constraint
+  - The error message should suggest `--force` as the override
+  - Use for conflict resolution, not for skipping confirmations
+  - Warnings are always shown regardless of `--force` — they never block
+- `--preview` — Display plan without applying (requires `--yes` or confirmation to apply).
+
+**Severity model:** If important enough to block, it's an error (overridable with `--force`). If not important enough to block, it's a warning (always shown, never blocks).
 
 ## Code Organization
 

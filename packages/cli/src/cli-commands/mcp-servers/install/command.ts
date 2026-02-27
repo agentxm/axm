@@ -13,16 +13,15 @@ import { handleInstallMcpServer } from "./handler.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./command-actions.js";
 import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../../workspace/scope.js";
 
 interface InstallMcpServerCommandArgs {
   source: string;
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   yes: boolean;
   force: boolean;
@@ -43,9 +42,9 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
       })
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -80,8 +79,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
       )
       .example("$0 mcp-servers install my-server", "Install using default namespace"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
-    const global = toGlobalWorkspaceFlag(scope);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
 
     const actionsLayer = Layer.provide(
       InstallMcpServerCommandWorkflowActionsLive,
@@ -90,7 +88,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
 
     const program = handleInstallMcpServer({
       source: argv.source,
-      global,
+      scope,
       yes: argv.yes,
       force: argv.force,
       nonInteractive: Option.fromNullable(argv["non-interactive"]),
@@ -98,7 +96,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
 
     await run(program, {
       workspace: {
-        global,
+        scope,
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,

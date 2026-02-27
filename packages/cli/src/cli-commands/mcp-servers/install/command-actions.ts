@@ -30,6 +30,7 @@ import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/index.js";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/index.js";
+import type { WorkspaceScope } from "../../../workspace/scope.js";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -38,7 +39,7 @@ import type { InstallMcpServerCommandIntent } from "./intent.js";
 
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   readonly yes: boolean;
   readonly force: boolean;
   readonly nonInteractive: Option.Option<boolean>;

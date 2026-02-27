@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../clack-effect/index.js";
 import { Workspace } from "../../workspace/index.js";
+import { isUserScope } from "../../workspace/scope.js";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -29,7 +30,7 @@ import { Workspace } from "../../workspace/index.js";
 export const handleInit = Effect.fn("Init.handle")(function* () {
   const log = yield* Log;
   const context = yield* Workspace;
-  const scopeLabel = context.global ? "user" : "project";
+  const scopeLabel = isUserScope(context.scope) ? "user" : "project";
 
   // Show intro
   yield* log.info(`axm init (${scopeLabel})`);

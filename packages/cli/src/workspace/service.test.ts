@@ -111,7 +111,7 @@ describe("WorkspaceContextService", () => {
     it.effect("returns the parent of path", () =>
       Effect.gen(function* () {
         const ws = yield* getService({
-          global: false,
+          scope: "project",
           yes: true,
           nonInteractive: Option.some(false),
           preview: false,
@@ -127,7 +127,7 @@ describe("WorkspaceContextService", () => {
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {
         const ws = yield* getService({
-          global: false,
+          scope: "project",
           yes: true,
           nonInteractive: Option.some(true),
           preview: false,
@@ -144,7 +144,7 @@ describe("WorkspaceContextService", () => {
         process.env["CI"] = "true";
         try {
           const ws = yield* getService({
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.some(false),
             preview: false,
@@ -168,7 +168,7 @@ describe("WorkspaceContextService", () => {
         process.env["CI"] = "true";
         try {
           const ws = yield* getService({
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.none(),
             preview: false,
@@ -192,7 +192,7 @@ describe("WorkspaceContextService", () => {
         delete process.env["CI"];
         try {
           const ws = yield* getService({
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.none(),
             preview: false,
@@ -215,7 +215,7 @@ describe("WorkspaceContextService", () => {
     it.effect("stores preview value from options", () =>
       Effect.gen(function* () {
         const ws = yield* getService({
-          global: false,
+          scope: "project",
           yes: true,
           nonInteractive: Option.some(false),
           preview: true,
@@ -298,7 +298,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeClackLogTestLayer();
         const { effect, promptMock } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: false,
@@ -325,7 +325,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeClackLogTestLayer();
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
@@ -352,7 +352,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeClackLogTestLayer();
         const { effect, promptMock } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
@@ -376,7 +376,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeClackLogTestLayer();
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.some(false),
             preview: true,
@@ -400,7 +400,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeClackLogTestLayer();
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(true),
             preview: true,
@@ -428,7 +428,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
@@ -456,7 +456,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: false,
@@ -484,7 +484,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect, promptMock } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
@@ -514,7 +514,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect, promptMock } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: false,
@@ -545,7 +545,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect, promptMock } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.some(false),
             preview: true,
@@ -575,7 +575,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(true),
             preview: true,
@@ -599,7 +599,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect } = runResolvePlan(
           {
-            global: false,
+            scope: "project",
             yes: true,
             nonInteractive: Option.some(true),
             preview: true,
@@ -622,7 +622,7 @@ describe("WorkspaceContextService", () => {
 
   /** Default options for tests that don't care about prompting/preview. */
   const defaultOptions: WorkspaceContextOptions = {
-    global: false,
+    scope: "project",
     yes: true,
     nonInteractive: Option.some(false),
     preview: false,
@@ -1610,7 +1610,7 @@ describe("WorkspaceContextService", () => {
         removePreCreatedSettings();
         const { run, promptMock } = getServiceWithInit(
           {
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(false),
             preview: false,
@@ -1637,7 +1637,7 @@ describe("WorkspaceContextService", () => {
         fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
 
         const { run, promptMock } = getServiceWithInit({
-          global: false,
+          scope: "project",
           yes: true,
           nonInteractive: Option.some(false),
           preview: false,

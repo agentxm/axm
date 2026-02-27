@@ -23,7 +23,7 @@ describe("registryGuard", () => {
 
     const mockWorkspace: WorkspaceContextService = {
       ...taxonomyStubs,
-      global: false,
+      scope: "project",
       path: "/test",
       baseDir: "/",
       nonInteractive: opts.nonInteractive ?? false,

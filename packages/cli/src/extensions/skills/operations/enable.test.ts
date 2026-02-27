@@ -39,7 +39,7 @@ const makeWorkspaceMock = (
 
   return {
     ...taxonomyStubs,
-    global: false,
+    scope: "project",
     path: axmDir,
     baseDir: path.dirname(axmDir),
     nonInteractive: true,

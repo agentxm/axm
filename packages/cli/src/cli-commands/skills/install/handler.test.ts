@@ -85,7 +85,7 @@ const defaultArgs = (
   overrides: Partial<InstallHandlerArgs> = {},
 ): InstallHandlerArgs => ({
   source,
-  global: false,
+  scope: "project",
   skills: [],
   yes: true,
   all: false,
@@ -133,7 +133,7 @@ describe("skills install handler — error propagation", () => {
       textInputLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
-      global: false,
+      scope: "project",
       yes: true,
       nonInteractive: Option.some(true),
       preview: false,

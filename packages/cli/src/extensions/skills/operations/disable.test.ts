@@ -33,7 +33,7 @@ const makeWorkspaceMock = (
 
   return {
     ...taxonomyStubs,
-    global: false,
+    scope: "project",
     path: axmDir,
     baseDir: path.dirname(axmDir),
     nonInteractive: true,
@@ -430,7 +430,7 @@ describe("disableSkill", () => {
         // Mock workspace where skill is implicit (lock exists but no settings entry)
         const mockWs: WorkspaceContextService = {
           ...taxonomyStubs,
-          global: false,
+          scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
           nonInteractive: true,
@@ -533,7 +533,7 @@ describe("disableSkill", () => {
         // Mock workspace where skill is implicit with no source
         const mockWs: WorkspaceContextService = {
           ...taxonomyStubs,
-          global: false,
+          scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
           nonInteractive: true,
@@ -624,7 +624,7 @@ describe("disableSkill", () => {
 
         const mockWs: WorkspaceContextService = {
           ...taxonomyStubs,
-          global: false,
+          scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
           nonInteractive: true,

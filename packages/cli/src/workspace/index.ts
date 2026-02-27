@@ -40,7 +40,16 @@ export { applyPlan, type OperationHandler } from "./apply-plan.js";
 export type { LockfileState } from "./service.js";
 
 // Path utilities
-export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
+export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
+
+// Scope utilities
+export {
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  isUserScope,
+  resolveWorkspaceScope,
+  type WorkspaceScope,
+} from "./scope.js";
 
 // Workspace context service (for CLI commands)
 export {

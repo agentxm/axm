@@ -25,7 +25,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
 
   const mockWs: WorkspaceContextService = {
     ...taxonomyStubs,
-    global: false,
+    scope: "project",
     path: axmDir,
     baseDir: path.dirname(axmDir),
     nonInteractive: true,

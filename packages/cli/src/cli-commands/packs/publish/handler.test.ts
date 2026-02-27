@@ -137,7 +137,7 @@ describe("packs publish.handler", () => {
       multiselectLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
-      global: false,
+      scope: "project",
       yes: true,
       nonInteractive: Option.some(true),
       preview: false,

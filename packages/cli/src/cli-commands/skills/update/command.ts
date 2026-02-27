@@ -3,16 +3,15 @@ import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUpdate } from "./handler.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../../workspace/scope.js";
 
 interface UpdateCommandArgs {
   source: string | undefined;
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   agent: ReadonlyArray<string>;
   skill: ReadonlyArray<string>;
@@ -34,9 +33,9 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       })
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -82,12 +81,11 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       .example("$0 skills update --skill pr-review", "Update a specific skill by name")
       .example("$0 skills update --yes", "Update all skills without confirmation"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
-    const global = toGlobalWorkspaceFlag(scope);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
     await run(
       handleUpdate({
         source: Option.fromNullable(argv.source),
-        global,
+        scope,
         agents: argv.agent,
         skills: argv.skill,
         yes: argv.yes,
@@ -96,7 +94,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       }),
       {
         workspace: {
-          global,
+          scope,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

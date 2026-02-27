@@ -101,7 +101,7 @@ export const makeBaseWorkspaceMock = (
   const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
   const base: Record<string, unknown> = {
     ...taxonomyStubs,
-    global: false,
+    scope: "project",
     path: axmDir,
     baseDir,
     nonInteractive: true,

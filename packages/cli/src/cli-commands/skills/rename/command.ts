@@ -9,17 +9,16 @@ import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleRename } from "./handler.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../../workspace/scope.js";
 
 export interface RenameCommandArgs {
   "old-name": string;
   "new-name": string;
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   yes: boolean;
   preview: boolean;
@@ -44,9 +43,9 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
       })
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -72,7 +71,7 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
       .example("$0 skills rename old-name new-name", "Rename a skill")
       .example("$0 skills rename old-name new-name --preview", "Preview what would be renamed"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
     await run(
       handleRename({
         oldName: argv["old-name"],
@@ -81,7 +80,7 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
       }),
       {
         workspace: {
-          global: toGlobalWorkspaceFlag(scope),
+          scope,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

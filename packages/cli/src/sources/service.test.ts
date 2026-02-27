@@ -79,7 +79,7 @@ const computeIntegrity = (data: Uint8Array): string => {
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   ...taxonomyStubs,
-  global: false,
+  scope: "project",
   path: "/tmp/test-workspace",
   baseDir: "/tmp",
   nonInteractive: true,

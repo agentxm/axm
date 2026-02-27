@@ -81,7 +81,7 @@ describe("parseMcpServerInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server",
-        global: false,
+        scope: "project",
         yes: false,
         force: false,
         nonInteractive: Option.none(),
@@ -97,7 +97,7 @@ describe("parseMcpServerInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server@^2.0.0",
-        global: false,
+        scope: "project",
         yes: false,
         force: false,
         nonInteractive: Option.none(),
@@ -112,7 +112,7 @@ describe("parseMcpServerInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "my-server",
-        global: false,
+        scope: "project",
         yes: false,
         force: false,
         nonInteractive: Option.none(),
@@ -128,7 +128,7 @@ describe("parseMcpServerInstallArgs", () => {
       runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/skills/my-skill",
-          global: false,
+          scope: "project",
           yes: false,
           force: false,
           nonInteractive: Option.none(),
@@ -142,7 +142,7 @@ describe("parseMcpServerInstallArgs", () => {
       runWithActions((actions) =>
         actions.parseArgs({
           source: "https://example.com/repo",
-          global: false,
+          scope: "project",
           yes: false,
           force: false,
           nonInteractive: Option.none(),
@@ -155,7 +155,7 @@ describe("parseMcpServerInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "my-server",
-        global: false,
+        scope: "project",
         yes: false,
         force: true,
         nonInteractive: Option.none(),

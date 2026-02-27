@@ -36,6 +36,7 @@ import { CommandManager } from "../../../extensions/commands/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/index.js";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/index.js";
+import type { WorkspaceScope } from "../../../workspace/scope.js";
 import type { InstallCommandCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ import type { InstallCommandCommandIntent } from "./intent.js";
 
 export interface InstallCommandHandlerArgs {
   readonly source: string;
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   readonly yes: boolean;
   readonly force: boolean;
   readonly nonInteractive: Option.Option<boolean>;

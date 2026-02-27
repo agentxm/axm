@@ -18,7 +18,6 @@ import {
 export interface DisableCommandArgs {
   name: string;
   scope: WorkspaceScope;
-  global?: boolean;
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -41,12 +40,6 @@ export const disableCommand: CommandModule<{}, DisableCommandArgs> = {
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
-      })
       .option("yes", {
         alias: "y",
         type: "boolean",
@@ -65,7 +58,7 @@ export const disableCommand: CommandModule<{}, DisableCommandArgs> = {
       .example("$0 skills disable my-skill", "Disable a skill without uninstalling")
       .example("$0 skills disable my-skill --preview", "Preview what would be disabled"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(
       handleDisable({
         name: argv.name,

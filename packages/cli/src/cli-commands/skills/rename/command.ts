@@ -19,7 +19,6 @@ export interface RenameCommandArgs {
   "old-name": string;
   "new-name": string;
   scope: WorkspaceScope;
-  global?: boolean;
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -47,12 +46,6 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
-      })
       .option("yes", {
         alias: "y",
         type: "boolean",
@@ -71,7 +64,7 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
       .example("$0 skills rename old-name new-name", "Rename a skill")
       .example("$0 skills rename old-name new-name --preview", "Preview what would be renamed"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(
       handleRename({
         oldName: argv["old-name"],

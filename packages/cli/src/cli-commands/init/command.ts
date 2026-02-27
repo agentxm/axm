@@ -11,7 +11,6 @@ import {
 
 interface InitArgs {
   scope: WorkspaceScope;
-  global?: boolean;
   agent: ReadonlyArray<string>;
   yes: boolean;
   "non-interactive"?: boolean;
@@ -28,12 +27,6 @@ export const initCommand: CommandModule<{}, InitArgs> = {
         choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
-      })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
       })
       .option("agent", {
         type: "string",
@@ -57,7 +50,7 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .example("$0 init --scope user", "Initialize in ~/.axm/ for user-scope configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(handleInit(), {
       workspace: {
         scope,

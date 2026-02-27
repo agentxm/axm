@@ -12,7 +12,6 @@ import {
 interface UpdateCommandArgs {
   source: string | undefined;
   scope: WorkspaceScope;
-  global?: boolean;
   agent: ReadonlyArray<string>;
   skill: ReadonlyArray<string>;
   yes: boolean;
@@ -36,12 +35,6 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
         choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
-      })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
       })
       .option("agent", {
         type: "string",
@@ -81,7 +74,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       .example("$0 skills update --skill pr-review", "Update a specific skill by name")
       .example("$0 skills update --yes", "Update all skills without confirmation"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(
       handleUpdate({
         source: Option.fromNullable(argv.source),

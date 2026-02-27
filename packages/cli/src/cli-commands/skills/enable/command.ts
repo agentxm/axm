@@ -18,7 +18,6 @@ import {
 export interface EnableCommandArgs {
   name: string;
   scope: WorkspaceScope;
-  global?: boolean;
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -41,12 +40,6 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
-      })
       .option("yes", {
         alias: "y",
         type: "boolean",
@@ -65,7 +58,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       .example("$0 skills enable my-skill", "Enable a previously disabled skill")
       .example("$0 skills enable my-skill --preview", "Preview what would be enabled"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(
       handleEnable({
         name: argv.name,

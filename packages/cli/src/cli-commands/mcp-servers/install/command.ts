@@ -22,7 +22,6 @@ import {
 interface InstallMcpServerCommandArgs {
   source: string;
   scope: WorkspaceScope;
-  global?: boolean;
   yes: boolean;
   force: boolean;
   preview: boolean;
@@ -45,12 +44,6 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
         choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
-      })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
       })
       .option("yes", {
         alias: "y",
@@ -79,7 +72,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
       )
       .example("$0 mcp-servers install my-server", "Install using default namespace"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
 
     const actionsLayer = Layer.provide(
       InstallMcpServerCommandWorkflowActionsLive,

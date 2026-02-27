@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
@@ -84,6 +85,8 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "skills publish" });
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;

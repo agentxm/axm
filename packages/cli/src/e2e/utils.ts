@@ -53,7 +53,7 @@ async function run(
 
   const result = await execa("bun", ["run", entryPoint, ...args], {
     cwd,
-    env: { ...process.env, ...env, NO_COLOR: "1" },
+    env: { ...process.env, ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
     timeout,
     reject: false,
   });

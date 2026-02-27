@@ -60,6 +60,7 @@ export const uninstallPackCommand: CommandModule<{}, UninstallPackCommandArgs> =
         scope: "project",
         agents: Option.none(),
       },
+      command: "packs uninstall",
     });
   },
 };

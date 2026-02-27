@@ -14,6 +14,7 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import type { RemoveFromPackOperation } from "../../../extensions/packs/operations/remove-from-pack.js";
 import { removeFromPack } from "../../../extensions/packs/operations/remove-from-pack.js";
 import {
@@ -51,6 +52,8 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
 export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   args: PacksRemoveHandlerArgs,
 ) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "packs remove" });
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

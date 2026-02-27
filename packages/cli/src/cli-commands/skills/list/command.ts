@@ -59,6 +59,7 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills list",
       },
     );
   },

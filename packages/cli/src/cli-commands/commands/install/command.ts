@@ -67,6 +67,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
         scope,
         agents: Option.none(),
       },
+      command: "commands install",
     });
   },
 };

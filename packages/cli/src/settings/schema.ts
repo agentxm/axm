@@ -292,6 +292,7 @@ export type IgnoredSettings = typeof IgnoredSettingsSchema.Type;
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
+  "telemetry",
   "namespace",
   "sources",
   "agents",
@@ -323,6 +324,7 @@ const NamespaceSchema = Schema.transform(Schema.String, Schema.String, {
 });
 
 export const SettingsSchema = Schema.Struct({
+  telemetry: Schema.optional(Schema.Union(Schema.Boolean, Schema.Literal("errors"))),
   namespace: Schema.optional(NamespaceSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),

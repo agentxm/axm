@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createRequire } from "node:module";
 import * as Effect from "effect/Effect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -9,18 +8,7 @@ import { initCommand } from "./cli-commands/init/command.js";
 import { mcpServersCommand } from "./cli-commands/mcp-servers/command.js";
 import { packsCommand } from "./cli-commands/packs/command.js";
 import { skillsCommand } from "./cli-commands/skills/command.js";
-
-const loadVersion = (): string => {
-  const require = createRequire(import.meta.url);
-  for (const relPath of ["../package.json", "../../package.json"]) {
-    try {
-      return (require(relPath) as { version: string }).version;
-    } catch {
-      continue;
-    }
-  }
-  return "unknown";
-};
+import { loadVersion } from "./version.js";
 
 const version = loadVersion();
 

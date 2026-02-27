@@ -7,6 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { runUninstallCommandWorkflow } from "../../../workflows/uninstall-command/workflow.js";
 import {
   UninstallPackCommandWorkflowActions,
@@ -23,6 +24,8 @@ export type { UninstallPackHandlerArgs } from "./command-actions.js";
  */
 export const handleUninstallPack = (args: UninstallPackHandlerArgs) =>
   Effect.gen(function* () {
+    const tc = yield* TelemetryClient;
+    yield* tc.trackEvent("command_invoked", { command: "packs uninstall" });
     const actions = yield* UninstallPackCommandWorkflowActions;
     yield* runUninstallCommandWorkflow(args, actions);
   });

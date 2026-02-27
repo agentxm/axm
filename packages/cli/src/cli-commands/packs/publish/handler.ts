@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { formatFqn, parseFqn, parseFqnOrThrow, type Fqn } from "../../../extensions/index.js";
@@ -81,6 +82,8 @@ export type PackPublishOp =
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "packs publish" });
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;

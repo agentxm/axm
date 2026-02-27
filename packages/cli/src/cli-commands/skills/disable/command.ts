@@ -52,6 +52,7 @@ export const disableCommand: CommandModule<{}, DisableCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills disable",
       },
     );
   },

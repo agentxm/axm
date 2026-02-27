@@ -49,6 +49,7 @@ export const initCommand: CommandModule<{}, InitArgs> = {
         scope,
         agents: argv.agent.length > 0 ? Option.some(argv.agent) : Option.none(),
       },
+      command: "init",
     });
   },
 };

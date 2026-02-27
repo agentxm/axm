@@ -51,6 +51,7 @@ export const skillsNewCommand: CommandModule<{}, SkillsNewCommandArgs> = {
           scope: "project",
           agents: Option.fromNullable(argv.agent),
         },
+        command: "skills new",
       },
     );
   },

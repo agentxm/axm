@@ -55,6 +55,7 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
           scope: "project",
           agents: Option.none<readonly string[]>(),
         },
+        command: "skills fork",
       },
     );
   },

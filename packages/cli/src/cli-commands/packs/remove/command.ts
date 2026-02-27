@@ -55,6 +55,7 @@ export const packsRemoveCommand: CommandModule<{}, PacksRemoveCommandArgs> = {
           scope: "project",
           agents: Option.none(),
         },
+        command: "packs remove",
       },
     );
   },

@@ -59,6 +59,7 @@ export const renameCommand: CommandModule<{}, RenameCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills rename",
       },
     );
   },

@@ -33,6 +33,7 @@ import {
 } from "../clack-effect/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
+import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -51,6 +52,7 @@ export type AppLayer =
   | NodeContext.NodeContext
   | HttpClient.HttpClient
   | CliFlags
+  | TelemetryClient
   | ClackLog
   | ClackSpinner
   | ClackPrompt
@@ -75,6 +77,15 @@ const DefaultCliFlagsLayer = cliFlagsLayer({
 });
 
 /**
+ * Default telemetry layer for ManagedRuntime (mode "all", command "unknown").
+ * Overridden per-invocation in run() with resolved mode and command.
+ */
+const DefaultTelemetryLayer = Layer.provide(
+  TelemetryClientLive("all", "unknown"),
+  FetchHttpClient.layer,
+);
+
+/**
  * Layer providing all standard CLI dependencies.
  * ClackLive depends on CliFlags (for prompt non-interactive guard).
  */
@@ -83,6 +94,7 @@ export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   FetchHttpClient.layer,
   Layer.provide(ClackLive, DefaultCliFlagsLayer),
   DefaultCliFlagsLayer,
+  DefaultTelemetryLayer,
 );
 
 /**
@@ -94,6 +106,7 @@ export const Runtime = ManagedRuntime.make(AppLayer);
 export interface RunOptions {
   readonly flags?: CliFlagsInput;
   readonly workspace?: WorkspaceContextOptions;
+  readonly command?: string;
 }
 
 /**
@@ -134,16 +147,21 @@ export function run<A>(
   };
   const flagsLayer = cliFlagsLayer(flagsInput);
 
+  // Resolve telemetry mode and command
+  const mode = resolveTelemetryMode(process.env, {});
+  const command = options?.command ?? "unknown";
+  const telemetryLayer = Layer.provide(TelemetryClientLive(mode, command), FetchHttpClient.layer);
+
   const provided = options?.workspace
     ? (() => {
         const wsLayer = Layer.provide(workspaceLayer(options.workspace), flagsLayer);
         const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
-          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer)),
+          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer, telemetryLayer)),
           Effect.scoped,
         );
       })()
-    : (program.pipe(Effect.provide(flagsLayer)) as Effect.Effect<
+    : (program.pipe(Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer))) as Effect.Effect<
         A,
         CliError | PromptCancelled,
         AppLayer
@@ -158,7 +176,27 @@ export function run<A>(
         if (result.exitCode !== 0) {
           console.error(result.message);
         }
-        return Effect.die({ _tag: "CliExit", exitCode: result.exitCode });
+
+        // Fire-and-forget error report
+        const report =
+          error._tag === "CliError"
+            ? Effect.gen(function* () {
+                const tc = yield* TelemetryClient;
+                yield* tc.reportError({
+                  name: error.code,
+                  message: error.what,
+                  details: error.details,
+                  ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
+                  level: "error",
+                  handled: true,
+                  command,
+                });
+              }).pipe(Effect.catchAllCause(() => Effect.void))
+            : Effect.void;
+
+        return report.pipe(
+          Effect.flatMap(() => Effect.die({ _tag: "CliExit", exitCode: result.exitCode })),
+        );
       }),
       Runtime.runPromise,
     )

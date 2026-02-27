@@ -22,9 +22,7 @@
   "paths": {
     "/ping": {
       "get": {
-        "tags": [
-          "telemetry"
-        ],
+        "tags": ["telemetry"],
         "operationId": "getTelemetryPing",
         "summary": "Ping telemetry service",
         "description": "Lightweight health check endpoint for connectivity checks.",
@@ -38,21 +36,14 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ]
+                      "enum": [true]
                     },
                     "service": {
                       "type": "string",
-                      "enum": [
-                        "telemetry"
-                      ]
+                      "enum": ["telemetry"]
                     }
                   },
-                  "required": [
-                    "ok",
-                    "service"
-                  ]
+                  "required": ["ok", "service"]
                 }
               }
             }
@@ -62,9 +53,7 @@
     },
     "/events": {
       "post": {
-        "tags": [
-          "telemetry"
-        ],
+        "tags": ["telemetry"],
         "operationId": "postTelemetryEvents",
         "summary": "Ingest batched telemetry events",
         "description": "Accepts a JSON batch of telemetry events. Content-Type must be application/json. Payloads exceeding 64 KB are rejected with 413.",
@@ -193,11 +182,7 @@
                           "type": "boolean"
                         }
                       },
-                      "required": [
-                        "event",
-                        "distinctId",
-                        "timestamp"
-                      ]
+                      "required": ["event", "distinctId", "timestamp"]
                     },
                     "minItems": 1,
                     "maxItems": 100
@@ -220,10 +205,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "os": {
                         "type": "object",
@@ -236,9 +218,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "name"
-                        ]
+                        "required": ["name"]
                       },
                       "runtime": {
                         "type": "object",
@@ -252,10 +232,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "device": {
                         "type": "object",
@@ -265,9 +242,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "arch"
-                        ]
+                        "required": ["arch"]
                       },
                       "ide": {
                         "type": "object",
@@ -281,10 +256,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "environment": {
                         "type": "string"
@@ -293,15 +265,10 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "client"
-                    ]
+                    "required": ["client"]
                   }
                 },
-                "required": [
-                  "events",
-                  "context"
-                ]
+                "required": ["events", "context"]
               }
             }
           }
@@ -507,9 +474,7 @@
     },
     "/errors": {
       "post": {
-        "tags": [
-          "telemetry"
-        ],
+        "tags": ["telemetry"],
         "operationId": "postTelemetryErrors",
         "summary": "Ingest error reports",
         "requestBody": {
@@ -581,23 +546,14 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "message",
-                        "name"
-                      ]
+                      "required": ["message", "name"]
                     },
                     "minItems": 1,
                     "maxItems": 10
                   },
                   "level": {
                     "type": "string",
-                    "enum": [
-                      "fatal",
-                      "error",
-                      "warning",
-                      "info",
-                      "debug"
-                    ]
+                    "enum": ["fatal", "error", "warning", "info", "debug"]
                   },
                   "handled": {
                     "type": "boolean"
@@ -621,13 +577,7 @@
                         },
                         "level": {
                           "type": "string",
-                          "enum": [
-                            "fatal",
-                            "error",
-                            "warning",
-                            "info",
-                            "debug"
-                          ]
+                          "enum": ["fatal", "error", "warning", "info", "debug"]
                         },
                         "data": {
                           "type": "object",
@@ -682,10 +632,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "os": {
                         "type": "object",
@@ -698,9 +645,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "name"
-                        ]
+                        "required": ["name"]
                       },
                       "runtime": {
                         "type": "object",
@@ -714,10 +659,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "device": {
                         "type": "object",
@@ -727,9 +669,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "arch"
-                        ]
+                        "required": ["arch"]
                       },
                       "ide": {
                         "type": "object",
@@ -743,10 +683,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "name",
-                          "version"
-                        ]
+                        "required": ["name", "version"]
                       },
                       "environment": {
                         "type": "string"
@@ -759,16 +696,10 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "client",
-                      "command"
-                    ]
+                    "required": ["client", "command"]
                   }
                 },
-                "required": [
-                  "errors",
-                  "context"
-                ]
+                "required": ["errors", "context"]
               }
             }
           }

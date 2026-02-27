@@ -59,6 +59,7 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
           scope: "project",
           agents: Option.none(),
         },
+        command: "packs publish",
       },
     );
   },

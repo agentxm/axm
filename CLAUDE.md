@@ -561,6 +561,26 @@ User/API behavior is specified before implementation. Specs define _what_, desig
       → Architecture decisions, data structures, algorithms, patterns
 - [ ] Always create both `specs.md` and `design.md` for proposals
 
+## Findings Presentation
+
+When a review or analysis produces findings, present each as a numbered item with:
+
+1. **Finding** — what was observed
+2. **Options** — lettered remediation choices (a, b, c, ...)
+3. **Recommendation** — which option to take and why
+
+```
+### 1. <Finding title>
+
+<Description of the issue>
+
+  a) <Option A> — <brief description>
+  b) <Option B> — <brief description>
+  c) <Option C> — <brief description>
+
+**Recommendation:** (b) — <rationale>
+```
+
 ## Git Workflow
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.

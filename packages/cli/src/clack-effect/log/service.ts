@@ -12,26 +12,24 @@ export interface ClackBoxOptions {
   readonly rounded?: boolean;
 }
 
-export interface ClackLogService {
-  readonly message: (message: string) => Effect.Effect<void>;
-  readonly info: (message: string) => Effect.Effect<void>;
-  readonly success: (message: string) => Effect.Effect<void>;
-  readonly step: (message: string) => Effect.Effect<void>;
-  readonly warn: (message: string) => Effect.Effect<void>;
-  readonly error: (message: string) => Effect.Effect<void>;
-  readonly intro: (title?: string) => Effect.Effect<void>;
-  readonly outro: (message?: string) => Effect.Effect<void>;
-  readonly cancel: (message?: string) => Effect.Effect<void>;
-  readonly note: (message: string, title?: string) => Effect.Effect<void>;
-  readonly box: (message: string, title?: string, opts?: ClackBoxOptions) => Effect.Effect<void>;
-}
-
 export class ClackLog extends Context.Tag("@axm.sh/cli/clack-effect/ClackLog")<
   ClackLog,
-  ClackLogService
+  {
+    readonly message: (message: string) => Effect.Effect<void>;
+    readonly info: (message: string) => Effect.Effect<void>;
+    readonly success: (message: string) => Effect.Effect<void>;
+    readonly step: (message: string) => Effect.Effect<void>;
+    readonly warn: (message: string) => Effect.Effect<void>;
+    readonly error: (message: string) => Effect.Effect<void>;
+    readonly intro: (title?: string) => Effect.Effect<void>;
+    readonly outro: (message?: string) => Effect.Effect<void>;
+    readonly cancel: (message?: string) => Effect.Effect<void>;
+    readonly note: (message: string, title?: string) => Effect.Effect<void>;
+    readonly box: (message: string, title?: string, opts?: ClackBoxOptions) => Effect.Effect<void>;
+  }
 >() {}
 
-const makeLiveClackLogService = (): ClackLogService => ({
+const makeLiveClackLogService = (): Context.Tag.Service<typeof ClackLog> => ({
   message: (message) => Effect.sync(() => p.log.message(message)),
   info: (message) => Effect.sync(() => p.log.info(message)),
   success: (message) => Effect.sync(() => p.log.success(message)),

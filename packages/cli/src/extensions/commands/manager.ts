@@ -35,7 +35,7 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class CommandManager extends Context.Tag("CommandManager")<
+export class CommandManager extends Context.Tag("@axm.sh/cli/CommandManager")<
   CommandManager,
   ExtensionManager<CommandExtensionRef>
 >() {}

@@ -52,7 +52,7 @@ export interface ParsedSkillUninstallArgs {
 // -----------------------------------------------------------------------------
 
 export class UninstallSkillCommandWorkflowActions extends Context.Tag(
-  "UninstallSkillCommandWorkflowActions",
+  "@axm.sh/cli/UninstallSkillCommandWorkflowActions",
 )<
   UninstallSkillCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<

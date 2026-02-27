@@ -14,7 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./handler.js";
@@ -74,17 +75,8 @@ describe("packs-new.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-    );
+    const promptLayer = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       yes: true,
@@ -100,12 +92,12 @@ describe("packs-new.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide };
   };
 
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
@@ -139,9 +131,11 @@ describe("packs-new.handler", () => {
           expect(settings.packs).toBeDefined();
           expect(settings.packs["frontend-tools"]).toBe("@acme/packs/frontend-tools");
 
-          expect(mockLog.logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(
-            true,
-          );
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
+              m.includes("@acme/packs/frontend-tools"),
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -149,7 +143,7 @@ describe("packs-new.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      const { provide } = makeLayers({ preview: true, yes: false });
       initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
@@ -174,7 +168,9 @@ describe("packs-new.handler", () => {
           expect(settings.packs?.["frontend-tools"]).toBeUndefined();
 
           // Preview log message should appear
-          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.info.some((m) => m.includes("Previewing")),
+          ).toBe(true);
         }),
       );
     });

@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import type { CliError } from "../cli-error/index.js";
-import { ClackPrompt, type ClackPromptService } from "./prompt/service.js";
+import { ClackPrompt } from "./prompt/service.js";
 
 type PromptError = CliError | PromptCancelled;
 
@@ -13,13 +13,11 @@ export interface ConfirmConfig {
   readonly initialValue?: boolean;
 }
 
-export interface ConfirmService {
-  readonly prompt: (config: ConfirmConfig) => Effect.Effect<boolean, PromptError>;
-}
-
 export class Confirm extends Context.Tag("@axm.sh/cli/clack-effect/Confirm")<
   Confirm,
-  ConfirmService
+  {
+    readonly prompt: (config: ConfirmConfig) => Effect.Effect<boolean, PromptError>;
+  }
 >() {}
 
 export interface SelectConfig<T> {
@@ -31,13 +29,11 @@ export interface SelectConfig<T> {
   };
 }
 
-export interface SelectService {
-  readonly prompt: <T>(config: SelectConfig<T>) => Effect.Effect<T, PromptError>;
-}
-
 export class Select extends Context.Tag("@axm.sh/cli/clack-effect/Select")<
   Select,
-  SelectService
+  {
+    readonly prompt: <T>(config: SelectConfig<T>) => Effect.Effect<T, PromptError>;
+  }
 >() {}
 
 export interface MultiselectConfig<T> {
@@ -52,15 +48,13 @@ export interface MultiselectConfig<T> {
   readonly required?: Option.Option<boolean>;
 }
 
-export interface MultiselectService {
-  readonly prompt: <T>(
-    config: MultiselectConfig<T>,
-  ) => Effect.Effect<ReadonlyArray<T>, PromptError>;
-}
-
 export class Multiselect extends Context.Tag("@axm.sh/cli/clack-effect/Multiselect")<
   Multiselect,
-  MultiselectService
+  {
+    readonly prompt: <T>(
+      config: MultiselectConfig<T>,
+    ) => Effect.Effect<ReadonlyArray<T>, PromptError>;
+  }
 >() {}
 
 export interface TextInputConfig {
@@ -70,13 +64,11 @@ export interface TextInputConfig {
   readonly validate?: (value: string) => string | undefined;
 }
 
-export interface TextInputService {
-  readonly prompt: (config: TextInputConfig) => Effect.Effect<string, PromptError>;
-}
-
 export class TextInput extends Context.Tag("@axm.sh/cli/clack-effect/TextInput")<
   TextInput,
-  TextInputService
+  {
+    readonly prompt: (config: TextInputConfig) => Effect.Effect<string, PromptError>;
+  }
 >() {}
 
 export interface PasswordInputConfig {
@@ -84,13 +76,11 @@ export interface PasswordInputConfig {
   readonly mask?: string;
 }
 
-export interface PasswordInputService {
-  readonly prompt: (config: PasswordInputConfig) => Effect.Effect<string, PromptError>;
-}
-
 export class PasswordInput extends Context.Tag("@axm.sh/cli/clack-effect/PasswordInput")<
   PasswordInput,
-  PasswordInputService
+  {
+    readonly prompt: (config: PasswordInputConfig) => Effect.Effect<string, PromptError>;
+  }
 >() {}
 
 const toOptional = <T>(value: T | Option.Option<T> | undefined): T | undefined => {
@@ -106,8 +96,8 @@ const toOptional = <T>(value: T | Option.Option<T> | undefined): T | undefined =
 const toHint = (hint: string | Option.Option<string> | undefined): string | undefined =>
   toOptional(hint);
 
-const makeLegacyPromptServices = (prompt: ClackPromptService) => {
-  const confirm: ConfirmService = {
+const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt>) => {
+  const confirm: Context.Tag.Service<typeof Confirm> = {
     prompt: (config) =>
       prompt.confirm({
         message: config.message,
@@ -115,7 +105,7 @@ const makeLegacyPromptServices = (prompt: ClackPromptService) => {
       }),
   };
 
-  const select: SelectService = {
+  const select: Context.Tag.Service<typeof Select> = {
     prompt: (config) =>
       prompt.select({
         message: config.message,
@@ -131,7 +121,7 @@ const makeLegacyPromptServices = (prompt: ClackPromptService) => {
       }),
   };
 
-  const multiselect: MultiselectService = {
+  const multiselect: Context.Tag.Service<typeof Multiselect> = {
     prompt: (config) => {
       const initialValues = toOptional(config.initialValues);
       const required = toOptional(config.required);
@@ -152,7 +142,7 @@ const makeLegacyPromptServices = (prompt: ClackPromptService) => {
     },
   };
 
-  const textInput: TextInputService = {
+  const textInput: Context.Tag.Service<typeof TextInput> = {
     prompt: (config) =>
       prompt.text({
         message: config.message,
@@ -165,7 +155,7 @@ const makeLegacyPromptServices = (prompt: ClackPromptService) => {
       }),
   };
 
-  const passwordInput: PasswordInputService = {
+  const passwordInput: Context.Tag.Service<typeof PasswordInput> = {
     prompt: (config) =>
       prompt.password({
         message: config.message,

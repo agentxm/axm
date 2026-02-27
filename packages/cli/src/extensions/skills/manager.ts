@@ -39,7 +39,7 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class SkillManager extends Context.Tag("SkillManager")<
+export class SkillManager extends Context.Tag("@axm.sh/cli/SkillManager")<
   SkillManager,
   ExtensionManager<SkillExtensionRef>
 >() {}

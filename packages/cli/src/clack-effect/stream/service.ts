@@ -6,30 +6,28 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import { makeCliError, type CliError } from "../../cli-error/index.js";
 
-export interface ClackStreamService {
-  readonly message: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-  readonly info: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-  readonly success: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-  readonly step: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-  readonly warn: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-  readonly error: <E, R>(
-    stream: Stream.Stream<string, E, R>,
-  ) => Effect.Effect<void, CliError | E, R>;
-}
-
 export class ClackStream extends Context.Tag("@axm.sh/cli/clack-effect/ClackStream")<
   ClackStream,
-  ClackStreamService
+  {
+    readonly message: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+    readonly info: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+    readonly success: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+    readonly step: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+    readonly warn: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+    readonly error: <E, R>(
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, CliError | E, R>;
+  }
 >() {}
 
 const wrapStreamMethod =
@@ -49,7 +47,7 @@ const wrapStreamMethod =
       });
     });
 
-const makeLiveClackStreamService = (): ClackStreamService => ({
+const makeLiveClackStreamService = (): Context.Tag.Service<typeof ClackStream> => ({
   message: wrapStreamMethod((iter) => p.stream.message(iter)),
   info: wrapStreamMethod((iter) => p.stream.info(iter)),
   success: wrapStreamMethod((iter) => p.stream.success(iter)),

@@ -82,15 +82,20 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
     const path = yield* Path.Path;
     const log = yield* Log;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const provideServices = <A, E>(effect: Effect.Effect<A, E, any>) =>
+    const provideServices = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        Workspace | SourceHostProviders | FileSystem.FileSystem | Path.Path | Log
+      >,
+    ): Effect.Effect<A, E, never> =>
       effect.pipe(
         Effect.provideService(Workspace, workspace),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(Log, log),
-      ) as Effect.Effect<A, E, never>;
+      );
 
     const resolvedSkills = Object.fromEntries(
       skillOps.flatMap((op) =>

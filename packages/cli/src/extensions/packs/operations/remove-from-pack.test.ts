@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";
@@ -101,8 +101,7 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  const [logLayer] = makeClackLogTestLayer();
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), logLayer);
+  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), ClackLogTestLayer);
 };
 
 /** Creates a pack manifest with some skills on disk and returns its content hash. */

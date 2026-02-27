@@ -16,11 +16,15 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { ClackLogTest, ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import {
+  ClackSpinnerTest,
+  ClackSpinnerTestLayer,
+} from "../../../clack-effect/spinner/ClackSpinnerTest.js";
+import {
+  ClackPromptTest,
   makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-} from "../../../clack-effect/index.js";
+} from "../../../clack-effect/prompt/ClackPromptTest.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -118,23 +122,19 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, logMock] = makeClackLogTestLayer();
-    const [spinnerLayer, spinnerMock] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
-    const [multiselectLayer, multiselectMock] = makeClackPromptTestLayer({
-      type: "multiselect",
-      indices: [],
+    const promptLayer = makeClackPromptTestLayer({
+      defaultBehavior: { type: "return", value: "" },
+      methodBehaviors: {
+        confirm: { type: "return", value: true },
+        select: { type: "select", index: 0 },
+        multiselect: { type: "multiselect", indices: [] },
+      },
     });
-    const [textInputLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-      textInputLayer,
+      ClackLogTestLayer,
+      ClackSpinnerTestLayer,
+      promptLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -157,12 +157,7 @@ describe("skills install handler — error propagation", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return {
-      provide,
-      logMock,
-      multiselectMock,
-      spinnerMock,
-    };
+    return { provide };
   };
 
   it.effect(
@@ -188,7 +183,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("returns INVALID_SOURCE for unparseable input", () => {
-    const { provide, spinnerMock } = makeLayers();
+    const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -197,8 +192,9 @@ describe("skills install handler — error propagation", () => {
         const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
         expect(error._tag).toBe("CliError");
         expect((error as CliError).code).toBe("INVALID_SOURCE");
-        expect(spinnerMock.starts).toContain("Parsing source...");
-        expect(spinnerMock.stops).toContain("Failed");
+        const spinner = yield* (yield* ClackSpinnerTest).get;
+        expect(spinner.starts).toContain("Parsing source...");
+        expect(spinner.stops).toContain("Failed");
       }),
     );
   });
@@ -228,7 +224,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
-    const { provide, logMock, multiselectMock } = makeLayers({
+    const { provide } = makeLayers({
       yes: false,
       nonInteractive: Option.none(),
     });
@@ -253,8 +249,10 @@ describe("skills install handler — error propagation", () => {
           }),
         );
 
-        expect(multiselectMock.calls).toHaveLength(0);
-        expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
+        const promptCalls = yield* (yield* ClackPromptTest).get;
+        expect(promptCalls).toHaveLength(0);
+        const logRecord = yield* (yield* ClackLogTest).get;
+        expect(logRecord.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
       }),
     );
   });
@@ -281,7 +279,7 @@ describe("skills install handler — error propagation", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-    const { provide, logMock } = makeLayers({ force: true });
+    const { provide } = makeLayers({ force: true });
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -306,7 +304,8 @@ describe("skills install handler — error propagation", () => {
         };
         const result = yield* ws.resolvePlan(plan);
         // --force downgrades errors to warnings and proceeds
-        expect(logMock.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+        const logRecord = yield* (yield* ClackLogTest).get;
+        expect(logRecord.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");
       }),
     );

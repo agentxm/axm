@@ -15,7 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
@@ -126,17 +127,8 @@ describe("packs-add.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-    );
+    const promptLayer = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       yes: true,
@@ -152,12 +144,12 @@ describe("packs-add.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide };
   };
 
   describe("add specific extension by name", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         namespace: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -183,7 +175,9 @@ describe("packs-add.handler", () => {
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
         }),
       );
     });
@@ -191,7 +185,7 @@ describe("packs-add.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      const { provide } = makeLayers({ preview: true, yes: false });
       initWorkspace(path.join(tempDir, ".axm"), {
         namespace: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -220,7 +214,9 @@ describe("packs-add.handler", () => {
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
 
           // Preview log message should appear
-          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.info.some((m) => m.includes("Previewing")),
+          ).toBe(true);
         }),
       );
     });
@@ -374,7 +370,7 @@ describe("packs-add.handler", () => {
 
   describe("extension already in pack", () => {
     it.effect("reports no-op when extension is already in pack", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         namespace: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
@@ -396,8 +392,14 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
 
-          expect(mockLog.logs.info.some((m) => m.includes("already in pack"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.info.some((m) => m.includes("already in pack")),
+          ).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
+              m.includes("Nothing to do"),
+            ),
+          ).toBe(true);
         }),
       );
     });

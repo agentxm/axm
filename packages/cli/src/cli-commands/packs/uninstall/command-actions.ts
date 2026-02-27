@@ -69,7 +69,7 @@ export interface UninstallPackCommandIntent {
 // -----------------------------------------------------------------------------
 
 export class UninstallPackCommandWorkflowActions extends Context.Tag(
-  "UninstallPackCommandWorkflowActions",
+  "@axm.sh/cli/UninstallPackCommandWorkflowActions",
 )<
   UninstallPackCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<

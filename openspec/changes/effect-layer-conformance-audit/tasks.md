@@ -9,7 +9,7 @@ No dependencies on other phases.
 
 ### Tag namespacing (D1)
 
-- [ ] 1.1 Add `@axm.sh/cli/` prefix to all 12 unqualified tag identifier strings:
+- [x] 1.1 Add `@axm.sh/cli/` prefix to all 12 unqualified tag identifier strings:
   - `extensions/skills/manager.ts` — `SkillManager`
   - `extensions/commands/manager.ts` — `CommandManager`
   - `extensions/packs/manager.ts` — `PackManager`
@@ -25,7 +25,7 @@ No dependencies on other phases.
 
 ### Typed provide helpers (D4)
 
-- [ ] 1.2 Type `provide` / `provideServices` helpers — replace `any` with explicit unions in 4 files:
+- [x] 1.2 Type `provide` / `provideServices` helpers — replace `any` with explicit unions in 4 files:
   - `cli-commands/skills/install/command-actions.ts` — replace `<A>(effect: Effect.Effect<A, any, any>)` with `<A, E>` and explicit R union; include `PromptCancelled` in error union
   - `cli-commands/packs/install/command-actions.ts` — same pattern as above
   - `cli-commands/packs/install/plan.ts` — replace `any` in R with explicit service union
@@ -33,11 +33,11 @@ No dependencies on other phases.
 
 ### Verification
 
-- [ ] 1.3 Run `pnpm typecheck` — fix any errors
-- [ ] 1.4 Run `pnpm lint` — fix any errors
-- [ ] 1.5 Run `pnpm test` — fix any failures
-- [ ] 1.6 Run `pnpm test:e2e` — fix any failures
-- [ ] 1.7 Kill any vitest worker processes
+- [x] 1.3 Run `pnpm typecheck` — fix any errors
+- [x] 1.4 Run `pnpm lint` — fix any errors
+- [x] 1.5 Run `pnpm test` — fix any failures
+- [x] 1.6 Run `pnpm test:e2e` — fix any failures
+- [x] 1.7 Kill any vitest worker processes
 
 ## 2. Combined Tag Pattern (D2)
 
@@ -47,7 +47,7 @@ Depends on: Phase 1 (shared files in command-actions).
 
 ### Service definitions — clack services
 
-- [ ] 2.1 Convert 6 clack service definitions to combined tag + inline interface pattern. For each: inline the `*Service` interface on the `Context.Tag` class, remove the separate interface type export:
+- [x] 2.1 Convert 6 clack service definitions to combined tag + inline interface pattern. For each: inline the `*Service` interface on the `Context.Tag` class, remove the separate interface type export:
   - `clack-effect/log/service.ts` — inline `ClackLogService`, remove type export
   - `clack-effect/spinner/service.ts` — inline `ClackSpinnerService`, remove type export
   - `clack-effect/prompt/service.ts` — inline `ClackPromptService`, remove type export
@@ -57,7 +57,7 @@ Depends on: Phase 1 (shared files in command-actions).
 
 ### Service definitions — legacy prompt services
 
-- [ ] 2.2 Convert 5 legacy prompt service definitions in `clack-effect/legacy-prompt.ts` to combined tag + inline interface:
+- [x] 2.2 Convert 5 legacy prompt service definitions in `clack-effect/legacy-prompt.ts` to combined tag + inline interface:
   - Inline `ConfirmService` on `Confirm` tag, remove separate interface
   - Inline `SelectService` on `Select` tag, remove separate interface
   - Inline `MultiselectService` on `Multiselect` tag, remove separate interface
@@ -67,18 +67,18 @@ Depends on: Phase 1 (shared files in command-actions).
 
 ### Consumer migration
 
-- [ ] 2.3 Update all imports of removed `*Service` types across the codebase. Replace with `Context.Tag.Service<typeof Tag>` or remove if unused. Check:
+- [x] 2.3 Update all imports of removed `*Service` types across the codebase. Replace with `Context.Tag.Service<typeof Tag>` or remove if unused. Check:
   - Barrel re-exports in `clack-effect/*/index.ts` and `clack-effect/index.ts` — remove `*Service` exports and any deprecated aliases (`LogService`, `SpinnerService`, etc.)
   - Production code importing `*Service` types for parameter typing
   - Test files importing `*Service` types for mock typing (e.g., `as ClackLogService`)
 
 ### Verification
 
-- [ ] 2.4 Run `pnpm typecheck` — fix any errors
-- [ ] 2.5 Run `pnpm lint` — fix any errors
-- [ ] 2.6 Run `pnpm test` — fix any failures
-- [ ] 2.7 Run `pnpm test:e2e` — fix any failures
-- [ ] 2.8 Kill any vitest worker processes
+- [x] 2.4 Run `pnpm typecheck` — fix any errors
+- [x] 2.5 Run `pnpm lint` — fix any errors
+- [x] 2.6 Run `pnpm test` — fix any failures
+- [x] 2.7 Run `pnpm test:e2e` — fix any failures
+- [x] 2.8 Kill any vitest worker processes
 
 ## 3. Test Layer Migration (D3)
 

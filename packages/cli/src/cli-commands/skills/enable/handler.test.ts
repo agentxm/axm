@@ -8,26 +8,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
-import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  type Confirm,
-  type Log,
-  type Multiselect,
-  type Select,
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-} from "../../../clack-effect/index.js";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { ClackLogTestLayer, ClackLogTest } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeClackPromptTestLayer } from "../../../clack-effect/prompt/ClackPromptTest.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handleEnable, type EnableHandlerArgs } from "./handler.js";
 
@@ -95,17 +84,8 @@ describe("enable.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
-    const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-    );
+    const promptLayer = makeClackPromptTestLayer();
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLogTestLayer, promptLayer);
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
       yes: true,
@@ -117,15 +97,11 @@ describe("enable.handler", () => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide };
   };
 
   // ---------------------------------------------------------------------------
@@ -160,7 +136,7 @@ describe("enable.handler", () => {
     });
 
     it.effect("no-op when skill is already enabled", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
@@ -171,8 +147,14 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.info.some((m) => m.includes("already enabled"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.info.some((m) => m.includes("already enabled")),
+          ).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) =>
+              m.includes("Nothing to do"),
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -225,7 +207,7 @@ describe("enable.handler", () => {
 
   describe("promoted skill re-enable", () => {
     it.effect("re-enables promoted transitive skill by updating settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       // Skill was promoted to direct via disable: bare name key, no lock entry
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -261,7 +243,9 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("code-review"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -281,7 +265,7 @@ describe("enable.handler", () => {
 
   describe("settings-only enable (no lock entry)", () => {
     it.effect("enables a configured-disabled skill with no lockfile entry", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       // Skill in settings as disabled but not in lockfile
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -299,7 +283,9 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -319,7 +305,7 @@ describe("enable.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves enable plan for disabled skill", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide } = makeLayers();
       // Create a disabled skill: { source: "local", enabled: false }
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -342,7 +328,9 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            (yield* (yield* ClackLogTest).get).logs.success.some((m) => m.includes("Done")),
+          ).toBe(true);
 
           // Verify agent symlink was created
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");

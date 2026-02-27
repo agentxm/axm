@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallPackOperation } from "./uninstall.js";
@@ -83,8 +83,11 @@ const makeOp = (packName = "testing"): UninstallPackOperation => ({
 });
 
 const makeLayer = (axmDir: string) => {
-  const [logLayer] = makeClackLogTestLayer();
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(makeWorkspaceMock(axmDir)), logLayer);
+  return Layer.mergeAll(
+    NodeContext.layer,
+    Workspace.layer(makeWorkspaceMock(axmDir)),
+    ClackLogTestLayer,
+  );
 };
 
 // -----------------------------------------------------------------------------

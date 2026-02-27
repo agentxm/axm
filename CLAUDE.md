@@ -39,18 +39,19 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ### Global Flags
 
-Three distinct flags for prompt/safety control. Keep them independent — each serves a different purpose.
+Four flags for prompt/safety control, defined once globally in `main.ts`. Keep them independent — each serves a different purpose.
 
 - `--yes` (`-y`) — Auto-accept confirmation prompts ("are you sure?"). Does not supply missing input or override errors.
   - Only affects yes/no confirmations, not selection prompts or text input
   - The operation would succeed interactively — this just skips the pause
   - Safe to use in scripts when the user knows what the command will do
   - Does not change what the command does, only whether it asks first
-- `--non-interactive` — Suppress all interactive prompts. Uses defaults where available; errors if required input has no default. Implies `--yes`. Auto-enabled when stdin is not a TTY.
+- `--non-interactive` — Suppress all interactive prompts. Uses defaults where available; errors if required input has no default. Auto-accepts confirmations (like `--yes`). Auto-detected when stdin is not a TTY or `CI=true` env var is set.
   - Every prompt must have a flag/env var alternative or a sensible default
   - Must never hang waiting for input — fail fast with a clear message
   - Error messages should tell the user which flag to pass instead
   - Commands should produce the same result as interactive use with the same inputs
+  - **Exception**: `--preview` requires explicit `--yes` to auto-apply — without it, preview is display-only (safe CI dry-run)
 - `--force` (`-f`) — Override constraints that would otherwise cause failure (e.g., conflicting state, version mismatches). Does not imply `--yes` or `--non-interactive` — a user may want to force past a conflict but still be prompted for other input.
   - Without `--force`, the command fails with an error explaining the constraint
   - The error message should suggest `--force` as the override
@@ -59,6 +60,8 @@ Three distinct flags for prompt/safety control. Keep them independent — each s
 - `--preview` — Display plan without applying (requires `--yes` or confirmation to apply).
 
 **Severity model:** If important enough to block, it's an error (overridable with `--force`). If not important enough to block, it's a warning (always shown, never blocks).
+
+**Resolution model:** Global flags are resolved once into a `CliFlags` Effect service at the `run()` boundary. The `nonInteractive` flag follows a resolution chain: explicit `--non-interactive` flag → `CI=true` env var → `!stdin.isTTY`. Both the `Workspace` service and `ClackPrompt` service depend on `CliFlags` — neither resolves flags independently. Handlers read resolved values from `CliFlags`, never from raw argv.
 
 ## Code Organization
 

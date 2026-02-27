@@ -1,6 +1,6 @@
 ---
 name: effect-service
-description: Effect service architecture interfaces, error types, layers, retries. Use when creating new services or defining error hierarchies.
+description: Effect service definition, interface design, error types, retries. Use when creating new services or defining error hierarchies.
 user-invocable: false
 ---
 
@@ -8,47 +8,216 @@ user-invocable: false
 
 Apply these patterns when designing Effect services in this codebase.
 
+See /effect-layers for layer construction, composition, and provision.
+
 ---
 
-## Service Interface Pattern
+## Service Definition
 
-Use the inferred interface pattern to avoid circular references:
+### Default: combined tag + inline interface
+
+For services with a single implementation, define the interface inline on
+the `Context.Tag` class. This is concise and gives you full Layer-based
+dependency injection and testability.
 
 ```typescript
-// 1. Define implementation - let Effect infer method return types
-const make = (config: Config) => {
-  const doSomething = (input: string) =>
-    Effect.tryPromise({
-      try: () => externalApi.call(input),
-      catch: mapToMyError,
-    });
-
-  return { doSomething };
-};
-
-// 2. Infer the service type from implementation
-export type MyService = ReturnType<typeof make>;
-
-// 3. Create the service tag
-export const MyService = Context.GenericTag<MyService>("MyService");
-
-// 4. Create the layer
-export const MyServiceLive = Layer.effect(
-  MyService,
-  Effect.gen(function* () {
-    // ... setup logic
-    return make(config);
-  }),
-);
+class NotificationService extends Context.Tag("@axm.sh/cli/NotificationService")<
+  NotificationService,
+  {
+    readonly send: (to: string, message: string) => Effect.Effect<void, CliError>;
+    readonly sendBatch: (
+      notifications: ReadonlyArray<Notification>,
+    ) => Effect.Effect<void, CliError>;
+  }
+>() {}
 ```
 
-### Service Interface Checklist
+The tag decouples consumers from implementations — you get testability and
+composability without additional abstraction.
 
-- [ ] **Infer from implementation** — Use `ReturnType<typeof make>` not explicit interface
-- [ ] **Let methods infer types** — Effect infers `Effect<A, E, R>` signatures
-- [ ] **No return type on make** — Avoid circular references
-- [ ] **Tag after type** — Service tag created after type inference
-- [ ] **Single responsibility** — Service handles one domain concern
+Appropriate for:
+
+- Application-specific coordination or orchestration services
+- Domain services with a single production implementation
+- Config or environment wrappers
+- Any service where you don't anticipate swapping implementations
+
+### When to extract an explicit interface
+
+Use a separate interface when a service **genuinely has multiple
+implementations** that must conform to a shared contract.
+
+```typescript
+// The contract
+interface DocumentStore {
+  readonly get: (id: DocumentId) => Effect.Effect<Document, DocumentNotFound>;
+  readonly put: (doc: Document) => Effect.Effect<void, StoreError>;
+  readonly delete: (id: DocumentId) => Effect.Effect<void, StoreError>;
+}
+
+// The tag, typed to the interface
+const DocumentStore = Context.GenericTag<DocumentStore>("@axm.sh/cli/DocumentStore");
+
+// Implementation A
+const S3DocumentStoreLive = Layer.succeed(DocumentStore, {
+  /* ... */
+});
+
+// Implementation B
+const PostgresDocumentStoreLive = Layer.succeed(DocumentStore, {
+  /* ... */
+});
+```
+
+This pattern is warranted when:
+
+- **Multiple implementations exist today** — different backends, provider
+  clients, or strategy-pattern services selected at runtime
+- **Test doubles need a formal contract** — complex test fakes validated
+  against the same shape to prevent drift
+- **The interface is a domain port** — adapter boundary where the domain
+  defines what it needs and infrastructure satisfies it
+
+### Decision rule
+
+Ask: _does this service have, or will it concretely have, more than one
+implementation?_
+
+- **No** → Combined tag pattern. Extracting an interface later is a
+  straightforward, non-breaking refactor.
+- **Yes** → Explicit interface with `GenericTag`.
+
+Avoid speculative interfaces. The Layer system makes it cheap to introduce
+one later, so let actual requirements drive the decision.
+
+---
+
+## Service Interface Design
+
+### R = never on methods
+
+Service methods must not leak implementation dependencies. Dependencies
+belong in the layer, not the service interface.
+
+```typescript
+// BAD: dependency leaks into the interface
+interface MyService {
+  readonly query: (sql: string) => Effect.Effect<Row[], Error, Config | Logger>;
+}
+
+// GOOD: dependencies resolved at layer construction
+interface MyService {
+  readonly query: (sql: string) => Effect.Effect<Row[], Error>;
+}
+```
+
+See /effect-layers for how to capture dependencies in layers while keeping
+`R = never`.
+
+### Readonly properties
+
+Services should not expose mutable state. Use `readonly` on all properties.
+
+```typescript
+interface CounterService {
+  readonly increment: () => Effect.Effect<void>;
+  readonly get: () => Effect.Effect<number>;
+}
+```
+
+### Single responsibility
+
+Each service handles one domain concern. If a service has methods spanning
+multiple concerns, split it.
+
+---
+
+## Service-Driven Development
+
+Design leaf service interfaces before implementations. This lets you model
+higher-level orchestration that type-checks immediately.
+
+```typescript
+// 1. Leaf services: contracts only (no implementation yet)
+class Users extends Context.Tag("@app/Users")<
+  Users,
+  { readonly findById: (id: UserId) => Effect.Effect<User, UserNotFound> }
+>() {}
+
+class Tickets extends Context.Tag("@app/Tickets")<
+  Tickets,
+  { readonly issue: (eventId: EventId, userId: UserId) => Effect.Effect<Ticket> }
+>() {}
+
+// 2. Orchestration service: uses leaf contracts
+class Events extends Context.Tag("@app/Events")<
+  Events,
+  { readonly register: (eventId: EventId, userId: UserId) => Effect.Effect<Registration> }
+>() {
+  static readonly layer = Layer.effect(
+    Events,
+    Effect.gen(function* () {
+      const users = yield* Users;
+      const tickets = yield* Tickets;
+      return {
+        register: (eventId, userId) =>
+          Effect.gen(function* () {
+            const user = yield* users.findById(userId);
+            const ticket = yield* tickets.issue(eventId, userId);
+            return { user, ticket };
+          }),
+      };
+    }),
+  );
+}
+```
+
+Benefits:
+
+- Type-checks immediately even without leaf implementations
+- Adding production layers doesn't change orchestration code
+- Test layers slot in without modification
+
+---
+
+## Naming Conventions
+
+### Service tags
+
+Use `@axm.sh/cli/<ServiceName>` as the identifier string:
+
+```typescript
+Context.Tag("@axm.sh/cli/Workspace");
+Context.Tag("@axm.sh/cli/SourceHostProviders");
+```
+
+### Layer names
+
+See /effect-layers for full naming conventions and module structure.
+
+| Suffix   | Usage                       |
+| -------- | --------------------------- |
+| `Live`   | Production layer            |
+| `Test`   | Test / fake layer           |
+| `Memory` | In-memory variant           |
+| `Dev`    | Development / local variant |
+
+---
+
+## Using Services
+
+Yield the tag to access the service in an effect:
+
+```typescript
+const program = Effect.gen(function* () {
+  const ws = yield* Workspace;
+  const sources = yield* SourceHostProviders;
+  const refs = yield* sources.find(source);
+});
+// Effect<..., ..., Workspace | SourceHostProviders>
+```
+
+The `R` parameter automatically tracks required services as a union type.
 
 ---
 
@@ -92,46 +261,6 @@ const mapApiError = (error: unknown): ApiError => {
 
 ---
 
-## Layer Construction
-
-Environment-based layer for production:
-
-```typescript
-export const MyServiceLive = Layer.effect(
-  MyService,
-  Effect.gen(function* () {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      return yield* Effect.fail(new ConfigError({ message: "API_KEY is required" }));
-    }
-    return make({ apiKey });
-  }),
-);
-```
-
-Test layer with explicit config:
-
-```typescript
-export const makeMyServiceLayer = (config: Partial<Config> & { apiKey: string }) =>
-  Layer.succeed(
-    MyService,
-    make({
-      apiKey: config.apiKey,
-      timeout: config.timeout ?? DEFAULT_TIMEOUT,
-    }),
-  );
-```
-
-### Layer Construction Checklist
-
-- [ ] **Validate config in layer** — Required config validated during construction
-- [ ] **Fail with ConfigError** — Missing config fails with typed error
-- [ ] **Explicit config parameters** — Test layers accept explicit config
-- [ ] **Sensible defaults** — Optional config has reasonable defaults
-- [ ] **No side effects in make** — Side effects happen in layer, not make
-
----
-
 ## Retry Policies
 
 Define retry behavior using `Schedule`:
@@ -155,3 +284,14 @@ const doSomething = (input: string) =>
 - [ ] **Bounded retries** — Use `Schedule.recurs(n)` to limit attempts
 - [ ] **Exponential backoff** — Use `Schedule.exponential` for external calls
 - [ ] **Condition on error** — Use `Schedule.whileInput` for retryable only
+
+---
+
+## Service Design Checklist
+
+- [ ] **Unique namespaced tag** — `@axm.sh/cli/<ServiceName>`
+- [ ] **R = never on methods** — no dependency leakage in interface
+- [ ] **Readonly properties** — no mutable state exposed
+- [ ] **Single responsibility** — one domain concern per service
+- [ ] **Combined tag by default** — extract interface only for multiple implementations
+- [ ] **Layer in effect-layers** — see /effect-layers for construction patterns

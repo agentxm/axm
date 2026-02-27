@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
@@ -53,6 +54,8 @@ export interface UnpackHandlerArgs {
  * Handles the `axm packs unpack` command.
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "packs unpack" });
   const ws = yield* Workspace;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;

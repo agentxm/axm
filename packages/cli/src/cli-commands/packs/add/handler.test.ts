@@ -17,6 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
@@ -139,6 +140,7 @@ describe("packs-add.handler", () => {
       selectLayer,
       multiselectLayer,
       CliFlagsTest(flagsOverrides),
+      TelemetryClientTest,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

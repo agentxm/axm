@@ -16,6 +16,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -149,6 +150,7 @@ describe("uninstall.handler", () => {
       selectLayer,
       multiselectLayer,
       CliFlagsTest(),
+      TelemetryClientTest,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

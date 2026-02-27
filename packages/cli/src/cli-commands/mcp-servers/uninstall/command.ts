@@ -50,6 +50,7 @@ export const uninstallMcpServerCommand: CommandModule<{}, UninstallMcpServerComm
         scope: "project",
         agents: Option.none(),
       },
+      command: "mcp-servers uninstall",
     });
   },
 };

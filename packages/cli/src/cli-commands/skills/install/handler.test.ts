@@ -22,6 +22,7 @@ import {
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -136,6 +137,7 @@ describe("skills install handler — error propagation", () => {
       multiselectLayer,
       textInputLayer,
       CliFlagsTest(flagsOverrides),
+      TelemetryClientTest,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

@@ -74,6 +74,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills install",
       },
     );
   },

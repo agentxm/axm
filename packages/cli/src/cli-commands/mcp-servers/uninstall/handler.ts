@@ -7,6 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { runUninstallCommandWorkflow } from "../../../workflows/uninstall-command/workflow.js";
 import {
   UninstallMcpServerCommandWorkflowActions,
@@ -22,6 +23,8 @@ export type { UninstallMcpServerHandlerArgs } from "./command-actions.js";
  */
 export const handleUninstallMcpServer = (args: UninstallMcpServerHandlerArgs) =>
   Effect.gen(function* () {
+    const tc = yield* TelemetryClient;
+    yield* tc.trackEvent("command_invoked", { command: "mcp-servers uninstall" });
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
     yield* runUninstallCommandWorkflow(args, actions);
   });

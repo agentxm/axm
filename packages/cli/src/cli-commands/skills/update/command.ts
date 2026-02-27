@@ -64,6 +64,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills update",
       },
     );
   },

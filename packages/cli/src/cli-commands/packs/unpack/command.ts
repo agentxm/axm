@@ -45,6 +45,7 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
           scope: "project",
           agents: Option.none(),
         },
+        command: "packs unpack",
       },
     );
   },

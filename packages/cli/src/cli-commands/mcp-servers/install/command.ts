@@ -70,6 +70,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
         scope,
         agents: Option.none(),
       },
+      command: "mcp-servers install",
     });
   },
 };

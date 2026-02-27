@@ -24,6 +24,7 @@ import {
   makeClackLogTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
+import { TelemetryClient, TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -106,6 +107,7 @@ describe("enable.handler", () => {
       selectLayer,
       multiselectLayer,
       CliFlagsTest(),
+      TelemetryClientTest,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -126,6 +128,7 @@ describe("enable.handler", () => {
         | Select
         | Multiselect
         | Workspace
+        | TelemetryClient
         | CliFlags
       >,
     ) => effect.pipe(Effect.provide(FullLayer));

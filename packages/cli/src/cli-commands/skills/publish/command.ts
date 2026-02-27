@@ -49,6 +49,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
           scope: "project",
           agents: Option.none<readonly string[]>(),
         },
+        command: "skills publish",
       },
     );
   },

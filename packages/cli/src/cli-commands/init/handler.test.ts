@@ -38,6 +38,7 @@ import {
   makeClackPromptTestLayer,
 } from "../../clack-effect/index.js";
 import { CliFlags, CliFlagsTest } from "../../cli-flags/index.js";
+import { TelemetryClient, TelemetryClientTest } from "../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -84,6 +85,7 @@ describe("init.handler", () => {
     clackLogLayer,
     clackPromptLayer,
     CliFlagsTest(),
+    TelemetryClientTest,
   );
 
   /**
@@ -105,6 +107,7 @@ describe("init.handler", () => {
         | ClackPrompt
         | Workspace
         | CliFlags
+        | TelemetryClient
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -333,6 +336,7 @@ describe("init.handler", () => {
       const InteractiveTestLayer = Layer.mergeAll(
         TestLayer,
         CliFlagsTest({ nonInteractive: false, yes: true }),
+        TelemetryClientTest,
       );
       const WsLayer = Layer.provide(
         workspaceLayer({ scope: "project", agents: Option.none() }),
@@ -407,6 +411,7 @@ describe("init.handler", () => {
         iClackLogLayer,
         iClackPromptLayer,
         CliFlagsTest({ nonInteractive: false }),
+        TelemetryClientTest,
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
       return <A, E>(
@@ -423,6 +428,7 @@ describe("init.handler", () => {
           | ClackPrompt
           | Workspace
           | CliFlags
+          | TelemetryClient
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
@@ -480,6 +486,90 @@ describe("init.handler", () => {
         }),
       ),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Telemetry Notice
+  // ---------------------------------------------------------------------------
+
+  describe("telemetry notice", () => {
+    it.effect("displays telemetry notice after successful init", () => {
+      const [iClackLogLayer, mockLog] = makeClackLogTestLayer();
+      const [iConfirmLayer] = makeConfirmTestLayer();
+      const [iSelectLayer] = makeSelectTestLayer();
+      const [iMultiselectLayer] = makeMultiselectTestLayer();
+      const [iClackPromptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          confirm: { type: "return", value: true },
+          select: { type: "select", index: 0 },
+          multiselect: { type: "multiselect", indices: [] },
+        },
+      });
+      const BaseLayer = Layer.mergeAll(
+        NodeContext.layer,
+        iClackLogLayer,
+        iConfirmLayer,
+        iSelectLayer,
+        iMultiselectLayer,
+        iClackPromptLayer,
+        CliFlagsTest(),
+        TelemetryClientTest,
+      );
+      const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
+      return Effect.gen(function* () {
+        // Ensure telemetry is not disabled
+        delete process.env["AXM_TELEMETRY"];
+        delete process.env["DO_NOT_TRACK"];
+
+        yield* handleInit();
+
+        const infoMessages = mockLog.logs.info;
+        expect(infoMessages).toContain("Telemetry is enabled to help improve axm. To disable:");
+      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+    });
+
+    it.effect("does not display telemetry notice when AXM_TELEMETRY=0", () => {
+      const [iClackLogLayer, mockLog] = makeClackLogTestLayer();
+      const [iConfirmLayer] = makeConfirmTestLayer();
+      const [iSelectLayer] = makeSelectTestLayer();
+      const [iMultiselectLayer] = makeMultiselectTestLayer();
+      const [iClackPromptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          confirm: { type: "return", value: true },
+          select: { type: "select", index: 0 },
+          multiselect: { type: "multiselect", indices: [] },
+        },
+      });
+      const BaseLayer = Layer.mergeAll(
+        NodeContext.layer,
+        iClackLogLayer,
+        iConfirmLayer,
+        iSelectLayer,
+        iMultiselectLayer,
+        iClackPromptLayer,
+        CliFlagsTest(),
+        TelemetryClientTest,
+      );
+      const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
+      return Effect.gen(function* () {
+        const original = process.env["AXM_TELEMETRY"];
+        process.env["AXM_TELEMETRY"] = "0";
+        try {
+          yield* handleInit();
+
+          const infoMessages = mockLog.logs.info;
+          expect(infoMessages).not.toContain(
+            "Telemetry is enabled to help improve axm. To disable:",
+          );
+        } finally {
+          if (original === undefined) {
+            delete process.env["AXM_TELEMETRY"];
+          } else {
+            process.env["AXM_TELEMETRY"] = original;
+          }
+        }
+      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+    });
   });
 
   // ---------------------------------------------------------------------------

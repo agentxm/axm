@@ -44,6 +44,7 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
           scope: "project",
           agents: Option.none<readonly string[]>(),
         },
+        command: "skills uninstall",
       },
     );
   },

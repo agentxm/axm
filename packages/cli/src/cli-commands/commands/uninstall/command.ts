@@ -50,6 +50,7 @@ export const uninstallCommandCommand: CommandModule<{}, UninstallCommandCommandA
         scope: "project",
         agents: Option.none(),
       },
+      command: "commands uninstall",
     });
   },
 };

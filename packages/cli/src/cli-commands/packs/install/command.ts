@@ -86,6 +86,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         scope,
         agents: Option.none(),
       },
+      command: "packs install",
     });
   },
 };

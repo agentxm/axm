@@ -48,6 +48,7 @@ export const packsNewCommand: CommandModule<{}, PacksNewCommandArgs> = {
           scope: "project",
           agents: Option.none(),
         },
+        command: "packs new",
       },
     );
   },

@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { formatFqn } from "../../../extensions/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
 import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
 import { newPack } from "../../../extensions/packs/operations/new-pack.js";
@@ -36,6 +37,8 @@ export interface PacksNewHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "packs new" });
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

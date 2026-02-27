@@ -24,6 +24,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
@@ -127,6 +128,8 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
  * Handles the `axm skills fork` command.
  */
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "skills fork" });
   const ws = yield* Workspace;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;

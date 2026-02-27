@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { formatFqn } from "../../../extensions/index.js";
+import { TelemetryClient } from "../../../telemetry/index.js";
 import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
 import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
 import {
@@ -56,6 +57,8 @@ const toVersionRange = (version: string): string => `^${version}`;
 // -----------------------------------------------------------------------------
 
 export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "packs add" });
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

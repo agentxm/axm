@@ -11,6 +11,7 @@ import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../clack-effect/index.js";
+import { TelemetryClient, resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
 import { isUserScope } from "../../workspace/scope.js";
 
@@ -28,6 +29,8 @@ import { isUserScope } from "../../workspace/scope.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const handleInit = Effect.fn("Init.handle")(function* () {
+  const tc = yield* TelemetryClient;
+  yield* tc.trackEvent("command_invoked", { command: "init" });
   const log = yield* Log;
   const context = yield* Workspace;
   const scopeLabel = isUserScope(context.scope) ? "user" : "project";
@@ -53,4 +56,12 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   yield* log.success(
     agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
   );
+
+  // Show telemetry notice (unless telemetry is off)
+  const telemetryMode = resolveTelemetryMode(process.env, {});
+  if (telemetryMode !== "off") {
+    yield* log.info("");
+    yield* log.info("Telemetry is enabled to help improve axm. To disable:");
+    yield* log.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
+  }
 }, Effect.asVoid);

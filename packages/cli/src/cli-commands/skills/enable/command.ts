@@ -52,6 +52,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
           scope,
           agents: Option.none(),
         },
+        command: "skills enable",
       },
     );
   },

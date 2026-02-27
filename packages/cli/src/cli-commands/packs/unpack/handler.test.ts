@@ -18,7 +18,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   makeClackPromptTestLayer,
   makeClackLogTestLayer,
-  makeClackSpinnerTestLayer
+  makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";

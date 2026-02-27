@@ -90,8 +90,7 @@ const makeLiveClackPromptService = (): ClackPromptService => ({
 
   autocomplete: (config) => wrapPrompt(() => p.autocomplete(asClack(config))),
 
-  autocompleteMultiselect: (config) =>
-    wrapPrompt(() => p.autocompleteMultiselect(asClack(config))),
+  autocompleteMultiselect: (config) => wrapPrompt(() => p.autocompleteMultiselect(asClack(config))),
 
   path: (config) => wrapPrompt(() => p.path(asClack(config))),
 });

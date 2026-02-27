@@ -63,7 +63,9 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(messagesByMethod(mockLog, "info").some((m) => m.includes("Install skill(s)"))).toBe(true);
+      expect(messagesByMethod(mockLog, "info").some((m) => m.includes("Install skill(s)"))).toBe(
+        true,
+      );
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -90,7 +92,9 @@ describe("displayPlan", () => {
       );
 
       expect(
-        messagesByMethod(mockLog, "info").some((m) => m.includes("Install skills from github:owner/repo")),
+        messagesByMethod(mockLog, "info").some((m) =>
+          m.includes("Install skills from github:owner/repo"),
+        ),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
@@ -121,10 +125,14 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("+") && m.includes("commit"))).toBe(true);
-      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("+") && m.includes("review-pr"))).toBe(
-        true,
-      );
+      expect(
+        messagesByMethod(mockLog, "success").some((m) => m.includes("+") && m.includes("commit")),
+      ).toBe(true);
+      expect(
+        messagesByMethod(mockLog, "success").some(
+          (m) => m.includes("+") && m.includes("review-pr"),
+        ),
+      ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -214,7 +222,9 @@ describe("displayPlan", () => {
       );
 
       expect(
-        messagesByMethod(mockLog, "message").some((m) => m.includes("1 to apply") && m.includes("1 error")),
+        messagesByMethod(mockLog, "message").some(
+          (m) => m.includes("1 to apply") && m.includes("1 error"),
+        ),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
@@ -307,9 +317,11 @@ describe("displayPlan", () => {
         }),
       );
 
-      expect(messagesByMethod(mockLog, "success").some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(
-        true,
-      );
+      expect(
+        messagesByMethod(mockLog, "success").some(
+          (m) => m.includes("\u2713") && m.includes("commit"),
+        ),
+      ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -342,7 +354,9 @@ describe("displayPlan", () => {
           (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
         ),
       ).toBe(true);
-      expect(messagesByMethod(mockLog, "error").some((m) => m.includes("commit: failed to apply"))).toBe(true);
+      expect(
+        messagesByMethod(mockLog, "error").some((m) => m.includes("commit: failed to apply")),
+      ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -376,9 +390,13 @@ describe("displayPlan", () => {
         { verbosity: { verbose: true, debug: true } },
       );
 
-      expect(messagesByMethod(mockLog, "error").some((m) => m.includes("Cause: connection refused"))).toBe(true);
       expect(
-        messagesByMethod(mockLog, "error").some((m) => m.includes("Registry URL: https://registry.example.com")),
+        messagesByMethod(mockLog, "error").some((m) => m.includes("Cause: connection refused")),
+      ).toBe(true);
+      expect(
+        messagesByMethod(mockLog, "error").some((m) =>
+          m.includes("Registry URL: https://registry.example.com"),
+        ),
       ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });

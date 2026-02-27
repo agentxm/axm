@@ -25,11 +25,7 @@ describe("ClackSpinner", () => {
     const [layer, mock] = makeClackSpinnerTestLayer();
     return Effect.gen(function* () {
       const spinner = yield* ClackSpinner;
-      const result = yield* spinner.withSpinner(
-        "Working...",
-        () => Effect.succeed(42),
-        "All done",
-      );
+      const result = yield* spinner.withSpinner("Working...", () => Effect.succeed(42), "All done");
       expect(result).toBe(42);
       expect(mock.calls).toEqual([
         { method: "withSpinner.start", args: ["Working..."] },
@@ -69,9 +65,7 @@ describe("ClackSpinner", () => {
     const [layer, mock] = makeClackSpinnerTestLayer();
     return Effect.gen(function* () {
       const spinner = yield* ClackSpinner;
-      const fiber = yield* Effect.fork(
-        spinner.withSpinner("Working...", () => Effect.never),
-      );
+      const fiber = yield* Effect.fork(spinner.withSpinner("Working...", () => Effect.never));
       yield* Effect.yieldNow();
       yield* Fiber.interrupt(fiber);
       yield* Fiber.await(fiber);

@@ -1,34 +1,34 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Note service displays boxed informational callouts
 
-The Note service SHALL be a self-contained module under `src/tui/note/` with its own Effect service tag, live layer, and test layer factory. It SHALL provide a method that accepts a message string and an optional title string, and renders a boxed callout to stdout.
+The note capability SHALL be provided by `ClackLog.note` from `src/clack-effect/log/` rather than a standalone Note service module. It SHALL accept a message string and optional title string, and render a boxed callout to stdout.
 
 #### Scenario: Note with title
 
-- **WHEN** a handler calls `note.display("Run axm skills install to add skills", "Next steps")`
-- **THEN** a boxed callout SHALL render with "Next steps" as the title and the message as the body
+- **WHEN** code calls `log.note("Run axm skills install to add skills", "Next steps")`
+- **THEN** a boxed callout SHALL render with `Next steps` as title and the message as body
 
 #### Scenario: Note without title
 
-- **WHEN** a handler calls `note.display("Operation complete")`
-- **THEN** a boxed callout SHALL render with the message as the body and no title
+- **WHEN** code calls `log.note("Operation complete")`
+- **THEN** a boxed callout SHALL render with the message body and no title
 
 #### Scenario: Note test layer records calls
 
-- **WHEN** a handler calls `note.display(...)` using the test layer
-- **THEN** the mock service SHALL record the message and title for assertion
+- **WHEN** code calls `log.note(...)` using the clack log test layer
+- **THEN** the mock service SHALL record the note call for assertion
 
-#### Scenario: Handler depends only on Note
+#### Scenario: Handler depends only on ClackLog for notes
 
-- **WHEN** a handler uses only the Note service
-- **THEN** its Effect type signature SHALL require only `Note` — not all TUI services
+- **WHEN** a handler uses only note output behavior
+- **THEN** its Effect type signature SHALL require `ClackLog`, not a separate Note service
 
 ### Requirement: Dev demo for note
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `note` sub-command for manually testing note display.
+The dev command at `src/dev-cli-commands/tui/note/command.ts` SHALL provide a note demo backed by `ClackLog` and `ClackLive`.
 
 #### Scenario: Run note demo
 
-- **WHEN** a developer runs `pnpm tui note`
-- **THEN** the dev entry point SHALL render a boxed note with a title and body
+- **WHEN** a developer runs the dev CLI note demo command
+- **THEN** the command SHALL render a boxed note with title and body

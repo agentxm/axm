@@ -1,26 +1,21 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Confirm prompt collects yes/no boolean
 
-The Confirm service SHALL be a self-contained module under `src/tui/confirm/` with its own Effect service tag, live layer, types (`ConfirmConfig`), Ink component, and test layer factory. It SHALL provide a `prompt` method that renders a yes/no prompt. It accepts a config with `message` (required) and optional `initialValue` (defaults to `true`). It returns `Effect<boolean, PromptError | PromptCancelled>`.
+The confirm capability SHALL be provided by `ClackPrompt.confirm` from `src/clack-effect/prompt/`. It SHALL accept a config with `message` (required) and optional `initialValue` and return `Effect<boolean, CliError | PromptCancelled>`.
 
 #### Scenario: Confirm defaults to yes
 
-- **WHEN** a handler calls `confirm.prompt({ message: "Continue?" })`
-- **THEN** the prompt SHALL render with "Continue?" and the default selection on "yes"
-- **WHEN** the user presses Enter without changing
+- **WHEN** a handler calls `prompt.confirm({ message: "Continue?" })`
+- **THEN** the prompt SHALL render with "Continue?" and default to yes
+- **WHEN** the user presses Enter without changing the choice
 - **THEN** the effect SHALL succeed with `true`
 
 #### Scenario: Confirm with initial value false
 
-- **WHEN** a handler calls `confirm.prompt({ message: "Delete?", initialValue: false })`
-- **THEN** the default selection SHALL be on "no"
-- **WHEN** the user presses Enter without changing
-- **THEN** the effect SHALL succeed with `false`
-
-#### Scenario: User selects no
-
-- **WHEN** the user navigates to "no" and presses Enter
+- **WHEN** a handler calls `prompt.confirm({ message: "Delete?", initialValue: false })`
+- **THEN** the default choice SHALL be no
+- **WHEN** the user presses Enter
 - **THEN** the effect SHALL succeed with `false`
 
 #### Scenario: Confirm cancelled
@@ -30,25 +25,25 @@ The Confirm service SHALL be a self-contained module under `src/tui/confirm/` wi
 
 ### Requirement: Confirm has a test layer
 
-The test layer factory SHALL return a `[Layer, MockConfirmService]` tuple. The mock SHALL support configurable behavior: return a boolean, or simulate cancellation.
+Confirm tests SHALL use `makeClackPromptTestLayer()` and verify `confirm` method calls and configured outcomes.
 
 #### Scenario: Mock returns configured value
 
-- **WHEN** a test creates a confirm test layer with `{ value: true }`
-- **AND** a handler calls `confirm.prompt(...)`
-- **THEN** the mock SHALL return `true` without rendering any UI
+- **WHEN** a test configures the clack prompt mock to return `true`
+- **AND** code calls `prompt.confirm(...)`
+- **THEN** the effect SHALL succeed with `true` without rendering UI
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test creates a confirm test layer with `{ type: "cancel" }`
-- **AND** a handler calls `confirm.prompt(...)`
-- **THEN** the mock SHALL fail with `PromptCancelled`
+- **WHEN** a test configures the clack prompt mock to cancel
+- **AND** code calls `prompt.confirm(...)`
+- **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for confirm
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `confirm` sub-command for manually testing confirmation prompts.
+The dev command at `src/dev-cli-commands/tui/confirm/command.ts` SHALL provide a confirm demo backed by `ClackPrompt` and `ClackLive`.
 
 #### Scenario: Run confirm demo
 
-- **WHEN** a developer runs `pnpm tui confirm`
-- **THEN** the dev entry point SHALL render a confirm prompt and print the boolean result
+- **WHEN** a developer runs the dev CLI confirm demo command
+- **THEN** the command SHALL render a confirm prompt and print the boolean result

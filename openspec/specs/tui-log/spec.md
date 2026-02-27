@@ -1,53 +1,53 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Log service provides semantic log output
 
-The Log service SHALL provide methods for writing semantic log messages to stdout: `info`, `warn`, `error`, `success`, and `message`. Each method accepts a string message and returns `Effect<void>`.
+The logging capability SHALL be provided by `ClackLog` under `src/clack-effect/log/`. It SHALL provide semantic output methods `info`, `warn`, `error`, `success`, and `message`, each accepting a string and returning `Effect<void>`. It MAY also expose additional clack-native methods (`intro`, `outro`, `cancel`, `note`, `box`) without changing existing command behavior.
 
 #### Scenario: Info message
 
 - **WHEN** a handler calls `log.info("Processing 3 skills")`
-- **THEN** the message "Processing 3 skills" SHALL be written to stdout with info-level formatting
+- **THEN** that message SHALL be written with info-level formatting
 
 #### Scenario: Warning message
 
 - **WHEN** a handler calls `log.warn("Skill already installed")`
-- **THEN** the message "Skill already installed" SHALL be written to stdout with warning-level formatting
+- **THEN** that message SHALL be written with warning-level formatting
 
 #### Scenario: Error message
 
 - **WHEN** a handler calls `log.error("Failed to resolve source")`
-- **THEN** the message "Failed to resolve source" SHALL be written to stdout with error-level formatting
+- **THEN** that message SHALL be written with error-level formatting
 
 #### Scenario: Success message
 
 - **WHEN** a handler calls `log.success("Installation complete")`
-- **THEN** the message "Installation complete" SHALL be written to stdout with success-level formatting
+- **THEN** that message SHALL be written with success-level formatting
 
 #### Scenario: Plain message
 
 - **WHEN** a handler calls `log.message("See docs for details")`
-- **THEN** the message "See docs for details" SHALL be written to stdout without semantic formatting
+- **THEN** that message SHALL be written without semantic prefixing requirements
 
 ### Requirement: Log service is injectable and testable
 
-The Log service SHALL be a self-contained module under `src/tui/log/` with its own Effect service tag, live layer, and test layer factory. The test layer factory SHALL return a `[Layer, MockLogService]` tuple where the mock records all log calls for assertion.
+The log service SHALL expose an Effect service tag, live layer, and test layer factory from `src/clack-effect/log/`. The test layer factory SHALL return `[Layer, MockClackLogService]` and record log calls for assertions.
 
 #### Scenario: Mock records log calls
 
-- **WHEN** a handler calls `log.info("a")` then `log.warn("b")` using the test layer
-- **THEN** the mock service SHALL record `["a"]` in its info log and `["b"]` in its warn log
+- **WHEN** code calls `log.info("a")` then `log.warn("b")` with clack log test layer
+- **THEN** the mock SHALL record both calls with method names and messages
 
-#### Scenario: Handler depends only on Log
+#### Scenario: Handler depends only on ClackLog
 
-- **WHEN** a handler uses only the Log service
-- **THEN** its Effect type signature SHALL require only `Log` — not all TUI services
+- **WHEN** a handler uses only logging behavior
+- **THEN** its Effect type signature SHALL require only `ClackLog`
 
 ### Requirement: Dev demo for log
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `log` sub-command for manually testing log output.
+The dev command at `src/dev-cli-commands/tui/log/command.ts` SHALL provide log output demos backed by `ClackLog` and `ClackLive`.
 
 #### Scenario: Run log demo
 
-- **WHEN** a developer runs `pnpm tui log`
-- **THEN** the dev entry point SHALL render examples of each log level (info, warn, error, success, message)
+- **WHEN** a developer runs the dev CLI log demo command
+- **THEN** the command SHALL render examples of supported log levels

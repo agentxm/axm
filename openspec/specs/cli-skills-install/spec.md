@@ -1,80 +1,43 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Install writes default entry form
+### Requirement: Workspace-scoped agent installation
 
-The install handler SHALL write the settings entry as a plain string (collapsed form) via `ws.setSkill()`. If the source string includes a version constraint, the full source string including the version SHALL be persisted. Install always implies `enabled: true` and `managed: true`.
+`axm skills install` SHALL install skills to all agents configured in the workspace. There SHALL be no `--agent` flag for per-agent targeting. The set of agents is determined by the workspace's configured agent list at install time.
 
-The source string SHALL use the three-segment FQN format for registry sources.
+#### Scenario: Skill installed to all configured agents without flag
 
-#### Scenario: Install writes default entry form
+- **WHEN** user runs `axm skills install code-review`
+- **AND** the workspace has configured agents `["claude", "cursor"]`
+- **THEN** the skill SHALL be installed with agent symlinks for both `claude` and `cursor`
+- **AND** no `--agent` flag SHALL be accepted
 
-- **WHEN** a skill is installed via `axm install @acme/skills/tool`
-- **THEN** `ws.setSkill()` SHALL write the entry as `"@acme/skills/tool"` (plain string, no version)
+#### Scenario: Agent flag is rejected
 
-#### Scenario: Install preserves version constraint
+- **WHEN** user runs `axm skills install code-review --agent claude`
+- **THEN** the command SHALL reject the `--agent` flag as unrecognized
 
-- **WHEN** a skill is installed via `axm install @acme/skills/tool@^1.0.0`
-- **THEN** `ws.setSkill()` SHALL write the entry as `"@acme/skills/tool@^1.0.0"` (version constraint preserved in source string)
+### Requirement: Discovery-only inspection uses preview
 
-#### Scenario: Install preserves exact pin
+Discovery-only inspection of available skills SHALL use `--preview` instead of `--list`. The `--list` flag SHALL NOT be accepted.
 
-- **WHEN** a skill is installed via `axm install @acme/skills/tool@1.2.3`
-- **THEN** `ws.setSkill()` SHALL write the entry as `"@acme/skills/tool@1.2.3"`
+#### Scenario: Preview shows plan without applying
 
-### Requirement: Install accepts local file path input
+- **WHEN** user runs `axm skills install @acme/skills --preview`
+- **THEN** the install plan SHALL be displayed without applying
+- **AND** no skills SHALL be installed
 
-The install handler SHALL accept file path inputs (`./path`, `../path`, `/absolute/path`, `~/path`) as a valid source for skill installation. When a `file-path-pattern` input is provided, the handler SHALL resolve it to a `LocalSource` via `parseLocalPath()` and proceed with the standard discovery, selection, and install flow.
+#### Scenario: List flag is rejected
 
-#### Scenario: Install skill from relative path
+- **WHEN** user runs `axm skills install @acme/skills --list`
+- **THEN** the command SHALL reject the `--list` flag as unrecognized
 
-- **WHEN** a user runs `axm skills install ./my-skills`
-- **THEN** the handler SHALL resolve `./my-skills` as a local source, discover skills in that directory, and install them
+### Requirement: Idempotent skill install
 
-#### Scenario: Install skill from absolute path
+Installing a skill that is already installed SHALL be a safe no-op that produces a success result. The operation SHALL re-apply idempotently without adverse effects. There SHALL be no `skip` state in the plan.
 
-- **WHEN** a user runs `axm skills install /home/user/skills`
-- **THEN** the handler SHALL resolve `/home/user/skills` as a local source and install discovered skills
+#### Scenario: Re-installing already installed skill succeeds
 
-#### Scenario: Install skill from parent-relative path
-
-- **WHEN** a user runs `axm skills install ../shared-skills`
-- **THEN** the handler SHALL resolve `../shared-skills` as a local source and install discovered skills
-
-#### Scenario: Install skill from home-relative path
-
-- **WHEN** a user runs `axm skills install ~/my-skills`
-- **THEN** the handler SHALL resolve `~/my-skills` as a local source and install discovered skills
-
-### Requirement: Local install persists path as source string
-
-The install handler SHALL persist the original path string as the settings entry via `ws.setSkill()` for locally installed skills.
-
-#### Scenario: Local install writes path to settings
-
-- **WHEN** a skill named `my-tool` is installed from `./my-skills`
-- **THEN** `ws.setSkill()` SHALL write the entry with the local path as the source string
-
-### Requirement: Skills install participates in cross-extension lockfile reconciliation
-
-`axm skills install` SHALL execute through `resolvePlan` plan augmentation and SHALL participate in cross-extension lockfile reconciliation when lockfile state is `missing` or `invalid`.
-
-The command SHALL use `materialize_if_missing` policy semantics for install operations.
-
-#### Scenario: Missing lockfile augments skills install plan
-
-- **WHEN** user runs `axm skills install <source>`
-- **AND** lockfile state is `missing`
-- **THEN** the plan SHALL be augmented with cross-extension reconciliation operations before requested install operations
-
-#### Scenario: Invalid lockfile augments with warning
-
-- **WHEN** user runs `axm skills install <source>`
-- **AND** lockfile state is `invalid`
-- **THEN** the plan SHALL be augmented with cross-extension reconciliation + materialization operations
-- **AND** warnings SHALL include lockfile parse/validation diagnostics
-
-#### Scenario: Existing valid lockfile does not inject reconciliation
-
-- **WHEN** user runs `axm skills install <source>`
-- **AND** lockfile state is `ok`
-- **THEN** no lockfile-reconciliation operations SHALL be injected
+- **WHEN** user runs `axm skills install code-review`
+- **AND** `code-review` is already installed
+- **THEN** the install operation SHALL complete with a success result
+- **AND** the skill state SHALL remain consistent

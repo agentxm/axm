@@ -1,22 +1,22 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Password input collects masked text
 
-The PasswordInput service SHALL be a self-contained module under `src/tui/password-input/` with its own Effect service tag, live layer, types (`PasswordInputConfig`), Ink component, and test layer factory. It SHALL provide a `prompt` method that renders a masked text input. Characters SHALL be replaced with a mask character. It accepts a config with `message` (required) and optional `mask` character (defaults to `*`). It returns `Effect<string, PromptError | PromptCancelled>`.
+The password-input capability SHALL be provided by `ClackPrompt.password` from `src/clack-effect/prompt/`. It SHALL accept `message` with optional `mask` and optional `validate`, and return `Effect<string, CliError | PromptCancelled>`.
 
 #### Scenario: Basic password input
 
-- **WHEN** a handler calls `passwordInput.prompt({ message: "Enter token:" })`
-- **AND** the user types "abc123"
-- **THEN** the display SHALL show "**\*\***" (masked characters)
-- **WHEN** the user presses Enter
-- **THEN** the effect SHALL succeed with the string "abc123"
+- **WHEN** a handler calls `prompt.password({ message: "Enter token:" })`
+- **AND** the user types `abc123`
+- **THEN** terminal display SHALL show masked characters
+- **WHEN** the user submits
+- **THEN** the effect SHALL succeed with `abc123`
 
 #### Scenario: Custom mask character
 
-- **WHEN** a handler calls `passwordInput.prompt({ message: "Token:", mask: "●" })`
-- **AND** the user types "abc"
-- **THEN** the display SHALL show "●●●"
+- **WHEN** a handler calls `prompt.password({ message: "Token:", mask: "*" })`
+- **AND** the user types characters
+- **THEN** the displayed characters SHALL use the configured mask
 
 #### Scenario: Password input cancelled
 
@@ -25,25 +25,25 @@ The PasswordInput service SHALL be a self-contained module under `src/tui/passwo
 
 ### Requirement: Password input has a test layer
 
-The test layer factory SHALL return a `[Layer, MockPasswordInputService]` tuple. The mock SHALL support configurable behavior: return a value, or simulate cancellation.
+Password-input tests SHALL use `makeClackPromptTestLayer()` and assert `password` calls and configured outcomes.
 
 #### Scenario: Mock returns configured value
 
-- **WHEN** a test creates a password input test layer with `{ value: "secret123" }`
-- **AND** a handler calls `passwordInput.prompt(...)`
-- **THEN** the mock SHALL return "secret123" without rendering any UI
+- **WHEN** a test configures the clack prompt mock to return `secret123`
+- **AND** code calls `prompt.password(...)`
+- **THEN** the effect SHALL succeed with `secret123`
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test creates a password input test layer with `{ type: "cancel" }`
-- **AND** a handler calls `passwordInput.prompt(...)`
-- **THEN** the mock SHALL fail with `PromptCancelled`
+- **WHEN** a test configures the clack prompt mock to cancel
+- **AND** code calls `prompt.password(...)`
+- **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for password input
 
-The dev entry point at `src/dev/tui.ts` SHALL include a `password-input` sub-command for manually testing password input.
+The dev command at `src/dev-cli-commands/tui/password-input/command.ts` SHALL provide a password-input demo backed by `ClackPrompt` and `ClackLive`.
 
 #### Scenario: Run password-input demo
 
-- **WHEN** a developer runs `pnpm tui password-input`
-- **THEN** the dev entry point SHALL render a masked password prompt and print the result
+- **WHEN** a developer runs the dev CLI password-input demo command
+- **THEN** the command SHALL render a masked prompt and print the submitted value

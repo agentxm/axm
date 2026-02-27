@@ -84,6 +84,7 @@ import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./rec
 import type { ReconciliationContext } from "./reconciliation-types.js";
 import { classifyExtensions } from "./classifier.js";
 import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
+import { isInteractive } from "../utils/tty.js";
 
 // Extracted modules
 import {
@@ -329,16 +330,18 @@ const make = (options: WorkspaceContextOptions) =>
     const localDir = yield* getAxmDir("project");
     const workspaceDir = isUserScope(options.scope) ? globalDir : localDir;
 
+    const resolvedNonInteractive = Option.getOrElse(
+      options.nonInteractive,
+      () => process.env["CI"] === "true" || !isInteractive(),
+    );
+
+    const resolvedYes = options.yes || resolvedNonInteractive;
+
     if (isUserScope(options.scope)) {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
-      yield* ensureProjectWorkspaceInitialized(localDir, options);
+      yield* ensureProjectWorkspaceInitialized(localDir, options, resolvedNonInteractive);
     }
-
-    const resolvedNonInteractive = Option.getOrElse(
-      options.nonInteractive,
-      () => process.env["CI"] === "true",
-    );
 
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
@@ -637,46 +640,35 @@ const make = (options: WorkspaceContextOptions) =>
             .filter((s) => s.readiness === "error")
             .map((s) => `${s.label}: ${s.errorMessage}`);
 
-          // Block entire plan when any step has error readiness
+          // Block entire plan when any step has error readiness (unless --force)
           if (hasErrors) {
-            yield* showPlan(augmentedPlan);
-            return yield* makeCliError({
-              code: "PLAN_BLOCKED_BY_ERRORS",
-              what: "Plan has errors that prevent execution",
-              details: errorMessages,
-            });
-          }
-
-          // Warn prompting: prompt unless --force
-          if (hasWarns && !(options.force ?? false)) {
-            yield* showPlan(augmentedPlan);
-
-            if (resolvedNonInteractive) {
+            if (options.force) {
+              // --force: downgrade errors to warnings and proceed
+              yield* Effect.forEach(errorMessages, (msg) => log.warn(msg));
+            } else {
+              yield* showPlan(augmentedPlan);
               return yield* makeCliError({
-                code: "PLAN_CONFIRMATION_REQUIRED",
-                what: "Plan has warnings that require confirmation",
-                howToFix: "Re-run with --force to auto-accept warnings, or run interactively",
+                code: "PLAN_BLOCKED_BY_ERRORS",
+                what: "Plan has errors that prevent execution",
+                details: errorMessages,
+                howToFix: "Re-run with --force to override",
               });
             }
+          }
 
+          // Warnings are displayed but never block execution
+          if (hasWarns) {
             const warnMessages = allSteps
               .filter((s) => s.readiness === "warn")
               .map((s) => `${s.label}: ${s.warnMessage}`);
-            const confirmed = yield* prompt.confirm({
-              message: `Plan has warnings:\n${warnMessages.join("\n")}\nProceed?`,
-            });
-            if (!confirmed) {
-              return yield* new PromptCancelled({
-                message: "User declined plan with warnings",
-              });
-            }
+            yield* Effect.forEach(warnMessages, (msg) => log.warn(msg));
           }
 
           if (options.preview) {
             yield* log.info("Previewing changes...");
             yield* showPlan(augmentedPlan);
 
-            // In non-interactive mode without --yes, preview is display-only (dry-run)
+            // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
             if (resolvedNonInteractive && !options.yes) {
               return {
                 _tag: "ExecutedPlan",
@@ -686,7 +678,7 @@ const make = (options: WorkspaceContextOptions) =>
               } satisfies ExecutedPlan;
             }
 
-            if (!options.yes) {
+            if (!resolvedYes) {
               const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
               if (!confirmed) {
                 yield* log.success("Cancelled.");

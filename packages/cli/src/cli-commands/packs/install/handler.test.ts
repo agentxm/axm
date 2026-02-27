@@ -19,7 +19,11 @@ import {
   makeClackLogTestLayer,
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import {
+  Workspace,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
 import {
   SourceHostProvidersLive,
   SourceHostProviders,
@@ -935,6 +939,44 @@ describe("packs install handler", () => {
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
           expect(allLogs).toContain("3 to apply");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // --force propagation to workspace resolvePlan
+  // ---------------------------------------------------------------------------
+
+  describe("--force propagation", () => {
+    it.effect("--force in workspace options downgrades plan errors to warnings", () => {
+      const { provide, mockLog } = makeLayers(undefined, { force: true });
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          const ws = yield* Workspace;
+          const plan = {
+            _tag: "Plan" as const,
+            name: "test-plan",
+            description: Option.none<string>(),
+            jobs: [
+              {
+                concurrency: 1 as const,
+                steps: [
+                  {
+                    readiness: "error" as const,
+                    errorMessage: "Test error step",
+                    label: "test-step",
+                  },
+                ],
+              },
+            ],
+          };
+          const result = yield* ws.resolvePlan(plan);
+          // --force downgrades errors to warnings and proceeds
+          expect(mockLog.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+          expect(result._tag).toBe("ExecutedPlan");
         }),
       );
     });

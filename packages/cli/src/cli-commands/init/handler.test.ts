@@ -17,7 +17,6 @@ import type { Settings } from "../../settings/index.js";
 import type { FileSystem, Path } from "@effect/platform";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -109,8 +108,8 @@ describe("init.handler", () => {
 
   const defaultWsOptions: WorkspaceContextOptions = {
     scope: "project",
-    yes: true,
-    nonInteractive: Option.some(false),
+    yes: false,
+    nonInteractive: Option.some(true),
     preview: false,
     agents: Option.none(),
   };
@@ -316,32 +315,10 @@ describe("init.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("non-interactive mode", () => {
-    it.effect("fails when prompting is needed without --yes", () =>
-      Effect.gen(function* () {
-        const WsLayer = Layer.provide(
-          workspaceLayer({
-            scope: "project",
-            yes: false,
-            nonInteractive: Option.some(true),
-            preview: false,
-            agents: Option.none(),
-          }),
-          TestLayer,
-        );
-        const error = yield* handleInit().pipe(
-          Effect.provide(Layer.mergeAll(TestLayer, WsLayer)),
-          Effect.sandbox,
-          Effect.flip,
-        );
-
-        expect((Cause.squash(error) as { _tag: string })._tag).toBe("CliError");
-      }),
-    );
-
-    it.effect("succeeds when --yes is provided with --non-interactive", () =>
+    it.effect("--non-interactive auto-selects all detected agents", () =>
       withLayers({
         scope: "project",
-        yes: true,
+        yes: false,
         nonInteractive: Option.some(true),
         preview: false,
         agents: Option.none(),
@@ -351,6 +328,29 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           expect(fs.existsSync(settingsPath)).toBe(true);
+        }),
+      ),
+    );
+
+    it.effect("--yes still prompts for agent selection (does not auto-select)", () =>
+      withLayers({
+        scope: "project",
+        yes: true,
+        nonInteractive: Option.some(false),
+        preview: false,
+        agents: Option.none(),
+      })(
+        Effect.gen(function* () {
+          // --yes alone triggers the interactive prompt (multiselect).
+          // The ClackPrompt test layer returns indices [] for multiselect,
+          // so the result has no agents — proving the prompt was shown.
+          yield* handleInit();
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(true);
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          // With the test layer returning empty multiselect, agents should be empty
+          expect(settings.agents).toEqual([]);
         }),
       ),
     );

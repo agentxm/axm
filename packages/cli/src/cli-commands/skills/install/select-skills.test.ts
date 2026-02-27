@@ -55,6 +55,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: ["commit", "debug"],
             all: false,
             yes: false,
+            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "debug"]);
@@ -69,6 +70,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: ["commit", "nonexistent"],
             all: false,
             yes: false,
+            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
@@ -83,6 +85,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: ["foo", "bar"],
             all: false,
             yes: false,
+            nonInteractive: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("CliError");
@@ -100,6 +103,7 @@ describe("determineSkillsToInstall", () => {
               requestedSkills: ["effect-*"],
               all: false,
               yes: false,
+              nonInteractive: false,
             },
           );
 
@@ -117,6 +121,7 @@ describe("determineSkillsToInstall", () => {
               requestedSkills: ["effect-*", "commit"],
               all: false,
               yes: false,
+              nonInteractive: false,
             },
           );
 
@@ -138,6 +143,7 @@ describe("determineSkillsToInstall", () => {
               requestedSkills: ["effect-*", "commit"],
               all: false,
               yes: false,
+              nonInteractive: false,
             },
           );
 
@@ -157,6 +163,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: ["effect-*"],
             all: false,
             yes: false,
+            nonInteractive: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("CliError");
@@ -167,7 +174,7 @@ describe("determineSkillsToInstall", () => {
     );
   });
 
-  describe("--all / --yes (rule 2)", () => {
+  describe("--all / --non-interactive (rule 2)", () => {
     it.effect("returns all skills with --all", () =>
       provide(
         Effect.gen(function* () {
@@ -175,6 +182,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: [],
             all: true,
             yes: false,
+            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
@@ -182,15 +190,33 @@ describe("determineSkillsToInstall", () => {
       ),
     );
 
-    it.effect("returns all skills with --yes", () =>
+    it.effect("returns all skills with --non-interactive", () =>
       provide(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            yes: true,
+            yes: false,
+            nonInteractive: true,
           });
 
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
+        }),
+      ),
+    );
+
+    it.effect("--yes with multiple skills still prompts for selection", () =>
+      provide(
+        Effect.gen(function* () {
+          // --yes alone does NOT auto-select; falls through to multiselect prompt (rule 4)
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
+            requestedSkills: [],
+            all: false,
+            yes: true,
+            nonInteractive: false,
+          });
+
+          // The multiselect test layer returns indices [0, 1], so both are selected via prompt
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
@@ -205,6 +231,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: [],
             all: false,
             yes: false,
+            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
@@ -221,6 +248,7 @@ describe("determineSkillsToInstall", () => {
             requestedSkills: [],
             all: false,
             yes: false,
+            nonInteractive: false,
           });
 
           expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);

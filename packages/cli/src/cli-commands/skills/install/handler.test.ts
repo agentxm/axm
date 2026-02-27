@@ -21,7 +21,11 @@ import {
   makeClackLogTestLayer,
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import {
+  Workspace,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
@@ -268,6 +272,42 @@ describe("skills install handler — error propagation", () => {
         const reason = details.find((d) => d.startsWith("Reason:"));
         expect(reason).toBeDefined();
         expect(reason).not.toBe("Reason:");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // --force propagation to workspace resolvePlan
+  // ---------------------------------------------------------------------------
+
+  it.effect("--force in workspace options downgrades plan errors to warnings", () => {
+    const { provide, logMock } = makeLayers({ force: true });
+    initWorkspace(path.join(tempDir, ".axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        const ws = yield* Workspace;
+        const plan = {
+          _tag: "Plan" as const,
+          name: "test-plan",
+          description: Option.none<string>(),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps: [
+                {
+                  readiness: "error" as const,
+                  errorMessage: "Test error step",
+                  label: "test-step",
+                },
+              ],
+            },
+          ],
+        };
+        const result = yield* ws.resolvePlan(plan);
+        // --force downgrades errors to warnings and proceeds
+        expect(logMock.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+        expect(result._tag).toBe("ExecutedPlan");
       }),
     );
   });

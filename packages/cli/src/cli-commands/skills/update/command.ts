@@ -57,7 +57,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "Overwrite skills regardless of version",
+        describe: "Override constraints that would cause failure",
         default: false,
       })
       .option("preview", {
@@ -92,6 +92,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,
           agents: Option.none(),
+          force: argv.force,
         },
       },
     );

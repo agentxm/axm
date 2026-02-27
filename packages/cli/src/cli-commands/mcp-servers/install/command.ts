@@ -54,7 +54,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "Force reinstall",
+        describe: "Override constraints that would cause failure",
         default: false,
       })
       .option("preview", {
@@ -94,6 +94,7 @@ export const installMcpServerCommand: CommandModule<{}, InstallMcpServerCommandA
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,
         agents: Option.none(),
+        force: argv.force,
       },
     });
   },

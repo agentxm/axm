@@ -1,15 +1,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { createSymlink } from "./create-symlink.js";
 
-const withFileSystem = <A, E>(
-  effect: Effect.Effect<A, E, import("@effect/platform").FileSystem.FileSystem>,
-) => effect.pipe(Effect.provide(NodeFileSystem.layer));
+const withNodeContext = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    import("@effect/platform").FileSystem.FileSystem | import("@effect/platform").Path.Path
+  >,
+) => effect.pipe(Effect.provide(NodeContext.layer));
 
 describe("createSymlink", () => {
   let tmpDir: string;
@@ -23,7 +27,7 @@ describe("createSymlink", () => {
   });
 
   it.effect("creates a new relative symlink", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target-dir");
         fs.mkdirSync(target);
@@ -46,7 +50,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("creates parent directories if they do not exist", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target");
         fs.mkdirSync(target);
@@ -62,7 +66,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("returns no-op when existing symlink points to correct target", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target");
         fs.mkdirSync(target);
@@ -78,7 +82,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("replaces existing symlink pointing to wrong target", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const oldTarget = path.join(tmpDir, "old-target");
         fs.mkdirSync(oldTarget);
@@ -98,7 +102,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("replaces existing directory with symlink", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target");
         fs.mkdirSync(target);
@@ -118,7 +122,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("recovers from ELOOP (circular symlink)", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target");
         fs.mkdirSync(target);
@@ -140,7 +144,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("skips self-reference (link resolves to same location as target)", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "skills", "my-skill");
         fs.mkdirSync(target, { recursive: true });
@@ -153,7 +157,7 @@ describe("createSymlink", () => {
   );
 
   it.effect("computes relative path through resolved parent symlinks", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         // Create real directories
         const realSkillsDir = path.join(tmpDir, "real-skills");

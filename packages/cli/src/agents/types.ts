@@ -28,48 +28,56 @@ export interface AgentSkillsDescriptor {
 /**
  * Known agent identifiers - exhaustive list from vercel-labs/skills reference.
  *
+ * Single source of truth: `AGENT_IDS` tuple drives both the `AgentId` type
+ * and `AgentIdSchema` (in extensions/common.ts) — adding an agent here
+ * automatically updates both.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentId =
-  | "adal"
-  | "amp"
-  | "antigravity"
-  | "augment"
-  | "claude-code"
-  | "cline"
-  | "codebuddy"
-  | "codex"
-  | "command-code"
-  | "continue"
-  | "crush"
-  | "cursor"
-  | "droid"
-  | "gemini-cli"
-  | "github-copilot"
-  | "goose"
-  | "iflow-cli"
-  | "junie"
-  | "kilo"
-  | "kimi-cli"
-  | "kiro-cli"
-  | "kode"
-  | "mcpjam"
-  | "mistral-vibe"
-  | "mux"
-  | "neovate"
-  | "openclaw"
-  | "opencode"
-  | "openhands"
-  | "pi"
-  | "pochi"
-  | "qoder"
-  | "qwen-code"
-  | "replit"
-  | "roo"
-  | "trae"
-  | "trae-cn"
-  | "windsurf"
-  | "zencoder";
+export const AGENT_IDS = [
+  "adal",
+  "amp",
+  "antigravity",
+  "augment",
+  "claude-code",
+  "cline",
+  "codebuddy",
+  "codex",
+  "command-code",
+  "continue",
+  "crush",
+  "cursor",
+  "droid",
+  "gemini-cli",
+  "github-copilot",
+  "goose",
+  "iflow-cli",
+  "junie",
+  "kilo",
+  "kimi-cli",
+  "kiro-cli",
+  "kode",
+  "mcpjam",
+  "mistral-vibe",
+  "mux",
+  "neovate",
+  "openclaw",
+  "opencode",
+  "openhands",
+  "pi",
+  "pochi",
+  "qoder",
+  "qwen-code",
+  "replit",
+  "roo",
+  "trae",
+  "trae-cn",
+  "windsurf",
+  "zencoder",
+] as const;
+
+/** @experimental This API is unstable and may change without notice. */
+export type AgentId = (typeof AGENT_IDS)[number];
 
 // -----------------------------------------------------------------------------
 // Agent Configuration

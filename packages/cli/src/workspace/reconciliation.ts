@@ -200,6 +200,8 @@ export const runReadRecoverOperation = (
   Effect.gen(function* () {
     const snapshot = yield* buildReconciliationSnapshot(context);
     const unresolvedCount = snapshot.unresolved.length;
+    // Optional lockfile sections default to empty for counting purposes.
+    // The total represents all extension types found on disk during reconciliation.
     const reconstructedCount =
       Object.keys(snapshot.lockfile.skills).length +
       Object.keys(snapshot.lockfile.commands ?? {}).length +

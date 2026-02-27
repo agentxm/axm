@@ -14,5 +14,6 @@ export { detectAgent, detectAgents } from "./detection.js";
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 
-// Types
+// Types and constants
+export { AGENT_IDS } from "./types.js";
 export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";

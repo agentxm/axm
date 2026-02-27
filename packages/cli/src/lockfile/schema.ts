@@ -23,7 +23,7 @@ import * as semver from "semver";
 export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
   decode: (s) => new Date(s),
   encode: (d) => d.toISOString(),
-});
+}).pipe(Schema.filter((d) => (isNaN(d.getTime()) ? "Invalid date string" : undefined)));
 
 /**
  * Exact semver version (no ranges).
@@ -57,126 +57,74 @@ const CommonFields = {
   ...BaseCommonFields,
 };
 
-/**
- * GitHub source - skill from a GitHub repository.
- * Required: owner, repo
- * Optional: ref, path
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const GitHubLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("github"),
-  owner: Schema.String,
-  repo: Schema.String,
-  ref: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-  ...CommonFields,
-});
+// =============================================================================
+// Source Lock Entry Factory
+// =============================================================================
 
 /**
- * GitLab source - skill from a GitLab repository.
- * Required: owner, repo
- * Optional: ref, path
+ * Creates a Schema.Union of all 8 source-type lock entry structs,
+ * parameterized by extra fields to spread into each variant.
  *
- * @experimental This API is unstable and may change without notice.
+ * Used to produce SkillLockEntrySchema (with `agents`),
+ * CommandLockEntrySchema and McpServerLockEntrySchema (without `agents`).
  */
-export const GitLabLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("gitlab"),
-  owner: Schema.String,
-  repo: Schema.String,
-  ref: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-  ...CommonFields,
-});
-
-/**
- * Bitbucket source - skill from a Bitbucket repository.
- * Required: owner, repo
- * Optional: ref, path
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const BitbucketLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("bitbucket"),
-  owner: Schema.String,
-  repo: Schema.String,
-  ref: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-  ...CommonFields,
-});
-
-/**
- * Azure Repos source - skill from an Azure DevOps repository.
- * Required: organization, project, repo
- * Optional: ref, path
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const AzureReposLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("azurerepos"),
-  organization: Schema.String,
-  project: Schema.String,
-  repo: Schema.String,
-  ref: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-  ...CommonFields,
-});
-
-/**
- * Git source - skill from a generic git repository.
- * Required: url
- * Optional: ref, path
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const GitLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("git"),
-  url: Schema.String,
-  ref: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-  ...CommonFields,
-});
-
-/**
- * Local source - skill from a local filesystem path.
- * Required: path
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LocalLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("local"),
-  path: Schema.String,
-  ...CommonFields,
-});
-
-/**
- * Registry source - skill from a registry.
- * Required: namespace, name, resolvedVersion, integrity, sourceName
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("registry"),
-  namespace: Schema.String,
-  name: Schema.String,
-  resolvedVersion: ExactSemverVersionSchema,
-  integrity: Schema.String,
-  sourceName: Schema.String,
-  ...CommonFields,
-});
-
-/**
- * Builtin source - skill bundled with axm.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const BuiltinSkillLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("builtin"),
-  ...CommonFields,
-});
+const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
+  Schema.Union(
+    Schema.Struct({
+      type: Schema.Literal("github"),
+      owner: Schema.String,
+      repo: Schema.String,
+      ref: Schema.optional(Schema.String),
+      path: Schema.optional(Schema.String),
+      ...extraFields,
+    }),
+    Schema.Struct({
+      type: Schema.Literal("gitlab"),
+      owner: Schema.String,
+      repo: Schema.String,
+      ref: Schema.optional(Schema.String),
+      path: Schema.optional(Schema.String),
+      ...extraFields,
+    }),
+    Schema.Struct({
+      type: Schema.Literal("bitbucket"),
+      owner: Schema.String,
+      repo: Schema.String,
+      ref: Schema.optional(Schema.String),
+      path: Schema.optional(Schema.String),
+      ...extraFields,
+    }),
+    Schema.Struct({
+      type: Schema.Literal("azurerepos"),
+      organization: Schema.String,
+      project: Schema.String,
+      repo: Schema.String,
+      ref: Schema.optional(Schema.String),
+      path: Schema.optional(Schema.String),
+      ...extraFields,
+    }),
+    Schema.Struct({
+      type: Schema.Literal("git"),
+      url: Schema.String,
+      ref: Schema.optional(Schema.String),
+      path: Schema.optional(Schema.String),
+      ...extraFields,
+    }),
+    Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...extraFields }),
+    Schema.Struct({
+      type: Schema.Literal("registry"),
+      namespace: Schema.String,
+      name: Schema.String,
+      resolvedVersion: ExactSemverVersionSchema,
+      integrity: Schema.String,
+      sourceName: Schema.String,
+      ...extraFields,
+    }),
+    Schema.Struct({ type: Schema.Literal("builtin"), ...extraFields }),
+  );
 
 // =============================================================================
-// Skill Lock Entry (union of all source types)
+// Skill Lock Entry (union of all source types, with agents)
 // =============================================================================
 
 /**
@@ -194,16 +142,7 @@ export const BuiltinSkillLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = Schema.Union(
-  GitHubLockEntrySchema,
-  GitLabLockEntrySchema,
-  BitbucketLockEntrySchema,
-  AzureReposLockEntrySchema,
-  GitLockEntrySchema,
-  LocalLockEntrySchema,
-  RegistryLockEntrySchema,
-  BuiltinSkillLockEntrySchema,
-);
+export const SkillLockEntrySchema = makeSourceLockUnion(CommonFields);
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -236,10 +175,6 @@ export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
 
 // =============================================================================
 // Command Lock Entry (union of all source types, no agents)
-// TODO: (#42) CommandLockEntrySchema and McpServerLockEntrySchema duplicate the
-// same 8 source-type struct variants as SkillLockEntrySchema (minus the `agents`
-// field). Extract a shared base schema factory parameterized by extra fields to
-// reduce duplication. Deferred due to Schema.Union construction complexity.
 // =============================================================================
 
 /**
@@ -250,59 +185,7 @@ export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandLockEntrySchema = Schema.Union(
-  Schema.Struct({
-    type: Schema.Literal("github"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("gitlab"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("bitbucket"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("azurerepos"),
-    organization: Schema.String,
-    project: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("git"),
-    url: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...BaseCommonFields }),
-  Schema.Struct({
-    type: Schema.Literal("registry"),
-    namespace: Schema.String,
-    name: Schema.String,
-    resolvedVersion: ExactSemverVersionSchema,
-    integrity: Schema.String,
-    sourceName: Schema.String,
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({ type: Schema.Literal("builtin"), ...BaseCommonFields }),
-);
+export const CommandLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
 
 /**
  * Inferred type for CommandLockEntry schema.
@@ -344,59 +227,7 @@ export type CommandsLockMap = typeof CommandsLockMapSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerLockEntrySchema = Schema.Union(
-  Schema.Struct({
-    type: Schema.Literal("github"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("gitlab"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("bitbucket"),
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("azurerepos"),
-    organization: Schema.String,
-    project: Schema.String,
-    repo: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("git"),
-    url: Schema.String,
-    ref: Schema.optional(Schema.String),
-    path: Schema.optional(Schema.String),
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...BaseCommonFields }),
-  Schema.Struct({
-    type: Schema.Literal("registry"),
-    namespace: Schema.String,
-    name: Schema.String,
-    resolvedVersion: ExactSemverVersionSchema,
-    integrity: Schema.String,
-    sourceName: Schema.String,
-    ...BaseCommonFields,
-  }),
-  Schema.Struct({ type: Schema.Literal("builtin"), ...BaseCommonFields }),
-);
+export const McpServerLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
 
 /**
  * Inferred type for McpServerLockEntry schema.

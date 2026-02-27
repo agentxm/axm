@@ -10,14 +10,19 @@
 import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as PlatformError from "@effect/platform/Error";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as Path from "@effect/platform/Path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliError } from "../cli-error/index.js";
-import { home } from "./constants.js";
+import { getHome } from "./constants.js";
 import { detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
+
+/** Resolve home dir for use in test path construction. */
+const home = Effect.runSync(getHome);
 
 // =============================================================================
 // Test Helpers
@@ -25,34 +30,42 @@ import { AGENTS } from "./registry.js";
 
 /**
  * Creates a mock FileSystem layer where `exists` returns true for specified paths.
+ * Merges with NodePath.layer to provide Path.Path.
  */
 const createMockFileSystem = (existingPaths: Set<string>) =>
-  Layer.succeed(FileSystem.FileSystem, {
-    exists: (p: string) => Effect.succeed(existingPaths.has(p)),
-    // Other methods are not used by detectAgent/detectAgents
-  } as unknown as FileSystem.FileSystem);
+  Layer.merge(
+    Layer.succeed(FileSystem.FileSystem, {
+      exists: (p: string) => Effect.succeed(existingPaths.has(p)),
+      // Other methods are not used by detectAgent/detectAgents
+    } as unknown as FileSystem.FileSystem),
+    NodePath.layer,
+  );
 
 /**
  * Creates a mock FileSystem layer where `exists` always fails with an error.
+ * Merges with NodePath.layer to provide Path.Path.
  */
 const createFailingFileSystem = (errorMessage: string) =>
-  Layer.succeed(FileSystem.FileSystem, {
-    exists: () =>
-      Effect.fail(
-        new PlatformError.SystemError({
-          reason: "Unknown",
-          module: "FileSystem",
-          method: "exists",
-          description: errorMessage,
-        }),
-      ),
-  } as unknown as FileSystem.FileSystem);
+  Layer.merge(
+    Layer.succeed(FileSystem.FileSystem, {
+      exists: () =>
+        Effect.fail(
+          new PlatformError.SystemError({
+            reason: "Unknown",
+            module: "FileSystem",
+            method: "exists",
+            description: errorMessage,
+          }),
+        ),
+    } as unknown as FileSystem.FileSystem),
+    NodePath.layer,
+  );
 
 /**
- * Provides real filesystem for live tests.
+ * Provides real filesystem and path for live tests.
  */
-const withRealFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-  effect.pipe(Effect.provide(NodeFileSystem.layer));
+const withRealFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+  effect.pipe(Effect.provide(NodeContext.layer));
 
 /** A temporary directory path used as projectDir in tests. */
 const testProjectDir = "/tmp/test-project";

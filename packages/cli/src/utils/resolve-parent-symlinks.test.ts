@@ -1,15 +1,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 
-const withFileSystem = <A, E>(
-  effect: Effect.Effect<A, E, import("@effect/platform").FileSystem.FileSystem>,
-) => effect.pipe(Effect.provide(NodeFileSystem.layer));
+const withNodeContext = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    import("@effect/platform").FileSystem.FileSystem | import("@effect/platform").Path.Path
+  >,
+) => effect.pipe(Effect.provide(NodeContext.layer));
 
 describe("resolveParentSymlinks", () => {
   let tmpDir: string;
@@ -23,7 +27,7 @@ describe("resolveParentSymlinks", () => {
   });
 
   it.effect("returns path unchanged when parent is a real directory", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const realDir = path.join(tmpDir, "real-dir");
         fs.mkdirSync(realDir);
@@ -35,7 +39,7 @@ describe("resolveParentSymlinks", () => {
   );
 
   it.effect("resolves parent symlink while preserving final component", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const realDir = path.join(tmpDir, "real-dir");
         fs.mkdirSync(realDir);
@@ -50,7 +54,7 @@ describe("resolveParentSymlinks", () => {
   );
 
   it.effect("preserves final component even if it is a symlink", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         const realDir = path.join(tmpDir, "real-dir");
         fs.mkdirSync(realDir);
@@ -69,7 +73,7 @@ describe("resolveParentSymlinks", () => {
   );
 
   it.effect("resolves deeply nested symlinks in parent chain", () =>
-    withFileSystem(
+    withNodeContext(
       Effect.gen(function* () {
         // Create: realA -> realB (symlink), realB -> realC (real)
         const realC = path.join(tmpDir, "real-c");

@@ -15,12 +15,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleFork, type ForkHandlerArgs } from "./handler.js";
@@ -92,11 +90,11 @@ describe("fork.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -585,7 +583,7 @@ describe("fork.handler", () => {
 
   describe("unknown skill name", () => {
     it.effect("fails with INVALID_SOURCE and includes a concrete reason", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -605,6 +603,8 @@ describe("fork.handler", () => {
           );
           expect(reason).toBeDefined();
           expect(reason).not.toBe("Reason:");
+          expect(mockSpinner.starts).toContain("Resolving skills...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

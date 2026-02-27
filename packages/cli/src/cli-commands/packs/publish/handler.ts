@@ -19,7 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { formatFqn, parseFqn, parseFqnOrThrow, type Fqn } from "../../../extensions/index.js";
@@ -115,40 +115,46 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   const fqn = yield* parseFqn(packName);
 
   // Step 3: Validate managed pack exists
-  const handle = yield* spinnerSvc.start("Validating pack...");
-  const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
-  const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
+  const manifestPath = yield* spinnerSvc.withSpinner(
+    "Validating pack...",
+    () =>
+      Effect.gen(function* () {
+        const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
+        const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
-  if (!packDirExists) {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "EXTENSION_NOT_FOUND",
-        what: `Managed pack not found: ${packName}`,
-        details: [`Expected at: ${packDir}`],
-        howToFix:
-          "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+        if (!packDirExists) {
+          return yield* Effect.fail(
+            makeCliError({
+              code: "EXTENSION_NOT_FOUND",
+              what: `Managed pack not found: ${packName}`,
+              details: [`Expected at: ${packDir}`],
+              howToFix:
+                "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+            }),
+          );
+        }
+
+        // Validate manifest exists
+        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+        const manifestExists = yield* fs
+          .exists(manifestPath)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!manifestExists) {
+          return yield* Effect.fail(
+            makeCliError({
+              code: "MISSING_MANIFEST",
+              what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+              details: [`Expected at: ${manifestPath}`],
+              howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
+            }),
+          );
+        }
+
+        return manifestPath;
       }),
-    );
-  }
-
-  // Validate manifest exists
-  const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-  const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
-
-  if (!manifestExists) {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "MISSING_MANIFEST",
-        what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
-        details: [`Expected at: ${manifestPath}`],
-        howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
-      }),
-    );
-  }
-
-  yield* handle.stop(`Validated ${packName}`);
+    { successMessage: `Validated ${packName}` },
+  );
 
   // Step 4: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(

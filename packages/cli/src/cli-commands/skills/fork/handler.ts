@@ -23,7 +23,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
@@ -152,82 +152,83 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   );
 
   // Step 3: Parse source and discover skills
-  const handle = yield* spinnerSvc.start("Resolving skills...");
+  const filtered = yield* spinnerSvc.withSpinner(
+    "Resolving skills...",
+    () =>
+      Effect.gen(function* () {
+        const resolvedSources = yield* resolveSourcePattern(args.source).pipe(
+          Effect.catchTag("CliError", (error) =>
+            error.code === "SOURCE_PARSE_FAILED"
+              ? (() => {
+                  const reason = summarizeError(error);
+                  return Effect.fail(
+                    makeCliError({
+                      code: "INVALID_SOURCE",
+                      what: "Invalid source",
+                      details: [`Provided: ${args.source}`, `Reason: ${reason}`],
+                      howToFix:
+                        "Valid formats: installed skill name, local path, github:owner/repo, or glob pattern",
+                      cause: error,
+                    }),
+                  );
+                })()
+              : Effect.fail(error),
+          ),
+        );
 
-  const resolvedSources = yield* resolveSourcePattern(args.source).pipe(
-    Effect.catchTag("CliError", (error) =>
-      error.code === "SOURCE_PARSE_FAILED"
-        ? (() => {
+        const allRefs = yield* Effect.forEach(
+          resolvedSources,
+          (source) =>
+            sources.find(source, {
+              skillNames: [],
+              type: "skill",
+              namespace: Option.none(),
+              versionConstraint: Option.none(),
+            }),
+          { concurrency: "unbounded" },
+        ).pipe(
+          Effect.map(Array.flatten),
+          Effect.mapError((error) => {
             const reason = summarizeError(error);
-            return Effect.fail(
-              makeCliError({
-                code: "INVALID_SOURCE",
-                what: "Invalid source",
-                details: [`Provided: ${args.source}`, `Reason: ${reason}`],
-                howToFix:
-                  "Valid formats: installed skill name, local path, github:owner/repo, or glob pattern",
-                cause: error,
-              }),
-            );
-          })()
-        : Effect.fail(error),
-    ),
-    Effect.tapError(() => handle.stop("Failed")),
-  );
+            const firstResolved = resolvedSources[0];
+            const sourceLabel = firstResolved ? sources.origin(firstResolved) : args.source;
+            const howToFix = firstResolved
+              ? discoverHowToFix(firstResolved, error)
+              : noSkillsFoundHowToFix(args.source);
+            return makeCliError({
+              code: "DISCOVER_FAILED",
+              what: "Failed to discover skills from source",
+              details: [`Source: ${sourceLabel}`, `Reason: ${reason}`],
+              howToFix,
+              cause: error,
+            });
+          }),
+        );
 
-  const allRefs = yield* Effect.forEach(
-    resolvedSources,
-    (source) =>
-      sources.find(source, {
-        skillNames: [],
-        type: "skill",
-        namespace: Option.none(),
-        versionConstraint: Option.none(),
+        const discoveredSkills = Array.filter(
+          allRefs,
+          (ref): ref is SkillExtensionRef => ref.type === "skill",
+        );
+
+        if (discoveredSkills.length === 0) {
+          return yield* Effect.fail(
+            makeCliError({
+              code: "NO_SKILLS_FOUND",
+              what: "No skills found in source",
+              details: [`Source: ${args.source}`],
+              howToFix: noSkillsFoundHowToFix(args.source),
+            }),
+          );
+        }
+
+        // Step 4: Filter by --skill globs (if provided)
+        return yield* filterBySkillGlobs(discoveredSkills, args.skills);
       }),
-    { concurrency: "unbounded" },
-  ).pipe(
-    Effect.map(Array.flatten),
-    Effect.mapError((error) => {
-      const reason = summarizeError(error);
-      const firstResolved = resolvedSources[0];
-      const sourceLabel = firstResolved ? sources.origin(firstResolved) : args.source;
-      const howToFix = firstResolved
-        ? discoverHowToFix(firstResolved, error)
-        : noSkillsFoundHowToFix(args.source);
-      return makeCliError({
-        code: "DISCOVER_FAILED",
-        what: "Failed to discover skills from source",
-        details: [`Source: ${sourceLabel}`, `Reason: ${reason}`],
-        howToFix,
-        cause: error,
-      });
-    }),
-    Effect.tapError(() => handle.stop("Failed")),
+    {
+      successMessage: (matches) => `Found ${matches.length} skill(s)`,
+      failureMessage: "Failed",
+    },
   );
-
-  const discoveredSkills = Array.filter(
-    allRefs,
-    (ref): ref is SkillExtensionRef => ref.type === "skill",
-  );
-
-  if (discoveredSkills.length === 0) {
-    yield* handle.stop("No skills found");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "NO_SKILLS_FOUND",
-        what: "No skills found in source",
-        details: [`Source: ${args.source}`],
-        howToFix: noSkillsFoundHowToFix(args.source),
-      }),
-    );
-  }
-
-  // Step 4: Filter by --skill globs (if provided)
-  const filtered = yield* filterBySkillGlobs(discoveredSkills, args.skills).pipe(
-    Effect.tapError(() => handle.stop("No matches")),
-  );
-
-  yield* handle.stop(`Found ${filtered.length} skill(s)`);
 
   // Step 5: Determine first registry source name for publishing
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(

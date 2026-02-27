@@ -10,7 +10,7 @@
 import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Log } from "../../tui/index.js";
+import { Log } from "../../clack-effect/index.js";
 import { Workspace } from "../../workspace/index.js";
 
 // -----------------------------------------------------------------------------

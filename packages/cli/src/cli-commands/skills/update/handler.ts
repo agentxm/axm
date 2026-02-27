@@ -21,7 +21,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
@@ -171,67 +171,70 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     | { type: "match"; ref: SkillExtensionRef }
     | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
 
-  const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
-  const results = yield* Effect.forEach(
-    filteredEntries,
-    ([name, sourceStr]) =>
-      Effect.gen(function* () {
-        const source = yield* resolveSource(sourceStr);
+  const results = yield* spinnerSvc.withSpinner(
+    "Resolving sources...",
+    () =>
+      Effect.forEach(
+        filteredEntries,
+        ([name, sourceStr]) =>
+          Effect.gen(function* () {
+            const source = yield* resolveSource(sourceStr);
 
-        // First try with name filter (fast path)
-        const namedRefs = yield* sources.find(source, {
-          skillNames: [name],
-          type: "skill",
-          namespace: Option.none(),
-          versionConstraint: Option.none(),
-        });
-        const namedSkillRefs = Array.filter(
-          namedRefs,
-          (r): r is SkillExtensionRef => r.type === "skill",
-        );
-        const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
+            // First try with name filter (fast path)
+            const namedRefs = yield* sources.find(source, {
+              skillNames: [name],
+              type: "skill",
+              namespace: Option.none(),
+              versionConstraint: Option.none(),
+            });
+            const namedSkillRefs = Array.filter(
+              namedRefs,
+              (r): r is SkillExtensionRef => r.type === "skill",
+            );
+            const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
 
-        if (skillRef) {
-          return Option.some<ResolveResult>({ type: "match", ref: skillRef });
-        }
+            if (skillRef) {
+              return Option.some<ResolveResult>({ type: "match", ref: skillRef });
+            }
 
-        // Skill not found by name — re-resolve without name filter for rename detection
-        const allRefs = yield* sources.find(source, {
-          skillNames: [],
-          type: "skill",
-          namespace: Option.none(),
-          versionConstraint: Option.none(),
-        });
-        const allSkillRefs = Array.filter(
-          allRefs,
-          (r): r is SkillExtensionRef => r.type === "skill",
-        );
+            // Skill not found by name — re-resolve without name filter for rename detection
+            const allRefs = yield* sources.find(source, {
+              skillNames: [],
+              type: "skill",
+              namespace: Option.none(),
+              versionConstraint: Option.none(),
+            });
+            const allSkillRefs = Array.filter(
+              allRefs,
+              (r): r is SkillExtensionRef => r.type === "skill",
+            );
 
-        if (allSkillRefs.length === 1) {
-          // Single-skill source: treat as rename
-          const newRef = allSkillRefs[0]!;
-          return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
-        } else if (allSkillRefs.length > 1) {
-          // Multi-skill source: ambiguous rename
-          const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
-          yield* log.warn(
-            `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
-          );
-          return Option.none<ResolveResult>();
-        } else {
-          yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
-          return Option.none<ResolveResult>();
-        }
-      }).pipe(
-        Effect.catchAll((error) => {
-          return log
-            .warn(`Failed to resolve "${name}": ${String(error)}`)
-            .pipe(Effect.map(() => Option.none<ResolveResult>()));
-        }),
+            if (allSkillRefs.length === 1) {
+              // Single-skill source: treat as rename
+              const newRef = allSkillRefs[0]!;
+              return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
+            } else if (allSkillRefs.length > 1) {
+              // Multi-skill source: ambiguous rename
+              const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
+              yield* log.warn(
+                `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
+              );
+              return Option.none<ResolveResult>();
+            } else {
+              yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
+              return Option.none<ResolveResult>();
+            }
+          }).pipe(
+            Effect.catchAll((error) => {
+              return log
+                .warn(`Failed to resolve "${name}": ${String(error)}`)
+                .pipe(Effect.map(() => Option.none<ResolveResult>()));
+            }),
+          ),
+        { concurrency: "unbounded" },
       ),
-    { concurrency: "unbounded" },
+    { successMessage: "Sources resolved" },
   );
-  yield* resolveHandle.stop("Sources resolved");
 
   // Step 6: Collect successful resolutions
   const resolved = Array.getSomes(results);

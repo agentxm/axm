@@ -8,8 +8,8 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { ClackLog } from "../clack-effect/index.js";
 import { renderCliError, type RenderCliErrorOptions } from "../cli-error/index.js";
-import { Log } from "../tui/index.js";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ export interface DisplayPlanOptions {
  */
 export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptions = {}) =>
   Effect.gen(function* () {
-    const log = yield* Log;
+    const log = yield* ClackLog;
     const verbosity = options.verbosity ?? defaultVerbosity;
 
     // Heading
@@ -68,7 +68,7 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
     }
   });
 
-const renderPlannedStep = (step: PlannedJobStep, log: Log["Type"]) => {
+const renderPlannedStep = (step: PlannedJobStep, log: ClackLog["Type"]) => {
   switch (step.readiness) {
     case "ready":
       return log.success(`  + ${step.label}`);
@@ -81,7 +81,7 @@ const renderPlannedStep = (step: PlannedJobStep, log: Log["Type"]) => {
 
 const renderCompletedStep = (
   step: CompletedJobStep,
-  log: Log["Type"],
+  log: ClackLog["Type"],
   verbosity: RenderCliErrorOptions,
 ) => {
   switch (step.result.result) {
@@ -105,7 +105,7 @@ const renderCompletedStep = (
   }
 };
 
-const renderPlannedSummary = (allSteps: ReadonlyArray<PlannedJobStep>, log: Log["Type"]) =>
+const renderPlannedSummary = (allSteps: ReadonlyArray<PlannedJobStep>, log: ClackLog["Type"]) =>
   Effect.gen(function* () {
     const readyCount = allSteps.filter((s) => s.readiness === "ready").length;
     const warnCount = allSteps.filter((s) => s.readiness === "warn").length;
@@ -121,7 +121,7 @@ const renderPlannedSummary = (allSteps: ReadonlyArray<PlannedJobStep>, log: Log[
     }
   });
 
-const renderCompletedSummary = (allSteps: ReadonlyArray<CompletedJobStep>, log: Log["Type"]) =>
+const renderCompletedSummary = (allSteps: ReadonlyArray<CompletedJobStep>, log: ClackLog["Type"]) =>
   Effect.gen(function* () {
     const successCount = allSteps.filter((s) => s.result.result === "success").length;
     const failCount = allSteps.filter((s) => s.result.result === "error").length;

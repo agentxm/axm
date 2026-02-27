@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeLogTestLayer } from "../../../tui/index.js";
+import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import {
   SourceHostProviders,
@@ -149,7 +149,7 @@ const withServices = (
   },
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
-  const [logLayer] = makeLogTestLayer();
+  const [logLayer] = makeClackLogTestLayer();
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>

@@ -125,4 +125,105 @@ describe("ClackPrompt", () => {
     }).pipe(Effect.provide(layer), Effect.runPromise);
     expect(result).toBe("");
   });
+
+  it("supports per-method behavior across mixed prompt methods", async () => {
+    const [layer, mock] = makeClackPromptTestLayer({
+      defaultBehavior: { type: "return", value: "unused-default" },
+      methodBehaviors: {
+        text: { type: "return", value: "alice" },
+        password: { type: "return", value: "secret" },
+        confirm: { type: "return", value: true },
+        select: { type: "return", value: "opt2" },
+        multiselect: { type: "return", value: ["a", "c"] },
+      },
+    });
+
+    const result = await Effect.gen(function* () {
+      const prompt = yield* ClackPrompt;
+      const text = yield* prompt.text({ message: "Name?" });
+      const password = yield* prompt.password({ message: "Password?" });
+      const confirm = yield* prompt.confirm({ message: "Continue?" });
+      const select = yield* prompt.select({
+        message: "Pick one:",
+        options: [
+          { value: "opt1", label: "Option 1" },
+          { value: "opt2", label: "Option 2" },
+        ],
+      });
+      const multiselect = yield* prompt.multiselect({
+        message: "Pick many:",
+        options: [
+          { value: "a", label: "A" },
+          { value: "b", label: "B" },
+          { value: "c", label: "C" },
+        ],
+      });
+      return { text, password, confirm, select, multiselect };
+    }).pipe(Effect.provide(layer), Effect.runPromise);
+
+    expect(result).toEqual({
+      text: "alice",
+      password: "secret",
+      confirm: true,
+      select: "opt2",
+      multiselect: ["a", "c"],
+    });
+    expect(mock.calls.map((call) => call.method)).toEqual([
+      "text",
+      "password",
+      "confirm",
+      "select",
+      "multiselect",
+    ]);
+  });
+
+  it("supports queued per-call behavior (global and per-method)", async () => {
+    const [layer] = makeClackPromptTestLayer({
+      defaultBehavior: { type: "return", value: "method-default" },
+      methodBehaviors: {
+        password: { type: "return", value: "method-password" },
+        select: { type: "return", value: "method-select" },
+      },
+      queuedBehaviors: [
+        { type: "return", value: "queued-global-text" },
+        { type: "return", value: true },
+      ],
+      queuedBehaviorsByMethod: {
+        text: [{ type: "return", value: "queued-text" }],
+        multiselect: [{ type: "return", value: ["x"] }],
+      },
+    });
+
+    const result = await Effect.gen(function* () {
+      const prompt = yield* ClackPrompt;
+      const firstText = yield* prompt.text({ message: "Text 1" });
+      const secondText = yield* prompt.text({ message: "Text 2" });
+      const confirm = yield* prompt.confirm({ message: "Continue?" });
+      const password = yield* prompt.password({ message: "Password" });
+      const select = yield* prompt.select({
+        message: "Select",
+        options: [
+          { value: "method-select", label: "Method Select" },
+          { value: "other", label: "Other" },
+        ],
+      });
+      const multiselect = yield* prompt.multiselect({
+        message: "Multi",
+        options: [
+          { value: "x", label: "X" },
+          { value: "y", label: "Y" },
+        ],
+      });
+      return { firstText, secondText, confirm, password, select, multiselect };
+    }).pipe(Effect.provide(layer), Effect.runPromise);
+
+    expect(result).toEqual({
+      firstText: "queued-text",
+      secondText: "queued-global-text",
+      confirm: true,
+      password: "method-password",
+      select: "method-select",
+      multiselect: ["x"],
+    });
+  });
 });

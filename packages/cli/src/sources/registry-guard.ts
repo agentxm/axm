@@ -8,8 +8,8 @@
 import { homedir } from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import { ClackPrompt } from "../clack-effect/index.js";
 import { makeCliError } from "../cli-error/index.js";
-import { TextInput } from "../tui/index.js";
 import { Workspace } from "../workspace/index.js";
 
 /**
@@ -39,8 +39,8 @@ export const registryGuard = Effect.gen(function* () {
   }
 
   // Interactive mode - prompt for path
-  const textInput = yield* TextInput;
-  const path = yield* textInput.prompt({
+  const prompt = yield* ClackPrompt;
+  const path = yield* prompt.text({
     message: "No registry configured. Enter a local registry path:",
   });
 

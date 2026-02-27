@@ -18,7 +18,7 @@ import {
   type Source,
 } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 

@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { CliError } from "../cli-error/index.js";
-import { PromptCancelled } from "../tui/errors.js";
+import { PromptCancelled } from "../prompt-cancelled.js";
 import { classifyError, resolveDiagnosticVerbosity } from "./error-handling.js";
 
 describe("classifyError", () => {

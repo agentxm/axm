@@ -15,12 +15,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
@@ -111,22 +109,22 @@ describe("packs uninstall handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: import("../../../tui/index.js").ConfirmBehavior;
-      selectBehavior?: import("../../../tui/index.js").SelectBehavior;
-      multiselectBehavior?: import("../../../tui/index.js").MultiselectBehavior;
+      confirmBehavior?: import("../../../clack-effect/index.js").ConfirmBehavior;
+      selectBehavior?: import("../../../clack-effect/index.js").SelectBehavior;
+      multiselectBehavior?: import("../../../clack-effect/index.js").MultiselectBehavior;
     },
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer(
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer(
       tuiConfig?.confirmBehavior ?? { type: "return", value: true },
     );
-    const [selectLayer] = makeSelectTestLayer(
-      tuiConfig?.selectBehavior ?? { type: "return", index: 0 },
+    const [selectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
     );
-    const [multiselectLayer] = makeMultiselectTestLayer(
-      tuiConfig?.multiselectBehavior ?? { type: "return", indices: [] },
+    const [multiselectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
     );
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,

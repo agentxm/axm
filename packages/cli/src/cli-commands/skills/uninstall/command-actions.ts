@@ -12,7 +12,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlob } from "../../../skills/index.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";

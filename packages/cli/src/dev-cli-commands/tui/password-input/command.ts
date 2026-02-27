@@ -1,17 +1,17 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
-import { Log, PasswordInput, TuiLive } from "../../../tui/index.js";
+import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
 
 export const passwordInputCommand: CommandModule = {
   command: "password-input",
   describe: "Demo password input",
   handler: () => {
     const program = Effect.gen(function* () {
-      const passwordInput = yield* PasswordInput;
-      const log = yield* Log;
-      const token = yield* passwordInput.prompt({ message: "Enter your token:" });
+      const prompt = yield* ClackPrompt;
+      const log = yield* ClackLog;
+      const token = yield* prompt.password({ message: "Enter your token:" });
       yield* log.success(`Token received (${String(token.length)} chars)`);
     });
-    return Effect.runPromise(program.pipe(Effect.provide(TuiLive)));
+    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
   },
 };

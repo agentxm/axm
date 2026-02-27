@@ -88,13 +88,8 @@
     "@effect/platform-node": "^0.104.1",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",
-    "ink": "^6.6.0",
-    "ink-select-input": "^6.2.0",
-    "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
     "jsonc-parser": "^3.3.1",
     "picocolors": "^1.1.1",
-    "react": "^19.2.4",
     "semver": "^7.7.1",
     "simple-git": "^3.27.0",
     "yaml": "^2.8.2",
@@ -102,11 +97,9 @@
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@types/react": "^19.2.13",
     "@types/semver": "^7.5.8",
     "@types/yargs": "catalog:",
     "execa": "^9.6.1",
-    "ink-testing-library": "^4.0.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

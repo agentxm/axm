@@ -15,12 +15,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import {
   SourceHostProvidersLive,
@@ -115,22 +113,22 @@ describe("packs install handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: import("../../../tui/index.js").ConfirmBehavior;
-      selectBehavior?: import("../../../tui/index.js").SelectBehavior;
-      multiselectBehavior?: import("../../../tui/index.js").MultiselectBehavior;
+      confirmBehavior?: import("../../../clack-effect/index.js").ConfirmBehavior;
+      selectBehavior?: import("../../../clack-effect/index.js").SelectBehavior;
+      multiselectBehavior?: import("../../../clack-effect/index.js").MultiselectBehavior;
     },
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer(
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer(
       tuiConfig?.confirmBehavior ?? { type: "return", value: true },
     );
-    const [selectLayer] = makeSelectTestLayer(
-      tuiConfig?.selectBehavior ?? { type: "return", index: 0 },
+    const [selectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
     );
-    const [multiselectLayer] = makeMultiselectTestLayer(
-      tuiConfig?.multiselectBehavior ?? { type: "return", indices: [] },
+    const [multiselectLayer] = makeClackPromptTestLayer(
+      tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
     );
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
@@ -175,11 +173,11 @@ describe("packs install handler", () => {
     mockService: SourceHostProvidersService,
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -473,7 +471,7 @@ describe("packs install handler", () => {
 
   describe("preview mode", () => {
     it.effect("fails at source resolution when no registry configured", () => {
-      const { provide } = makeLayers(
+      const { provide, mockSpinner } = makeLayers(
         { confirmBehavior: { type: "return", value: false } },
         { preview: true, yes: false, nonInteractive: Option.some(true) },
       );
@@ -486,6 +484,8 @@ describe("packs install handler", () => {
           );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("INVALID_SOURCE");
+          expect(mockSpinner.starts).toContain("Parsing source...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

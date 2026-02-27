@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { makeClackPromptTestLayer } from "../clack-effect/index.js";
 import { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import { makeTextInputTestLayer } from "../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
 import { taxonomyStubs } from "../workspace/test-stubs.js";
 import { registryGuard } from "./registry-guard.js";
@@ -92,8 +92,8 @@ describe("registryGuard", () => {
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
-      const [textInputLayer] = makeTextInputTestLayer();
-      const testLayer = Layer.mergeAll(workspaceLayer, textInputLayer, NodeContext.layer);
+      const [promptLayer] = makeClackPromptTestLayer();
+      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -108,8 +108,8 @@ describe("registryGuard", () => {
         registrySources: [],
         nonInteractive: true,
       });
-      const [textInputLayer] = makeTextInputTestLayer();
-      const testLayer = Layer.mergeAll(workspaceLayer, textInputLayer, NodeContext.layer);
+      const [promptLayer] = makeClackPromptTestLayer();
+      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       const result = yield* registryGuard.pipe(Effect.provide(testLayer), Effect.flip);
 
@@ -130,12 +130,13 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [textInputLayer] = makeTextInputTestLayer({
-        type: "return",
-        value: "/home/user/registry",
+      const [promptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          text: { type: "return", value: "/home/user/registry" },
+        },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, textInputLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -157,12 +158,13 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [textInputLayer] = makeTextInputTestLayer({
-        type: "return",
-        value: "~/my-registry",
+      const [promptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          text: { type: "return", value: "~/my-registry" },
+        },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, textInputLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 
@@ -195,12 +197,13 @@ describe("registryGuard", () => {
         addSourceMock,
       });
 
-      const [textInputLayer] = makeTextInputTestLayer({
-        type: "return",
-        value: "/new/registry",
+      const [promptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          text: { type: "return", value: "/new/registry" },
+        },
       });
 
-      const testLayer = Layer.mergeAll(workspaceLayer, textInputLayer, NodeContext.layer);
+      const testLayer = Layer.mergeAll(workspaceLayer, promptLayer, NodeContext.layer);
 
       yield* registryGuard.pipe(Effect.provide(testLayer));
 

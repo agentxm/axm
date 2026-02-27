@@ -24,7 +24,7 @@ import {
   type Source,
 } from "../../../sources/index.js";
 import type { InputParseResult } from "../../../sources/parser.js";
-import { Log, Spinner, Multiselect, TextInput } from "../../../tui/index.js";
+import { Log, Spinner, Multiselect, TextInput } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/workflow.js";
@@ -221,33 +221,58 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           const scopeLabel = args.global ? "user" : "project";
           yield* log.info(`axm skills install (${scopeLabel})`);
 
-          // Parse source
-          const parseHandle = yield* spinnerSvc.start("Parsing source...");
-          const parsedSourceOption = parseInputPattern(args.source.trim());
-          if (Option.isNone(parsedSourceOption)) {
-            return yield* makeCliError({
-              code: "INVALID_SOURCE",
-              what: "Invalid source: Unable to parse source",
-              details: [`Provided: ${args.source || "(empty)"}`],
-              howToFix:
-                "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-            });
-          }
+          const parsed = yield* spinnerSvc.withSpinner(
+            "Parsing source...",
+            () =>
+              Effect.gen(function* () {
+                const parsedSourceOption = parseInputPattern(args.source.trim());
+                if (Option.isNone(parsedSourceOption)) {
+                  return yield* makeCliError({
+                    code: "INVALID_SOURCE",
+                    what: "Invalid source: Unable to parse source",
+                    details: [`Provided: ${args.source || "(empty)"}`],
+                    howToFix:
+                      "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                  });
+                }
 
-          const parsedSource = parsedSourceOption.value;
-          const versionConstraint =
-            parsedSource.pattern.pattern === "registry-pattern-input"
-              ? parsedSource.pattern.versionConstraint
-              : Option.none<string>();
+                const parsedSource = parsedSourceOption.value;
+                const versionConstraint =
+                  parsedSource.pattern.pattern === "registry-pattern-input"
+                    ? parsedSource.pattern.versionConstraint
+                    : Option.none<string>();
 
-          // Resolve source
-          const resolutionProbes: RegistryLookupProbe[] = [];
-          const source = yield* resolveSkillInstallSource(parsedSource, {
-            onRegistryProbe: (probe) => {
-              resolutionProbes.push(probe);
+                const resolutionProbes: RegistryLookupProbe[] = [];
+                const source = yield* resolveSkillInstallSource(parsedSource, {
+                  onRegistryProbe: (probe) => {
+                    resolutionProbes.push(probe);
+                  },
+                });
+
+                const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
+                const requestedNamespace = extractRequestedNamespace(parsedSource, source);
+
+                return {
+                  source,
+                  versionConstraint,
+                  requestedSkills,
+                  requestedNamespace,
+                  resolutionProbes,
+                };
+              }),
+            {
+              successMessage: ({ source }) => `Source: ${sources.origin(source)} (${source.type})`,
             },
-          });
-          yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
+          );
+
+          const {
+            source,
+            versionConstraint,
+            requestedSkills,
+            requestedNamespace,
+            resolutionProbes,
+          } = parsed;
+
           if (resolutionProbes.length > 0) {
             yield* log.message(
               `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
@@ -258,9 +283,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           if (source.type === "registry") {
             yield* registryGuard;
           }
-
-          const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
-          const requestedNamespace = extractRequestedNamespace(parsedSource, source);
 
           return {
             source,
@@ -295,43 +317,45 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
-          const discoveredSkills = yield* sources
-            .find(req.source, {
-              skillNames: req.requestedSkills,
-              type: "skill" as const,
-              namespace: req.requestedNamespace,
-              versionConstraint: req.versionConstraint,
-            })
-            .pipe(
-              Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-              Effect.mapError((error) => {
-                const reason = summarizeDiscoverError(error);
-                return makeCliError({
-                  code: "DISCOVER_FAILED",
-                  what: "Failed to discover skills from source",
-                  details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
-                  howToFix: discoverHowToFix(req.source, error),
-                  cause: error,
-                });
-              }),
-              Effect.tapError(() => discoverHandle.stop("Failed")),
-            );
-
-          if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-            yield* discoverHandle.stop("No skills found");
-            return yield* Effect.fail(
-              makeCliError({
-                code: "NO_SKILLS_FOUND",
-                what: "No skills found in source",
-                details: [`Source: ${sources.origin(req.source)}`],
-                howToFix: noSkillsFoundHowToFix(req.source),
-              }),
-            );
-          }
-          yield* discoverHandle.stop(`Found ${discoveredSkills.length} skill(s)`);
-
-          return discoveredSkills as ReadonlyArray<SkillExtensionRef>;
+          return yield* spinnerSvc.withSpinner(
+            "Discovering skills...",
+            () =>
+              sources
+                .find(req.source, {
+                  skillNames: req.requestedSkills,
+                  type: "skill" as const,
+                  namespace: req.requestedNamespace,
+                  versionConstraint: req.versionConstraint,
+                })
+                .pipe(
+                  Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+                  Effect.mapError((error) => {
+                    const reason = summarizeDiscoverError(error);
+                    return makeCliError({
+                      code: "DISCOVER_FAILED",
+                      what: "Failed to discover skills from source",
+                      details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
+                      howToFix: discoverHowToFix(req.source, error),
+                      cause: error,
+                    });
+                  }),
+                  Effect.flatMap((discoveredSkills) =>
+                    Array.isNonEmptyReadonlyArray(discoveredSkills)
+                      ? Effect.succeed(discoveredSkills)
+                      : Effect.fail(
+                          makeCliError({
+                            code: "NO_SKILLS_FOUND",
+                            what: "No skills found in source",
+                            details: [`Source: ${sources.origin(req.source)}`],
+                            howToFix: noSkillsFoundHowToFix(req.source),
+                          }),
+                        ),
+                  ),
+                ),
+            {
+              successMessage: (discoveredSkills) => `Found ${discoveredSkills.length} skill(s)`,
+            },
+          );
         }),
       );
 

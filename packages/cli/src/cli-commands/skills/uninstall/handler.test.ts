@@ -15,11 +15,9 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -143,10 +141,10 @@ describe("uninstall.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer();
-    const [selectLayer] = makeSelectTestLayer();
-    const [multiselectLayer] = makeMultiselectTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer();
+    const [selectLayer] = makeClackPromptTestLayer();
+    const [multiselectLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,

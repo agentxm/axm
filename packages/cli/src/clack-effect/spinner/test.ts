@@ -11,6 +11,9 @@ export interface ClackSpinnerCall {
 
 export interface MockClackSpinnerService extends ClackSpinnerService {
   readonly calls: ClackSpinnerCall[];
+  readonly starts: string[];
+  readonly stops: string[];
+  readonly stopAllCalls: number[];
 }
 
 const makeMockHandle = (calls: ClackSpinnerCall[]): ClackSpinnerHandle => ({
@@ -38,31 +41,54 @@ const makeMockHandle = (calls: ClackSpinnerCall[]): ClackSpinnerHandle => ({
 
 export function makeClackSpinnerTestLayer(): [Layer.Layer<ClackSpinner>, MockClackSpinnerService] {
   const calls: ClackSpinnerCall[] = [];
+  const starts: string[] = [];
+  const stops: string[] = [];
+  const stopAllCalls: number[] = [];
 
   const mockService: MockClackSpinnerService = {
     calls,
+    starts,
+    stops,
+    stopAllCalls,
     start: (message) =>
       Effect.sync(() => {
         calls.push({ method: "start", args: [message] });
+        starts.push(message ?? "");
         return makeMockHandle(calls);
       }),
-    withSpinner: (message, f, stopMessage) =>
+    withSpinner: (message, f, options) =>
       Effect.suspend(() => {
         calls.push({ method: "withSpinner.start", args: [message] });
+        starts.push(message);
         const handle = makeMockHandle(calls);
+        const staticStopMessage =
+          typeof options === "string"
+            ? options
+            : typeof options?.successMessage === "string"
+              ? options.successMessage
+              : message;
+        const successMessageFn =
+          typeof options === "object" && typeof options.successMessage === "function"
+            ? options.successMessage
+            : undefined;
+        const failureMessage = typeof options === "object" ? options.failureMessage : undefined;
 
         return Effect.interruptible(f(handle)).pipe(
           Effect.matchCauseEffect({
             onFailure: (cause) => {
               if (Cause.isInterruptedOnly(cause)) {
                 calls.push({ method: "withSpinner.cancel", args: [] });
+                stops.push("Cancelled");
               } else {
                 calls.push({ method: "withSpinner.error", args: [message] });
+                stops.push(failureMessage ?? "Failed");
               }
               return Effect.failCause(cause);
             },
             onSuccess: (a) => {
-              calls.push({ method: "withSpinner.stop", args: [stopMessage ?? message] });
+              const resolvedStopMessage = successMessageFn?.(a) ?? staticStopMessage;
+              calls.push({ method: "withSpinner.stop", args: [resolvedStopMessage] });
+              stops.push(resolvedStopMessage);
               return Effect.succeed(a);
             },
           }),

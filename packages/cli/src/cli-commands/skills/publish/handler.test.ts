@@ -15,12 +15,10 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  makeSpinnerTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer,
+  makeClackSpinnerTestLayer
+} from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handlePublish, type PublishHandlerArgs } from "./handler.js";
@@ -112,11 +110,11 @@ describe("publish.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
+    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -284,7 +282,7 @@ describe("publish.handler", () => {
 
   describe("non-installed skill error", () => {
     it.effect("fails when extension directory does not exist in .axm/extensions/", () => {
-      const { provide } = makeLayers();
+      const { provide, mockSpinner } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -303,6 +301,8 @@ describe("publish.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Managed extension not found");
           expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
+          expect(mockSpinner.starts).toContain("Validating extensions...");
+          expect(mockSpinner.stops).toContain("Failed");
         }),
       );
     });

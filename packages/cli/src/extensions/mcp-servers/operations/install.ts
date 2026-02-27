@@ -11,7 +11,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { validateExactResolvedVersion } from "../../../lockfile/index.js";

@@ -18,7 +18,7 @@ import {
 } from "../../../lockfile/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";

@@ -17,7 +17,7 @@ import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
@@ -120,56 +120,59 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   );
 
   // Step 4: Validate each extension
-  const handle = yield* spinnerSvc.start("Validating extensions...");
+  yield* spinnerSvc.withSpinner(
+    "Validating extensions...",
+    () =>
+      Effect.gen(function* () {
+        const fqns = yield* Effect.forEach(extensionNames, (extName) => parseFqn(extName));
 
-  const fqns = yield* Effect.forEach(extensionNames, (extName) => parseFqn(extName));
+        yield* Effect.forEach(fqns, (fqn, i) => {
+          const extName = extensionNames[i]!;
+          const extensionDir = path.join(
+            base,
+            REGISTRY_EXTENSIONS_DIR,
+            fqn.namespace,
+            "skills",
+            fqn.name,
+          );
 
-  yield* Effect.forEach(fqns, (fqn, i) => {
-    const extName = extensionNames[i]!;
-    const extensionDir = path.join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.namespace,
-      "skills",
-      fqn.name,
-    );
+          return Effect.gen(function* () {
+            const extensionDirExists = yield* fs
+              .exists(extensionDir)
+              .pipe(Effect.orElseSucceed(() => false));
 
-    return Effect.gen(function* () {
-      const extensionDirExists = yield* fs
-        .exists(extensionDir)
-        .pipe(Effect.orElseSucceed(() => false));
+            if (!extensionDirExists) {
+              return yield* Effect.fail(
+                makeCliError({
+                  code: "EXTENSION_NOT_FOUND",
+                  what: `Managed extension not found: ${extName}`,
+                  details: [`Expected at: ${extensionDir}`],
+                  howToFix:
+                    "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
+                }),
+              );
+            }
 
-      if (!extensionDirExists) {
-        yield* handle.stop("Failed");
-        return yield* Effect.fail(
-          makeCliError({
-            code: "EXTENSION_NOT_FOUND",
-            what: `Managed extension not found: ${extName}`,
-            details: [`Expected at: ${extensionDir}`],
-            howToFix:
-              "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
-          }),
-        );
-      }
+            const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
+            const manifestExists = yield* fs
+              .exists(manifestPath)
+              .pipe(Effect.orElseSucceed(() => false));
 
-      const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
-      const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
-
-      if (!manifestExists) {
-        yield* handle.stop("Failed");
-        return yield* Effect.fail(
-          makeCliError({
-            code: "MISSING_MANIFEST",
-            what: `Missing manifest: ${MANIFEST_FILENAME}`,
-            details: [`Expected at: ${manifestPath}`],
-            howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
-          }),
-        );
-      }
-    });
-  });
-
-  yield* handle.stop(`Validated ${extensionNames.length} extension(s)`);
+            if (!manifestExists) {
+              return yield* Effect.fail(
+                makeCliError({
+                  code: "MISSING_MANIFEST",
+                  what: `Missing manifest: ${MANIFEST_FILENAME}`,
+                  details: [`Expected at: ${manifestPath}`],
+                  howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
+                }),
+              );
+            }
+          });
+        });
+      }),
+    { successMessage: `Validated ${extensionNames.length} extension(s)` },
+  );
 
   // Step 5: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(

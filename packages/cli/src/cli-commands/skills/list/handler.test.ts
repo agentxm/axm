@@ -20,11 +20,9 @@ import {
   type Log,
   type Multiselect,
   type Select,
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-} from "../../../tui/index.js";
+  makeClackPromptTestLayer,
+  makeClackLogTestLayer
+} from "../../../clack-effect/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -78,10 +76,10 @@ describe("list.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-    const [confirmLayer] = makeConfirmTestLayer();
-    const [selectLayer] = makeSelectTestLayer();
-    const [multiselectLayer] = makeMultiselectTestLayer();
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+    const [confirmLayer] = makeClackPromptTestLayer();
+    const [selectLayer] = makeClackPromptTestLayer();
+    const [multiselectLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,

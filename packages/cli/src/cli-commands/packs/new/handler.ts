@@ -15,7 +15,7 @@ import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schem
 import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
 import { newPack } from "../../../extensions/packs/operations/new-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";

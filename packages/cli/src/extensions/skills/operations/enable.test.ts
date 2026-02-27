@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeCliError } from "../../../cli-error/index.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
-import { makeLogTestLayer } from "../../../tui/index.js";
+import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { sanitizeName } from "../utils.js";
@@ -148,7 +148,7 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  const [logLayer] = makeLogTestLayer();
+  const [logLayer] = makeClackLogTestLayer();
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), logLayer);
 };
 

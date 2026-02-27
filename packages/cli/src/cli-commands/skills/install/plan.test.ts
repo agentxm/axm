@@ -17,7 +17,7 @@ import {
   type SourceHostProvidersService,
 } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { makeLogTestLayer } from "../../../tui/log/index.js";
+import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -86,7 +86,7 @@ const runBuildPlan = ({
   };
 
   // Provide all required services (FileSystem/Path/Log only needed inside run closures, not plan construction)
-  const [logLayer] = makeLogTestLayer();
+  const [logLayer] = makeClackLogTestLayer();
   const testLayer = Layer.mergeAll(
     logLayer,
     Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),

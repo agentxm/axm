@@ -73,15 +73,15 @@ describe("axm-dev tui", () => {
       expect(result.exitCode).toBe(0);
     });
 
-    it("displays all log variants", async () => {
+    it("displays all clack log variants", async () => {
       const result = await runDevCli(["tui", "log"]);
       const output = getOutput(result);
 
-      expect(output).toContain("info");
-      expect(output).toContain("warning");
-      expect(output).toContain("error");
-      expect(output).toContain("success");
-      expect(output).toContain("plain message");
+      expect(output).toContain("This is an info message");
+      expect(output).toContain("This is a warning message");
+      expect(output).toContain("This is an error message");
+      expect(output).toContain("This is a success message");
+      expect(output).toContain("This is a plain message");
     });
   });
 
@@ -107,12 +107,13 @@ describe("axm-dev tui", () => {
       expect(result.exitCode).toBe(0);
     });
 
-    it("displays notes", async () => {
+    it("displays clack note output", async () => {
       const result = await runDevCli(["tui", "note"]);
       const output = getOutput(result);
 
       expect(output).toContain("Welcome");
       expect(output).toContain("note with a title");
+      expect(output).toContain("note without a title");
     });
   });
 

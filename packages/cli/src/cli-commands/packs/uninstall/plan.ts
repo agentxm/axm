@@ -24,7 +24,7 @@ import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.
 import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
 import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 
 /**

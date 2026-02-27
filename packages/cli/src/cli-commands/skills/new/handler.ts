@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
-import { Log } from "../../../tui/index.js";
+import { Log } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";

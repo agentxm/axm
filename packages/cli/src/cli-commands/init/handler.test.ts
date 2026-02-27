@@ -31,7 +31,13 @@ import {
   makeSelectTestLayer,
   type Multiselect,
   type Select,
-} from "../../tui/index.js";
+} from "../../clack-effect/index.js";
+import {
+  ClackLog,
+  ClackPrompt,
+  makeClackLogTestLayer,
+  makeClackPromptTestLayer,
+} from "../../clack-effect/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -60,6 +66,14 @@ describe("init.handler", () => {
   const [confirmLayer] = makeConfirmTestLayer();
   const [selectLayer] = makeSelectTestLayer();
   const [multiselectLayer] = makeMultiselectTestLayer();
+  const [clackLogLayer] = makeClackLogTestLayer();
+  const [clackPromptLayer] = makeClackPromptTestLayer({
+    methodBehaviors: {
+      confirm: { type: "return", value: true },
+      select: { type: "select", index: 0 },
+      multiselect: { type: "multiselect", indices: [] },
+    },
+  });
 
   const TestLayer = Layer.mergeAll(
     NodeContext.layer,
@@ -67,6 +81,8 @@ describe("init.handler", () => {
     confirmLayer,
     selectLayer,
     multiselectLayer,
+    clackLogLayer,
+    clackPromptLayer,
   );
 
   /**
@@ -78,7 +94,15 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
+        | FileSystem.FileSystem
+        | Path.Path
+        | Log
+        | Confirm
+        | Select
+        | Multiselect
+        | ClackLog
+        | ClackPrompt
+        | Workspace
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -342,8 +366,8 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       tuiConfig: {
-        selectBehavior?: import("../../tui/index.js").SelectBehavior;
-        multiselectBehavior?: import("../../tui/index.js").MultiselectBehavior;
+        selectBehavior?: import("../../clack-effect/index.js").SelectBehavior;
+        multiselectBehavior?: import("../../clack-effect/index.js").MultiselectBehavior;
       },
       wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
         global: false,
@@ -358,12 +382,33 @@ describe("init.handler", () => {
       const [iMultiselectLayer] = makeMultiselectTestLayer(
         tuiConfig.multiselectBehavior ?? { type: "return", indices: [] },
       );
+      const [iClackLogLayer] = makeClackLogTestLayer();
+      const selectBehavior = tuiConfig.selectBehavior ?? { type: "return", index: 0 };
+      const multiselectBehavior = tuiConfig.multiselectBehavior ?? {
+        type: "return",
+        indices: [] as ReadonlyArray<number>,
+      };
+      const [iClackPromptLayer] = makeClackPromptTestLayer({
+        methodBehaviors: {
+          confirm: { type: "return", value: true },
+          select:
+            selectBehavior.type === "cancel"
+              ? { type: "cancel" }
+              : { type: "select", index: selectBehavior.index },
+          multiselect:
+            multiselectBehavior.type === "cancel"
+              ? { type: "cancel" }
+              : { type: "multiselect", indices: multiselectBehavior.indices },
+        },
+      });
       const BaseLayer = Layer.mergeAll(
         NodeContext.layer,
         iLogLayer,
         iConfirmLayer,
         iSelectLayer,
         iMultiselectLayer,
+        iClackLogLayer,
+        iClackPromptLayer,
       );
       const WsLayer = Layer.provide(
         workspaceLayer({
@@ -378,7 +423,15 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
+          | FileSystem.FileSystem
+          | Path.Path
+          | Log
+          | Confirm
+          | Select
+          | Multiselect
+          | ClackLog
+          | ClackPrompt
+          | Workspace
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };

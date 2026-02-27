@@ -1,5 +1,5 @@
 import { type CliError, renderCliError } from "../cli-error/index.js";
-import type { PromptCancelled } from "../tui/index.js";
+import type { PromptCancelled } from "../prompt-cancelled.js";
 
 export interface DiagnosticVerbosity {
   readonly verbose: boolean;

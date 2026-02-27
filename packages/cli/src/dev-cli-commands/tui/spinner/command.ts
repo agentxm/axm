@@ -1,17 +1,19 @@
 import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
-import { Spinner, TuiLive } from "../../../tui/index.js";
+import { ClackLive, ClackSpinner } from "../../../clack-effect/index.js";
 
 export const spinnerCommand: CommandModule = {
   command: "spinner",
   describe: "Demo spinner animation",
   handler: () => {
     const program = Effect.gen(function* () {
-      const spinner = yield* Spinner;
-      const handle = yield* spinner.start("Loading something...");
-      yield* Effect.sleep("2 seconds");
-      yield* handle.stop("Done loading!");
+      const spinner = yield* ClackSpinner;
+      yield* spinner.withSpinner(
+        "Loading something...",
+        () => Effect.sleep("2 seconds"),
+        "Done loading!",
+      );
     });
-    return Effect.runPromise(program.pipe(Effect.provide(TuiLive)));
+    return Effect.runPromise(program.pipe(Effect.provide(ClackLive)));
   },
 };

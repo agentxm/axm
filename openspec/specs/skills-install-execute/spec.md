@@ -1,6 +1,8 @@
 ### Requirement: Skill installation orchestrator
 
-The `installSkill` operation handler SHALL orchestrate the full per-skill installation pipeline by dispatching to a per-refType install function via `switch(ref.refType)`. Each case (`git-hosted`, `registry`, `local`, `builtin`) SHALL produce a `MaterializedSkill` containing the `skillSrcPath` and `versionConstraint`. Shared post-install steps (agent symlinks, lockfile/settings writes, result computation) SHALL run after materialization.
+Skills installation orchestration SHALL execute a full per-skill installation pipeline by dispatching to a per-refType install function via `switch(ref.refType)`. Each case (`git-hosted`, `registry`, `local`, `builtin`) SHALL produce a `MaterializedSkill` containing the `skillSrcPath` and `versionConstraint`. Shared post-install steps (agent-target resolution, distinct-directory materialization/symlink, lockfile/settings writes, result computation) SHALL run after materialization.
+
+All skills-install execution paths (the primary manager path and direct install operation path) SHALL enforce the same outcome and policy semantics.
 
 For registry-sourced skills, any `resolvedVersion` written to lockfile MUST be an exact semver version and MUST NOT be a semver range.
 
@@ -34,26 +36,62 @@ For registry-sourced skills, any `resolvedVersion` written to lockfile MUST be a
 - **THEN** `validatePathSafety` SHALL be called for the canonical path against the workspace base directory
 - **AND** if the path is unsafe, the skill installation SHALL fail without writing any files
 
-#### Scenario: Agent symlinks created for all agents
+#### Scenario: Configured agents resolved via CodingAgent services
 
-- **WHEN** the operation targets agents
-- **THEN** a symlink SHALL be created from `<base>/<agent.skills.dir>/<sanitized-name>` to `skillSrcPath` for every agent
-- **AND** agents whose `skills.dir` resolves to `.agents/skills` SHALL also receive symlinks (no self-reference skip)
+- **WHEN** the install operation starts post-materialization
+- **THEN** configured agents SHALL be resolved through `CodingAgentRepository`
+- **AND** effective skills directories SHALL be resolved through each agent's `resolveEffectiveSkillsDir`
 
-#### Scenario: Symlink failure falls back to copy
+#### Scenario: Manager and direct operation parity
 
-- **WHEN** symlink creation fails for an agent
-- **THEN** the skill directory SHALL be copied to the agent's path instead
-- **AND** the `InstallResult` for that agent SHALL have `symlinkFailed: true`
+- **WHEN** skills install is invoked through either primary manager orchestration or direct install operation
+- **THEN** both paths SHALL apply identical tagged outcome handling and strict/best-effort unknown-agent policy behavior
 
-#### Scenario: Agent symlinks run concurrently
+#### Scenario: Unsupported and disabled agents are skipped
 
-- **WHEN** creating symlinks for multiple agents within a single skill
-- **THEN** the symlink operations SHALL run concurrently
+- **WHEN** an agent resolves to `_tag: "unsupported"` or `_tag: "disabled"`
+- **THEN** that agent SHALL be excluded from install target directories
+- **AND** the result output SHALL report that the agent was skipped
+
+#### Scenario: Misconfigured agent fails installation
+
+- **WHEN** any configured agent resolves to `_tag: "misconfigured"`
+- **THEN** the operation SHALL fail with actionable error details
+- **AND** no agent-specific materialization/symlink step SHALL run
+
+#### Scenario: Unknown configured agent in best-effort mode
+
+- **WHEN** configured agents include unknown ids
+- **AND** strict mode is disabled
+- **THEN** unknown agents SHALL be skipped with warnings
+- **AND** installation SHALL continue for known agents
+
+#### Scenario: Unknown configured agent in strict mode
+
+- **WHEN** configured agents include unknown ids
+- **AND** strict mode is enabled
+- **THEN** the operation SHALL fail before directory materialization/symlink
+
+#### Scenario: Distinct-directory targeting
+
+- **WHEN** multiple installable agents resolve to the same normalized effective skills directory
+- **THEN** the operation SHALL perform one materialization/symlink step for that distinct directory
+- **AND** all agents targeting that directory SHALL map to that one directory result
+
+#### Scenario: Symlink failure falls back to copy per target directory
+
+- **WHEN** symlink creation fails for a distinct target directory
+- **THEN** the skill directory SHALL be copied to that target directory instead
+- **AND** all agents mapped to that directory SHALL report `symlinkFailed: true`
+
+#### Scenario: Distinct-directory operations run concurrently
+
+- **WHEN** creating symlinks/copies for multiple distinct target directories
+- **THEN** directory operations SHALL run concurrently
 
 #### Scenario: Lockfile updated after installation
 
-- **WHEN** skill files and symlinks are successfully created
+- **WHEN** skill files and target directory operations are successfully created
 - **THEN** `ws.setSkillLock` or `ws.setSkill` SHALL be called with the skill name, lock entry from `sourceToLockEntry`, and the materialized `versionConstraint`
 
 #### Scenario: Registry lockfile resolvedVersion is exact
@@ -74,7 +112,7 @@ The install skill executor SHALL call `ws.setSkill` after successful file instal
 
 #### Scenario: Skill added to settings on success
 
-- **WHEN** skill files are copied, symlinks created, and lockfile updated successfully
+- **WHEN** skill files are copied, symlinks/copies completed for target directories, and lockfile updated successfully
 - **AND** `skipSettings` is false
 - **THEN** the executor calls `ws.setSkill` with the skill name, lock entry, and version constraint
 
@@ -87,7 +125,7 @@ The install skill executor SHALL call `ws.setSkill` after successful file instal
 #### Scenario: Returns per-agent results
 
 - **WHEN** installation completes
-- **THEN** the function SHALL return an `OperationResult` indicating success or listing failed agents
+- **THEN** the function SHALL return an `OperationResult` indicating success or listing failed/skipped agents
 
 #### Scenario: Pre-clean removes from all known locations
 

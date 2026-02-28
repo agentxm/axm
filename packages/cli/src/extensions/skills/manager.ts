@@ -10,6 +10,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
+import * as Array from "effect/Array";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -30,7 +31,7 @@ import { copySkillDirectory } from "./operations/copy-directory.js";
 import { createSymlink } from "../../utils/create-symlink.js";
 import { isPathSafe } from "../../utils/path-safety.js";
 import { removeFromAllCanonicalLocations, stripFileProtocol } from "../../utils/fs-helpers.js";
-import { getAgentById } from "../../agents/registry.js";
+import { DefaultCodingAgentRepository } from "../../agents/repository.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { computeIntegrity } from "../../utils/integrity.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -105,10 +106,44 @@ export const SkillManagerLive = Layer.effect(
           provide,
         );
 
-        // Symlink to each configured agent's skills dir
+        const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+          Effect.provideService(Workspace, ws),
+        );
+        const resolved = yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+              Effect.provideService(Path.Path, path),
+              Effect.map((outcome) => ({ agent, outcome })),
+            ),
+          { concurrency: "unbounded" },
+        );
+
+        const misconfigured = Array.filter(
+          resolved,
+          ({ outcome }) => outcome._tag === "misconfigured",
+        );
+        if (misconfigured.length > 0) {
+          const details = misconfigured.map(({ agent, outcome }) =>
+            outcome._tag === "misconfigured"
+              ? `${agent.id}: ${outcome.reason}`
+              : `${agent.id}: invalid configuration`,
+          );
+          return yield* makeCliError({
+            code: "SKILL_DIR_MISCONFIGURED",
+            what: "One or more configured agents have invalid skills directory settings",
+            details,
+          });
+        }
+
+        const installTargets = Array.filterMap(resolved, ({ outcome }) =>
+          outcome._tag === "supported" ? Option.some(path.normalize(outcome.dir)) : Option.none(),
+        );
+        const distinctDirs = Array.dedupe(installTargets);
+
         yield* Effect.forEach(
-          agents,
-          (agentId) => installForAgent(agentId, skillSrcPath, sanitized, path, baseDir, provide),
+          distinctDirs,
+          (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
           { concurrency: "unbounded" },
         );
       });
@@ -117,14 +152,30 @@ export const SkillManagerLive = Layer.effect(
       Effect.gen(function* () {
         const sanitized = sanitizeName(target.name);
 
-        // Remove agent symlinks/copies concurrently
+        const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+          Effect.provideService(Workspace, ws),
+        );
+        const resolved = yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+              Effect.provideService(Path.Path, path),
+              Effect.map((outcome) => ({ agent, outcome })),
+            ),
+          { concurrency: "unbounded" },
+        );
+
+        const distinctDirs = Array.dedupe(
+          Array.filterMap(resolved, ({ outcome }) =>
+            outcome._tag === "supported" ? Option.some(path.normalize(outcome.dir)) : Option.none(),
+          ),
+        );
+
+        // Remove agent symlinks/copies concurrently from resolved directories
         yield* Effect.forEach(
-          agents,
-          (agentId) => {
-            const maybeAgent = getAgentById(agentId);
-            if (Option.isNone(maybeAgent)) return Effect.void;
-            const agent = maybeAgent.value;
-            const agentSkillPath = path.join(baseDir, agent.skills.dir, sanitized);
+          distinctDirs,
+          (dir) => {
+            const agentSkillPath = path.join(dir, sanitized);
             return fs
               .remove(agentSkillPath, { recursive: true })
               .pipe(Effect.catchAll(() => Effect.void));
@@ -430,20 +481,19 @@ const materializeRegistry = (
     return skillSrcPath;
   });
 
-const installForAgent = (
-  agentId: string,
+const installForDirectory = (
   canonicalSkillSrcPath: string,
+  targetDir: string,
   sanitizedName: string,
   pathService: Path.Path,
   baseDir: string,
   provide: ProvideFS,
 ) =>
   Effect.gen(function* () {
-    const maybeAgent = getAgentById(agentId);
-    if (Option.isNone(maybeAgent)) return;
-    const agent = maybeAgent.value;
-    const agentSkillPath = pathService.join(baseDir, agent.skills.dir, sanitizedName);
-    if (!isPathSafe(baseDir, agentSkillPath)) return;
+    const agentSkillPath = pathService.join(targetDir, sanitizedName);
+    if (!isPathSafe(baseDir, agentSkillPath)) {
+      return;
+    }
 
     yield* provide(
       createSymlink({

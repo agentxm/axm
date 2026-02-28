@@ -9,10 +9,11 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { getAgentById } from "../../../agents/registry.js";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Log } from "../../../clack-effect/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -50,6 +51,8 @@ export type InstallSkillOperationArgs = {
   readonly versionConstraint: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
+  /** When true, fail on unknown configured agents instead of warning+skip. */
+  readonly strictUnknownAgents?: Option.Option<boolean>;
 };
 
 /**
@@ -247,8 +250,8 @@ const installFromRegistry = (
 // Agent symlink helper
 // -----------------------------------------------------------------------------
 
-const installForAgent = (opts: {
-  readonly agentId: string;
+const installForDirectory = (opts: {
+  readonly targetDir: string;
   readonly canonicalSkillSrcPath: string;
   readonly sanitizedName: string;
 }) =>
@@ -256,20 +259,7 @@ const installForAgent = (opts: {
     const path = yield* Path.Path;
     const ws = yield* Workspace;
 
-    const maybeAgent = getAgentById(opts.agentId);
-    if (Option.isNone(maybeAgent)) {
-      return {
-        success: false,
-        mode: "symlink",
-        symlinkFailed: false,
-        error: Option.some(`Unknown agent: ${opts.agentId}`),
-        path: "",
-        canonicalPath: opts.canonicalSkillSrcPath,
-      } satisfies InstallResult;
-    }
-    const agent = maybeAgent.value;
-
-    const agentSkillPath = path.join(ws.baseDir, agent.skills.dir, opts.sanitizedName);
+    const agentSkillPath = path.join(opts.targetDir, opts.sanitizedName);
 
     // Validate agent path safety
     if (!isPathSafe(ws.baseDir, agentSkillPath)) {
@@ -277,7 +267,7 @@ const installForAgent = (opts: {
         success: false,
         mode: "symlink",
         symlinkFailed: false,
-        error: Option.some(`Path traversal detected for agent ${opts.agentId}`),
+        error: Option.some(`Path traversal detected for target directory ${opts.targetDir}`),
         path: agentSkillPath,
         canonicalPath: opts.canonicalSkillSrcPath,
       } satisfies InstallResult;
@@ -367,25 +357,125 @@ export const installSkill: OperationHandler<
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
+    const path = yield* Path.Path;
     const log = yield* Log;
     const { ref } = op.args;
     const agents = yield* ws.getConfiguredAgents();
     const sanitizedName = sanitizeName(ref.skill.name);
+    const strictUnknownAgents = Option.getOrElse(
+      op.args.strictUnknownAgents ?? Option.none(),
+      () => false,
+    );
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
     const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionConstraint);
 
-    // ── Shared: symlink to agents ───────────────────────────────────
-    const agentResults = yield* Effect.forEach(
-      agents,
-      (agentId) =>
-        installForAgent({
-          agentId,
-          canonicalSkillSrcPath: materialized.skillSrcPath,
-          sanitizedName,
+    // ── Shared: resolve agent targets + install once per distinct dir ────────
+    const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+      Effect.provideService(Workspace, ws),
+    );
+    const unknownConfiguredAgentIds =
+      yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds().pipe(
+        Effect.provideService(Workspace, ws),
+      );
+
+    if (strictUnknownAgents && unknownConfiguredAgentIds.length > 0) {
+      const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
+      return {
+        result: "error",
+        message,
+        error: makeCliError({
+          code: "CODING_AGENT_UNKNOWN_CONFIGURED",
+          what: message,
+          details: unknownConfiguredAgentIds,
         }),
+      } satisfies OperationResult;
+    }
+
+    if (unknownConfiguredAgentIds.length > 0) {
+      yield* log.warn(
+        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
+      );
+    }
+
+    const resolvedAgents = yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+          Effect.provideService(Path.Path, path),
+          Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+        ),
       { concurrency: "unbounded" },
     );
+
+    const misconfigured = Array.filter(
+      resolvedAgents,
+      ({ outcome }) => outcome._tag === "misconfigured",
+    );
+    if (misconfigured.length > 0) {
+      const details = misconfigured.map(({ agentId, outcome }) =>
+        outcome._tag === "misconfigured"
+          ? `${agentId}: ${outcome.reason}`
+          : `${agentId}: invalid skills directory configuration`,
+      );
+      const message = `Failed to resolve skills directories for ${ref.skill.name}`;
+      return {
+        result: "error",
+        message,
+        error: makeCliError({
+          code: "SKILL_DIR_MISCONFIGURED",
+          what: message,
+          details,
+        }),
+      } satisfies OperationResult;
+    }
+
+    const skippedByOutcome = Array.filter(
+      resolvedAgents,
+      ({ outcome }) => outcome._tag === "unsupported" || outcome._tag === "disabled",
+    );
+    if (skippedByOutcome.length > 0) {
+      const skippedMessage = skippedByOutcome
+        .map(({ agentId, outcome }) =>
+          outcome._tag === "supported"
+            ? `${agentId}: not skipped`
+            : `${agentId}: ${outcome.reason}`,
+        )
+        .join(", ");
+      yield* log.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
+    }
+
+    const installableTargets = Array.filterMap(resolvedAgents, ({ agentId, outcome }) =>
+      outcome._tag === "supported"
+        ? Option.some({ agentId, targetDir: path.normalize(outcome.dir) })
+        : Option.none(),
+    );
+    const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
+    const perDirectoryResults = yield* Effect.forEach(
+      distinctDirs,
+      (targetDir) =>
+        installForDirectory({
+          targetDir,
+          canonicalSkillSrcPath: materialized.skillSrcPath,
+          sanitizedName,
+        }).pipe(Effect.map((result) => ({ targetDir, result }))),
+      { concurrency: "unbounded" },
+    );
+
+    const agentResults: ReadonlyArray<InstallResult> = installableTargets.map((target) => {
+      const matched = perDirectoryResults.find((item) => item.targetDir === target.targetDir);
+      if (matched === undefined) {
+        return {
+          success: false,
+          mode: "copy",
+          symlinkFailed: true,
+          error: Option.some(`No installation result for target directory ${target.targetDir}`),
+          path: target.targetDir,
+          canonicalPath: materialized.skillSrcPath,
+        } satisfies InstallResult;
+      }
+      return matched.result;
+    });
 
     // ── Shared: update lockfile + settings ──────────────────────────
     const lockEntry = sourceToLockEntry({

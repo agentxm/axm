@@ -206,6 +206,7 @@ const makeOp = (
     versionConstraint?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     skipSettings?: boolean;
+    strictUnknownAgents?: boolean;
     skill?: {
       name: string;
       description: Option.Option<string>;
@@ -274,6 +275,7 @@ const makeOp = (
       force: overrides.force ?? false,
       versionConstraint: overrides.versionConstraint ?? Option.none(),
       skipSettings: Option.fromNullable(overrides.skipSettings),
+      strictUnknownAgents: Option.fromNullable(overrides.strictUnknownAgents),
     },
   };
 };
@@ -605,7 +607,7 @@ describe("installSkill", () => {
   });
 
   describe("per-agent results", () => {
-    it.effect("reports error for unknown agents without failing the whole install", () =>
+    it.effect("skips unknown agents and succeeds for known agents", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -621,12 +623,32 @@ describe("installSkill", () => {
           ),
         );
 
-        // Overall result should be error (one agent failed)
-        expect(result.result).toBe("error");
-        expect(result.message).toContain("nonexistent-agent");
+        // Overall result should succeed (unknown agent skipped best-effort)
+        expect(result.result).toBe("success");
 
         // But claude-code symlink should still have been created
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);
+      }),
+    );
+
+    it.effect("fails on unknown agents when strictUnknownAgents is true", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        const result = yield* installSkill(
+          makeOp({
+            sourcePath: src,
+            strictUnknownAgents: true,
+          }),
+        ).pipe(
+          Effect.provide(
+            withServices(axmDir, { configuredAgents: ["claude-code", "nonexistent-agent"] }),
+          ),
+        );
+
+        expect(result.result).toBe("error");
+        expect(result.message).toContain("Unknown configured agents");
       }),
     );
   });

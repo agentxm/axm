@@ -7,7 +7,13 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
-import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+
+export const codexMcpStrategy: MixedStrategyConfig = {
+  configPath: "{workspaceRoot}/.codex/mcp.json",
+  cliAdd: ["codex", "mcp", "add", "{serverName}"],
+  cliRemove: ["codex", "mcp", "remove", "{serverName}"],
+};
 
 export const codexCodingAgent: CodingAgent = {
   id: "codex",
@@ -19,22 +25,6 @@ export const codexCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".codex/skills"),
       } as const;
     }),
-  addMcpServer: (args) =>
-    addMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.codex/mcp.json",
-        cliAdd: ["codex", "mcp", "add", "{serverName}"],
-        cliRemove: ["codex", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
-  removeMcpServer: (args) =>
-    removeMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.codex/mcp.json",
-        cliAdd: ["codex", "mcp", "add", "{serverName}"],
-        cliRemove: ["codex", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
+  addMcpServer: (args) => addMcpServerMixed(codexMcpStrategy, args),
+  removeMcpServer: (args) => removeMcpServerMixed(codexMcpStrategy, args),
 };

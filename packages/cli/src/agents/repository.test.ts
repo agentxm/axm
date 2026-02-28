@@ -15,6 +15,37 @@ const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
 };
 
 describe("DefaultCodingAgentRepository", () => {
+  it.effect("returns fallback MCP contract for configured agents without custom adapter", () =>
+    Effect.gen(function* () {
+      const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
+      expect(agent?.id).toBe("amp");
+      if (!agent) {
+        throw new Error("Expected configured agent");
+      }
+
+      const addOutcome = yield* agent.addMcpServer({
+        workspaceRoot: "/workspace",
+        serverName: "chrome-devtools-mcp",
+        canonicalPath: "/workspace/.axm/mcp-servers/chrome-devtools-mcp",
+        namespace: "@mcp",
+        resolvedVersion: "1.0.0",
+      });
+      expect(addOutcome).toEqual({
+        _tag: "unsupported",
+        reason: "MCP add is not supported for amp",
+      });
+
+      const removeOutcome = yield* agent.removeMcpServer({
+        workspaceRoot: "/workspace",
+        serverName: "chrome-devtools-mcp",
+      });
+      expect(removeOutcome).toEqual({
+        _tag: "unsupported",
+        reason: "MCP remove is not supported for amp",
+      });
+    }).pipe(Effect.provide(withWorkspace(["amp"]))),
+  );
+
   it.effect("returns configured known agents", () =>
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getConfiguredAgents();

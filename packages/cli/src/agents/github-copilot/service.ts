@@ -7,7 +7,13 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
-import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+
+export const githubCopilotMcpStrategy: MixedStrategyConfig = {
+  configPath: "{workspaceRoot}/.github/mcp.json",
+  cliAdd: ["gh", "copilot", "mcp", "add", "{serverName}"],
+  cliRemove: ["gh", "copilot", "mcp", "remove", "{serverName}"],
+};
 
 export const githubCopilotCodingAgent: CodingAgent = {
   id: "github-copilot",
@@ -19,22 +25,6 @@ export const githubCopilotCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".github/skills"),
       } as const;
     }),
-  addMcpServer: (args) =>
-    addMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.github/mcp.json",
-        cliAdd: ["gh", "copilot", "mcp", "add", "{serverName}"],
-        cliRemove: ["gh", "copilot", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
-  removeMcpServer: (args) =>
-    removeMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.github/mcp.json",
-        cliAdd: ["gh", "copilot", "mcp", "add", "{serverName}"],
-        cliRemove: ["gh", "copilot", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
+  addMcpServer: (args) => addMcpServerMixed(githubCopilotMcpStrategy, args),
+  removeMcpServer: (args) => removeMcpServerMixed(githubCopilotMcpStrategy, args),
 };

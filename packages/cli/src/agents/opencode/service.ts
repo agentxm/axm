@@ -7,7 +7,16 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
-import { addMcpServerConfigOnly, removeMcpServerConfigOnly } from "../mcp-sync.js";
+import {
+  addMcpServerConfigFirst,
+  type ConfigFirstStrategy,
+  removeMcpServerConfigFirst,
+} from "../mcp-sync.js";
+
+export const opencodeMcpStrategy: ConfigFirstStrategy = {
+  configPath: "{workspaceRoot}/.opencode/mcp.json",
+  verifyCommand: ["opencode", "mcp", "list"],
+};
 
 export const opencodeCodingAgent: CodingAgent = {
   id: "opencode",
@@ -19,6 +28,6 @@ export const opencodeCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".opencode/skills"),
       } as const;
     }),
-  addMcpServer: (args) => addMcpServerConfigOnly("{workspaceRoot}/.opencode/mcp.json", args),
-  removeMcpServer: (args) => removeMcpServerConfigOnly("{workspaceRoot}/.opencode/mcp.json", args),
+  addMcpServer: (args) => addMcpServerConfigFirst(opencodeMcpStrategy, args),
+  removeMcpServer: (args) => removeMcpServerConfigFirst(opencodeMcpStrategy, args),
 };

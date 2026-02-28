@@ -27,8 +27,85 @@ export interface CliInvocationResult {
   readonly stderr: string;
 }
 
+type NodePlatform = NodeJS.Platform;
+
+const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
+
 const redactSecrets = (value: string): string =>
-  value.replaceAll(/(token|secret|key|password)\s*[=:]\s*[^\s,]+/gi, "$1=[REDACTED]");
+  value
+    .replaceAll(/(token|secret|key|password)\s*[=:]\s*[^\s,]+/gi, "$1=[REDACTED]")
+    .replaceAll(/(bearer)\s+[a-z0-9._-]+/gi, "$1 [REDACTED]");
+
+const hasPathSeparator = (value: string): boolean => value.includes("/") || value.includes("\\");
+
+const getExecutableCandidates = (command: string): ReadonlyArray<string> => {
+  if (process.platform !== "win32") {
+    return [command];
+  }
+
+  const hasExtension =
+    command.toLowerCase().endsWith(".exe") || command.toLowerCase().endsWith(".cmd");
+  if (hasExtension) {
+    return [command];
+  }
+
+  const pathExt = process.env["PATHEXT"] ?? ".EXE;.CMD;.BAT;.COM";
+  const extensions = pathExt
+    .split(";")
+    .map((segment) => segment.trim().toLowerCase())
+    .filter((segment) => segment.length > 0);
+  return [command, ...extensions.map((extension) => `${command}${extension}`)];
+};
+
+const checkExecutableAvailable = (
+  command: string,
+): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    if (command.trim().length === 0) {
+      return false;
+    }
+
+    const directCandidates = getExecutableCandidates(command);
+    if (path.isAbsolute(command) || hasPathSeparator(command)) {
+      const checks = yield* Effect.forEach(
+        directCandidates,
+        (candidate) => fs.exists(candidate).pipe(Effect.catchAll(() => Effect.succeed(false))),
+        { concurrency: "unbounded" },
+      );
+      return checks.some(Boolean);
+    }
+
+    const rawPath = process.env["PATH"] ?? "";
+    if (rawPath.trim().length === 0) {
+      return false;
+    }
+
+    const delimiter = process.platform === "win32" ? ";" : ":";
+    const dirs = rawPath
+      .split(delimiter)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+
+    const checks = yield* Effect.forEach(
+      dirs,
+      (dir) =>
+        Effect.forEach(
+          directCandidates,
+          (candidate) =>
+            fs.exists(path.join(dir, candidate)).pipe(Effect.catchAll(() => Effect.succeed(false))),
+          { concurrency: "unbounded" },
+        ).pipe(Effect.map((results) => results.some(Boolean))),
+      { concurrency: "unbounded" },
+    );
+
+    return checks.some(Boolean);
+  });
+
+const unsupportedExecutableReason = (command: string): string =>
+  `${command} CLI executable is unavailable on ${process.platform}; install ${command} and ensure it is on PATH`;
 
 export const runCliInvocation = (
   invocation: CliInvocation,
@@ -87,7 +164,7 @@ export const runCliInvocation = (
         code: "CODING_AGENT_MCP_CLI_EXECUTION_FAILED",
         what: `Failed to execute MCP CLI command: ${invocation.command}`,
         details: [
-          `args=${invocation.args.join(" ")}`,
+          `args=${redactSecrets(invocation.args.join(" "))}`,
           `cwd=${invocation.cwd}`,
           `error=${String(error)}`,
         ],
@@ -196,25 +273,33 @@ const removeJsonConfigServer = (
     );
   });
 
-const cliResultToOutcome = (result: CliInvocationResult): McpServerSyncOutcome => {
+interface CliOutcomeMapping {
+  readonly idempotentPatterns: ReadonlyArray<RegExp>;
+}
+
+const cliResultToOutcome = (
+  result: CliInvocationResult,
+  mapping: CliOutcomeMapping,
+): McpServerSyncOutcome => {
   if (result.exitCode === 0) {
     return { _tag: "success" };
   }
 
   const stderr = result.stderr.toLowerCase();
-  if (stderr.includes("not found") || stderr.includes("enoent")) {
+  const combinedOutput = `${result.stdout}\n${result.stderr}`;
+  if (mapping.idempotentPatterns.some((pattern) => pattern.test(combinedOutput))) {
+    return { _tag: "success" };
+  }
+
+  if (
+    stderr.includes("not found") ||
+    stderr.includes("enoent") ||
+    stderr.includes("cli not available")
+  ) {
     return {
       _tag: "unsupported",
       reason: result.stderr.length > 0 ? result.stderr : "CLI executable not available",
     };
-  }
-
-  if (stderr.includes("already exists") || stderr.includes("already added")) {
-    return { _tag: "success" };
-  }
-
-  if (stderr.includes("not installed") || stderr.includes("not configured")) {
-    return { _tag: "success" };
   }
 
   if (stderr.includes("auth") || stderr.includes("login") || stderr.includes("permission")) {
@@ -237,12 +322,41 @@ const cliResultToOutcome = (result: CliInvocationResult): McpServerSyncOutcome =
   };
 };
 
+const ensurePlatformSupported = (
+  command: string,
+  supportedPlatforms: ReadonlyArray<NodePlatform>,
+): McpServerSyncOutcome | null => {
+  const currentPlatform = process.platform;
+  if (supportedPlatforms.includes(currentPlatform)) {
+    return null;
+  }
+
+  return {
+    _tag: "unsupported",
+    reason: `${command} MCP sync is unsupported on ${currentPlatform}; supported platforms: ${supportedPlatforms.join(", ")}`,
+  };
+};
+
+const replaceTemplate = (value: string, args: AddMcpServerArgs | RemoveMcpServerArgs): string =>
+  value
+    .replaceAll("{workspaceRoot}", args.workspaceRoot)
+    .replaceAll("{serverName}", args.serverName)
+    .replaceAll("{canonicalPath}", "canonicalPath" in args ? args.canonicalPath : "")
+    .replaceAll("{namespace}", "namespace" in args ? args.namespace : "")
+    .replaceAll("{resolvedVersion}", "resolvedVersion" in args ? args.resolvedVersion : "");
+
 export interface MixedStrategyConfig {
   readonly configPath: string;
   readonly cliAdd: ReadonlyArray<string>;
   readonly cliRemove: ReadonlyArray<string>;
+  readonly supportedPlatforms?: ReadonlyArray<NodePlatform>;
+  readonly addIdempotentPatterns?: ReadonlyArray<RegExp>;
+  readonly removeIdempotentPatterns?: ReadonlyArray<RegExp>;
   readonly timeoutMs?: number;
 }
+
+const ADD_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/already exists/i, /already added/i];
+const REMOVE_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/not installed/i, /not configured/i];
 
 const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   managedBy: "axm",
@@ -257,24 +371,39 @@ export const addMcpServerMixed = (
   args: AddMcpServerArgs,
 ): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const invocation = yield* runCliInvocation({
-      command: strategy.cliAdd[0] ?? "",
-      args: strategy.cliAdd
-        .slice(1)
-        .map((value) => value.replaceAll("{serverName}", args.serverName)),
-      timeoutMs: strategy.timeoutMs ?? 10_000,
-      cwd: args.workspaceRoot,
-    }).pipe(
-      Effect.catchAll(() =>
-        Effect.succeed({
-          exitCode: 127,
-          stdout: "",
-          stderr: "CLI not available",
-        } satisfies CliInvocationResult),
-      ),
+    const platformOutcome = ensurePlatformSupported(
+      strategy.cliAdd[0] ?? "cli",
+      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
+    if (platformOutcome !== null) {
+      return platformOutcome;
+    }
 
-    const cliOutcome = cliResultToOutcome(invocation);
+    const executableAvailable = yield* checkExecutableAvailable(strategy.cliAdd[0] ?? "");
+    const cliOutcome = executableAvailable
+      ? yield* runCliInvocation({
+          command: strategy.cliAdd[0] ?? "",
+          args: strategy.cliAdd.slice(1).map((value) => replaceTemplate(value, args)),
+          timeoutMs: strategy.timeoutMs ?? 10_000,
+          cwd: args.workspaceRoot,
+        }).pipe(
+          Effect.catchAll(() =>
+            Effect.succeed({
+              exitCode: 127,
+              stdout: "",
+              stderr: "CLI not available",
+            } satisfies CliInvocationResult),
+          ),
+          Effect.map((invocation) =>
+            cliResultToOutcome(invocation, {
+              idempotentPatterns: strategy.addIdempotentPatterns ?? ADD_IDEMPOTENT_PATTERNS,
+            }),
+          ),
+        )
+      : ({
+          _tag: "unsupported",
+          reason: unsupportedExecutableReason(strategy.cliAdd[0] ?? "cli"),
+        } as const);
     if (cliOutcome._tag === "success") {
       return cliOutcome;
     }
@@ -305,23 +434,39 @@ export const removeMcpServerMixed = (
   args: RemoveMcpServerArgs,
 ): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const invocation = yield* runCliInvocation({
-      command: strategy.cliRemove[0] ?? "",
-      args: strategy.cliRemove
-        .slice(1)
-        .map((value) => value.replaceAll("{serverName}", args.serverName)),
-      timeoutMs: strategy.timeoutMs ?? 10_000,
-      cwd: args.workspaceRoot,
-    }).pipe(
-      Effect.catchAll(() =>
-        Effect.succeed({
-          exitCode: 127,
-          stdout: "",
-          stderr: "CLI not available",
-        } satisfies CliInvocationResult),
-      ),
+    const platformOutcome = ensurePlatformSupported(
+      strategy.cliRemove[0] ?? "cli",
+      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
-    const cliOutcome = cliResultToOutcome(invocation);
+    if (platformOutcome !== null) {
+      return platformOutcome;
+    }
+
+    const executableAvailable = yield* checkExecutableAvailable(strategy.cliRemove[0] ?? "");
+    const cliOutcome = executableAvailable
+      ? yield* runCliInvocation({
+          command: strategy.cliRemove[0] ?? "",
+          args: strategy.cliRemove.slice(1).map((value) => replaceTemplate(value, args)),
+          timeoutMs: strategy.timeoutMs ?? 10_000,
+          cwd: args.workspaceRoot,
+        }).pipe(
+          Effect.catchAll(() =>
+            Effect.succeed({
+              exitCode: 127,
+              stdout: "",
+              stderr: "CLI not available",
+            } satisfies CliInvocationResult),
+          ),
+          Effect.map((invocation) =>
+            cliResultToOutcome(invocation, {
+              idempotentPatterns: strategy.removeIdempotentPatterns ?? REMOVE_IDEMPOTENT_PATTERNS,
+            }),
+          ),
+        )
+      : ({
+          _tag: "unsupported",
+          reason: unsupportedExecutableReason(strategy.cliRemove[0] ?? "cli"),
+        } as const);
     if (cliOutcome._tag === "success") {
       return cliOutcome;
     }
@@ -355,3 +500,84 @@ export const removeMcpServerConfigOnly = (
     configPathTemplate.replaceAll("{workspaceRoot}", args.workspaceRoot),
     args.serverName,
   ).pipe(Effect.as({ _tag: "success" } as const));
+
+export interface ConfigFirstStrategy {
+  readonly configPath: string;
+  readonly verifyCommand?: ReadonlyArray<string>;
+  readonly supportedPlatforms?: ReadonlyArray<NodePlatform>;
+  readonly timeoutMs?: number;
+}
+
+const verifyConfigFirst = (
+  strategy: ConfigFirstStrategy,
+  args: AddMcpServerArgs | RemoveMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
+      return { _tag: "success" } as const;
+    }
+
+    const platformOutcome = ensurePlatformSupported(
+      strategy.verifyCommand[0] ?? "cli",
+      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
+    );
+    if (platformOutcome !== null) {
+      return { _tag: "success" } as const;
+    }
+
+    const executableAvailable = yield* checkExecutableAvailable(strategy.verifyCommand[0] ?? "");
+    if (!executableAvailable) {
+      return { _tag: "success" } as const;
+    }
+
+    const invocation = yield* runCliInvocation({
+      command: strategy.verifyCommand[0] ?? "",
+      args: strategy.verifyCommand.slice(1).map((value) => replaceTemplate(value, args)),
+      timeoutMs: strategy.timeoutMs ?? 10_000,
+      cwd: args.workspaceRoot,
+    }).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({
+          exitCode: 127,
+          stdout: "",
+          stderr: "CLI not available",
+        } satisfies CliInvocationResult),
+      ),
+    );
+
+    const outcome = cliResultToOutcome(invocation, {
+      idempotentPatterns: [],
+    });
+    if (outcome._tag === "disabled") {
+      return outcome;
+    }
+    if (outcome._tag === "misconfigured" || outcome._tag === "failed") {
+      return outcome;
+    }
+    return { _tag: "success" } as const;
+  });
+
+export const addMcpServerConfigFirst = (
+  strategy: ConfigFirstStrategy,
+  args: AddMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    yield* upsertJsonConfigServer(
+      strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
+      args.serverName,
+      entryFromAddArgs(args),
+    );
+    return yield* verifyConfigFirst(strategy, args);
+  });
+
+export const removeMcpServerConfigFirst = (
+  strategy: ConfigFirstStrategy,
+  args: RemoveMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    yield* removeJsonConfigServer(
+      strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
+      args.serverName,
+    );
+    return yield* verifyConfigFirst(strategy, args);
+  });

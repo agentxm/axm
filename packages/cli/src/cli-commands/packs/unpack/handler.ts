@@ -44,6 +44,8 @@ import { buildUnpackPlan } from "./plan.js";
 export interface UnpackHandlerArgs {
   /** Pack name (FQN like @namespace/name). */
   readonly name: string;
+  /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
+  readonly strictAgentSync?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -144,6 +146,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       force: false,
       versionConstraint: Option.none<string>(),
       skipSettings: Option.none<boolean>(),
+      strictAgentSync: args.strictAgentSync ? Option.some(true) : Option.none<boolean>(),
     },
   }));
 

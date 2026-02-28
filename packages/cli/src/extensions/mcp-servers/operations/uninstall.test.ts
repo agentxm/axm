@@ -142,10 +142,10 @@ const makeOp = (
   },
 });
 
-const makeRegistryLockEntry = () => ({
+const makeRegistryLockEntry = (name = "my-server") => ({
   type: "registry" as const,
   namespace: "@community",
-  name: "my-server",
+  name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
@@ -153,10 +153,10 @@ const makeRegistryLockEntry = () => ({
   updatedAt: new Date(),
 });
 
-const makeRegistryLockEntryYaml = () => ({
+const makeRegistryLockEntryYaml = (name = "my-server") => ({
   type: "registry",
   namespace: "@community",
-  name: "my-server",
+  name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
@@ -215,8 +215,8 @@ describe("uninstallMcpServer", () => {
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");
     }
 
-    const lockfileMcpServers = { [serverName]: makeRegistryLockEntry() };
-    writeLockfileYaml(axmDir, { [serverName]: makeRegistryLockEntryYaml() });
+    const lockfileMcpServers = { [serverName]: makeRegistryLockEntry(serverName) };
+    writeLockfileYaml(axmDir, { [serverName]: makeRegistryLockEntryYaml(serverName) });
 
     return { base, axmDir, canonicalPath, lockfileMcpServers };
   };
@@ -311,8 +311,11 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("agent sync policy", () => {
-    const stubAgent = (outcome: ReturnType<CodingAgent["removeMcpServer"]>): CodingAgent => ({
-      id: "claude-code",
+    const stubAgent = (
+      id: CodingAgent["id"],
+      outcome: ReturnType<CodingAgent["removeMcpServer"]>,
+    ): CodingAgent => ({
+      id,
       resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
       addMcpServer: () => Effect.succeed({ _tag: "success" }),
       removeMcpServer: () => outcome,
@@ -350,7 +353,10 @@ describe("uninstallMcpServer", () => {
         );
         vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
           Effect.succeed([
-            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "failed", reason: "agent command failed" }),
+            ),
           ]),
         );
 
@@ -372,7 +378,10 @@ describe("uninstallMcpServer", () => {
         );
         vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
           Effect.succeed([
-            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "failed", reason: "agent command failed" }),
+            ),
           ]),
         );
 
@@ -386,6 +395,193 @@ describe("uninstallMcpServer", () => {
           expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_FAILED");
         }
       }),
+    );
+
+    it.effect("keeps green sync when agent remove is unsupported in best-effort mode", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "unsupported", reason: "not supported by agent" }),
+            ),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("canonical=success");
+        expect(result.message).toContain("agent-sync=green");
+      }),
+    );
+
+    it.effect("keeps green sync when required agent is disabled in best-effort mode", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "disabled", reason: "disabled by config" }),
+            ),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=green");
+      }),
+    );
+
+    it.effect("fails in strict mode when required support-set agent is disabled", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "disabled", reason: "disabled by config" }),
+            ),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED");
+        }
+      }),
+    );
+
+    it.effect("does not fail strict mode when non-required agent is disabled", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent("adal", Effect.succeed({ _tag: "disabled", reason: "disabled by config" })),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=green");
+      }),
+    );
+
+    it.effect("fails when an agent remove is misconfigured", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(
+              "claude-code",
+              Effect.succeed({ _tag: "misconfigured", reason: "invalid MCP config path" }),
+            ),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_MISCONFIGURED");
+        }
+      }),
+    );
+
+    it.effect("keeps best-effort success when unknown configured agents exist", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed(["unknown-agent"]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=green");
+      }),
+    );
+
+    it.effect(
+      "syncs chrome-devtools-mcp uninstall args to configured agents with deterministic mocks",
+      () =>
+        Effect.gen(function* () {
+          const { axmDir, lockfileMcpServers } = setupWorkspace({
+            serverName: "chrome-devtools-mcp",
+          });
+          const removeSpy = vi.fn(() => Effect.succeed({ _tag: "success" as const }));
+
+          const chromeAgent: CodingAgent = {
+            id: "claude-code",
+            resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
+            addMcpServer: () => Effect.succeed({ _tag: "success" }),
+            removeMcpServer: removeSpy,
+          };
+
+          vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+            Effect.succeed([]),
+          );
+          vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+            Effect.succeed([chromeAgent]),
+          );
+
+          const result = yield* uninstallMcpServer(
+            makeOp({ serverName: "chrome-devtools-mcp" }),
+          ).pipe(Effect.provide(withServices(axmDir, lockfileMcpServers)));
+
+          expect(result.result).toBe("success");
+          expect(result.message).toContain("Uninstalled chrome-devtools-mcp");
+          expect(result.message).toContain("agent-sync=green");
+          expect(removeSpy).toHaveBeenCalledOnce();
+          expect(removeSpy).toHaveBeenCalledWith({
+            workspaceRoot: path.join(tmpDir, "project"),
+            serverName: "chrome-devtools-mcp",
+          });
+        }),
     );
   });
 });

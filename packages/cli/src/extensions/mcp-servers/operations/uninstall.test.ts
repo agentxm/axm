@@ -8,6 +8,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
+import type { CodingAgent } from "../../../agents/coding-agent.js";
+import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import type { McpServerLockEntry } from "../../../lockfile/schema.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -126,12 +129,16 @@ const withServices = (
   Layer.mergeAll(
     NodeContext.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
+    ClackLogTestLayer,
   );
 
-const makeOp = (overrides: { serverName?: string } = {}): UninstallMcpServerOperation => ({
+const makeOp = (
+  overrides: { serverName?: string; strictAgentSync?: boolean } = {},
+): UninstallMcpServerOperation => ({
   name: "uninstall-mcp-server",
   args: {
     serverName: overrides.serverName ?? "my-server",
+    strictAgentSync: Option.fromNullable(overrides.strictAgentSync),
   },
 });
 
@@ -179,6 +186,7 @@ describe("uninstallMcpServer", () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
   });
 
   const setupWorkspace = (
@@ -223,7 +231,7 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-server");
+        expect(result.message).toContain("Uninstalled my-server");
         expect(fs.existsSync(canonicalPath)).toBe(false);
       }),
     );
@@ -273,7 +281,7 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-server");
+        expect(result.message).toContain("Uninstalled my-server");
         expect(removeMcpServerFn).toHaveBeenCalledOnce();
       }),
     );
@@ -298,6 +306,85 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
+      }),
+    );
+  });
+
+  describe("agent sync policy", () => {
+    const stubAgent = (outcome: ReturnType<CodingAgent["removeMcpServer"]>): CodingAgent => ({
+      id: "claude-code",
+      resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
+      addMcpServer: () => Effect.succeed({ _tag: "success" }),
+      removeMcpServer: () => outcome,
+    });
+
+    it.effect("fails in strict mode when unknown configured agents exist", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed(["unknown-agent"]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("CODING_AGENT_UNKNOWN_CONFIGURED");
+        }
+      }),
+    );
+
+    it.effect("returns degraded sync status when an agent remove fails in best-effort mode", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=degraded");
+      }),
+    );
+
+    it.effect("fails in strict mode when an agent remove fails", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileMcpServers } = setupWorkspace();
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+          ]),
+        );
+
+        const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
+          Effect.provide(withServices(axmDir, lockfileMcpServers)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_FAILED");
+        }
       }),
     );
   });

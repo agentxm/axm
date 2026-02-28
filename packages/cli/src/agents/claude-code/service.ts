@@ -7,6 +7,7 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
 
 const CLAUDE_DOCS_DEFAULT_DIR = ".claude/skills";
 const CLAUDE_ENV_OVERRIDE = "AXM_CLAUDE_SKILLS_DIR";
@@ -33,4 +34,22 @@ export const claudeCodeCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, configuredDir),
       } as const;
     }),
+  addMcpServer: (args) =>
+    addMcpServerMixed(
+      {
+        configPath: "{workspaceRoot}/.claude/mcp.json",
+        cliAdd: ["claude", "mcp", "add", "{serverName}"],
+        cliRemove: ["claude", "mcp", "remove", "{serverName}"],
+      },
+      args,
+    ),
+  removeMcpServer: (args) =>
+    removeMcpServerMixed(
+      {
+        configPath: "{workspaceRoot}/.claude/mcp.json",
+        cliAdd: ["claude", "mcp", "add", "{serverName}"],
+        cliRemove: ["claude", "mcp", "remove", "{serverName}"],
+      },
+      args,
+    ),
 };

@@ -7,6 +7,7 @@
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import type * as Path from "@effect/platform/Path";
+import type * as FileSystem from "@effect/platform/FileSystem";
 import type { CliError } from "../cli-error/index.js";
 import type { Workspace } from "../workspace/service.js";
 import type { AgentId } from "./types.js";
@@ -27,6 +28,26 @@ export type ResolveSkillsDirOutcome =
   | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string };
 
+export interface AddMcpServerArgs {
+  readonly workspaceRoot: string;
+  readonly serverName: string;
+  readonly canonicalPath: string;
+  readonly namespace: string;
+  readonly resolvedVersion: string;
+}
+
+export interface RemoveMcpServerArgs {
+  readonly workspaceRoot: string;
+  readonly serverName: string;
+}
+
+export type McpServerSyncOutcome =
+  | { readonly _tag: "success" }
+  | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "disabled"; readonly reason: string }
+  | { readonly _tag: "misconfigured"; readonly reason: string }
+  | { readonly _tag: "failed"; readonly reason: string };
+
 /**
  * Agent-specific skills installation behavior.
  */
@@ -35,6 +56,12 @@ export interface CodingAgent {
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
   ) => Effect.Effect<ResolveSkillsDirOutcome, CliError, Path.Path>;
+  readonly addMcpServer: (
+    args: AddMcpServerArgs,
+  ) => Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path>;
+  readonly removeMcpServer: (
+    args: RemoveMcpServerArgs,
+  ) => Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path>;
 }
 
 /**

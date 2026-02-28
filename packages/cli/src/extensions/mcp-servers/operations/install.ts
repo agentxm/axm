@@ -9,8 +9,12 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AgentId } from "../../../agents/types.js";
+import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
@@ -37,6 +41,8 @@ export type InstallMcpServerOperationArgs = {
   readonly versionConstraint: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
+  /** When true, enforce strict policy for MCP sync outcomes. */
+  readonly strictAgentSync?: Option.Option<boolean>;
 };
 
 /**
@@ -176,6 +182,144 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
     return canonicalPath;
   });
 
+const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
+  "claude-code",
+  "opencode",
+  "github-copilot",
+  "cursor",
+  "gemini-cli",
+  "codex",
+]);
+
+interface AgentOutcome {
+  readonly agentId: string;
+  readonly outcome: McpServerSyncOutcome;
+}
+
+const summarizeAgentSync = (
+  outcomes: ReadonlyArray<AgentOutcome>,
+): {
+  readonly status: "green" | "degraded";
+  readonly details: ReadonlyArray<string>;
+} => {
+  const degraded = outcomes.some(({ outcome }) => outcome._tag === "failed");
+  const details = outcomes.map(({ agentId, outcome }) =>
+    outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome._tag}`,
+  );
+
+  return {
+    status: degraded ? "degraded" : "green",
+    details,
+  };
+};
+
+const syncConfiguredAgentsOnInstall = (args: {
+  readonly wsBaseDir: string;
+  readonly strict: boolean;
+  readonly serverName: string;
+  readonly canonicalPath: string;
+  readonly namespace: string;
+  readonly resolvedVersion: string;
+}) =>
+  Effect.gen(function* () {
+    const log = yield* Log;
+    const ws = yield* Workspace;
+
+    const unknownConfiguredAgentIds =
+      yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds().pipe(
+        Effect.provideService(Workspace, ws),
+      );
+    if (args.strict && unknownConfiguredAgentIds.length > 0) {
+      const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
+      return yield* makeCliError({
+        code: "CODING_AGENT_UNKNOWN_CONFIGURED",
+        what: message,
+        details: unknownConfiguredAgentIds,
+      });
+    }
+
+    if (unknownConfiguredAgentIds.length > 0) {
+      yield* log.warn(
+        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
+      );
+    }
+
+    const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+      Effect.provideService(Workspace, ws),
+    );
+
+    const outcomes = yield* Effect.forEach(
+      configuredAgents,
+      (agent: CodingAgent) =>
+        agent
+          .addMcpServer({
+            workspaceRoot: args.wsBaseDir,
+            serverName: args.serverName,
+            canonicalPath: args.canonicalPath,
+            namespace: args.namespace,
+            resolvedVersion: args.resolvedVersion,
+          })
+          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+      { concurrency: "unbounded" },
+    );
+
+    const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");
+    if (misconfigured.length > 0) {
+      const details = misconfigured.map(({ agentId, outcome }) =>
+        outcome._tag === "misconfigured" ? `${agentId}: ${outcome.reason}` : `${agentId}: invalid`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
+        what: `MCP server ${args.serverName} could not be synced to configured agents`,
+        details,
+      });
+    }
+
+    const failed = Array.filter(outcomes, ({ outcome }) => outcome._tag === "failed");
+    if (args.strict && failed.length > 0) {
+      const details = failed.map(({ agentId, outcome }) =>
+        outcome._tag === "failed" ? `${agentId}: ${outcome.reason}` : `${agentId}: failed`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_FAILED",
+        what: `MCP server ${args.serverName} sync failed in strict mode`,
+        details,
+      });
+    }
+
+    const strictDisabledFailures = Array.filter(
+      outcomes,
+      ({ agentId, outcome }) =>
+        outcome._tag === "disabled" && args.strict && REQUIRED_AGENT_IDS.has(agentId as AgentId),
+    );
+    if (strictDisabledFailures.length > 0) {
+      const details = strictDisabledFailures.map(({ agentId, outcome }) =>
+        outcome._tag === "disabled" ? `${agentId}: ${outcome.reason}` : `${agentId}: disabled`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
+        what: `MCP server ${args.serverName} sync disabled for required configured agents`,
+        details,
+      });
+    }
+
+    const warningOutcomes = Array.filter(
+      outcomes,
+      ({ outcome }) =>
+        outcome._tag === "unsupported" || outcome._tag === "disabled" || outcome._tag === "failed",
+    );
+    if (warningOutcomes.length > 0) {
+      const warningMessage = warningOutcomes
+        .map(({ agentId, outcome }) =>
+          outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
+        )
+        .join(", ");
+      yield* log.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+    }
+
+    return summarizeAgentSync(outcomes);
+  });
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -202,7 +346,8 @@ export const installMcpServer: OperationHandler<
       });
     }
 
-    yield* installFromRegistry(ref);
+    const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
+    const canonicalPath = yield* installFromRegistry(ref);
 
     yield* validateExactResolvedVersion(
       `mcpServers.${ref.server.name}.resolvedVersion`,
@@ -218,8 +363,17 @@ export const installMcpServer: OperationHandler<
       Effect.catchAll((e) => log.warn(`MCP server update failed: ${String(e)}`)),
     );
 
+    const agentSync = yield* syncConfiguredAgentsOnInstall({
+      wsBaseDir: ws.baseDir,
+      strict: strictAgentSync,
+      serverName: ref.server.name,
+      canonicalPath,
+      namespace: ref.namespace,
+      resolvedVersion: ref.version,
+    });
+
     return {
       result: "success",
-      message: `Installed ${ref.server.name}`,
+      message: `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
     } satisfies OperationResult;
   });

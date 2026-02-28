@@ -7,6 +7,7 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
 
 const GEMINI_DOCS_DEFAULT_DIR = ".gemini/skills";
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
@@ -33,4 +34,22 @@ export const geminiCliCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, configuredDir),
       } as const;
     }),
+  addMcpServer: (args) =>
+    addMcpServerMixed(
+      {
+        configPath: "{workspaceRoot}/.gemini/mcp.json",
+        cliAdd: ["gemini", "mcp", "add", "{serverName}"],
+        cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
+      },
+      args,
+    ),
+  removeMcpServer: (args) =>
+    removeMcpServerMixed(
+      {
+        configPath: "{workspaceRoot}/.gemini/mcp.json",
+        cliAdd: ["gemini", "mcp", "add", "{serverName}"],
+        cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
+      },
+      args,
+    ),
 };

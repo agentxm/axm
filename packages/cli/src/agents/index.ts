@@ -17,3 +17,12 @@ export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 // Types and constants
 export { AGENT_IDS } from "./types.js";
 export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";
+
+// Coding-agent services
+export {
+  CodingAgentRepository,
+  type CodingAgent,
+  type CodingAgentRepositoryService,
+  type ResolveSkillsDirArgs,
+  type ResolveSkillsDirOutcome,
+} from "./coding-agent.js";

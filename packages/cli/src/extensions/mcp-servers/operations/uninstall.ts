@@ -9,8 +9,13 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AgentId } from "../../../agents/types.js";
+import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
+import { Log } from "../../../clack-effect/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -26,6 +31,8 @@ import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
  */
 export interface UninstallMcpServerOperationArgs {
   readonly serverName: string;
+  /** When true, enforce strict policy for MCP sync outcomes. */
+  readonly strictAgentSync?: Option.Option<boolean>;
 }
 
 /**
@@ -37,6 +44,138 @@ export type UninstallMcpServerOperation = Operation<
   "uninstall-mcp-server",
   UninstallMcpServerOperationArgs
 >;
+
+const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
+  "claude-code",
+  "opencode",
+  "github-copilot",
+  "cursor",
+  "gemini-cli",
+  "codex",
+]);
+
+interface AgentOutcome {
+  readonly agentId: string;
+  readonly outcome: McpServerSyncOutcome;
+}
+
+const summarizeAgentSync = (
+  outcomes: ReadonlyArray<AgentOutcome>,
+): {
+  readonly status: "green" | "degraded";
+  readonly details: ReadonlyArray<string>;
+} => {
+  const degraded = outcomes.some(({ outcome }) => outcome._tag === "failed");
+  const details = outcomes.map(({ agentId, outcome }) =>
+    outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome._tag}`,
+  );
+
+  return {
+    status: degraded ? "degraded" : "green",
+    details,
+  };
+};
+
+const syncConfiguredAgentsOnUninstall = (args: {
+  readonly wsBaseDir: string;
+  readonly strict: boolean;
+  readonly serverName: string;
+}) =>
+  Effect.gen(function* () {
+    const log = yield* Log;
+    const ws = yield* Workspace;
+
+    const unknownConfiguredAgentIds =
+      yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds().pipe(
+        Effect.provideService(Workspace, ws),
+      );
+    if (args.strict && unknownConfiguredAgentIds.length > 0) {
+      const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
+      return yield* makeCliError({
+        code: "CODING_AGENT_UNKNOWN_CONFIGURED",
+        what: message,
+        details: unknownConfiguredAgentIds,
+      });
+    }
+
+    if (unknownConfiguredAgentIds.length > 0) {
+      yield* log.warn(
+        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
+      );
+    }
+
+    const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+      Effect.provideService(Workspace, ws),
+    );
+
+    const outcomes = yield* Effect.forEach(
+      configuredAgents,
+      (agent: CodingAgent) =>
+        agent
+          .removeMcpServer({
+            workspaceRoot: args.wsBaseDir,
+            serverName: args.serverName,
+          })
+          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+      { concurrency: "unbounded" },
+    );
+
+    const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");
+    if (misconfigured.length > 0) {
+      const details = misconfigured.map(({ agentId, outcome }) =>
+        outcome._tag === "misconfigured" ? `${agentId}: ${outcome.reason}` : `${agentId}: invalid`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
+        what: `MCP server ${args.serverName} could not be removed from configured agents`,
+        details,
+      });
+    }
+
+    const failed = Array.filter(outcomes, ({ outcome }) => outcome._tag === "failed");
+    if (args.strict && failed.length > 0) {
+      const details = failed.map(({ agentId, outcome }) =>
+        outcome._tag === "failed" ? `${agentId}: ${outcome.reason}` : `${agentId}: failed`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_FAILED",
+        what: `MCP server ${args.serverName} removal sync failed in strict mode`,
+        details,
+      });
+    }
+
+    const strictDisabledFailures = Array.filter(
+      outcomes,
+      ({ agentId, outcome }) =>
+        outcome._tag === "disabled" && args.strict && REQUIRED_AGENT_IDS.has(agentId as AgentId),
+    );
+    if (strictDisabledFailures.length > 0) {
+      const details = strictDisabledFailures.map(({ agentId, outcome }) =>
+        outcome._tag === "disabled" ? `${agentId}: ${outcome.reason}` : `${agentId}: disabled`,
+      );
+      return yield* makeCliError({
+        code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
+        what: `MCP server ${args.serverName} removal sync disabled for required configured agents`,
+        details,
+      });
+    }
+
+    const warningOutcomes = Array.filter(
+      outcomes,
+      ({ outcome }) =>
+        outcome._tag === "unsupported" || outcome._tag === "disabled" || outcome._tag === "failed",
+    );
+    if (warningOutcomes.length > 0) {
+      const warningMessage = warningOutcomes
+        .map(({ agentId, outcome }) =>
+          outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
+        )
+        .join(", ");
+      yield* log.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+    }
+
+    return summarizeAgentSync(outcomes);
+  });
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -51,12 +190,13 @@ export type UninstallMcpServerOperation = Operation<
  */
 export const uninstallMcpServer: OperationHandler<
   UninstallMcpServerOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | Workspace | Log
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
+    const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const base = ws.baseDir;
 
     const lockEntryOption = yield* ws.getLockedMcpServer(op.args.serverName).pipe(
@@ -95,9 +235,15 @@ export const uninstallMcpServer: OperationHandler<
     // Remove from settings + lockfile (swallow errors)
     yield* ws.removeMcpServer(op.args.serverName).pipe(Effect.catchAll(() => Effect.void));
 
+    const agentSync = yield* syncConfiguredAgentsOnUninstall({
+      wsBaseDir: ws.baseDir,
+      strict: strictAgentSync,
+      serverName: op.args.serverName,
+    });
+
     return {
       result: "success",
-      message: `Uninstalled ${op.args.serverName}`,
+      message: `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
     } satisfies OperationResult;
   });
 

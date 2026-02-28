@@ -18,7 +18,11 @@ import {
   type CodingAgentRepositoryService,
 } from "./coding-agent.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
+import { codexCodingAgent } from "./codex/service.js";
+import { cursorCodingAgent } from "./cursor/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
+import { githubCopilotCodingAgent } from "./github-copilot/service.js";
+import { opencodeCodingAgent } from "./opencode/service.js";
 import { getAgentById, getAgentIds } from "./registry.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
 
@@ -32,14 +36,32 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
         dir: path.resolve(workspaceRoot, descriptor.skills.dir),
       } as const;
     }),
+  addMcpServer: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `MCP add is not supported for ${descriptor.id}`,
+    } as const),
+  removeMcpServer: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `MCP remove is not supported for ${descriptor.id}`,
+    } as const),
 });
 
 const fromId = (id: AgentId): Effect.Effect<CodingAgent, never> => {
   switch (id) {
     case "claude-code":
       return Effect.succeed(claudeCodeCodingAgent);
+    case "codex":
+      return Effect.succeed(codexCodingAgent);
+    case "cursor":
+      return Effect.succeed(cursorCodingAgent);
     case "gemini-cli":
       return Effect.succeed(geminiCliCodingAgent);
+    case "github-copilot":
+      return Effect.succeed(githubCopilotCodingAgent);
+    case "opencode":
+      return Effect.succeed(opencodeCodingAgent);
     default:
       return Option.match(getAgentById(id), {
         onNone: () =>
@@ -73,9 +95,17 @@ const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, CliErr
           onSome: (descriptor) =>
             descriptor.id === "claude-code"
               ? Effect.succeed(Option.some(claudeCodeCodingAgent))
-              : descriptor.id === "gemini-cli"
-                ? Effect.succeed(Option.some(geminiCliCodingAgent))
-                : Effect.succeed(Option.some(codingAgentFromDescriptor(descriptor))),
+              : descriptor.id === "codex"
+                ? Effect.succeed(Option.some(codexCodingAgent))
+                : descriptor.id === "cursor"
+                  ? Effect.succeed(Option.some(cursorCodingAgent))
+                  : descriptor.id === "github-copilot"
+                    ? Effect.succeed(Option.some(githubCopilotCodingAgent))
+                    : descriptor.id === "opencode"
+                      ? Effect.succeed(Option.some(opencodeCodingAgent))
+                      : descriptor.id === "gemini-cli"
+                        ? Effect.succeed(Option.some(geminiCliCodingAgent))
+                        : Effect.succeed(Option.some(codingAgentFromDescriptor(descriptor))),
         }),
       ),
     ),

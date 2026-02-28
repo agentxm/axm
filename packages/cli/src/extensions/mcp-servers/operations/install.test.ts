@@ -9,6 +9,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
+import type { CodingAgent } from "../../../agents/coding-agent.js";
 import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import {
@@ -208,6 +210,7 @@ const makeOp = (
     force?: boolean;
     versionConstraint?: Option.Option<string>;
     skipSettings?: boolean;
+    strictAgentSync?: boolean;
   } = {},
 ): InstallMcpServerOperation => ({
   name: "install-mcp-server",
@@ -216,6 +219,7 @@ const makeOp = (
     force: overrides.force ?? false,
     versionConstraint: overrides.versionConstraint ?? Option.none(),
     skipSettings: Option.fromNullable(overrides.skipSettings),
+    strictAgentSync: Option.fromNullable(overrides.strictAgentSync),
   },
 });
 
@@ -232,6 +236,7 @@ describe("installMcpServer", () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
   });
 
   const setupBase = () => {
@@ -483,6 +488,92 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("error");
         if (result.result === "error") {
           expect(result.error.code).toBe("INSTALL_MCP_SERVER_PATH_TRAVERSAL");
+        }
+      }),
+    );
+  });
+
+  describe("agent sync policy", () => {
+    const stubAgent = (outcome: ReturnType<CodingAgent["addMcpServer"]>): CodingAgent => ({
+      id: "claude-code",
+      resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
+      addMcpServer: () => outcome,
+      removeMcpServer: () => Effect.succeed({ _tag: "success" }),
+    });
+
+    it.effect("fails in strict mode when unknown configured agents exist", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed(["unknown-agent"]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([]),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
+        ).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("CODING_AGENT_UNKNOWN_CONFIGURED");
+        }
+      }),
+    );
+
+    it.effect("returns degraded sync status when an agent add fails in best-effort mode", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+          ]),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("agent-sync=degraded");
+      }),
+    );
+
+    it.effect("fails in strict mode when an agent add fails", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
+          Effect.succeed([]),
+        );
+        vi.spyOn(DefaultCodingAgentRepository, "getConfiguredAgents").mockReturnValue(
+          Effect.succeed([
+            stubAgent(Effect.succeed({ _tag: "failed", reason: "agent command failed" })),
+          ]),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
+        ).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("MCP_SERVER_AGENT_SYNC_FAILED");
         }
       }),
     );

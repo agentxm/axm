@@ -7,10 +7,16 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
-import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
 const GEMINI_DOCS_DEFAULT_DIR = ".gemini/skills";
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
+
+export const geminiCliMcpStrategy: MixedStrategyConfig = {
+  configPath: "{workspaceRoot}/.gemini/mcp.json",
+  cliAdd: ["gemini", "mcp", "add", "{serverName}"],
+  cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
+};
 
 const resolveRuntimeOverride = (): Effect.Effect<string | undefined, never> =>
   Effect.sync(() => process.env[GEMINI_ENV_OVERRIDE]);
@@ -34,22 +40,6 @@ export const geminiCliCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, configuredDir),
       } as const;
     }),
-  addMcpServer: (args) =>
-    addMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.gemini/mcp.json",
-        cliAdd: ["gemini", "mcp", "add", "{serverName}"],
-        cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
-  removeMcpServer: (args) =>
-    removeMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.gemini/mcp.json",
-        cliAdd: ["gemini", "mcp", "add", "{serverName}"],
-        cliRemove: ["gemini", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
+  addMcpServer: (args) => addMcpServerMixed(geminiCliMcpStrategy, args),
+  removeMcpServer: (args) => removeMcpServerMixed(geminiCliMcpStrategy, args),
 };

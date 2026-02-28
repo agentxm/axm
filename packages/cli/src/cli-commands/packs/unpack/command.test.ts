@@ -59,4 +59,12 @@ describe("packs unpack command", () => {
     expect(capturedOptions["preview"]).toBeUndefined();
     expect(capturedOptions["non-interactive"]).toBeUndefined();
   });
+
+  it("supports --strict-agent-sync for MCP promotion policy", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+    (unpackCommand.builder as (yargs: Argv) => Argv)(mockYargs);
+    expect(capturedOptions["strict-agent-sync"]).toBeDefined();
+    expect(capturedOptions["strict-agent-sync"]?.type).toBe("boolean");
+    expect(capturedOptions["strict-agent-sync"]?.default).toBe(false);
+  });
 });

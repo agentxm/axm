@@ -7,7 +7,13 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
-import { addMcpServerMixed, removeMcpServerMixed } from "../mcp-sync.js";
+import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+
+export const cursorMcpStrategy: MixedStrategyConfig = {
+  configPath: "{workspaceRoot}/.cursor/mcp.json",
+  cliAdd: ["cursor", "mcp", "add", "{serverName}"],
+  cliRemove: ["cursor", "mcp", "remove", "{serverName}"],
+};
 
 export const cursorCodingAgent: CodingAgent = {
   id: "cursor",
@@ -19,22 +25,6 @@ export const cursorCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".cursor/skills"),
       } as const;
     }),
-  addMcpServer: (args) =>
-    addMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.cursor/mcp.json",
-        cliAdd: ["cursor", "mcp", "add", "{serverName}"],
-        cliRemove: ["cursor", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
-  removeMcpServer: (args) =>
-    removeMcpServerMixed(
-      {
-        configPath: "{workspaceRoot}/.cursor/mcp.json",
-        cliAdd: ["cursor", "mcp", "add", "{serverName}"],
-        cliRemove: ["cursor", "mcp", "remove", "{serverName}"],
-      },
-      args,
-    ),
+  addMcpServer: (args) => addMcpServerMixed(cursorMcpStrategy, args),
+  removeMcpServer: (args) => removeMcpServerMixed(cursorMcpStrategy, args),
 };

@@ -11,6 +11,7 @@ import { handleUnpack } from "./handler.js";
 
 export interface UnpackCommandArgs {
   name: string;
+  "strict-agent-sync": boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -24,6 +25,11 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
         describe: "Pack name to unpack",
         demandOption: true,
       })
+      .option("strict-agent-sync", {
+        type: "boolean",
+        default: false,
+        describe: "Fail when MCP agent sync has strict-policy failures",
+      })
       .example("$0 packs unpack @acme/frontend-tools", "Eject pack contents into settings")
       .example(
         "$0 packs unpack @acme/frontend-tools --preview",
@@ -33,6 +39,7 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
     await run(
       handleUnpack({
         name: argv.name,
+        strictAgentSync: argv["strict-agent-sync"],
       }),
       {
         flags: {

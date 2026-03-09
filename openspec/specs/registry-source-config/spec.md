@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines named source configuration, three-layer merge resolution, namespace routing, and the registry configuration guard.
+Defines named source configuration, three-layer merge resolution, and namespace routing.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ Source configurations SHALL be resolved through three layers with name-based ded
 #### Scenario: Built-in defaults
 
 - **WHEN** no project or global sources override the built-in names
-- **THEN** the merged list includes built-in defaults: `github` (github.com), `gitlab` (gitlab.com), `bitbucket` (bitbucket.org)
+- **THEN** the merged list includes built-in defaults: `default` (registry), `github` (github.com), `gitlab` (gitlab.com), `bitbucket` (bitbucket.org)
 
 #### Scenario: Name-based deduplication
 
@@ -65,14 +65,34 @@ Source configurations SHALL be resolved through three layers with name-based ded
 - **WHEN** project has sources `[A, B]` and global has `[C, D]` (no name overlap)
 - **THEN** the merged list is `[A, B, C, D, ...built-ins]`
 
-### Requirement: No built-in registry source
+### Requirement: Built-in default registry source
 
-The system SHALL NOT include a built-in registry source. Users MUST configure registry sources explicitly until the remote registry provider is implemented.
+The system SHALL include a built-in registry source named `"default"` pointing at the default registry URL. The built-in registry URL SHALL be overridable via the `AXM_REGISTRY_URL` environment variable.
 
-#### Scenario: Default sources have no registry
+#### Scenario: Default sources include registry
 
 - **WHEN** no user configuration exists
-- **THEN** `getRegistrySources()` returns an empty list
+- **THEN** `getRegistrySources()` returns one entry: the built-in default registry
+
+#### Scenario: Built-in registry is first in merge order
+
+- **WHEN** no user configuration exists
+- **THEN** the merged sources list is: `default` (registry), `github`, `gitlab`, `bitbucket`
+
+#### Scenario: User overrides default registry by name
+
+- **WHEN** project settings has source `{ "name": "default", "source": "registry", "location": "http://localhost:4000" }`
+- **THEN** the project entry shadows the built-in `default` registry
+
+#### Scenario: AXM_REGISTRY_URL overrides built-in
+
+- **WHEN** `AXM_REGISTRY_URL=http://localhost:4000` is set and no user configuration exists
+- **THEN** the built-in default registry source uses `http://localhost:4000`
+
+#### Scenario: Visual indicator for non-default registry
+
+- **WHEN** `AXM_REGISTRY_URL` is set to a value different from the hardcoded default
+- **THEN** the CLI SHALL log a warning: "Using registry: <url>" at startup
 
 ### Requirement: Location normalization
 
@@ -146,27 +166,3 @@ For ambiguous patterns (e.g., `owner/repo`), resolution SHALL iterate the merged
 
 - **WHEN** input is `github:owner/repo`
 - **THEN** resolution dispatches directly to GitHub without consulting the ordering
-
-### Requirement: Registry configuration guard
-
-Commands depending on a registry SHALL call a guard that detects missing registry configuration and guides the user.
-
-#### Scenario: Interactive — no registry configured
-
-- **WHEN** `skills fork` is called, no registry sources are configured, and the session is interactive
-- **THEN** the guard prompts for a local registry path and persists it as `{ "name": "local", "source": "registry", "location": "<path>" }` to project settings
-
-#### Scenario: Non-interactive — no registry configured
-
-- **WHEN** `skills install @namespace/name` is called with `--yes` and no registry sources are configured
-- **THEN** the guard fails with `RegistryNotConfiguredError` explaining how to add a registry source
-
-#### Scenario: Registry already configured
-
-- **WHEN** a registry-dependent command is called and at least one registry source exists
-- **THEN** the guard passes without prompting
-
-#### Scenario: Guard changes visible to subsequent calls
-
-- **WHEN** the guard persists a new registry source to settings
-- **THEN** subsequent `SourceProviders` calls in the same handler see the new source (via lazy workspace reads)

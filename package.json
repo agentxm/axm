@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",
+    "axm:local": "AXM_REGISTRY_URL=http://localhost:3000 bun packages/cli/src/main.ts",
     "axm-dev": "bun packages/cli/src/dev-main.ts",
     "build": "pnpm -r build",
     "test": "vitest run",

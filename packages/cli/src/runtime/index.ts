@@ -15,6 +15,9 @@ import type * as Scope from "effect/Scope";
 
 import * as Option from "effect/Option";
 
+import { type AuthClient, AuthClientLive } from "../auth/auth-client.js";
+import { AuthMiddlewareLive, RegistryUrl } from "../auth/auth-middleware.js";
+import { type CredentialStore, CredentialStoreLive } from "../auth/credential-store.js";
 import type { CliError } from "../cli-error/index.js";
 import { type CliFlags, type CliFlagsInput, layer as cliFlagsLayer } from "../cli-flags/index.js";
 import {
@@ -42,15 +45,25 @@ import {
 import { classifyError } from "./error-handling.js";
 
 /**
+ * Default registry URL for auth middleware.
+ */
+const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
+
+/**
  * Standard dependencies available to all CLI commands:
  * - FileSystem, Path (from @effect/platform-node)
- * - HttpClient (for network requests)
+ * - HttpClient (auth-wrapped for network requests)
+ * - CredentialStore (credential storage)
+ * - AuthClient (auth API client)
  * - Clack services (prompts, logging, spinner, stream, progress, task log)
  * - Legacy prompt adapter tags (Confirm/Select/Multiselect/TextInput/PasswordInput)
  */
 export type AppLayer =
   | NodeContext.NodeContext
   | HttpClient.HttpClient
+  | CredentialStore
+  | AuthClient
+  | RegistryUrl
   | CliFlags
   | TelemetryClient
   | ClackLog
@@ -86,12 +99,49 @@ const DefaultTelemetryLayer = Layer.provide(
 );
 
 /**
+ * RegistryUrl layer — provides the default registry URL for auth middleware.
+ */
+const RegistryUrlLayer = Layer.succeed(RegistryUrl, DEFAULT_REGISTRY_URL);
+
+/**
+ * Base layer: platform services + raw HttpClient.
+ */
+const BaseLayer = Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer);
+
+/**
+ * Auth services layer: CredentialStore + AuthClient + RegistryUrl.
+ * Both use the raw HttpClient from BaseLayer (before middleware wraps it).
+ */
+const AuthServicesLayer = Layer.provide(
+  Layer.mergeAll(CredentialStoreLive, AuthClientLive, RegistryUrlLayer),
+  BaseLayer,
+);
+
+/**
+ * Auth middleware layer: wraps HttpClient with Bearer token injection.
+ * Provided after AuthServicesLayer so it can access CredentialStore and RegistryUrl,
+ * but AuthClient retains the raw HttpClient captured at construction time.
+ */
+const AuthMiddlewareWrappedLayer = Layer.provide(
+  AuthMiddlewareLive,
+  Layer.mergeAll(AuthServicesLayer, BaseLayer),
+);
+
+/**
+ * Combined auth layer: AuthServices + AuthMiddleware (replacing HttpClient).
+ * Downstream consumers get the auth-wrapped HttpClient.
+ */
+const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer, BaseLayer);
+
+/**
  * Layer providing all standard CLI dependencies.
  * ClackLive depends on CliFlags (for prompt non-interactive guard).
+ *
+ * Auth services (CredentialStore, AuthClient) are available to all commands.
+ * HttpClient is auth-wrapped — downstream consumers get Bearer headers automatically.
  */
 export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
-  NodeContext.layer,
-  FetchHttpClient.layer,
+  AuthLayer,
   Layer.provide(ClackLive, DefaultCliFlagsLayer),
   DefaultCliFlagsLayer,
   DefaultTelemetryLayer,
@@ -122,6 +172,10 @@ export interface RunOptions {
  * directly.
  */
 export function run<A>(program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>): Promise<A>;
+export function run<A>(
+  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  options: RunOptions,
+): Promise<A>;
 export function run<A>(
   program: Effect.Effect<
     A,

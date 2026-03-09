@@ -1107,4 +1107,194 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Auth error mapping (401/403) — publish
+  // ---------------------------------------------------------------------------
+
+  describe("publish auth errors", () => {
+    it.effect("maps 401 to AUTH_UNAUTHENTICATED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+          expect(Option.isSome(result.left.howToFix)).toBe(true);
+          expect(Option.getOrThrow(result.left.howToFix)).toContain("axm login");
+        }
+      }),
+    );
+
+    it.effect(
+      "maps 401 with WWW-Authenticate header to AUTH_UNAUTHENTICATED with header details",
+      () =>
+        Effect.gen(function* () {
+          const httpClient = makeMockHttpClient(
+            () =>
+              new Response("Unauthorized", {
+                status: 401,
+                headers: { "WWW-Authenticate": 'Bearer realm="registry"' },
+              }),
+          );
+
+          const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+          const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
+          expect(result._tag).toBe("Left");
+          if (result._tag === "Left") {
+            expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+            expect(result.left.details.some((d) => d.includes("WWW-Authenticate"))).toBe(true);
+          }
+        }),
+    );
+
+    it.effect("maps 403 with scope details to AUTH_UNAUTHORIZED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(
+          () =>
+            new Response(
+              JSON.stringify({
+                code: "insufficient_scope",
+                required_scope: "extensions:publish:new",
+                token_scopes: "extensions:read",
+                required_role: "publisher",
+              }),
+              { status: 403 },
+            ),
+        );
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHORIZED");
+          expect(result.left.details.some((d) => d.includes("extensions:publish:new"))).toBe(true);
+          expect(result.left.details.some((d) => d.includes("extensions:read"))).toBe(true);
+          expect(result.left.details.some((d) => d.includes("publisher"))).toBe(true);
+        }
+      }),
+    );
+
+    it.effect("preserves quota_exceeded mapping over generic 403", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(
+          () =>
+            new Response(
+              JSON.stringify({
+                code: "quota_exceeded",
+                detail: "Quota exceeded",
+              }),
+              { status: 403 },
+            ),
+        );
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
+        }
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Auth error mapping (401/403) — read operations
+  // ---------------------------------------------------------------------------
+
+  describe("read auth errors", () => {
+    it.effect("getExtensionsByScope maps 401 to AUTH_UNAUTHENTICATED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client
+          .getExtensionsByScope({
+            namespace: "@test",
+            names: ["my-skill"],
+            types: ["skill"],
+            limit: Option.none(),
+            offset: 0,
+          })
+          .pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+        }
+      }),
+    );
+
+    it.effect("namespaceExists maps 401 to AUTH_UNAUTHENTICATED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.namespaceExists("@test").pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+        }
+      }),
+    );
+
+    it.effect("extensionExists maps 401 to AUTH_UNAUTHENTICATED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client
+          .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
+          .pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+        }
+      }),
+    );
+
+    it.effect("getExtensionPackage maps 401 to AUTH_UNAUTHENTICATED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client
+          .getExtensionPackage({
+            namespace: "@test",
+            type: "skill",
+            name: "my-skill",
+            version: Option.some("1.0.0"),
+          })
+          .pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+        }
+      }),
+    );
+
+    it.effect("namespaceExists maps 403 to AUTH_UNAUTHORIZED", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(
+          () =>
+            new Response(
+              JSON.stringify({
+                code: "insufficient_scope",
+                required_scope: "extensions:read",
+              }),
+              { status: 403 },
+            ),
+        );
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.namespaceExists("@test").pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("AUTH_UNAUTHORIZED");
+          expect(result.left.details.some((d) => d.includes("extensions:read"))).toBe(true);
+        }
+      }),
+    );
+  });
 });

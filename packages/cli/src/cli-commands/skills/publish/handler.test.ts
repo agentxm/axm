@@ -21,6 +21,9 @@ import {
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
+import { AuthClientTest } from "../../../auth/auth-client.js";
+import { CredentialStoreTest } from "../../../auth/credential-store.js";
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handlePublish, type PublishHandlerArgs } from "./handler.js";
@@ -116,6 +119,21 @@ describe("publish.handler", () => {
     const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
     const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
     const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
+    const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
+      version: 1,
+      registries: {
+        "https://registry.agentxm.ai": {
+          accounts: {
+            testuser: {
+              access_token: "axm_ses_test",
+              refresh_token: "axm_ref_test",
+              expires_at: "2099-01-01T00:00:00Z",
+              active: true,
+            },
+          },
+        },
+      },
+    });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -125,6 +143,9 @@ describe("publish.handler", () => {
       multiselectLayer,
       CliFlagsTest(),
       TelemetryClientTest,
+      AuthClientTest(),
+      authCredStoreLayer,
+      Layer.succeed(RegistryUrl, "https://registry.agentxm.ai"),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

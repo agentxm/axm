@@ -18,6 +18,7 @@ import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { withAuthGuard } from "../../../auth/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
@@ -84,6 +85,13 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
 ) {
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "packs publish" });
+
+  yield* withAuthGuard(publishPackEffect(args));
+});
+
+const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
+  args: PublishPackHandlerArgs,
+) {
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;

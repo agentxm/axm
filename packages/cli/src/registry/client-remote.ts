@@ -264,6 +264,69 @@ const buildDetails = (
   return result;
 };
 
+// -----------------------------------------------------------------------------
+// Auth error mapping (401/403)
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a CliError for a 401 Unauthenticated response.
+ * Includes WWW-Authenticate header value in details when present.
+ */
+const mapAuthUnauthenticated = (
+  response: HttpClientResponse.HttpClientResponse,
+  howToFix: string,
+): CliError => {
+  const wwwAuth = response.headers["www-authenticate"];
+  const details: Array<string> = [];
+  if (wwwAuth !== undefined) {
+    details.push(`WWW-Authenticate: ${wwwAuth}`);
+  }
+  return makeCliError({
+    code: "AUTH_UNAUTHENTICATED",
+    what: "Authentication required",
+    details,
+    howToFix,
+  });
+};
+
+/**
+ * Build a CliError for a 403 Unauthorized response.
+ * Includes required_scope, token_scopes, required_role from response body when present.
+ */
+const mapAuthUnauthorized = (problem: unknown): CliError => {
+  const details: Array<string> = [];
+  const requiredScope = getStringField(problem, "required_scope");
+  const tokenScopes = getStringField(problem, "token_scopes");
+  const requiredRole = getStringField(problem, "required_role");
+  if (requiredScope !== undefined) details.push(`Required scope: ${requiredScope}`);
+  if (tokenScopes !== undefined) details.push(`Token scopes: ${tokenScopes}`);
+  if (requiredRole !== undefined) details.push(`Required role: ${requiredRole}`);
+
+  return makeCliError({
+    code: "AUTH_UNAUTHORIZED",
+    what: "Insufficient permissions",
+    details,
+    howToFix: "You do not have permission for this operation. Check your account permissions.",
+  });
+};
+
+/**
+ * Check if a 401/403 response should be mapped to an auth error for read operations.
+ * Returns the mapped CliError or undefined if not an auth error.
+ */
+const mapReadAuthError = (
+  response: HttpClientResponse.HttpClientResponse,
+  problem: unknown,
+): CliError | undefined => {
+  if (response.status === 401) {
+    return mapAuthUnauthenticated(response, "Run `axm login` to sign in.");
+  }
+  if (response.status === 403) {
+    return mapAuthUnauthorized(problem);
+  }
+  return undefined;
+};
+
 const withRequestContext = (
   error: CliError,
   request: string,
@@ -469,6 +532,19 @@ const getExtensionIndex = ({
       return Option.none<RegistryExtensionManifest>();
     }
 
+    // Auth error mapping for read operations
+    if (response.status === 401 || response.status === 403) {
+      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const problem = yield* Effect.try({
+        try: () => JSON.parse(bodyText) as unknown,
+        catch: () => null,
+      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      const authError = mapReadAuthError(response, problem);
+      if (authError !== undefined) {
+        return yield* Effect.fail(authError);
+      }
+    }
+
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
       return yield* Effect.fail(
@@ -522,6 +598,19 @@ const getExtensionCollection = ({
       networkCode: "REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR",
       networkWhat: "Failed to connect to remote registry discovery endpoint",
     });
+
+    // Auth error mapping for read operations
+    if (response.status === 401 || response.status === 403) {
+      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const problem = yield* Effect.try({
+        try: () => JSON.parse(bodyText) as unknown,
+        catch: () => null,
+      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      const authError = mapReadAuthError(response, problem);
+      if (authError !== undefined) {
+        return yield* Effect.fail(authError);
+      }
+    }
 
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
@@ -638,6 +727,19 @@ const namespaceExists = (
       return { exists: false } satisfies NamespaceExistsResponse;
     }
 
+    // Auth error mapping for read operations
+    if (response.status === 401 || response.status === 403) {
+      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const problem = yield* Effect.try({
+        try: () => JSON.parse(bodyText) as unknown,
+        catch: () => null,
+      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      const authError = mapReadAuthError(response, problem);
+      if (authError !== undefined) {
+        return yield* Effect.fail(authError);
+      }
+    }
+
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
       return yield* Effect.fail(
@@ -701,6 +803,19 @@ const getExtensionPackage = (
           details: [indexRequestSummary],
         }),
       );
+    }
+
+    // Auth error mapping for read operations
+    if (indexResponse.status === 401 || indexResponse.status === 403) {
+      const bodyText = yield* indexResponse.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const problem = yield* Effect.try({
+        try: () => JSON.parse(bodyText) as unknown,
+        catch: () => null,
+      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      const authError = mapReadAuthError(indexResponse, problem);
+      if (authError !== undefined) {
+        return yield* Effect.fail(authError);
+      }
     }
 
     if (indexResponse.status !== 200) {
@@ -880,6 +995,19 @@ const extensionExists = (
       return { exists: false } satisfies ExtensionExistsResponse;
     }
 
+    // Auth error mapping for read operations
+    if (response.status === 401 || response.status === 403) {
+      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const problem = yield* Effect.try({
+        try: () => JSON.parse(bodyText) as unknown,
+        catch: () => null,
+      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      const authError = mapReadAuthError(response, problem);
+      if (authError !== undefined) {
+        return yield* Effect.fail(authError);
+      }
+    }
+
     const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
     return yield* Effect.fail(
       makeCliError({
@@ -1003,6 +1131,17 @@ const publishExtension = (
       return { published: true as const };
     }
 
+    // Handle 401 — unauthenticated (check before body parsing)
+    if (response.status === 401) {
+      return yield* Effect.fail(
+        withRequestContext(
+          mapAuthUnauthenticated(response, "Session expired. Run `axm login` to re-authenticate."),
+          requestSummary,
+          response.status,
+        ),
+      );
+    }
+
     // Handle error: read body and try to parse as problem detail
     const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
 
@@ -1010,6 +1149,24 @@ const publishExtension = (
       try: () => JSON.parse(bodyText) as unknown,
       catch: () => null,
     }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+
+    // Handle 403 — check quota_exceeded first, then generic auth unauthorized
+    if (response.status === 403) {
+      const code = problem !== null ? getStringField(problem, "code") : undefined;
+      if (code === "quota_exceeded") {
+        // Preserve existing quota_exceeded mapping (takes priority)
+        return yield* Effect.fail(
+          withRequestContext(
+            mapProblemDetailToCliError(response.status, problem),
+            requestSummary,
+            response.status,
+          ),
+        );
+      }
+      return yield* Effect.fail(
+        withRequestContext(mapAuthUnauthorized(problem), requestSummary, response.status),
+      );
+    }
 
     if (problem === null) {
       // Non-JSON error response

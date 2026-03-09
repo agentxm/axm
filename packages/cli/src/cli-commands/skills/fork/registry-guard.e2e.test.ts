@@ -86,7 +86,7 @@ describe("registry guard", () => {
         // Attempt to publish with --non-interactive (no registry configured)
         const publishResult = await runCli(
           ["skills", "publish", "@test/skills/my-skill", "--yes", "--non-interactive"],
-          { cwd: temp.path },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
 
         // Should fail because no registry is configured

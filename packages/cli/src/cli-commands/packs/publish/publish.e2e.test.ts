@@ -107,7 +107,7 @@ describe("axm packs publish", () => {
         // Publish with --include-dependencies
         const result = await runCli(
           ["packs", "publish", `${namespace}/packs/my-pack`, "--include-dependencies", "--yes"],
-          { cwd: temp.path },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode).toBe(0);
 
@@ -185,7 +185,7 @@ describe("axm packs publish", () => {
             "--preview",
             "--non-interactive",
           ],
-          { cwd: temp.path },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode).toBe(0);
 
@@ -243,6 +243,7 @@ describe("axm packs publish", () => {
         // Publish WITHOUT --include-dependencies
         const result = await runCli(["packs", "publish", `${namespace}/packs/solo-pack`, "--yes"], {
           cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
         });
         expect(result.exitCode).toBe(0);
 

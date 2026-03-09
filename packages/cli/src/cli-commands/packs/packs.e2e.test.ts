@@ -241,6 +241,7 @@ describe("axm packs publish", () => {
       // Publish the pack
       const publishResult = await runCli(["packs", "publish", "pub-pack", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(publishResult.exitCode).toBe(0);
 
@@ -294,6 +295,7 @@ describe("axm packs publish", () => {
 
       const result = await runCli(["packs", "publish", "@test/packs/nonexistent-pack", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("not found");
@@ -319,6 +321,7 @@ describe("axm packs install", () => {
       await runCli(["packs", "new", "installable-pack", "--yes"], { cwd: temp.path });
       const publishResult = await runCli(["packs", "publish", "installable-pack", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(publishResult.exitCode).toBe(0);
 
@@ -388,7 +391,10 @@ describe("axm packs install", () => {
 
       // Create and publish
       await runCli(["packs", "new", "already-pack", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "already-pack", "--yes"], { cwd: temp.path });
+      await runCli(["packs", "publish", "already-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
 
       // Pack is already registered from `packs new`; install performs idempotent upsert
       const installResult = await runCli(
@@ -441,6 +447,7 @@ describe("axm packs install", () => {
       // Publish the skill to registry
       const skillPublishResult = await runCli(["skills", "publish", "dep-skill", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(skillPublishResult.exitCode).toBe(0);
 
@@ -464,6 +471,7 @@ describe("axm packs install", () => {
       // Publish the pack (with the skill dependency)
       const packPublishResult = await runCli(["packs", "publish", "deps-pack", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(packPublishResult.exitCode).toBe(0);
 
@@ -527,6 +535,7 @@ describe("axm packs install", () => {
       await runCli(["packs", "new", "preview-pack", "--yes"], { cwd: temp.path });
       const publishResult = await runCli(["packs", "publish", "preview-pack", "--yes"], {
         cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(publishResult.exitCode).toBe(0);
 
@@ -588,7 +597,10 @@ describe("axm packs uninstall", () => {
 
       await runCli(["packs", "new", "removable-pack", "--yes"], { cwd: temp.path });
       await runCli(["packs", "add", "removable-pack", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "removable-pack", "--yes"], { cwd: temp.path });
+      await runCli(["packs", "publish", "removable-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
 
       // Verify pack is in settings and lockfile before uninstall
       let settings = readSettings();
@@ -663,7 +675,10 @@ describe("axm packs unpack", () => {
       // Create a pack with the skill, then publish and install
       await runCli(["packs", "new", "unpackable", "--yes"], { cwd: temp.path });
       await runCli(["packs", "add", "unpackable", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "unpackable", "--yes"], { cwd: temp.path });
+      await runCli(["packs", "publish", "unpackable", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
 
       // Verify pack exists before unpack
       let settings = readSettings();
@@ -724,7 +739,10 @@ describe("transitive skill disable via pack", () => {
 
       await runCli(["packs", "new", "disable-pack", "--yes"], { cwd: temp.path });
       await runCli(["packs", "add", "disable-pack", "my-skill", "--yes"], { cwd: temp.path });
-      await runCli(["packs", "publish", "disable-pack", "--yes"], { cwd: temp.path });
+      await runCli(["packs", "publish", "disable-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
 
       // Verify my-skill is visible (either as direct or transitive)
       let settings = readSettings();

@@ -64,7 +64,7 @@ describe("axm skills publish", () => {
         // Publish the extension
         const publishResult = await runCli(
           ["skills", "publish", "@test/skills/my-publish-skill", "--yes"],
-          { cwd: temp.path },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(publishResult.exitCode).toBe(0);
 
@@ -161,6 +161,7 @@ describe("axm skills publish", () => {
         // Publish using bare name (namespace resolved from settings)
         const publishResult = await runCli(["skills", "publish", "code-review", "--yes"], {
           cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
         });
         expect(publishResult.exitCode).toBe(0);
 
@@ -199,7 +200,7 @@ describe("axm skills publish", () => {
 
         const publishResult = await runCli(
           ["skills", "publish", "@test/skills/nonexistent-skill", "--yes"],
-          { cwd: temp.path },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(publishResult.exitCode).not.toBe(0);
         expect(publishResult.stderr).toContain("not found");
@@ -278,6 +279,7 @@ describe("axm skills publish", () => {
         // Publish with glob pattern
         const result = await runCli(["skills", "publish", "effect-*", "--yes"], {
           cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
         });
         expect(result.exitCode).toBe(0);
 
@@ -334,6 +336,7 @@ describe("axm skills publish", () => {
         // Publish multiple literal names
         const result = await runCli(["skills", "publish", "skill-a", "skill-b", "--yes"], {
           cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
         });
         expect(result.exitCode).toBe(0);
 
@@ -377,6 +380,7 @@ describe("axm skills publish", () => {
         // Publish with a glob that matches nothing
         const result = await runCli(["skills", "publish", "nonexistent-*", "--yes"], {
           cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
         });
 
         // Should exit cleanly (not an error)

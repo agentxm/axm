@@ -1,0 +1,28 @@
+/**
+ * E2E tests for `axm token`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import { describe, expect, it } from "vitest";
+import { runCli } from "../../../e2e/utils.js";
+
+describe("axm token", () => {
+  it("outputs the token when AXM_TOKEN env var is set", async () => {
+    const result = await runCli(["token"], {
+      env: { AXM_TOKEN: "test-token-value" },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("test-token-value");
+    const output = result.stdout + result.stderr;
+    expect(output).toContain("AXM_TOKEN");
+  });
+
+  it("fails with AUTH_LOGIN_REQUIRED when no credentials available", async () => {
+    const result = await runCli(["token"], {
+      env: { AXM_TOKEN: "" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("AUTH_LOGIN_REQUIRED");
+  });
+});

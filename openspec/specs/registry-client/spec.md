@@ -203,6 +203,7 @@ Supported operations:
 
 - **WHEN** `publishExtension` is called on a `RemoteRegistryClient`
 - **THEN** it sends a multipart PUT request to the remote registry API
+- **AND** the request SHALL include an `Authorization: Bearer <token>` header when credentials are available
 - **AND** returns `{ published: true }` on success
 
 #### Scenario: getExtensionsByScope supports names list mode
@@ -247,3 +248,4 @@ A factory function `createRegistryClient` SHALL create the appropriate registry 
 
 - **WHEN** the location is `https://registry.example.com`
 - **THEN** a `RemoteRegistryClient` is created with the base URL and an `HttpClient` instance
+- **AND** the `HttpClient` instance SHALL be the auth-middleware-wrapped client from Effect context (Bearer headers and auto-refresh are applied upstream)

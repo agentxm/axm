@@ -43,6 +43,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../workspace/index.js";
+import { getBuiltInSources } from "../workspace/source-metadata.js";
 import { classifyError } from "./error-handling.js";
 
 /**
@@ -50,7 +51,7 @@ import { classifyError } from "./error-handling.js";
  * Override with AXM_REGISTRY_URL env var for local development.
  */
 const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
-const REGISTRY_URL = process.env["AXM_REGISTRY_URL"] ?? DEFAULT_REGISTRY_URL;
+export const REGISTRY_URL = process.env["AXM_REGISTRY_URL"] ?? DEFAULT_REGISTRY_URL;
 
 /**
  * Standard dependencies available to all CLI commands:
@@ -217,7 +218,10 @@ export function run<A>(
 
   const provided = options?.workspace
     ? (() => {
-        const wsLayer = Layer.provide(workspaceLayer(options.workspace), flagsLayer);
+        const wsLayer = Layer.provide(
+          workspaceLayer({ ...options.workspace, builtInSources: getBuiltInSources(REGISTRY_URL) }),
+          flagsLayer,
+        );
         const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
           Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer, telemetryLayer)),

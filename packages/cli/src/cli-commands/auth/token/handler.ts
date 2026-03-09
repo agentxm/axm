@@ -12,21 +12,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
 import { makeCliError } from "../../../cli-error/index.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
 
 // -----------------------------------------------------------------------------
 // Handler
 // -----------------------------------------------------------------------------
 
 export const handleToken = Effect.fn("AuthToken.handle")(function* () {
-  const registryUrl = DEFAULT_REGISTRY_URL;
+  const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
   const maybeToken = yield* resolveToken(registryUrl);

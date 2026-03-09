@@ -87,7 +87,6 @@ import { classifyExtensions } from "./classifier.js";
 import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
 // Extracted modules
 import {
-  BUILT_IN_SOURCES,
   deriveSourceMetaForNonSkill,
   deriveSourceMetaForPacks,
   deriveSourceMetaForSkills,
@@ -297,6 +296,8 @@ export interface WorkspaceContextOptions {
   readonly scope: WorkspaceScope;
   /** Explicit agent IDs to use (overrides detection and prompting) */
   readonly agents: Option.Option<readonly string[]>;
+  /** Built-in source host configs (defaults to git forges only when not provided) */
+  readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
 }
 
 /**
@@ -340,6 +341,13 @@ const make = (options: WorkspaceContextOptions) =>
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
+
+    // Built-in sources: parameterized via options, falling back to git forges only
+    const builtInSources: ReadonlyArray<SourceHostConfig> = options.builtInSources ?? [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+      { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
+    ];
 
     // Mutable cache for merged sources (invalidated by addConfiguredSource)
     let cachedSources: ReadonlyArray<SourceHostConfig> | null = null;
@@ -582,7 +590,7 @@ const make = (options: WorkspaceContextOptions) =>
         const merged: ReadonlyArray<SourceHostConfig> = [
           ...projectSources,
           ...filteredGlobal,
-          ...BUILT_IN_SOURCES.filter((s) => !projectGlobalNames.has(s.name)),
+          ...builtInSources.filter((s) => !projectGlobalNames.has(s.name)),
         ];
 
         cachedSources = merged;

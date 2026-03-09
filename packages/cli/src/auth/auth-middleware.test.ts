@@ -399,6 +399,113 @@ describe("AuthMiddleware", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Credential-based gating
+  // ---------------------------------------------------------------------------
+
+  describe("credential-based gating", () => {
+    it("injects auth for non-default registry with stored credentials", async () => {
+      const NON_DEFAULT_REGISTRY = "https://custom-registry.example.com";
+      let capturedAuth: string | null = null;
+
+      const handler = (req: HttpClientRequest.HttpClientRequest) => {
+        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        return new Response("ok", { status: 200 });
+      };
+
+      const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
+      const credStoreLayer = CredentialStoreTest("encrypted-file", {
+        version: 1,
+        registries: {
+          [NON_DEFAULT_REGISTRY]: {
+            accounts: {
+              bob: {
+                access_token: "axm_ses_custom",
+                refresh_token: "axm_ref_custom",
+                expires_at: futureExpiry(),
+                active: true,
+              },
+            },
+          },
+        },
+      });
+      const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+
+      const middlewareLayer = Layer.provide(
+        makeAuthMiddlewareLive(),
+        Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer),
+      );
+      const layers = Layer.mergeAll(middlewareLayer, credStoreLayer, registryUrlLayer);
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get(`${NON_DEFAULT_REGISTRY}/v1/extensions`);
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      expect(capturedAuth).toBe("Bearer axm_ses_custom");
+    });
+
+    it("scopes AXM_TOKEN to default registry only", async () => {
+      process.env["AXM_TOKEN"] = "axm_ses_env_scoped";
+      let capturedAuth: string | null = null;
+
+      const layers = makeTestLayers((req) => {
+        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        return new Response("ok", { status: 200 });
+      });
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get("https://other-registry.example.com/v1/extensions");
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      // AXM_TOKEN should NOT leak to non-default registry hosts
+      expect(capturedAuth).toBeNull();
+    });
+
+    it("does not leak AXM_TOKEN to non-registry hosts", async () => {
+      process.env["AXM_TOKEN"] = "axm_ses_env_leak_test";
+      let capturedAuth: string | null = null;
+
+      const layers = makeTestLayers((req) => {
+        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        return new Response("ok", { status: 200 });
+      });
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get("https://github.com/some/repo");
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      expect(capturedAuth).toBeNull();
+    });
+
+    it("uses AXM_TOKEN with empty credential store against default registry", async () => {
+      process.env["AXM_TOKEN"] = "axm_ses_env_default";
+      let capturedAuth: string | null = null;
+
+      const layers = makeTestLayers((req) => {
+        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        return new Response("ok", { status: 200 });
+      });
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      expect(capturedAuth).toBe("Bearer axm_ses_env_default");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // AXM_TOKEN stderr message
   // ---------------------------------------------------------------------------
 

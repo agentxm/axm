@@ -48,6 +48,53 @@ export const resetEnvVarMessageFlag = () => {
 // -----------------------------------------------------------------------------
 
 /**
+ * Resolve a token from the credential store only.
+ *
+ * Looks up stored credentials by origin URL. Does not check env vars or flags.
+ */
+export const resolveStoredToken = (
+  origin: string,
+): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore> =>
+  Effect.gen(function* () {
+    const store = yield* CredentialStore;
+    const stored = yield* store.load(origin);
+    return Option.map(
+      stored,
+      (creds): TokenSource =>
+        new CredentialStoreTokenSource({
+          token: creds.access_token,
+          refresh_token: creds.refresh_token,
+          expires_at: creds.expires_at,
+          registryUrl: origin,
+        }),
+    );
+  });
+
+/**
+ * Resolve a token from ambient sources only (env var and flag).
+ *
+ * Does not access the credential store.
+ *
+ * Precedence:
+ * 1. AXM_TOKEN env var
+ * 2. --token flag (passed as `flagToken` parameter)
+ */
+export const resolveAmbientToken = (
+  flagToken?: string,
+): Effect.Effect<Option.Option<TokenSource>> =>
+  Effect.gen(function* () {
+    const envToken = process.env["AXM_TOKEN"];
+    if (envToken !== undefined && envToken.length > 0) {
+      yield* emitEnvVarMessage;
+      return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
+    }
+    if (flagToken !== undefined && flagToken.length > 0) {
+      return Option.some<TokenSource>(new FlagTokenSource({ token: flagToken }));
+    }
+    return Option.none<TokenSource>();
+  });
+
+/**
  * Resolve a token from the precedence chain.
  *
  * Precedence:
@@ -62,29 +109,7 @@ export const resolveToken = (
   flagToken?: string,
 ): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore> =>
   Effect.gen(function* () {
-    // 1. AXM_TOKEN env var
-    const envToken = process.env["AXM_TOKEN"];
-    if (envToken !== undefined && envToken.length > 0) {
-      yield* emitEnvVarMessage;
-      return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
-    }
-
-    // 2. --token flag
-    if (flagToken !== undefined && flagToken.length > 0) {
-      return Option.some<TokenSource>(new FlagTokenSource({ token: flagToken }));
-    }
-
-    // 3. Credential store
-    const store = yield* CredentialStore;
-    const stored = yield* store.load(registryUrl);
-    return Option.map(
-      stored,
-      (creds): TokenSource =>
-        new CredentialStoreTokenSource({
-          token: creds.access_token,
-          refresh_token: creds.refresh_token,
-          expires_at: creds.expires_at,
-          registryUrl,
-        }),
-    );
+    const ambient = yield* resolveAmbientToken(flagToken);
+    if (Option.isSome(ambient)) return ambient;
+    return yield* resolveStoredToken(registryUrl);
   });

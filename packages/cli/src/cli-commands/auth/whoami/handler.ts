@@ -14,15 +14,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { AuthClient } from "../../../auth/auth-client.js";
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
 import { ClackLog } from "../../../clack-effect/log/service.js";
 import { makeCliError } from "../../../cli-error/index.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -39,8 +34,7 @@ export interface WhoamiHandlerArgs {
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: WhoamiHandlerArgs) {
   const authClient = yield* AuthClient;
   const log = yield* ClackLog;
-
-  const registryUrl = DEFAULT_REGISTRY_URL;
+  const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
   const maybeToken = yield* resolveToken(registryUrl);

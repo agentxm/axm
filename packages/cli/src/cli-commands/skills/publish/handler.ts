@@ -2,18 +2,16 @@
  * Publish command handler -- Effect-based orchestration for `axm skills publish`.
  *
  * Publishes a managed extension from `.axm/extensions/` to a target registry:
- * 1. Registry guard (ensure registry configured)
- * 2. Resolve extension name (bare name -> namespace from settings)
- * 3. Validate managed extension exists
- * 4. Build plan with a single PublishSkillOperation
- * 5. Execute via resolvePlan
+ * 1. Resolve extension name (bare name -> namespace from settings)
+ * 2. Validate managed extension exists
+ * 3. Build plan with a single PublishSkillOperation
+ * 4. Execute via resolvePlan
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "../../../auth/index.js";
@@ -102,14 +100,11 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
 
   yield* log.info("axm skills publish");
 
-  // Step 1: Registry guard
-  yield* registryGuard;
-
-  // Step 2: Separate glob patterns from literal inputs, expand globs
+  // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) return;
 
-  // Step 3: Resolve each name to FQN
+  // Step 2: Resolve each name to FQN
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
     name.startsWith("@") && name.includes("/")
       ? Effect.succeed(name)
@@ -126,7 +121,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
         ),
   );
 
-  // Step 4: Validate each extension
+  // Step 3: Validate each extension
   yield* spinnerSvc.withSpinner(
     "Validating extensions...",
     () =>
@@ -181,7 +176,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
   );
 
-  // Step 5: Determine target registry
+  // Step 4: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -207,7 +202,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     onSome: (name) => name,
   });
 
-  // Step 6: Build multi-step plan
+  // Step 5: Build multi-step plan
   const steps: LegacyPlannedStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
     _tag: "PlannedJobStep" as const,
     operation: {

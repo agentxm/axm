@@ -2,19 +2,17 @@
  * Publish command handler -- Effect-based orchestration for `axm packs publish`.
  *
  * Publishes a pack from `.axm/extensions/` to a target registry:
- * 1. Registry guard (ensure registry configured)
- * 2. Resolve extension name (bare name -> namespace from settings)
- * 3. Validate managed pack exists with manifest
- * 4. Discover local dependencies (when --include-dependencies)
- * 5. Build plan (dependency job + pack job, or pack-only)
- * 6. Execute via resolvePlan
+ * 1. Resolve extension name (bare name -> namespace from settings)
+ * 2. Validate managed pack exists with manifest
+ * 3. Discover local dependencies (when --include-dependencies)
+ * 4. Build plan (dependency job + pack job, or pack-only)
+ * 5. Execute via resolvePlan
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -101,10 +99,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   yield* log.info("axm packs publish");
 
-  // Step 1: Registry guard
-  yield* registryGuard;
-
-  // Step 2: Resolve pack name
+  // Step 1: Resolve pack name
   const hasNamespace = args.pack.startsWith("@") && args.pack.includes("/");
   const packName = yield* hasNamespace
     ? Effect.succeed(args.pack)
@@ -123,7 +118,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   // Parse namespace and pack name from the full name
   const fqn = yield* parseFqn(packName);
 
-  // Step 3: Validate managed pack exists
+  // Step 2: Validate managed pack exists
   const manifestPath = yield* spinnerSvc.withSpinner(
     "Validating pack...",
     () =>
@@ -165,7 +160,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     { successMessage: `Validated ${packName}` },
   );
 
-  // Step 4: Determine target registry
+  // Step 3: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -191,7 +186,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     onSome: (name) => name,
   });
 
-  // Step 5: Discover local dependencies (when --include-dependencies)
+  // Step 4: Discover local dependencies (when --include-dependencies)
   const dependencySteps: LegacyPlannedStep<PackPublishOp>[] = [];
 
   if (args.includeDependencies) {
@@ -258,7 +253,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
   }
 
-  // Step 6: Build plan
+  // Step 5: Build plan
   const packStep: LegacyPlannedStep<PackPublishOp> = {
     _tag: "PlannedJobStep",
     operation: {

@@ -126,6 +126,3 @@ export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
 export { lockEntryToSourceParams, printSourceParams } from "./printer.js";
-
-// Registry guard
-export { registryGuard } from "./registry-guard.js";

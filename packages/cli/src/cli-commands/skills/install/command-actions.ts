@@ -20,7 +20,6 @@ import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import {
   SourceHostProviders,
   parseInputPattern,
-  registryGuard,
   type SkillExtensionRef,
   type Source,
 } from "../../../sources/index.js";
@@ -196,7 +195,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const flags = yield* CliFlags;
 
     // Build a service layer providing all services needed by inner effects
-    // (registryGuard, resolveSkillInstallSource, determineSkillsToInstall, etc.)
+    // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Log, log),
@@ -216,7 +215,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
       Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
 
-    // PromptCancelled from registryGuard/prompts propagates through the workflow
+    // PromptCancelled from prompts propagates through the workflow
     // to the run() handler. The provide() helper narrows E to CliError for the interface.
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
@@ -280,11 +279,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             yield* log.message(
               `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
             );
-          }
-
-          // Registry guard
-          if (source.type === "registry") {
-            yield* registryGuard;
           }
 
           return {

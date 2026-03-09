@@ -21,7 +21,7 @@ import * as Schema from "effect/Schema";
 import { makeCliError } from "../cli-error/cli-error.js";
 import { CredentialStore, type CredentialStoreService } from "./credential-store.js";
 import type { StoredCredentials, TokenSource } from "./schema.js";
-import { resolveToken } from "./token-resolution.js";
+import { resolveAmbientToken, resolveStoredToken } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
 // RegistryUrl service — configures which URLs are registry URLs
@@ -144,15 +144,6 @@ const isNearExpiry = (expiresAt: string): boolean => {
 };
 
 // -----------------------------------------------------------------------------
-// Internal: check if request URL is a registry URL
-// -----------------------------------------------------------------------------
-
-const isRegistryRequest = (requestUrl: string, registryUrl: string): boolean => {
-  const normalizedRegistry = registryUrl.replace(/\/+$/, "");
-  return requestUrl.startsWith(normalizedRegistry);
-};
-
-// -----------------------------------------------------------------------------
 // AuthMiddleware layer
 // -----------------------------------------------------------------------------
 
@@ -175,16 +166,20 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
 
       return HttpClient.make((request) =>
         Effect.gen(function* () {
-          // Non-registry requests pass through unmodified
-          if (!isRegistryRequest(request.url, registryUrl)) {
-            return yield* baseClient.execute(request);
-          }
+          const origin = new URL(request.url).origin;
 
-          // Resolve token (provide CredentialStore to satisfy the requirement)
-          const maybeToken = yield* resolveToken(registryUrl, flagToken).pipe(
+          // 1. Check stored credentials for this origin (any registry)
+          const storedToken = yield* resolveStoredToken(origin).pipe(
             Effect.provide(storeLayer),
             Effect.catchAll(() => Effect.succeed(Option.none<TokenSource>())),
           );
+
+          // 2. If no stored credentials and this is the default registry, check ambient tokens
+          const maybeToken = Option.isSome(storedToken)
+            ? storedToken
+            : origin === new URL(registryUrl).origin
+              ? yield* resolveAmbientToken(flagToken)
+              : Option.none<TokenSource>();
 
           if (Option.isNone(maybeToken)) {
             return yield* baseClient.execute(request);

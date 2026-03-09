@@ -8,6 +8,7 @@
 import type { HttpClient } from "@effect/platform";
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
 import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
@@ -46,8 +47,10 @@ import { classifyError } from "./error-handling.js";
 
 /**
  * Default registry URL for auth middleware.
+ * Override with AXM_REGISTRY_URL env var for local development.
  */
 const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
+const REGISTRY_URL = process.env["AXM_REGISTRY_URL"] ?? DEFAULT_REGISTRY_URL;
 
 /**
  * Standard dependencies available to all CLI commands:
@@ -99,9 +102,10 @@ const DefaultTelemetryLayer = Layer.provide(
 );
 
 /**
- * RegistryUrl layer — provides the default registry URL for auth middleware.
+ * RegistryUrl layer — provides the registry URL for auth middleware.
+ * Uses AXM_REGISTRY_URL env var when set, otherwise the default.
  */
-const RegistryUrlLayer = Layer.succeed(RegistryUrl, DEFAULT_REGISTRY_URL);
+const RegistryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
 /**
  * Base layer: platform services + raw HttpClient.
@@ -192,6 +196,11 @@ export function run<A>(
   >,
   options?: RunOptions,
 ): Promise<A> {
+  // Warn when using a non-default registry (e.g. local development)
+  if (REGISTRY_URL !== DEFAULT_REGISTRY_URL) {
+    p.log.warn(`Using registry: ${REGISTRY_URL}`);
+  }
+
   // Resolve flags: explicit flags > defaults
   const flagsInput: CliFlagsInput = options?.flags ?? {
     nonInteractive: Option.none(),

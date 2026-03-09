@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import { vi, beforeEach } from "vitest";
 
 import { AuthClientTest } from "../../../auth/auth-client.js";
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
@@ -50,7 +51,15 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
     getMe: () => Effect.succeed(defaultMe),
   });
 
-  const FullLayer = Layer.mergeAll(logLayer, CliFlagsTest(), credStoreLayer, authClientLayer);
+  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+
+  const FullLayer = Layer.mergeAll(
+    logLayer,
+    CliFlagsTest(),
+    credStoreLayer,
+    authClientLayer,
+    registryUrlLayer,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

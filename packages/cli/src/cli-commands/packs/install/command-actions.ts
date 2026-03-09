@@ -14,12 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
-import {
-  parseInputPattern,
-  resolveSource,
-  registryGuard,
-  SourceHostProviders,
-} from "../../../sources/index.js";
+import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
 import { Workspace } from "../../../workspace/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
@@ -181,7 +176,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const cliFlags = yield* CliFlags;
 
     // Build a service layer to provide to inner effects that still require
-    // services via the Effect context (e.g. registryGuard, resolveSource).
+    // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Workspace, ws),
@@ -191,7 +186,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     );
 
     // Assertion needed: strips service requirements (R) from inner effects.
-    // PromptCancelled from registryGuard propagates at runtime but is erased here;
+    // PromptCancelled propagates at runtime but is erased here;
     // the top-level `run()` function handles it as a clean exit.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
     const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
@@ -309,8 +304,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               howToFix: "Use a registry source: @namespace/packs/pack-name",
             });
           }
-
-          yield* registryGuard;
 
           return [
             {

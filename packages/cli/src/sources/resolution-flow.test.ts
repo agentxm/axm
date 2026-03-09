@@ -22,6 +22,7 @@ import { Workspace } from "../workspace/index.js";
 // -----------------------------------------------------------------------------
 
 const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
+  { name: "default", type: "registry", location: new URL("https://registry.agentxm.ai") },
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },

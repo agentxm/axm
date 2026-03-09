@@ -15,14 +15,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { AuthClient } from "../../../auth/auth-client.js";
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
 import { ClackLog } from "../../../clack-effect/log/service.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -32,8 +27,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
   const log = yield* ClackLog;
-
-  const registryUrl = DEFAULT_REGISTRY_URL;
+  const registryUrl = yield* RegistryUrl;
 
   // Step 1: Load credentials
   const existing = yield* credStore.load(registryUrl);

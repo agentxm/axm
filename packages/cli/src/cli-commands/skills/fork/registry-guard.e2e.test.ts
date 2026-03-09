@@ -14,11 +14,11 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("registry guard", () => {
-  describe("fork command without registry configured", () => {
-    it("fails in non-interactive mode when no registry source exists", async () => {
+  describe("fork command with built-in registry", () => {
+    it("succeeds in non-interactive mode using the built-in registry source", async () => {
       const temp = createTempDir();
       try {
-        // Initialize workspace without registry source
+        // Initialize workspace without explicit registry source
         await runCli(["init", "--yes"], { cwd: temp.path });
 
         // Install a skill first (so fork has something to work with)
@@ -26,15 +26,13 @@ describe("registry guard", () => {
           cwd: temp.path,
         });
 
-        // Attempt to fork with --non-interactive (no registry configured)
+        // Fork should succeed because the built-in registry source is always present
         const forkResult = await runCli(
           ["skills", "fork", "my-skill", "--yes", "--non-interactive"],
           { cwd: temp.path },
         );
 
-        // Should fail because no registry is configured
-        expect(forkResult.exitCode).not.toBe(0);
-        expect(forkResult.stderr).toContain("registry");
+        expect(forkResult.exitCode).toBe(0);
       } finally {
         temp.cleanup();
       }

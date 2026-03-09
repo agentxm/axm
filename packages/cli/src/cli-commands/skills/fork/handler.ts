@@ -2,23 +2,17 @@
  * Fork command handler — Effect-based orchestration for `axm skills fork`.
  *
  * Converts an unmanaged skill into a managed extension:
- * 1. Registry guard (ensure registry configured)
- * 2. Parse source via resolveSource
- * 3. Namespace resolution
- * 4. Discover skills via SourceHostProviders
- * 5. Filter by --skill globs (if provided)
- * 6. Build plan: fork → publish → install (sequential)
- * 7. Execute via resolvePlan
+ * 1. Parse source via resolveSource
+ * 2. Namespace resolution
+ * 3. Discover skills via SourceHostProviders
+ * 4. Filter by --skill globs (if provided)
+ * 5. Build plan: fork → publish → install (sequential)
+ * 6. Execute via resolvePlan
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  resolveSourcePattern,
-  SourceHostProviders,
-  registryGuard,
-  type Source,
-} from "../../../sources/index.js";
+import { resolveSourcePattern, SourceHostProviders, type Source } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -137,10 +131,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   yield* log.info("axm skills fork");
 
-  // Step 1: Registry guard
-  yield* registryGuard;
-
-  // Step 2: Resolve namespace
+  // Step 1: Resolve namespace
   const namespace = yield* ws.getConfiguredNamespace().pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -152,7 +143,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     ),
   );
 
-  // Step 3: Parse source and discover skills
+  // Step 2: Parse source and discover skills
   const filtered = yield* spinnerSvc.withSpinner(
     "Resolving skills...",
     () =>
@@ -222,7 +213,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           );
         }
 
-        // Step 4: Filter by --skill globs (if provided)
+        // Step 3: Filter by --skill globs (if provided)
         return yield* filterBySkillGlobs(discoveredSkills, args.skills);
       }),
     {
@@ -231,7 +222,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     },
   );
 
-  // Step 5: Determine first registry source name for publishing
+  // Step 4: Determine first registry source name for publishing
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -253,7 +244,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const registrySource = registrySources[0]!;
   const registryName = registrySource.name;
 
-  // Step 6: Build plan — fork + publish + install per skill (3 sequential ops)
+  // Step 5: Build plan — fork + publish + install per skill (3 sequential ops)
   const steps: ReadonlyArray<LegacyPlannedStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
     const targetName = `${namespace}/skills/${ref.skill.name}`;
     const extensionRef = ref;

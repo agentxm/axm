@@ -47,6 +47,7 @@ const makeWorkspaceLayer = (
 
 /** Default built-in sources matching workspace defaults. */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
+  { name: "default", type: "registry", location: new URL("https://registry.agentxm.ai") },
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
@@ -160,27 +161,33 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("fails @namespace/skills/name without registry config", () =>
+    it.effect("resolves @namespace/skills/name with built-in registry", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@namespace/skills/name"));
-        expect(error).toBeInstanceOf(CliError);
-        expect(error.what).toContain("No registry source configured");
+        const result = yield* resolve("@namespace/skills/name");
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
+        }
       }),
     );
 
-    it.effect("fails @namespace without registry config", () =>
+    it.effect("resolves @namespace with built-in registry", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@namespace"));
-        expect(error).toBeInstanceOf(CliError);
-        expect(error.what).toContain("No registry source configured");
+        const result = yield* resolve("@namespace");
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
+        }
       }),
     );
 
-    it.effect("fails @namespace/skills without registry config", () =>
+    it.effect("resolves @namespace/skills with built-in registry", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@namespace/skills"));
-        expect(error).toBeInstanceOf(CliError);
-        expect(error.what).toContain("No registry source configured");
+        const result = yield* resolve("@namespace/skills");
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
+        }
       }),
     );
 

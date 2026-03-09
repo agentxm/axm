@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AuthClientTest, type MeResponse } from "../../../auth/auth-client.js";
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import {
   makeClackLogTestLayer,
@@ -86,6 +87,8 @@ const makeLayers = (opts?: {
     getMe: () => Effect.succeed(meData),
   });
 
+  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+
   const FullLayer = Layer.mergeAll(
     logLayer,
     spinnerLayer,
@@ -93,6 +96,7 @@ const makeLayers = (opts?: {
     flagsLayer,
     credStoreLayer,
     authClientLayer,
+    registryUrlLayer,
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -214,6 +218,7 @@ describe("auth login handler", () => {
       CliFlagsTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
+      Layer.succeed(RegistryUrl, REGISTRY_URL),
     );
 
     return handleLogin().pipe(

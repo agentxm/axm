@@ -19,12 +19,7 @@ import { ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
-import {
-  parseInputPattern,
-  resolveSource,
-  registryGuard,
-  SourceHostProviders,
-} from "../../../sources/index.js";
+import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { McpServerExtensionRef, RegistrySource } from "../../../sources/types.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
@@ -103,7 +98,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const flags = yield* CliFlags;
 
     // Build a service layer to provide to inner effects that still require
-    // services via the Effect context (e.g. registryGuard, resolveSource).
+    // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Workspace, ws),
@@ -201,8 +196,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               howToFix: "Use a registry source: @namespace/mcp-servers/server-name",
             });
           }
-
-          yield* registryGuard;
 
           return [
             {

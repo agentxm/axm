@@ -39,7 +39,12 @@ export {
 } from "./credential-store.js";
 
 // Token resolution
-export { resolveToken, resetEnvVarMessageFlag } from "./token-resolution.js";
+export {
+  resolveToken,
+  resolveStoredToken,
+  resolveAmbientToken,
+  resetEnvVarMessageFlag,
+} from "./token-resolution.js";
 
 // Auth middleware
 export { AuthMiddlewareLive, makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";

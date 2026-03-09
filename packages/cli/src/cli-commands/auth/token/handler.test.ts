@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { vi, beforeEach, afterEach } from "vitest";
 
+import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
@@ -33,7 +34,9 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
       })
     : CredentialStoreTest();
 
-  const FullLayer = Layer.mergeAll(CliFlagsTest(), credStoreLayer);
+  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+
+  const FullLayer = Layer.mergeAll(CliFlagsTest(), credStoreLayer, registryUrlLayer);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

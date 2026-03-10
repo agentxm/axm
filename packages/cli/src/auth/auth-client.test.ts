@@ -10,7 +10,7 @@ import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AuthClient, AuthClientLive, pollOnce } from "./auth-client.js";
 
@@ -31,6 +31,13 @@ const makeTestLayer = (handler: (request: HttpClientRequest.HttpClientRequest) =
 };
 
 const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
+const decodeRequestBody = (request: HttpClientRequest.HttpClientRequest) => {
+  if (request.body._tag !== "Uint8Array") {
+    throw new Error(`Unsupported request body tag: ${request.body._tag}`);
+  }
+
+  return new TextDecoder().decode(request.body.body);
+};
 
 // -----------------------------------------------------------------------------
 // initiateDeviceFlow
@@ -86,9 +93,12 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
   it("sends correct request body", async () => {
     const layer = makeTestLayer((req) => {
-      // The body is set via bodyJson — we check the URL and method
       expect(req.url).toContain("/v1/auth/device/code");
       expect(req.method).toBe("POST");
+      expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
+      expect(decodeRequestBody(req)).toBe(
+        "client_id=axm-cli&scope=extensions%3Aread+extensions%3Apublish%3Anew+extensions%3Apublish%3Aversion+extensions%3Ayank+extensions%3Aadmin+account%3Aread+account%3Awrite",
+      );
       return new Response(
         JSON.stringify({
           device_code: "dev_123",
@@ -115,24 +125,37 @@ describe("AuthClient.initiateDeviceFlow", () => {
 // -----------------------------------------------------------------------------
 
 describe("pollOnce", () => {
-  it("returns Success on 200 with token", async () => {
+  it("returns Success on 200 with token and normalizes expires_in", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-10T12:00:00.000Z"));
+
     const httpClient = makeMockHttpClient(
-      () =>
+      (req) => {
+        expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
+        expect(decodeRequestBody(req)).toBe(
+          "client_id=axm-cli&device_code=dev_123&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code",
+        );
+        return (
         new Response(
           JSON.stringify({
             access_token: "axm_ses_new",
             refresh_token: "axm_ref_new",
-            expires_at: futureExpiry(),
+            expires_in: 3600,
           }),
           { status: 200 },
-        ),
+        )
+        );
+      },
     );
 
     const result = await Effect.runPromise(pollOnce(httpClient, REGISTRY_URL, "dev_123"));
     expect(result._tag).toBe("Success");
     if (result._tag === "Success") {
       expect(result.token.access_token).toBe("axm_ses_new");
+      expect(result.token.expires_at).toBe("2026-03-10T13:00:00.000Z");
     }
+
+    vi.useRealTimers();
   });
 
   it("returns Pending on authorization_pending error", async () => {
@@ -285,14 +308,21 @@ describe("AuthClient.pollDeviceToken", () => {
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.refreshToken", () => {
-  it("returns new tokens on success", async () => {
+  it("returns new tokens on success and normalizes expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-10T12:00:00.000Z"));
+
     const layer = makeTestLayer((req) => {
       expect(req.url).toContain("/v1/auth/token/refresh");
+      expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
+      expect(decodeRequestBody(req)).toBe(
+        "grant_type=refresh_token&refresh_token=axm_ref_old",
+      );
       return new Response(
         JSON.stringify({
           access_token: "axm_ses_refreshed",
           refresh_token: "axm_ref_refreshed",
-          expires_at: futureExpiry(),
+          expires_in: 1800,
         }),
         { status: 200 },
       );
@@ -307,6 +337,9 @@ describe("AuthClient.refreshToken", () => {
 
     expect(result.access_token).toBe("axm_ses_refreshed");
     expect(result.refresh_token).toBe("axm_ref_refreshed");
+    expect(result.expires_at).toBe("2026-03-10T12:30:00.000Z");
+
+    vi.useRealTimers();
   });
 
   it("fails with AUTH_REFRESH_FAILED on non-200", async () => {
@@ -336,6 +369,8 @@ describe("AuthClient.revokeToken", () => {
   it("succeeds on 200", async () => {
     const layer = makeTestLayer((req) => {
       expect(req.url).toContain("/v1/auth/token/revoke");
+      expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
+      expect(decodeRequestBody(req)).toBe("token=axm_ses_revoke");
       return new Response("", { status: 200 });
     });
 
@@ -383,12 +418,24 @@ describe("AuthClient.getMe", () => {
       capturedAuth = (req.headers["authorization"] as string) ?? null;
       return new Response(
         JSON.stringify({
-          userId: "user_123",
-          userHandle: "alice",
-          email: "alice@example.com",
-          tokenType: "session",
-          scopes: ["extensions:read", "account:read"],
-          orgs: [{ id: "org_1", handle: "acme" }],
+          user: {
+            id: "user_123",
+            handle: "alice",
+            email: "alice@example.com",
+          },
+          token: {
+            type: "session",
+            scopes: ["extensions:read", "account:read"],
+          },
+          orgs: [
+            {
+              id: "org_1",
+              handle: "acme",
+              role: "owner",
+              type: "organization",
+              verified: true,
+            },
+          ],
         }),
         { status: 200 },
       );

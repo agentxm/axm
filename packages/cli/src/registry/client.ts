@@ -224,7 +224,11 @@ export interface RegistryClient {
 export const createRegistryClient = (location: string) =>
   Effect.gen(function* () {
     if (location.startsWith("https://") || location.startsWith("http://")) {
-      const httpClient = yield* HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer));
+      const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
+      const httpClient = yield* Option.match(ambientHttpClient, {
+        onNone: () => HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer)),
+        onSome: (client) => Effect.succeed(client),
+      });
       return createRemoteRegistryClient(location, httpClient);
     }
 

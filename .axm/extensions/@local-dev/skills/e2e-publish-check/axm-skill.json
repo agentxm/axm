@@ -1,0 +1,6 @@
+{
+  "namespace": "@local-dev",
+  "type": "skill",
+  "name": "e2e-publish-check",
+  "version": "0.0.1"
+}

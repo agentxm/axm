@@ -24,6 +24,7 @@ import {
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
 import { CliFlagsTest, type CliFlagsService } from "../cli-flags/index.js";
+import { CliEnvConfig } from "../config/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult, Readiness, Operation } from "./plan.js";
@@ -91,6 +92,7 @@ describe("WorkspaceContextService", () => {
     testLogLayer,
     testPromptLayer,
     CliFlagsTest(),
+    CliEnvConfig.testDefaults,
   );
 
   const makeWsLayer = (options: WorkspaceContextOptions) =>
@@ -185,7 +187,7 @@ describe("WorkspaceContextService", () => {
         },
       });
       const flagsLayer = CliFlagsTest(flags);
-      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer);
+      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer, CliEnvConfig.testDefaults);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
@@ -1583,7 +1585,7 @@ describe("WorkspaceContextService", () => {
       });
       const flagsLayer = CliFlagsTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
-      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer);
+      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer, CliEnvConfig.testDefaults);
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.pipe(Effect.provide(Layer.merge(base, wsLayer))),

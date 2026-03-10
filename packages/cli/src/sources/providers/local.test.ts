@@ -12,12 +12,14 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
+import { CliEnvConfig } from "../../config/index.js";
 import { createLocalSourceHostProvider } from "./local.js";
 
-const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
+const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>) =>
+  Effect.runPromise(effect.pipe(Effect.provide(Layer.merge(NodeContext.layer, CliEnvConfig.testDefaults))));
 
 describe("createLocalSourceHostProvider", () => {
   const provider = createLocalSourceHostProvider();

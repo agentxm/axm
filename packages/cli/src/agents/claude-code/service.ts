@@ -6,6 +6,8 @@
 
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { CliEnvConfig } from "../../config/index.js";
 import type { CodingAgent } from "../coding-agent.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
@@ -18,15 +20,13 @@ export const claudeCodeMcpStrategy: MixedStrategyConfig = {
   cliRemove: ["claude", "mcp", "remove", "{serverName}"],
 };
 
-const resolveRuntimeOverride = (): Effect.Effect<string | undefined, never> =>
-  Effect.sync(() => process.env[CLAUDE_ENV_OVERRIDE]);
-
 export const claudeCodeCodingAgent: CodingAgent = {
   id: "claude-code",
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
-      const runtimeOverride = yield* resolveRuntimeOverride();
+      const envConfig = yield* CliEnvConfig;
+      const runtimeOverride = Option.getOrUndefined(envConfig.claudeSkillsDir);
       if (runtimeOverride !== undefined && runtimeOverride.trim().length === 0) {
         return {
           _tag: "misconfigured",

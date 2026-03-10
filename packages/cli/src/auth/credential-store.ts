@@ -19,6 +19,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { CliError } from "../cli-error/cli-error.js";
 import { makeCliError } from "../cli-error/cli-error.js";
+import { CliEnvConfig } from "../config/index.js";
 import { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
@@ -60,18 +61,26 @@ const FILE_PERMISSIONS = 0o600;
 // Internal helpers (take fs/path as args to avoid context leakage)
 // -----------------------------------------------------------------------------
 
-const getCredentialsDir = (path: Path.Path) => {
-  const home =
-    process.env["HOME"] ?? process.env["USERPROFILE"] ?? process.env["HOMEPATH"] ?? "/tmp";
-  return path.join(home, ".config", CONFIG_DIR_NAME);
+const resolveHomeDir = (config: {
+  readonly home: Option.Option<string>;
+  readonly userProfile: Option.Option<string>;
+  readonly homePath: Option.Option<string>;
+}): string =>
+  Option.getOrElse(
+    Option.orElse(Option.orElse(config.home, () => config.userProfile), () => config.homePath),
+    () => "/tmp",
+  );
+
+const getCredentialsDir = (path: Path.Path, homeDir: string) => {
+  return path.join(homeDir, ".config", CONFIG_DIR_NAME);
 };
 
-const getCredentialsPath = (path: Path.Path) =>
-  path.join(getCredentialsDir(path), CREDENTIALS_FILENAME);
+const getCredentialsPath = (path: Path.Path, homeDir: string) =>
+  path.join(getCredentialsDir(path, homeDir), CREDENTIALS_FILENAME);
 
-const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path) =>
+const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDir: string) =>
   Effect.gen(function* () {
-    const dir = getCredentialsDir(path);
+    const dir = getCredentialsDir(path, homeDir);
     const exists = yield* fs.exists(dir).pipe(Effect.catchAll(() => Effect.succeed(false)));
     if (!exists) {
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
@@ -112,9 +121,10 @@ const setFilePermissions = (filePath: string) =>
 const readCredentialFile = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  homeDir: string,
 ): Effect.Effect<Option.Option<CredentialFile>, CliError> =>
   Effect.gen(function* () {
-    const filePath = getCredentialsPath(path);
+    const filePath = getCredentialsPath(path, homeDir);
     const exists = yield* fs.exists(filePath).pipe(Effect.catchAll(() => Effect.succeed(false)));
     if (!exists) return Option.none<CredentialFile>();
 
@@ -160,11 +170,12 @@ const readCredentialFile = (
 const writeCredentialFile = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  homeDir: string,
   data: CredentialFile,
 ): Effect.Effect<void, CliError> =>
   Effect.gen(function* () {
-    yield* ensureCredentialsDir(fs, path);
-    const filePath = getCredentialsPath(path);
+    yield* ensureCredentialsDir(fs, path, homeDir);
+    const filePath = getCredentialsPath(path, homeDir);
     const encoded = yield* Schema.encode(CredentialFileSchema)(data).pipe(
       Effect.mapError((error) =>
         makeCliError({
@@ -258,6 +269,8 @@ export const CredentialStoreLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const config = yield* CliEnvConfig;
+    const homeDir = resolveHomeDir(config);
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     yield* emitEnvironmentWarnings(env, storageTier);
@@ -267,7 +280,7 @@ export const CredentialStoreLive = Layer.effect(
 
       save: (registryUrl, handle, credentials) =>
         Effect.gen(function* () {
-          const existing = yield* readCredentialFile(fs, path);
+          const existing = yield* readCredentialFile(fs, path, homeDir);
           const file = Option.getOrElse(existing, () => emptyCredentialFile);
 
           const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
@@ -295,12 +308,12 @@ export const CredentialStoreLive = Layer.effect(
             },
           };
 
-          yield* writeCredentialFile(fs, path, updated);
-        }),
+          yield* writeCredentialFile(fs, path, homeDir, updated);
+        }).pipe(Effect.withSpan("CredentialStore.save")),
 
       load: (registryUrl) =>
         Effect.gen(function* () {
-          const existing = yield* readCredentialFile(fs, path);
+          const existing = yield* readCredentialFile(fs, path, homeDir);
           if (Option.isNone(existing)) return Option.none<StoredCredentials>();
 
           const registry = existing.value.registries[registryUrl];
@@ -318,11 +331,11 @@ export const CredentialStoreLive = Layer.effect(
           }
 
           return Option.none<StoredCredentials>();
-        }),
+        }).pipe(Effect.withSpan("CredentialStore.load")),
 
       clear: (registryUrl) =>
         Effect.gen(function* () {
-          const existing = yield* readCredentialFile(fs, path);
+          const existing = yield* readCredentialFile(fs, path, homeDir);
           if (Option.isNone(existing)) return;
 
           const { [registryUrl]: _, ...remainingRegistries } = existing.value.registries;
@@ -331,8 +344,8 @@ export const CredentialStoreLive = Layer.effect(
             registries: remainingRegistries,
           };
 
-          yield* writeCredentialFile(fs, path, updated);
-        }),
+          yield* writeCredentialFile(fs, path, homeDir, updated);
+        }).pipe(Effect.withSpan("CredentialStore.clear")),
     } satisfies CredentialStoreService;
   }),
 );

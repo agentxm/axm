@@ -19,6 +19,7 @@ import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 
 import type { TelemetryMode } from "./mode.js";
 import { loadVersion } from "../version.js";
+import { CliEnvConfig } from "../config/index.js";
 
 // ---------------------------------------------------------------------------
 // Service interface
@@ -71,12 +72,7 @@ const BASE_URL = "https://t.agentxm.ai";
 export const TelemetryClientLive = (
   mode: TelemetryMode,
   command: string,
-): Layer.Layer<TelemetryClient, never, HttpClient.HttpClient> => {
-  // Auto-detect test runner — return no-op in VITEST
-  if (process.env["VITEST"] === "true") {
-    return TelemetryClientTest;
-  }
-
+): Layer.Layer<TelemetryClient, never, HttpClient.HttpClient | CliEnvConfig> => {
   // mode "off" → no-op
   if (mode === "off") {
     return TelemetryClientTest;
@@ -85,6 +81,13 @@ export const TelemetryClientLive = (
   return Layer.effect(
     TelemetryClient,
     Effect.gen(function* () {
+      const envConfig = yield* CliEnvConfig;
+
+      // D4: VITEST guard moved inside Layer.effect body
+      if (envConfig.vitest === "true") {
+        return { trackEvent: () => Effect.void, reportError: () => Effect.void };
+      }
+
       const httpClient = yield* HttpClient.HttpClient;
 
       const context = {
@@ -92,7 +95,7 @@ export const TelemetryClientLive = (
         os: { name: process.platform, version: os.release() },
         runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
         device: { arch: process.arch },
-        ci: process.env["CI"] === "true",
+        ci: envConfig.ci === "true",
       };
 
       const distinctId = createHash("sha256").update(os.hostname()).digest("hex");
@@ -121,7 +124,7 @@ export const TelemetryClientLive = (
               HttpClientRequest.setBody(HttpBody.unsafeJson(body)),
             ),
           ),
-        );
+        ).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
       };
 
       const reportError: TelemetryClientService["reportError"] = (error) => {
@@ -143,7 +146,7 @@ export const TelemetryClientLive = (
               HttpClientRequest.setBody(HttpBody.unsafeJson(body)),
             ),
           ),
-        );
+        ).pipe(Effect.withSpan("TelemetryClient.reportError"));
       };
 
       return { trackEvent, reportError };

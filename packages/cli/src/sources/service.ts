@@ -18,6 +18,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import type { CliError } from "../cli-error/index.js";
+import { CliEnvConfig } from "../config/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
 import type { ExtensionRef, RegistrySource, Source } from "./types.js";
@@ -169,13 +170,14 @@ export const createRegistryMetaProvider = () => ({
 export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | Workspace | CliEnvConfig
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
+    const envConfig = yield* CliEnvConfig;
     const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
 
     const localProvider = createLocalSourceHostProvider();
@@ -188,6 +190,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Workspace, ws),
+      Layer.succeed(CliEnvConfig, envConfig),
     );
     const depLayer = Option.match(ambientHttpClient, {
       onNone: () => baseDepLayer,
@@ -220,32 +223,38 @@ export const SourceHostProvidersLive: Layer.Layer<
     };
 
     return {
-      find: findImpl as SourceHostProvidersService["find"],
+      find: ((source: Source, options: FindOptions) =>
+        findImpl(source, options).pipe(
+          Effect.withSpan("SourceHostProviders.find"),
+        )) as SourceHostProvidersService["find"],
       fetch: (ref) => {
         const source = ref.source;
-        switch (source.type) {
-          case "github":
-          case "gitlab":
-          case "bitbucket":
-          case "azurerepos": {
-            const provider = createGitHostingSourceHostProvider(source as never);
-            return provider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+        const inner = (() => {
+          switch (source.type) {
+            case "github":
+            case "gitlab":
+            case "bitbucket":
+            case "azurerepos": {
+              const provider = createGitHostingSourceHostProvider(source as never);
+              return provider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+            }
+            case "local":
+              return localProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+            case "git":
+              return gitProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+            case "registry":
+              return registryMetaProvider
+                .fetch(source as never, ref)
+                .pipe(Effect.provide(depLayer)) as Effect.Effect<
+                ExtensionFiles,
+                CliError,
+                Scope.Scope
+              >;
+            case "builtin":
+              return builtinProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
           }
-          case "local":
-            return localProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-          case "git":
-            return gitProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-          case "registry":
-            return registryMetaProvider
-              .fetch(source as never, ref)
-              .pipe(Effect.provide(depLayer)) as Effect.Effect<
-              ExtensionFiles,
-              CliError,
-              Scope.Scope
-            >;
-          case "builtin":
-            return builtinProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-        }
+        })();
+        return inner.pipe(Effect.withSpan("SourceHostProviders.fetch"));
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,

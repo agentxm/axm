@@ -20,6 +20,7 @@ import {
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
@@ -146,6 +147,7 @@ describe("publish.handler", () => {
       AuthClientTest(),
       authCredStoreLayer,
       Layer.succeed(RegistryUrl, "https://registry.agentxm.ai"),
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

@@ -11,6 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { vi } from "vitest";
+import { CliEnvConfig } from "../../config/index.js";
 import { SkillManager, SkillManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
@@ -54,6 +55,7 @@ const buildTestLayer = (wsMock: WorkspaceContextService) =>
     Layer.provide(Layer.succeed(Workspace, wsMock)),
     Layer.provide(Layer.succeed(SourceHostProviders, makeSourcesMock())),
     Layer.provide(NodeContext.layer),
+    Layer.provide(CliEnvConfig.testDefaults),
   );
 
 // ---------------------------------------------------------------------------

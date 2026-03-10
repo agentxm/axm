@@ -11,8 +11,10 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Redacted from "effect/Redacted";
 
 import type { CliError } from "../cli-error/cli-error.js";
+import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore } from "./credential-store.js";
 import {
   CredentialStoreTokenSource,
@@ -81,9 +83,10 @@ export const resolveStoredToken = (
  */
 export const resolveAmbientToken = (
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>> =>
+): Effect.Effect<Option.Option<TokenSource>, never, CliEnvConfig> =>
   Effect.gen(function* () {
-    const envToken = process.env["AXM_TOKEN"];
+    const config = yield* CliEnvConfig;
+    const envToken = Option.map(config.token, Redacted.value).pipe(Option.getOrUndefined);
     if (envToken !== undefined && envToken.length > 0) {
       yield* emitEnvVarMessage;
       return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
@@ -107,7 +110,7 @@ export const resolveAmbientToken = (
 export const resolveToken = (
   registryUrl: string,
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore> =>
+): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore | CliEnvConfig> =>
   Effect.gen(function* () {
     const ambient = yield* resolveAmbientToken(flagToken);
     if (Option.isSome(ambient)) return ambient;

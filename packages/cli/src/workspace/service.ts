@@ -23,6 +23,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import { getAgentById } from "../agents/index.js";
 import { CliFlags } from "../cli-flags/index.js";
+import { CliEnvConfig } from "../config/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -331,15 +332,17 @@ const make = (options: WorkspaceContextOptions) =>
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const envConfig = yield* CliEnvConfig;
     const log = yield* ClackLog;
     const prompt = yield* ClackPrompt;
     const semaphore = yield* Effect.makeSemaphore(1);
 
     const baseDir = path.dirname(workspaceDir);
 
-    const fsLayer = Layer.merge(
+    const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
+      Layer.succeed(CliEnvConfig, envConfig),
     );
 
     // Built-in sources: parameterized via options, falling back to git forges only
@@ -401,7 +404,7 @@ const make = (options: WorkspaceContextOptions) =>
             return Effect.fail(error);
           }),
         );
-      });
+      }).pipe(Effect.withSpan("Workspace.getLockfileState"));
 
     // -----------------------------------------------------------------------
     // Classifier integration
@@ -595,7 +598,7 @@ const make = (options: WorkspaceContextOptions) =>
 
         cachedSources = merged;
         return merged;
-      });
+      }).pipe(Effect.withSpan("Workspace.getConfiguredSources"));
 
     return {
       scope: options.scope,
@@ -605,7 +608,11 @@ const make = (options: WorkspaceContextOptions) =>
         Effect.gen(function* () {
           const flags = yield* CliFlags;
           const resolvedYes = flags.yes || flags.nonInteractive;
-          const verbosity = resolveDiagnosticVerbosity();
+          const envConfig = yield* CliEnvConfig;
+          const verbosity = resolveDiagnosticVerbosity(process.argv, {
+            AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
+            AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
+          });
           const showPlan = (targetPlan: Plan | ExecutedPlan) =>
             displayPlan(targetPlan, { verbosity }).pipe(
               Effect.provide(Layer.succeed(ClackLog, log)),
@@ -687,7 +694,7 @@ const make = (options: WorkspaceContextOptions) =>
           const executed = yield* applyPlan(augmentedPlan);
           yield* showPlan(executed);
           return executed;
-        }),
+        }).pipe(Effect.withSpan("Workspace.resolvePlan")),
 
       getLockfileState,
 
@@ -740,7 +747,7 @@ const make = (options: WorkspaceContextOptions) =>
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
             cachedSources = null; // invalidate cache
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.addConfiguredSource")),
 
       getConfiguredSkills: () =>
         getClassifiedExtensions("skill").pipe(Effect.map(toConfiguredSkillRecord)),
@@ -769,7 +776,10 @@ const make = (options: WorkspaceContextOptions) =>
         ),
 
       getConfiguredAgents: () =>
-        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.agents ?? [])),
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => s.agents ?? []),
+          Effect.withSpan("Workspace.getConfiguredAgents"),
+        ),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
 
@@ -848,7 +858,7 @@ const make = (options: WorkspaceContextOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.setSkill")),
 
       setSkillLock: ({ name, lockEntry }: SetSkillArgs) =>
         withMutex(
@@ -867,7 +877,7 @@ const make = (options: WorkspaceContextOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.setSkillLock")),
 
       removeSkill: (name: string) =>
         withMutex(
@@ -894,7 +904,7 @@ const make = (options: WorkspaceContextOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.removeSkill")),
 
       removeSkillFromSettings: (name: string) =>
         withMutex(
@@ -1163,7 +1173,7 @@ const make = (options: WorkspaceContextOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.setPack")),
 
       removePack: (name: string) =>
         withMutex(
@@ -1188,7 +1198,7 @@ const make = (options: WorkspaceContextOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.removePack")),
 
       getPackDir: (name: string, namespace: string) =>
         Effect.succeed(computePackPaths(path.join, baseDir, namespace, name)),
@@ -1236,7 +1246,7 @@ const make = (options: WorkspaceContextOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.setCommand")),
 
       setCommandLock: ({ name, lockEntry }: SetCommandArgs) =>
         withMutex(
@@ -1286,7 +1296,7 @@ const make = (options: WorkspaceContextOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.removeCommand")),
 
       // -----------------------------------------------------------------------
       // MCP Server methods
@@ -1331,7 +1341,7 @@ const make = (options: WorkspaceContextOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.setMcpServer")),
 
       setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
         withMutex(
@@ -1384,7 +1394,7 @@ const make = (options: WorkspaceContextOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.removeMcpServer")),
 
       // -----------------------------------------------------------------------
       // Granular removal methods (settings-only or lockfile-only)
@@ -1400,7 +1410,7 @@ const make = (options: WorkspaceContextOptions) =>
             const updatedLockfile = { ...currentLockfile, skills: remainingSkills };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ),
+        ).pipe(Effect.withSpan("Workspace.removeSkillLock")),
 
       removeCommandSettings: (name: string) =>
         withMutex(
@@ -1610,7 +1620,7 @@ export interface WorkspaceContextService {
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags from CliFlags. */
   readonly resolvePlan: (
     plan: Plan,
-  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, CliFlags>;
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, CliFlags | CliEnvConfig>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */

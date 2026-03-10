@@ -17,6 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type CliError } from "../../../cli-error/index.js";
@@ -91,6 +92,7 @@ describe("skills-new.handler", () => {
       multiselectLayer,
       CliFlagsTest(flagsOverrides),
       TelemetryClientTest,
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

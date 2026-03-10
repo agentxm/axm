@@ -20,6 +20,7 @@ import {
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
@@ -142,6 +143,7 @@ describe("packs install handler", () => {
       multiselectLayer,
       CliFlagsTest({ yes: true, ...flagsOverrides }),
       TelemetryClientTest,
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -188,6 +190,7 @@ describe("packs install handler", () => {
       multiselectLayer,
       CliFlagsTest({ yes: true, preview: true, ...flagsOverrides }),
       TelemetryClientTest,
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

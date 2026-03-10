@@ -11,6 +11,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Logger from "effect/Logger";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import type * as Scope from "effect/Scope";
 
@@ -35,6 +36,7 @@ import {
   type Select,
   type TextInput,
 } from "../clack-effect/index.js";
+import { CliEnvConfig, CliEnvConfigLive } from "../config/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
 import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "../telemetry/index.js";
@@ -44,14 +46,13 @@ import {
   type WorkspaceContextOptions,
 } from "../workspace/index.js";
 import { getBuiltInSources } from "../workspace/source-metadata.js";
-import { classifyError } from "./error-handling.js";
+import { classifyError, resolveDiagnosticVerbosity } from "./error-handling.js";
 
 /**
  * Default registry URL for auth middleware.
  * Override with AXM_REGISTRY_URL env var for local development.
  */
 const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
-export const REGISTRY_URL = process.env["AXM_REGISTRY_URL"] ?? DEFAULT_REGISTRY_URL;
 
 /**
  * Standard dependencies available to all CLI commands:
@@ -69,6 +70,7 @@ export type AppLayer =
   | AuthClient
   | RegistryUrl
   | CliFlags
+  | CliEnvConfig
   | TelemetryClient
   | ClackLog
   | ClackSpinner
@@ -83,15 +85,24 @@ export type AppLayer =
   | Multiselect;
 
 /**
+ * CliEnvConfigLive with ConfigError converted to defect — config failures at
+ * startup are unrecoverable so they should crash immediately.
+ */
+const CliEnvConfigOrDie: Layer.Layer<CliEnvConfig> = Layer.orDie(CliEnvConfigLive);
+
+/**
  * Default CliFlags layer using auto-detection for nonInteractive.
  * Overridden per-invocation in run() when flags are provided.
  */
-const DefaultCliFlagsLayer = cliFlagsLayer({
-  nonInteractive: Option.none(),
-  yes: false,
-  force: false,
-  preview: false,
-});
+const DefaultCliFlagsLayer = Layer.provide(
+  cliFlagsLayer({
+    nonInteractive: Option.none(),
+    yes: false,
+    force: false,
+    preview: false,
+  }),
+  CliEnvConfigOrDie,
+);
 
 /**
  * Default telemetry layer for ManagedRuntime (mode "all", command "unknown").
@@ -99,14 +110,17 @@ const DefaultCliFlagsLayer = cliFlagsLayer({
  */
 const DefaultTelemetryLayer = Layer.provide(
   TelemetryClientLive("all", "unknown"),
-  FetchHttpClient.layer,
+  Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie),
 );
 
 /**
  * RegistryUrl layer — provides the registry URL for auth middleware.
- * Uses AXM_REGISTRY_URL env var when set, otherwise the default.
+ * Reads from CliEnvConfig (which resolves AXM_REGISTRY_URL), otherwise the default.
  */
-const RegistryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+const RegistryUrlLayer = Layer.effect(
+  RegistryUrl,
+  Effect.map(CliEnvConfig, (cfg) => cfg.registryUrl),
+);
 
 /**
  * Base layer: platform services + raw HttpClient.
@@ -116,10 +130,11 @@ const BaseLayer = Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer);
 /**
  * Auth services layer: CredentialStore + AuthClient + RegistryUrl.
  * Both use the raw HttpClient from BaseLayer (before middleware wraps it).
+ * RegistryUrlLayer depends on CliEnvConfigLive for the URL value.
  */
 const AuthServicesLayer = Layer.provide(
   Layer.mergeAll(CredentialStoreLive, AuthClientLive, RegistryUrlLayer),
-  BaseLayer,
+  Layer.mergeAll(BaseLayer, CliEnvConfigOrDie),
 );
 
 /**
@@ -129,7 +144,7 @@ const AuthServicesLayer = Layer.provide(
  */
 const AuthMiddlewareWrappedLayer = Layer.provide(
   AuthMiddlewareLive,
-  Layer.mergeAll(AuthServicesLayer, BaseLayer),
+  Layer.mergeAll(AuthServicesLayer, BaseLayer, CliEnvConfigOrDie),
 );
 
 /**
@@ -150,6 +165,8 @@ export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   Layer.provide(ClackLive, DefaultCliFlagsLayer),
   DefaultCliFlagsLayer,
   DefaultTelemetryLayer,
+  CliEnvConfigOrDie,
+  Logger.replace(Logger.defaultLogger, Logger.none),
 );
 
 /**
@@ -189,7 +206,7 @@ export function run<A>(
   >,
   options: RunOptions & { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
-export function run<A>(
+export async function run<A>(
   program: Effect.Effect<
     A,
     CliError | PromptCancelled,
@@ -197,11 +214,6 @@ export function run<A>(
   >,
   options?: RunOptions,
 ): Promise<A> {
-  // Warn when using a non-default registry (e.g. local development)
-  if (REGISTRY_URL !== DEFAULT_REGISTRY_URL) {
-    p.log.warn(`Using registry: ${REGISTRY_URL}`);
-  }
-
   // Resolve flags: explicit flags > defaults
   const flagsInput: CliFlagsInput = options?.flags ?? {
     nonInteractive: Option.none(),
@@ -209,26 +221,57 @@ export function run<A>(
     force: false,
     preview: false,
   };
-  const flagsLayer = cliFlagsLayer(flagsInput);
+  const flagsLayer = Layer.provide(cliFlagsLayer(flagsInput), CliEnvConfigOrDie);
+
+  // Resolve config values from CliEnvConfig via a one-shot effect
+  const configValuesEffect = Effect.gen(function* () {
+    const cfg = yield* CliEnvConfig;
+    return {
+      registryUrl: cfg.registryUrl,
+      doNotTrack: Option.getOrUndefined(cfg.doNotTrack),
+      axmTelemetry: Option.getOrUndefined(cfg.telemetry),
+      AXM_VERBOSE: Option.getOrUndefined(cfg.verbose),
+      AXM_DEBUG: Option.getOrUndefined(cfg.debug),
+    };
+  });
+  const configValues = await Effect.runPromise(
+    Effect.provide(configValuesEffect, CliEnvConfigOrDie),
+  );
+
+  // Warn when using a non-default registry (e.g. local development)
+  if (configValues.registryUrl !== DEFAULT_REGISTRY_URL) {
+    p.log.warn(`Using registry: ${configValues.registryUrl}`);
+  }
 
   // Resolve telemetry mode and command
-  const mode = resolveTelemetryMode(process.env, {});
+  const mode = resolveTelemetryMode(
+    { doNotTrack: configValues.doNotTrack, axmTelemetry: configValues.axmTelemetry },
+    {},
+  );
   const command = options?.command ?? "unknown";
-  const telemetryLayer = Layer.provide(TelemetryClientLive(mode, command), FetchHttpClient.layer);
+  const telemetryLayer = Layer.provide(TelemetryClientLive(mode, command), Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie));
 
+  // When --debug is active, swap the default silent logger for prettyLogger
+  const { debug } = resolveDiagnosticVerbosity(
+    process.argv,
+    { AXM_VERBOSE: configValues.AXM_VERBOSE, AXM_DEBUG: configValues.AXM_DEBUG },
+  );
+  const debugLoggerLayer = debug ? Logger.replace(Logger.defaultLogger, Logger.prettyLoggerDefault) : Layer.empty;
+
+  const registryUrl = configValues.registryUrl;
   const provided = options?.workspace
     ? (() => {
         const wsLayer = Layer.provide(
-          workspaceLayer({ ...options.workspace, builtInSources: getBuiltInSources(REGISTRY_URL) }),
-          flagsLayer,
+          workspaceLayer({ ...options.workspace, builtInSources: getBuiltInSources(registryUrl) }),
+          Layer.mergeAll(flagsLayer, CliEnvConfigOrDie),
         );
         const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
-          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer, telemetryLayer)),
+          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer, telemetryLayer, debugLoggerLayer)),
           Effect.scoped,
         );
       })()
-    : (program.pipe(Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer))) as Effect.Effect<
+    : (program.pipe(Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer))) as Effect.Effect<
         A,
         CliError | PromptCancelled,
         AppLayer
@@ -239,7 +282,10 @@ export function run<A>(
   return provided
     .pipe(
       Effect.catchAll((error) => {
-        const result = classifyError(error);
+        const result = classifyError(error, resolveDiagnosticVerbosity(
+          process.argv,
+          { AXM_VERBOSE: configValues.AXM_VERBOSE, AXM_DEBUG: configValues.AXM_DEBUG },
+        ));
         if (result.exitCode !== 0) {
           console.error(result.message);
         }

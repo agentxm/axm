@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
+import type { CliEnvConfig } from "../../config/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import type { LocalSource, ExtensionRef } from "../types.js";
 import { fileUrlToPath } from "../utils.js";
@@ -29,7 +30,7 @@ import { fileUrlToPath } from "../utils.js";
  */
 export const createLocalSourceHostProvider = (): SourceHostProvider<
   LocalSource,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | CliEnvConfig
 > => ({
   type: "local",
 

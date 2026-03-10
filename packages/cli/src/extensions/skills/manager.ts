@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../cli-error/index.js";
+import { CliEnvConfig } from "../../config/index.js";
 import { sourceToLockEntry } from "../../sources/source-to-lock-entry.js";
 import type { SkillExtensionRef } from "../../sources/types.js";
 import type { SourceHostProvidersService } from "../../sources/index.js";
@@ -76,19 +77,21 @@ export const SkillManagerLive = Layer.effect(
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const envConfig = yield* CliEnvConfig;
     const sources = yield* SourceHostProviders;
     const agents = yield* ws.getConfiguredAgents();
     const baseDir = ws.baseDir;
 
-    // Build a layer to provide FileSystem + Path to inner effects
-    const fsPathLayer = Layer.merge(
+    // Build a layer to provide FileSystem + Path + CliEnvConfig to inner effects
+    const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
+      Layer.succeed(CliEnvConfig, envConfig),
     );
 
-    // Provide FileSystem + Path to an effect that needs them
+    // Provide FileSystem + Path + CliEnvConfig to an effect that needs them
     const provide = <A, E>(
-      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
 
     const materializeInstall = ({ ref }: { readonly ref: SkillExtensionRef }) =>
@@ -113,7 +116,7 @@ export const SkillManagerLive = Layer.effect(
           configuredAgents,
           (agent) =>
             agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
-              Effect.provideService(Path.Path, path),
+              Effect.provide(fsPathLayer),
               Effect.map((outcome) => ({ agent, outcome })),
             ),
           { concurrency: "unbounded" },
@@ -146,7 +149,7 @@ export const SkillManagerLive = Layer.effect(
           (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
           { concurrency: "unbounded" },
         );
-      });
+      }).pipe(Effect.withSpan("SkillManager.materializeInstall"));
 
     const materializeUninstall = ({ target }: { readonly target: SkillExtensionTarget }) =>
       Effect.gen(function* () {
@@ -159,7 +162,7 @@ export const SkillManagerLive = Layer.effect(
           configuredAgents,
           (agent) =>
             agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
-              Effect.provideService(Path.Path, path),
+              Effect.provide(fsPathLayer),
               Effect.map((outcome) => ({ agent, outcome })),
             ),
           { concurrency: "unbounded" },
@@ -185,7 +188,7 @@ export const SkillManagerLive = Layer.effect(
 
         // Remove from all canonical locations
         yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
-      });
+      }).pipe(Effect.withSpan("SkillManager.materializeUninstall"));
 
     return {
       extensionType: "skill",
@@ -209,13 +212,18 @@ export const SkillManagerLive = Layer.effect(
             Effect.flatMap(() =>
               ws.setSkill({ name: ref.skill.name, lockEntry, versionConstraint }),
             ),
+            Effect.withSpan("SkillManager.upsertSettingsEntry"),
           );
         }
-        return ws.setSkill({ name: ref.skill.name, lockEntry, versionConstraint });
+        return ws.setSkill({ name: ref.skill.name, lockEntry, versionConstraint }).pipe(
+          Effect.withSpan("SkillManager.upsertSettingsEntry"),
+        );
       },
 
       removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeSkillFromSettings(target.name),
+        ws.removeSkillFromSettings(target.name).pipe(
+          Effect.withSpan("SkillManager.removeSettingsEntry"),
+        ),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: SkillExtensionRef }) => {
         const lockEntry = buildSkillLockEntry(ref, agents);
@@ -231,17 +239,20 @@ export const SkillManagerLive = Layer.effect(
                 versionConstraint: Option.none(),
               }),
             ),
+            Effect.withSpan("SkillManager.upsertLockfileEntry"),
           );
         }
         return ws.setSkillLock({
           name: ref.skill.name,
           lockEntry,
           versionConstraint: Option.none(),
-        });
+        }).pipe(Effect.withSpan("SkillManager.upsertLockfileEntry"));
       },
 
       removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeSkillLock(target.name),
+        ws.removeSkillLock(target.name).pipe(
+          Effect.withSpan("SkillManager.removeLockfileEntry"),
+        ),
     } satisfies ExtensionManager<SkillExtensionRef>;
   }),
 );
@@ -251,7 +262,7 @@ export const SkillManagerLive = Layer.effect(
 // -----------------------------------------------------------------------------
 
 type ProvideFS = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
 ) => Effect.Effect<A, E, never>;
 
 const materializeByRefType = (

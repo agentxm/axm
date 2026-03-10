@@ -21,6 +21,7 @@ import {
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import {
   SourceHostProviders,
@@ -133,6 +134,7 @@ describe("installPack operation handler", () => {
       selectLayer,
       multiselectLayer,
       CliFlagsTest(),
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

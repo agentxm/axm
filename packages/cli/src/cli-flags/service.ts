@@ -1,6 +1,8 @@
 import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { CliEnvConfig } from "../config/index.js";
 import { isInteractive } from "../utils/tty.js";
 
 export interface CliFlagsService {
@@ -19,16 +21,22 @@ export interface CliFlagsInput {
   readonly preview: boolean;
 }
 
-export const layer = (input: CliFlagsInput): Layer.Layer<CliFlags> =>
-  Layer.succeed(CliFlags, {
-    nonInteractive: Option.getOrElse(
-      input.nonInteractive,
-      () => process.env["CI"] === "true" || !isInteractive(),
-    ),
-    yes: input.yes,
-    force: input.force,
-    preview: input.preview,
-  });
+export const layer = (input: CliFlagsInput): Layer.Layer<CliFlags, never, CliEnvConfig> =>
+  Layer.effect(
+    CliFlags,
+    Effect.gen(function* () {
+      const envConfig = yield* CliEnvConfig;
+      return {
+        nonInteractive: Option.getOrElse(
+          input.nonInteractive,
+          () => envConfig.ci === "true" || !isInteractive(),
+        ),
+        yes: input.yes,
+        force: input.force,
+        preview: input.preview,
+      };
+    }),
+  );
 
 export const CliFlagsTest = (overrides?: Partial<CliFlagsService>): Layer.Layer<CliFlags> =>
   Layer.succeed(CliFlags, {

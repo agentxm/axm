@@ -18,6 +18,7 @@ import { ClackLog } from "../clack-effect/log/service.js";
 import { ClackPrompt } from "../clack-effect/prompt/service.js";
 import { ClackSpinner } from "../clack-effect/spinner/service.js";
 import { CliFlags } from "../cli-flags/index.js";
+import { CliEnvConfig } from "../config/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
@@ -58,7 +59,7 @@ export const withAuthGuard = <A, E, R>(
 ): Effect.Effect<
   A,
   E | CliError | PromptCancelled,
-  R | CredentialStore | AuthClient | CliFlags | RegistryUrl | ClackPrompt | ClackLog | ClackSpinner
+  R | CredentialStore | AuthClient | CliFlags | CliEnvConfig | RegistryUrl | ClackPrompt | ClackLog | ClackSpinner
 > =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;

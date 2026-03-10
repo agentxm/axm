@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import { CliEnvConfig } from "../config/index.js";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
@@ -96,6 +97,7 @@ const makeLayers = (opts?: {
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,
+    CliEnvConfig.testDefaults,
   );
 
   return { FullLayer, mockLog, mockPrompt };

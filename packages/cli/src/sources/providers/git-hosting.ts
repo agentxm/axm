@@ -15,6 +15,7 @@ import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
+import type { CliEnvConfig } from "../../config/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import { fileUrlToPath } from "../utils.js";
@@ -53,7 +54,7 @@ export const createGitHostingSourceHostProvider = <
   },
 >(
   host: H,
-): SourceHostProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
+): SourceHostProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope | CliEnvConfig> => ({
   type: host.type as S["type"],
 
   match: (url: URL) => Effect.succeed(url.hostname === host.url.hostname),

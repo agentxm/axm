@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeClackLogTestLayer, makeClackPromptTestLayer } from "../../clack-effect/index.js";
+import { CliEnvConfig } from "../../config/index.js";
 import { CliFlagsTest } from "../../cli-flags/index.js";
 import { makeCliError } from "../../cli-error/index.js";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
@@ -62,6 +63,7 @@ const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
     promptLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
     CliFlagsTest(),
+    CliEnvConfig.testDefaults,
   );
 };
 

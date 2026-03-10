@@ -13,6 +13,7 @@ import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { handleWhoami } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -59,6 +60,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,
+    CliEnvConfig.testDefaults,
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper

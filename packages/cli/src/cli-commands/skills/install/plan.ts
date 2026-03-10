@@ -12,6 +12,7 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import {
   SourceHostProviders,
   type SkillExtensionRef,
@@ -48,6 +49,7 @@ export const buildSkillInstallPlan = ({
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const log = yield* Log;
+    const envConfig = yield* CliEnvConfig;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
       Effect.catchAll((error) => {
         if (
@@ -98,6 +100,7 @@ export const buildSkillInstallPlan = ({
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(Log, log),
+        Effect.provideService(CliEnvConfig, envConfig),
       );
 
       return {

@@ -38,6 +38,7 @@ import {
   makeClackPromptTestLayer,
 } from "../../clack-effect/index.js";
 import { CliFlags, CliFlagsTest } from "../../cli-flags/index.js";
+import { CliEnvConfig } from "../../config/index.js";
 import { TelemetryClient, TelemetryClientTest } from "../../telemetry/index.js";
 import {
   Workspace,
@@ -86,6 +87,7 @@ describe("init.handler", () => {
     clackPromptLayer,
     CliFlagsTest(),
     TelemetryClientTest,
+    CliEnvConfig.testDefaults,
   );
 
   /**
@@ -107,6 +109,7 @@ describe("init.handler", () => {
         | ClackPrompt
         | Workspace
         | CliFlags
+        | CliEnvConfig
         | TelemetryClient
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
@@ -337,6 +340,7 @@ describe("init.handler", () => {
         TestLayer,
         CliFlagsTest({ nonInteractive: false, yes: true }),
         TelemetryClientTest,
+        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(
         workspaceLayer({ scope: "project", agents: Option.none() }),
@@ -412,6 +416,7 @@ describe("init.handler", () => {
         iClackPromptLayer,
         CliFlagsTest({ nonInteractive: false }),
         TelemetryClientTest,
+        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
       return <A, E>(
@@ -428,6 +433,7 @@ describe("init.handler", () => {
           | ClackPrompt
           | Workspace
           | CliFlags
+          | CliEnvConfig
           | TelemetryClient
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
@@ -514,13 +520,10 @@ describe("init.handler", () => {
         iClackPromptLayer,
         CliFlagsTest(),
         TelemetryClientTest,
+        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
-        // Ensure telemetry is not disabled
-        delete process.env["AXM_TELEMETRY"];
-        delete process.env["DO_NOT_TRACK"];
-
         yield* handleInit();
 
         const infoMessages = mockLog.logs.info;
@@ -540,6 +543,26 @@ describe("init.handler", () => {
           multiselect: { type: "multiselect", indices: [] },
         },
       });
+      // Provide CliEnvConfig with telemetry explicitly set to "0"
+      const telemetryOffConfig = Layer.succeed(CliEnvConfig, {
+        registryUrl: "https://registry.agentxm.ai",
+        token: Option.none(),
+        ci: "false",
+        doNotTrack: Option.none(),
+        telemetry: Option.some("0"),
+        sshClient: Option.none(),
+        sshTty: Option.none(),
+        xdgConfigHome: Option.none(),
+        claudeSkillsDir: Option.none(),
+        geminiCliSkillsDir: Option.none(),
+        installInternalSkills: Option.none(),
+        vitest: "false",
+        home: Option.none(),
+        userProfile: Option.none(),
+        homePath: Option.none(),
+        verbose: Option.none(),
+        debug: Option.none(),
+      });
       const BaseLayer = Layer.mergeAll(
         NodeContext.layer,
         iClackLogLayer,
@@ -549,25 +572,16 @@ describe("init.handler", () => {
         iClackPromptLayer,
         CliFlagsTest(),
         TelemetryClientTest,
+        telemetryOffConfig,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
-        const original = process.env["AXM_TELEMETRY"];
-        process.env["AXM_TELEMETRY"] = "0";
-        try {
-          yield* handleInit();
+        yield* handleInit();
 
-          const infoMessages = mockLog.logs.info;
-          expect(infoMessages).not.toContain(
-            "Telemetry is enabled to help improve axm. To disable:",
-          );
-        } finally {
-          if (original === undefined) {
-            delete process.env["AXM_TELEMETRY"];
-          } else {
-            process.env["AXM_TELEMETRY"] = original;
-          }
-        }
+        const infoMessages = mockLog.logs.info;
+        expect(infoMessages).not.toContain(
+          "Telemetry is enabled to help improve axm. To disable:",
+        );
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });
   });

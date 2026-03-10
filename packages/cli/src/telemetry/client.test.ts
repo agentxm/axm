@@ -3,8 +3,9 @@ import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach } from "vitest";
+import * as Option from "effect/Option";
 
+import { CliEnvConfig } from "../config/index.js";
 import { TelemetryClient, TelemetryClientLive, TelemetryClientTest } from "./client.js";
 
 // ---------------------------------------------------------------------------
@@ -42,32 +43,20 @@ const makeMockLayer = (mock: { client: HttpClient.HttpClient }) =>
   Layer.succeed(HttpClient.HttpClient, mock.client);
 
 // ---------------------------------------------------------------------------
-// Tests requiring VITEST unset (to bypass auto-detection)
+// Tests — CliEnvConfig.testDefaults has vitest: "false" so the live path runs
 // ---------------------------------------------------------------------------
 
 describe("TelemetryClientLive", () => {
-  let savedVitest: string | undefined;
-
-  beforeEach(() => {
-    savedVitest = process.env["VITEST"];
-    delete process.env["VITEST"];
-  });
-
-  afterEach(() => {
-    if (savedVitest !== undefined) {
-      process.env["VITEST"] = savedVitest;
-    } else {
-      delete process.env["VITEST"];
-    }
-  });
-
   const runWith = (
     mode: "all" | "errors" | "off",
     command: string,
     mock: { client: HttpClient.HttpClient },
   ) => {
     const httpLayer = makeMockLayer(mock);
-    const telemetryLayer = Layer.provide(TelemetryClientLive(mode, command), httpLayer);
+    const telemetryLayer = Layer.provide(
+      TelemetryClientLive(mode, command),
+      Layer.mergeAll(httpLayer, CliEnvConfig.testDefaults),
+    );
     return <A>(effect: Effect.Effect<A, never, TelemetryClient>) =>
       effect.pipe(Effect.provide(telemetryLayer));
   };
@@ -221,7 +210,10 @@ describe("TelemetryClientLive", () => {
       Effect.gen(function* () {
         const failingClient = HttpClient.make(() => Effect.die("network failure"));
         const httpLayer = Layer.succeed(HttpClient.HttpClient, failingClient);
-        const telemetryLayer = Layer.provide(TelemetryClientLive("all", "init"), httpLayer);
+        const telemetryLayer = Layer.provide(
+          TelemetryClientLive("all", "init"),
+          Layer.mergeAll(httpLayer, CliEnvConfig.testDefaults),
+        );
 
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -245,14 +237,35 @@ describe("TelemetryClientLive", () => {
 });
 
 describe("VITEST auto-detection", () => {
-  it.effect("returns no-op layer when VITEST=true", () =>
+  /** CliEnvConfig layer with vitest: "true" to exercise the no-op guard. */
+  const VitestTrueConfig = Layer.succeed(CliEnvConfig, {
+    registryUrl: "https://registry.agentxm.ai",
+    token: Option.none(),
+    ci: "false",
+    doNotTrack: Option.none(),
+    telemetry: Option.none(),
+    sshClient: Option.none(),
+    sshTty: Option.none(),
+    xdgConfigHome: Option.none(),
+    claudeSkillsDir: Option.none(),
+    geminiCliSkillsDir: Option.none(),
+    installInternalSkills: Option.none(),
+    vitest: "true",
+    home: Option.none(),
+    userProfile: Option.none(),
+    homePath: Option.none(),
+    verbose: Option.none(),
+    debug: Option.none(),
+  });
+
+  it.effect("returns no-op layer when vitest config is 'true'", () =>
     Effect.gen(function* () {
-      // VITEST is "true" in the test environment (not cleared by beforeEach
-      // above since this describe block is outside TelemetryClientLive),
-      // so the live factory returns a no-op layer.
       const mock = makeMockHttpClient();
       const httpLayer = makeMockLayer(mock);
-      const telemetryLayer = Layer.provide(TelemetryClientLive("all", "init"), httpLayer);
+      const telemetryLayer = Layer.provide(
+        TelemetryClientLive("all", "init"),
+        Layer.mergeAll(httpLayer, VitestTrueConfig),
+      );
 
       const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -267,7 +280,7 @@ describe("VITEST auto-detection", () => {
 
       yield* Effect.yieldNow();
 
-      // No HTTP calls because VITEST=true triggers no-op
+      // No HTTP calls because vitest="true" triggers no-op
       expect(mock.captured).toHaveLength(0);
     }),
   );

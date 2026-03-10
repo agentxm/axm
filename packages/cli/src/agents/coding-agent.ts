@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import type * as Path from "@effect/platform/Path";
 import type * as FileSystem from "@effect/platform/FileSystem";
 import type { CliError } from "../cli-error/index.js";
+import type { CliEnvConfig } from "../config/index.js";
 import type { Workspace } from "../workspace/service.js";
 import type { AgentId } from "./types.js";
 
@@ -55,7 +56,7 @@ export interface CodingAgent {
   readonly id: AgentId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
-  ) => Effect.Effect<ResolveSkillsDirOutcome, CliError, Path.Path>;
+  ) => Effect.Effect<ResolveSkillsDirOutcome, CliError, Path.Path | CliEnvConfig>;
   readonly addMcpServer: (
     args: AddMcpServerArgs,
   ) => Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path>;

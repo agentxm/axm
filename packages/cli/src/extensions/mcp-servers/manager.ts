@@ -177,7 +177,7 @@ export const McpServerManagerLive = Layer.effect(
               fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
             );
           }
-        }),
+        }).pipe(Effect.withSpan("McpServerManager.materializeInstall")),
 
       materializeUninstall: ({ target }: { readonly target: McpServerExtensionTarget }) =>
         Effect.gen(function* () {
@@ -203,7 +203,7 @@ export const McpServerManagerLive = Layer.effect(
             },
             { concurrency: "unbounded" },
           );
-        }),
+        }).pipe(Effect.withSpan("McpServerManager.materializeUninstall")),
 
       upsertSettingsEntry: ({
         ref,
@@ -211,7 +211,7 @@ export const McpServerManagerLive = Layer.effect(
         readonly ref: McpServerExtensionRef;
         readonly versionConstraint: Option.Option<string>;
       }) => {
-        if (ref.refType !== "registry") return Effect.void;
+        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));
         const registryRef = ref as RegistryMcpServerRef;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
@@ -221,14 +221,17 @@ export const McpServerManagerLive = Layer.effect(
             const lockEntry = buildMcpServerLockEntry(registryRef, new Date());
             return ws.setMcpServer({ name: ref.server.name, lockEntry });
           }),
+          Effect.withSpan("McpServerManager.upsertSettingsEntry"),
         );
       },
 
       removeSettingsEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws.removeMcpServerSettings(target.name),
+        ws.removeMcpServerSettings(target.name).pipe(
+          Effect.withSpan("McpServerManager.removeSettingsEntry"),
+        ),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
-        if (ref.refType !== "registry") return Effect.void;
+        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
         const registryRef = ref as RegistryMcpServerRef;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
@@ -238,11 +241,14 @@ export const McpServerManagerLive = Layer.effect(
             const lockEntry = buildMcpServerLockEntry(registryRef, new Date());
             return ws.setMcpServerLock({ name: ref.server.name, lockEntry });
           }),
+          Effect.withSpan("McpServerManager.upsertLockfileEntry"),
         );
       },
 
       removeLockfileEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws.removeMcpServerLock(target.name),
+        ws.removeMcpServerLock(target.name).pipe(
+          Effect.withSpan("McpServerManager.removeLockfileEntry"),
+        ),
     } satisfies ExtensionManager<McpServerExtensionRef>;
   }),
 );

@@ -19,6 +19,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
+import { CliEnvConfig } from "../config/index.js";
 import type { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/service.js";
@@ -146,15 +147,16 @@ const runWithService = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
+    SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope | CliEnvConfig
   >,
 ) => {
   const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
     Layer.provide(NodeContext.layer),
+    Layer.provide(CliEnvConfig.testDefaults),
   );
-  const fullLayer = Layer.merge(spLayer, NodeContext.layer);
+  const fullLayer = Layer.mergeAll(spLayer, NodeContext.layer, CliEnvConfig.testDefaults);
   return Effect.runPromise(effect.pipe(Effect.provide(fullLayer), Effect.scoped));
 };
 

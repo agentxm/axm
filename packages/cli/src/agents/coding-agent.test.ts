@@ -5,6 +5,9 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
 import { claudeCodeMcpStrategy, claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexMcpStrategy } from "./codex/service.js";
 import { cursorMcpStrategy } from "./cursor/service.js";
@@ -12,23 +15,43 @@ import { geminiCliMcpStrategy, geminiCliCodingAgent } from "./gemini-cli/service
 import { githubCopilotMcpStrategy } from "./github-copilot/service.js";
 import { opencodeMcpStrategy, opencodeCodingAgent } from "./opencode/service.js";
 
+const makeTestLayer = (configOverrides?: Partial<CliEnvConfigService>) => {
+  const configLayer = configOverrides
+    ? Layer.succeed(CliEnvConfig, {
+        registryUrl: "https://registry.agentxm.ai",
+        token: Option.none(),
+        ci: "false",
+        doNotTrack: Option.none(),
+        telemetry: Option.none(),
+        sshClient: Option.none(),
+        sshTty: Option.none(),
+        xdgConfigHome: Option.none(),
+        claudeSkillsDir: Option.none(),
+        geminiCliSkillsDir: Option.none(),
+        installInternalSkills: Option.none(),
+        vitest: "false",
+        home: Option.none(),
+        userProfile: Option.none(),
+        homePath: Option.none(),
+        verbose: Option.none(),
+        debug: Option.none(),
+        ...configOverrides,
+      } satisfies CliEnvConfigService)
+    : CliEnvConfig.testDefaults;
+  return Layer.mergeAll(NodeContext.layer, configLayer);
+};
+
 describe("coding-agent services", () => {
+  const TestLayer = makeTestLayer();
   const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(NodeContext.layer));
+    effect.pipe(Effect.provide(TestLayer));
 
   it.effect("claude-code resolves supported directory by default", () =>
     withNode(
       Effect.gen(function* () {
-        const previous = process.env["AXM_CLAUDE_SKILLS_DIR"];
-        delete process.env["AXM_CLAUDE_SKILLS_DIR"];
-
         const outcome = yield* claudeCodeCodingAgent.resolveEffectiveSkillsDir({
           workspaceRoot: "/workspace",
         });
-
-        if (previous !== undefined) {
-          process.env["AXM_CLAUDE_SKILLS_DIR"] = previous;
-        }
 
         expect(outcome._tag).toBe("supported");
         if (outcome._tag === "supported") {
@@ -38,26 +61,16 @@ describe("coding-agent services", () => {
     ),
   );
 
-  it.effect("gemini-cli returns misconfigured when override is empty", () =>
-    withNode(
-      Effect.gen(function* () {
-        const previous = process.env["AXM_GEMINI_CLI_SKILLS_DIR"];
-        process.env["AXM_GEMINI_CLI_SKILLS_DIR"] = "";
+  it.effect("gemini-cli returns misconfigured when override is empty", () => {
+    const layer = makeTestLayer({ geminiCliSkillsDir: Option.some("") });
+    return Effect.gen(function* () {
+      const outcome = yield* geminiCliCodingAgent.resolveEffectiveSkillsDir({
+        workspaceRoot: "/workspace",
+      });
 
-        const outcome = yield* geminiCliCodingAgent.resolveEffectiveSkillsDir({
-          workspaceRoot: "/workspace",
-        });
-
-        if (previous === undefined) {
-          delete process.env["AXM_GEMINI_CLI_SKILLS_DIR"];
-        } else {
-          process.env["AXM_GEMINI_CLI_SKILLS_DIR"] = previous;
-        }
-
-        expect(outcome._tag).toBe("misconfigured");
-      }),
-    ),
-  );
+      expect(outcome._tag).toBe("misconfigured");
+    }).pipe(Effect.provide(layer));
+  });
 
   it.effect("opencode MCP add/remove uses success contract", () =>
     withNode(

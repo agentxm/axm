@@ -181,7 +181,7 @@ export const CommandManagerLive = Layer.effect(
               fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
             );
           }
-        }),
+        }).pipe(Effect.withSpan("CommandManager.materializeInstall")),
 
       materializeUninstall: ({ target }: { readonly target: CommandExtensionTarget }) =>
         Effect.gen(function* () {
@@ -207,7 +207,7 @@ export const CommandManagerLive = Layer.effect(
             },
             { concurrency: "unbounded" },
           );
-        }),
+        }).pipe(Effect.withSpan("CommandManager.materializeUninstall")),
 
       upsertSettingsEntry: ({
         ref,
@@ -215,7 +215,7 @@ export const CommandManagerLive = Layer.effect(
         readonly ref: CommandExtensionRef;
         readonly versionConstraint: Option.Option<string>;
       }) => {
-        if (ref.refType !== "registry") return Effect.void;
+        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("CommandManager.upsertSettingsEntry"));
         const registryRef = ref as RegistryCommandRef;
         return validateExactResolvedVersion(
           `commands.${ref.command.name}.resolvedVersion`,
@@ -225,14 +225,17 @@ export const CommandManagerLive = Layer.effect(
             const lockEntry = buildCommandLockEntry(registryRef, new Date());
             return ws.setCommand({ name: ref.command.name, lockEntry });
           }),
+          Effect.withSpan("CommandManager.upsertSettingsEntry"),
         );
       },
 
       removeSettingsEntry: ({ target }: { readonly target: CommandExtensionTarget }) =>
-        ws.removeCommandSettings(target.name),
+        ws.removeCommandSettings(target.name).pipe(
+          Effect.withSpan("CommandManager.removeSettingsEntry"),
+        ),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: CommandExtensionRef }) => {
-        if (ref.refType !== "registry") return Effect.void;
+        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("CommandManager.upsertLockfileEntry"));
         const registryRef = ref as RegistryCommandRef;
         return validateExactResolvedVersion(
           `commands.${ref.command.name}.resolvedVersion`,
@@ -242,11 +245,14 @@ export const CommandManagerLive = Layer.effect(
             const lockEntry = buildCommandLockEntry(registryRef, new Date());
             return ws.setCommandLock({ name: ref.command.name, lockEntry });
           }),
+          Effect.withSpan("CommandManager.upsertLockfileEntry"),
         );
       },
 
       removeLockfileEntry: ({ target }: { readonly target: CommandExtensionTarget }) =>
-        ws.removeCommandLock(target.name),
+        ws.removeCommandLock(target.name).pipe(
+          Effect.withSpan("CommandManager.removeLockfileEntry"),
+        ),
     } satisfies ExtensionManager<CommandExtensionRef>;
   }),
 );

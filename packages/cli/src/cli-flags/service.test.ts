@@ -1,28 +1,38 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { afterEach, beforeEach } from "vitest";
+import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
 import { CliFlags, CliFlagsTest, layer, type CliFlagsInput } from "./service.js";
 
-const getFlags = (input: CliFlagsInput) => CliFlags.pipe(Effect.provide(layer(input)));
+const getFlags = (input: CliFlagsInput, configOverrides?: Partial<CliEnvConfigService>) => {
+  const configLayer = configOverrides
+    ? Layer.succeed(CliEnvConfig, {
+        registryUrl: "https://registry.agentxm.ai",
+        token: Option.none(),
+        ci: "false",
+        doNotTrack: Option.none(),
+        telemetry: Option.none(),
+        sshClient: Option.none(),
+        sshTty: Option.none(),
+        xdgConfigHome: Option.none(),
+        claudeSkillsDir: Option.none(),
+        geminiCliSkillsDir: Option.none(),
+        installInternalSkills: Option.none(),
+        vitest: "false",
+        home: Option.none(),
+        userProfile: Option.none(),
+        homePath: Option.none(),
+        verbose: Option.none(),
+        debug: Option.none(),
+        ...configOverrides,
+      } satisfies CliEnvConfigService)
+    : CliEnvConfig.testDefaults;
+  return CliFlags.pipe(Effect.provide(Layer.provide(layer(input), configLayer)));
+};
 
 describe("CliFlags service", () => {
   describe("nonInteractive resolution chain", () => {
-    let originalCI: string | undefined;
-
-    beforeEach(() => {
-      originalCI = process.env["CI"];
-      delete process.env["CI"];
-    });
-
-    afterEach(() => {
-      if (originalCI === undefined) {
-        delete process.env["CI"];
-      } else {
-        process.env["CI"] = originalCI;
-      }
-    });
-
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {
         const flags = yield* getFlags({
@@ -37,33 +47,36 @@ describe("CliFlags service", () => {
 
     it.effect("explicit Option.some(false) resolves to false even with CI=true", () =>
       Effect.gen(function* () {
-        process.env["CI"] = "true";
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          yes: false,
-          force: false,
-          preview: false,
-        });
+        const flags = yield* getFlags(
+          {
+            nonInteractive: Option.some(false),
+            yes: false,
+            force: false,
+            preview: false,
+          },
+          { ci: "true" },
+        );
         expect(flags.nonInteractive).toBe(false);
       }),
     );
 
     it.effect("Option.none() with CI=true resolves to true", () =>
       Effect.gen(function* () {
-        process.env["CI"] = "true";
-        const flags = yield* getFlags({
-          nonInteractive: Option.none(),
-          yes: false,
-          force: false,
-          preview: false,
-        });
+        const flags = yield* getFlags(
+          {
+            nonInteractive: Option.none(),
+            yes: false,
+            force: false,
+            preview: false,
+          },
+          { ci: "true" },
+        );
         expect(flags.nonInteractive).toBe(true);
       }),
     );
 
     it.effect("Option.none() with CI unset falls back to TTY detection", () =>
       Effect.gen(function* () {
-        delete process.env["CI"];
         const flags = yield* getFlags({
           nonInteractive: Option.none(),
           yes: false,

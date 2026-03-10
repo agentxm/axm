@@ -11,8 +11,11 @@ import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import * as Option from "effect/Option";
+import * as Redacted from "effect/Redacted";
+import { beforeEach, describe, expect, it } from "vitest";
 
+import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
 import { resetEnvVarMessageFlag } from "./token-resolution.js";
@@ -23,6 +26,31 @@ import { resetEnvVarMessageFlag } from "./token-resolution.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
+/**
+ * Creates a CliEnvConfig test layer with overrides.
+ */
+const makeTestConfig = (overrides: Partial<CliEnvConfigService> = {}): Layer.Layer<CliEnvConfig> =>
+  Layer.succeed(CliEnvConfig, {
+    registryUrl: "https://registry.agentxm.ai",
+    token: Option.none(),
+    ci: "false",
+    doNotTrack: Option.none(),
+    telemetry: Option.none(),
+    sshClient: Option.none(),
+    sshTty: Option.none(),
+    xdgConfigHome: Option.none(),
+    claudeSkillsDir: Option.none(),
+    geminiCliSkillsDir: Option.none(),
+    installInternalSkills: Option.none(),
+    vitest: "false",
+    home: Option.none(),
+    userProfile: Option.none(),
+    homePath: Option.none(),
+    verbose: Option.none(),
+    debug: Option.none(),
+    ...overrides,
+  } satisfies CliEnvConfigService);
+
 const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   HttpClient.make((request) =>
     Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
@@ -32,15 +60,17 @@ const makeTestLayers = (
   handler: (request: HttpClientRequest.HttpClientRequest) => Response,
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
   flagToken?: string,
+  configOverrides?: Partial<CliEnvConfigService>,
 ) => {
   const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
   const credStoreLayer = CredentialStoreTest("encrypted-file", credentialData);
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const configLayer = makeTestConfig(configOverrides);
 
-  // Auth middleware depends on HttpClient, CredentialStore, RegistryUrl
+  // Auth middleware depends on HttpClient, CredentialStore, RegistryUrl, CliEnvConfig
   const middlewareLayer = Layer.provide(
     makeAuthMiddlewareLive(flagToken),
-    Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer),
+    Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer, configLayer),
   );
 
   // Merge credential store so tests can access it
@@ -71,19 +101,7 @@ const storedCredentials = (expiresAt?: string) => ({
 // -----------------------------------------------------------------------------
 
 describe("AuthMiddleware", () => {
-  const originalEnv = process.env["AXM_TOKEN"];
-
   beforeEach(() => {
-    delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
-  });
-
-  afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env["AXM_TOKEN"] = originalEnv;
-    } else {
-      delete process.env["AXM_TOKEN"];
-    }
     resetEnvVarMessageFlag();
   });
 
@@ -111,13 +129,17 @@ describe("AuthMiddleware", () => {
     });
 
     it("injects Bearer header for AXM_TOKEN env var", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
       let capturedAuth: string | null = null;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
-        return new Response("ok", { status: 200 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = (req.headers["authorization"] as string) ?? null;
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -258,16 +280,20 @@ describe("AuthMiddleware", () => {
     });
 
     it("does not refresh for env var tokens on 401", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
       let refreshCalled = false;
 
-      const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
-          refreshCalled = true;
-          return new Response("ok", { status: 200 });
-        }
-        return new Response("unauthorized", { status: 401 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          if (req.url.includes("/v1/auth/token/refresh")) {
+            refreshCalled = true;
+            return new Response("ok", { status: 200 });
+          }
+          return new Response("unauthorized", { status: 401 });
+        },
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -429,10 +455,11 @@ describe("AuthMiddleware", () => {
         },
       });
       const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+      const configLayer = makeTestConfig();
 
       const middlewareLayer = Layer.provide(
         makeAuthMiddlewareLive(),
-        Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer),
+        Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer, configLayer),
       );
       const layers = Layer.mergeAll(middlewareLayer, credStoreLayer, registryUrlLayer);
 
@@ -447,13 +474,17 @@ describe("AuthMiddleware", () => {
     });
 
     it("scopes AXM_TOKEN to default registry only", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_scoped";
       let capturedAuth: string | null = null;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
-        return new Response("ok", { status: 200 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = (req.headers["authorization"] as string) ?? null;
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env_scoped")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -467,13 +498,17 @@ describe("AuthMiddleware", () => {
     });
 
     it("does not leak AXM_TOKEN to non-registry hosts", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_leak_test";
       let capturedAuth: string | null = null;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
-        return new Response("ok", { status: 200 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = (req.headers["authorization"] as string) ?? null;
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env_leak_test")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -486,13 +521,17 @@ describe("AuthMiddleware", () => {
     });
 
     it("uses AXM_TOKEN with empty credential store against default registry", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_default";
       let capturedAuth: string | null = null;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
-        return new Response("ok", { status: 200 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = (req.headers["authorization"] as string) ?? null;
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env_default")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -511,9 +550,12 @@ describe("AuthMiddleware", () => {
 
   describe("AXM_TOKEN stderr message", () => {
     it("emits warning once per invocation", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
-
-      const layers = makeTestLayers((_req) => new Response("ok", { status: 200 }));
+      const layers = makeTestLayers(
+        (_req) => new Response("ok", { status: 200 }),
+        undefined,
+        undefined,
+        { token: Option.some(Redacted.make("axm_ses_env")) },
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;

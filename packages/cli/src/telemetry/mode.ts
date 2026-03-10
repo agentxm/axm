@@ -19,6 +19,11 @@ const fromBooleanOrErrors = (value: boolean | "errors"): TelemetryMode => {
   return value ? "all" : "off";
 };
 
+export interface TelemetryEnvValues {
+  readonly doNotTrack?: string | undefined;
+  readonly axmTelemetry?: string | undefined;
+}
+
 /**
  * Resolve the effective telemetry mode from environment and settings.
  *
@@ -28,14 +33,18 @@ const fromBooleanOrErrors = (value: boolean | "errors"): TelemetryMode => {
  * 3. `settings.project` → `false` → `"off"`, `"errors"` → `"errors"`, `true` → `"all"`
  * 4. `settings.user` → same mapping
  * 5. Default → `"all"`
+ *
+ * Accepts either explicit env values or a full env record for backward compatibility.
  */
 export const resolveTelemetryMode = (
-  env: Record<string, string | undefined>,
+  env: TelemetryEnvValues | Record<string, string | undefined>,
   settings: TelemetrySettings,
 ): TelemetryMode => {
-  if (env["DO_NOT_TRACK"] === "1") return "off";
+  const doNotTrack = "doNotTrack" in env ? env.doNotTrack : (env as Record<string, string | undefined>)["DO_NOT_TRACK"];
+  const axmTelemetry = "axmTelemetry" in env ? env.axmTelemetry : (env as Record<string, string | undefined>)["AXM_TELEMETRY"];
 
-  const axmTelemetry = env["AXM_TELEMETRY"];
+  if (doNotTrack === "1") return "off";
+
   if (axmTelemetry !== undefined) {
     if (axmTelemetry === "0" || axmTelemetry === "false") return "off";
     if (axmTelemetry === "errors") return "errors";

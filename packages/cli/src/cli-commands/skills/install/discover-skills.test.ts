@@ -10,20 +10,55 @@ import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
   discoverSkillsInDir,
   type DiscoveryOptions,
   getPriorityDirectories,
 } from "./discover-skills.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { getAllAgents } from "../../../agents/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const withFileSystem = <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext>) =>
-  effect.pipe(Effect.provide(NodeContext.layer));
+const TestLayer = Layer.mergeAll(NodeContext.layer, CliEnvConfig.testDefaults);
+
+const withFileSystem = <A, E>(
+  effect: Effect.Effect<A, E, NodeContext.NodeContext | CliEnvConfig>,
+) => effect.pipe(Effect.provide(TestLayer));
+
+/** Provide a custom CliEnvConfig with installInternalSkills set. */
+const withInstallInternalSkills = (value: string) => {
+  const customConfig = Layer.mergeAll(
+    NodeContext.layer,
+    Layer.succeed(CliEnvConfig, {
+      ...({
+        registryUrl: "https://registry.agentxm.ai",
+        token: Option.none(),
+        ci: "false",
+        doNotTrack: Option.none(),
+        telemetry: Option.none(),
+        sshClient: Option.none(),
+        sshTty: Option.none(),
+        xdgConfigHome: Option.none(),
+        claudeSkillsDir: Option.none(),
+        geminiCliSkillsDir: Option.none(),
+        installInternalSkills: Option.some(value),
+        vitest: "false",
+        home: Option.none(),
+        userProfile: Option.none(),
+        homePath: Option.none(),
+        verbose: Option.none(),
+        debug: Option.none(),
+      }),
+    }),
+  );
+  return <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext | CliEnvConfig>) =>
+    effect.pipe(Effect.provide(customConfig));
+};
 
 /**
  * Create a SKILL.md with valid YAML frontmatter in a directory.
@@ -610,7 +645,7 @@ describe("discoverSkillsInDir", () => {
     );
 
     it.effect("includes internal skills when INSTALL_INTERNAL_SKILLS=1", () =>
-      withFileSystem(
+      withInstallInternalSkills("1")(
         Effect.gen(function* () {
           createSkillMd(
             path.join(tempDir, "skills", "internal-skill"),
@@ -621,29 +656,19 @@ describe("discoverSkillsInDir", () => {
             },
           );
 
-          const originalEnv = process.env["INSTALL_INTERNAL_SKILLS"];
-          process.env["INSTALL_INTERNAL_SKILLS"] = "1";
-          try {
-            const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
-              ...defaultOptions,
-              includeInternal: false,
-            });
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            includeInternal: false,
+          });
 
-            const names = skills.map((s) => s.skill.name);
-            expect(names).toContain("internal-skill");
-          } finally {
-            if (originalEnv === undefined) {
-              delete process.env["INSTALL_INTERNAL_SKILLS"];
-            } else {
-              process.env["INSTALL_INTERNAL_SKILLS"] = originalEnv;
-            }
-          }
+          const names = skills.map((s) => s.skill.name);
+          expect(names).toContain("internal-skill");
         }),
       ),
     );
 
     it.effect("includes internal skills when INSTALL_INTERNAL_SKILLS=true", () =>
-      withFileSystem(
+      withInstallInternalSkills("true")(
         Effect.gen(function* () {
           createSkillMd(
             path.join(tempDir, "skills", "internal-skill"),
@@ -654,23 +679,13 @@ describe("discoverSkillsInDir", () => {
             },
           );
 
-          const originalEnv = process.env["INSTALL_INTERNAL_SKILLS"];
-          process.env["INSTALL_INTERNAL_SKILLS"] = "true";
-          try {
-            const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
-              ...defaultOptions,
-              includeInternal: false,
-            });
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            includeInternal: false,
+          });
 
-            const names = skills.map((s) => s.skill.name);
-            expect(names).toContain("internal-skill");
-          } finally {
-            if (originalEnv === undefined) {
-              delete process.env["INSTALL_INTERNAL_SKILLS"];
-            } else {
-              process.env["INSTALL_INTERNAL_SKILLS"] = originalEnv;
-            }
-          }
+          const names = skills.map((s) => s.skill.name);
+          expect(names).toContain("internal-skill");
         }),
       ),
     );

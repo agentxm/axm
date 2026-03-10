@@ -20,6 +20,7 @@ import {
   makeClackSpinnerTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
@@ -105,6 +106,7 @@ describe("fork.handler", () => {
       multiselectLayer,
       CliFlagsTest(),
       TelemetryClientTest,
+      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 
 import { getAgentById } from "../agents/index.js";
 import { makeCliError, type CliError } from "../cli-error/index.js";
+import type { CliEnvConfig } from "../config/index.js";
 import {
   discoverSkillsInDir,
   type DiscoveredSkill,
@@ -133,7 +134,11 @@ const resolveNameWithFallback = (
  */
 export const resolveSourcePattern = (
   input: string,
-): Effect.Effect<ReadonlyArray<Source>, CliError, Workspace | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReadonlyArray<Source>,
+  CliError,
+  Workspace | FileSystem.FileSystem | Path.Path | CliEnvConfig
+> =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
         const candidates = yield* buildCandidates;

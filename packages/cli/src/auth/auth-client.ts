@@ -286,7 +286,7 @@ export const AuthClientLive = Layer.effect(
             "AUTH_LOGIN_FAILED",
             "device code",
           );
-        }),
+        }).pipe(Effect.withSpan("AuthClient.initiateDeviceFlow")),
 
       pollDeviceToken: (registryUrl, deviceCode, interval) =>
         Effect.gen(function* () {
@@ -322,7 +322,7 @@ export const AuthClientLive = Layer.effect(
                 );
             }
           }
-        }),
+        }).pipe(Effect.withSpan("AuthClient.pollDeviceToken")),
 
       refreshToken: (registryUrl, refreshTokenValue) =>
         Effect.gen(function* () {
@@ -362,7 +362,7 @@ export const AuthClientLive = Layer.effect(
           );
           const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
           return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
-        }),
+        }).pipe(Effect.withSpan("AuthClient.refreshToken")),
 
       revokeToken: (registryUrl, accessToken) =>
         Effect.gen(function* () {
@@ -386,7 +386,7 @@ export const AuthClientLive = Layer.effect(
               ),
             ),
           );
-        }),
+        }).pipe(Effect.withSpan("AuthClient.revokeToken")),
 
       getMe: (registryUrl, accessToken) =>
         Effect.gen(function* () {
@@ -446,7 +446,7 @@ export const AuthClientLive = Layer.effect(
               handle: org.handle,
             })),
           } satisfies MeResponse;
-        }),
+        }).pipe(Effect.withSpan("AuthClient.getMe")),
     } satisfies AuthClientService;
   }),
 );

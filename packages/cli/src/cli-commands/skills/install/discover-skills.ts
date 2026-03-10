@@ -16,6 +16,7 @@ import type { Skill } from "../../../extensions/skills/types.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { CliEnvConfig } from "../../../config/index.js";
 import { type CliError, makeCliError } from "../../../cli-error/index.js";
 
 /**
@@ -101,9 +102,13 @@ const isInternalSkill = (skill: Skill): boolean =>
     onSome: (m: Record<string, unknown>) => m["internal"] === true,
   });
 
-const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean => {
+const shouldIncludeSkill = (
+  skill: Skill,
+  options: DiscoveryOptions,
+  installInternalSkills: Option.Option<string>,
+): boolean => {
   if (!isInternalSkill(skill)) return true;
-  const envVal = process.env["INSTALL_INTERNAL_SKILLS"];
+  const envVal = Option.getOrUndefined(installInternalSkills);
   return options.includeInternal || envVal === "1" || envVal === "true";
 };
 
@@ -137,7 +142,11 @@ const tryParseSkillInDir = (dir: string) =>
  * Scan one level of children in a directory for skills.
  * Each immediate subdirectory is checked for a SKILL.md.
  */
-const scanDirectory = (dir: string, options: DiscoveryOptions) =>
+const scanDirectory = (
+  dir: string,
+  options: DiscoveryOptions,
+  installInternalSkills: Option.Option<string>,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -155,7 +164,7 @@ const scanDirectory = (dir: string, options: DiscoveryOptions) =>
 
           const skill = yield* tryParseSkillInDir(fullPath);
           if (Option.isNone(skill)) return [] satisfies DiscoveredSkill[];
-          if (!shouldIncludeSkill(skill.value, options))
+          if (!shouldIncludeSkill(skill.value, options, installInternalSkills))
             return [] satisfies readonly DiscoveredSkill[];
 
           return [makeDiscoveredSkill(skill.value, fullPath)] satisfies DiscoveredSkill[];
@@ -172,6 +181,7 @@ const recursiveScan = (
   dir: string,
   options: DiscoveryOptions,
   depth: number,
+  installInternalSkills: Option.Option<string>,
 ): Effect.Effect<readonly DiscoveredSkill[], never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (depth > MAX_DEPTH) return [] satisfies readonly DiscoveredSkill[];
@@ -194,12 +204,12 @@ const recursiveScan = (
           // Try to parse a skill in this directory
           const skill = yield* tryParseSkillInDir(fullPath);
           const current: readonly DiscoveredSkill[] =
-            Option.isSome(skill) && shouldIncludeSkill(skill.value, options)
+            Option.isSome(skill) && shouldIncludeSkill(skill.value, options, installInternalSkills)
               ? [makeDiscoveredSkill(skill.value, fullPath)]
               : ([] satisfies readonly DiscoveredSkill[]);
 
           // Recurse into subdirectories
-          const subResults = yield* recursiveScan(fullPath, options, depth + 1);
+          const subResults = yield* recursiveScan(fullPath, options, depth + 1, installInternalSkills);
           return [...current, ...subResults];
         }),
       { concurrency: "unbounded" },
@@ -226,10 +236,16 @@ export const discoverSkillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
-): Effect.Effect<ReadonlyArray<DiscoveredSkill>, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReadonlyArray<DiscoveredSkill>,
+  CliError,
+  FileSystem.FileSystem | Path.Path | CliEnvConfig
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const envConfig = yield* CliEnvConfig;
+    const { installInternalSkills } = envConfig;
 
     // Compute effective search root
     const searchRoot = Option.match(subPath, {
@@ -258,7 +274,7 @@ export const discoverSkillsInDir = (
     // ── Phase 1: Direct Match ──────────────────────────────────────────
     const rootSkill = yield* tryParseSkillInDir(searchRoot);
     const phase1Skills: readonly DiscoveredSkill[] =
-      Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)
+      Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options, installInternalSkills)
         ? [makeDiscoveredSkill(rootSkill.value, searchRoot)]
         : [];
 
@@ -281,14 +297,16 @@ export const discoverSkillsInDir = (
 
     const phase2Skills = yield* Effect.forEach(
       allPriorityDirs,
-      (fullDir) => scanDirectory(fullDir, options),
+      (fullDir) => scanDirectory(fullDir, options, installInternalSkills),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
 
     // ── Phase 3: Recursive Fallback ────────────────────────────────────
     const shouldRunPhase3 =
       (phase1Skills.length === 0 && phase2Skills.length === 0) || options.fullDepth;
-    const phase3Skills = shouldRunPhase3 ? yield* recursiveScan(searchRoot, options, 0) : [];
+    const phase3Skills = shouldRunPhase3
+      ? yield* recursiveScan(searchRoot, options, 0, installInternalSkills)
+      : [];
 
     // Deduplicate by name (first-found wins across phases)
     const seen = new Set<string>();

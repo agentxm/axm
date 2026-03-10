@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import { CliEnvConfig } from "../../../config/index.js";
 import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import {
@@ -190,6 +191,7 @@ const withServices = (
     Workspace.layer(mockWs),
     ClackLogTestLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
+    CliEnvConfig.testDefaults,
   );
 };
 

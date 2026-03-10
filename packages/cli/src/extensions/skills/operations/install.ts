@@ -12,6 +12,7 @@ import * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { CliEnvConfig } from "../../../config/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Log } from "../../../clack-effect/index.js";
@@ -353,7 +354,7 @@ const materializeSkill = (
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log | SourceHostProviders
+  FileSystem.FileSystem | Path.Path | Workspace | Log | SourceHostProviders | CliEnvConfig
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
@@ -402,7 +403,6 @@ export const installSkill: OperationHandler<
       configuredAgents,
       (agent) =>
         agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-          Effect.provideService(Path.Path, path),
           Effect.map((outcome) => ({ agentId: agent.id, outcome })),
         ),
       { concurrency: "unbounded" },

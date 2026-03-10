@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as HttpClient from "@effect/platform/HttpClient";
+import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -98,8 +100,59 @@ const createSkillIndex = (registryRoot: string, namespace: string, name: string)
   );
 };
 
+const makeRegistryCollectionResponse = () =>
+  JSON.stringify({
+    extensions: [
+      {
+        namespace: "@acme",
+        type: "skill",
+        name: "my-skill",
+        description: null,
+        repository: null,
+        license: null,
+        authors: [],
+        dependencies: {},
+        version: "1.0.0",
+        integrity: "sha512-AAAA==",
+      },
+    ],
+    total: 1,
+  });
+
+const remoteHttpLayer = Layer.succeed(
+  HttpClient.HttpClient,
+  HttpClient.make((request) =>
+    Effect.sync(() => {
+      const url = new URL(request.url);
+
+      if (url.hostname === "localhost") {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response("registry unavailable", { status: 500 }),
+        );
+      }
+
+      if (request.method === "HEAD") {
+        return HttpClientResponse.fromWeb(request, new Response(null, { status: 200 }));
+      }
+
+      if (request.method === "GET" && url.pathname.startsWith("/v1/extensions/@")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(makeRegistryCollectionResponse(), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+
+      return HttpClientResponse.fromWeb(request, new Response("not found", { status: 404 }));
+    }),
+  ),
+);
+
 const provideTestLayers = (sources: ReadonlyArray<SourceHostConfig>) =>
-  Layer.mergeAll(NodeContext.layer, Workspace.layer(makeWorkspace(sources)));
+  Layer.mergeAll(NodeContext.layer, Workspace.layer(makeWorkspace(sources)), remoteHttpLayer);
 
 const parseInputOrThrow = (input: string): InputParseResult => {
   const parsed = parseInputPattern(input);

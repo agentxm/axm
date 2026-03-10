@@ -133,10 +133,10 @@ const AuthMiddlewareWrappedLayer = Layer.provide(
 );
 
 /**
- * Combined auth layer: AuthServices + AuthMiddleware (replacing HttpClient).
- * Downstream consumers get the auth-wrapped HttpClient.
+ * Combined auth layer: AuthServices + auth-wrapped HttpClient + platform services.
+ * Exposes NodeContext plus the wrapped client, without re-exporting the raw one.
  */
-const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer, BaseLayer);
+const AuthLayer = Layer.mergeAll(NodeContext.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
 
 /**
  * Layer providing all standard CLI dependencies.

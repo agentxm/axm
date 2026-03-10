@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as HttpClient from "@effect/platform/HttpClient";
 import * as Path from "@effect/platform/Path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -175,6 +176,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
+    const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
@@ -182,11 +184,19 @@ export const SourceHostProvidersLive: Layer.Layer<
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
-    const depLayer = Layer.mergeAll(
+    const baseDepLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Workspace, ws),
     );
+    const depLayer = Option.match(ambientHttpClient, {
+      onNone: () => baseDepLayer,
+      onSome: (client) =>
+        Layer.merge(
+          baseDepLayer,
+          Layer.succeed(HttpClient.HttpClient, client),
+        ),
+    });
 
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {

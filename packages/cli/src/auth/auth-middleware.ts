@@ -16,10 +16,14 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 import { makeCliError } from "../cli-error/cli-error.js";
 import { CredentialStore, type CredentialStoreService } from "./credential-store.js";
+import {
+  decodeTokenResponse,
+  setOAuthFormBody,
+  type NormalizedTokenResponse,
+} from "./oauth-contract.js";
 import type { StoredCredentials, TokenSource } from "./schema.js";
 import { resolveAmbientToken, resolveStoredToken } from "./token-resolution.js";
 
@@ -36,16 +40,6 @@ export class RegistryUrl extends Context.Tag("@axm.sh/cli/RegistryUrl")<Registry
 const PREFLIGHT_EXPIRY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // -----------------------------------------------------------------------------
-// Refresh token response schema
-// -----------------------------------------------------------------------------
-
-const RefreshResponseSchema = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
-  expires_at: Schema.String,
-});
-
-// -----------------------------------------------------------------------------
 // Internal: token refresh via base client
 // -----------------------------------------------------------------------------
 
@@ -56,9 +50,10 @@ const refreshTokenRequest = (
 ) =>
   Effect.gen(function* () {
     const url = `${registryUrl.replace(/\/+$/, "")}/v1/auth/token/refresh`;
-    const request = yield* HttpClientRequest.post(url).pipe(
-      HttpClientRequest.bodyJson({ refresh_token: refreshTokenValue }),
-    );
+    const request = setOAuthFormBody(HttpClientRequest.post(url), {
+        grant_type: "refresh_token",
+        refresh_token: refreshTokenValue,
+      });
     const response = yield* baseClient.execute(request).pipe(
       Effect.mapError((error) =>
         makeCliError({
@@ -100,15 +95,7 @@ const refreshTokenRequest = (
         }),
     });
 
-    return yield* Schema.decodeUnknown(RefreshResponseSchema)(json).pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "AUTH_REFRESH_FAILED",
-          what: "Invalid refresh response schema",
-          cause: error,
-        }),
-      ),
-    );
+    return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
   });
 
 // -----------------------------------------------------------------------------
@@ -118,7 +105,7 @@ const refreshTokenRequest = (
 const persistRefreshedCredentials = (
   store: CredentialStoreService,
   registryUrl: string,
-  newCredentials: typeof RefreshResponseSchema.Type,
+  newCredentials: NormalizedTokenResponse,
 ) =>
   Effect.gen(function* () {
     const existing = yield* store.load(registryUrl);

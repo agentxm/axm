@@ -6,6 +6,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as HttpClient from "@effect/platform/HttpClient";
+import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -25,23 +27,77 @@ import { Workspace } from "../workspace/index.js";
 // -----------------------------------------------------------------------------
 
 /** Create a mock Workspace layer with given sources and optional locked skills. */
+const makeRegistryCollectionResponse = () =>
+  JSON.stringify({
+    extensions: [
+      {
+        namespace: "@acme",
+        type: "skill",
+        name: "my-skill",
+        description: null,
+        repository: null,
+        license: null,
+        authors: [],
+        dependencies: {},
+        version: "1.0.0",
+        integrity: "sha512-AAAA==",
+      },
+    ],
+    total: 1,
+  });
+
+const remoteHttpLayer = Layer.succeed(
+  HttpClient.HttpClient,
+  HttpClient.make((request) =>
+    Effect.sync(() => {
+      const url = new URL(request.url);
+
+      if (url.hostname === "localhost") {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response("registry unavailable", { status: 500 }),
+        );
+      }
+
+      if (request.method === "HEAD") {
+        return HttpClientResponse.fromWeb(request, new Response(null, { status: 200 }));
+      }
+
+      if (request.method === "GET" && url.pathname.startsWith("/v1/extensions/@")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(makeRegistryCollectionResponse(), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+
+      return HttpClientResponse.fromWeb(request, new Response("not found", { status: 404 }));
+    }),
+  ),
+);
+
 const makeWorkspaceLayer = (
   sources: ReadonlyArray<SourceHostConfig>,
   skills: SkillsLockMap = {},
   registrySources?: ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
 ) =>
   Layer.merge(
-    Layer.succeed(Workspace, {
-      getConfiguredSources: () => Effect.succeed(sources),
-      getLockedSkills: () => Effect.succeed(skills),
-      getRegistrySourceHosts: () =>
-        Effect.succeed(
-          registrySources ??
-            sources.filter(
-              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-            ),
-        ),
-    } as unknown as Workspace["Type"]),
+    Layer.merge(
+      Layer.succeed(Workspace, {
+        getConfiguredSources: () => Effect.succeed(sources),
+        getLockedSkills: () => Effect.succeed(skills),
+        getRegistrySourceHosts: () =>
+          Effect.succeed(
+            registrySources ??
+              sources.filter(
+                (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+              ),
+          ),
+      } as unknown as Workspace["Type"]),
+      remoteHttpLayer,
+    ),
     NodeContext.layer,
   );
 

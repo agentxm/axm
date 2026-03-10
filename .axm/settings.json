@@ -24,7 +24,8 @@
   ],
   "skills": {
     "effect-basics": "@axm/skills/effect-basics",
-    "code-review": "@axm/skills/code-review"
+    "code-review": "@axm/skills/code-review",
+    "e2e-publish-check": "@local-dev/skills/e2e-publish-check"
   },
   "packs": {
     "effect": "@axm/packs/effect"

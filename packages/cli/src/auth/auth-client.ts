@@ -16,6 +16,11 @@ import * as Schema from "effect/Schema";
 
 import type { CliError } from "../cli-error/cli-error.js";
 import { makeCliError } from "../cli-error/cli-error.js";
+import {
+  decodeTokenResponse,
+  setOAuthFormBody,
+  type NormalizedTokenResponse,
+} from "./oauth-contract.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -39,11 +44,7 @@ export interface DeviceFlowResponse {
   readonly expires_in: number;
 }
 
-export interface TokenResponse {
-  readonly access_token: string;
-  readonly refresh_token: string;
-  readonly expires_at: string;
-}
+export type TokenResponse = NormalizedTokenResponse;
 
 export interface MeResponse {
   readonly userId: string;
@@ -66,24 +67,25 @@ const DeviceFlowResponseSchema = Schema.Struct({
   expires_in: Schema.Number,
 });
 
-const TokenResponseSchema = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
-  expires_at: Schema.String,
-});
-
-const OrgSchema = Schema.Struct({
-  id: Schema.String,
-  handle: Schema.String,
-});
-
-const MeResponseSchema = Schema.Struct({
-  userId: Schema.String,
-  userHandle: Schema.String,
-  email: Schema.String,
-  tokenType: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  orgs: Schema.Array(OrgSchema),
+const RegistryMeResponseSchema = Schema.Struct({
+  user: Schema.Struct({
+    id: Schema.String,
+    handle: Schema.String,
+    email: Schema.NullOr(Schema.String),
+  }),
+  orgs: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      handle: Schema.String,
+      role: Schema.String,
+      type: Schema.String,
+      verified: Schema.Boolean,
+    }),
+  ),
+  token: Schema.Struct({
+    type: Schema.String,
+    scopes: Schema.Array(Schema.String),
+  }),
 });
 
 // -----------------------------------------------------------------------------
@@ -176,20 +178,11 @@ export const pollOnce = (
 ): Effect.Effect<PollResult, CliError> =>
   Effect.gen(function* () {
     const url = `${normalizeUrl(registryUrl)}/v1/auth/device/token`;
-    const request = yield* HttpClientRequest.post(url).pipe(
-      HttpClientRequest.bodyJson({
+    const request = setOAuthFormBody(HttpClientRequest.post(url), {
         client_id: CLIENT_ID,
         device_code: deviceCode,
         grant_type: DEVICE_CODE_GRANT_TYPE,
-      }),
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "AUTH_LOGIN_FAILED",
-          what: "Failed to encode request body",
-          cause: error,
-        }),
-      ),
-    );
+      });
 
     const response = yield* httpClient.execute(request).pipe(
       Effect.mapError((error) =>
@@ -205,12 +198,7 @@ export const pollOnce = (
     if (response.status === 200) {
       const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device token");
       const json = yield* parseJsonBody(bodyText, "AUTH_LOGIN_FAILED", "device token");
-      const token = yield* decodeResponse(
-        TokenResponseSchema,
-        json,
-        "AUTH_LOGIN_FAILED",
-        "device token",
-      );
+      const token = yield* decodeTokenResponse(json, "AUTH_LOGIN_FAILED", "device token");
       return { _tag: "Success" as const, token };
     }
 
@@ -262,19 +250,10 @@ export const AuthClientLive = Layer.effect(
       initiateDeviceFlow: (registryUrl) =>
         Effect.gen(function* () {
           const url = `${normalizeUrl(registryUrl)}/v1/auth/device/code`;
-          const request = yield* HttpClientRequest.post(url).pipe(
-            HttpClientRequest.bodyJson({
+          const request = setOAuthFormBody(HttpClientRequest.post(url), {
               client_id: CLIENT_ID,
               scope: DEVICE_CODE_SCOPES,
-            }),
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "AUTH_LOGIN_FAILED",
-                what: "Failed to encode request body",
-                cause: error,
-              }),
-            ),
-          );
+            });
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
@@ -348,16 +327,10 @@ export const AuthClientLive = Layer.effect(
       refreshToken: (registryUrl, refreshTokenValue) =>
         Effect.gen(function* () {
           const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
-          const request = yield* HttpClientRequest.post(url).pipe(
-            HttpClientRequest.bodyJson({ refresh_token: refreshTokenValue }),
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "AUTH_REFRESH_FAILED",
-                what: "Failed to encode request body",
-                cause: error,
-              }),
-            ),
-          );
+          const request = setOAuthFormBody(HttpClientRequest.post(url), {
+              grant_type: "refresh_token",
+              refresh_token: refreshTokenValue,
+            });
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
@@ -388,27 +361,15 @@ export const AuthClientLive = Layer.effect(
             "token refresh",
           );
           const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
-          return yield* decodeResponse(
-            TokenResponseSchema,
-            json,
-            "AUTH_REFRESH_FAILED",
-            "token refresh",
-          );
+          return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
         }),
 
       revokeToken: (registryUrl, accessToken) =>
         Effect.gen(function* () {
           const url = `${normalizeUrl(registryUrl)}/v1/auth/token/revoke`;
-          const request = yield* HttpClientRequest.post(url).pipe(
-            HttpClientRequest.bodyJson({ access_token: accessToken }),
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "AUTH_REVOKE_FAILED",
-                what: "Failed to encode request body",
-                cause: error,
-              }),
-            ),
-          );
+          const request = setOAuthFormBody(HttpClientRequest.post(url), {
+            token: accessToken,
+          });
 
           yield* httpClient.execute(request).pipe(
             Effect.flatMap((response) => {
@@ -467,7 +428,24 @@ export const AuthClientLive = Layer.effect(
 
           const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");
           const json = yield* parseJsonBody(bodyText, "AUTH_UNAUTHENTICATED", "identity");
-          return yield* decodeResponse(MeResponseSchema, json, "AUTH_UNAUTHENTICATED", "identity");
+          const decoded = yield* decodeResponse(
+            RegistryMeResponseSchema,
+            json,
+            "AUTH_UNAUTHENTICATED",
+            "identity",
+          );
+
+          return {
+            userId: decoded.user.id,
+            userHandle: decoded.user.handle,
+            email: decoded.user.email ?? "",
+            tokenType: decoded.token.type,
+            scopes: decoded.token.scopes,
+            orgs: decoded.orgs.map((org) => ({
+              id: org.id,
+              handle: org.handle,
+            })),
+          } satisfies MeResponse;
         }),
     } satisfies AuthClientService;
   }),

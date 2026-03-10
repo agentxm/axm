@@ -15,6 +15,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
@@ -74,6 +75,18 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
 };
 
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));
+
+const remoteHttpLayer = Layer.succeed(
+  HttpClient.HttpClient,
+  HttpClient.make((request) =>
+    Effect.succeed(
+      HttpClientResponse.fromWeb(
+        request,
+        new Response(JSON.stringify({ extensions: [], total: 0 }), { status: 200 }),
+      ),
+    ),
+  ),
+);
 
 // -----------------------------------------------------------------------------
 // LocalRegistryClient.getExtensionsByScope
@@ -927,8 +940,47 @@ describe("createRegistryClient", () => {
       expect(typeof client.getExtensionsByScope).toBe("function");
       expect(typeof client.namespaceExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, remoteHttpLayer))),
   );
+
+  it.effect("uses the ambient HttpClient for remote publish requests", () => {
+    let requestCount = 0;
+
+    const httpLayer = Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request) =>
+        Effect.sync(() => {
+          requestCount += 1;
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ published: true }), { status: 201 }),
+          );
+        }),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const client = yield* createRegistryClient("https://registry.example.com");
+
+      const archive = createTestZip("SKILL.md", "# ambient auth");
+      const integrity = yield* computeIntegrity(archive);
+
+      yield* client.publishExtension({
+        namespace: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+        archive,
+        metadata: {
+          version: "1.0.0",
+          published: "2025-01-01T00:00:00Z",
+          integrity,
+        },
+      });
+
+      expect(requestCount).toBe(1);
+    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, httpLayer)));
+  });
 
   it.effect("creates a remote client for an http:// URL", () =>
     Effect.gen(function* () {
@@ -936,6 +988,6 @@ describe("createRegistryClient", () => {
       expect(typeof client.getExtensionsByScope).toBe("function");
       expect(typeof client.namespaceExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, remoteHttpLayer))),
   );
 });

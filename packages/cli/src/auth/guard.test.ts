@@ -69,6 +69,7 @@ const makeLayers = (opts?: {
         device_code: "dc-123",
         user_code: "ABCD-1234",
         verification_uri: "https://auth.agentxm.ai/device",
+        verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
         interval: 5,
         expires_in: 600,
       }),

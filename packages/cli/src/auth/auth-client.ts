@@ -40,6 +40,7 @@ export interface DeviceFlowResponse {
   readonly device_code: string;
   readonly user_code: string;
   readonly verification_uri: string;
+  readonly verification_uri_complete?: string;
   readonly interval: number;
   readonly expires_in: number;
 }
@@ -63,6 +64,7 @@ const DeviceFlowResponseSchema = Schema.Struct({
   device_code: Schema.String,
   user_code: Schema.String,
   verification_uri: Schema.String,
+  verification_uri_complete: Schema.optional(Schema.String),
   interval: Schema.Number,
   expires_in: Schema.Number,
 });
@@ -280,12 +282,23 @@ export const AuthClientLive = Layer.effect(
 
           const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device code");
           const json = yield* parseJsonBody(bodyText, "AUTH_LOGIN_FAILED", "device code");
-          return yield* decodeResponse(
+          const decoded = yield* decodeResponse(
             DeviceFlowResponseSchema,
             json,
             "AUTH_LOGIN_FAILED",
             "device code",
           );
+
+          return {
+            device_code: decoded.device_code,
+            user_code: decoded.user_code,
+            verification_uri: decoded.verification_uri,
+            interval: decoded.interval,
+            expires_in: decoded.expires_in,
+            ...(decoded.verification_uri_complete
+              ? { verification_uri_complete: decoded.verification_uri_complete }
+              : {}),
+          } satisfies DeviceFlowResponse;
         }).pipe(Effect.withSpan("AuthClient.initiateDeviceFlow")),
 
       pollDeviceToken: (registryUrl, deviceCode, interval) =>

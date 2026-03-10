@@ -52,6 +52,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
             device_code: "dev_123",
             user_code: "ABCD-1234",
             verification_uri: "https://agentxm.ai/device",
+            verification_uri_complete: "https://agentxm.ai/device?code=ABCD-1234",
             interval: 5,
             expires_in: 900,
           }),
@@ -69,6 +70,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
     expect(result.device_code).toBe("dev_123");
     expect(result.user_code).toBe("ABCD-1234");
     expect(result.verification_uri).toBe("https://agentxm.ai/device");
+    expect(result.verification_uri_complete).toBe("https://agentxm.ai/device?code=ABCD-1234");
     expect(result.interval).toBe(5);
     expect(result.expires_in).toBe(900);
   });
@@ -104,6 +106,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
           device_code: "dev_123",
           user_code: "ABCD-1234",
           verification_uri: "https://agentxm.ai/device",
+          verification_uri_complete: "https://agentxm.ai/device?code=ABCD-1234",
           interval: 5,
           expires_in: 900,
         }),

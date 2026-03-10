@@ -64,9 +64,10 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
 
   // Step 3: Initiate device flow
   const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
+  const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
   // Step 4: Display URL and code
-  yield* log.step(`Open this URL in your browser: ${deviceFlow.verification_uri}`);
+  yield* log.step(`Open this URL in your browser: ${verificationUrl}`);
   yield* log.step(`Enter code: ${deviceFlow.user_code}`);
 
   // Step 5: Poll with spinner
@@ -76,24 +77,15 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
     { successMessage: "Login successful." },
   );
 
-  // Step 6: Fetch identity and persist
-  const meResult = yield* authClient.getMe(registryUrl, token.access_token).pipe(Effect.option);
+  // Step 6: Fetch identity before persisting credentials so login fails closed
+  const me = yield* authClient.getMe(registryUrl, token.access_token);
 
-  const handle = Option.match(meResult, {
-    onNone: () => "unknown",
-    onSome: (me) => me.userHandle,
-  });
-
-  yield* credStore.save(registryUrl, handle, {
+  yield* credStore.save(registryUrl, me.userHandle, {
     access_token: token.access_token,
     refresh_token: token.refresh_token,
     expires_at: token.expires_at,
   });
 
   // Step 7: Display result
-  if (Option.isSome(meResult)) {
-    yield* log.success(`Logged in as ${meResult.value.userHandle}`);
-  } else {
-    yield* log.success("Login successful.");
-  }
+  yield* log.success(`Logged in as ${me.userHandle}`);
 }, Effect.asVoid);

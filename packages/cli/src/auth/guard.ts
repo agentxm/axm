@@ -108,9 +108,10 @@ const inlineLogin = (registryUrl: string) =>
 
     // Initiate device flow
     const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
+    const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
     // Display URL and code
-    yield* log.step(`Open this URL in your browser: ${deviceFlow.verification_uri}`);
+    yield* log.step(`Open this URL in your browser: ${verificationUrl}`);
     yield* log.step(`Enter code: ${deviceFlow.user_code}`);
 
     // Poll with spinner

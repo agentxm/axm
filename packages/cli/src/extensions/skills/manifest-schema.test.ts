@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { SkillManifestSchema } from "./manifest-schema";
+import { SkillManifestSchema } from "./manifest-schema.js";
 
 describe("SkillManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(SkillManifestSchema);

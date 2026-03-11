@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { PackManifestSchema } from "./manifest-schema";
+import { PackManifestSchema } from "./manifest-schema.js";
 
 describe("PackManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(PackManifestSchema);

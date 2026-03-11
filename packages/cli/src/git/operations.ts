@@ -8,7 +8,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
+import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 
 import { type CliError, makeCliError } from "../cli-error/index.js";
 

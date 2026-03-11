@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { McpServerManifestSchema } from "./manifest-schema";
+import { McpServerManifestSchema } from "./manifest-schema.js";
 
 describe("McpServerManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(McpServerManifestSchema);

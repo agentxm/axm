@@ -86,8 +86,12 @@ export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, ConfigError.ConfigError
     const sshTty = yield* Config.string("SSH_TTY").pipe(Config.option);
     const xdgConfigHome = yield* Config.string("XDG_CONFIG_HOME").pipe(Config.option);
     const claudeSkillsDir = yield* Config.string("AXM_CLAUDE_SKILLS_DIR").pipe(Config.option);
-    const geminiCliSkillsDir = yield* Config.string("AXM_GEMINI_CLI_SKILLS_DIR").pipe(Config.option);
-    const installInternalSkills = yield* Config.string("INSTALL_INTERNAL_SKILLS").pipe(Config.option);
+    const geminiCliSkillsDir = yield* Config.string("AXM_GEMINI_CLI_SKILLS_DIR").pipe(
+      Config.option,
+    );
+    const installInternalSkills = yield* Config.string("INSTALL_INTERNAL_SKILLS").pipe(
+      Config.option,
+    );
     const vitest = yield* Config.string("VITEST").pipe(Config.withDefault("false"));
     const home = yield* Config.string("HOME").pipe(Config.option);
     const userProfile = yield* Config.string("USERPROFILE").pipe(Config.option);

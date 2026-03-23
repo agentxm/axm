@@ -402,9 +402,9 @@ export const installSkill: OperationHandler<
     const resolvedAgents = yield* Effect.forEach(
       configuredAgents,
       (agent) =>
-        agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-          Effect.map((outcome) => ({ agentId: agent.id, outcome })),
-        ),
+        agent
+          .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
       { concurrency: "unbounded" },
     );
 

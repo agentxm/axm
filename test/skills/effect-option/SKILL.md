@@ -6,6 +6,9 @@ user-invocable: false
 
 # Option vs Nullable Types in Effect
 
+> **Effect v3 notice:** Examples use Effect v3 APIs (`Option.fromNullable`,
+> etc.). v3 → v4 migration in progress.
+
 **Use `Option<T>` as the default for optional values within Effect codebases.** Reserve nullable types (`T | null | undefined`) for interop boundaries with external APIs, DOM operations, and JSON serialization.
 
 ---

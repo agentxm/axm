@@ -35,7 +35,7 @@ const withInstallInternalSkills = (value: string) => {
   const customConfig = Layer.mergeAll(
     NodeContext.layer,
     Layer.succeed(CliEnvConfig, {
-      ...({
+      ...{
         registryUrl: "https://registry.agentxm.ai",
         token: Option.none(),
         ci: "false",
@@ -53,7 +53,7 @@ const withInstallInternalSkills = (value: string) => {
         homePath: Option.none(),
         verbose: Option.none(),
         debug: Option.none(),
-      }),
+      },
     }),
   );
   return <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext | CliEnvConfig>) =>

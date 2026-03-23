@@ -287,6 +287,9 @@ const data =
 
 ## Effect
 
+> **Effect v3 notice:** Patterns below use Effect v3 APIs. v3 → v4 migration in
+> progress.
+
 - [ ] Use Effect's collection types in signatures (see /effect-collections skill)
       → `ReadonlyArray<T>` (or `readonly T[]`) for arrays
       → `Record.ReadonlyRecord<K,V>` for string-keyed objects
@@ -499,22 +502,6 @@ const result = Option.match(maybeValue, {
 // Acceptable: in tests or when invariant is guaranteed by external logic
 const value = Option.getOrThrow(maybeValue); // Throws if None
 ```
-
-<!-- effect-solutions:start -->
-
-### Effect Best Practices
-
-**IMPORTANT:** Always consult effect-solutions before writing Effect code.
-
-1. Run `effect-solutions list` to see available guides
-2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
-3. Search `.reference/effect/` for real implementations in the local reference clone
-
-Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
-
-Never guess at Effect patterns - check the guide first.
-
-<!-- effect-solutions:end -->
 
 ## Testing
 

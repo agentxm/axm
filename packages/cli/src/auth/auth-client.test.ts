@@ -132,24 +132,20 @@ describe("pollOnce", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-10T12:00:00.000Z"));
 
-    const httpClient = makeMockHttpClient(
-      (req) => {
-        expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
-        expect(decodeRequestBody(req)).toBe(
-          "client_id=axm-cli&device_code=dev_123&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code",
-        );
-        return (
-        new Response(
-          JSON.stringify({
-            access_token: "axm_ses_new",
-            refresh_token: "axm_ref_new",
-            expires_in: 3600,
-          }),
-          { status: 200 },
-        )
-        );
-      },
-    );
+    const httpClient = makeMockHttpClient((req) => {
+      expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
+      expect(decodeRequestBody(req)).toBe(
+        "client_id=axm-cli&device_code=dev_123&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code",
+      );
+      return new Response(
+        JSON.stringify({
+          access_token: "axm_ses_new",
+          refresh_token: "axm_ref_new",
+          expires_in: 3600,
+        }),
+        { status: 200 },
+      );
+    });
 
     const result = await Effect.runPromise(pollOnce(httpClient, REGISTRY_URL, "dev_123"));
     expect(result._tag).toBe("Success");
@@ -318,9 +314,7 @@ describe("AuthClient.refreshToken", () => {
     const layer = makeTestLayer((req) => {
       expect(req.url).toContain("/v1/auth/token/refresh");
       expect(req.headers["content-type"]).toBe("application/x-www-form-urlencoded");
-      expect(decodeRequestBody(req)).toBe(
-        "grant_type=refresh_token&refresh_token=axm_ref_old",
-      );
+      expect(decodeRequestBody(req)).toBe("grant_type=refresh_token&refresh_token=axm_ref_old");
       return new Response(
         JSON.stringify({
           access_token: "axm_ses_refreshed",

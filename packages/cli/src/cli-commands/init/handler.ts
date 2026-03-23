@@ -61,7 +61,10 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   // Show telemetry notice (unless telemetry is off)
   const cfg = yield* CliEnvConfig;
   const telemetryMode = resolveTelemetryMode(
-    { doNotTrack: Option.getOrUndefined(cfg.doNotTrack), axmTelemetry: Option.getOrUndefined(cfg.telemetry) },
+    {
+      doNotTrack: Option.getOrUndefined(cfg.doNotTrack),
+      axmTelemetry: Option.getOrUndefined(cfg.telemetry),
+    },
     {},
   );
   if (telemetryMode !== "off") {

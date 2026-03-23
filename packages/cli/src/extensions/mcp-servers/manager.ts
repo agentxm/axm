@@ -211,7 +211,8 @@ export const McpServerManagerLive = Layer.effect(
         readonly ref: McpServerExtensionRef;
         readonly versionConstraint: Option.Option<string>;
       }) => {
-        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));
+        if (ref.refType !== "registry")
+          return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));
         const registryRef = ref as RegistryMcpServerRef;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
@@ -226,12 +227,13 @@ export const McpServerManagerLive = Layer.effect(
       },
 
       removeSettingsEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws.removeMcpServerSettings(target.name).pipe(
-          Effect.withSpan("McpServerManager.removeSettingsEntry"),
-        ),
+        ws
+          .removeMcpServerSettings(target.name)
+          .pipe(Effect.withSpan("McpServerManager.removeSettingsEntry")),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
-        if (ref.refType !== "registry") return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
+        if (ref.refType !== "registry")
+          return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
         const registryRef = ref as RegistryMcpServerRef;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
@@ -246,9 +248,9 @@ export const McpServerManagerLive = Layer.effect(
       },
 
       removeLockfileEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws.removeMcpServerLock(target.name).pipe(
-          Effect.withSpan("McpServerManager.removeLockfileEntry"),
-        ),
+        ws
+          .removeMcpServerLock(target.name)
+          .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry")),
     } satisfies ExtensionManager<McpServerExtensionRef>;
   }),
 );

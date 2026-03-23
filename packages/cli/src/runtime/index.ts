@@ -249,14 +249,19 @@ export async function run<A>(
     {},
   );
   const command = options?.command ?? "unknown";
-  const telemetryLayer = Layer.provide(TelemetryClientLive(mode, command), Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie));
+  const telemetryLayer = Layer.provide(
+    TelemetryClientLive(mode, command),
+    Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie),
+  );
 
   // When --debug is active, swap the default silent logger for prettyLogger
-  const { debug } = resolveDiagnosticVerbosity(
-    process.argv,
-    { AXM_VERBOSE: configValues.AXM_VERBOSE, AXM_DEBUG: configValues.AXM_DEBUG },
-  );
-  const debugLoggerLayer = debug ? Logger.replace(Logger.defaultLogger, Logger.prettyLoggerDefault) : Layer.empty;
+  const { debug } = resolveDiagnosticVerbosity(process.argv, {
+    AXM_VERBOSE: configValues.AXM_VERBOSE,
+    AXM_DEBUG: configValues.AXM_DEBUG,
+  });
+  const debugLoggerLayer = debug
+    ? Logger.replace(Logger.defaultLogger, Logger.prettyLoggerDefault)
+    : Layer.empty;
 
   const registryUrl = configValues.registryUrl;
   const provided = options?.workspace
@@ -267,25 +272,34 @@ export async function run<A>(
         );
         const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
-          Effect.provide(Layer.mergeAll(flagsLayer, wsLayer, sourceProvidersLayer, telemetryLayer, debugLoggerLayer)),
+          Effect.provide(
+            Layer.mergeAll(
+              flagsLayer,
+              wsLayer,
+              sourceProvidersLayer,
+              telemetryLayer,
+              debugLoggerLayer,
+            ),
+          ),
           Effect.scoped,
         );
       })()
-    : (program.pipe(Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer))) as Effect.Effect<
-        A,
-        CliError | PromptCancelled,
-        AppLayer
-      >);
+    : (program.pipe(
+        Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer)),
+      ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
 
   // Classify the error and propagate as a defect so ManagedRuntime can
   // clean up scoped resources before we call process.exit.
   return provided
     .pipe(
       Effect.catchAll((error) => {
-        const result = classifyError(error, resolveDiagnosticVerbosity(
-          process.argv,
-          { AXM_VERBOSE: configValues.AXM_VERBOSE, AXM_DEBUG: configValues.AXM_DEBUG },
-        ));
+        const result = classifyError(
+          error,
+          resolveDiagnosticVerbosity(process.argv, {
+            AXM_VERBOSE: configValues.AXM_VERBOSE,
+            AXM_DEBUG: configValues.AXM_DEBUG,
+          }),
+        );
         if (result.exitCode !== 0) {
           console.error(result.message);
         }

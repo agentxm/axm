@@ -194,11 +194,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     );
     const depLayer = Option.match(ambientHttpClient, {
       onNone: () => baseDepLayer,
-      onSome: (client) =>
-        Layer.merge(
-          baseDepLayer,
-          Layer.succeed(HttpClient.HttpClient, client),
-        ),
+      onSome: (client) => Layer.merge(baseDepLayer, Layer.succeed(HttpClient.HttpClient, client)),
     });
 
     const findImpl = (source: Source, options: FindOptions) => {

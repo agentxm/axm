@@ -238,9 +238,7 @@ describe("auth login handler", () => {
       Effect.catchTag("CliError", (error) =>
         Effect.gen(function* () {
           expect(error.code).toBe("AUTH_UNAUTHENTICATED");
-          expect(
-            mockLog2.logs.success.some((m) => m.includes("Login successful")),
-          ).toBe(false);
+          expect(mockLog2.logs.success.some((m) => m.includes("Login successful"))).toBe(false);
 
           const credStore = yield* CredentialStore;
           const stored = yield* credStore.load(REGISTRY_URL);

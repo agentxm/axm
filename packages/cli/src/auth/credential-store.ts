@@ -67,7 +67,10 @@ const resolveHomeDir = (config: {
   readonly homePath: Option.Option<string>;
 }): string =>
   Option.getOrElse(
-    Option.orElse(Option.orElse(config.home, () => config.userProfile), () => config.homePath),
+    Option.orElse(
+      Option.orElse(config.home, () => config.userProfile),
+      () => config.homePath,
+    ),
     () => "/tmp",
   );
 

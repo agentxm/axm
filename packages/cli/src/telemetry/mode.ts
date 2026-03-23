@@ -40,8 +40,14 @@ export const resolveTelemetryMode = (
   env: TelemetryEnvValues | Record<string, string | undefined>,
   settings: TelemetrySettings,
 ): TelemetryMode => {
-  const doNotTrack = "doNotTrack" in env ? env.doNotTrack : (env as Record<string, string | undefined>)["DO_NOT_TRACK"];
-  const axmTelemetry = "axmTelemetry" in env ? env.axmTelemetry : (env as Record<string, string | undefined>)["AXM_TELEMETRY"];
+  const doNotTrack =
+    "doNotTrack" in env
+      ? env.doNotTrack
+      : (env as Record<string, string | undefined>)["DO_NOT_TRACK"];
+  const axmTelemetry =
+    "axmTelemetry" in env
+      ? env.axmTelemetry
+      : (env as Record<string, string | undefined>)["AXM_TELEMETRY"];
 
   if (doNotTrack === "1") return "off";
 

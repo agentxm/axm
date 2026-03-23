@@ -15,7 +15,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 - **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
-- **Standard library**: Effect (concurrency, type safety, error handling, async, observability)
+- **Standard library**: Effect v4 (concurrency, type safety, error handling, async, observability)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: `effect/unstable/cli`
 - **CLI UI**: Bombshell (prompts, forms, validation)
@@ -302,10 +302,76 @@ const data =
 - [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
 - [ ] Avoid `for`/`while` loops containing `yield*` — use `Effect.forEach` instead (see below)
 - [ ] Wrap Promise-based APIs with Effect conventions (see /effect-wrapping skill)
-- [ ] Use `@effect/platform` for filesystem and path operations — never `node:fs` or `node:path` in production code (see /effect-filesystem skill)
+- [ ] Use `effect/FileSystem` and `effect/Path` for filesystem and path operations — never `node:fs` or `node:path` in production code (see /effect-filesystem skill)
       → `FileSystem.FileSystem` for all file I/O (read, write, stat, mkdir, symlink)
       → `Path.Path` for all path computation (join, dirname, resolve, relative)
-      → Both provided by `NodeServices.layer` (already wired in the CLI runtime)
+      → Both provided by `NodeServices.layer` from `@effect/platform-node` (already wired in the CLI runtime)
+      → v4: platform modules consolidated into `effect` core — import from `effect/FileSystem`, `effect/Path`, not `@effect/platform/...`
+
+### Effect v4 API Changes
+
+This codebase uses **Effect v4**. Key differences from v3 — consult `.reference/effect-smol/` for full migration guides.
+
+**Services** — `Context.Tag` → `ServiceMap.Service`:
+
+```typescript
+// v3 (removed)
+class Database extends Context.Tag("Database")<Database, Shape>() {}
+
+// v4
+class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
+```
+
+**Error catching** — renamed for clarity:
+
+| v3 (removed)            | v4                   |
+| ----------------------- | -------------------- |
+| `Effect.catchAll`       | `Effect.catch`       |
+| `Effect.catchAllCause`  | `Effect.catchCause`  |
+| `Effect.catchAllDefect` | `Effect.catchDefect` |
+| `Effect.catchSome`      | `Effect.catchFilter` |
+
+**Forking** — renamed:
+
+| v3 (removed)        | v4                  |
+| ------------------- | ------------------- |
+| `Effect.fork`       | `Effect.forkChild`  |
+| `Effect.forkDaemon` | `Effect.forkDetach` |
+
+**Yieldable** — `Ref`, `Deferred`, `Fiber` are no longer Effect subtypes. Use explicit methods:
+
+```typescript
+// v3: yield* myRef (worked because Ref <: Effect)
+// v4: must use explicit method
+const value = yield * Ref.get(myRef);
+yield * Deferred.await(myDeferred);
+const result = yield * Fiber.join(myFiber);
+```
+
+**FiberRef** → `ServiceMap.Reference` / `References` module:
+
+```typescript
+// v3: FiberRef.currentLogLevel
+// v4: References.CurrentLogLevel — yield* to read, provideService to set
+```
+
+**Cause** — flattened from recursive tree to `{ reasons: ReadonlyArray<Reason<E>> }`. Iterate `cause.reasons` instead of pattern-matching.
+
+**Layer memoization** — now shared across `Effect.provide()` calls by default. Use `Layer.fresh(layer)` to opt out.
+
+**Imports** — platform modules consolidated into `effect` core:
+
+```typescript
+// v3 (removed)
+import { FileSystem } from "@effect/platform/FileSystem";
+import { Path } from "@effect/platform/Path";
+import { NodeContext } from "@effect/platform-node/NodeContext";
+
+// v4
+import { FileSystem } from "effect/FileSystem";
+import { Path } from "effect/Path";
+import { NodeServices } from "@effect/platform-node/NodeServices";
+```
 
 ### Effectful Iteration
 

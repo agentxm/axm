@@ -75,8 +75,8 @@ const gentle = process.pipe(Effect.withConcurrency(2));
 | `Effect.forEach`          | Map effectful function over items | Processing collections with optional concurrency |
 | `Effect.zip` / `zipWith`  | Combine exactly two effects       | Pairing two computations                         |
 | `Effect.race` / `raceAll` | First success wins                | Redundant requests, failover, hedged requests    |
-| `Effect.fork`             | Create supervised child fiber     | Background work attached to parent scope         |
-| `Effect.forkDaemon`       | Create global-scope fiber         | Long-running services that outlive creator       |
+| `Effect.forkChild`        | Create supervised child fiber     | Background work attached to parent scope         |
+| `Effect.forkDetach`       | Create global-scope fiber         | Long-running services that outlive creator       |
 | `Effect.forkScoped`       | Fiber tied to explicit Scope      | Fine-grained lifetime control                    |
 | `Deferred<A, E>`          | One-shot synchronization          | Signaling between fibers, producer-consumer      |
 | `Queue<A>`                | Async bounded/unbounded queue     | Work distribution, backpressure                  |
@@ -91,11 +91,11 @@ const gentle = process.pipe(Effect.withConcurrency(2));
 
 Every Effect runs on a **fiber**—a lightweight virtual thread. Fibers cooperatively yield every ~2,048 operations.
 
-**`Effect.fork` creates a supervised child fiber.** When parent terminates, all children are automatically interrupted—no leaked fibers.
+**`Effect.forkChild` creates a supervised child fiber.** When parent terminates, all children are automatically interrupted—no leaked fibers.
 
 ```typescript
 // Child fiber — interrupted when parent completes
-const fiber = yield * Effect.fork(backgroundTask);
+const fiber = yield * Effect.forkChild(backgroundTask);
 // ... do other work ...
 const result = yield * Fiber.join(fiber);
 ```
@@ -104,11 +104,11 @@ const result = yield * Fiber.join(fiber);
 
 | Fork Type           | Lifetime                      | Use When                           |
 | ------------------- | ----------------------------- | ---------------------------------- |
-| `Effect.fork`       | Dies with parent              | Default choice for concurrent work |
-| `Effect.forkDaemon` | Global scope, survives parent | Long-running background services   |
+| `Effect.forkChild`  | Dies with parent              | Default choice for concurrent work |
+| `Effect.forkDetach` | Global scope, survives parent | Long-running background services   |
 | `Effect.forkScoped` | Tied to explicit Scope        | Fine-grained lifetime control      |
 
-**Common mistake:** Using `forkDaemon` when you meant `fork` leaks fibers. Using `fork` when you meant `forkDaemon` kills background services prematurely.
+**Common mistake:** Using `forkDetach` when you meant `forkChild` leaks fibers. Using `forkChild` when you meant `forkDetach` kills background services prematurely.
 
 ---
 
@@ -131,6 +131,8 @@ const pollUntilDone = (taskId: string) =>
     return yield* Deferred.await(done);
   }).pipe(Effect.scoped);
 ```
+
+Note: `Deferred` is no longer an Effect subtype in v4. Use `Deferred.await(deferred)` instead of `yield* deferred`. Similarly, `Fiber` requires `Fiber.join(fiber)` and `Ref` requires `Ref.get(ref)` — these types can no longer be yielded directly.
 
 ### Semaphore: Cross-Cutting Concurrency Limits
 
@@ -244,7 +246,7 @@ const results =
 ```typescript
 const server = pipe(
   startHttpServer,
-  Effect.fork,
+  Effect.forkChild,
   Effect.tap((fiber) => Effect.addFinalizer(() => Fiber.interrupt(fiber))),
   Effect.scoped,
 );
@@ -256,7 +258,7 @@ const server = pipe(
 
 **Forgetting that `Effect.all` is sequential by default.** Always pass `{ concurrency: "unbounded" }` or `{ concurrency: N }` when effects are independent.
 
-**Using the wrong fork type.** `fork` (dies with parent) vs `forkDaemon` (global) vs `forkScoped` (explicit scope).
+**Using the wrong fork type.** `forkChild` (dies with parent) vs `forkDetach` (global) vs `forkScoped` (explicit scope).
 
 **Using `"unbounded"` on large collections.** Exhausts memory, file descriptors, or API rate limits. Prefer `concurrency: N` for unknown-size inputs.
 
@@ -273,7 +275,7 @@ const server = pipe(
 | Independent data fetches             | **Effect.all**     | `Effect.all({...}, { concurrency: "unbounded" })` |
 | Collection with bounded concurrency  | **Effect.forEach** | `Effect.forEach(items, fn, { concurrency: 10 })`  |
 | First-to-succeed wins                | **Effect.race**    | `Effect.race(primary, fallback)`                  |
-| Background work (supervised)         | **Fiber**          | `Effect.fork` + `Fiber.join`                      |
+| Background work (supervised)         | **Fiber**          | `Effect.forkChild` + `Fiber.join`                 |
 | Signal between fibers                | **Deferred**       | `Deferred.make` + `Deferred.await`                |
 | Cross-cutting rate limit             | **Semaphore**      | `sem.withPermits(1)(effect)`                      |
 | Producer-consumer with backpressure  | **Queue**          | `Queue.bounded` + `offer` + `take`                |
@@ -286,7 +288,7 @@ const server = pipe(
 - [ ] **Concurrency is opt-in** — Default is sequential; add `{ concurrency: N }` explicitly
 - [ ] **Independent effects run concurrently** — Use `Effect.all` with concurrency for independent work
 - [ ] **Bounded concurrency for large collections** — `concurrency: N` prevents resource exhaustion
-- [ ] **Correct fork type** — `fork` (supervised), `forkDaemon` (global), `forkScoped` (explicit)
+- [ ] **Correct fork type** — `forkChild` (supervised), `forkDetach` (global), `forkScoped` (explicit)
 - [ ] **No leaked fibers** — Structured concurrency auto-interrupts children with parent
 - [ ] **Parallel errors preserved** — `Cause` tree captures all concurrent failures
 - [ ] **Mode for error accumulation** — Use `{ mode: "either" }` when all results needed

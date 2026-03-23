@@ -1,4 +1,5 @@
 export { ClackPrompt, ClackPromptLive } from "./service.js";
+export { ClackPromptStructured } from "./structured.js";
 export type {
   ClackAutocompleteConfig,
   ClackAutocompleteMultiselectConfig,

@@ -42,7 +42,7 @@ describe("axm skills", () => {
       const result = await runCli(["skills", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Examples:");
+      expect(result.stdout).toContain("EXAMPLES");
     });
   });
 

@@ -8,8 +8,10 @@ user-invocable: false
 
 Apply these conventions when working on CLI commands.
 
-> **Reference implementation:** `packages/cli-spike` — a working spike proving
-> out idiomatic `effect/unstable/cli` patterns.
+> **Reference implementation:** `packages/cli-spike` — a self-documented
+> working spike proving out idiomatic `effect/unstable/cli` patterns.
+> Explanatory code comments cover architecture decisions, design rationale,
+> and patterns. Start with `src/main.ts` for the entry point overview.
 
 ---
 
@@ -296,14 +298,30 @@ const rootCommand = Command.make("axm").pipe(
 
 ## Error Handling
 
-| Code | Meaning         |
-| ---- | --------------- |
-| 0    | Success         |
-| 1    | Error           |
-| 130  | SIGINT (Ctrl+C) |
+### Three-Channel Error Pattern
 
-`Command.runWith()` handles `--help` and `--version` automatically. Catch
-`CliError` at the `run()` boundary:
+Errors are routed to three channels to serve both humans and machines:
+
+| Channel       | Content                                 | Consumer           |
+| ------------- | --------------------------------------- | ------------------ |
+| **stdout**    | Typed error JSON (in json/stream modes) | Programmatic       |
+| **stderr**    | Human-readable error + diagnostics      | Humans, pipe debug |
+| **Exit code** | Machine-readable status                 | Scripts, CI        |
+
+### Exit Codes
+
+| Code | Meaning                                   |
+| ---- | ----------------------------------------- |
+| 0    | Success (including `--help`, `--version`) |
+| 1    | Runtime error                             |
+| 2    | Usage/validation error                    |
+| 130  | SIGINT (Ctrl+C)                           |
+
+### Run Boundary
+
+`Command.runWith()` handles `--help` and `--version` automatically. Resolve
+the output format _before_ Effect runs (raw argv scan) so errors from CLI
+parsing can still be routed to the correct channel:
 
 ```typescript
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -312,19 +330,28 @@ import { CliError, Command } from "effect/unstable/cli";
 
 const VERSION = "0.0.1";
 
+// Resolve format OUTSIDE Effect — must work even when CLI parsing fails
+const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
+  const idx = args.indexOf("--output-format");
+  if (idx !== -1 && idx + 1 < args.length) {
+    const value = args[idx + 1];
+    if (value === "json" || value === "stream-json" || value === "text") return value;
+  }
+  return process.stdout.isTTY ? "text" : "json";
+};
+
 const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
+  const format = resolveFormatFromArgv(args);
   try {
     await Effect.runPromise(
-      Command.runWith(rootCommand, { version: VERSION })(args).pipe(
-        Effect.provide(NodeServices.layer),
-      ) as Effect.Effect<void>,
+      withGracefulShutdown(
+        Command.runWith(rootCommand, { version: VERSION })(args).pipe(
+          Effect.provide(NodeServices.layer),
+        ) as Effect.Effect<void>,
+      ),
     );
   } catch (error) {
-    if (CliError.isCliError(error)) {
-      process.exit(1);
-    }
-    console.error(error);
-    process.exit(1);
+    handleError(error, format);
   }
 };
 
@@ -333,6 +360,9 @@ void run();
 
 The entry point file uses `#!/usr/bin/env bun` shebang and `void run()` to
 invoke the async function without awaiting at top level.
+
+See `packages/cli-spike/src/main.ts` for the full three-channel error handler
+implementation with format-aware routing.
 
 Format errors with recovery guidance:
 
@@ -344,10 +374,59 @@ Format errors with recovery guidance:
 
 ### Error Handling Checklist
 
-- [ ] **Exit 0/1** — Success exits 0, all errors exit 1
+- [ ] **Exit 0/1/2** — Success=0, runtime=1, usage=2, signal=130
 - [ ] **What happened** — Error explains what went wrong
 - [ ] **How to fix** — Error suggests resolution
 - [ ] **Effect errors mapped** — Typed errors mapped to user-facing messages
+- [ ] **Format-aware routing** — JSON errors on stdout in json/stream-json modes
+- [ ] **Pre-Effect format detection** — Output format resolved before Effect runs
+
+---
+
+## Structured Output
+
+Every command produces output in one of three modes: `text` (TTY), `json`
+(piped instant commands), `stream-json` (piped long-running commands).
+
+### Command Handler Pattern
+
+All commands follow the same 3-step pattern:
+
+```typescript
+(config) =>
+  Effect.gen(function* () {
+    // 1. Resolve format — yield global flag, detect TTY
+    const format = resolveOutputFormat(yield* outputFormatFlag);
+    // For long-running commands, pass isLongRunning=true:
+    // const format = resolveOutputFormat(yield* outputFormatFlag, true);
+
+    // 2. Do work
+    const data = yield* doWork(config);
+
+    // 3. Write output — format-aware, schema-validated
+    yield* writeOutput(format, OutputSchema, data, renderText);
+  });
+```
+
+### Output Schema Convention
+
+Every JSON output includes `_version: 1` for schema evolution. Use
+`Schema.NullOr()` instead of optional properties — always-present keys give
+consumers a stable shape.
+
+```typescript
+export const SkillInfoSchema = Schema.Struct({
+  _version: Schema.Literal(1),
+  name: Schema.String,
+  version: Schema.NullOr(Schema.String), // null, not omitted
+});
+```
+
+### Long-Running Commands (NDJSON)
+
+Long-running commands emit progress events before the final result in
+`stream-json` mode. See `packages/cli-spike/src/commands/skills/install.ts`
+for the complete pattern.
 
 ---
 

@@ -1,4 +1,22 @@
-import * as Schema from "effect/Schema"
+// ==========================================================================
+// list.ts — Reference pattern for INSTANT commands with structured output
+//
+// This file demonstrates the standard command structure:
+//   1. Output schema — defines the JSON contract (with _version)
+//   2. Text renderer — pure function for human-readable output
+//   3. Command handler — resolves format, does work, writes output
+//   4. Command definition — args, flags, description, examples
+//
+// "Instant" means the command completes quickly and emits a single result.
+// Compare with install.ts which demonstrates long-running commands with
+// NDJSON streaming progress events.
+//
+// Handler pattern (3 steps, same for every command):
+//   1. const format = resolveOutputFormat(yield* outputFormatFlag)
+//   2. const data = yield* doWork(config)
+//   3. yield* writeOutput(format, schema, data, renderText)
+// ==========================================================================
+import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/unstable/cli";
 
@@ -7,6 +25,16 @@ import { resolveOutputFormat, writeOutput } from "../../output.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — the JSON contract for `skills list`
+//
+// Every JSON output includes _version: 1 for forward-compatible schema
+// evolution. When we make breaking changes, we bump _version and consumers
+// can branch on it. Additive changes (new fields) don't bump the version.
+//
+// Schema.NullOr(Schema.String) for version means the field is ALWAYS present
+// in JSON output — it's either a string or null, never omitted. This gives
+// consumers a stable shape to destructure without checking for missing keys.
+// Compare: { version?: string } would omit the key entirely, forcing
+// consumers to check `"version" in obj` before accessing it.
 // ---------------------------------------------------------------------------
 
 export const SkillInfoSchema = Schema.Struct({
@@ -48,6 +76,11 @@ const MOCK_SKILLS: ReadonlyArray<SkillInfo> = [
 
 // ---------------------------------------------------------------------------
 // Text renderer — human-friendly table for TTY output
+//
+// Text rendering is a pure function (data → string) separated from the
+// handler for testability. The same data flows through both paths: text
+// mode calls renderText(), json/stream-json mode calls Schema.encodeSync().
+// This ensures text and JSON output always represent the same data.
 // ---------------------------------------------------------------------------
 
 const renderText = (skills: SkillListOutput): string => {
@@ -64,6 +97,15 @@ const renderText = (skills: SkillListOutput): string => {
 
 // ---------------------------------------------------------------------------
 // Command
+//
+// The handler follows the standard 3-step pattern:
+//   1. Resolve output format (yield global flag → detect TTY)
+//   2. Do work (here: filter mock data; real impl would query workspace)
+//   3. Write output (format-aware: text table, JSON array, or NDJSON result)
+//
+// Note: resolveOutputFormat(explicit) without isLongRunning=true means
+// piped output defaults to "json" (single array), not "stream-json".
+// This is correct for instant commands that return a complete result.
 // ---------------------------------------------------------------------------
 
 export const listCommand = Command.make(

@@ -31,10 +31,10 @@ export interface Author {
 }
 
 /** Convert schema-decoded author shape into runtime/domain Author. */
-export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
+export const toAuthor = (author: Schema.Schema.Type<typeof AuthorSchema>): Author => ({
   name: author.name,
-  email: Option.fromNullable(author.email),
-  url: Option.fromNullable(author.url),
+  email: Option.fromUndefinedOr(author.email),
+  url: Option.fromUndefinedOr(author.url),
 });
 
 /**
@@ -61,26 +61,26 @@ export const MANIFEST_NAME_PATTERN = /^[\w-]+$/;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.pattern(FQN_PATTERN));
+export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.check(Schema.isPattern(FQN_PATTERN)));
 
 /**
  * Inferred type for FullyQualifiedName schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type FullyQualifiedName = typeof FullyQualifiedNameSchema.Type;
+export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSchema>;
 
 /**
  * Manifest namespace schema.
  */
 export const ManifestNamespaceSchema = Schema.String.pipe(
-  Schema.pattern(MANIFEST_NAMESPACE_PATTERN),
+  Schema.check(Schema.isPattern(MANIFEST_NAMESPACE_PATTERN)),
 );
 
 /**
  * Manifest short name schema.
  */
-export const ManifestNameSchema = Schema.String.pipe(Schema.pattern(MANIFEST_NAME_PATTERN));
+export const ManifestNameSchema = Schema.String.pipe(Schema.check(Schema.isPattern(MANIFEST_NAME_PATTERN)));
 
 /**
  * Common fields shared across all manifest types.
@@ -106,19 +106,14 @@ export const CommonManifestFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionTypeSchema = Schema.Union(
-  Schema.Literal("skill"),
-  Schema.Literal("command"),
-  Schema.Literal("pack"),
-  Schema.Literal("mcp-server"),
-);
+export const ExtensionTypeSchema = Schema.Union([Schema.Literal("skill"), Schema.Literal("command"), Schema.Literal("pack"), Schema.Literal("mcp-server")]);
 
 /**
  * Inferred type for ExtensionType schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionType = typeof ExtensionTypeSchema.Type;
+export type ExtensionType = Schema.Schema.Type<typeof ExtensionTypeSchema>;
 
 /**
  * Agent identifier enumeration for supported coding agents.
@@ -128,11 +123,11 @@ export type ExtensionType = typeof ExtensionTypeSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentIdSchema = Schema.Literal(...AGENT_IDS);
+export const AgentIdSchema = Schema.Literals([...AGENT_IDS]);
 
 /**
  * Inferred type for AgentId schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentId = typeof AgentIdSchema.Type;
+export type AgentId = Schema.Schema.Type<typeof AgentIdSchema>;

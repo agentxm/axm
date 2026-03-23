@@ -8,7 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -43,7 +43,7 @@ import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 // Types
 // -----------------------------------------------------------------------------
 
-/** Raw handler args from yargs. */
+/** Raw handler args from the CLI parser. */
 export interface UninstallPackHandlerArgs {
   readonly name: string;
 }
@@ -67,16 +67,14 @@ export interface UninstallPackCommandIntent {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class UninstallPackCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/UninstallPackCommandWorkflowActions",
-)<
+export class UninstallPackCommandWorkflowActions extends ServiceMap.Service<
   UninstallPackCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<
     UninstallPackHandlerArgs,
     ParsedPackUninstallArgs,
     UninstallPackCommandIntent
   >
->() {}
+>()("@axm.sh/cli/UninstallPackCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

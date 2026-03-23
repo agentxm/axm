@@ -8,10 +8,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -159,9 +159,7 @@ const extractRequestedNamespace = (
 
 type SkillsInstallHandlerArgs = InstallHandlerArgs;
 
-export class InstallSkillCommandWorkflowActions extends Context.Tag(
-  "InstallSkillCommandWorkflowActions",
-)<
+export class InstallSkillCommandWorkflowActions extends ServiceMap.Service<
   InstallSkillCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
     SkillsInstallHandlerArgs,
@@ -170,7 +168,7 @@ export class InstallSkillCommandWorkflowActions extends Context.Tag(
     SkillExtensionRef,
     InstallSkillCommandIntent
   >
->() {}
+>()("InstallSkillCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -336,7 +334,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                     });
                   }),
                   Effect.flatMap((discoveredSkills) =>
-                    Array.isNonEmptyReadonlyArray(discoveredSkills)
+                    !Array.isReadonlyArrayEmpty(discoveredSkills)
                       ? Effect.succeed(discoveredSkills)
                       : Effect.fail(
                           makeCliError({
@@ -370,7 +368,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             },
           );
 
-          if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
+          if (Array.isReadonlyArrayEmpty(selectedSkills)) {
             yield* log.warn("No skills selected.");
             yield* log.success("Nothing to install.");
             return { skillsToInstall: [] } satisfies InstallSkillCommandIntent;

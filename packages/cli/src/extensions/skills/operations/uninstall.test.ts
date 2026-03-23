@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -78,7 +78,7 @@ const makeWorkspaceMock = (
     getLockedSkill: (name: string) =>
       overrides?.lockfileErrorOverride
         ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
-        : Effect.succeed(Option.fromNullable(skills[name] as SkillLockEntry | undefined)),
+        : Effect.succeed(Option.fromUndefinedOr(skills[name] as SkillLockEntry | undefined)),
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: overrides?.setSkillErrorOverride
       ? () => overrides.setSkillErrorOverride!()
@@ -174,7 +174,7 @@ const withServices = (
   },
 ) => {
   return Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileSkills, wsOverrides)),
   );
 };

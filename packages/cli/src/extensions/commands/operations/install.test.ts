@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -80,7 +80,7 @@ const makeWorkspaceMock = (
     getPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(readLf().commands ?? {}),
     getLockedCommand: (name: string) =>
-      Effect.succeed(Option.fromNullable(readLf().commands?.[name])),
+      Effect.succeed(Option.fromUndefinedOr(readLf().commands?.[name])),
     setCommand: setCommandFn
       ? (args: { name: string; lockEntry: unknown }) => setCommandFn(args)
       : (args: { name: string; lockEntry: unknown }) =>
@@ -172,7 +172,7 @@ const withServices = (
           : source.type,
   };
   return Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(mockWs),
     ClackLogTestLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
@@ -215,7 +215,7 @@ const makeOp = (
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
     versionConstraint: overrides.versionConstraint ?? Option.none(),
-    skipSettings: Option.fromNullable(overrides.skipSettings),
+    skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
   },
 });
 
@@ -431,7 +431,7 @@ describe("installCommand", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
         ).pipe(
           Effect.provide(withServices(axmDir, { setCommandFn })),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
         );
 
         expect(result.result).toBe("error");
@@ -458,7 +458,7 @@ describe("installCommand", () => {
 
         const result = yield* installCommand(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -479,7 +479,7 @@ describe("installCommand", () => {
 
         const result = yield* installCommand(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
         );
 
         expect(result.result).toBe("error");

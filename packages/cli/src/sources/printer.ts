@@ -54,24 +54,24 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
         type: "github",
         owner: entry.owner,
         repo: entry.repo,
-        ref: Option.fromNullable(entry.ref),
-        subPath: Option.fromNullable(entry.path),
+        ref: Option.fromUndefinedOr(entry.ref),
+        subPath: Option.fromUndefinedOr(entry.path),
       };
     case "gitlab":
       return {
         type: "gitlab",
         owner: entry.owner,
         repo: entry.repo,
-        ref: Option.fromNullable(entry.ref),
-        subPath: Option.fromNullable(entry.path),
+        ref: Option.fromUndefinedOr(entry.ref),
+        subPath: Option.fromUndefinedOr(entry.path),
       };
     case "bitbucket":
       return {
         type: "bitbucket",
         owner: entry.owner,
         repo: entry.repo,
-        ref: Option.fromNullable(entry.ref),
-        subPath: Option.fromNullable(entry.path),
+        ref: Option.fromUndefinedOr(entry.ref),
+        subPath: Option.fromUndefinedOr(entry.path),
       };
     case "azurerepos":
       return {
@@ -79,14 +79,14 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
         organization: entry.organization,
         project: entry.project,
         repo: entry.repo,
-        ref: Option.fromNullable(entry.ref),
-        subPath: Option.fromNullable(entry.path),
+        ref: Option.fromUndefinedOr(entry.ref),
+        subPath: Option.fromUndefinedOr(entry.path),
       };
     case "git":
       return {
         type: "git",
         url: new URL(entry.url),
-        ref: Option.fromNullable(entry.ref),
+        ref: Option.fromUndefinedOr(entry.ref),
       };
     case "local":
       return { type: "local", path: entry.path };

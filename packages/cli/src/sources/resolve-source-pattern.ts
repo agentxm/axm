@@ -8,8 +8,8 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -60,7 +60,7 @@ const buildCandidates = Effect.gen(function* () {
       discoverSkillsInDir(agentRoot, Option.none(), {
         fullDepth: false,
         includeInternal: false,
-      }).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
+      }).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
     { concurrency: "unbounded" },
   ).pipe(Effect.map(Array.flatten));
 

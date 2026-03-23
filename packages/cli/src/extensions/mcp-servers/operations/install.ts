@@ -7,8 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -170,7 +170,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignoreLogged);
+              return fs.copy(src, dest).pipe(Effect.ignore);
             },
             { concurrency: "unbounded" },
           );
@@ -360,7 +360,7 @@ export const installMcpServer: OperationHandler<
       ? ws.setMcpServerLock({ name: ref.server.name, lockEntry })
       : ws.setMcpServer({ name: ref.server.name, lockEntry });
     yield* writeEffect.pipe(
-      Effect.catchAll((e) => log.warn(`MCP server update failed: ${String(e)}`)),
+      Effect.catch((e) => log.warn(`MCP server update failed: ${String(e)}`)),
     );
 
     const agentSync = yield* syncConfiguredAgentsOnInstall({

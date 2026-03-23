@@ -2,7 +2,7 @@
  * Unit tests for environment detection functions.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";

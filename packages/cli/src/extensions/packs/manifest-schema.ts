@@ -33,9 +33,9 @@ export const RawPackManifestSchema = Schema.Struct({
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
-  skills: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  commands: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  "mcp-servers": Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  skills: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  commands: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  "mcp-servers": Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 
 /**
@@ -44,17 +44,16 @@ export const RawPackManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-const VersionSpecifierMapSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.String,
-}).pipe(
-  Schema.filter((record) => {
-    const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
-    if (invalidKeys.length > 0) {
-      return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @namespace/type/name format (e.g. @namespace/skills/my-skill).`;
-    }
-    return undefined;
-  }),
+const VersionSpecifierMapSchema = Schema.Record(Schema.String, Schema.String).pipe(
+  Schema.check(
+    Schema.makeFilter<Record<string, string>>((record) => {
+      const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
+      if (invalidKeys.length > 0) {
+        return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @namespace/type/name format (e.g. @namespace/skills/my-skill).`;
+      }
+      return undefined;
+    }),
+  ),
 );
 
 /**
@@ -79,4 +78,4 @@ export const PackManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PackManifest = typeof PackManifestSchema.Type;
+export type PackManifest = Schema.Schema.Type<typeof PackManifestSchema>;

@@ -8,10 +8,10 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as Path from "@effect/platform/Path";
-import * as Context from "effect/Context";
+import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as Path from "effect/Path";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -62,10 +62,10 @@ export interface SourceHostProvidersService {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class SourceHostProviders extends Context.Tag("@axm.sh/cli/SourceHostProviders")<
+export class SourceHostProviders extends ServiceMap.Service<
   SourceHostProviders,
   SourceHostProvidersService
->() {}
+>()("@axm.sh/cli/SourceHostProviders") {}
 
 // -----------------------------------------------------------------------------
 // Clone URL Building
@@ -138,7 +138,7 @@ export const createRegistryMetaProvider = () => ({
         : Option.isSome(source.namespace)
           ? source.namespace
           : options.skillNames.length > 0
-            ? Option.fromNullable(
+            ? Option.fromNullOr(
                 options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
               )
             : Option.none<string>();

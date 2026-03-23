@@ -1,12 +1,11 @@
 import * as p from "@clack/prompts";
-import * as Chunk from "effect/Chunk";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import { makeCliError, type CliError } from "../../cli-error/index.js";
 
-export class ClackStream extends Context.Tag("@axm.sh/cli/clack-effect/ClackStream")<
+export class ClackStream extends ServiceMap.Service<
   ClackStream,
   {
     readonly message: <E, R>(
@@ -28,14 +27,13 @@ export class ClackStream extends Context.Tag("@axm.sh/cli/clack-effect/ClackStre
       stream: Stream.Stream<string, E, R>,
     ) => Effect.Effect<void, CliError | E, R>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/ClackStream") {}
 
 const wrapStreamMethod =
   (method: (iter: Iterable<string>) => Promise<void>) =>
   <E, R>(stream: Stream.Stream<string, E, R>): Effect.Effect<void, CliError | E, R> =>
     Effect.gen(function* () {
-      const chunks = yield* Stream.runCollect(stream);
-      const arr = Chunk.toReadonlyArray(chunks);
+      const arr = yield* Stream.runCollect(stream);
       yield* Effect.tryPromise({
         try: () => method(arr),
         catch: (error) =>
@@ -47,7 +45,7 @@ const wrapStreamMethod =
       });
     });
 
-const makeLiveClackStreamService = (): Context.Tag.Service<typeof ClackStream> => ({
+const makeLiveClackStreamService = (): ServiceMap.Service.Shape<typeof ClackStream> => ({
   message: wrapStreamMethod((iter) => p.stream.message(iter)),
   info: wrapStreamMethod((iter) => p.stream.info(iter)),
   success: wrapStreamMethod((iter) => p.stream.success(iter)),

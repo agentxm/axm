@@ -9,8 +9,8 @@
  */
 
 import * as crypto from "node:crypto";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
@@ -108,7 +108,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "PACK_MANIFEST_INVALID",

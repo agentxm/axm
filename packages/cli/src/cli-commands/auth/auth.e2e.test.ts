@@ -8,6 +8,18 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
 describe("axm auth", () => {
+  it("shows group help and exits cleanly when invoked without a subcommand", async () => {
+    const result = await runCli(["auth"]);
+
+    expect(result.exitCode).toBe(0);
+    const output = result.stdout + result.stderr;
+    expect(output).toContain("Manage authentication");
+    expect(output).toContain("login");
+    expect(output).toContain("logout");
+    expect(output).toContain("whoami");
+    expect(output).toContain("token");
+  });
+
   it("displays subcommand help listing all auth commands", async () => {
     const result = await runCli(["auth", "--help"]);
     expect(result.exitCode).toBe(0);
@@ -16,6 +28,31 @@ describe("axm auth", () => {
     expect(output).toContain("logout");
     expect(output).toContain("whoami");
     expect(output).toContain("token");
+  });
+
+  it.each([
+    {
+      args: ["login", "--help"],
+      expected: "Sign in to a registry",
+    },
+    {
+      args: ["logout", "--help"],
+      expected: "Sign out of a registry",
+    },
+    {
+      args: ["whoami", "--help"],
+      expected: "Show current authenticated identity",
+    },
+    {
+      args: ["token", "--help"],
+      expected: "Output current auth token to stdout",
+    },
+  ])("supports the top-level auth alias: $args", async ({ args, expected }) => {
+    const result = await runCli(args);
+
+    expect(result.exitCode).toBe(0);
+    const output = result.stdout + result.stderr;
+    expect(output).toContain(expected);
   });
 
   describe("auth commands work outside an axm-initialized directory", () => {

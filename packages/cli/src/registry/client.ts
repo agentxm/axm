@@ -8,10 +8,10 @@
  * @packageDocumentation
  */
 
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as Path from "@effect/platform/Path";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -226,7 +226,7 @@ export const createRegistryClient = (location: string) =>
     if (location.startsWith("https://") || location.startsWith("http://")) {
       const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
       const httpClient = yield* Option.match(ambientHttpClient, {
-        onNone: () => HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer)),
+        onNone: () => HttpClient.HttpClient.asEffect().pipe(Effect.provide(FetchHttpClient.layer)),
         onSome: (client) => Effect.succeed(client),
       });
       return createRemoteRegistryClient(location, httpClient);

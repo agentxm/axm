@@ -42,7 +42,7 @@ const messagesByMethod = (
 ): ReadonlyArray<string> =>
   record.calls.filter((call) => call.method === method).map((call) => String(call.args[0] ?? ""));
 
-const getLog = Effect.flatMap(ClackLogTest, (t) => t.get);
+const getLog = Effect.flatMap(ClackLogTest.asEffect(), (t) => t.get);
 
 // -----------------------------------------------------------------------------
 // Tests

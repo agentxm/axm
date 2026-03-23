@@ -7,8 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
@@ -53,27 +53,27 @@ const existsInAnyLocation = (
     // Check non-registry canonical location
     const canonicalExists = yield* fsService
       .exists(pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName))
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
     if (canonicalExists) return true;
 
     // Check registry canonical locations
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (!extensionsDirExists) return false;
 
     const scopeDirs = yield* fsService
       .readDirectory(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     const results = yield* Effect.forEach(
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.succeed(false);
         const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
-        return fsService.exists(skillPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+        return fsService.exists(skillPath).pipe(Effect.catch(() => Effect.succeed(false)));
       },
       { concurrency: "unbounded" },
     );
@@ -143,7 +143,7 @@ export const uninstallSkill: OperationHandler<
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return fs
           .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
+          .pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );
@@ -180,13 +180,13 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Check if a pack still references this skill
-    const lockedPacks = yield* ws.getLockedPacks().pipe(Effect.catchAll(() => Effect.succeed({})));
+    const lockedPacks = yield* ws.getLockedPacks().pipe(Effect.catch(() => Effect.succeed({})));
     const fqn = getSkillFqn(op.args.skillName, lockEntry);
     const packOwned = fqn !== undefined && isReferencedByPack(fqn, lockedPacks);
 
     if (packOwned) {
       // Pack still references this skill — remove from settings only, keep lockfile + disk
-      yield* ws.removeSkillFromSettings(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
+      yield* ws.removeSkillFromSettings(op.args.skillName).pipe(Effect.catch(() => Effect.void));
 
       return {
         result: "success",
@@ -200,7 +200,7 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Remove from both settings and lockfile (swallow errors on full uninstall)
-    yield* ws.removeSkill(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
+    yield* ws.removeSkill(op.args.skillName).pipe(Effect.catch(() => Effect.void));
 
     return {
       result: "success",

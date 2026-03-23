@@ -7,10 +7,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
@@ -161,7 +161,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignoreLogged);
+              return fs.copy(src, dest).pipe(Effect.ignore);
             },
             { concurrency: "unbounded" },
           );
@@ -212,7 +212,7 @@ export const installCommand: OperationHandler<
       ? ws.setCommandLock({ name: ref.command.name, lockEntry })
       : ws.setCommand({ name: ref.command.name, lockEntry });
     yield* writeEffect.pipe(
-      Effect.catchAll((e) => log.warn(`Command update failed: ${String(e)}`)),
+      Effect.catch((e) => log.warn(`Command update failed: ${String(e)}`)),
     );
 
     return {

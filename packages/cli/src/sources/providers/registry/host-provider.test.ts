@@ -9,9 +9,9 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -45,7 +45,7 @@ import {
 
 const runEffect = <A, E>(
   effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
-) => Effect.runPromise(effect.pipe(Effect.scoped, Effect.provide(NodeContext.layer)));
+) => Effect.runPromise(effect.pipe(Effect.scoped, Effect.provide(NodeServices.layer)));
 
 const sha512 = (data: Uint8Array): string => {
   const b64 = createHash("sha512").update(data).digest("base64");
@@ -525,8 +525,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     return runEffect(
       Effect.gen(function* () {
         // extractZip will fail on the fake bytes, but we can verify the
-        // client delegation happened. Use Effect.either to catch the extraction error.
-        const result = yield* provider.fetch(testSource, ref).pipe(Effect.either);
+        // client delegation happened. Use Effect.result to catch the extraction error.
+        const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
 
         expect(capturedArgs?.namespace).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
@@ -537,9 +537,9 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // that the integrity passed and client was called correctly
         // If it succeeded, that means extraction worked; if it failed,
         // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.left.what).not.toContain("Integrity mismatch");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
+          expect(result.failure.what).not.toContain("Integrity mismatch");
         }
       }),
     );
@@ -567,11 +567,11 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const result = yield* provider.fetch(testSource, ref).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.left.what).toContain("Integrity mismatch");
+        const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("SOURCE_FETCH_FAILED");
+          expect(result.failure.what).toContain("Integrity mismatch");
         }
       }),
     );
@@ -607,7 +607,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        yield* provider.fetch(testSource, ref).pipe(Effect.either);
+        yield* provider.fetch(testSource, ref).pipe(Effect.result);
         expect(capturedType).toBe("mcp-server");
         expect(capturedName).toBe("my-server");
       }),
@@ -690,10 +690,10 @@ describe("RemoteRegistrySourceHostProvider", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const result = yield* provider.find(testSource, defaultFindOptions).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        const result = yield* provider.find(testSource, defaultFindOptions).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
         }
       }),
     );
@@ -716,10 +716,10 @@ describe("RemoteRegistrySourceHostProvider", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const result = yield* provider.fetch(testSource, ref).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
         }
       }),
     );
@@ -740,10 +740,10 @@ describe("RemoteRegistrySourceHostProvider", () => {
             new Uint8Array(),
             makeVersionEntry(),
           )
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
         }
       }),
     );

@@ -1,4 +1,4 @@
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -28,7 +28,7 @@ export const decodeTokenResponse = (
   code: string,
   what: string,
 ): Effect.Effect<NormalizedTokenResponse, CliError> =>
-  Schema.decodeUnknown(TokenWireResponseSchema)(parsed).pipe(
+  Schema.decodeUnknownEffect(TokenWireResponseSchema)(parsed).pipe(
     Effect.mapError((error) =>
       makeCliError({
         code,

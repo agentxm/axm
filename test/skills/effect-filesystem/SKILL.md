@@ -6,9 +6,9 @@ user-invocable: false
 
 # Effect Filesystem
 
-All file I/O uses `@effect/platform/FileSystem` and all path computation uses
-`@effect/platform/Path` — never `node:fs` or `node:path` in production code.
-Both are Effect services provided by `NodeContext.layer` in the CLI runtime.
+All file I/O uses `effect/FileSystem` and all path computation uses
+`effect/Path` — never `node:fs` or `node:path` in production code. Both are
+Effect services provided by `NodeServices.layer` in the CLI runtime.
 
 ---
 
@@ -17,8 +17,8 @@ Both are Effect services provided by `NodeContext.layer` in the CLI runtime.
 Both FileSystem and Path are obtained via `yield*` in an Effect generator:
 
 ```typescript
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 
 const readConfig = (dir: string) =>
@@ -32,7 +32,7 @@ const readConfig = (dir: string) =>
 ```
 
 Dependencies appear in the `R` channel automatically — no explicit annotation
-needed. Both are provided by `NodeContext.layer` (already wired in the CLI
+needed. Both are provided by `NodeServices.layer` (already wired in the CLI
 runtime).
 
 ---
@@ -106,13 +106,13 @@ if (Option.isSome(maybeStat)) {
 
 ## Testing
 
-Provide `NodeContext.layer` (includes both FileSystem and Path):
+Provide `NodeServices.layer` (includes both FileSystem and Path):
 
 ```typescript
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 
 const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeContext.layer));
+  effect.pipe(Effect.provide(NodeServices.layer));
 
 it.effect("reads file", () =>
   withPlatform(
@@ -123,15 +123,6 @@ it.effect("reads file", () =>
     }),
   ),
 );
-```
-
-If only FileSystem is needed, `NodeFileSystem.layer` also works:
-
-```typescript
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-
-const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-  effect.pipe(Effect.provide(NodeFileSystem.layer));
 ```
 
 Test setup/teardown with `node:fs` is acceptable — it runs outside Effect:
@@ -165,7 +156,7 @@ const loadConfig = (configPath: string) =>
       try: () => JSON.parse(content) as unknown,
       catch: (e) => new ConfigError({ message: "Parse failed", cause: e }),
     });
-    return yield* Schema.decodeUnknown(ConfigSchema)(json).pipe(
+    return yield* Schema.decodeUnknownEffect(ConfigSchema)(json).pipe(
       Effect.mapError((e) => new ConfigError({ message: "Validation failed", cause: e })),
     );
   });
@@ -200,10 +191,10 @@ yield * fs.writeFileString(filePath, content);
 
 ## Effect Filesystem Checklist
 
-- [ ] **No `node:fs` in production** — Use `@effect/platform/FileSystem` for all I/O
-- [ ] **No `node:path` in production** — Use `@effect/platform/Path` for path computation
+- [ ] **No `node:fs` in production** — Use `effect/FileSystem` for all I/O
+- [ ] **No `node:path` in production** — Use `effect/Path` for path computation
 - [ ] **Domain errors** — Wrap `PlatformError` via `mapError` at each call site
-- [ ] **NodeContext.layer in tests** — Provides both FileSystem and Path
+- [ ] **NodeServices.layer in tests** — Provides both FileSystem and Path
 - [ ] **Concurrent directory ops** — Use `Effect.forEach` with concurrency for parallel I/O
 - [ ] **Recursive mkdir** — Always pass `{ recursive: true }` when creating parent dirs
 - [ ] **Node APIs in test setup only** — `node:fs`/`node:path` acceptable in beforeEach/afterEach

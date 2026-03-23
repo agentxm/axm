@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -98,7 +98,7 @@ describe("fork.handler", () => {
     const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
     const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
     const BaseLayer = Layer.mergeAll(
-      NodeContext.layer,
+      NodeServices.layer,
       logLayer,
       spinnerLayer,
       confirmLayer,

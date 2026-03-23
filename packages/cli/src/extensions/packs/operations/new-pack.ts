@@ -5,8 +5,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
@@ -14,7 +14,6 @@ import { formatFqn } from "../../index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import type { PackManifest } from "../manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
 
@@ -100,7 +99,7 @@ export const newPack: OperationHandler<
     );
 
     // 4. Write manifest
-    const manifest: PackManifest = {
+    const manifest = {
       namespace,
       type: "pack",
       name,
@@ -136,7 +135,7 @@ export const newPack: OperationHandler<
         resolvedMcpServers: {},
         versionConstraint: Option.none(),
       })
-      .pipe(Effect.ignoreLogged);
+      .pipe(Effect.ignore);
 
     return {
       result: "success",

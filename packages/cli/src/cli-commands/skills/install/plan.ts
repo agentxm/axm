@@ -7,8 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
@@ -51,7 +51,7 @@ export const buildSkillInstallPlan = ({
     const log = yield* Log;
     const envConfig = yield* CliEnvConfig;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
-      Effect.catchAll((error) => {
+      Effect.catch((error) => {
         if (
           error.code === "LOCKFILE_PARSE_FAILED" ||
           error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"

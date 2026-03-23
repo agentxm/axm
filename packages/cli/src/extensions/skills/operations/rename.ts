@@ -7,8 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import matter from "gray-matter";
@@ -115,7 +115,7 @@ export const renameSkill: OperationHandler<
       fs,
       path.join(newPaths.skillSrcPath, "SKILL.md"),
       op.args.newName,
-    ).pipe(Effect.catchAll(() => Effect.void));
+    ).pipe(Effect.catch(() => Effect.void));
 
     // 3. Remove old agent symlinks (concurrent)
     const oldSanitized = sanitizeName(op.args.oldName);
@@ -131,7 +131,7 @@ export const renameSkill: OperationHandler<
         const agentSkillPath = path.join(base, agent.skills.dir, oldSanitized);
         return fs
           .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
+          .pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );
@@ -146,9 +146,9 @@ export const renameSkill: OperationHandler<
 
         const agentSkillPath = path.join(base, agent.skills.dir, newSanitized);
         return createSymlink({ target: newPaths.skillSrcPath, link: agentSkillPath }).pipe(
-          Effect.catchAll(() =>
+          Effect.catch(() =>
             copySkillDirectory(newPaths.skillSrcPath, agentSkillPath).pipe(
-              Effect.catchAll(() => Effect.void),
+              Effect.catch(() => Effect.void),
             ),
           ),
         );
@@ -159,12 +159,12 @@ export const renameSkill: OperationHandler<
     // 5. Rename settings/lockfile keys — state after files
     yield* ws
       .renameSkill(op.args.oldName, op.args.newName)
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catch(() => Effect.void));
 
     // 6. Sync lock agents
     yield* ws
       .updateLockEntryAgents(op.args.newName, configuredAgents)
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catch(() => Effect.void));
 
     return {
       result: "success",

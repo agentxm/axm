@@ -1,12 +1,9 @@
-import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 
-export const textInputCommand: CommandModule = {
-  command: "text-input",
-  describe: "Demo text input",
+export const textInputCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
       const prompt = yield* ClackPrompt;

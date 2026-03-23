@@ -16,7 +16,7 @@ import {
   SourceHostConfigSchema,
 } from "./schema.js";
 
-const getSourceLocation = (source: typeof SourceHostConfigSchema.Type): URL =>
+const getSourceLocation = (source: Schema.Schema.Type<typeof SourceHostConfigSchema>): URL =>
   source.type === "registry" ? source.location : source.url;
 
 describe("Settings schema", () => {

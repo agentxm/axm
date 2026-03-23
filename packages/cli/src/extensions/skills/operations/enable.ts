@@ -8,8 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
@@ -67,7 +67,7 @@ export const enableSkill: OperationHandler<
     if (Option.isNone(lockEntry)) {
       yield* ws
         .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
-        .pipe(Effect.catchAll(() => Effect.void));
+        .pipe(Effect.catch(() => Effect.void));
 
       return {
         result: "success",
@@ -83,7 +83,7 @@ export const enableSkill: OperationHandler<
 
     const exists = yield* fs
       .exists(skillSrcPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeCliError({
         code: "ENABLE_SKILL_MISSING_FILES",
@@ -101,9 +101,9 @@ export const enableSkill: OperationHandler<
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
-          Effect.catchAll(() =>
+          Effect.catch(() =>
             copySkillDirectory(skillSrcPath, agentSkillPath).pipe(
-              Effect.catchAll(() => Effect.void),
+              Effect.catch(() => Effect.void),
             ),
           ),
         );
@@ -113,11 +113,11 @@ export const enableSkill: OperationHandler<
 
     yield* ws
       .updateLockEntryAgents(op.args.skillName, configuredAgents)
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catch(() => Effect.void));
 
     yield* ws
       .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catch(() => Effect.void));
 
     return {
       result: "success",

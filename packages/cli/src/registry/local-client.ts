@@ -8,8 +8,8 @@
  * @packageDocumentation
  */
 
-import type * as FileSystem from "@effect/platform/FileSystem";
-import type * as Path from "@effect/platform/Path";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -68,7 +68,7 @@ const processNameDir = (
           cause: e,
         }),
     });
-    const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+    const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "REGISTRY_FETCH_FAILED",
@@ -86,10 +86,10 @@ const processNameDir = (
       namespace: index.namespace,
       type: index.type,
       name: index.name,
-      description: Option.fromNullable(index.description),
-      repository: Option.fromNullable(index.repository),
-      license: Option.fromNullable(index.license),
-      authors: Option.match(Option.fromNullable(index.authors), {
+      description: Option.fromUndefinedOr(index.description),
+      repository: Option.fromUndefinedOr(index.repository),
+      license: Option.fromUndefinedOr(index.license),
+      authors: Option.match(Option.fromUndefinedOr(index.authors), {
         onNone: (): ReadonlyArray<Author> => [],
         onSome: (authors) => authors.map((author) => toAuthor(author)),
       }),
@@ -208,7 +208,7 @@ export const createLocalRegistryClient = (
                   cause: e,
                 }),
             });
-            const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+            const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
               Effect.mapError((e) =>
                 makeCliError({
                   code: "REGISTRY_FETCH_FAILED",
@@ -261,7 +261,7 @@ export const createLocalRegistryClient = (
                   cause: e,
                 }),
             });
-            const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+            const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
               Effect.mapError((e) =>
                 makeCliError({
                   code: "REGISTRY_FETCH_FAILED",
@@ -352,7 +352,7 @@ export const createLocalRegistryClient = (
               cause: e,
             }),
         });
-        const existingIndex = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+        const existingIndex = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
           Effect.mapError((e) =>
             makeCliError({
               code: "REGISTRY_PUBLISH_FAILED",

@@ -8,8 +8,8 @@
  * @internal
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -45,7 +45,10 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
 
     // If explicit agents are provided, use those (no detection needed)
     if (Option.isSome(options.agents) && options.agents.value.length > 0) {
-      selectedAgents = Array.filterMap([...options.agents.value], (id) => getAgentById(id));
+      selectedAgents = [...options.agents.value].flatMap((id) => {
+        const agent = getAgentById(id);
+        return Option.isSome(agent) ? [agent.value] : [];
+      });
     } else {
       // Detect installed agents
       const detectedAgents = yield* detectAgents(process.cwd()).pipe(
@@ -78,15 +81,18 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
           required: false,
         });
 
-        selectedAgents = Array.filterMap([...selectedIds], (id) => getAgentById(id));
+        selectedAgents = [...selectedIds].flatMap((id) => {
+          const agent = getAgentById(id);
+          return Option.isSome(agent) ? [agent.value] : [];
+        });
       }
     }
 
     // Extract agent IDs for settings
-    const agentIds = Array.map(selectedAgents, (a) => a.id);
+    const agentIds = selectedAgents.map((a) => a.id);
 
     // Create settings with selected agents (satisfies ensures type safety without cast)
-    const settings = { agents: agentIds } satisfies Settings;
+    const settings: Settings = { agents: agentIds };
     yield* writeSettings(localDir, settings);
 
     // Create empty lockfile

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -24,7 +24,7 @@ describe("settings", () => {
   });
 
   const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(NodeContext.layer));
+    effect.pipe(Effect.provide(NodeServices.layer));
 
   describe("createDefaultSettings", () => {
     it("returns empty object", () => {
@@ -52,7 +52,7 @@ describe("settings", () => {
             skills: {
               commit: "^1.0.0",
             },
-          } as Settings;
+          };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
 
           const result = yield* readSettings(axmDir);
@@ -142,11 +142,11 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           // Provide settings with keys in reverse order
-          const settings = {
+          const settings: Settings = {
             skills: { commit: "^1.0.0" },
             agents: ["claude-code"],
             namespace: "@acme",
-          } as Settings;
+          };
 
           yield* writeSettings(axmDir, settings);
 
@@ -161,19 +161,19 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const oldSettings = {
+          const oldSettings: Settings = {
             agents: ["cursor"],
-          } as Settings;
+          };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
 
-          const newSettings = {
-            agents: ["windsurf"],
-          } as Settings;
+          const newSettings: Settings = {
+            agents: ["codex"],
+          };
           yield* writeSettings(axmDir, newSettings);
 
           const result = yield* readSettings(axmDir);
           expect(Option.isSome(result)).toBe(true);
-          expect(Option.getOrThrow(result).agents).toEqual(["windsurf"]);
+          expect(Option.getOrThrow(result).agents).toEqual(["codex"]);
         }),
       ),
     );

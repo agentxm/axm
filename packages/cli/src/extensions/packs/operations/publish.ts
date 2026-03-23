@@ -8,8 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -107,7 +107,7 @@ export const publishPack: OperationHandler<
         }),
     });
 
-    const manifest: PackManifest = yield* Schema.decodeUnknown(PackManifestSchema)(
+    const manifest: PackManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
       manifestJson,
     ).pipe(
       Effect.mapError((e) =>
@@ -146,11 +146,21 @@ export const publishPack: OperationHandler<
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
     // Collect manifest dependencies (keys are already 3-segment FQNs)
-    const dependencies: Record<string, string> = {
-      ...manifest.skills,
-      ...manifest.commands,
-      ...manifest["mcp-servers"],
+    const dependencies: Record<string, string> = {};
+    const addDependencies = (candidates: unknown) => {
+      if (candidates === null || typeof candidates !== "object") {
+        return;
+      }
+      for (const [fqn, constraint] of Object.entries(candidates)) {
+        if (typeof constraint === "string") {
+          dependencies[fqn] = constraint;
+        }
+      }
     };
+
+    addDependencies(manifest.skills);
+    addDependencies(manifest.commands);
+    addDependencies(manifest["mcp-servers"]);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {

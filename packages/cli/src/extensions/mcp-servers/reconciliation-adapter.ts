@@ -110,7 +110,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       const manifestPath = env.path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME);
       const manifestRaw = yield* env.fs
         .readFileString(manifestPath)
-        .pipe(Effect.catchAll(() => Effect.succeed("")));
+        .pipe(Effect.catch(() => Effect.succeed("")));
 
       if (manifestRaw.length === 0) {
         return {
@@ -120,9 +120,13 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const parsedJson = yield* Effect.try(() => JSON.parse(manifestRaw) as unknown).pipe(
-        Effect.catchAll(() => Effect.succeed<null>(null)),
-      );
+      const parsedJson = yield* Effect.sync(() => {
+        try {
+          return JSON.parse(manifestRaw) as unknown;
+        } catch {
+          return null;
+        }
+      });
 
       if (parsedJson === null) {
         return {
@@ -132,8 +136,8 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const manifest = yield* Schema.decodeUnknown(McpServerManifestSchema)(parsedJson).pipe(
-        Effect.catchAll(() => Effect.succeed<null>(null)),
+      const manifest = yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsedJson).pipe(
+        Effect.catch(() => Effect.succeed<null>(null)),
       );
 
       if (manifest === null) {

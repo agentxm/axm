@@ -7,11 +7,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AgentId } from "../../../agents/types.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
@@ -290,7 +291,7 @@ const installForDirectory = (opts: {
             canonicalPath: opts.canonicalSkillSrcPath,
           }) satisfies InstallResult,
       ),
-      Effect.catchAll(() =>
+      Effect.catch(() =>
         copySkillDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
           Effect.map(
             () =>
@@ -303,7 +304,7 @@ const installForDirectory = (opts: {
                 canonicalPath: opts.canonicalSkillSrcPath,
               }) satisfies InstallResult,
           ),
-          Effect.catchAll((copyErr) =>
+          Effect.catch((copyErr) =>
             Effect.succeed({
               success: false,
               mode: "copy",
@@ -445,11 +446,15 @@ export const installSkill: OperationHandler<
       yield* log.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
     }
 
-    const installableTargets = Array.filterMap(resolvedAgents, ({ agentId, outcome }) =>
-      outcome._tag === "supported"
-        ? Option.some({ agentId, targetDir: path.normalize(outcome.dir) })
-        : Option.none(),
-    );
+    const installableTargets: Array<{ agentId: AgentId; targetDir: string }> = [];
+    for (const { agentId, outcome } of resolvedAgents) {
+      if (outcome._tag === "supported") {
+        installableTargets.push({
+          agentId,
+          targetDir: path.normalize(outcome.dir),
+        });
+      }
+    }
     const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
     const perDirectoryResults = yield* Effect.forEach(
       distinctDirs,
@@ -500,7 +505,7 @@ export const installSkill: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)
       : ws.setSkill(skillArgs);
-    yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
+    yield* writeEffect.pipe(Effect.catch((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);

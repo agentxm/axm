@@ -33,7 +33,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     type: "bitbucket",
     owner: match[1],
     repo: match[2],
-    ref: Option.fromNullable(match[3]),
-    subPath: Option.fromNullable(match[4]),
+    ref: Option.fromUndefinedOr(match[3]),
+    subPath: Option.fromUndefinedOr(match[4]),
   } satisfies BitbucketSourceParams);
 };

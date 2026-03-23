@@ -6,15 +6,16 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as ServiceMap from "effect/ServiceMap";
 
 import { CliError } from "../cli-error/index.js";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
@@ -95,10 +96,10 @@ const makeWorkspaceLayer = (
                 (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
               ),
           ),
-      } as unknown as Workspace["Type"]),
+      } as unknown as ServiceMap.Service.Shape<typeof Workspace>),
       remoteHttpLayer,
     ),
-    NodeContext.layer,
+    NodeServices.layer,
   );
 
 /** Default built-in sources matching workspace defaults. */

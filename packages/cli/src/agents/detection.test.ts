@@ -8,10 +8,10 @@
  */
 
 import * as path from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as PlatformError from "@effect/platform/Error";
-import * as Path from "@effect/platform/Path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -51,7 +51,7 @@ const createFailingFileSystem = (errorMessage: string) =>
       exists: () =>
         Effect.fail(
           new PlatformError.SystemError({
-            reason: "Unknown",
+            _tag: "Unknown",
             module: "FileSystem",
             method: "exists",
             description: errorMessage,
@@ -65,7 +65,7 @@ const createFailingFileSystem = (errorMessage: string) =>
  * Provides real filesystem and path for live tests.
  */
 const withRealFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeContext.layer));
+  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** A temporary directory path used as projectDir in tests. */
 const testProjectDir = "/tmp/test-project";

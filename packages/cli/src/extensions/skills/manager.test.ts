@@ -9,7 +9,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { vi } from "vitest";
 import { CliEnvConfig } from "../../config/index.js";
 import { SkillManager, SkillManagerLive } from "./manager.js";
@@ -54,7 +54,7 @@ const buildTestLayer = (wsMock: WorkspaceContextService) =>
   SkillManagerLive.pipe(
     Layer.provide(Layer.succeed(Workspace, wsMock)),
     Layer.provide(Layer.succeed(SourceHostProviders, makeSourcesMock())),
-    Layer.provide(NodeContext.layer),
+    Layer.provide(NodeServices.layer),
     Layer.provide(CliEnvConfig.testDefaults),
   );
 

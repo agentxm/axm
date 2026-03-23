@@ -9,10 +9,10 @@
  * @packageDocumentation
  */
 
-import type * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientError from "@effect/platform/HttpClientError";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import type * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -399,8 +399,8 @@ const parseJson = ({
       }),
   });
 
-const decodeUnknown = <A, I>(
-  schema: Schema.Schema<A, I, never>,
+const decodeUnknown = <S extends Schema.Top>(
+  schema: S,
   parsed: unknown,
   {
     requestSummary,
@@ -411,8 +411,8 @@ const decodeUnknown = <A, I>(
     readonly code: string;
     readonly what: string;
   },
-): Effect.Effect<A, CliError> =>
-  Schema.decodeUnknown(schema)(parsed).pipe(
+): Effect.Effect<S["Type"], CliError, S["DecodingServices"]> =>
+  Schema.decodeUnknownEffect(schema)(parsed).pipe(
     Effect.mapError((error) =>
       makeCliError({
         code,
@@ -465,7 +465,7 @@ const executeRequest = ({
 const remoteDiscoveryTypes = ["skill", "command", "mcp-server", "pack"] as const;
 
 const toRegistryManifest = (
-  index: typeof ExtensionIndexSchema.Type,
+  index: Schema.Schema.Type<typeof ExtensionIndexSchema>,
 ): Option.Option<RegistryExtensionManifest> => {
   const latest = index.versions[0];
   if (latest === undefined) {
@@ -476,10 +476,10 @@ const toRegistryManifest = (
     namespace: index.namespace,
     type: index.type,
     name: index.name,
-    description: Option.fromNullable(index.description),
-    repository: Option.fromNullable(index.repository),
-    license: Option.fromNullable(index.license),
-    authors: Option.match(Option.fromNullable(index.authors), {
+    description: Option.fromUndefinedOr(index.description),
+    repository: Option.fromUndefinedOr(index.repository),
+    license: Option.fromUndefinedOr(index.license),
+    authors: Option.match(Option.fromUndefinedOr(index.authors), {
       onNone: () => [],
       onSome: (authors) => authors.map((author) => toAuthor(author)),
     }),
@@ -534,11 +534,11 @@ const getExtensionIndex = ({
 
     // Auth error mapping for read operations
     if (response.status === 401 || response.status === 403) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
         try: () => JSON.parse(bodyText) as unknown,
         catch: () => null,
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
         return yield* Effect.fail(authError);
@@ -546,7 +546,7 @@ const getExtensionIndex = ({
     }
 
     if (response.status !== 200) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
         makeCliError({
           code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
@@ -601,11 +601,11 @@ const getExtensionCollection = ({
 
     // Auth error mapping for read operations
     if (response.status === 401 || response.status === 403) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
         try: () => JSON.parse(bodyText) as unknown,
         catch: () => null,
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
         return yield* Effect.fail(authError);
@@ -613,7 +613,7 @@ const getExtensionCollection = ({
     }
 
     if (response.status !== 200) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
         makeCliError({
           code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
@@ -729,11 +729,11 @@ const namespaceExists = (
 
     // Auth error mapping for read operations
     if (response.status === 401 || response.status === 403) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
         try: () => JSON.parse(bodyText) as unknown,
         catch: () => null,
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
         return yield* Effect.fail(authError);
@@ -741,7 +741,7 @@ const namespaceExists = (
     }
 
     if (response.status !== 200) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
         makeCliError({
           code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
@@ -807,11 +807,11 @@ const getExtensionPackage = (
 
     // Auth error mapping for read operations
     if (indexResponse.status === 401 || indexResponse.status === 403) {
-      const bodyText = yield* indexResponse.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* indexResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
         try: () => JSON.parse(bodyText) as unknown,
         catch: () => null,
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(indexResponse, problem);
       if (authError !== undefined) {
         return yield* Effect.fail(authError);
@@ -819,7 +819,7 @@ const getExtensionPackage = (
     }
 
     if (indexResponse.status !== 200) {
-      const bodyText = yield* indexResponse.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* indexResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
         makeCliError({
           code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
@@ -848,7 +848,7 @@ const getExtensionPackage = (
     });
 
     const resolvedVersion = Option.match(args.version, {
-      onNone: () => Option.fromNullable(index.versions[0]?.version),
+      onNone: () => Option.fromUndefinedOr(index.versions[0]?.version),
       onSome: (requested) =>
         index.versions.some((entry) => entry.version === requested)
           ? Option.some(requested)
@@ -887,7 +887,7 @@ const getExtensionPackage = (
     }
 
     if (archiveResponse.status !== 200) {
-      const bodyText = yield* archiveResponse.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* archiveResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
         makeCliError({
           code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
@@ -997,18 +997,18 @@ const extensionExists = (
 
     // Auth error mapping for read operations
     if (response.status === 401 || response.status === 403) {
-      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
         try: () => JSON.parse(bodyText) as unknown,
         catch: () => null,
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
         return yield* Effect.fail(authError);
       }
     }
 
-    const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+    const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
     return yield* Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
@@ -1096,8 +1096,8 @@ const publishExtension = (
 
     // Execute request
     const response = yield* httpClient.execute(request).pipe(
-      Effect.catchAll((error) =>
-        HttpClientError.isHttpClientError(error) && error._tag === "RequestError"
+      Effect.catch((error) =>
+        HttpClientError.isHttpClientError(error) && error.reason._tag === "TransportError"
           ? Effect.fail(
               makeCliError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
@@ -1143,12 +1143,12 @@ const publishExtension = (
     }
 
     // Handle error: read body and try to parse as problem detail
-    const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+    const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
 
     const problem = yield* Effect.try({
       try: () => JSON.parse(bodyText) as unknown,
       catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+    }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
 
     // Handle 403 — check quota_exceeded first, then generic auth unauthorized
     if (response.status === 403) {

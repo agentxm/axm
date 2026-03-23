@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { addMcpServerMixed, removeMcpServerMixed, runCliInvocation } from "./mcp-sync.js";
@@ -16,7 +16,7 @@ const addArgs = (workspaceRoot: string) => ({
 });
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  effect.pipe(Effect.provide(NodeContext.layer));
+  effect.pipe(Effect.provide(NodeServices.layer));
 
 describe("mcp-sync helpers", () => {
   it.effect("captures output and redacts secrets from CLI output", () =>

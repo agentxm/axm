@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -28,11 +28,11 @@ export const detectContainer = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const dockerExists = yield* fs
     .exists("/.dockerenv")
-    .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    .pipe(Effect.catch(() => Effect.succeed(false)));
   if (dockerExists) return true;
   const containerExists = yield* fs
     .exists("/.containerenv")
-    .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    .pipe(Effect.catch(() => Effect.succeed(false)));
   return containerExists;
 });
 
@@ -43,11 +43,11 @@ export const detectWSL = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const exists = yield* fs
     .exists("/proc/version")
-    .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    .pipe(Effect.catch(() => Effect.succeed(false)));
   if (!exists) return false;
   const content = yield* fs
     .readFileString("/proc/version")
-    .pipe(Effect.catchAll(() => Effect.succeed("")));
+    .pipe(Effect.catch(() => Effect.succeed("")));
   return /microsoft/i.test(content);
 });
 

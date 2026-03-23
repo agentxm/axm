@@ -1,15 +1,15 @@
 import * as p from "@clack/prompts";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { ClackTaskLogConfig, ClackTaskLogGroupHandle, ClackTaskLogHandle } from "./types.js";
 
-export class ClackTaskLog extends Context.Tag("@axm.sh/cli/clack-effect/ClackTaskLog")<
+export class ClackTaskLog extends ServiceMap.Service<
   ClackTaskLog,
   {
     readonly start: (config: ClackTaskLogConfig) => Effect.Effect<ClackTaskLogHandle>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/ClackTaskLog") {}
 
 const wrapGroupHandle = (
   group: ReturnType<ReturnType<typeof p.taskLog>["group"]>,
@@ -26,7 +26,7 @@ const wrapTaskLogHandle = (handle: ReturnType<typeof p.taskLog>): ClackTaskLogHa
   success: (message) => Effect.sync(() => handle.success(message)),
 });
 
-const makeLiveClackTaskLogService = (): Context.Tag.Service<typeof ClackTaskLog> => ({
+const makeLiveClackTaskLogService = (): ServiceMap.Service.Shape<typeof ClackTaskLog> => ({
   start: (config) => Effect.sync(() => wrapTaskLogHandle(p.taskLog(config))),
 });
 

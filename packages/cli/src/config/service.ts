@@ -12,8 +12,7 @@
  */
 
 import * as Config from "effect/Config";
-import type * as ConfigError from "effect/ConfigError";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -43,10 +42,10 @@ export interface CliEnvConfigService {
   readonly debug: Option.Option<string>;
 }
 
-export class CliEnvConfig extends Context.Tag("@axm.sh/cli/CliEnvConfig")<
+export class CliEnvConfig extends ServiceMap.Service<
   CliEnvConfig,
   CliEnvConfigService
->() {
+>()("@axm.sh/cli/CliEnvConfig") {
   static readonly testDefaults: Layer.Layer<CliEnvConfig> = Layer.succeed(CliEnvConfig, {
     registryUrl: "https://registry.agentxm.ai",
     token: Option.none(),
@@ -72,7 +71,7 @@ export class CliEnvConfig extends Context.Tag("@axm.sh/cli/CliEnvConfig")<
 // Live layer
 // -----------------------------------------------------------------------------
 
-export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, ConfigError.ConfigError> = Layer.effect(
+export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, Config.ConfigError> = Layer.effect(
   CliEnvConfig,
   Effect.gen(function* () {
     const registryUrl = yield* Config.string("AXM_REGISTRY_URL").pipe(

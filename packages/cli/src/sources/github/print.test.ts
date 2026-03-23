@@ -15,8 +15,8 @@ const makeSource = (
   type: "github",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",
-  ref: Option.fromNullable(overrides.ref),
-  subPath: Option.fromNullable(overrides.subPath),
+  ref: Option.fromUndefinedOr(overrides.ref),
+  subPath: Option.fromUndefinedOr(overrides.subPath),
 });
 
 describe("print", () => {

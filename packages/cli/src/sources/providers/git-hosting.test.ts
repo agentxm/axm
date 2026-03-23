@@ -5,7 +5,7 @@
  * Deep integration testing (clone + discover) is covered by E2E tests.
  */
 
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 import {
@@ -18,7 +18,7 @@ import {
 /** Run an effect with the required context for SourceHostProvider operations. */
 const runMatch = (effect: Effect.Effect<boolean, unknown, unknown>) =>
   Effect.runSync(
-    effect.pipe(Effect.provide(NodeContext.layer)) as Effect.Effect<boolean, unknown, never>,
+    effect.pipe(Effect.provide(NodeServices.layer)) as Effect.Effect<boolean, unknown, never>,
   );
 
 describe("createGitHubSourceHostProvider", () => {

@@ -10,8 +10,8 @@
  * @packageDocumentation
  */
 
-import type * as FileSystem from "@effect/platform/FileSystem";
-import type * as Path from "@effect/platform/Path";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
@@ -39,6 +39,21 @@ import type { InputParseResult, ShorthandInput } from "./parser.js";
 
 /** Source types that require a matching config from workspace. */
 const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", "azurerepos"]);
+
+const firstSuccess = <A, E, R>(
+  attempts: ReadonlyArray<Effect.Effect<A, E, R>>,
+  onFailure: () => E,
+): Effect.Effect<A, E, R> =>
+  Effect.gen(function* () {
+    for (const attempt of attempts) {
+      const result = yield* Effect.result(attempt);
+      if (result._tag === "Success") {
+        return result.success;
+      }
+    }
+
+    return yield* Effect.fail(onFailure());
+  });
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -169,18 +184,16 @@ export const routeUrlInput = (url: URL, input: string) =>
     );
 
     const attempts = Array.map(sources, tryMatch);
-    if (Array.isEmptyReadonlyArray(attempts)) {
+    if (Array.isReadonlyArrayEmpty(attempts)) {
       return yield* noMatch;
     }
 
-    return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(() =>
-        makeCliError({
-          code: "SOURCE_PARSE_FAILED",
-          what: `No configured source matches URL "${url.href}"`,
-          details: [input],
-        }),
-      ),
+    return yield* firstSuccess(attempts, () =>
+      makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No configured source matches URL "${url.href}"`,
+        details: [input],
+      }),
     );
   });
 
@@ -266,18 +279,16 @@ export const routeScpInput = (
     );
 
     const attempts = Array.map(sources, tryMatch);
-    if (Array.isEmptyReadonlyArray(attempts)) {
+    if (Array.isReadonlyArrayEmpty(attempts)) {
       return yield* noMatch;
     }
 
-    return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(() =>
-        makeCliError({
-          code: "SOURCE_PARSE_FAILED",
-          what: `No configured source matches SCP address "${scpInput}"`,
-          details: [input],
-        }),
-      ),
+    return yield* firstSuccess(attempts, () =>
+      makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No configured source matches SCP address "${scpInput}"`,
+        details: [input],
+      }),
     );
   });
 
@@ -480,10 +491,13 @@ export const resolveSlashInputSource = (
       }
     }
 
-    const attempts = Array.filterMap(sources, (config) => {
+    const attempts = sources.flatMap((config) => {
       const sourceType = shorthandTypes.find((t) => t === config.type);
-      if (!sourceType) return Option.none();
-      return Option.some(
+      if (!sourceType) {
+        return [];
+      }
+
+      return [
         Effect.flatMap(
           parseShorthandForSource({
             pattern: "shorthand-input",
@@ -492,10 +506,10 @@ export const resolveSlashInputSource = (
           }),
           (params) => configToSource(config, params, input),
         ),
-      );
+      ];
     });
 
-    if (Array.isEmptyReadonlyArray(attempts)) {
+    if (Array.isReadonlyArrayEmpty(attempts)) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
         what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
@@ -503,14 +517,12 @@ export const resolveSlashInputSource = (
       });
     }
 
-    return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(() =>
-        makeCliError({
-          code: "SOURCE_PARSE_FAILED",
-          what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
-          details: [input],
-        }),
-      ),
+    return yield* firstSuccess(attempts, () =>
+      makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
+        details: [input],
+      }),
     );
   });
 

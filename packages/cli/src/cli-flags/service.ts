@@ -1,4 +1,4 @@
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -12,7 +12,7 @@ export interface CliFlagsService {
   readonly preview: boolean;
 }
 
-export class CliFlags extends Context.Tag("@axm.sh/cli/CliFlags")<CliFlags, CliFlagsService>() {}
+export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()("@axm.sh/cli/CliFlags") {}
 
 export interface CliFlagsInput {
   readonly nonInteractive: Option.Option<boolean>;
@@ -48,14 +48,15 @@ export const CliFlagsTest = (overrides?: Partial<CliFlagsService>): Layer.Layer<
   });
 
 /**
- * Extract CliFlags input from a yargs argv object.
+ * Extract CliFlags input from a parsed CLI argument object.
  *
- * Global flags (yes, force, preview, non-interactive) are defined in main.ts
- * and available on every command's argv via the index signature. This helper
- * reads them with proper typing so individual commands don't need casts.
+ * Global flags (yes, force, preview, non-interactive) are attached by the
+ * active parser layer and available on every command argv via the index
+ * signature. This helper reads them with proper typing so individual command
+ * runners do not need casts.
  */
 export const extractFlags = (argv: Record<string, unknown>): CliFlagsInput => ({
-  nonInteractive: Option.fromNullable(argv["non-interactive"] as boolean | undefined),
+  nonInteractive: Option.fromUndefinedOr(argv["non-interactive"] as boolean | undefined),
   yes: (argv["yes"] as boolean | undefined) ?? false,
   force: (argv["force"] as boolean | undefined) ?? false,
   preview: (argv["preview"] as boolean | undefined) ?? false,

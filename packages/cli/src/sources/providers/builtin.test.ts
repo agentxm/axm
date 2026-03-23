@@ -47,11 +47,11 @@ describe("createBuiltinSourceHostProvider", () => {
             versionConstraint: Option.none(),
           },
         )
-        .pipe(Effect.either),
+        .pipe(Effect.result),
     );
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.what).toContain("not yet implemented");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.what).toContain("not yet implemented");
     }
   });
 
@@ -69,8 +69,8 @@ describe("createBuiltinSourceHostProvider", () => {
           },
           source: { type: "builtin" },
         } as never)
-        .pipe(Effect.either),
+        .pipe(Effect.result),
     );
-    expect(result._tag).toBe("Left");
+    expect(result._tag).toBe("Failure");
   });
 });

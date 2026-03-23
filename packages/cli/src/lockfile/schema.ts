@@ -8,6 +8,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as SchemaGetter from "effect/SchemaGetter";
 import * as semver from "semver";
 
 // =============================================================================
@@ -20,19 +21,23 @@ import * as semver from "semver";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
-  decode: (s) => new Date(s),
-  encode: (d) => d.toISOString(),
-}).pipe(Schema.filter((d) => (isNaN(d.getTime()) ? "Invalid date string" : undefined)));
+export const DateFromString = Schema.String.pipe(
+  Schema.decodeTo(Schema.DateValid, {
+    decode: SchemaGetter.Date<string>(),
+    encode: SchemaGetter.transform((date: Date) => date.toISOString()),
+  }),
+);
 
 /**
  * Exact semver version (no ranges).
  */
 export const ExactSemverVersionSchema = Schema.String.pipe(
-  Schema.filter((value) => {
-    const normalized = semver.valid(value);
-    return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
-  }),
+  Schema.check(
+    Schema.makeFilter((value: string) => {
+      const normalized = semver.valid(value);
+      return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
+    }),
+  ),
 );
 
 // =============================================================================
@@ -69,7 +74,7 @@ const CommonFields = {
  * CommandLockEntrySchema and McpServerLockEntrySchema (without `agents`).
  */
 const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
-  Schema.Union(
+  Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
       owner: Schema.String,
@@ -121,7 +126,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       ...extraFields,
     }),
     Schema.Struct({ type: Schema.Literal("builtin"), ...extraFields }),
-  );
+  ]);
 
 // =============================================================================
 // Skill Lock Entry (union of all source types, with agents)
@@ -149,7 +154,7 @@ export const SkillLockEntrySchema = makeSourceLockUnion(CommonFields);
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillLockEntry = typeof SkillLockEntrySchema.Type;
+export type SkillLockEntry = Schema.Schema.Type<typeof SkillLockEntrySchema>;
 
 // =============================================================================
 // Skills Lock Map
@@ -161,17 +166,14 @@ export type SkillLockEntry = typeof SkillLockEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsLockMapSchema = Schema.Record({
-  key: Schema.String,
-  value: SkillLockEntrySchema,
-});
+export const SkillsLockMapSchema = Schema.Record(Schema.String, SkillLockEntrySchema);
 
 /**
  * Inferred type for SkillsLockMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
+export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
 
 // =============================================================================
 // Command Lock Entry (union of all source types, no agents)
@@ -192,7 +194,7 @@ export const CommandLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandLockEntry = typeof CommandLockEntrySchema.Type;
+export type CommandLockEntry = Schema.Schema.Type<typeof CommandLockEntrySchema>;
 
 // =============================================================================
 // Commands Lock Map
@@ -203,17 +205,14 @@ export type CommandLockEntry = typeof CommandLockEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandsLockMapSchema = Schema.Record({
-  key: Schema.String,
-  value: CommandLockEntrySchema,
-});
+export const CommandsLockMapSchema = Schema.Record(Schema.String, CommandLockEntrySchema);
 
 /**
  * Inferred type for CommandsLockMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandsLockMap = typeof CommandsLockMapSchema.Type;
+export type CommandsLockMap = Schema.Schema.Type<typeof CommandsLockMapSchema>;
 
 // =============================================================================
 // MCP Server Lock Entry (union of all source types, no agents)
@@ -234,7 +233,7 @@ export const McpServerLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type McpServerLockEntry = typeof McpServerLockEntrySchema.Type;
+export type McpServerLockEntry = Schema.Schema.Type<typeof McpServerLockEntrySchema>;
 
 // =============================================================================
 // MCP Servers Lock Map
@@ -245,17 +244,14 @@ export type McpServerLockEntry = typeof McpServerLockEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersLockMapSchema = Schema.Record({
-  key: Schema.String,
-  value: McpServerLockEntrySchema,
-});
+export const McpServersLockMapSchema = Schema.Record(Schema.String, McpServerLockEntrySchema);
 
 /**
  * Inferred type for McpServersLockMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type McpServersLockMap = typeof McpServersLockMapSchema.Type;
+export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchema>;
 
 // =============================================================================
 // Pack Lock Entry
@@ -265,10 +261,7 @@ export type McpServersLockMap = typeof McpServersLockMapSchema.Type;
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record({
-  key: Schema.String,
-  value: ExactSemverVersionSchema,
-});
+export const ResolvedExtensionMapSchema = Schema.Record(Schema.String, ExactSemverVersionSchema);
 
 /**
  * Registry pack lock entry - pack from a registry.
@@ -294,7 +287,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntry = typeof RegistryPackLockEntrySchema.Type;
+export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
 
 /**
  * Builtin pack lock entry - pack bundled with axm.
@@ -320,17 +313,17 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackLockEntrySchema = Schema.Union(
+export const PackLockEntrySchema = Schema.Union([
   RegistryPackLockEntrySchema,
   BuiltinPackLockEntrySchema,
-);
+]);
 
 /**
  * Inferred type for PackLockEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PackLockEntry = typeof PackLockEntrySchema.Type;
+export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
 
 // =============================================================================
 // Packs Lock Map
@@ -341,17 +334,14 @@ export type PackLockEntry = typeof PackLockEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksLockMapSchema = Schema.Record({
-  key: Schema.String,
-  value: PackLockEntrySchema,
-});
+export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySchema);
 
 /**
  * Inferred type for PacksLockMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PacksLockMap = typeof PacksLockMapSchema.Type;
+export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 
 // =============================================================================
 // Lockfile
@@ -383,4 +373,4 @@ export const LockfileSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Lockfile = typeof LockfileSchema.Type;
+export type Lockfile = Schema.Schema.Type<typeof LockfileSchema>;

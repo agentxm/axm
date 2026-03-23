@@ -1,6 +1,6 @@
 # CLI Design Guide
 
-Conventions for designing CLI commands: yargs + Effect architecture, command
+Conventions for designing CLI commands: Effect CLI + Effect architecture, command
 naming and file organization, interactive prompts with Bombshell (Clack),
 standard flags, output formatting, error handling, CI/automation modes, and
 configuration hierarchy.
@@ -9,7 +9,7 @@ configuration hierarchy.
 
 ## Key Resources
 
-- [yargs GitHub](https://github.com/yargs/yargs) — Complete API documentation
+- [Effect CLI API docs](https://effect-ts.github.io/effect/effect/unstable/cli/) — Command, flag, and help APIs
 - [Command Line Interface Guidelines (clig.dev)](https://clig.dev/) — CLI design
   philosophy
 - [Clack Documentation](https://bomb.sh/docs/clack/) — Interactive prompts and
@@ -17,51 +17,45 @@ configuration hierarchy.
 
 ## Skills
 
-| Skill                                                            | Command | Description                                          |
-| ---------------------------------------------------------------- | ------- | ---------------------------------------------------- |
-| [cli-conventions](../../.claude/skills/cli-conventions/SKILL.md) | —       | yargs + Effect patterns, command structure, testing  |
-| [bombshell](../../.claude/skills/bombshell/SKILL.md)             | —       | Effect wrappers for prompts, TTY detection, spinners |
+| Skill                                                            | Command | Description                                              |
+| ---------------------------------------------------------------- | ------- | -------------------------------------------------------- |
+| [cli-conventions](../../.claude/skills/cli-conventions/SKILL.md) | —       | Effect CLI + Effect patterns, command structure, testing |
+| [bombshell](../../.claude/skills/bombshell/SKILL.md)             | —       | Effect wrappers for prompts, TTY detection, spinners     |
 
-**Not covered:** yargs API details (see
-[official docs](https://github.com/yargs/yargs/blob/main/docs/api.md)), shell
-autocompletion setup, or testing strategies. For testing CLI commands, see the
-testing guidelines.
+**Not covered:** shell autocompletion setup or full testing strategy. For CLI
+testing guidance, see the testing guidelines.
 
 ---
 
-## yargs + Effect Architecture
+## Effect CLI + Effect Architecture
 
-yargs handles argument parsing; Effect handles business logic. The key pattern
-is separating the `CommandModule` (yargs wiring) from the Effect handler
-function—this enables testing handlers independently without yargs lifecycle
-complexity.
+`effect/unstable/cli` handles command parsing; Effect handlers own business
+logic. The key pattern is keeping the parser tree in `main-effect-cli.ts` and
+keeping each leaf `command.ts` file parser-agnostic so it only maps typed parser
+output into the existing `run(...)` and handler layer.
 
 For the complete architecture pattern with code examples, see the
 `/cli-conventions` skill.
 
-### yargs Quick Reference
+### Effect CLI Quick Reference
 
-| Concept             | Note                                                         |
-| ------------------- | ------------------------------------------------------------ |
-| **positional()**    | Required/optional set by command syntax (`<arg>` vs `[arg]`) |
-| **variadic**        | Use `<args..>` for array of values                           |
-| **demandOption**    | Only works with `.option()`, not `.positional()`             |
-| **CommandModule<>** | First generic: parent args; second: this command's args      |
-| **Deprecated**      | Avoid `.demand()`, `.defaults()`, `.require()`               |
-
-For TypeScript, install `@types/yargs` and see the
-[yargs TypeScript guide](https://github.com/yargs/yargs/blob/main/docs/typescript.md).
+| Concept                            | Note                                        |
+| ---------------------------------- | ------------------------------------------- |
+| **Argument.string()**              | Required positional argument                |
+| **Argument.optional**              | Optional positional argument                |
+| **Argument.atLeast()**             | Variadic positional input                   |
+| **Flag.boolean() / Flag.string()** | Boolean and text flags                      |
+| **Command.withSubcommands()**      | Parent/group command composition            |
+| **GlobalFlag.setting()**           | Root-scoped flags shared across subcommands |
 
 ### Architecture Checklist
 
 - [ ] **Bun runtime** — Uses Bun for fast startup and built-in TypeScript
-- [ ] **yargs for parsing** — Type-safe argument parsing via yargs
+- [ ] **Effect CLI for parsing** — Type-safe argument parsing via `effect/unstable/cli`
 - [ ] **Effect for logic** — Command handlers are Effect programs
-- [ ] **Handler separation** — Effect handler functions separate from
-      CommandModule for testability
-- [ ] **Typed CommandModule** — Uses `CommandModule<ParentArgs, Args>` generics
-- [ ] **Deprecated methods avoided** — Uses `demandOption` not
-      `demand`/`require`
+- [ ] **Handler separation** — Parser tree and business handlers stay separate
+- [ ] **Leaf command runners** — `command.ts` files expose parser-agnostic runners
+- [ ] **Explicit group behavior** — Missing group subcommands show help by design
 
 ---
 
@@ -96,14 +90,15 @@ src/commands/
 └── version.ts
 ```
 
-Parent commands compose subcommands via `.command()` and use
-`.demandCommand(1, "message")` to require a subcommand.
+Parent commands compose subcommands with `Command.withSubcommands(...)` and use
+an explicit no-subcommand handler to show group help with the intended exit
+code.
 
 ### File Organization Checklist
 
 - [ ] **Parent alongside folder** — `extensions.ts` next to `extensions/` folder
 - [ ] **Tests colocated** — Test files alongside implementation
-- [ ] **CommandModule exports** — Each file exports a typed `CommandModule`
+- [ ] **Runner exports** — Each leaf `command.ts` exports a typed command runner
 - [ ] **Scoped utils** — Shared utilities in `utils.ts` within subcommand folder
 
 ---
@@ -145,7 +140,8 @@ For implementation pattern, see the `/cli-conventions` skill.
 
 ## Standard Flags
 
-yargs provides `--help` and `--version` automatically.
+Effect CLI provides help/version facilities through `Command.runWith(...)` and
+the built-in help global flag support.
 
 | Flag                | Short | Purpose                       |
 | ------------------- | ----- | ----------------------------- |

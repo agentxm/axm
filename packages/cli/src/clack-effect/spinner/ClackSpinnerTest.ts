@@ -1,5 +1,5 @@
 import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -29,13 +29,13 @@ const emptyRecord: ClackSpinnerRecord = {
   stops: [],
 };
 
-export class ClackSpinnerTest extends Context.Tag("@axm.sh/cli/test/ClackSpinnerTest")<
+export class ClackSpinnerTest extends ServiceMap.Service<
   ClackSpinnerTest,
   {
     readonly ref: Ref.Ref<ClackSpinnerRecord>;
     readonly get: Effect.Effect<ClackSpinnerRecord>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackSpinnerTest") {}
 
 const appendCall = (
   ref: Ref.Ref<ClackSpinnerRecord>,
@@ -91,30 +91,30 @@ export const makeClackSpinnerTestLayer = (): readonly [
     stops: [],
   };
 
-  const layer: Layer.Layer<ClackSpinner | ClackSpinnerTest> = Layer.effectContext(
+  const layer: Layer.Layer<ClackSpinner | ClackSpinnerTest> = Layer.effectServices(
     Effect.gen(function* () {
       const ref = yield* Ref.make(emptyRecord);
 
       const recordCall = (method: string, args: ReadonlyArray<unknown>) =>
         Effect.sync(() => {
           mock.calls.push({ method, args });
-        }).pipe(Effect.zipRight(appendCall(ref, method, args)));
+        }).pipe(Effect.andThen(appendCall(ref, method, args)));
 
       const recordStart = (method: string, args: ReadonlyArray<unknown>, message: string) =>
         Effect.sync(() => {
           mock.calls.push({ method, args });
           mock.starts.push(message);
-        }).pipe(Effect.zipRight(appendStart(ref, method, args, message)));
+        }).pipe(Effect.andThen(appendStart(ref, method, args, message)));
 
       const recordStop = (method: string, args: ReadonlyArray<unknown>, message: string) =>
         Effect.sync(() => {
           mock.calls.push({ method, args });
           mock.stops.push(message);
-        }).pipe(Effect.zipRight(appendStop(ref, method, args, message)));
+        }).pipe(Effect.andThen(appendStop(ref, method, args, message)));
 
-      const service: Context.Tag.Service<typeof ClackSpinner> = {
+      const service: ServiceMap.Service.Shape<typeof ClackSpinner> = {
         start: (message) =>
-          Effect.zipRight(
+          Effect.andThen(
             recordStart("start", [message], message ?? ""),
             Effect.succeed(makeMockHandle(recordCall)),
           ),
@@ -138,23 +138,23 @@ export const makeClackSpinnerTestLayer = (): readonly [
             const failureMessage = typeof options === "object" ? options.failureMessage : undefined;
 
             return recordStart("withSpinner.start", [message], message).pipe(
-              Effect.zipRight(Effect.interruptible(f(handle))),
+              Effect.andThen(Effect.interruptible(f(handle))),
               Effect.matchCauseEffect({
                 onFailure: (cause) => {
-                  if (Cause.isInterruptedOnly(cause)) {
-                    return Effect.zipRight(
+                  if (Cause.hasInterruptsOnly(cause)) {
+                    return Effect.andThen(
                       recordStop("withSpinner.cancel", [], "Cancelled"),
                       Effect.failCause(cause),
                     );
                   }
-                  return Effect.zipRight(
+                  return Effect.andThen(
                     recordStop("withSpinner.error", [message], failureMessage ?? "Failed"),
                     Effect.failCause(cause),
                   );
                 },
                 onSuccess: (a) => {
                   const resolvedStopMessage = successMessageFn?.(a) ?? staticStopMessage;
-                  return Effect.zipRight(
+                  return Effect.andThen(
                     recordStop("withSpinner.stop", [resolvedStopMessage], resolvedStopMessage),
                     Effect.succeed(a),
                   );
@@ -165,14 +165,14 @@ export const makeClackSpinnerTestLayer = (): readonly [
           }),
       };
 
-      const test: Context.Tag.Service<typeof ClackSpinnerTest> = {
+      const test: ServiceMap.Service.Shape<typeof ClackSpinnerTest> = {
         ref,
         get: Ref.get(ref),
       };
 
-      return Context.empty().pipe(
-        Context.add(ClackSpinner, service),
-        Context.add(ClackSpinnerTest, test),
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackSpinner, service),
+        ServiceMap.add(ClackSpinnerTest, test),
       );
     }),
   );

@@ -1,19 +1,17 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { createSymlink } from "./create-symlink.js";
 
 const withNodeContext = <A, E>(
-  effect: Effect.Effect<
-    A,
-    E,
-    import("@effect/platform").FileSystem.FileSystem | import("@effect/platform").Path.Path
-  >,
-) => effect.pipe(Effect.provide(NodeContext.layer));
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+) => effect.pipe(Effect.provide(NodeServices.layer));
 
 describe("createSymlink", () => {
   let tmpDir: string;

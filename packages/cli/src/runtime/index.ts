@@ -5,9 +5,9 @@
  * Uses ManagedRuntime for proper lifecycle management and resource cleanup.
  */
 
-import type { HttpClient } from "@effect/platform";
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -64,7 +64,7 @@ const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
  * - Legacy prompt adapter tags (Confirm/Select/Multiselect/TextInput/PasswordInput)
  */
 export type AppLayer =
-  | NodeContext.NodeContext
+  | NodeServices.NodeServices
   | HttpClient.HttpClient
   | CredentialStore
   | AuthClient
@@ -119,13 +119,13 @@ const DefaultTelemetryLayer = Layer.provide(
  */
 const RegistryUrlLayer = Layer.effect(
   RegistryUrl,
-  Effect.map(CliEnvConfig, (cfg) => cfg.registryUrl),
+  Effect.map(CliEnvConfig.asEffect(), (cfg) => cfg.registryUrl),
 );
 
 /**
  * Base layer: platform services + raw HttpClient.
  */
-const BaseLayer = Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer);
+const BaseLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
 
 /**
  * Auth services layer: CredentialStore + AuthClient + RegistryUrl.
@@ -149,9 +149,9 @@ const AuthMiddlewareWrappedLayer = Layer.provide(
 
 /**
  * Combined auth layer: AuthServices + auth-wrapped HttpClient + platform services.
- * Exposes NodeContext plus the wrapped client, without re-exporting the raw one.
+ * Exposes NodeServices plus the wrapped client, without re-exporting the raw one.
  */
-const AuthLayer = Layer.mergeAll(NodeContext.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
+const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
 
 /**
  * Layer providing all standard CLI dependencies.
@@ -166,7 +166,7 @@ export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   DefaultCliFlagsLayer,
   DefaultTelemetryLayer,
   CliEnvConfigOrDie,
-  Logger.replace(Logger.defaultLogger, Logger.none),
+  Logger.layer([], { mergeWithExisting: false }),
 );
 
 /**
@@ -179,6 +179,162 @@ export interface RunOptions {
   readonly flags?: CliFlagsInput;
   readonly workspace?: WorkspaceContextOptions;
   readonly command?: string;
+}
+
+interface ResolvedConfigValues {
+  readonly registryUrl: string;
+  readonly doNotTrack: string | undefined;
+  readonly axmTelemetry: string | undefined;
+  readonly AXM_VERBOSE: string | undefined;
+  readonly AXM_DEBUG: string | undefined;
+}
+
+interface CliExit {
+  readonly _tag: "CliExit";
+  readonly exitCode: number;
+}
+
+const defaultFlagsInput: CliFlagsInput = {
+  nonInteractive: Option.none(),
+  yes: false,
+  force: false,
+  preview: false,
+};
+
+const resolveConfigValues: Effect.Effect<ResolvedConfigValues> = Effect.provide(
+  Effect.gen(function* () {
+    const cfg = yield* CliEnvConfig;
+    return {
+      registryUrl: cfg.registryUrl,
+      doNotTrack: Option.getOrUndefined(cfg.doNotTrack),
+      axmTelemetry: Option.getOrUndefined(cfg.telemetry),
+      AXM_VERBOSE: Option.getOrUndefined(cfg.verbose),
+      AXM_DEBUG: Option.getOrUndefined(cfg.debug),
+    } satisfies ResolvedConfigValues;
+  }),
+  CliEnvConfigOrDie,
+);
+
+const isCliExit = (value: unknown): value is CliExit =>
+  value !== null &&
+  typeof value === "object" &&
+  "_tag" in value &&
+  value._tag === "CliExit" &&
+  "exitCode" in value &&
+  typeof value.exitCode === "number";
+
+export function withCliRuntime<A>(
+  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+): Effect.Effect<A, never, AppLayer>;
+export function withCliRuntime<A>(
+  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  options: RunOptions,
+): Effect.Effect<A, never, AppLayer>;
+export function withCliRuntime<A>(
+  program: Effect.Effect<
+    A,
+    CliError | PromptCancelled,
+    AppLayer | Workspace | SourceHostProviders | Scope.Scope
+  >,
+  options: RunOptions & { readonly workspace: WorkspaceContextOptions },
+): Effect.Effect<A, never, AppLayer>;
+export function withCliRuntime<A>(
+  program: Effect.Effect<
+    A,
+    CliError | PromptCancelled,
+    AppLayer | Workspace | SourceHostProviders | Scope.Scope
+  >,
+  options?: RunOptions,
+): Effect.Effect<A, never, AppLayer> {
+  return Effect.gen(function* () {
+    const flagsInput = options?.flags ?? defaultFlagsInput;
+    const flagsLayer = Layer.provide(cliFlagsLayer(flagsInput), CliEnvConfigOrDie);
+    const configValues = yield* resolveConfigValues;
+
+    if (configValues.registryUrl !== DEFAULT_REGISTRY_URL) {
+      yield* Effect.sync(() => {
+        p.log.warn(`Using registry: ${configValues.registryUrl}`);
+      });
+    }
+
+    const mode = resolveTelemetryMode(
+      { doNotTrack: configValues.doNotTrack, axmTelemetry: configValues.axmTelemetry },
+      {},
+    );
+    const command = options?.command ?? "unknown";
+    const telemetryLayer = Layer.provide(
+      TelemetryClientLive(mode, command),
+      Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie),
+    );
+
+    const diagnosticVerbosity = resolveDiagnosticVerbosity(process.argv, {
+      AXM_VERBOSE: configValues.AXM_VERBOSE,
+      AXM_DEBUG: configValues.AXM_DEBUG,
+    });
+    const debugLoggerLayer = diagnosticVerbosity.debug
+      ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
+      : Layer.empty;
+
+    const provided: Effect.Effect<A, CliError | PromptCancelled, AppLayer> = options?.workspace
+      ? (() => {
+          const wsLayer = Layer.provide(
+            workspaceLayer({
+              ...options.workspace,
+              builtInSources: getBuiltInSources(configValues.registryUrl),
+            }),
+            Layer.mergeAll(flagsLayer, CliEnvConfigOrDie),
+          );
+          const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
+          return program.pipe(
+            Effect.provide(
+              Layer.mergeAll(
+                flagsLayer,
+                wsLayer,
+                sourceProvidersLayer,
+                telemetryLayer,
+                debugLoggerLayer,
+              ),
+            ),
+            Effect.scoped,
+          ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>;
+        })()
+      : (program.pipe(
+          Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer)),
+        ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
+
+    return yield* provided.pipe(
+      Effect.catch((error: CliError | PromptCancelled) => {
+        const result = classifyError(error, diagnosticVerbosity);
+        const writeError =
+          result.exitCode === 0
+            ? Effect.void
+            : Effect.sync(() => {
+                console.error(result.message);
+              });
+
+        const report =
+          error._tag === "CliError"
+            ? Effect.gen(function* () {
+                const tc = yield* TelemetryClient;
+                yield* tc.reportError({
+                  name: error.code,
+                  message: error.what,
+                  details: error.details,
+                  ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
+                  level: "error",
+                  handled: true,
+                  command,
+                });
+              }).pipe(Effect.catchCause(() => Effect.void))
+            : Effect.void;
+
+        return writeError.pipe(
+          Effect.andThen(report),
+          Effect.flatMap(() => Effect.die({ _tag: "CliExit", exitCode: result.exitCode } as const)),
+        );
+      }),
+    );
+  });
 }
 
 /**
@@ -214,129 +370,24 @@ export async function run<A>(
   >,
   options?: RunOptions,
 ): Promise<A> {
-  // Resolve flags: explicit flags > defaults
-  const flagsInput: CliFlagsInput = options?.flags ?? {
-    nonInteractive: Option.none(),
-    yes: false,
-    force: false,
-    preview: false,
-  };
-  const flagsLayer = Layer.provide(cliFlagsLayer(flagsInput), CliEnvConfigOrDie);
+  const prepared =
+    options === undefined
+      ? withCliRuntime(program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>)
+      : options.workspace === undefined
+        ? withCliRuntime(
+            program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+            options,
+          )
+        : withCliRuntime(
+            program,
+            options as RunOptions & { readonly workspace: WorkspaceContextOptions },
+          );
 
-  // Resolve config values from CliEnvConfig via a one-shot effect
-  const configValuesEffect = Effect.gen(function* () {
-    const cfg = yield* CliEnvConfig;
-    return {
-      registryUrl: cfg.registryUrl,
-      doNotTrack: Option.getOrUndefined(cfg.doNotTrack),
-      axmTelemetry: Option.getOrUndefined(cfg.telemetry),
-      AXM_VERBOSE: Option.getOrUndefined(cfg.verbose),
-      AXM_DEBUG: Option.getOrUndefined(cfg.debug),
-    };
-  });
-  const configValues = await Effect.runPromise(
-    Effect.provide(configValuesEffect, CliEnvConfigOrDie),
-  );
-
-  // Warn when using a non-default registry (e.g. local development)
-  if (configValues.registryUrl !== DEFAULT_REGISTRY_URL) {
-    p.log.warn(`Using registry: ${configValues.registryUrl}`);
-  }
-
-  // Resolve telemetry mode and command
-  const mode = resolveTelemetryMode(
-    { doNotTrack: configValues.doNotTrack, axmTelemetry: configValues.axmTelemetry },
-    {},
-  );
-  const command = options?.command ?? "unknown";
-  const telemetryLayer = Layer.provide(
-    TelemetryClientLive(mode, command),
-    Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie),
-  );
-
-  // When --debug is active, swap the default silent logger for prettyLogger
-  const { debug } = resolveDiagnosticVerbosity(process.argv, {
-    AXM_VERBOSE: configValues.AXM_VERBOSE,
-    AXM_DEBUG: configValues.AXM_DEBUG,
-  });
-  const debugLoggerLayer = debug
-    ? Logger.replace(Logger.defaultLogger, Logger.prettyLoggerDefault)
-    : Layer.empty;
-
-  const registryUrl = configValues.registryUrl;
-  const provided = options?.workspace
-    ? (() => {
-        const wsLayer = Layer.provide(
-          workspaceLayer({ ...options.workspace, builtInSources: getBuiltInSources(registryUrl) }),
-          Layer.mergeAll(flagsLayer, CliEnvConfigOrDie),
-        );
-        const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-        return program.pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              flagsLayer,
-              wsLayer,
-              sourceProvidersLayer,
-              telemetryLayer,
-              debugLoggerLayer,
-            ),
-          ),
-          Effect.scoped,
-        );
-      })()
-    : (program.pipe(
-        Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer)),
-      ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
-
-  // Classify the error and propagate as a defect so ManagedRuntime can
-  // clean up scoped resources before we call process.exit.
-  return provided
-    .pipe(
-      Effect.catchAll((error) => {
-        const result = classifyError(
-          error,
-          resolveDiagnosticVerbosity(process.argv, {
-            AXM_VERBOSE: configValues.AXM_VERBOSE,
-            AXM_DEBUG: configValues.AXM_DEBUG,
-          }),
-        );
-        if (result.exitCode !== 0) {
-          console.error(result.message);
-        }
-
-        // Fire-and-forget error report
-        const report =
-          error._tag === "CliError"
-            ? Effect.gen(function* () {
-                const tc = yield* TelemetryClient;
-                yield* tc.reportError({
-                  name: error.code,
-                  message: error.what,
-                  details: error.details,
-                  ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
-                  level: "error",
-                  handled: true,
-                  command,
-                });
-              }).pipe(Effect.catchAllCause(() => Effect.void))
-            : Effect.void;
-
-        return report.pipe(
-          Effect.flatMap(() => Effect.die({ _tag: "CliExit", exitCode: result.exitCode })),
-        );
-      }),
-      Runtime.runPromise,
-    )
+  return Runtime.runPromise(prepared)
     .catch((thrown: unknown) => {
       // After runtime cleanup, exit with the classified code
-      if (
-        thrown !== null &&
-        typeof thrown === "object" &&
-        "_tag" in thrown &&
-        (thrown as { _tag: string })._tag === "CliExit" &&
-        "exitCode" in thrown
-      ) {
-        process.exit((thrown as unknown as { exitCode: number }).exitCode);
+      if (isCliExit(thrown)) {
+        process.exit(thrown.exitCode);
       }
       throw thrown;
     });

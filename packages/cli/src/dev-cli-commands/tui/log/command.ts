@@ -1,12 +1,9 @@
-import type { CommandModule } from "yargs";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ClackLive, ClackLog } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 
-export const logCommand: CommandModule = {
-  command: "log",
-  describe: "Demo log output variants",
+export const logCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
       const log = yield* ClackLog;

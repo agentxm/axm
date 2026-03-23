@@ -1,13 +1,6 @@
-/**
- * Publish command yargs definition -- wires handler to `axm skills publish`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
-import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
-import { run } from "../../../runtime/index.js";
 import { extractFlags } from "../../../cli-flags/index.js";
+import { run } from "../../../runtime/index.js";
 import { handlePublish } from "./handler.js";
 
 export interface PublishCommandArgs {
@@ -15,33 +8,12 @@ export interface PublishCommandArgs {
   registry: string | undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
-export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
-  command: "publish <extensions..>",
-  describe: "Publish extensions to a registry",
-  builder: (yargs) =>
-    yargs
-      .positional("extensions", {
-        type: "string",
-        array: true,
-        describe: "Extension names or glob patterns (@namespace/skills/name, bare name, or glob)",
-        demandOption: true,
-      })
-      .option("registry", {
-        type: "string",
-        describe: "Named registry source to publish to",
-      })
-      .example("$0 skills publish @acme/skills/code-review", "Publish a single extension")
-      .example("$0 skills publish effect-* commit", "Publish extensions matching patterns")
-      .example(
-        "$0 skills publish code-review --registry local",
-        "Publish with namespace from settings to the local registry",
-      ),
-  handler: async (argv) => {
+export const publishCommand = {
+  handler: async (argv: PublishCommandArgs & Record<string, unknown>) => {
     await run(
       handlePublish({
         extensions: argv.extensions,
-        registry: Option.fromNullable(argv.registry),
+        registry: Option.fromUndefinedOr(argv.registry),
       }),
       {
         flags: extractFlags(argv),

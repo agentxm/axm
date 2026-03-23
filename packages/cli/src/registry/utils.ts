@@ -11,8 +11,8 @@
 // TODO: (#24, #43) node:child_process is a convention violation (CLAUDE.md requires @effect/platform).
 // Replace execFileSync/execSync with Effect.async + child_process.exec or a JS zip library.
 import { execFileSync, execSync } from "node:child_process";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -118,5 +118,5 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
     });
 
     // Clean up temp archive file
-    yield* fs.remove(archivePath).pipe(Effect.ignoreLogged);
+    yield* fs.remove(archivePath).pipe(Effect.ignore);
   });

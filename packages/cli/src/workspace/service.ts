@@ -19,14 +19,15 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { getAgentById } from "../agents/index.js";
 import { CliFlags } from "../cli-flags/index.js";
 import { CliEnvConfig } from "../config/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
   readLockfile,
@@ -70,7 +71,7 @@ import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from ".
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import { isUserScope, type WorkspaceScope } from "./scope.js";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ClackLog, ClackPrompt } from "../clack-effect/index.js";
@@ -203,7 +204,7 @@ import type {
 const augmentPlanWithReconciliation = (
   plan: Plan,
   getLockfileState: () => Effect.Effect<LockfileState, CliError>,
-  log: ClackLog["Type"],
+  log: ServiceMap.Service.Shape<typeof ClackLog>,
   baseDir: string,
   workspaceDir: string,
   readSettingsSafe: (dir: string) => Effect.Effect<Settings, CliError>,
@@ -269,10 +270,10 @@ const augmentPlanWithReconciliation = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class Workspace extends Context.Tag("@axm.sh/cli/Workspace")<
+export class Workspace extends ServiceMap.Service<
   Workspace,
   WorkspaceContextService
->() {
+>()("@axm.sh/cli/Workspace") {
   /**
    * Create a layer from a custom service implementation.
    */
@@ -335,7 +336,7 @@ const make = (options: WorkspaceContextOptions) =>
     const envConfig = yield* CliEnvConfig;
     const log = yield* ClackLog;
     const prompt = yield* ClackPrompt;
-    const semaphore = yield* Effect.makeSemaphore(1);
+    const semaphore = yield* Semaphore.make(1);
 
     const baseDir = path.dirname(workspaceDir);
 
@@ -393,7 +394,7 @@ const make = (options: WorkspaceContextOptions) =>
 
         return yield* readLockfileSafe(workspaceDir).pipe(
           Effect.as("ok" as const),
-          Effect.catchAll((error) => {
+          Effect.catch((error) => {
             if (
               error.code === "LOCKFILE_PARSE_FAILED" ||
               error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
@@ -428,7 +429,7 @@ const make = (options: WorkspaceContextOptions) =>
               fullDepth: false,
               includeInternal: false,
             }).pipe(
-              Effect.catchAll(() =>
+              Effect.catch(() =>
                 Effect.succeed<ReadonlyArray<{ skill: { name: string }; location: string }>>([]),
               ),
               Effect.provide(fsLayer),
@@ -540,7 +541,7 @@ const make = (options: WorkspaceContextOptions) =>
       Effect.gen(function* () {
         // Try lockfile
         const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+          Effect.map((lf) => Option.fromUndefinedOr(lf.skills[name])),
         );
         if (Option.isSome(lockEntry) && lockEntry.value.type === "registry") {
           return lockEntry.value.name;
@@ -702,7 +703,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getConfiguredSourceByName: (name: string) =>
         getConfiguredSources().pipe(
-          Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
+          Effect.map((sources) => Option.fromUndefinedOr(sources.find((s) => s.name === name))),
         ),
 
       getRegistrySourceHosts: () =>
@@ -785,7 +786,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getLockedSkill: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+          Effect.map((lf) => Option.fromUndefinedOr(lf.skills[name])),
         ),
 
       getSkillDir: (name: string, source?: SkillPathSource) =>
@@ -797,7 +798,7 @@ const make = (options: WorkspaceContextOptions) =>
           }
 
           const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
-            Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+            Effect.map((lf) => Option.fromUndefinedOr(lf.skills[name])),
           );
 
           if (Option.isNone(lockEntry)) {
@@ -1022,7 +1023,7 @@ const make = (options: WorkspaceContextOptions) =>
       addConfiguredAgent: (agentId: string) =>
         withMutex(
           Effect.gen(function* () {
-            const validId = yield* Schema.decodeUnknown(AgentIdSchema)(agentId).pipe(
+            const validId = yield* Schema.decodeUnknownEffect(AgentIdSchema)(agentId).pipe(
               Effect.mapError((error) =>
                 makeCliError({
                   code: "SETTINGS_PARSE_FAILED",
@@ -1137,7 +1138,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getLockedPack: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromNullable((lf.packs ?? {})[name])),
+          Effect.map((lf) => Option.fromUndefinedOr((lf.packs ?? {})[name])),
         ),
 
       setPack: (args: SetPackArgs) =>
@@ -1212,7 +1213,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getLockedCommand: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromNullable((lf.commands ?? {})[name])),
+          Effect.map((lf) => Option.fromUndefinedOr((lf.commands ?? {})[name])),
         ),
 
       setCommand: ({ name, lockEntry }: SetCommandArgs) =>
@@ -1307,7 +1308,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getLockedMcpServer: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromNullable((lf.mcpServers ?? {})[name])),
+          Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
       setMcpServer: ({ name, lockEntry }: SetMcpServerArgs) =>

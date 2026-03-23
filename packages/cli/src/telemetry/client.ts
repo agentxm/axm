@@ -10,12 +10,12 @@
 
 import { createHash } from "node:crypto";
 import * as os from "node:os";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as HttpBody from "@effect/platform/HttpBody";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
+import * as HttpBody from "effect/unstable/http/HttpBody";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import type { TelemetryMode } from "./mode.js";
 import { loadVersion } from "../version.js";
@@ -38,10 +38,10 @@ export interface TelemetryClientService {
   }) => Effect.Effect<void>;
 }
 
-export class TelemetryClient extends Context.Tag("@axm.sh/cli/TelemetryClient")<
+export class TelemetryClient extends ServiceMap.Service<
   TelemetryClient,
   TelemetryClientService
->() {}
+>()("@axm.sh/cli/TelemetryClient") {}
 
 // ---------------------------------------------------------------------------
 // No-op / test layer
@@ -58,8 +58,8 @@ export const TelemetryClientTest = Layer.succeed(TelemetryClient, {
 
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(
-    Effect.catchAllCause(() => Effect.void),
-    Effect.forkDaemon,
+    Effect.catchCause(() => Effect.void),
+    Effect.forkDetach,
     Effect.asVoid,
   );
 
@@ -121,7 +121,7 @@ export const TelemetryClientLive = (
         return fireAndForget(
           httpClient.execute(
             HttpClientRequest.post(`${BASE_URL}/events`).pipe(
-              HttpClientRequest.setBody(HttpBody.unsafeJson(body)),
+              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
             ),
           ),
         ).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
@@ -143,7 +143,7 @@ export const TelemetryClientLive = (
         return fireAndForget(
           httpClient.execute(
             HttpClientRequest.post(`${BASE_URL}/errors`).pipe(
-              HttpClientRequest.setBody(HttpBody.unsafeJson(body)),
+              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
             ),
           ),
         ).pipe(Effect.withSpan("TelemetryClient.reportError"));

@@ -9,8 +9,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
@@ -125,7 +125,7 @@ export const disableSkill: OperationHandler<
           const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
           return fs
             .remove(agentSkillPath, { recursive: true })
-            .pipe(Effect.catchAll(() => Effect.void));
+            .pipe(Effect.catch(() => Effect.void));
         },
         { concurrency: "unbounded" },
       );
@@ -133,7 +133,7 @@ export const disableSkill: OperationHandler<
       // Clear lock agents — state updates after files
       yield* ws
         .updateLockEntryAgents(op.args.skillName, [])
-        .pipe(Effect.catchAll(() => Effect.void));
+        .pipe(Effect.catch(() => Effect.void));
     }
 
     // State mutation: implicit promotion or configured toggle
@@ -155,7 +155,7 @@ export const disableSkill: OperationHandler<
       // Configured skill — toggle enabled flag
       yield* ws
         .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: false }))
-        .pipe(Effect.catchAll(() => Effect.void));
+        .pipe(Effect.catch(() => Effect.void));
     }
 
     return {

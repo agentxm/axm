@@ -10,9 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import * as Context from "effect/Context";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -32,7 +32,7 @@ import { resolveAmbientToken, resolveStoredToken } from "./token-resolution.js";
 // RegistryUrl service — configures which URLs are registry URLs
 // -----------------------------------------------------------------------------
 
-export class RegistryUrl extends Context.Tag("@axm.sh/cli/RegistryUrl")<RegistryUrl, string>() {}
+export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()("@axm.sh/cli/RegistryUrl") {}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -161,7 +161,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
           // 1. Check stored credentials for this origin (any registry)
           const storedToken = yield* resolveStoredToken(origin).pipe(
             Effect.provide(storeLayer),
-            Effect.catchAll(() => Effect.succeed(Option.none<TokenSource>())),
+            Effect.catch(() => Effect.succeed(Option.none<TokenSource>())),
           );
 
           // 2. If no stored credentials and this is the default registry, check ambient tokens
@@ -191,7 +191,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
                 store,
                 tokenSource.registryUrl,
                 refreshResult.value,
-              ).pipe(Effect.catchAll(() => Effect.void));
+              ).pipe(Effect.catch(() => Effect.void));
               currentToken = refreshResult.value.access_token;
             }
           }
@@ -213,7 +213,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
                 store,
                 tokenSource.registryUrl,
                 refreshResult.value,
-              ).pipe(Effect.catchAll(() => Effect.void));
+              ).pipe(Effect.catch(() => Effect.void));
               const retryRequest = HttpClientRequest.bearerToken(
                 request,
                 refreshResult.value.access_token,

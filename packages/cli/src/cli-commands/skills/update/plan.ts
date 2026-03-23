@@ -34,7 +34,7 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
   const { ref } = op.args;
 
   if (ref.refType === "git-hosted") {
-    const lockHash = Option.fromNullable(entry.gitTreeHash);
+    const lockHash = Option.fromUndefinedOr(entry.gitTreeHash);
     const opHash = ref.gitTreeSha;
 
     // If either hash is missing, treat as needing update

@@ -1,5 +1,5 @@
 import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -11,13 +11,13 @@ export interface ClackProgressCall {
   readonly args: ReadonlyArray<unknown>;
 }
 
-export class ClackProgressTest extends Context.Tag("@axm.sh/cli/test/ClackProgressTest")<
+export class ClackProgressTest extends ServiceMap.Service<
   ClackProgressTest,
   {
     readonly ref: Ref.Ref<ReadonlyArray<ClackProgressCall>>;
     readonly get: Effect.Effect<ReadonlyArray<ClackProgressCall>>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackProgressTest") {}
 
 const appendCall = (
   ref: Ref.Ref<ReadonlyArray<ClackProgressCall>>,
@@ -35,13 +35,13 @@ const makeMockHandle = (ref: Ref.Ref<ReadonlyArray<ClackProgressCall>>): ClackPr
 });
 
 export const ClackProgressTestLayer: Layer.Layer<ClackProgress | ClackProgressTest> =
-  Layer.effectContext(
+  Layer.effectServices(
     Effect.gen(function* () {
       const ref = yield* Ref.make<ReadonlyArray<ClackProgressCall>>([]);
 
-      const service: Context.Tag.Service<typeof ClackProgress> = {
+      const service: ServiceMap.Service.Shape<typeof ClackProgress> = {
         start: (config, message) =>
-          Effect.zipRight(
+          Effect.andThen(
             appendCall(ref, "start", [config, message]),
             Effect.succeed(makeMockHandle(ref)),
           ),
@@ -55,22 +55,22 @@ export const ClackProgressTestLayer: Layer.Layer<ClackProgress | ClackProgressTe
             const handle = makeMockHandle(ref);
 
             return appendCall(ref, "withProgress.start", [config, message]).pipe(
-              Effect.zipRight(Effect.interruptible(f(handle))),
+              Effect.andThen(Effect.interruptible(f(handle))),
               Effect.matchCauseEffect({
                 onFailure: (cause) => {
-                  if (Cause.isInterruptedOnly(cause)) {
-                    return Effect.zipRight(
+                  if (Cause.hasInterruptsOnly(cause)) {
+                    return Effect.andThen(
                       appendCall(ref, "withProgress.cancel", []),
                       Effect.failCause(cause),
                     );
                   }
-                  return Effect.zipRight(
+                  return Effect.andThen(
                     appendCall(ref, "withProgress.error", [message]),
                     Effect.failCause(cause),
                   );
                 },
                 onSuccess: (a) =>
-                  Effect.zipRight(
+                  Effect.andThen(
                     appendCall(ref, "withProgress.stop", [stopMessage ?? message]),
                     Effect.succeed(a),
                   ),
@@ -80,14 +80,14 @@ export const ClackProgressTestLayer: Layer.Layer<ClackProgress | ClackProgressTe
           }),
       };
 
-      const test: Context.Tag.Service<typeof ClackProgressTest> = {
+      const test: ServiceMap.Service.Shape<typeof ClackProgressTest> = {
         ref,
         get: Ref.get(ref),
       };
 
-      return Context.empty().pipe(
-        Context.add(ClackProgress, service),
-        Context.add(ClackProgressTest, test),
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackProgress, service),
+        ServiceMap.add(ClackProgressTest, test),
       );
     }),
   );

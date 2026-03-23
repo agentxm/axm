@@ -32,4 +32,4 @@ export const McpServerManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type McpServerManifest = typeof McpServerManifestSchema.Type;
+export type McpServerManifest = Schema.Schema.Type<typeof McpServerManifestSchema>;

@@ -4,10 +4,11 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as ServiceMap from "effect/ServiceMap";
 
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders } from "./service.js";
@@ -40,8 +41,8 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_
             (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
           ),
         ),
-    } as unknown as Workspace["Type"]),
-    NodeContext.layer,
+    } as unknown as ServiceMap.Service.Shape<typeof Workspace>),
+    NodeServices.layer,
   );
 
 /** Create a mock SourceHostProviders that records find() calls. */

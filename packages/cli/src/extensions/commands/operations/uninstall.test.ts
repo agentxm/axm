@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -84,7 +84,7 @@ const makeWorkspaceMock = (
     getPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(commands),
     getLockedCommand: (name: string) =>
-      Effect.succeed(Option.fromNullable(commands[name] as CommandLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(commands[name] as CommandLockEntry | undefined)),
     setCommand: () => Effect.void,
     setCommandLock: () => Effect.void,
     removeCommand: overrides?.removeCommandFn
@@ -124,7 +124,7 @@ const withServices = (
   },
 ) =>
   Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileCommands, wsOverrides)),
   );
 

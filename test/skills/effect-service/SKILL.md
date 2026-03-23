@@ -6,18 +6,20 @@ user-invocable: false
 
 # Effect Service Design Patterns
 
-> **Effect v3 notice:** Examples use Effect v3 APIs (`Context.GenericTag`,
-> etc.). v3 → v4 migration in progress.
-
 Apply these patterns when designing Effect services in this codebase.
 
 ---
 
 ## Service Interface Pattern
 
-Use the inferred interface pattern to avoid circular references:
+Use the repo's `ServiceMap.Service` pattern to avoid circular references and
+keep layer wiring aligned with the codebase:
 
 ```typescript
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as ServiceMap from "effect/ServiceMap";
+
 // 1. Define implementation - let Effect infer method return types
 const make = (config: Config) => {
   const doSomething = (input: string) =>
@@ -29,18 +31,20 @@ const make = (config: Config) => {
   return { doSomething };
 };
 
-// 2. Infer the service type from implementation
-export type MyService = ReturnType<typeof make>;
+// 2. Infer the service shape from implementation
+export type MyServiceShape = ReturnType<typeof make>;
 
-// 3. Create the service tag
-export const MyService = Context.GenericTag<MyService>("MyService");
+// 3. Create the service key
+export class MyService extends ServiceMap.Service<MyService, MyServiceShape>()(
+  "@axm.sh/cli/MyService",
+) {}
 
 // 4. Create the layer
 export const MyServiceLive = Layer.effect(
   MyService,
   Effect.gen(function* () {
     // ... setup logic
-    return make(config);
+    return make(config) satisfies MyServiceShape;
   }),
 );
 ```
@@ -50,7 +54,7 @@ export const MyServiceLive = Layer.effect(
 - [ ] **Infer from implementation** — Use `ReturnType<typeof make>` not explicit interface
 - [ ] **Let methods infer types** — Effect infers `Effect<A, E, R>` signatures
 - [ ] **No return type on make** — Avoid circular references
-- [ ] **Tag after type** — Service tag created after type inference
+- [ ] **ServiceMap.Service key** — Define services with `ServiceMap.Service`
 - [ ] **Single responsibility** — Service handles one domain concern
 
 ---

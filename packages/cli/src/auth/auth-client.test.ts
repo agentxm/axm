@@ -5,9 +5,9 @@
  * token refresh, token revocation, and identity queries.
  */
 
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { describe, expect, it, vi } from "vitest";
@@ -83,13 +83,13 @@ describe("AuthClient.initiateDeviceFlow", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.initiateDeviceFlow(REGISTRY_URL).pipe(Effect.either);
+        return yield* client.initiateDeviceFlow(REGISTRY_URL).pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_LOGIN_FAILED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
     }
   });
 
@@ -199,11 +199,11 @@ describe("pollOnce", () => {
     );
 
     const result = await Effect.runPromise(
-      pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.either),
+      pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.result),
     );
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_LOGIN_FAILED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
     }
   });
 });
@@ -273,13 +273,13 @@ describe("AuthClient.pollDeviceToken", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.pollDeviceToken(REGISTRY_URL, "dev_123", 0).pipe(Effect.either);
+        return yield* client.pollDeviceToken(REGISTRY_URL, "dev_123", 0).pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_LOGIN_CANCELLED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_LOGIN_CANCELLED");
     }
   });
 
@@ -291,13 +291,13 @@ describe("AuthClient.pollDeviceToken", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.pollDeviceToken(REGISTRY_URL, "dev_123", 0).pipe(Effect.either);
+        return yield* client.pollDeviceToken(REGISTRY_URL, "dev_123", 0).pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_LOGIN_FAILED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
     }
   });
 });
@@ -347,13 +347,13 @@ describe("AuthClient.refreshToken", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.refreshToken(REGISTRY_URL, "axm_ref_expired").pipe(Effect.either);
+        return yield* client.refreshToken(REGISTRY_URL, "axm_ref_expired").pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_REFRESH_FAILED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_REFRESH_FAILED");
     }
   });
 });
@@ -460,13 +460,13 @@ describe("AuthClient.getMe", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.either);
+        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
     }
   });
 
@@ -476,13 +476,13 @@ describe("AuthClient.getMe", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.either);
+        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
     }
   });
 
@@ -492,13 +492,13 @@ describe("AuthClient.getMe", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const client = yield* AuthClient;
-        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.either);
+        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.result);
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
     }
   });
 });

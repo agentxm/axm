@@ -4,8 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../cli-error/index.js";
@@ -68,7 +68,7 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "BUILTIN_PACK_PARSE_FAILED",

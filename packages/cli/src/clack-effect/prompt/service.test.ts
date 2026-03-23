@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -5,6 +6,9 @@ import { describe, expect, it } from "vitest";
 import { CliFlagsTest } from "../../cli-flags/index.js";
 import { ClackPrompt, ClackPromptLive } from "./service.js";
 import { makeClackPromptTestLayer } from "./ClackPromptTest.js";
+
+const firstFailure = (exit: Exit.Exit<unknown, unknown>) =>
+  Exit.isFailure(exit) ? exit.cause.reasons.find(Cause.isFailReason)?.error : undefined;
 
 describe("ClackPrompt", () => {
   it("text returns string value", async () => {
@@ -64,12 +68,9 @@ describe("ClackPrompt", () => {
     }).pipe(Effect.provide(layer), Effect.runPromiseExit);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit)) {
-      expect(exit.cause).toMatchObject({
-        _tag: "Fail",
-        error: expect.objectContaining({
-          _tag: "PromptCancelled",
-          message: "Operation cancelled.",
-        }),
+      expect(firstFailure(exit)).toMatchObject({
+        _tag: "PromptCancelled",
+        message: "Operation cancelled.",
       });
     }
   });
@@ -239,11 +240,8 @@ describe("ClackPromptLive non-interactive guard", () => {
     }).pipe(Effect.provide(liveLayer), Effect.runPromiseExit);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit)) {
-      expect(exit.cause).toMatchObject({
-        _tag: "Fail",
-        error: expect.objectContaining({
-          code: "PROMPT_IN_NON_INTERACTIVE",
-        }),
+      expect(firstFailure(exit)).toMatchObject({
+        code: "PROMPT_IN_NON_INTERACTIVE",
       });
     }
   });
@@ -256,11 +254,8 @@ describe("ClackPromptLive non-interactive guard", () => {
     }).pipe(Effect.provide(liveLayer), Effect.runPromiseExit);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit)) {
-      expect(exit.cause).toMatchObject({
-        _tag: "Fail",
-        error: expect.objectContaining({
-          code: "PROMPT_IN_NON_INTERACTIVE",
-        }),
+      expect(firstFailure(exit)).toMatchObject({
+        code: "PROMPT_IN_NON_INTERACTIVE",
       });
     }
   });
@@ -276,11 +271,8 @@ describe("ClackPromptLive non-interactive guard", () => {
     }).pipe(Effect.provide(liveLayer), Effect.runPromiseExit);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit)) {
-      expect(exit.cause).toMatchObject({
-        _tag: "Fail",
-        error: expect.objectContaining({
-          code: "PROMPT_IN_NON_INTERACTIVE",
-        }),
+      expect(firstFailure(exit)).toMatchObject({
+        code: "PROMPT_IN_NON_INTERACTIVE",
       });
     }
   });

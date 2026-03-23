@@ -10,7 +10,6 @@
  */
 
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -145,13 +144,15 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     return Option.some(wrap({ pattern: "file-path-pattern", path: input }));
   }
 
-  // 4. URL (validated via Schema.URL)
-  const urlOption = Schema.decodeUnknownOption(Schema.URL)(input);
-  if (Option.isSome(urlOption)) {
-    if (urlOption.value.protocol === "file:") {
-      return Option.some(wrap({ pattern: "file-path-pattern", path: urlOption.value.pathname }));
+  // 4. URL
+  try {
+    const url = new URL(input);
+    if (url.protocol === "file:") {
+      return Option.some(wrap({ pattern: "file-path-pattern", path: url.pathname }));
     }
-    return Option.some(wrap({ pattern: "url-input", url: urlOption.value }));
+    return Option.some(wrap({ pattern: "url-input", url }));
+  } catch {
+    // Not a URL
   }
 
   // 5. Registry source:

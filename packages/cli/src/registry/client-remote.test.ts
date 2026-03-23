@@ -5,10 +5,10 @@
  * Phase 2: createRemoteRegistryClient — publish, network errors, stubs.
  */
 
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientError from "@effect/platform/HttpClientError";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -68,6 +68,14 @@ const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientReque
   HttpClient.make((request) =>
     Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
   );
+
+const makeTransportError = (request: HttpClientRequest.HttpClientRequest, cause: unknown) =>
+  new HttpClientError.HttpClientError({
+    reason: new HttpClientError.TransportError({
+      request,
+      cause,
+    }),
+  });
 
 // -----------------------------------------------------------------------------
 // mapProblemDetailToCliError
@@ -461,14 +469,14 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_PUBLISH_CONFLICT");
-          expect(result.left.details).toContain(
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_PUBLISH_CONFLICT");
+          expect(result.failure.details).toContain(
             "Request: PUT https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
           );
-          expect(result.left.details).toContain("HTTP status: 409");
+          expect(result.failure.details).toContain("HTTP status: 409");
         }
       }),
     );
@@ -484,11 +492,11 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_PUBLISH_FAILED");
-          expect(result.left.details).toContain("Internal Server Error");
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_PUBLISH_FAILED");
+          expect(result.failure.details).toContain("Internal Server Error");
         }
       }),
     );
@@ -503,22 +511,18 @@ describe("createRemoteRegistryClient", () => {
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
           Effect.fail(
-            new HttpClientError.RequestError({
-              request,
-              reason: "Transport",
-              cause: new Error("Connection refused"),
-            }),
+            makeTransportError(request, new Error("Connection refused")),
           ),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
-          expect(result.left.cause).toBeDefined();
-          expect(Option.isSome(result.left.howToFix)).toBe(true);
-          expect(result.left.details).toContain(
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
+          expect(result.failure.cause).toBeDefined();
+          expect(Option.isSome(result.failure.howToFix)).toBe(true);
+          expect(result.failure.details).toContain(
             "Request: PUT https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
           );
         }
@@ -529,27 +533,23 @@ describe("createRemoteRegistryClient", () => {
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
           Effect.fail(
-            new HttpClientError.RequestError({
-              request,
-              reason: "Transport",
-              cause: new Error("Connection refused"),
-            }),
+            makeTransportError(request, new Error("Connection refused")),
           ),
         );
 
         const client = createRemoteRegistryClient("https://localhost:4000/", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
-          expect(Option.isSome(result.left.howToFix)).toBe(true);
-          expect(Option.getOrThrow(result.left.howToFix)).toContain(
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
+          expect(Option.isSome(result.failure.howToFix)).toBe(true);
+          expect(Option.getOrThrow(result.failure.howToFix)).toContain(
             "switch the source URL to http://localhost",
           );
-          expect(result.left.details).toContain(
+          expect(result.failure.details).toContain(
             "Request: PUT https://localhost:4000/v1/extensions/@acme/skills/code-review/1.0.0",
           );
-          expect(result.left.details).toContain(
+          expect(result.failure.details).toContain(
             "Diagnosis: Local registry appears HTTP-only while source uses HTTPS.",
           );
         }
@@ -819,10 +819,10 @@ describe("createRemoteRegistryClient", () => {
             limit: Option.none(),
             offset: 0,
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
         }
       }),
     );
@@ -943,10 +943,10 @@ describe("createRemoteRegistryClient", () => {
             name: "my-skill",
             version: Option.some("9.9.9"),
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
         }
       }),
     );
@@ -985,10 +985,10 @@ describe("createRemoteRegistryClient", () => {
             name: "my-skill",
             version: Option.some("1.0.0"),
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
         }
       }),
     );
@@ -1009,10 +1009,10 @@ describe("createRemoteRegistryClient", () => {
             name: "my-skill",
             version: Option.some("1.0.0"),
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
         }
       }),
     );
@@ -1063,18 +1063,14 @@ describe("createRemoteRegistryClient", () => {
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
           Effect.fail(
-            new HttpClientError.RequestError({
-              request,
-              reason: "Transport",
-              cause: new Error("Connection refused"),
-            }),
+            makeTransportError(request, new Error("Connection refused")),
           ),
         );
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
+        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
         }
       }),
     );
@@ -1118,12 +1114,12 @@ describe("createRemoteRegistryClient", () => {
         const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
-          expect(Option.isSome(result.left.howToFix)).toBe(true);
-          expect(Option.getOrThrow(result.left.howToFix)).toContain("axm login");
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
+          expect(Option.isSome(result.failure.howToFix)).toBe(true);
+          expect(Option.getOrThrow(result.failure.howToFix)).toContain("axm login");
         }
       }),
     );
@@ -1141,11 +1137,11 @@ describe("createRemoteRegistryClient", () => {
           );
 
           const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-          const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-          expect(result._tag).toBe("Left");
-          if (result._tag === "Left") {
-            expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
-            expect(result.left.details.some((d) => d.includes("WWW-Authenticate"))).toBe(true);
+          const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+          expect(result._tag).toBe("Failure");
+          if (result._tag === "Failure") {
+            expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
+            expect(result.failure.details.some((d) => d.includes("WWW-Authenticate"))).toBe(true);
           }
         }),
     );
@@ -1166,13 +1162,13 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHORIZED");
-          expect(result.left.details.some((d) => d.includes("extensions:publish:new"))).toBe(true);
-          expect(result.left.details.some((d) => d.includes("extensions:read"))).toBe(true);
-          expect(result.left.details.some((d) => d.includes("publisher"))).toBe(true);
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHORIZED");
+          expect(result.failure.details.some((d) => d.includes("extensions:publish:new"))).toBe(true);
+          expect(result.failure.details.some((d) => d.includes("extensions:read"))).toBe(true);
+          expect(result.failure.details.some((d) => d.includes("publisher"))).toBe(true);
         }
       }),
     );
@@ -1191,10 +1187,10 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
         }
       }),
     );
@@ -1218,10 +1214,10 @@ describe("createRemoteRegistryClient", () => {
             limit: Option.none(),
             offset: 0,
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
         }
       }),
     );
@@ -1231,10 +1227,10 @@ describe("createRemoteRegistryClient", () => {
         const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
         }
       }),
     );
@@ -1246,10 +1242,10 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
         }
       }),
     );
@@ -1266,10 +1262,10 @@ describe("createRemoteRegistryClient", () => {
             name: "my-skill",
             version: Option.some("1.0.0"),
           })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHENTICATED");
+          .pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
         }
       }),
     );
@@ -1288,11 +1284,11 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("AUTH_UNAUTHORIZED");
-          expect(result.left.details.some((d) => d.includes("extensions:read"))).toBe(true);
+        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("AUTH_UNAUTHORIZED");
+          expect(result.failure.details.some((d) => d.includes("extensions:read"))).toBe(true);
         }
       }),
     );

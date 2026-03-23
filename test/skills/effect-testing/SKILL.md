@@ -99,13 +99,13 @@ it.effect("returns expected exit", () =>
 Use `Effect.provide` within the test:
 
 ```typescript
-import { NodeFileSystem } from "@effect/platform-node";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 
 it.effect("reads file contents", () =>
   Effect.gen(function* () {
     const result = yield* readConfig("/path/to/config.json");
     expect(result.version).toBe(1);
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
+  }).pipe(Effect.provide(NodeServices.layer)),
 );
 ```
 
@@ -159,7 +159,7 @@ import { Logger } from "effect";
 it.effect("with logging", () =>
   Effect.gen(function* () {
     yield* Effect.log("debug message");
-  }).pipe(Effect.provide(Logger.pretty)),
+  }).pipe(Effect.provide(Logger.layer([Logger.consolePretty()], { mergeWithExisting: false }))),
 );
 
 // Or use it.live for real logging

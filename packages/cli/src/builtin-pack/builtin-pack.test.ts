@@ -1,4 +1,4 @@
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
@@ -27,7 +27,7 @@ describe("builtin-pack", () => {
       expect(result.manifest.skills!["@axm/skills/axm-manage-packs"]).toBeDefined();
       expect(result.manifest.skills!["@axm/skills/axm-manage-mcp-servers"]).toBeDefined();
       expect(result.manifest.skills!["@axm/skills/axm-manage-commands"]).toBeDefined();
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("resolves CLI version from manifest", () =>
@@ -35,7 +35,7 @@ describe("builtin-pack", () => {
       const result = yield* resolveBuiltinPack();
       // Version should be a valid semver-like string
       expect(result.version).toMatch(/^\d+\.\d+\.\d+/);
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("resolves skill directory paths", () =>
@@ -44,6 +44,6 @@ describe("builtin-pack", () => {
       // skillsDir should be a valid path
       expect(result.skillsDir).toBeTruthy();
       expect(typeof result.skillsDir).toBe("string");
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -24,7 +24,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   resolvePlan: () => Effect.die("not implemented in test"),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
-    Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
+    Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
   getRegistrySourceHosts: () =>
     Effect.succeed(
       sources.filter(
@@ -152,7 +152,7 @@ const remoteHttpLayer = Layer.succeed(
 );
 
 const provideTestLayers = (sources: ReadonlyArray<SourceHostConfig>) =>
-  Layer.mergeAll(NodeContext.layer, Workspace.layer(makeWorkspace(sources)), remoteHttpLayer);
+  Layer.mergeAll(NodeServices.layer, Workspace.layer(makeWorkspace(sources)), remoteHttpLayer);
 
 const parseInputOrThrow = (input: string): InputParseResult => {
   const parsed = parseInputPattern(input);
@@ -301,7 +301,7 @@ describe("resolveSkillInstallSource", () => {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("some-name")).pipe(
         Effect.provide(
           Layer.mergeAll(
-            NodeContext.layer,
+            NodeServices.layer,
             Workspace.layer({
               ...makeWorkspace(sources),
               getDefaultNamespace: () => Effect.succeed(Option.some("@test")),
@@ -396,7 +396,7 @@ describe("resolveSkillRegistrySourceByName", () => {
     namespace: Option.Option<string>,
   ) =>
     Layer.mergeAll(
-      NodeContext.layer,
+      NodeServices.layer,
       Workspace.layer({
         ...makeWorkspace(sources),
         getDefaultNamespace: () => Effect.succeed(namespace),

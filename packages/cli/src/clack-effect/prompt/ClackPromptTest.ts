@@ -1,4 +1,4 @@
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -87,13 +87,13 @@ const isOptionConfig = (
 ): config is { options: ReadonlyArray<{ value: unknown }> } =>
   typeof config === "object" && config !== null && "options" in config;
 
-export class ClackPromptTest extends Context.Tag("@axm.sh/cli/test/ClackPromptTest")<
+export class ClackPromptTest extends ServiceMap.Service<
   ClackPromptTest,
   {
     readonly ref: Ref.Ref<ReadonlyArray<ClackPromptCall>>;
     readonly get: Effect.Effect<ReadonlyArray<ClackPromptCall>>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackPromptTest") {}
 
 export function makeClackPromptTestLayer(
   configOrBehavior: LegacyPromptBehavior | ClackPromptTestLayerConfig = defaultBehavior,
@@ -138,7 +138,7 @@ export function makeClackPromptTestLayer(
       : (resolvedConfig.defaultBehavior ?? defaultBehavior);
   };
 
-  const layer = Layer.effectContext(
+  const layer = Layer.effectServices(
     Effect.gen(function* () {
       const ref = yield* Ref.make<ReadonlyArray<ClackPromptCall>>([]);
 
@@ -149,7 +149,7 @@ export function makeClackPromptTestLayer(
         Effect.sync(() => {
           mock.calls.push({ method, config });
         }).pipe(
-          Effect.zipRight(Ref.update(ref, (calls) => [...calls, { method, config }])),
+          Effect.andThen(Ref.update(ref, (calls) => [...calls, { method, config }])),
           Effect.map(() => resolveBehavior(method)),
           Effect.flatMap((behavior) =>
             behavior.type === "cancel"
@@ -192,7 +192,7 @@ export function makeClackPromptTestLayer(
           ),
         );
 
-      const promptService: Context.Tag.Service<typeof ClackPrompt> = {
+      const promptService: ServiceMap.Service.Shape<typeof ClackPrompt> = {
         text: (config) => runPrompt<string>("text", config),
         password: (config) => runPrompt<string>("password", config),
         confirm: (config) => runPrompt<boolean>("confirm", config),
@@ -207,11 +207,11 @@ export function makeClackPromptTestLayer(
         path: (config) => runPrompt<string>("path", config),
       };
 
-      const confirmService: Context.Tag.Service<typeof Confirm> = {
+      const confirmService: ServiceMap.Service.Shape<typeof Confirm> = {
         prompt: (config) => runPrompt<boolean>("confirm", config),
       };
 
-      const selectService: Context.Tag.Service<typeof Select> = {
+      const selectService: ServiceMap.Service.Shape<typeof Select> = {
         prompt: (config) =>
           runPrompt("select", {
             message: config.message,
@@ -219,7 +219,7 @@ export function makeClackPromptTestLayer(
           }),
       };
 
-      const multiselectService: Context.Tag.Service<typeof Multiselect> = {
+      const multiselectService: ServiceMap.Service.Shape<typeof Multiselect> = {
         prompt: (config) =>
           runPrompt("multiselect", {
             message: config.message,
@@ -227,27 +227,27 @@ export function makeClackPromptTestLayer(
           }),
       };
 
-      const textInputService: Context.Tag.Service<typeof TextInput> = {
+      const textInputService: ServiceMap.Service.Shape<typeof TextInput> = {
         prompt: (config) => runPrompt<string>("text", config),
       };
 
-      const passwordInputService: Context.Tag.Service<typeof PasswordInput> = {
+      const passwordInputService: ServiceMap.Service.Shape<typeof PasswordInput> = {
         prompt: (config) => runPrompt<string>("password", config),
       };
 
-      const test: Context.Tag.Service<typeof ClackPromptTest> = {
+      const test: ServiceMap.Service.Shape<typeof ClackPromptTest> = {
         ref,
         get: Ref.get(ref),
       };
 
-      return Context.empty().pipe(
-        Context.add(ClackPrompt, promptService),
-        Context.add(ClackPromptTest, test),
-        Context.add(Confirm, confirmService),
-        Context.add(Select, selectService),
-        Context.add(Multiselect, multiselectService),
-        Context.add(TextInput, textInputService),
-        Context.add(PasswordInput, passwordInputService),
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackPrompt, promptService),
+        ServiceMap.add(ClackPromptTest, test),
+        ServiceMap.add(Confirm, confirmService),
+        ServiceMap.add(Select, selectService),
+        ServiceMap.add(Multiselect, multiselectService),
+        ServiceMap.add(TextInput, textInputService),
+        ServiceMap.add(PasswordInput, passwordInputService),
       );
     }),
   );

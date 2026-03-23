@@ -8,7 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -49,16 +49,14 @@ export interface ParsedSkillUninstallArgs {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class UninstallSkillCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/UninstallSkillCommandWorkflowActions",
-)<
+export class UninstallSkillCommandWorkflowActions extends ServiceMap.Service<
   UninstallSkillCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<
     UninstallHandlerArgs,
     ParsedSkillUninstallArgs,
     UninstallSkillCommandIntent
   >
->() {}
+>()("@axm.sh/cli/UninstallSkillCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

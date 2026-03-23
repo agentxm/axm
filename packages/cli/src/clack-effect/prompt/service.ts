@@ -1,5 +1,5 @@
 import * as p from "@clack/prompts";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliFlags } from "../../cli-flags/index.js";
@@ -64,10 +64,10 @@ export interface ClackPromptService {
   readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
 }
 
-export class ClackPrompt extends Context.Tag("@axm.sh/cli/clack-effect/ClackPrompt")<
+export class ClackPrompt extends ServiceMap.Service<
   ClackPrompt,
   ClackPromptService
->() {}
+>()("@axm.sh/cli/clack-effect/ClackPrompt") {}
 
 // Assertion needed: our readonly config types are structurally compatible with Clack's
 // mutable types, but exactOptionalPropertyTypes prevents direct assignment.

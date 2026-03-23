@@ -1,8 +1,8 @@
 import { rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -38,7 +38,7 @@ const makeTestLayer = (configOverrides?: Partial<CliEnvConfigService>) => {
         ...configOverrides,
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;
-  return Layer.mergeAll(NodeContext.layer, configLayer);
+  return Layer.mergeAll(NodeServices.layer, configLayer);
 };
 
 describe("coding-agent services", () => {

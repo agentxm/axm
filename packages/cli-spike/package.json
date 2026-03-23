@@ -1,0 +1,26 @@
+{
+  "name": "@axm.sh/cli-spike",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Effect v4 CLI spike - proving out idiomatic command/flag patterns",
+  "type": "module",
+  "bin": {
+    "axm-spike": "dist/src/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "spike": "bun src/main.ts"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "@effect/platform-node": "4.0.0-beta.37"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@effect/vitest": "4.0.0-beta.37",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

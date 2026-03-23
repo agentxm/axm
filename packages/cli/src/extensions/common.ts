@@ -61,7 +61,9 @@ export const MANIFEST_NAME_PATTERN = /^[\w-]+$/;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.check(Schema.isPattern(FQN_PATTERN)));
+export const FullyQualifiedNameSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(FQN_PATTERN)),
+);
 
 /**
  * Inferred type for FullyQualifiedName schema.
@@ -80,7 +82,9 @@ export const ManifestNamespaceSchema = Schema.String.pipe(
 /**
  * Manifest short name schema.
  */
-export const ManifestNameSchema = Schema.String.pipe(Schema.check(Schema.isPattern(MANIFEST_NAME_PATTERN)));
+export const ManifestNameSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(MANIFEST_NAME_PATTERN)),
+);
 
 /**
  * Common fields shared across all manifest types.
@@ -106,7 +110,12 @@ export const CommonManifestFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionTypeSchema = Schema.Union([Schema.Literal("skill"), Schema.Literal("command"), Schema.Literal("pack"), Schema.Literal("mcp-server")]);
+export const ExtensionTypeSchema = Schema.Union([
+  Schema.Literal("skill"),
+  Schema.Literal("command"),
+  Schema.Literal("pack"),
+  Schema.Literal("mcp-server"),
+]);
 
 /**
  * Inferred type for ExtensionType schema.

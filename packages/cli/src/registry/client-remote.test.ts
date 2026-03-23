@@ -510,9 +510,7 @@ describe("createRemoteRegistryClient", () => {
     it.effect("maps connection failure to REGISTRY_PUBLISH_NETWORK_ERROR", () =>
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
-          Effect.fail(
-            makeTransportError(request, new Error("Connection refused")),
-          ),
+          Effect.fail(makeTransportError(request, new Error("Connection refused"))),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
@@ -532,9 +530,7 @@ describe("createRemoteRegistryClient", () => {
     it.effect("suggests http for localhost https network failures", () =>
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
-          Effect.fail(
-            makeTransportError(request, new Error("Connection refused")),
-          ),
+          Effect.fail(makeTransportError(request, new Error("Connection refused"))),
         );
 
         const client = createRemoteRegistryClient("https://localhost:4000/", httpClient);
@@ -1062,9 +1058,7 @@ describe("createRemoteRegistryClient", () => {
     it.effect("namespaceExists maps network errors", () =>
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
-          Effect.fail(
-            makeTransportError(request, new Error("Connection refused")),
-          ),
+          Effect.fail(makeTransportError(request, new Error("Connection refused"))),
         );
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.namespaceExists("@test").pipe(Effect.result);
@@ -1166,7 +1160,9 @@ describe("createRemoteRegistryClient", () => {
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("AUTH_UNAUTHORIZED");
-          expect(result.failure.details.some((d) => d.includes("extensions:publish:new"))).toBe(true);
+          expect(result.failure.details.some((d) => d.includes("extensions:publish:new"))).toBe(
+            true,
+          );
           expect(result.failure.details.some((d) => d.includes("extensions:read"))).toBe(true);
           expect(result.failure.details.some((d) => d.includes("publisher"))).toBe(true);
         }

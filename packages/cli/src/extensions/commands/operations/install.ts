@@ -211,9 +211,7 @@ export const installCommand: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setCommandLock({ name: ref.command.name, lockEntry })
       : ws.setCommand({ name: ref.command.name, lockEntry });
-    yield* writeEffect.pipe(
-      Effect.catch((e) => log.warn(`Command update failed: ${String(e)}`)),
-    );
+    yield* writeEffect.pipe(Effect.catch((e) => log.warn(`Command update failed: ${String(e)}`)));
 
     return {
       result: "success",

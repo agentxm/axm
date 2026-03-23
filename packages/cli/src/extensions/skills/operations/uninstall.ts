@@ -141,9 +141,7 @@ export const uninstallSkill: OperationHandler<
         const agent = maybeAgent.value;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
-        return fs
-          .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catch(() => Effect.void));
+        return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );

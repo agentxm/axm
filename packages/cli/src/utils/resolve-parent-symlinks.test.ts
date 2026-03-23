@@ -9,9 +9,8 @@ import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 
-const withNodeContext = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
-) => effect.pipe(Effect.provide(NodeServices.layer));
+const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+  effect.pipe(Effect.provide(NodeServices.layer));
 
 describe("resolveParentSymlinks", () => {
   let tmpDir: string;

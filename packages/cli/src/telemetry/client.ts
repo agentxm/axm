@@ -38,10 +38,9 @@ export interface TelemetryClientService {
   }) => Effect.Effect<void>;
 }
 
-export class TelemetryClient extends ServiceMap.Service<
-  TelemetryClient,
-  TelemetryClientService
->()("@axm.sh/cli/TelemetryClient") {}
+export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
+  "@axm.sh/cli/TelemetryClient",
+) {}
 
 // ---------------------------------------------------------------------------
 // No-op / test layer

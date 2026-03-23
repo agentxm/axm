@@ -9,9 +9,8 @@ import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { copySkillDirectory } from "./copy-directory.js";
 
-const withPlatform = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
-) => effect.pipe(Effect.provide(NodeServices.layer));
+const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+  effect.pipe(Effect.provide(NodeServices.layer));
 
 describe("copySkillDirectory", () => {
   let tmpDir: string;

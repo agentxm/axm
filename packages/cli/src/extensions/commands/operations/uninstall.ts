@@ -159,9 +159,7 @@ const removeFromAllCommandLocations = (
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.void;
         const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
-        return fsService
-          .remove(cmdPath, { recursive: true })
-          .pipe(Effect.catch(() => Effect.void));
+        return fsService.remove(cmdPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );

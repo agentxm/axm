@@ -69,9 +69,9 @@ export const McpServerManagerLive = Layer.effect(
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
 
-    const materializeInstall: ExtensionManager<
-      McpServerExtensionRef
-    >["materializeInstall"] = ({ ref }) =>
+    const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] = ({
+      ref,
+    }) =>
       Effect.gen(function* () {
         if (ref.refType !== "registry") {
           return yield* makeCliError({
@@ -177,9 +177,9 @@ export const McpServerManagerLive = Layer.effect(
         }
       }).pipe(Effect.asVoid, Effect.withSpan("McpServerManager.materializeInstall"));
 
-    const materializeUninstall: ExtensionManager<
-      McpServerExtensionRef
-    >["materializeUninstall"] = ({ target }) =>
+    const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] = ({
+      target,
+    }) =>
       Effect.gen(function* () {
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
@@ -197,9 +197,7 @@ export const McpServerManagerLive = Layer.effect(
           (scopeDir) => {
             if (!scopeDir.startsWith("@")) return Effect.void;
             const serverPath = path.join(extensionsDir, scopeDir, "mcp-servers", target.name);
-            return fs
-              .remove(serverPath, { recursive: true })
-              .pipe(Effect.catch(() => Effect.void));
+            return fs.remove(serverPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
           },
           { concurrency: "unbounded" },
         );

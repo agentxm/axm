@@ -83,9 +83,7 @@ const tuiCommand = Command.make("tui", {}, () =>
 );
 
 const devCliCommand = Command.make(ROOT_COMMAND, {}, () =>
-  showHelpFor(getDevCliCommand(), [ROOT_COMMAND]).pipe(
-    Effect.andThen(Effect.fail(devCliExit(1))),
-  ),
+  showHelpFor(getDevCliCommand(), [ROOT_COMMAND]).pipe(Effect.andThen(Effect.fail(devCliExit(1)))),
 ).pipe(
   Command.withDescription("Dev tools for testing axm components."),
   Command.withExamples([

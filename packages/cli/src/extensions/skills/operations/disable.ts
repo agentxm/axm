@@ -131,9 +131,7 @@ export const disableSkill: OperationHandler<
       );
 
       // Clear lock agents — state updates after files
-      yield* ws
-        .updateLockEntryAgents(op.args.skillName, [])
-        .pipe(Effect.catch(() => Effect.void));
+      yield* ws.updateLockEntryAgents(op.args.skillName, []).pipe(Effect.catch(() => Effect.void));
     }
 
     // State mutation: implicit promotion or configured toggle

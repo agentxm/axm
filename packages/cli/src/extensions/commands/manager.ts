@@ -201,9 +201,7 @@ export const CommandManagerLive = Layer.effect(
           (scopeDir) => {
             if (!scopeDir.startsWith("@")) return Effect.void;
             const cmdPath = path.join(extensionsDir, scopeDir, "commands", target.name);
-            return fs
-              .remove(cmdPath, { recursive: true })
-              .pipe(Effect.catch(() => Effect.void));
+            return fs.remove(cmdPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
           },
           { concurrency: "unbounded" },
         );

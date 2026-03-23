@@ -108,7 +108,9 @@ export type GitLabSourceHostConfig = Schema.Schema.Type<typeof GitLabSourceHostC
 /** @experimental */
 export type BitbucketSourceHostConfig = Schema.Schema.Type<typeof BitbucketSourceHostConfigSchema>;
 /** @experimental */
-export type AzureReposSourceHostConfig = Schema.Schema.Type<typeof AzureReposSourceHostConfigSchema>;
+export type AzureReposSourceHostConfig = Schema.Schema.Type<
+  typeof AzureReposSourceHostConfigSchema
+>;
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 /**

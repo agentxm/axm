@@ -129,9 +129,7 @@ export const renameSkill: OperationHandler<
         const agent = maybeAgent.value;
 
         const agentSkillPath = path.join(base, agent.skills.dir, oldSanitized);
-        return fs
-          .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catch(() => Effect.void));
+        return fs.remove(agentSkillPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );
@@ -157,9 +155,7 @@ export const renameSkill: OperationHandler<
     );
 
     // 5. Rename settings/lockfile keys — state after files
-    yield* ws
-      .renameSkill(op.args.oldName, op.args.newName)
-      .pipe(Effect.catch(() => Effect.void));
+    yield* ws.renameSkill(op.args.oldName, op.args.newName).pipe(Effect.catch(() => Effect.void));
 
     // 6. Sync lock agents
     yield* ws

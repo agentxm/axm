@@ -12,7 +12,9 @@ export interface CliFlagsService {
   readonly preview: boolean;
 }
 
-export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()("@axm.sh/cli/CliFlags") {}
+export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
+  "@axm.sh/cli/CliFlags",
+) {}
 
 export interface CliFlagsInput {
   readonly nonInteractive: Option.Option<boolean>;

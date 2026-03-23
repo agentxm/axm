@@ -1,12 +1,36 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
+import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
-import { Argument, CliError, Command, Flag, GlobalFlag } from "effect/unstable/cli";
+import {
+  Argument,
+  CliError as EffectCliError,
+  Command,
+  Flag,
+  GlobalFlag,
+} from "effect/unstable/cli";
+
+import type { OutputFormat } from "./output.js";
+import type { CliError as AppCliError } from "./cli-error/index.js";
+import type { PromptCancelled } from "./prompt-cancelled.js";
+
+import { AuthClientLive } from "./auth/auth-client.js";
+import { AuthMiddlewareLive, RegistryUrl } from "./auth/auth-middleware.js";
+import { CredentialStoreLive } from "./auth/credential-store.js";
+import { CliFlags, type CliFlagsService } from "./cli-flags/index.js";
+import { ClackLive } from "./clack-effect/index.js";
+import { handleWhoami } from "./cli-commands/auth/whoami/handler.js";
+import { CliEnvConfig, CliEnvConfigLive } from "./config/index.js";
+import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
+import { classifyError, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
+import { isInteractive } from "./utils/tty.js";
 
 import { loginCommand as loginCommandModule } from "./cli-commands/auth/login/command.js";
 import { logoutCommand as logoutCommandModule } from "./cli-commands/auth/logout/command.js";
 import { tokenCommand as tokenCommandModule } from "./cli-commands/auth/token/command.js";
-import { whoamiCommand as whoamiCommandModule } from "./cli-commands/auth/whoami/command.js";
 import { installCommandCommand as commandsInstallCommandModule } from "./cli-commands/commands/install/command.js";
 import { uninstallCommandCommand as commandsUninstallCommandModule } from "./cli-commands/commands/uninstall/command.js";
 import { initCommand as initCommandModule } from "./cli-commands/init/command.js";
@@ -117,6 +141,13 @@ const debugFlag = GlobalFlag.setting("axm-debug")({
   ),
 });
 
+export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
+  flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
+    Flag.withDescription("Output format (default: auto-detect from TTY)"),
+    Flag.optional,
+  ),
+});
+
 const axmGlobalFlags = [
   nonInteractiveFlag,
   yesFlag,
@@ -124,7 +155,147 @@ const axmGlobalFlags = [
   previewFlag,
   verboseFlag,
   debugFlag,
+  outputFormatFlag,
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Layer composition — base services provided once at run() boundary
+//
+// These services don't depend on per-command global flags, so they can be
+// provided before CLI parsing. New-style commands (via withCommandRuntime)
+// access them from the Effect context. Old-style commands (via executeCommand)
+// ignore them — they use their own ManagedRuntime.
+// ---------------------------------------------------------------------------
+
+const CliEnvConfigOrDie: Layer.Layer<CliEnvConfig> = Layer.orDie(CliEnvConfigLive);
+
+const RegistryUrlLayer = Layer.effect(
+  RegistryUrl,
+  Effect.map(CliEnvConfig.asEffect(), (cfg) => cfg.registryUrl),
+);
+
+const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+
+const AuthServicesLayer = Layer.provide(
+  Layer.mergeAll(CredentialStoreLive, AuthClientLive, RegistryUrlLayer),
+  Layer.mergeAll(PlatformLayer, CliEnvConfigOrDie),
+);
+
+const AuthMiddlewareWrappedLayer = Layer.provide(
+  AuthMiddlewareLive,
+  Layer.mergeAll(AuthServicesLayer, PlatformLayer, CliEnvConfigOrDie),
+);
+
+const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
+
+const baseLayer = Layer.mergeAll(
+  AuthLayer,
+  CliEnvConfigOrDie,
+  Logger.layer([], { mergeWithExisting: false }),
+);
+
+// ---------------------------------------------------------------------------
+// Unified command runtime — resolves global flags and provides per-command
+// services (CliFlags, Clack, Telemetry) within the Effect context.
+//
+// New-style commands call this instead of executeCommand() + run().
+// Old-style commands continue to use executeCommand() unchanged.
+// ---------------------------------------------------------------------------
+
+const withCommandRuntime = <R>(
+  program: Effect.Effect<void, AppCliError | PromptCancelled, R>,
+  options?: { readonly command?: string },
+): Effect.Effect<void, unknown, unknown> =>
+  Effect.gen(function* () {
+    // Resolve CliFlags from global flags (task 2.3)
+    const nonInteractiveOpt = yield* nonInteractiveFlag;
+    const yes = yield* yesFlag;
+    const force = yield* forceFlag;
+    const preview = yield* previewFlag;
+    const envConfig = yield* CliEnvConfig;
+
+    const flagsValue: CliFlagsService = {
+      nonInteractive: Option.getOrElse(
+        nonInteractiveOpt,
+        () => envConfig.ci === "true" || !isInteractive(),
+      ),
+      yes,
+      force,
+      preview,
+    };
+    const cliFlagsLayer = Layer.succeed(CliFlags, flagsValue);
+
+    // Resolve telemetry
+    const mode = resolveTelemetryMode(
+      {
+        doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
+        axmTelemetry: Option.getOrUndefined(envConfig.telemetry),
+      },
+      {},
+    );
+    const command = options?.command ?? "unknown";
+    const telemetryLayer = Layer.provide(
+      TelemetryClientLive(mode, command),
+      Layer.mergeAll(FetchHttpClient.layer, CliEnvConfigOrDie),
+    );
+
+    // Resolve diagnostic verbosity
+    const diagnosticVerbosity = resolveDiagnosticVerbosity(process.argv, {
+      AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
+      AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
+    });
+    const debugLoggerLayer = diagnosticVerbosity.debug
+      ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
+      : Layer.empty;
+
+    // Per-command layer: CliFlags + Clack + Telemetry + debug logging
+    const commandLayer = Layer.mergeAll(
+      cliFlagsLayer,
+      Layer.provide(ClackLive, cliFlagsLayer),
+      telemetryLayer,
+      debugLoggerLayer,
+    );
+
+    yield* program.pipe(
+      Effect.catch((error: AppCliError | PromptCancelled) => {
+        const result = classifyError(error, diagnosticVerbosity);
+        const writeError =
+          result.exitCode === 0
+            ? Effect.void
+            : Effect.sync(() => {
+                console.error(result.message);
+              });
+
+        const report =
+          error._tag === "CliError"
+            ? Effect.gen(function* () {
+                const tc = yield* TelemetryClient;
+                yield* tc
+                  .reportError({
+                    name: error.code,
+                    message: error.what,
+                    details: error.details,
+                    ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
+                    level: "error" as const,
+                    handled: true,
+                    command,
+                  })
+                  .pipe(Effect.catchCause(() => Effect.void));
+              })
+            : Effect.void;
+
+        return writeError.pipe(
+          Effect.andThen(report),
+          Effect.flatMap(() => Effect.die(effectCliExit(result.exitCode))),
+        );
+      }),
+      Effect.provide(commandLayer),
+    );
+  });
+
+// ---------------------------------------------------------------------------
+// Legacy command bridge — old-style commands use executeCommand() + run()
+// ---------------------------------------------------------------------------
 
 const baseArgv = Effect.gen(function* () {
   const nonInteractive = yield* nonInteractiveFlag;
@@ -248,7 +419,7 @@ const whoamiCommand = makeLeafCommand(
   {
     description: "Show current authenticated identity",
     examples: [{ command: "axm whoami", description: "Show current authenticated identity" }],
-    handler: ({ json }) => executeCommand(whoamiCommandModule.handler)({ json }),
+    handler: ({ json }) => withCommandRuntime(handleWhoami({ json }), { command: "auth whoami" }),
   },
 );
 
@@ -993,27 +1164,113 @@ const cliCommand = Command.make(ROOT_COMMAND, {}, () =>
 
 cliCommandRef.current = cliCommand;
 
-export const runEffectCli = async (
-  args: ReadonlyArray<string> = process.argv.slice(2),
-): Promise<void> => {
+// ---------------------------------------------------------------------------
+// Pre-Effect format detection
+//
+// Resolve --output-format from raw argv BEFORE Effect runs. If CLI parsing
+// itself fails (e.g. unknown flag), Effect never executes — but we still
+// need to know which channel to route the error to.
+// ---------------------------------------------------------------------------
+
+const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
+  const idx = args.indexOf("--output-format");
+  if (idx !== -1 && idx + 1 < args.length) {
+    const value = args[idx + 1];
+    if (value === "json" || value === "stream-json" || value === "text") return value;
+  }
+  return process.stdout.isTTY ? "text" : "json";
+};
+
+// ---------------------------------------------------------------------------
+// Three-channel error handling
+//
+// Errors route to three channels simultaneously:
+//   stdout    → typed error JSON (for programmatic consumers in json/stream-json)
+//   stderr    → human-readable message (always, for pipe debugging and humans)
+//   exit code → machine-readable status (2 = usage, 1 = runtime, 4 = cancelled)
+// ---------------------------------------------------------------------------
+
+const handleError = (error: unknown, format: OutputFormat): never => {
+  if (isEffectCliExit(error)) {
+    process.exit(error.exitCode);
+  }
+
+  if (EffectCliError.isCliError(error)) {
+    if (format !== "text") {
+      const errorObj = { type: "error", code: "USAGE_ERROR", message: String(error) };
+      process.stdout.write(JSON.stringify(errorObj) + "\n");
+    }
+    process.exit(2);
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const code = error instanceof Error && "code" in error ? String(error.code) : "UNKNOWN_ERROR";
+
+  if (format === "text") {
+    console.error(`✗ ${message}`);
+  } else {
+    const errorObj = { type: "error", code, message };
+    process.stdout.write(JSON.stringify(errorObj) + "\n");
+    console.error(`✗ ${message}`);
+  }
+
+  process.exit(1);
+};
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+//
+// SIGTERM/SIGINT → interrupt the running Effect fiber with a 5s timeout.
+// Exit code 130 is POSIX convention for "terminated by signal" (128 + 2).
+// Uses Effect.forkChild (supervised) so the fiber dies with parent.
+// ---------------------------------------------------------------------------
+
+const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  Effect.gen(function* () {
+    const fiber = yield* Effect.forkChild(program);
+
+    const interruptAndExit = (exitCode: number) => {
+      Effect.runFork(
+        Fiber.interrupt(fiber).pipe(
+          Effect.timeout("5 seconds"),
+          Effect.ensuring(Effect.sync(() => process.exit(exitCode))),
+        ),
+      );
+    };
+
+    const onSigterm = () => interruptAndExit(130);
+    const onSigint = () => interruptAndExit(130);
+    process.on("SIGTERM", onSigterm);
+    process.on("SIGINT", onSigint);
+
+    const result = yield* Fiber.join(fiber);
+
+    process.off("SIGTERM", onSigterm);
+    process.off("SIGINT", onSigint);
+
+    return result;
+  });
+
+// ---------------------------------------------------------------------------
+// Run
+// ---------------------------------------------------------------------------
+
+export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
+  const format = resolveFormatFromArgv(args);
   try {
     await Effect.runPromise(
-      Command.runWith(cliCommand, { version })(args).pipe(
-        Effect.provide(NodeServices.layer),
-      ) as Effect.Effect<void>,
+      withGracefulShutdown(
+        Command.runWith(cliCommand, { version })(args).pipe(
+          Effect.provide(baseLayer),
+        ) as Effect.Effect<void>,
+      ),
     );
   } catch (error) {
-    if (isEffectCliExit(error)) {
-      process.exit(error.exitCode);
-    }
-
-    if (CliError.isCliError(error)) {
-      process.exit(1);
-    }
-
-    console.error(error);
-    process.exit(1);
+    handleError(error, format);
   }
 };
+
+/** @deprecated Use {@link run} instead. */
+export const runEffectCli = run;
 
 export { cliCommand };

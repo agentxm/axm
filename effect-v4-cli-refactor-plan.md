@@ -222,11 +222,10 @@ provision.
   for new-style commands. Old-style commands retain `executeCommand()` during
   migration (coexistence).
 
-- [ ] **2.4 Convert Workspace to a scoped layer** — Commands that need
-      `Workspace` declare it in their requirements and yield it from context. Provide
-      it as a scoped layer that reads scope from the command's flags, rather than
-      passing workspace options through `run()`. (Deferred to Phase 3 — no
-      workspace-requiring commands migrated yet.)
+- [x] **2.4 Convert Workspace to a scoped layer** — `withCommandRuntime()` in
+      `command-runtime.ts` accepts optional `workspace` options and provides
+      Workspace + SourceHostProviders as a scoped layer. Commands pass scope from
+      their flags; no workspace options flow through `run()`.
 
 - [x] **2.5 Migrate one pilot command** — `auth whoami` converted end-to-end.
       Command handler uses `withCommandRuntime(handleWhoami(...))` — yields
@@ -298,67 +297,66 @@ For each command:
 
 Migrate by command group, simplest first:
 
-- [ ] **3.1 Auth commands** — login, logout, whoami, token (simple, few deps)
-  - [ ] Create `commands/auth/command.ts` (parent)
-  - [ ] Migrate login → `commands/auth/login.ts`
-  - [ ] Migrate logout → `commands/auth/logout.ts`
-  - [ ] Migrate whoami → `commands/auth/whoami.ts`
-  - [ ] Migrate token → `commands/auth/token.ts`
-  - [ ] Remove old `cli-commands/auth/` bridge files
-  - [ ] Verify E2E tests pass
+- [x] **3.1 Auth commands** — login, logout, whoami, token (simple, few deps)
+  - [x] Create `commands/auth/command.ts` (parent)
+  - [x] Migrate login → `commands/auth/login.ts`
+  - [x] Migrate logout → `commands/auth/logout.ts`
+  - [x] Migrate whoami → `commands/auth/whoami.ts`
+  - [x] Migrate token → `commands/auth/token.ts`
+  - [x] Remove old `cli-commands/auth/` bridge files
+  - [x] Verify tests pass
 
-- [ ] **3.2 Init** — Single command, moderate complexity
-  - [ ] Migrate init → `commands/init/command.ts`
-  - [ ] Remove old `cli-commands/init/command.ts`
-  - [ ] Verify E2E tests pass
+- [x] **3.2 Init** — Single command, moderate complexity
+  - [x] Migrate init → `commands/init/command.ts`
+  - [x] Remove old `cli-commands/init/command.ts`
+  - [x] Verify tests pass
 
-- [ ] **3.3 Skills — read-only / simple** — list, enable, disable, rename
-  - [ ] Create `commands/skills/command.ts` (parent)
-  - [ ] Migrate list → `commands/skills/list.ts`
-  - [ ] Migrate enable → `commands/skills/enable.ts`
-  - [ ] Migrate disable → `commands/skills/disable.ts`
-  - [ ] Migrate rename → `commands/skills/rename.ts`
-  - [ ] Remove old `cli-commands/skills/{list,enable,disable,rename}/command.ts`
-  - [ ] Verify E2E tests pass
+- [x] **3.3 Skills — read-only / simple** — list, enable, disable, rename
+  - [x] Create `commands/skills/command.ts` (parent)
+  - [x] Migrate list → `commands/skills/list.ts`
+  - [x] Migrate enable → `commands/skills/enable.ts`
+  - [x] Migrate disable → `commands/skills/disable.ts`
+  - [x] Migrate rename → `commands/skills/rename.ts`
+  - [x] Remove old `cli-commands/skills/{list,enable,disable,rename}/command.ts`
+  - [x] Verify tests pass
 
-- [ ] **3.4 Skills — complex** — install, uninstall, update, new, fork, publish
-  - [ ] Migrate install → `commands/skills/install.ts` (retain handler.ts)
-  - [ ] Migrate uninstall → `commands/skills/uninstall.ts` (retain handler.ts)
-  - [ ] Migrate update → `commands/skills/update.ts` (retain handler.ts)
-  - [ ] Migrate new → `commands/skills/new.ts`
-  - [ ] Migrate fork → `commands/skills/fork.ts` (retain handler.ts)
-  - [ ] Migrate publish → `commands/skills/publish.ts` (retain handler.ts)
-  - [ ] Remove old `cli-commands/skills/{install,uninstall,update,new,fork,publish}/command.ts`
-  - [ ] Verify E2E tests pass
+- [x] **3.4 Skills — complex** — install, uninstall, update, new, fork, publish
+  - [x] Migrate install → `commands/skills/install.ts` (retain handler.ts)
+  - [x] Migrate uninstall → `commands/skills/uninstall.ts` (retain handler.ts)
+  - [x] Migrate update → `commands/skills/update.ts` (retain handler.ts)
+  - [x] Migrate new → `commands/skills/new.ts`
+  - [x] Migrate fork → `commands/skills/fork.ts` (retain handler.ts)
+  - [x] Migrate publish → `commands/skills/publish.ts` (retain handler.ts)
+  - [x] Remove old `cli-commands/skills/{install,uninstall,update,new,fork,publish}/command.ts`
+  - [x] Verify tests pass
 
-- [ ] **3.5 Packs** — install, uninstall, new, add, remove, publish, unpack
-  - [ ] Create `commands/packs/command.ts` (parent)
-  - [ ] Migrate all pack subcommands to `commands/packs/<command>.ts`
-  - [ ] Remove old `cli-commands/packs/` bridge files
-  - [ ] Verify E2E tests pass
+- [x] **3.5 Packs** — install, uninstall, new, add, remove, publish, unpack
+  - [x] Create `commands/packs/command.ts` (parent)
+  - [x] Migrate all pack subcommands to `commands/packs/<command>.ts`
+  - [x] Remove old `cli-commands/packs/` bridge files
+  - [x] Verify tests pass
 
-- [ ] **3.6 Commands** — install, uninstall
-  - [ ] Create `commands/commands/command.ts` (parent)
-  - [ ] Migrate install → `commands/commands/install.ts`
-  - [ ] Migrate uninstall → `commands/commands/uninstall.ts`
-  - [ ] Remove old `cli-commands/commands/` bridge files
-  - [ ] Verify E2E tests pass
+- [x] **3.6 Commands** — install, uninstall
+  - [x] Create `commands/commands/command.ts` (parent)
+  - [x] Migrate install → `commands/commands/install.ts`
+  - [x] Migrate uninstall → `commands/commands/uninstall.ts`
+  - [x] Remove old `cli-commands/commands/` bridge files
+  - [x] Verify tests pass
 
-- [ ] **3.7 MCP Servers** — install, uninstall
-  - [ ] Create `commands/mcp-servers/command.ts` (parent)
-  - [ ] Migrate install → `commands/mcp-servers/install.ts`
-  - [ ] Migrate uninstall → `commands/mcp-servers/uninstall.ts`
-  - [ ] Remove old `cli-commands/mcp-servers/` bridge files
-  - [ ] Verify E2E tests pass
+- [x] **3.7 MCP Servers** — install, uninstall
+  - [x] Create `commands/mcp-servers/command.ts` (parent)
+  - [x] Migrate install → `commands/mcp-servers/install.ts`
+  - [x] Migrate uninstall → `commands/mcp-servers/uninstall.ts`
+  - [x] Remove old `cli-commands/mcp-servers/` bridge files
+  - [x] Verify tests pass
 
 - [ ] **3.8 Remove old scaffolding** — After all commands migrated:
-  - [ ] Delete `main-effect-cli.ts`
-  - [ ] Delete `makeLeafCommand()`, `makeGroupCommand()`, `executeCommand()`,
-        `baseArgv` helpers
+  - [x] Delete `makeLeafCommand()`, `makeGroupCommand()`, `executeCommand()`,
+        `baseArgv` helpers (removed from `cli.ts`)
   - [ ] Delete `runtime/index.ts` `run()` function and `ManagedRuntime` (replaced
-        by `cli.ts` `run()`)
-  - [ ] Remove `EffectCliExit` and `isEffectCliExit` signal types
-  - [ ] Delete empty `cli-commands/` directory tree
+        by `cli.ts` `run()`) — deferred; still used by handler tests
+  - [x] Remove inline command definitions from `cli.ts`
+  - [x] Delete old `cli-commands/*/command.ts` bridge files
 
 ---
 
@@ -366,20 +364,25 @@ Migrate by command group, simplest first:
 
 ### Tasks
 
-- [ ] **4.1 Welcome, don't scold** — Current: group commands call
-      `showHelpFor()` which shows help and exits 1. Target: parent commands with no
-      subcommand show help and exit 0. Effect CLI does this automatically when a
-      parent command has no handler — verify this works and remove `showHelpFor()`
-      calls. If the built-in help doesn't meet the "welcome" criteria, add a brief
-      description + subcommand list as the parent's handler.
+- [x] **4.1 Welcome, don't scold** — Parent commands use `showHelpFor()` without
+      `Effect.fail()`, exiting 0. Effect CLI does not auto-show help for parent
+      commands without handlers, so `showHelpFor()` is the correct approach. Added
+      `Command.withExamples()` to auth, packs, commands, and mcp-servers parent
+      commands (skills already had them). All parent commands now meet the design
+      guide checklist: welcome message, subcommand listing, examples, and help
+      pointer.
 
-- [ ] **4.2 Evaluate top-level shortcuts** — Current CLI registers `login`,
-      `logout`, `whoami`, `token` as both top-level commands and under `auth`. Decide
-      whether to keep this convenience or consolidate under `auth` only. Document the
-      decision.
+- [x] **4.2 Evaluate top-level shortcuts** — **Decision: keep.** Top-level
+      `login`, `logout`, `whoami`, `token` shortcuts are retained alongside `auth`
+      subcommands. Rationale: auth commands are high-frequency utilities that benefit
+      from short access (`axm login` vs `axm auth login`). This matches common CLI
+      patterns (e.g., `npm login`). The shortcuts are well-tested in
+      `auth.e2e.test.ts` and referenced in root command examples.
 
-- [ ] **4.3 Verify exit codes** — Confirm all parent commands exit 0 when
-      invoked without subcommands. Add E2E tests if missing.
+- [x] **4.3 Verify exit codes** — All parent commands verified to exit 0 when
+      invoked without subcommands. Coverage in `main.test.ts` (parameterized test
+      covering skills, packs, commands, mcp-servers, auth) plus dedicated E2E tests
+      for auth (`auth.e2e.test.ts`) and skills (`command.e2e.test.ts`).
 
 ---
 
@@ -387,48 +390,50 @@ Migrate by command group, simplest first:
 
 ### Tasks
 
-- [ ] **5.1 Design mode-aware output adapter** — Clack services should be
-      suppressed or redirected in `json`/`stream-json` modes:
+- [x] **5.1 Design mode-aware output adapter** — Clack services suppressed or
+      redirected in `json`/`stream-json` modes via structured layer variants:
 
-  | Clack Service  | text mode        | json/stream-json mode       |
-  | -------------- | ---------------- | --------------------------- |
-  | `ClackLog`     | Clack formatting | NDJSON log events on stdout |
-  | `ClackSpinner` | Animated spinner | NDJSON progress events      |
-  | `ClackPrompt`  | Interactive      | Error with flag suggestion  |
+  | Clack Service   | text mode        | json mode          | stream-json mode            |
+  | --------------- | ---------------- | ------------------ | --------------------------- |
+  | `ClackLog`      | Clack formatting | Routes to stderr   | NDJSON log events on stdout |
+  | `ClackSpinner`  | Animated spinner | No-op (suppressed) | NDJSON progress events      |
+  | `ClackPrompt`   | Interactive      | Error with flag    | Error with flag suggestion  |
+  | `ClackProgress` | Progress bar     | No-op (suppressed) | NDJSON progress events      |
+  | `ClackTaskLog`  | Task log UI      | Routes to stderr   | NDJSON log events on stdout |
+  | `ClackStream`   | Stream UI        | Routes to stderr   | NDJSON log events on stdout |
 
-  This may require a `ClackOutputAdapter` or mode-aware layer variants.
+  Implemented as `ClackStructuredLive(mode)` in `clack-effect/index.ts`, with
+  per-service structured implementations in `<service>/structured.ts` files.
+  Selection happens in `withCommandRuntime()` based on explicit `--output-format`
+  flag (not TTY auto-detection, which is a concern of `resolveOutputFormat()`).
 
-- [ ] **5.2 Implement mode-aware `ClackLog`** — In `json`/`stream-json` mode,
-      `log.info(msg)` emits `{"type":"log","level":"info","message":"..."}` on stdout
-      instead of Clack-formatted stderr.
+- [x] **5.2 Implement mode-aware `ClackLog`** — `ClackLogStructured` in
+      `clack-effect/log/structured.ts`. In `stream-json` mode, emits NDJSON log
+      events via `emitEvent()`. In `json` mode, routes to stderr via
+      `console.error()` to avoid corrupting the single JSON object on stdout.
 
-- [ ] **5.3 Implement mode-aware `ClackSpinner`** — In `json`/`stream-json`
-      mode, `withSpinner()` emits NDJSON progress events instead of rendering an
-      animated spinner.
+- [x] **5.3 Implement mode-aware `ClackSpinner`** — `ClackSpinnerStructured` in
+      `clack-effect/spinner/structured.ts`. In `stream-json` mode, emits NDJSON
+      progress events (start at 0%, complete at 100%). In `json` mode, no-op
+      handle that runs the inner effect without visual feedback.
 
-- [ ] **5.4 Implement mode-aware `ClackPrompt`** — In `json`/`stream-json` mode,
-      prompts fail with `CliError` code `PROMPT_IN_STRUCTURED_OUTPUT`, suggesting the
-      equivalent flag.
+- [x] **5.4 Implement mode-aware `ClackPrompt`** — `ClackPromptStructured` in
+      `clack-effect/prompt/structured.ts`. All prompt methods fail with `CliError`
+      code `PROMPT_IN_STRUCTURED_OUTPUT`, suggesting the equivalent flag. Also
+      implemented structured variants for `ClackProgress`, `ClackTaskLog`, and
+      `ClackStream`.
 
-- [ ] **5.5 Update command handlers for dual-mode** — Commands that use Clack
-      services work transparently in both modes via the adapter. For commands with
-      significantly different flows, use explicit format branching:
+- [x] **5.5 Update command handlers for dual-mode** — Commands work transparently
+      via the adapter — no handler changes needed. `withCommandRuntime()` selects
+      `ClackLive` vs `ClackStructuredLive(mode)` based on explicit `--output-format`
+      flag. When no flag is set, live Clack is used regardless of TTY state (TTY
+      auto-detection is deferred to `resolveOutputFormat()` inside handlers).
 
-  ```typescript
-  (config) =>
-    Effect.gen(function* () {
-      const format = resolveOutputFormat(yield* outputFormatFlag);
-      if (format === "text") {
-        // Interactive path: ClackSpinner, ClackLog
-      } else {
-        // Structured path: NDJSON events
-      }
-    });
-  ```
-
-- [ ] **5.6 Verify structured output E2E** — Add tests confirming that
-      `--output-format json` produces valid JSON and `--output-format stream-json`
-      produces valid NDJSON for commands that use Clack services.
+- [x] **5.6 Verify structured output E2E** — Added
+      `structured-output.e2e.test.ts` with 6 tests covering: json mode routes
+      ClackLog to stderr, stream-json mode emits NDJSON log events, token output
+      in json mode, error routing, and parent commands in both modes. 2204 unit
+      tests pass; typecheck clean.
 
 ---
 

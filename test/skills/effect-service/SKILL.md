@@ -6,6 +6,9 @@ user-invocable: false
 
 # Effect Service Design Patterns
 
+> **Effect v3 notice:** Examples use Effect v3 APIs (`Context.GenericTag`,
+> etc.). v3 → v4 migration in progress.
+
 Apply these patterns when designing Effect services in this codebase.
 
 ---

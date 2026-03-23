@@ -18,8 +18,12 @@ import { describe, expect, it } from "vitest";
 import { CliEnvConfig } from "../../config/index.js";
 import { createLocalSourceHostProvider } from "./local.js";
 
-const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(Layer.merge(NodeContext.layer, CliEnvConfig.testDefaults))));
+const runEffect = <A, E>(
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
+) =>
+  Effect.runPromise(
+    effect.pipe(Effect.provide(Layer.merge(NodeContext.layer, CliEnvConfig.testDefaults))),
+  );
 
 describe("createLocalSourceHostProvider", () => {
   const provider = createLocalSourceHostProvider();

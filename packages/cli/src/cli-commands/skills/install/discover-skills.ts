@@ -209,7 +209,12 @@ const recursiveScan = (
               : ([] satisfies readonly DiscoveredSkill[]);
 
           // Recurse into subdirectories
-          const subResults = yield* recursiveScan(fullPath, options, depth + 1, installInternalSkills);
+          const subResults = yield* recursiveScan(
+            fullPath,
+            options,
+            depth + 1,
+            installInternalSkills,
+          );
           return [...current, ...subResults];
         }),
       { concurrency: "unbounded" },
@@ -274,7 +279,8 @@ export const discoverSkillsInDir = (
     // ── Phase 1: Direct Match ──────────────────────────────────────────
     const rootSkill = yield* tryParseSkillInDir(searchRoot);
     const phase1Skills: readonly DiscoveredSkill[] =
-      Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options, installInternalSkills)
+      Option.isSome(rootSkill) &&
+      shouldIncludeSkill(rootSkill.value, options, installInternalSkills)
         ? [makeDiscoveredSkill(rootSkill.value, searchRoot)]
         : [];
 

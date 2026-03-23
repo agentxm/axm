@@ -215,15 +215,15 @@ export const SkillManagerLive = Layer.effect(
             Effect.withSpan("SkillManager.upsertSettingsEntry"),
           );
         }
-        return ws.setSkill({ name: ref.skill.name, lockEntry, versionConstraint }).pipe(
-          Effect.withSpan("SkillManager.upsertSettingsEntry"),
-        );
+        return ws
+          .setSkill({ name: ref.skill.name, lockEntry, versionConstraint })
+          .pipe(Effect.withSpan("SkillManager.upsertSettingsEntry"));
       },
 
       removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeSkillFromSettings(target.name).pipe(
-          Effect.withSpan("SkillManager.removeSettingsEntry"),
-        ),
+        ws
+          .removeSkillFromSettings(target.name)
+          .pipe(Effect.withSpan("SkillManager.removeSettingsEntry")),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: SkillExtensionRef }) => {
         const lockEntry = buildSkillLockEntry(ref, agents);
@@ -242,17 +242,17 @@ export const SkillManagerLive = Layer.effect(
             Effect.withSpan("SkillManager.upsertLockfileEntry"),
           );
         }
-        return ws.setSkillLock({
-          name: ref.skill.name,
-          lockEntry,
-          versionConstraint: Option.none(),
-        }).pipe(Effect.withSpan("SkillManager.upsertLockfileEntry"));
+        return ws
+          .setSkillLock({
+            name: ref.skill.name,
+            lockEntry,
+            versionConstraint: Option.none(),
+          })
+          .pipe(Effect.withSpan("SkillManager.upsertLockfileEntry"));
       },
 
       removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeSkillLock(target.name).pipe(
-          Effect.withSpan("SkillManager.removeLockfileEntry"),
-        ),
+        ws.removeSkillLock(target.name).pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),
     } satisfies ExtensionManager<SkillExtensionRef>;
   }),
 );

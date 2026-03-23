@@ -181,10 +181,10 @@ export const pollOnce = (
   Effect.gen(function* () {
     const url = `${normalizeUrl(registryUrl)}/v1/auth/device/token`;
     const request = setOAuthFormBody(HttpClientRequest.post(url), {
-        client_id: CLIENT_ID,
-        device_code: deviceCode,
-        grant_type: DEVICE_CODE_GRANT_TYPE,
-      });
+      client_id: CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: DEVICE_CODE_GRANT_TYPE,
+    });
 
     const response = yield* httpClient.execute(request).pipe(
       Effect.mapError((error) =>
@@ -253,9 +253,9 @@ export const AuthClientLive = Layer.effect(
         Effect.gen(function* () {
           const url = `${normalizeUrl(registryUrl)}/v1/auth/device/code`;
           const request = setOAuthFormBody(HttpClientRequest.post(url), {
-              client_id: CLIENT_ID,
-              scope: DEVICE_CODE_SCOPES,
-            });
+            client_id: CLIENT_ID,
+            scope: DEVICE_CODE_SCOPES,
+          });
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
@@ -341,9 +341,9 @@ export const AuthClientLive = Layer.effect(
         Effect.gen(function* () {
           const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
           const request = setOAuthFormBody(HttpClientRequest.post(url), {
-              grant_type: "refresh_token",
-              refresh_token: refreshTokenValue,
-            });
+            grant_type: "refresh_token",
+            refresh_token: refreshTokenValue,
+          });
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>

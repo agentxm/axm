@@ -18,7 +18,10 @@ import { handleToken } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeLayers = (opts?: { hasCredentials?: boolean; configOverrides?: Partial<CliEnvConfigService> }) => {
+const makeLayers = (opts?: {
+  hasCredentials?: boolean;
+  configOverrides?: Partial<CliEnvConfigService>;
+}) => {
   const credStoreLayer = opts?.hasCredentials
     ? CredentialStoreTest("encrypted-file", {
         version: 1,

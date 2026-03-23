@@ -1,5 +1,8 @@
 # Effect Guide
 
+> **Effect v3 notice:** Linked skills reference Effect v3 APIs. v3 → v4
+> migration in progress.
+
 Comprehensive patterns for using Effect as this project's standard library.
 Covers typed errors, services, Option/nullable handling, collections (Array,
 Chunk, HashMap), iteration and streaming, schema validation, wrapping external

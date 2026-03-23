@@ -187,7 +187,13 @@ describe("WorkspaceContextService", () => {
         },
       });
       const flagsLayer = CliFlagsTest(flags);
-      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer, CliEnvConfig.testDefaults);
+      const base = Layer.mergeAll(
+        NodeContext.layer,
+        logLayer,
+        promptLayer,
+        flagsLayer,
+        CliEnvConfig.testDefaults,
+      );
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
@@ -1585,7 +1591,13 @@ describe("WorkspaceContextService", () => {
       });
       const flagsLayer = CliFlagsTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
-      const base = Layer.mergeAll(NodeContext.layer, logLayer, promptLayer, flagsLayer, CliEnvConfig.testDefaults);
+      const base = Layer.mergeAll(
+        NodeContext.layer,
+        logLayer,
+        promptLayer,
+        flagsLayer,
+        CliEnvConfig.testDefaults,
+      );
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.pipe(Effect.provide(Layer.merge(base, wsLayer))),

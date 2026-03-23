@@ -6,6 +6,9 @@ user-invocable: false
 
 # Effect Layers
 
+> **Effect v3 notice:** Examples use Effect v3 APIs (`ManagedRuntime`,
+> `Context.Tag`, etc.). v3 → v4 migration in progress.
+
 Layers are blueprints for constructing services: `Layer<Out, Error, In>`.
 `Out` = service produced, `Error` = construction failure, `In` = dependencies
 needed to build it.

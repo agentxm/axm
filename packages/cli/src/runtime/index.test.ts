@@ -30,9 +30,7 @@ describe("AppLayer auth runtime wiring", () => {
     let capturedAuthorization: string | null = null;
     const server = createServer((req, res) => {
       capturedAuthorization =
-        typeof req.headers.authorization === "string"
-          ? req.headers.authorization
-          : null;
+        typeof req.headers.authorization === "string" ? req.headers.authorization : null;
       res.statusCode = 200;
       res.end("ok");
     });

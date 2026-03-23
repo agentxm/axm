@@ -190,26 +190,24 @@ export const PackManagerLive = Layer.effect(
         readonly ref: PackExtensionRef;
         readonly versionConstraint: Option.Option<string>;
       }) => {
-        if (ref.refType === "builtin") return Effect.void.pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
+        if (ref.refType === "builtin")
+          return Effect.void.pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
         const args = buildSetPackArgs(ref as RegistryPackRef, versionConstraint);
         return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
       },
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackSettings(target.name).pipe(
-          Effect.withSpan("PackManager.removeSettingsEntry"),
-        ),
+        ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
       upsertLockfileEntry: ({ ref }: { readonly ref: PackExtensionRef }) => {
-        if (ref.refType === "builtin") return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
+        if (ref.refType === "builtin")
+          return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
         const args = buildSetPackArgs(ref as RegistryPackRef, Option.none());
         return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
       },
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackLock(target.name).pipe(
-          Effect.withSpan("PackManager.removeLockfileEntry"),
-        ),
+        ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
     } satisfies ExtensionManager<PackExtensionRef>;
   }),
 );

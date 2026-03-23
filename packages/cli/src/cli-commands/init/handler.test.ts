@@ -579,9 +579,7 @@ describe("init.handler", () => {
         yield* handleInit();
 
         const infoMessages = mockLog.logs.info;
-        expect(infoMessages).not.toContain(
-          "Telemetry is enabled to help improve axm. To disable:",
-        );
+        expect(infoMessages).not.toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });
   });

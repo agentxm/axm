@@ -59,7 +59,15 @@ export const withAuthGuard = <A, E, R>(
 ): Effect.Effect<
   A,
   E | CliError | PromptCancelled,
-  R | CredentialStore | AuthClient | CliFlags | CliEnvConfig | RegistryUrl | ClackPrompt | ClackLog | ClackSpinner
+  | R
+  | CredentialStore
+  | AuthClient
+  | CliFlags
+  | CliEnvConfig
+  | RegistryUrl
+  | ClackPrompt
+  | ClackLog
+  | ClackSpinner
 > =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;

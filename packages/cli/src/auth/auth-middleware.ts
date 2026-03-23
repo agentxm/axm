@@ -52,9 +52,9 @@ const refreshTokenRequest = (
   Effect.gen(function* () {
     const url = `${registryUrl.replace(/\/+$/, "")}/v1/auth/token/refresh`;
     const request = setOAuthFormBody(HttpClientRequest.post(url), {
-        grant_type: "refresh_token",
-        refresh_token: refreshTokenValue,
-      });
+      grant_type: "refresh_token",
+      refresh_token: refreshTokenValue,
+    });
     const response = yield* baseClient.execute(request).pipe(
       Effect.mapError((error) =>
         makeCliError({

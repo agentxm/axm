@@ -1,4 +1,27 @@
-import * as Schema from "effect/Schema"
+// ==========================================================================
+// install.ts — Reference pattern for LONG-RUNNING commands with NDJSON streaming
+//
+// This file demonstrates how long-running operations differ from instant
+// commands (compare with list.ts):
+//
+//   - resolveOutputFormat(explicit, true) — the `true` signals long-running,
+//     so piped output defaults to "stream-json" instead of "json"
+//   - In stream-json mode, emitEvent() sends incremental progress events
+//     BEFORE the final result. Each line is independently parseable.
+//   - In text/json mode, only the final result is emitted (no progress).
+//
+// NDJSON event sequence for stream-json:
+//   {"type":"progress","phase":"download","percent":0,...}
+//   {"type":"progress","phase":"download","percent":100,...}
+//   {"type":"log","level":"info","message":"Resolved 3 skills..."}
+//   {"type":"progress","phase":"install","percent":33,...}
+//   {"type":"progress","phase":"install","percent":66,...}
+//   {"type":"progress","phase":"install","percent":100,...}
+//   {"type":"result","data":{"_version":1,"source":"...","installed":[...]}}
+//
+// The "result" event is always last. Consumers can stop reading after it.
+// ==========================================================================
+import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -30,6 +53,15 @@ const renderText = (result: InstallResult): string => {
 
 // ---------------------------------------------------------------------------
 // Simulated long-running install (demonstrates NDJSON streaming)
+//
+// The format branching is intentional: stream-json emits incremental events
+// for real-time UI updates in desktop apps, while text/json modes only emit
+// the final result. In a real implementation, the business logic wouldn't
+// change — only the observability layer (progress events) differs.
+//
+// Effect.sleep simulates network/disk latency. In production, natural I/O
+// would provide the delays, and progress events would be emitted at
+// meaningful checkpoints (download complete, each skill installed, etc.).
 // ---------------------------------------------------------------------------
 
 const simulateInstall = (source: string, format: "text" | "json" | "stream-json") =>
@@ -76,6 +108,11 @@ const simulateInstall = (source: string, format: "text" | "json" | "stream-json"
 
 // ---------------------------------------------------------------------------
 // Command
+//
+// Key difference from list.ts: resolveOutputFormat(explicit, true) passes
+// isLongRunning=true, which changes the pipe default from "json" to
+// "stream-json". This means `axm skills install foo/bar | jq` gets NDJSON
+// with progress events instead of blocking until completion.
 // ---------------------------------------------------------------------------
 
 export const installCommand = Command.make(

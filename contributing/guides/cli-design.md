@@ -33,8 +33,10 @@ are thin clients.
 
 ## Effect CLI + Effect Architecture
 
-> **Reference implementation:** `packages/cli-spike` — a working spike proving
-> out idiomatic `effect/unstable/cli` patterns.
+> **Reference implementation:** `packages/cli-spike` — a self-documented
+> working spike proving out idiomatic `effect/unstable/cli` patterns.
+> Explanatory code comments throughout cover architecture, design decisions,
+> and patterns. Start with `src/main.ts` for the entry point overview.
 
 `effect/unstable/cli` handles command parsing; Effect handlers own business
 logic. The root command tree lives in `main.ts`. Each leaf command is a
@@ -320,32 +322,50 @@ single most common mistake production CLIs make.
 ### Effect Integration for Output Formatting
 
 Thread the resolved output format through handlers via the `CliFlags` service.
-Use a write helper that routes output to the correct channel:
+Use a write helper that routes output to the correct channel, encoding through
+Effect Schema to enforce the published contract:
 
 ```typescript
-// Output helper — routes based on format
-const writeOutput = (
-  format: "text" | "json" | "stream-json",
-  data: unknown,
-  textRenderer: (data: unknown) => string,
-) =>
+// Output helper — routes based on format, validates through Schema
+// See packages/cli-spike/src/output.ts for the full implementation
+const writeOutput = <S extends Schema.Encoder<unknown>>(
+  format: OutputFormat,
+  schema: S,
+  data: S["Type"],
+  textRenderer: (data: S["Type"]) => string,
+): Effect.Effect<void> =>
   Effect.gen(function* () {
     switch (format) {
       case "text":
         yield* Console.log(textRenderer(data));
         break;
-      case "json":
-        yield* Console.log(JSON.stringify(data));
+      case "json": {
+        const encoded = Schema.encodeSync(schema)(data);
+        yield* Console.log(JSON.stringify(encoded));
         break;
-      case "stream-json":
-        yield* Console.log(JSON.stringify({ type: "result", ...(data as object) }));
+      }
+      case "stream-json": {
+        // Wrapped with { type: "result" } to distinguish from progress events
+        const encoded = Schema.encodeSync(schema)(data);
+        yield* Console.log(JSON.stringify({ type: "result", data: encoded }));
         break;
+      }
     }
   });
 
 // NDJSON event emitter for streaming operations
-const emitEvent = (event: { type: string; [key: string]: unknown }) =>
-  Console.log(JSON.stringify(event));
+const emitEvent = (event: StreamEvent): Effect.Effect<void> => Console.log(JSON.stringify(event));
+```
+
+**Handler pattern** (same 3 steps for every command):
+
+```typescript
+(config) =>
+  Effect.gen(function* () {
+    const format = resolveOutputFormat(yield* outputFormatFlag, isLongRunning);
+    const data = yield* doWork(config);
+    yield* writeOutput(format, OutputSchema, data, renderText);
+  });
 ```
 
 ### Structured Output Checklist
@@ -509,29 +529,25 @@ The CLI must respond to shutdown signals for clean subprocess management:
 
 ```typescript
 // Graceful shutdown handler
-const withGracefulShutdown = <A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  options: { timeout: Duration.Duration },
-) =>
+// Uses forkChild (v4) so the fiber is supervised — auto-interrupted if parent exits.
+// Exit code 130 is POSIX convention for signal termination (128 + SIGINT).
+const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
-    const fiber = yield* Effect.fork(program);
+    const fiber = yield* Effect.forkChild(program);
 
-    // Listen for shutdown signals
-    yield* Effect.fork(
-      Effect.async<never, never, never>((resume) => {
-        const handler = () => {
-          Effect.runFork(
-            Fiber.interrupt(fiber).pipe(
-              Effect.timeout(options.timeout),
-              Effect.ensuring(Effect.sync(() => process.exit(130))),
-            ),
-          );
-        };
-        process.on("SIGTERM", handler);
-        process.on("SIGINT", handler);
-      }),
-    );
+    const interruptAndExit = (exitCode: number) => {
+      Effect.runFork(
+        Fiber.interrupt(fiber).pipe(
+          Effect.timeout("5 seconds"),
+          Effect.ensuring(Effect.sync(() => process.exit(exitCode))),
+        ),
+      );
+    };
 
+    process.on("SIGTERM", () => interruptAndExit(130));
+    process.on("SIGINT", () => interruptAndExit(130));
+
+    // v4: Fiber.join required (Fiber is no longer an Effect subtype)
     return yield* Fiber.join(fiber);
   });
 ```

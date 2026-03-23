@@ -129,10 +129,9 @@ export interface AuthClientService {
   readonly getMe: (registryUrl: string, accessToken: string) => Effect.Effect<MeResponse, CliError>;
 }
 
-export class AuthClient extends ServiceMap.Service<
-  AuthClient,
-  AuthClientService
->()("@axm.sh/cli/AuthClient") {}
+export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
+  "@axm.sh/cli/AuthClient",
+) {}
 
 // -----------------------------------------------------------------------------
 // Internal helpers

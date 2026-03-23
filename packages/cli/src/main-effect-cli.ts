@@ -144,7 +144,8 @@ const baseArgv = Effect.gen(function* () {
   } satisfies Record<string, unknown>;
 });
 
-const executeCommand = <Argv extends object>(handler: CommandHandler<Argv>) =>
+const executeCommand =
+  <Argv extends object>(handler: CommandHandler<Argv>) =>
   (argv: Argv): Effect.Effect<void, unknown, unknown> =>
     Effect.gen(function* () {
       const inheritedArgv = yield* baseArgv;
@@ -183,7 +184,9 @@ const makeLeafCommand = <Config extends CommandConfig>(
     readonly alias?: string;
     readonly description: string;
     readonly examples?: ReadonlyArray<Example>;
-    readonly handler: (input: Command.Command.Config.Infer<Config>) => Effect.Effect<void, unknown, unknown>;
+    readonly handler: (
+      input: Command.Command.Config.Infer<Config>,
+    ) => Effect.Effect<void, unknown, unknown>;
   },
 ) => {
   let command: AnyCommand = Command.make(name, config, options.handler).pipe(
@@ -218,16 +221,24 @@ const makeGroupCommand = (
   return command.pipe(Command.withSubcommands(subcommands));
 };
 
-const loginCommand = makeLeafCommand("login", {}, {
-  description: "Sign in to a registry",
-  examples: [{ command: "axm login", description: "Sign in to the default registry" }],
-  handler: () => executeCommand(loginCommandModule.handler)({}),
-});
+const loginCommand = makeLeafCommand(
+  "login",
+  {},
+  {
+    description: "Sign in to a registry",
+    examples: [{ command: "axm login", description: "Sign in to the default registry" }],
+    handler: () => executeCommand(loginCommandModule.handler)({}),
+  },
+);
 
-const logoutCommand = makeLeafCommand("logout", {}, {
-  description: "Sign out of a registry",
-  handler: () => executeCommand(logoutCommandModule.handler)({}),
-});
+const logoutCommand = makeLeafCommand(
+  "logout",
+  {},
+  {
+    description: "Sign out of a registry",
+    handler: () => executeCommand(logoutCommandModule.handler)({}),
+  },
+);
 
 const whoamiCommand = makeLeafCommand(
   "whoami",
@@ -241,11 +252,15 @@ const whoamiCommand = makeLeafCommand(
   },
 );
 
-const tokenCommand = makeLeafCommand("token", {}, {
-  description: "Output current auth token to stdout",
-  examples: [{ command: "axm token", description: "Output current auth token to stdout" }],
-  handler: () => executeCommand(tokenCommandModule.handler)({}),
-});
+const tokenCommand = makeLeafCommand(
+  "token",
+  {},
+  {
+    description: "Output current auth token to stdout",
+    examples: [{ command: "axm token", description: "Output current auth token to stdout" }],
+    handler: () => executeCommand(tokenCommandModule.handler)({}),
+  },
+);
 
 const authCommand = makeGroupCommand("auth", "Manage authentication", [
   loginCommand,
@@ -556,9 +571,7 @@ const skillsRenameCommand = makeLeafCommand(
     oldName: Argument.string("old-name").pipe(
       Argument.withDescription("Current name of the skill"),
     ),
-    newName: Argument.string("new-name").pipe(
-      Argument.withDescription("New name for the skill"),
-    ),
+    newName: Argument.string("new-name").pipe(Argument.withDescription("New name for the skill")),
     scope: scopeFlag(),
   },
   {
@@ -842,7 +855,9 @@ const commandsInstallCommand = makeLeafCommand(
   "install",
   {
     source: Argument.string("source").pipe(
-      Argument.withDescription("Registry command reference (@namespace/commands/name or bare name)"),
+      Argument.withDescription(
+        "Registry command reference (@namespace/commands/name or bare name)",
+      ),
     ),
     scope: scopeFlag(),
   },
@@ -869,7 +884,9 @@ const commandsInstallCommand = makeLeafCommand(
 const commandsUninstallCommand = makeLeafCommand(
   "uninstall",
   {
-    name: Argument.string("name").pipe(Argument.withDescription("Name of the command to uninstall")),
+    name: Argument.string("name").pipe(
+      Argument.withDescription("Name of the command to uninstall"),
+    ),
   },
   {
     description: "Uninstall a command",
@@ -931,16 +948,13 @@ const mcpServersUninstallCommand = makeLeafCommand(
   },
 );
 
-const mcpServersCommand = makeGroupCommand(
-  "mcp-servers",
-  "Install and manage MCP servers",
-  [mcpServersInstallCommand, mcpServersUninstallCommand],
-);
+const mcpServersCommand = makeGroupCommand("mcp-servers", "Install and manage MCP servers", [
+  mcpServersInstallCommand,
+  mcpServersUninstallCommand,
+]);
 
 const cliCommand = Command.make(ROOT_COMMAND, {}, () =>
-  showHelpFor(getCliCommand(), [ROOT_COMMAND]).pipe(
-    Effect.andThen(Effect.fail(effectCliExit(1))),
-  ),
+  showHelpFor(getCliCommand(), [ROOT_COMMAND]).pipe(Effect.andThen(Effect.fail(effectCliExit(1)))),
 ).pipe(
   Command.withDescription("Open extension manager for AI coding agents."),
   Command.withExamples([

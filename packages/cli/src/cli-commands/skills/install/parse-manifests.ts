@@ -137,7 +137,9 @@ const parseMarketplaceJson = (
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
-    const data = yield* Schema.decodeUnknownEffect(MarketplaceManifest)(json.value).pipe(Effect.option);
+    const data = yield* Schema.decodeUnknownEffect(MarketplaceManifest)(json.value).pipe(
+      Effect.option,
+    );
     if (Option.isNone(data)) return [];
 
     // pluginRoot validation: if present and doesn't start with ./, skip entire manifest

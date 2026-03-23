@@ -374,21 +374,17 @@ export async function run<A>(
     options === undefined
       ? withCliRuntime(program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>)
       : options.workspace === undefined
-        ? withCliRuntime(
-            program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
-            options,
-          )
+        ? withCliRuntime(program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>, options)
         : withCliRuntime(
             program,
             options as RunOptions & { readonly workspace: WorkspaceContextOptions },
           );
 
-  return Runtime.runPromise(prepared)
-    .catch((thrown: unknown) => {
-      // After runtime cleanup, exit with the classified code
-      if (isCliExit(thrown)) {
-        process.exit(thrown.exitCode);
-      }
-      throw thrown;
-    });
+  return Runtime.runPromise(prepared).catch((thrown: unknown) => {
+    // After runtime cleanup, exit with the classified code
+    if (isCliExit(thrown)) {
+      process.exit(thrown.exitCode);
+    }
+    throw thrown;
+  });
 }

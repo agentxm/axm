@@ -265,11 +265,9 @@ export const SkillManagerLive = Layer.effect(
 // Internal materialization helpers
 // -----------------------------------------------------------------------------
 
-type ProvideFS = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<
-  A,
-  E,
-  Exclude<R, FileSystem.FileSystem | Path.Path | CliEnvConfig>
->;
+type ProvideFS = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path | CliEnvConfig>>;
 
 const materializeByRefType = (
   ref: SkillExtensionRef,

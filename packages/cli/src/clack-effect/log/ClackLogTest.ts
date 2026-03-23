@@ -148,7 +148,10 @@ export const makeClackLogTestLayer = (): readonly [
         get: Ref.get(ref),
       };
 
-      return ServiceMap.empty().pipe(ServiceMap.add(ClackLog, service), ServiceMap.add(ClackLogTest, test));
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackLog, service),
+        ServiceMap.add(ClackLogTest, test),
+      );
     }),
   );
 

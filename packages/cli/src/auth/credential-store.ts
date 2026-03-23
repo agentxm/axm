@@ -43,10 +43,9 @@ export interface CredentialStoreService {
   readonly tier: StorageTier;
 }
 
-export class CredentialStore extends ServiceMap.Service<
-  CredentialStore,
-  CredentialStoreService
->()("@axm.sh/cli/CredentialStore") {}
+export class CredentialStore extends ServiceMap.Service<CredentialStore, CredentialStoreService>()(
+  "@axm.sh/cli/CredentialStore",
+) {}
 
 // -----------------------------------------------------------------------------
 // Constants

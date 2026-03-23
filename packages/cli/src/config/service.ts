@@ -42,10 +42,9 @@ export interface CliEnvConfigService {
   readonly debug: Option.Option<string>;
 }
 
-export class CliEnvConfig extends ServiceMap.Service<
-  CliEnvConfig,
-  CliEnvConfigService
->()("@axm.sh/cli/CliEnvConfig") {
+export class CliEnvConfig extends ServiceMap.Service<CliEnvConfig, CliEnvConfigService>()(
+  "@axm.sh/cli/CliEnvConfig",
+) {
   static readonly testDefaults: Layer.Layer<CliEnvConfig> = Layer.succeed(CliEnvConfig, {
     registryUrl: "https://registry.agentxm.ai",
     token: Option.none(),

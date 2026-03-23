@@ -270,10 +270,9 @@ const augmentPlanWithReconciliation = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class Workspace extends ServiceMap.Service<
-  Workspace,
-  WorkspaceContextService
->()("@axm.sh/cli/Workspace") {
+export class Workspace extends ServiceMap.Service<Workspace, WorkspaceContextService>()(
+  "@axm.sh/cli/Workspace",
+) {
   /**
    * Create a layer from a custom service implementation.
    */

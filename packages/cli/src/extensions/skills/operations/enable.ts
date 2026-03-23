@@ -81,9 +81,7 @@ export const enableSkill: OperationHandler<
 
     const { skillSrcPath } = yield* ws.getSkillDir(op.args.skillName);
 
-    const exists = yield* fs
-      .exists(skillSrcPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(skillSrcPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeCliError({
         code: "ENABLE_SKILL_MISSING_FILES",
@@ -102,9 +100,7 @@ export const enableSkill: OperationHandler<
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
           Effect.catch(() =>
-            copySkillDirectory(skillSrcPath, agentSkillPath).pipe(
-              Effect.catch(() => Effect.void),
-            ),
+            copySkillDirectory(skillSrcPath, agentSkillPath).pipe(Effect.catch(() => Effect.void)),
           ),
         );
       },

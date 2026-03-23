@@ -32,7 +32,9 @@ import { resolveAmbientToken, resolveStoredToken } from "./token-resolution.js";
 // RegistryUrl service — configures which URLs are registry URLs
 // -----------------------------------------------------------------------------
 
-export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()("@axm.sh/cli/RegistryUrl") {}
+export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()(
+  "@axm.sh/cli/RegistryUrl",
+) {}
 
 // -----------------------------------------------------------------------------
 // Constants

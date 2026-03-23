@@ -64,10 +64,9 @@ export interface ClackPromptService {
   readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
 }
 
-export class ClackPrompt extends ServiceMap.Service<
-  ClackPrompt,
-  ClackPromptService
->()("@axm.sh/cli/clack-effect/ClackPrompt") {}
+export class ClackPrompt extends ServiceMap.Service<ClackPrompt, ClackPromptService>()(
+  "@axm.sh/cli/clack-effect/ClackPrompt",
+) {}
 
 // Assertion needed: our readonly config types are structurally compatible with Clack's
 // mutable types, but exactOptionalPropertyTypes prevents direct assignment.

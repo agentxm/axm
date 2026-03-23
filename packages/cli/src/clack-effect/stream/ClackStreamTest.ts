@@ -18,35 +18,36 @@ export class ClackStreamTest extends ServiceMap.Service<
   }
 >()("@axm.sh/cli/test/ClackStreamTest") {}
 
-export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> = Layer.effectServices(
-  Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<ClackStreamCall>>([]);
+export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> =
+  Layer.effectServices(
+    Effect.gen(function* () {
+      const ref = yield* Ref.make<ReadonlyArray<ClackStreamCall>>([]);
 
-    const makeMethod =
-      (method: string) =>
-      <E, R>(stream: Stream.Stream<string, E, R>) =>
-        Effect.gen(function* () {
-          const values = yield* Stream.runCollect(stream);
-          yield* Ref.update(ref, (calls) => [...calls, { method, values }]);
-        });
+      const makeMethod =
+        (method: string) =>
+        <E, R>(stream: Stream.Stream<string, E, R>) =>
+          Effect.gen(function* () {
+            const values = yield* Stream.runCollect(stream);
+            yield* Ref.update(ref, (calls) => [...calls, { method, values }]);
+          });
 
-    const service: ServiceMap.Service.Shape<typeof ClackStream> = {
-      message: makeMethod("message"),
-      info: makeMethod("info"),
-      success: makeMethod("success"),
-      step: makeMethod("step"),
-      warn: makeMethod("warn"),
-      error: makeMethod("error"),
-    };
+      const service: ServiceMap.Service.Shape<typeof ClackStream> = {
+        message: makeMethod("message"),
+        info: makeMethod("info"),
+        success: makeMethod("success"),
+        step: makeMethod("step"),
+        warn: makeMethod("warn"),
+        error: makeMethod("error"),
+      };
 
-    const test: ServiceMap.Service.Shape<typeof ClackStreamTest> = {
-      ref,
-      get: Ref.get(ref),
-    };
+      const test: ServiceMap.Service.Shape<typeof ClackStreamTest> = {
+        ref,
+        get: Ref.get(ref),
+      };
 
-    return ServiceMap.empty().pipe(
-      ServiceMap.add(ClackStream, service),
-      ServiceMap.add(ClackStreamTest, test),
-    );
-  }),
-);
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackStream, service),
+        ServiceMap.add(ClackStreamTest, test),
+      );
+    }),
+  );

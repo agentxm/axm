@@ -60,7 +60,8 @@ const makeWorkspaceMock = (
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
-    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(readLf().skills?.[name])),
+    getLockedSkill: (name: string) =>
+      Effect.succeed(Option.fromUndefinedOr(readLf().skills?.[name])),
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);

@@ -41,9 +41,7 @@ export const detectContainer = Effect.gen(function* () {
  */
 export const detectWSL = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const exists = yield* fs
-    .exists("/proc/version")
-    .pipe(Effect.catch(() => Effect.succeed(false)));
+  const exists = yield* fs.exists("/proc/version").pipe(Effect.catch(() => Effect.succeed(false)));
   if (!exists) return false;
   const content = yield* fs
     .readFileString("/proc/version")

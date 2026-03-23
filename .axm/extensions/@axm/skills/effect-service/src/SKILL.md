@@ -14,14 +14,14 @@ See /effect-layers for layer construction, composition, and provision.
 
 ## Service Definition
 
-### Default: combined tag + inline interface
+### Default: combined service class + inline interface
 
 For services with a single implementation, define the interface inline on
-the `Context.Tag` class. This is concise and gives you full Layer-based
+the `ServiceMap.Service` class. This is concise and gives you full Layer-based
 dependency injection and testability.
 
 ```typescript
-class NotificationService extends Context.Tag("@axm.sh/cli/NotificationService")<
+class NotificationService extends ServiceMap.Service<
   NotificationService,
   {
     readonly send: (to: string, message: string) => Effect.Effect<void, CliError>;
@@ -29,11 +29,11 @@ class NotificationService extends Context.Tag("@axm.sh/cli/NotificationService")
       notifications: ReadonlyArray<Notification>,
     ) => Effect.Effect<void, CliError>;
   }
->() {}
+>()("@axm.sh/cli/NotificationService") {}
 ```
 
-The tag decouples consumers from implementations — you get testability and
-composability without additional abstraction.
+The service class decouples consumers from implementations — you get testability
+and composability without additional abstraction.
 
 Appropriate for:
 
@@ -55,16 +55,16 @@ interface DocumentStore {
   readonly delete: (id: DocumentId) => Effect.Effect<void, StoreError>;
 }
 
-// The tag, typed to the interface
-const DocumentStore = Context.GenericTag<DocumentStore>("@axm.sh/cli/DocumentStore");
+// The service, typed to the interface
+const DocumentStore = ServiceMap.Service<DocumentStore>("@axm.sh/cli/DocumentStore");
 
 // Implementation A
-const S3DocumentStoreLive = Layer.succeed(DocumentStore, {
+const S3DocumentStoreLayer = Layer.succeed(DocumentStore, {
   /* ... */
 });
 
 // Implementation B
-const PostgresDocumentStoreLive = Layer.succeed(DocumentStore, {
+const PostgresDocumentStoreLayer = Layer.succeed(DocumentStore, {
   /* ... */
 });
 ```
@@ -83,9 +83,9 @@ This pattern is warranted when:
 Ask: _does this service have, or will it concretely have, more than one
 implementation?_
 
-- **No** → Combined tag pattern. Extracting an interface later is a
+- **No** → Combined service class pattern. Extracting an interface later is a
   straightforward, non-breaking refactor.
-- **Yes** → Explicit interface with `GenericTag`.
+- **Yes** → Explicit interface with `ServiceMap.Service<Shape>(id)`.
 
 Avoid speculative interfaces. The Layer system makes it cheap to introduce
 one later, so let actual requirements drive the decision.
@@ -139,34 +139,34 @@ higher-level orchestration that type-checks immediately.
 
 ```typescript
 // 1. Leaf services: contracts only (no implementation yet)
-class Users extends Context.Tag("@app/Users")<
+class Users extends ServiceMap.Service<
   Users,
   { readonly findById: (id: UserId) => Effect.Effect<User, UserNotFound> }
->() {}
+>()("@app/Users") {}
 
-class Tickets extends Context.Tag("@app/Tickets")<
+class Tickets extends ServiceMap.Service<
   Tickets,
   { readonly issue: (eventId: EventId, userId: UserId) => Effect.Effect<Ticket> }
->() {}
+>()("@app/Tickets") {}
 
 // 2. Orchestration service: uses leaf contracts
-class Events extends Context.Tag("@app/Events")<
+class Events extends ServiceMap.Service<
   Events,
   { readonly register: (eventId: EventId, userId: UserId) => Effect.Effect<Registration> }
->() {
+>()("@app/Events") {
   static readonly layer = Layer.effect(
     Events,
     Effect.gen(function* () {
       const users = yield* Users;
       const tickets = yield* Tickets;
-      return {
+      return Events.of({
         register: (eventId, userId) =>
           Effect.gen(function* () {
             const user = yield* users.findById(userId);
             const ticket = yield* tickets.issue(eventId, userId);
             return { user, ticket };
           }),
-      };
+      });
     }),
   );
 }
@@ -182,31 +182,41 @@ Benefits:
 
 ## Naming Conventions
 
-### Service tags
+### Service identifiers
 
 Use `@axm.sh/cli/<ServiceName>` as the identifier string:
 
 ```typescript
-Context.Tag("@axm.sh/cli/Workspace");
-Context.Tag("@axm.sh/cli/SourceHostProviders");
+ServiceMap.Service<
+  Workspace,
+  {
+    /* ... */
+  }
+>()("@axm.sh/cli/Workspace");
+ServiceMap.Service<
+  SourceHostProviders,
+  {
+    /* ... */
+  }
+>()("@axm.sh/cli/SourceHostProviders");
 ```
 
 ### Layer names
 
 See /effect-layers for full naming conventions and module structure.
 
-| Suffix   | Usage                       |
-| -------- | --------------------------- |
-| `Live`   | Production layer            |
-| `Test`   | Test / fake layer           |
-| `Memory` | In-memory variant           |
-| `Dev`    | Development / local variant |
+| Suffix        | Usage                       |
+| ------------- | --------------------------- |
+| `layer`       | Production layer            |
+| `layerTest`   | Test / fake layer           |
+| `layerMemory` | In-memory variant           |
+| `layerDev`    | Development / local variant |
 
 ---
 
 ## Using Services
 
-Yield the tag to access the service in an effect:
+Yield the service to access it in an effect:
 
 ```typescript
 const program = Effect.gen(function* () {
@@ -293,5 +303,5 @@ const doSomething = (input: string) =>
 - [ ] **R = never on methods** — no dependency leakage in interface
 - [ ] **Readonly properties** — no mutable state exposed
 - [ ] **Single responsibility** — one domain concern per service
-- [ ] **Combined tag by default** — extract interface only for multiple implementations
+- [ ] **Combined service class by default** — extract interface only for multiple implementations
 - [ ] **Layer in effect-layers** — see /effect-layers for construction patterns

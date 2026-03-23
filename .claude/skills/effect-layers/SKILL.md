@@ -6,9 +6,6 @@ user-invocable: false
 
 # Effect Layers
 
-> **Effect v3 notice:** Examples use Effect v3 APIs (`ManagedRuntime`,
-> `Context.Tag`, etc.). v3 → v4 migration in progress.
-
 Layers are blueprints for constructing services: `Layer<Out, Error, In>`.
 `Out` = service produced, `Error` = construction failure, `In` = dependencies
 needed to build it.
@@ -52,12 +49,12 @@ test/
 | In-memory variant   | `Memory` | `DocumentStoreMemory` |
 | Development / local | `Dev`    | `EmailDev`            |
 
-When a service has multiple real implementations (explicit interface with
-`GenericTag`), name each layer after the backing technology:
+When a service has multiple real implementations, name each layer after the
+backing technology:
 
 ```typescript
-const DocumentStoreS3 = Layer.effect(DocumentStore /* ... */);
-const DocumentStorePostgres = Layer.effect(DocumentStore /* ... */);
+const DocumentStoreS3 = Layer.effect(DocumentStore)(/* ... */);
+const DocumentStorePostgres = Layer.effect(DocumentStore)(/* ... */);
 ```
 
 Name layers by their variant, not by their role in a specific test.
@@ -70,13 +67,15 @@ is not.
 
 Choose the simplest constructor that fits.
 
-| Constructor           | When to use                                    |
-| --------------------- | ---------------------------------------------- |
-| `Layer.succeed`       | Static value, no setup, no dependencies        |
-| `Layer.sync`          | Synchronous setup (e.g. mutable state init)    |
-| `Layer.effect`        | Needs dependencies or effectful setup          |
-| `Layer.scoped`        | Acquires resources requiring cleanup           |
-| `Layer.effectContext` | Produces multiple service tags from one effect |
+| Constructor            | When to use                                     |
+| ---------------------- | ----------------------------------------------- |
+| `Layer.succeed`        | Static value, no setup, no dependencies         |
+| `Layer.sync`           | Synchronous setup (e.g. mutable state init)     |
+| `Layer.effect`         | Needs dependencies, effectful setup, or cleanup |
+| `Layer.effectServices` | Produces multiple service tags from one effect  |
+
+Note: v3's `Layer.scoped` is merged into `Layer.effect` in v4. `Layer.effect`
+handles both effectful setup and scoped resource acquisition.
 
 ### Layer.succeed — static values
 
@@ -96,16 +95,18 @@ export const DocumentStoreLive = Layer.succeed(DocumentStore, {
 ```typescript
 static readonly testLayer = Layer.sync(Counter, () => {
   let count = 0;
-  return Counter.of({
+  return {
     increment: () => Effect.sync(() => { count++ }),
     get: () => Effect.succeed(count),
-  });
+  };
 });
 ```
 
 ### Layer.effect — effectful setup with dependencies
 
-The primary pattern. Yield dependencies, return the service.
+The primary pattern. Yield dependencies, return the service. Also handles
+scoped resources (connections, temp dirs, file handles) — the scope manages
+release automatically.
 
 ```typescript
 export const EmailLive = Layer.effect(
@@ -122,13 +123,10 @@ export const EmailLive = Layer.effect(
 // Layer<Email, never, AppConfig>
 ```
 
-### Layer.scoped — resource lifecycle
-
-For services that acquire resources needing cleanup (connections, temp dirs,
-file handles). The scope manages release automatically.
+Resource lifecycle example:
 
 ```typescript
-export const DatabaseLive = Layer.scoped(
+export const DatabaseLive = Layer.effect(
   Database,
   Effect.gen(function* () {
     const config = yield* Config;
@@ -142,18 +140,17 @@ export const DatabaseLive = Layer.scoped(
 );
 ```
 
-### Layer.effectContext — multiple tags from one effect
+### Layer.effectServices — multiple tags from one effect
 
 Use when a single setup produces multiple services.
 
 ```typescript
 export const PromptServicesLive: Layer.Layer<Confirm | Select | Multiselect, never, BasePrompt> =
-  Layer.effectContext(
+  Layer.effectServices(
     Effect.map(BasePrompt, (base) =>
-      Context.empty().pipe(
-        Context.add(Confirm, makeConfirm(base)),
-        Context.add(Select, makeSelect(base)),
-        Context.add(Multiselect, makeMultiselect(base)),
+      ServiceMap.make(Confirm, makeConfirm(base)).pipe(
+        ServiceMap.add(Select, makeSelect(base)),
+        ServiceMap.add(Multiselect, makeMultiselect(base)),
       ),
     ),
   );
@@ -170,10 +167,10 @@ concurrently.
 
 ```typescript
 // Two layers
-const base = Layer.merge(NodeContext.layer, FetchHttpClient.layer);
+const base = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 
 // Many layers
-const AppLayer = Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer, ClackLive);
+const AppLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, ClackLive);
 ```
 
 ### Layer.provide — wire dependencies
@@ -255,7 +252,7 @@ For CLI apps, create a `ManagedRuntime` from the top-level layer for proper
 lifecycle management and resource cleanup.
 
 ```typescript
-export const AppLayer = Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer, ClackLive);
+export const AppLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, ClackLive);
 
 export const Runtime = ManagedRuntime.make(AppLayer);
 
@@ -287,8 +284,9 @@ export function run(program, options?) {
 
 ## Memoization
 
-Layers are memoized by reference identity. The same layer instance used in
-multiple places constructs the service only once.
+In v4, layers are automatically memoized across `Effect.provide` calls via a
+shared `MemoMap`. This is a safety net — proper layer composition is still
+the recommended pattern.
 
 ```typescript
 // BAD: two separate pool instances (different Layer.effect calls)
@@ -312,6 +310,19 @@ test state):
 
 ```typescript
 const freshCounter = Layer.fresh(Counter.layer);
+```
+
+### Effect.provide with `{ local: true }` — isolated memoization
+
+New in v4. Builds the provided layer with a local memo map instead of the
+fiber's shared one. Useful for test isolation where each test needs
+independent resources:
+
+```typescript
+const main = program.pipe(
+  Effect.provide(MyServiceLayer),
+  Effect.provide(MyServiceLayer, { local: true }), // built fresh, not shared
+);
 ```
 
 ---
@@ -361,8 +372,8 @@ use the service inline.
 export const SkillManagerLive = Layer.effect(
   SkillManager,
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+    const fs = yield* FileSystem;
+    const path = yield* Path;
     return {
       copySkill: (src, dst) =>
         // fs and path are closed over — no R requirement
@@ -379,14 +390,14 @@ delegate to standalone effectful functions that declare their own `R`.
 export const SourcesLive = Layer.effect(
   Sources,
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+    const fs = yield* FileSystem;
+    const path = yield* Path;
     const ws = yield* Workspace;
 
     // Capture once, re-provide to inner effects
     const deps = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
+      Layer.succeed(FileSystem, fs),
+      Layer.succeed(Path, path),
       Layer.succeed(Workspace, ws),
     );
 
@@ -427,7 +438,7 @@ records, etc.), use a `Ref` to accumulate state and expose an inspection API:
 
 ```typescript
 // test/services/Email/EmailTest.ts
-export interface TestEmail extends Context.Tag.Service<typeof Email> {
+export interface TestEmail extends ServiceMap.Service.Shape<typeof Email> {
   readonly sentMessages: Effect.Effect<ReadonlyArray<SentMessage>>;
 }
 
@@ -477,7 +488,7 @@ leakage between tests.
 - [ ] **Colocate tag + live layer** — same module directory; test layers in
       test tree
 - [ ] **Name by variant** — `Live`, `Test`, `Memory`, `Dev`, or backing tech
-- [ ] **Simplest constructor** — `succeed` > `sync` > `effect` > `scoped`
+- [ ] **Simplest constructor** — `succeed` > `sync` > `effect`
 - [ ] **R = never on interfaces** — dependencies captured in layer, not leaked
 - [ ] **Close over values** — prefer closing over yielded services directly
 - [ ] **Typed re-provision** — if using captured dep layer, type the `provide`

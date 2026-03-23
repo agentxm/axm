@@ -8,8 +8,8 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
@@ -48,7 +48,7 @@ const createEmptyLockfile = (): Lockfile => ({
  * Returns a CliError on validation failure.
  */
 const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, CliError> =>
-  Schema.decodeUnknown(LockfileSchema)(data).pipe(
+  Schema.decodeUnknownEffect(LockfileSchema)(data).pipe(
     Effect.mapError((cause) => {
       const message = cause instanceof Error ? cause.message : String(cause);
       const isResolvedVersionViolation = message.includes(EXACT_VERSION_ERROR_PREFIX);

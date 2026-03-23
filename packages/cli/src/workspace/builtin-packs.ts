@@ -8,7 +8,7 @@
  * @internal
  */
 
-import * as Path from "@effect/platform/Path";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -130,4 +130,4 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
       },
     };
     yield* writeLockfile(workspaceDir, updatedLockfile);
-  }).pipe(Effect.catchAll(() => Effect.void));
+  }).pipe(Effect.catch(() => Effect.void));

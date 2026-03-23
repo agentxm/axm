@@ -7,13 +7,13 @@
  */
 
 import matter from "gray-matter";
-import * as Either from "effect/Either";
+import * as Result from "effect/Result";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 import type { Skill } from "../../../extensions/skills/types.js";
 
-const MetadataSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
+const MetadataSchema = Schema.Record(Schema.String, Schema.Unknown);
 
 /**
  * Parse a SKILL.md file's content and extract skill metadata from frontmatter.
@@ -43,9 +43,9 @@ export const parseSkillMd = (content: string): Option.Option<Skill> => {
     // Extract optional metadata (validated via Schema)
     const metadata: Option.Option<Record.ReadonlyRecord<string, unknown>> =
       rawMetadata != null
-        ? Either.match(Schema.decodeUnknownEither(MetadataSchema)(rawMetadata), {
-            onLeft: () => Option.none(),
-            onRight: (validated) => Option.some(validated),
+        ? Result.match(Schema.decodeUnknownResult(MetadataSchema)(rawMetadata), {
+            onFailure: () => Option.none(),
+            onSuccess: (validated) => Option.some(validated),
           })
         : Option.none();
 

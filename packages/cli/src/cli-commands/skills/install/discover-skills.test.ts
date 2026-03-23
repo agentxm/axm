@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -24,16 +24,16 @@ import { getAllAgents } from "../../../agents/index.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const TestLayer = Layer.mergeAll(NodeContext.layer, CliEnvConfig.testDefaults);
+const TestLayer = Layer.mergeAll(NodeServices.layer, CliEnvConfig.testDefaults);
 
 const withFileSystem = <A, E>(
-  effect: Effect.Effect<A, E, NodeContext.NodeContext | CliEnvConfig>,
+  effect: Effect.Effect<A, E, NodeServices.NodeServices | CliEnvConfig>,
 ) => effect.pipe(Effect.provide(TestLayer));
 
 /** Provide a custom CliEnvConfig with installInternalSkills set. */
 const withInstallInternalSkills = (value: string) => {
   const customConfig = Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Layer.succeed(CliEnvConfig, {
       ...{
         registryUrl: "https://registry.agentxm.ai",
@@ -56,7 +56,7 @@ const withInstallInternalSkills = (value: string) => {
       },
     }),
   );
-  return <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext | CliEnvConfig>) =>
+  return <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices | CliEnvConfig>) =>
     effect.pipe(Effect.provide(customConfig));
 };
 

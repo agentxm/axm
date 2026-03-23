@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
 import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { ClackSpinnerHandle } from "./types.js";
@@ -10,7 +10,7 @@ export interface ClackSpinnerOptions<A> {
   readonly failureMessage?: string;
 }
 
-export class ClackSpinner extends Context.Tag("@axm.sh/cli/clack-effect/ClackSpinner")<
+export class ClackSpinner extends ServiceMap.Service<
   ClackSpinner,
   {
     readonly start: (message?: string) => Effect.Effect<ClackSpinnerHandle>;
@@ -20,7 +20,7 @@ export class ClackSpinner extends Context.Tag("@axm.sh/cli/clack-effect/ClackSpi
       options?: string | ClackSpinnerOptions<A>,
     ) => Effect.Effect<A, E, R>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/ClackSpinner") {}
 
 const makeHandle = (s: p.SpinnerResult): ClackSpinnerHandle => ({
   stop: (message) => Effect.sync(() => s.stop(message)),
@@ -30,7 +30,7 @@ const makeHandle = (s: p.SpinnerResult): ClackSpinnerHandle => ({
   clear: () => Effect.sync(() => s.clear()),
 });
 
-const makeLiveClackSpinnerService = (): Context.Tag.Service<typeof ClackSpinner> => ({
+const makeLiveClackSpinnerService = (): ServiceMap.Service.Shape<typeof ClackSpinner> => ({
   start: (message) =>
     Effect.sync(() => {
       const s = p.spinner();
@@ -58,7 +58,7 @@ const makeLiveClackSpinnerService = (): Context.Tag.Service<typeof ClackSpinner>
       return Effect.interruptible(f(handle)).pipe(
         Effect.matchCauseEffect({
           onFailure: (cause) => {
-            if (Cause.isInterruptedOnly(cause)) {
+            if (Cause.hasInterruptsOnly(cause)) {
               s.cancel();
             } else {
               s.error(failureMessage ?? message);

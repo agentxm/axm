@@ -3,12 +3,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { AppLayer } from "./index.js";
+import { CliFlags } from "../cli-flags/index.js";
+import { AppLayer, Runtime, withCliRuntime } from "./index.js";
 
 const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
@@ -88,5 +90,35 @@ describe("AppLayer auth runtime wiring", () => {
       });
       rmSync(tempHome, { recursive: true, force: true });
     }
+  });
+});
+
+describe("withCliRuntime", () => {
+  it("injects explicit CLI flags before the base runtime is run", async () => {
+    const flags = await Runtime.runPromise(
+      withCliRuntime(CliFlags.asEffect(), {
+        flags: {
+          nonInteractive: Option.some(false),
+          yes: true,
+          force: true,
+          preview: true,
+        },
+        command: "test flags",
+      }),
+    );
+
+    expect(flags.nonInteractive).toBe(false);
+    expect(flags.yes).toBe(true);
+    expect(flags.force).toBe(true);
+    expect(flags.preview).toBe(true);
+  });
+
+  it("defaults flags when no explicit overrides are provided", async () => {
+    const flags = await Runtime.runPromise(withCliRuntime(CliFlags.asEffect()));
+
+    expect(typeof flags.nonInteractive).toBe("boolean");
+    expect(flags.yes).toBe(false);
+    expect(flags.force).toBe(false);
+    expect(flags.preview).toBe(false);
   });
 });

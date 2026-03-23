@@ -119,7 +119,7 @@ export const AGENTS: AgentRegistry = {
  * @experimental This API is unstable and may change without notice.
  */
 export const getAgentById = (id: string): Option.Option<AgentDescriptor> =>
-  Option.fromNullable(AGENTS[id as AgentId]);
+  Option.fromUndefinedOr(AGENTS[id as AgentId]);
 
 /**
  * Get all registered agent IDs.

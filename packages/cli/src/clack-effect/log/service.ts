@@ -1,5 +1,5 @@
 import * as p from "@clack/prompts";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -12,7 +12,7 @@ export interface ClackBoxOptions {
   readonly rounded?: boolean;
 }
 
-export class ClackLog extends Context.Tag("@axm.sh/cli/clack-effect/ClackLog")<
+export class ClackLog extends ServiceMap.Service<
   ClackLog,
   {
     readonly message: (message: string) => Effect.Effect<void>;
@@ -27,9 +27,9 @@ export class ClackLog extends Context.Tag("@axm.sh/cli/clack-effect/ClackLog")<
     readonly note: (message: string, title?: string) => Effect.Effect<void>;
     readonly box: (message: string, title?: string, opts?: ClackBoxOptions) => Effect.Effect<void>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/ClackLog") {}
 
-const makeLiveClackLogService = (): Context.Tag.Service<typeof ClackLog> => ({
+const makeLiveClackLogService = (): ServiceMap.Service.Shape<typeof ClackLog> => ({
   message: (message) => Effect.sync(() => p.log.message(message)),
   info: (message) => Effect.sync(() => p.log.info(message)),
   success: (message) => Effect.sync(() => p.log.success(message)),

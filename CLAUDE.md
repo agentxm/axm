@@ -17,7 +17,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - **Language**: TypeScript (strict mode)
 - **Standard library**: Effect (concurrency, type safety, error handling, async, observability)
 - **Package manager**: pnpm (workspaces)
-- **CLI parsing**: yargs
+- **CLI parsing**: `effect/unstable/cli`
 - **CLI UI**: Bombshell (prompts, forms, validation)
 - **Testing**: Vitest
 - **Linting**: ESLint with @effect/eslint-plugin
@@ -100,9 +100,8 @@ packages/
           <subcommand>/
             handler.ts           # Business logic
             handler.test.ts      # Handler tests
-            command.ts           # yargs definition
-            command.test.ts      # Command parsing tests
-            command.e2e.test.ts  # E2E tests (co-located)
+            command.ts           # Parser-agnostic command runner
+            command.e2e.test.ts  # CLI contract tests (co-located when useful)
       lockfile/     # Lockfile feature
         lockfile.ts              # Core logic + LOCKFILE_NAME constant
         lockfile.test.ts
@@ -132,10 +131,10 @@ Each feature folder is self-contained: logic, constants, errors, schemas, and te
 
 ### Command Arg Type Naming
 
-- Command arg types (yargs): `<Command>CommandArgs` (e.g. `InstallCommandArgs`)
+- Command arg types (CLI parser): `<Command>CommandArgs` (e.g. `InstallCommandArgs`)
 - Handler arg types (Effect): `<Command>HandlerArgs` (e.g. `InstallHandlerArgs`)
 - Handler args use idiomatic Effect types (`Option`, `ReadonlyArray`, etc.) — not raw JS types
-- Commands map command args → handler args at the boundary (e.g. `Option.fromNullable(argv.name)`)
+- Commands map command args → handler args at the boundary (e.g. `Option.fromUndefinedOr(argv.name)`)
 
 ### Handlers
 
@@ -145,7 +144,7 @@ Handlers are effectful entry points that wire together business logic:
 - Accept parsed input and return Effects
 - Require services provided via layers
 
-Example: `handleInit(args: InitArgs)` is the entry point for the `init` command, separate from yargs parsing.
+Example: `handleInit(args: InitArgs)` is the entry point for the `init` command, separate from CLI parsing.
 
 ## TypeScript
 
@@ -196,7 +195,7 @@ if (optional) (obj as { opt?: string }).opt = optional;
 const obj: T = { required, ...(optional && { optional }) };
 ```
 
-**Complex interface mocks (yargs, etc.):**
+**Complex interface mocks (third-party APIs, etc.):**
 
 ```typescript
 // Acceptable: type assertion once at boundary, not throughout
@@ -280,15 +279,12 @@ const data = JSON.parse(content) as Config;
 const json = JSON.parse(content) as unknown;
 const data =
   yield *
-  Schema.decodeUnknown(ConfigSchema)(json).pipe(
+  Schema.decodeUnknownEffect(ConfigSchema)(json).pipe(
     Effect.mapError((e) => new ParseError({ message: e.message })),
   );
 ```
 
 ## Effect
-
-> **Effect v3 notice:** Patterns below use Effect v3 APIs. v3 → v4 migration in
-> progress.
 
 - [ ] Use Effect's collection types in signatures (see /effect-collections skill)
       → `ReadonlyArray<T>` (or `readonly T[]`) for arrays
@@ -296,7 +292,7 @@ const data =
       → `Chunk` only for repeated concatenation or Streams
       → `HashMap` only for complex keys or value-based equality
 - [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`) (see /effect-option skill)
-      → Convert at boundaries: `fromNullable` at entry, `getOrNull` at exit
+      → Convert at boundaries: `fromUndefinedOr`, `fromNullOr`, or `fromNullishOr` at entry, `getOrNull` / `getOrUndefined` at exit
       → Use nullable for interop: external APIs, JSON serialization, DOM
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)
 - [ ] Errors are typed in the Effect signature
@@ -309,7 +305,7 @@ const data =
 - [ ] Use `@effect/platform` for filesystem and path operations — never `node:fs` or `node:path` in production code (see /effect-filesystem skill)
       → `FileSystem.FileSystem` for all file I/O (read, write, stat, mkdir, symlink)
       → `Path.Path` for all path computation (join, dirname, resolve, relative)
-      → Both provided by `NodeContext.layer` (already wired in the CLI runtime)
+      → Both provided by `NodeServices.layer` (already wired in the CLI runtime)
 
 ### Effectful Iteration
 
@@ -376,7 +372,7 @@ const results = yield * Effect.forEach(ids, (id) => fetchUser(id));
 ```typescript
 // Create CliError where the failure occurs
 yield *
-  Schema.decodeUnknown(SettingsSchema)(json).pipe(
+  Schema.decodeUnknownEffect(SettingsSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "SETTINGS_PARSE_FAILED",
@@ -441,10 +437,10 @@ Effect.tryPromise({
 });
 ```
 
-**Recovery** — scoped `catchAll` on sub-expressions (safe because error channel is already narrow):
+**Recovery** — scoped `catch` on sub-expressions (safe because error channel is already narrow):
 
 ```typescript
-yield * createSymlink(source, target).pipe(Effect.catchAll(() => copyDirectory(source, target)));
+yield * createSymlink(source, target).pipe(Effect.catch(() => copyDirectory(source, target)));
 ```
 
 **Option for not-found** — return `Option<T>` instead of failing with a not-found error:
@@ -464,7 +460,7 @@ const data = yield * Effect.try({ try: () => YAML.parse(content) as Config });
 const json = yield * Effect.try({ try: () => YAML.parse(content) });
 const data =
   yield *
-  Schema.decodeUnknown(ConfigSchema)(json).pipe(
+  Schema.decodeUnknownEffect(ConfigSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "CONFIG_PARSE_FAILED",

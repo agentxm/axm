@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -49,7 +49,7 @@ const makeWorkspaceMock = (
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) =>
-      Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name] as SkillLockEntry | undefined)),
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: () => Effect.void,
     setSkillLock: () => Effect.void,
@@ -94,7 +94,7 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
 };
 
 /** Creates a minimal DisableSkillOperation for testing. */
@@ -507,7 +507,7 @@ describe("disableSkill", () => {
         };
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs))),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
         );
 
         expect(result.result).toBe("success");
@@ -600,8 +600,8 @@ describe("disableSkill", () => {
         };
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs))),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -689,8 +689,8 @@ describe("disableSkill", () => {
         };
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs))),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -82,7 +82,7 @@ const makeWorkspaceMock = (
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) =>
-      Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name] as SkillLockEntry | undefined)),
     getSkillDir: (name: string) => {
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
@@ -147,7 +147,7 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), ClackLogTestLayer);
+  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), ClackLogTestLayer);
 };
 
 /** Creates a minimal EnableSkillOperation for testing. */
@@ -343,7 +343,7 @@ describe("enableSkill", () => {
               updateLockEntryAgentsFn,
             }),
           ),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -454,7 +454,7 @@ describe("enableSkill", () => {
               },
             }),
           ),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

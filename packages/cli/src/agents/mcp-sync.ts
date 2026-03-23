@@ -4,8 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import type {
@@ -72,7 +72,7 @@ const checkExecutableAvailable = (
     if (path.isAbsolute(command) || hasPathSeparator(command)) {
       const checks = yield* Effect.forEach(
         directCandidates,
-        (candidate) => fs.exists(candidate).pipe(Effect.catchAll(() => Effect.succeed(false))),
+        (candidate) => fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false))),
         { concurrency: "unbounded" },
       );
       return checks.some(Boolean);
@@ -95,7 +95,7 @@ const checkExecutableAvailable = (
         Effect.forEach(
           directCandidates,
           (candidate) =>
-            fs.exists(path.join(dir, candidate)).pipe(Effect.catchAll(() => Effect.succeed(false))),
+            fs.exists(path.join(dir, candidate)).pipe(Effect.catch(() => Effect.succeed(false))),
           { concurrency: "unbounded" },
         ).pipe(Effect.map((results) => results.some(Boolean))),
       { concurrency: "unbounded" },
@@ -213,7 +213,7 @@ const upsertJsonConfigServer = (
 
     const existing = yield* fs
       .readFileString(configPath)
-      .pipe(Effect.catchAll(() => Effect.succeed('{\n  "servers": {}\n}')));
+      .pipe(Effect.catch(() => Effect.succeed('{\n  "servers": {}\n}')));
     const parsed = decodeJsonConfig(existing);
     const updated = {
       ...parsed,
@@ -240,7 +240,7 @@ const removeJsonConfigServer = (
 ): Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return;
     }
@@ -387,7 +387,7 @@ export const addMcpServerMixed = (
           timeoutMs: strategy.timeoutMs ?? 10_000,
           cwd: args.workspaceRoot,
         }).pipe(
-          Effect.catchAll(() =>
+          Effect.catch(() =>
             Effect.succeed({
               exitCode: 127,
               stdout: "",
@@ -450,7 +450,7 @@ export const removeMcpServerMixed = (
           timeoutMs: strategy.timeoutMs ?? 10_000,
           cwd: args.workspaceRoot,
         }).pipe(
-          Effect.catchAll(() =>
+          Effect.catch(() =>
             Effect.succeed({
               exitCode: 127,
               stdout: "",
@@ -536,7 +536,7 @@ const verifyConfigFirst = (
       timeoutMs: strategy.timeoutMs ?? 10_000,
       cwd: args.workspaceRoot,
     }).pipe(
-      Effect.catchAll(() =>
+      Effect.catch(() =>
         Effect.succeed({
           exitCode: 127,
           stdout: "",

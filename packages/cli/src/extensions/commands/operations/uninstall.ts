@@ -7,10 +7,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { makeCliError } from "../../../cli-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -86,14 +86,14 @@ export const uninstallCommand: OperationHandler<
         "commands",
         lockEntry.name,
       );
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
+      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     } else if (installedOnDisk) {
       // Remove from all known locations
       yield* removeFromAllCommandLocations(fs, path, base, op.args.commandName);
     }
 
     // Remove from settings + lockfile (swallow errors)
-    yield* ws.removeCommand(op.args.commandName).pipe(Effect.catchAll(() => Effect.void));
+    yield* ws.removeCommand(op.args.commandName).pipe(Effect.catch(() => Effect.void));
 
     return {
       result: "success",
@@ -115,20 +115,20 @@ const checkInstalledOnDisk = (
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (!extensionsDirExists) return false;
 
     const scopeDirs = yield* fsService
       .readDirectory(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     const results = yield* Effect.forEach(
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.succeed(false);
         const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
-        return fsService.exists(cmdPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+        return fsService.exists(cmdPath).pipe(Effect.catch(() => Effect.succeed(false)));
       },
       { concurrency: "unbounded" },
     );
@@ -146,13 +146,13 @@ const removeFromAllCommandLocations = (
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (!extensionsDirExists) return;
 
     const scopeDirs = yield* fsService
       .readDirectory(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     yield* Effect.forEach(
       scopeDirs,
@@ -161,7 +161,7 @@ const removeFromAllCommandLocations = (
         const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
         return fsService
           .remove(cmdPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
+          .pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );

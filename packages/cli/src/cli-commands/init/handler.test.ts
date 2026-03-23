@@ -14,8 +14,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import YAML from "yaml";
 import type { Settings } from "../../settings/index.js";
-import type { FileSystem, Path } from "@effect/platform";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -78,7 +79,7 @@ describe("init.handler", () => {
   });
 
   const TestLayer = Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     logLayer,
     confirmLayer,
     selectLayer,
@@ -407,7 +408,7 @@ describe("init.handler", () => {
         },
       });
       const BaseLayer = Layer.mergeAll(
-        NodeContext.layer,
+        NodeServices.layer,
         iLogLayer,
         iConfirmLayer,
         iSelectLayer,
@@ -512,7 +513,7 @@ describe("init.handler", () => {
         },
       });
       const BaseLayer = Layer.mergeAll(
-        NodeContext.layer,
+        NodeServices.layer,
         iClackLogLayer,
         iConfirmLayer,
         iSelectLayer,
@@ -564,7 +565,7 @@ describe("init.handler", () => {
         debug: Option.none(),
       });
       const BaseLayer = Layer.mergeAll(
-        NodeContext.layer,
+        NodeServices.layer,
         iClackLogLayer,
         iConfirmLayer,
         iSelectLayer,

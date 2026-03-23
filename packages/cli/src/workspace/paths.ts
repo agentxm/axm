@@ -9,7 +9,7 @@
  */
 
 import * as os from "node:os";
-import * as Path from "@effect/platform/Path";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { WorkspaceScope } from "./scope.js";
 

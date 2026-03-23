@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -60,7 +60,7 @@ const makeWorkspaceMock = (
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
-    getLockedSkill: (name: string) => Effect.succeed(Option.fromNullable(readLf().skills?.[name])),
+    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(readLf().skills?.[name])),
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
@@ -187,7 +187,7 @@ const withServices = (
           : source.type,
   };
   return Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(mockWs),
     ClackLogTestLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
@@ -276,8 +276,8 @@ const makeOp = (
       ref,
       force: overrides.force ?? false,
       versionConstraint: overrides.versionConstraint ?? Option.none(),
-      skipSettings: Option.fromNullable(overrides.skipSettings),
-      strictUnknownAgents: Option.fromNullable(overrides.strictUnknownAgents),
+      skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
+      strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
     },
   };
 };
@@ -505,7 +505,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
           // CliError is in the E channel — catch it as applyPlan would
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -523,7 +523,7 @@ describe("installSkill", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -785,7 +785,7 @@ describe("installSkill", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
         );
 
         expect(result.result).toBe("error");

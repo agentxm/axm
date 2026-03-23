@@ -7,10 +7,11 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as ServiceMap from "effect/ServiceMap";
 import { makeClackPromptTestLayer } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -36,20 +37,20 @@ const mockWorkspace = {
   isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   markDependencyRetainedInLockfile: () => Effect.void,
   resolvePlan: () => Effect.void,
-} as unknown as Workspace["Type"];
+} as unknown as ServiceMap.Service.Shape<typeof Workspace>;
 
 const mockCommandManager = {
   install: vi.fn(),
   uninstall: vi.fn(),
   isInstalled: vi.fn(),
-} as unknown as CommandManager["Type"];
+} as unknown as ServiceMap.Service.Shape<typeof CommandManager>;
 
 const mockSourceHostProviders = {
   find: vi.fn(() => Effect.succeed([])),
   fetch: vi.fn(),
   cloneUrl: vi.fn(),
   origin: vi.fn(() => "test"),
-} as unknown as SourceHostProviders["Type"];
+} as unknown as ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
 const [promptLayer] = makeClackPromptTestLayer({
   methodBehaviors: {
@@ -63,14 +64,16 @@ const testLayer = Layer.mergeAll(
   Layer.succeed(CommandManager, mockCommandManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   promptLayer,
-  NodeContext.layer,
+  NodeServices.layer,
   CliFlagsTest(),
 );
 
 const actionsLayer = Layer.provide(InstallCommandCommandWorkflowActionsLive, testLayer);
 
 const runWithActions = <A, E>(
-  fn: (actions: InstallCommandCommandWorkflowActions["Type"]) => Effect.Effect<A, E>,
+  fn: (
+    actions: ServiceMap.Service.Shape<typeof InstallCommandCommandWorkflowActions>,
+  ) => Effect.Effect<A, E>,
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallCommandCommandWorkflowActions;
@@ -145,7 +148,7 @@ describe("parseCommandInstallArgs", () => {
         Layer.succeed(CommandManager, mockCommandManager),
         Layer.succeed(SourceHostProviders, mockSourceHostProviders),
         promptLayer,
-        NodeContext.layer,
+        NodeServices.layer,
         CliFlagsTest({ force: true }),
       ),
     );

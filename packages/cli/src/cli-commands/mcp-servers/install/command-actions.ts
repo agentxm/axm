@@ -9,9 +9,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as Context from "effect/Context";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -65,9 +65,7 @@ export interface McpServerInstallSourceRequest {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class InstallMcpServerCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/InstallMcpServerCommandWorkflowActions",
-)<
+export class InstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
   InstallMcpServerCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
     InstallMcpServerHandlerArgs,
@@ -76,7 +74,7 @@ export class InstallMcpServerCommandWorkflowActions extends Context.Tag(
     McpServerExtensionRef,
     InstallMcpServerCommandIntent
   >
->() {}
+>()("@axm.sh/cli/InstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

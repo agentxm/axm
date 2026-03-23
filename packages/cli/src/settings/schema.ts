@@ -7,6 +7,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as SchemaGetter from "effect/SchemaGetter";
 import { AgentIdSchema } from "../extensions/common.js";
 
 // -----------------------------------------------------------------------------
@@ -21,7 +22,7 @@ import { AgentIdSchema } from "../extensions/common.js";
  */
 const SOURCE_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;
 
-const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN));
+const SourceNameSchema = Schema.String.check(Schema.isPattern(SOURCE_NAME_PATTERN));
 
 /**
  * GitHub source host configuration.
@@ -31,7 +32,7 @@ const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN))
 const GitHubSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("github"),
-  url: Schema.URL,
+  url: Schema.URLFromString,
 });
 
 /**
@@ -42,7 +43,7 @@ const GitHubSourceHostConfigSchema = Schema.Struct({
 const GitLabSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("gitlab"),
-  url: Schema.URL,
+  url: Schema.URLFromString,
 });
 
 /**
@@ -53,7 +54,7 @@ const GitLabSourceHostConfigSchema = Schema.Struct({
 const BitbucketSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("bitbucket"),
-  url: Schema.URL,
+  url: Schema.URLFromString,
 });
 
 /**
@@ -64,7 +65,7 @@ const BitbucketSourceHostConfigSchema = Schema.Struct({
 const AzureReposSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("azurerepos"),
-  url: Schema.URL,
+  url: Schema.URLFromString,
 });
 
 /**
@@ -75,7 +76,7 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
 const RegistrySourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("registry"),
-  location: Schema.URL,
+  location: Schema.URLFromString,
 });
 
 /**
@@ -85,31 +86,31 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceHostConfigSchema = Schema.Union(
+export const SourceHostConfigSchema = Schema.Union([
   GitHubSourceHostConfigSchema,
   GitLabSourceHostConfigSchema,
   BitbucketSourceHostConfigSchema,
   AzureReposSourceHostConfigSchema,
   RegistrySourceHostConfigSchema,
-);
+]);
 
 /**
  * Inferred type for SourceHostConfig schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceHostConfig = typeof SourceHostConfigSchema.Type;
+export type SourceHostConfig = Schema.Schema.Type<typeof SourceHostConfigSchema>;
 
 /** @experimental */
-export type GitHubSourceHostConfig = typeof GitHubSourceHostConfigSchema.Type;
+export type GitHubSourceHostConfig = Schema.Schema.Type<typeof GitHubSourceHostConfigSchema>;
 /** @experimental */
-export type GitLabSourceHostConfig = typeof GitLabSourceHostConfigSchema.Type;
+export type GitLabSourceHostConfig = Schema.Schema.Type<typeof GitLabSourceHostConfigSchema>;
 /** @experimental */
-export type BitbucketSourceHostConfig = typeof BitbucketSourceHostConfigSchema.Type;
+export type BitbucketSourceHostConfig = Schema.Schema.Type<typeof BitbucketSourceHostConfigSchema>;
 /** @experimental */
-export type AzureReposSourceHostConfig = typeof AzureReposSourceHostConfigSchema.Type;
+export type AzureReposSourceHostConfig = Schema.Schema.Type<typeof AzureReposSourceHostConfigSchema>;
 /** @experimental */
-export type RegistrySourceHostConfig = typeof RegistrySourceHostConfigSchema.Type;
+export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 /**
  * Pattern for skill names per agentskills.io specification:
  * - Max 64 characters
@@ -146,17 +147,16 @@ const validateSkillNameKeys = (record: { readonly [x: string]: unknown }) => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const NonSkillExtensionsMapSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.String,
-}).pipe(Schema.filter(validateSkillNameKeys));
+export const NonSkillExtensionsMapSchema = Schema.Record(Schema.String, Schema.String).pipe(
+  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
+);
 
 /**
  * Inferred type for NonSkillExtensionsMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type NonSkillExtensionsMap = typeof NonSkillExtensionsMapSchema.Type;
+export type NonSkillExtensionsMap = Schema.Schema.Type<typeof NonSkillExtensionsMapSchema>;
 
 /**
  * Managed skill with source and optional config flags.
@@ -175,14 +175,14 @@ export const SkillEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = Schema.Union(Schema.String, SkillEntryObjectSchema);
+export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]);
 
 /**
  * Inferred type for SkillEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillEntry = typeof SkillEntrySchema.Type;
+export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
 
 /**
  * Skills map - maps skill names to skill entries.
@@ -196,17 +196,16 @@ export type SkillEntry = typeof SkillEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsMapSchema = Schema.Record({
-  key: Schema.String,
-  value: SkillEntrySchema,
-}).pipe(Schema.filter(validateSkillNameKeys));
+export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema).pipe(
+  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
+);
 
 /**
  * Inferred type for SkillsMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillsMap = typeof SkillsMapSchema.Type;
+export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Pack Entry Schemas
@@ -226,14 +225,14 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = Schema.Union(Schema.String, PackEntryObjectSchema);
+export const PackEntrySchema = Schema.Union([Schema.String, PackEntryObjectSchema]);
 
 /**
  * Inferred type for PackEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PackEntry = typeof PackEntrySchema.Type;
+export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
 
 /**
  * Packs map - maps pack names to pack entries.
@@ -247,17 +246,16 @@ export type PackEntry = typeof PackEntrySchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksMapSchema = Schema.Record({
-  key: Schema.String,
-  value: PackEntrySchema,
-}).pipe(Schema.filter(validateSkillNameKeys));
+export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema).pipe(
+  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
+);
 
 /**
  * Inferred type for PacksMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PacksMap = typeof PacksMapSchema.Type;
+export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Ignored Patterns Schema
@@ -281,7 +279,7 @@ export const IgnoredSettingsSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type IgnoredSettings = typeof IgnoredSettingsSchema.Type;
+export type IgnoredSettings = Schema.Schema.Type<typeof IgnoredSettingsSchema>;
 
 /**
  * Canonical key order for settings properties.
@@ -317,14 +315,15 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-const NamespaceSchema = Schema.transform(Schema.String, Schema.String, {
-  strict: true,
-  decode: (s) => (s.startsWith("@") ? s : `@${s}`),
-  encode: (s) => s,
-});
+const NamespaceSchema = Schema.String.pipe(
+  Schema.decode({
+    decode: SchemaGetter.transform((s: string) => (s.startsWith("@") ? s : `@${s}`)),
+    encode: SchemaGetter.transform((s: string) => s),
+  }),
+);
 
 export const SettingsSchema = Schema.Struct({
-  telemetry: Schema.optional(Schema.Union(Schema.Boolean, Schema.Literal("errors"))),
+  telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),
   namespace: Schema.optional(NamespaceSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
@@ -340,4 +339,4 @@ export const SettingsSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Settings = typeof SettingsSchema.Type;
+export type Settings = Schema.Schema.Type<typeof SettingsSchema>;

@@ -9,7 +9,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { vi } from "vitest";
 import { McpServerManager, McpServerManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
@@ -57,7 +57,7 @@ const makeWsMock = (overrides?: {
 const buildTestLayer = (wsMock: WorkspaceContextService) =>
   McpServerManagerLive.pipe(
     Layer.provide(Layer.succeed(Workspace, wsMock)),
-    Layer.provide(NodeContext.layer),
+    Layer.provide(NodeServices.layer),
   );
 
 // ---------------------------------------------------------------------------

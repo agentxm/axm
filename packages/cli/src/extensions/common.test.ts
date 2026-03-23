@@ -5,7 +5,7 @@
  * ExtensionTypeSchema, and AgentIdSchema schemas.
  */
 
-import * as Either from "effect/Either";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -27,141 +27,141 @@ describe("common schemas", () => {
         url: "https://wayne.com",
       };
 
-      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
+      const result = Schema.decodeUnknownResult(AuthorSchema)(input);
 
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right.name).toBe("Wayne Enterprises");
-        expect(result.right.email).toBe("contact@wayne.com");
-        expect(result.right.url).toBe("https://wayne.com");
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success.name).toBe("Wayne Enterprises");
+        expect(result.success.email).toBe("contact@wayne.com");
+        expect(result.success.url).toBe("https://wayne.com");
       }
     });
 
     it("accepts valid minimal author (name only)", () => {
       const input = { name: "Bruce Wayne" };
 
-      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
+      const result = Schema.decodeUnknownResult(AuthorSchema)(input);
 
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right.name).toBe("Bruce Wayne");
-        expect(result.right.email).toBeUndefined();
-        expect(result.right.url).toBeUndefined();
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success.name).toBe("Bruce Wayne");
+        expect(result.success.email).toBeUndefined();
+        expect(result.success.url).toBeUndefined();
       }
     });
 
     it("rejects author missing required name", () => {
       const input = { email: "test@example.com" };
 
-      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
+      const result = Schema.decodeUnknownResult(AuthorSchema)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects author with non-string name", () => {
       const input = { name: 123 };
 
-      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
+      const result = Schema.decodeUnknownResult(AuthorSchema)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects null input", () => {
-      const result = Schema.decodeUnknownEither(AuthorSchema)(null);
+      const result = Schema.decodeUnknownResult(AuthorSchema)(null);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
   describe("FullyQualifiedName", () => {
     it("accepts valid 3-segment FQN", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/skills/grappling-hook",
       );
 
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right).toBe("@wayne/skills/grappling-hook");
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toBe("@wayne/skills/grappling-hook");
       }
     });
 
     it("accepts packs type segment", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/packs/bat-utility",
       );
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts commands type segment", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/commands/bat-deploy",
       );
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts mcp-servers type segment", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/mcp-servers/bat-signal",
       );
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts pattern with underscores", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne_corp/skills/bat_signal",
       );
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts pattern with numbers", () => {
       const result =
-        Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne123/packs/tool456");
+        Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne123/packs/tool456");
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects 2-segment name (old format)", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/grappling-hook");
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne/grappling-hook");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects name without @ prefix", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "wayne/skills/grappling-hook",
       );
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects name without namespace (just name)", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("grappling-hook");
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("grappling-hook");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects incomplete pattern (@namespace only)", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne");
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects invalid type segment", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/widgets/grappling-hook",
       );
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects empty string", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("");
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
@@ -182,9 +182,9 @@ describe("common schemas", () => {
         authors: [{ name: "Bruce Wayne" }],
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("accepts minimal manifest (name and version only)", () => {
@@ -194,9 +194,9 @@ describe("common schemas", () => {
         version: "0.1.0",
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isRight(result)).toBe(true);
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects manifest with invalid name pattern", () => {
@@ -206,9 +206,9 @@ describe("common schemas", () => {
         version: "1.0.0",
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects manifest missing required namespace", () => {
@@ -217,9 +217,9 @@ describe("common schemas", () => {
         version: "1.0.0",
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects manifest missing required name", () => {
@@ -228,9 +228,9 @@ describe("common schemas", () => {
         version: "1.0.0",
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects manifest missing required version", () => {
@@ -239,33 +239,33 @@ describe("common schemas", () => {
         name: "hook",
       };
 
-      const result = Schema.decodeUnknownEither(TestManifest)(input);
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
   describe("ManifestNamespace", () => {
     it("accepts @-prefixed namespace", () => {
-      const result = Schema.decodeUnknownEither(ManifestNamespaceSchema)("@wayne");
-      expect(Either.isRight(result)).toBe(true);
+      const result = Schema.decodeUnknownResult(ManifestNamespaceSchema)("@wayne");
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects namespace without @", () => {
-      const result = Schema.decodeUnknownEither(ManifestNamespaceSchema)("wayne");
-      expect(Either.isLeft(result)).toBe(true);
+      const result = Schema.decodeUnknownResult(ManifestNamespaceSchema)("wayne");
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
   describe("ManifestName", () => {
     it("accepts simple short name", () => {
-      const result = Schema.decodeUnknownEither(ManifestNameSchema)("grappling-hook");
-      expect(Either.isRight(result)).toBe(true);
+      const result = Schema.decodeUnknownResult(ManifestNameSchema)("grappling-hook");
+      expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects FQN as short name", () => {
-      const result = Schema.decodeUnknownEither(ManifestNameSchema)("@wayne/skills/grappling-hook");
-      expect(Either.isLeft(result)).toBe(true);
+      const result = Schema.decodeUnknownResult(ManifestNameSchema)("@wayne/skills/grappling-hook");
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
@@ -273,31 +273,31 @@ describe("common schemas", () => {
     it.each(["skill", "pack", "mcp-server"] as const)(
       "accepts valid extension type: %s",
       (type) => {
-        const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(type);
+        const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(type);
 
-        expect(Either.isRight(result)).toBe(true);
-        if (Either.isRight(result)) {
-          expect(result.right).toBe(type);
+        expect(Result.isSuccess(result)).toBe(true);
+        if (Result.isSuccess(result)) {
+          expect(result.success).toBe(type);
         }
       },
     );
 
     it("rejects invalid extension type", () => {
-      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)("invalid");
+      const result = Schema.decodeUnknownResult(ExtensionTypeSchema)("invalid");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects empty string", () => {
-      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)("");
+      const result = Schema.decodeUnknownResult(ExtensionTypeSchema)("");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects non-string value", () => {
-      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(123);
+      const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(123);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 
@@ -312,30 +312,30 @@ describe("common schemas", () => {
       "opencode",
       "antigravity",
     ] as const)("accepts valid agent id: %s", (agentId) => {
-      const result = Schema.decodeUnknownEither(AgentIdSchema)(agentId);
+      const result = Schema.decodeUnknownResult(AgentIdSchema)(agentId);
 
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right).toBe(agentId);
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toBe(agentId);
       }
     });
 
     it("rejects invalid agent id", () => {
-      const result = Schema.decodeUnknownEither(AgentIdSchema)("unknown-agent");
+      const result = Schema.decodeUnknownResult(AgentIdSchema)("unknown-agent");
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects null", () => {
-      const result = Schema.decodeUnknownEither(AgentIdSchema)(null);
+      const result = Schema.decodeUnknownResult(AgentIdSchema)(null);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
 
     it("rejects undefined", () => {
-      const result = Schema.decodeUnknownEither(AgentIdSchema)(undefined);
+      const result = Schema.decodeUnknownResult(AgentIdSchema)(undefined);
 
-      expect(Either.isLeft(result)).toBe(true);
+      expect(Result.isFailure(result)).toBe(true);
     });
   });
 });

@@ -28,4 +28,4 @@ export const SkillManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillManifest = typeof SkillManifestSchema.Type;
+export type SkillManifest = Schema.Schema.Type<typeof SkillManifestSchema>;

@@ -14,8 +14,8 @@ const makeSource = (
   organization: overrides.organization ?? "myorg",
   project: overrides.project ?? "myproject",
   repo: overrides.repo ?? "myrepo",
-  ref: Option.fromNullable(overrides.ref),
-  subPath: Option.fromNullable(overrides.subPath),
+  ref: Option.fromUndefinedOr(overrides.ref),
+  subPath: Option.fromUndefinedOr(overrides.subPath),
 });
 
 describe("print", () => {

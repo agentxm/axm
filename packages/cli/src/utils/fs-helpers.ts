@@ -4,8 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
 
@@ -14,7 +14,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/
  */
 export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
   fsService.exists(dirPath).pipe(
-    Effect.catchAll(() => Effect.succeed(false)),
+    Effect.catch(() => Effect.succeed(false)),
     Effect.flatMap((exists) =>
       exists ? fsService.remove(dirPath, { recursive: true }).pipe(Effect.ignore) : Effect.void,
     ),
@@ -44,12 +44,12 @@ export const removeFromAllCanonicalLocations = (
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (extensionsDirExists) {
       const scopeDirs = yield* fsService
         .readDirectory(extensionsDir)
-        .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+        .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
       yield* Effect.forEach(
         scopeDirs,

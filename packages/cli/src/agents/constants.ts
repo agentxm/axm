@@ -11,7 +11,7 @@
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 // Wrapped in Effect.sync so execution is deferred — no eager module-level I/O.
 import * as os from "node:os";
-import * as Path from "@effect/platform/Path";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CliEnvConfig } from "../config/index.js";

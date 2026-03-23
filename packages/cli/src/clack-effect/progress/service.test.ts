@@ -67,7 +67,7 @@ describe("ClackProgress", () => {
         .withProgress({ max: 10 }, "Working...", () =>
           Effect.fail(new TestError({ message: "boom" })),
         )
-        .pipe(Effect.catchAll(() => Effect.succeed("recovered")));
+        .pipe(Effect.catch(() => Effect.succeed("recovered")));
       expect(result).toBe("recovered");
       const calls = yield* (yield* ClackProgressTest).get;
       expect(calls).toEqual([
@@ -80,10 +80,10 @@ describe("ClackProgress", () => {
   it.effect("withProgress calls cancel on interruption", () =>
     Effect.gen(function* () {
       const progress = yield* ClackProgress;
-      const fiber = yield* Effect.fork(
+      const fiber = yield* Effect.forkChild(
         progress.withProgress({ max: 100 }, "Working...", () => Effect.never),
       );
-      yield* Effect.yieldNow();
+      yield* Effect.yieldNow;
       yield* Fiber.interrupt(fiber);
       yield* Fiber.await(fiber);
       const calls = yield* (yield* ClackProgressTest).get;

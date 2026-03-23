@@ -10,9 +10,9 @@ import { execSync, type ExecSyncOptions } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -86,7 +86,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
   resolvePlan: () => Effect.die("not implemented in test"),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
-    Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
+    Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
   getRegistrySourceHosts: () =>
     Effect.succeed(
       sources.filter(
@@ -153,10 +153,10 @@ const runWithService = <A, E>(
   const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
-    Layer.provide(NodeContext.layer),
+    Layer.provide(NodeServices.layer),
     Layer.provide(CliEnvConfig.testDefaults),
   );
-  const fullLayer = Layer.mergeAll(spLayer, NodeContext.layer, CliEnvConfig.testDefaults);
+  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer, CliEnvConfig.testDefaults);
   return Effect.runPromise(effect.pipe(Effect.provide(fullLayer), Effect.scoped));
 };
 
@@ -342,10 +342,10 @@ describe("SourceHostProviders dispatch", () => {
         // Querying a nonexistent local path returns an error (not found)
         const result = yield* svc
           .find({ type: "local", path: "/nonexistent/path" }, defaultFindOptions)
-          .pipe(Effect.either);
+          .pipe(Effect.result);
 
         // Local provider will fail because the dir doesn't exist
-        expect(result._tag).toBe("Left");
+        expect(result._tag).toBe("Failure");
       }),
     ));
 
@@ -359,12 +359,12 @@ describe("SourceHostProviders dispatch", () => {
             { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
             defaultFindOptions,
           )
-          .pipe(Effect.either);
+          .pipe(Effect.result);
 
         // Git provider is a stub that always fails
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.what).toContain("not yet supported");
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.what).toContain("not yet supported");
         }
       }),
     ));
@@ -388,9 +388,9 @@ describe("SourceHostProviders dispatch", () => {
             },
             defaultFindOptions,
           )
-          .pipe(Effect.either);
+          .pipe(Effect.result);
 
-        expect(result._tag).toBe("Left");
+        expect(result._tag).toBe("Failure");
       }),
     ));
 
@@ -430,11 +430,11 @@ describe("SourceHostProviders dispatch", () => {
       [],
       Effect.gen(function* () {
         const svc = yield* SourceHostProviders;
-        const result = yield* svc.find({ type: "builtin" }, defaultFindOptions).pipe(Effect.either);
+        const result = yield* svc.find({ type: "builtin" }, defaultFindOptions).pipe(Effect.result);
 
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.what).toContain("Builtin source provider find not yet implemented");
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.what).toContain("Builtin source provider find not yet implemented");
         }
       }),
     ));

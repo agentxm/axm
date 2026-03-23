@@ -9,11 +9,11 @@ import { execSync, type ExecSyncOptions } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -99,7 +99,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.extensions).toHaveLength(0);
       expect(result.total).toBe(0);
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("finds skills by name from index.json", () => {
@@ -127,7 +127,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -153,7 +153,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -179,7 +179,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -209,7 +209,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -244,7 +244,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -279,7 +279,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -335,7 +335,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 });
@@ -360,7 +360,7 @@ describe("LocalRegistryClient.namespaceExists", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -375,7 +375,7 @@ describe("LocalRegistryClient.namespaceExists", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 });
@@ -408,7 +408,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -439,7 +439,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -479,7 +479,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -495,16 +495,16 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
           name: "missing",
           version: Option.some("1.0.0"),
         })
-        .pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_FETCH_FAILED");
+        .pipe(Effect.result);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure.code).toBe("REGISTRY_FETCH_FAILED");
       }
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -528,16 +528,16 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
           name: "my-skill",
           version: Option.none(),
         })
-        .pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_FETCH_FAILED");
+        .pipe(Effect.result);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure.code).toBe("REGISTRY_FETCH_FAILED");
       }
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 });
@@ -579,7 +579,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -622,7 +622,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -654,7 +654,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -688,17 +688,17 @@ describe("LocalRegistryClient.publishExtension", () => {
           archive: archive2,
           metadata: entry2,
         })
-        .pipe(Effect.either);
+        .pipe(Effect.result);
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_PUBLISH_FAILED");
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure.code).toBe("REGISTRY_PUBLISH_FAILED");
       }
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 });
@@ -728,7 +728,7 @@ describe("LocalRegistryClient.extensionExists", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -747,7 +747,7 @@ describe("LocalRegistryClient.extensionExists", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 });
@@ -821,14 +821,14 @@ describe("RemoteRegistryClient", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.total).toBe(1);
       expect(result.extensions[0]?.name).toBe("my-skill");
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("namespaceExists succeeds via remote list semantics", () =>
     Effect.gen(function* () {
       const result = yield* client.namespaceExists("@test");
       expect(result).toEqual({ exists: true });
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("getExtensionPackage succeeds via index + archive", () =>
@@ -840,7 +840,7 @@ describe("RemoteRegistryClient", () => {
         version: Option.some("1.0.0"),
       });
       expect(Array.from(result.archive)).toEqual([0x50, 0x4b]);
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("publishExtension succeeds via remote client", () =>
@@ -866,7 +866,7 @@ describe("RemoteRegistryClient", () => {
         metadata: makeVersionEntry(),
       });
       expect(result).toEqual({ published: true });
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("extensionExists succeeds for remote client", () =>
@@ -877,7 +877,7 @@ describe("RemoteRegistryClient", () => {
         name: "my-skill",
       });
       expect(result).toEqual({ exists: true });
-    }).pipe(Effect.provide(NodeContext.layer)),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });
 
@@ -906,7 +906,7 @@ describe("createRegistryClient", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -930,7 +930,7 @@ describe("createRegistryClient", () => {
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
       ),
-      Effect.provide(NodeContext.layer),
+      Effect.provide(NodeServices.layer),
     );
   });
 
@@ -940,7 +940,7 @@ describe("createRegistryClient", () => {
       expect(typeof client.getExtensionsByScope).toBe("function");
       expect(typeof client.namespaceExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
-    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, remoteHttpLayer))),
+    }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );
 
   it.effect("uses the ambient HttpClient for remote publish requests", () => {
@@ -979,7 +979,7 @@ describe("createRegistryClient", () => {
       });
 
       expect(requestCount).toBe(1);
-    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, httpLayer)));
+    }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, httpLayer)));
   });
 
   it.effect("creates a remote client for an http:// URL", () =>
@@ -988,6 +988,6 @@ describe("createRegistryClient", () => {
       expect(typeof client.getExtensionsByScope).toBe("function");
       expect(typeof client.namespaceExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
-    }).pipe(Effect.provide(Layer.mergeAll(NodeContext.layer, remoteHttpLayer))),
+    }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );
 });

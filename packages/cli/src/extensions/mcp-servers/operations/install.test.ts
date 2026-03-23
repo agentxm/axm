@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -87,7 +87,7 @@ const makeWorkspaceMock = (
     removeCommand: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed(readLf().mcpServers ?? {}),
     getLockedMcpServer: (name: string) =>
-      Effect.succeed(Option.fromNullable(readLf().mcpServers?.[name])),
+      Effect.succeed(Option.fromUndefinedOr(readLf().mcpServers?.[name])),
     setMcpServer: setMcpServerFn
       ? (args: { name: string; lockEntry: unknown }) => setMcpServerFn(args)
       : (args: { name: string; lockEntry: unknown }) =>
@@ -174,7 +174,7 @@ const withServices = (
           : source.type,
   };
   return Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(mockWs),
     ClackLogTestLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
@@ -218,8 +218,8 @@ const makeOp = (
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
     versionConstraint: overrides.versionConstraint ?? Option.none(),
-    skipSettings: Option.fromNullable(overrides.skipSettings),
-    strictAgentSync: Option.fromNullable(overrides.strictAgentSync),
+    skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
+    strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
   },
 });
 
@@ -434,7 +434,7 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
         ).pipe(
           Effect.provide(withServices(axmDir, { setMcpServerFn })),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
         );
 
         expect(result.result).toBe("error");
@@ -461,7 +461,7 @@ describe("installMcpServer", () => {
 
         const result = yield* installMcpServer(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -482,7 +482,7 @@ describe("installMcpServer", () => {
 
         const result = yield* installMcpServer(makeOp({ ref })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
         );
 
         expect(result.result).toBe("error");
@@ -520,7 +520,7 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -577,7 +577,7 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -661,7 +661,7 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -715,7 +715,7 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");

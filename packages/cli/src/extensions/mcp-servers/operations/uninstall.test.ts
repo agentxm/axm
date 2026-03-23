@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -92,7 +92,7 @@ const makeWorkspaceMock = (
     removeCommand: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed(mcpServers),
     getLockedMcpServer: (name: string) =>
-      Effect.succeed(Option.fromNullable(mcpServers[name] as McpServerLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(mcpServers[name] as McpServerLockEntry | undefined)),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
     removeMcpServer: overrides?.removeMcpServerFn
@@ -127,7 +127,7 @@ const withServices = (
   },
 ) =>
   Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
     ClackLogTestLayer,
   );
@@ -138,7 +138,7 @@ const makeOp = (
   name: "uninstall-mcp-server",
   args: {
     serverName: overrides.serverName ?? "my-server",
-    strictAgentSync: Option.fromNullable(overrides.strictAgentSync),
+    strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
   },
 });
 
@@ -334,7 +334,7 @@ describe("uninstallMcpServer", () => {
 
         const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
           Effect.provide(withServices(axmDir, lockfileMcpServers)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -387,7 +387,7 @@ describe("uninstallMcpServer", () => {
 
         const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
           Effect.provide(withServices(axmDir, lockfileMcpServers)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -466,7 +466,7 @@ describe("uninstallMcpServer", () => {
 
         const result = yield* uninstallMcpServer(makeOp({ strictAgentSync: true })).pipe(
           Effect.provide(withServices(axmDir, lockfileMcpServers)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");
@@ -516,7 +516,7 @@ describe("uninstallMcpServer", () => {
 
         const result = yield* uninstallMcpServer(makeOp()).pipe(
           Effect.provide(withServices(axmDir, lockfileMcpServers)),
-          Effect.catchAll((error) => Effect.succeed({ result: "error" as const, error })),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
         expect(result.result).toBe("error");

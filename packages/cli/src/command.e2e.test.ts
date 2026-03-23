@@ -7,7 +7,7 @@ import { runCli } from "./e2e/utils.js";
 
 /**
  * Get combined output from CLI result.
- * Help output may go to stdout (--help) or stderr (yargs showHelp).
+ * Help output may go to stdout or stderr depending on the execution path.
  */
 function getOutput(result: { stdout: string; stderr: string }): string {
   return result.stdout + result.stderr;
@@ -33,7 +33,8 @@ describe("axm (root command)", () => {
       const result = await runCli([]);
       const output = getOutput(result);
 
-      expect(output).toContain("Examples:");
+      expect(output).toContain("EXAMPLES");
+      expect(output).toContain("axm init");
     });
   });
 

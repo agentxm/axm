@@ -27,7 +27,7 @@ import * as Schema from "effect/Schema";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceTypeSchema = Schema.Literal(
+export const SourceTypeSchema = Schema.Literals([
   "github",
   "gitlab",
   "bitbucket",
@@ -36,14 +36,14 @@ export const SourceTypeSchema = Schema.Literal(
   "registry",
   "local",
   "builtin",
-);
+]);
 
 /**
  * Inferred type for SourceTypeSchema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = typeof SourceTypeSchema.Type;
+export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
 
 // -----------------------------------------------------------------------------
 // Ref Type Schema
@@ -59,14 +59,14 @@ export type SourceType = typeof SourceTypeSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RefTypeSchema = Schema.Literal("git-hosted", "registry", "local", "builtin");
+export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local", "builtin"]);
 
 /**
  * Inferred type for RefTypeSchema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RefType = typeof RefTypeSchema.Type;
+export type RefType = Schema.Schema.Type<typeof RefTypeSchema>;
 
 // =============================================================================
 // Source Domain Model (source-host-domain-modeling)

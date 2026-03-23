@@ -3,13 +3,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Either from "effect/Either";
+import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 import { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 
 const runSync = <A>(effect: Effect.Effect<A, unknown>) =>
   Effect.runSyncExit(effect).pipe((exit) =>
-    exit._tag === "Success" ? Either.right(exit.value) : Either.left(exit.cause),
+    exit._tag === "Success" ? Result.succeed(exit.value) : Result.fail(exit.cause),
   );
 
 describe("parseFqn", () => {
@@ -41,9 +41,9 @@ describe("parseFqn", () => {
   ])("parses valid FQN: $input", ({ input, expected }) => {
     const result = runSync(parseFqn(input));
 
-    expect(Either.isRight(result)).toBe(true);
-    if (Either.isRight(result)) {
-      expect(result.right).toEqual(expected);
+    expect(Result.isSuccess(result)).toBe(true);
+    if (Result.isSuccess(result)) {
+      expect(result.success).toEqual(expected);
     }
   });
 
@@ -60,7 +60,7 @@ describe("parseFqn", () => {
   ])("rejects invalid input: $desc ($input)", ({ input }) => {
     const result = runSync(parseFqn(input));
 
-    expect(Either.isLeft(result)).toBe(true);
+    expect(Result.isFailure(result)).toBe(true);
   });
 });
 

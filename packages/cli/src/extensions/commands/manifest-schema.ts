@@ -32,4 +32,4 @@ export const CommandManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandManifest = typeof CommandManifestSchema.Type;
+export type CommandManifest = Schema.Schema.Type<typeof CommandManifestSchema>;

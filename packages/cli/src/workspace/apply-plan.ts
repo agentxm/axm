@@ -57,7 +57,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
             result,
           }),
         ),
-        Effect.catchAll((error): Effect.Effect<CompletedJobStep> => {
+        Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           const detailSuffix = error.details.length > 0 ? ` | ${error.details.join(" | ")}` : "";
           return Effect.succeed({
             label: step.label,

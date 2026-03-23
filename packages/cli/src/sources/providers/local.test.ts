@@ -8,9 +8,9 @@
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -22,7 +22,7 @@ const runEffect = <A, E>(
   effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
 ) =>
   Effect.runPromise(
-    effect.pipe(Effect.provide(Layer.merge(NodeContext.layer, CliEnvConfig.testDefaults))),
+    effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, CliEnvConfig.testDefaults))),
   );
 
 describe("createLocalSourceHostProvider", () => {

@@ -22,13 +22,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { FetchHttpClient } from "@effect/platform";
-import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { type AddArgs, handleAdd } from "./handler.js";
 
-// Multi-service layer using Layer.mergeAll
-const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
+// NodeServices.layer covers the platform filesystem/path services used by handlers.
+const TestLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
 
 describe("add.handler", () => {
   let tempDir: string;

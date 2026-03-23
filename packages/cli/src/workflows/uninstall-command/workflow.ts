@@ -22,7 +22,7 @@ import { Workspace } from "../../workspace/service.js";
  * Each extension type provides its own implementation of these actions.
  * The generic type parameters allow full type safety per extension type.
  *
- * @typeParam Args - Raw command arguments (from yargs)
+ * @typeParam Args - Raw command arguments from the active CLI parser
  * @typeParam Parsed - Parsed/validated arguments
  * @typeParam Intent - Command-specific uninstall intent
  */

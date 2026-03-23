@@ -1,12 +1,10 @@
 # Effect Guide
 
-> **Effect v3 notice:** Linked skills reference Effect v3 APIs. v3 → v4
-> migration in progress.
-
-Comprehensive patterns for using Effect as this project's standard library.
-Covers typed errors, services, Option/nullable handling, collections (Array,
-Chunk, HashMap), iteration and streaming, schema validation, wrapping external
-APIs, and testing Effect programs.
+Comprehensive Effect v4 patterns for using Effect as this project's standard
+library. Covers typed errors, `ServiceMap.Service`-based services,
+Option/nullable handling, collections (Array, Chunk, HashMap), iteration and
+streaming, schema validation, wrapping external APIs, and testing Effect
+programs.
 
 > [Effect](../../CLAUDE.md#effect) — critical guidance
 
@@ -60,9 +58,9 @@ See [CLAUDE.md#type-inference](../../CLAUDE.md#type-inference) for examples.
 ## Why Effect?
 
 Effect serves as this project's standard library, replacing raw Promises and
-async/await with composable operations. The CLI architecture separates yargs
-parsing from Effect handlers—this enables testing business logic independently
-from CLI wiring.
+async/await with composable operations. The CLI architecture separates
+`effect/unstable/cli` parsing from Effect handlers so business logic stays
+independently testable from CLI wiring.
 
 Key benefits for this codebase:
 

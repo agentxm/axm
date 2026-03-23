@@ -7,9 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as Context from "effect/Context";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -33,10 +33,10 @@ import {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class PackManager extends Context.Tag("@axm.sh/cli/PackManager")<
+export class PackManager extends ServiceMap.Service<
   PackManager,
   ExtensionManager<PackExtensionRef>
->() {}
+>()("@axm.sh/cli/PackManager") {}
 
 // Build pack SetPackArgs from a registry ref
 const buildSetPackArgs = (

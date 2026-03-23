@@ -8,6 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as ServiceMap from "effect/ServiceMap";
 import { ClackLog } from "../clack-effect/index.js";
 import { renderCliError, type RenderCliErrorOptions } from "../cli-error/index.js";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
@@ -67,7 +68,10 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
     }
   });
 
-const renderPlannedStep = (step: PlannedJobStep, log: ClackLog["Type"]) => {
+const renderPlannedStep = (
+  step: PlannedJobStep,
+  log: ServiceMap.Service.Shape<typeof ClackLog>,
+) => {
   switch (step.readiness) {
     case "ready":
       return log.success(`  + ${step.label}`);
@@ -80,7 +84,7 @@ const renderPlannedStep = (step: PlannedJobStep, log: ClackLog["Type"]) => {
 
 const renderCompletedStep = (
   step: CompletedJobStep,
-  log: ClackLog["Type"],
+  log: ServiceMap.Service.Shape<typeof ClackLog>,
   verbosity: RenderCliErrorOptions,
 ) => {
   switch (step.result.result) {
@@ -104,7 +108,10 @@ const renderCompletedStep = (
   }
 };
 
-const renderPlannedSummary = (allSteps: ReadonlyArray<PlannedJobStep>, log: ClackLog["Type"]) =>
+const renderPlannedSummary = (
+  allSteps: ReadonlyArray<PlannedJobStep>,
+  log: ServiceMap.Service.Shape<typeof ClackLog>,
+) =>
   Effect.gen(function* () {
     const readyCount = allSteps.filter((s) => s.readiness === "ready").length;
     const warnCount = allSteps.filter((s) => s.readiness === "warn").length;
@@ -120,7 +127,10 @@ const renderPlannedSummary = (allSteps: ReadonlyArray<PlannedJobStep>, log: Clac
     }
   });
 
-const renderCompletedSummary = (allSteps: ReadonlyArray<CompletedJobStep>, log: ClackLog["Type"]) =>
+const renderCompletedSummary = (
+  allSteps: ReadonlyArray<CompletedJobStep>,
+  log: ServiceMap.Service.Shape<typeof ClackLog>,
+) =>
   Effect.gen(function* () {
     const successCount = allSteps.filter((s) => s.result.result === "success").length;
     const failCount = allSteps.filter((s) => s.result.result === "error").length;

@@ -3,7 +3,7 @@
  */
 
 import { createHash } from "node:crypto";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
@@ -52,7 +52,7 @@ describe("computeIntegrity", () => {
   it("computes sha512 integrity in SRI format", async () => {
     const data = new TextEncoder().encode("hello world");
     const result = await Effect.runPromise(
-      computeIntegrity(data).pipe(Effect.provide(NodeContext.layer)),
+      computeIntegrity(data).pipe(Effect.provide(NodeServices.layer)),
     );
     const expected = `sha512-${createHash("sha512").update(data).digest("base64")}`;
     expect(result).toBe(expected);
@@ -63,7 +63,7 @@ describe("computeIntegrity", () => {
     const data2 = new TextEncoder().encode("world");
     const [result1, result2] = await Effect.runPromise(
       Effect.all([computeIntegrity(data1), computeIntegrity(data2)]).pipe(
-        Effect.provide(NodeContext.layer),
+        Effect.provide(NodeServices.layer),
       ),
     );
     expect(result1).not.toBe(result2);
@@ -73,7 +73,7 @@ describe("computeIntegrity", () => {
     const data = new TextEncoder().encode("test");
     const [result1, result2] = await Effect.runPromise(
       Effect.all([computeIntegrity(data), computeIntegrity(data)]).pipe(
-        Effect.provide(NodeContext.layer),
+        Effect.provide(NodeServices.layer),
       ),
     );
     expect(result1).toBe(result2);

@@ -12,7 +12,7 @@ export const parseShorthand = (input: string) =>
       type: "gitlab",
       owner: parts.owner,
       repo: parts.repo,
-      ref: Option.fromNullable(parts.ref),
-      subPath: Option.fromNullable(parts.subPath),
+      ref: Option.fromUndefinedOr(parts.ref),
+      subPath: Option.fromUndefinedOr(parts.subPath),
     } satisfies GitLabSourceParams;
   });

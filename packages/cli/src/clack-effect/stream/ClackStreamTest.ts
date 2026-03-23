@@ -1,5 +1,4 @@
-import * as Chunk from "effect/Chunk";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -11,15 +10,15 @@ export interface ClackStreamCall {
   readonly values: ReadonlyArray<string>;
 }
 
-export class ClackStreamTest extends Context.Tag("@axm.sh/cli/test/ClackStreamTest")<
+export class ClackStreamTest extends ServiceMap.Service<
   ClackStreamTest,
   {
     readonly ref: Ref.Ref<ReadonlyArray<ClackStreamCall>>;
     readonly get: Effect.Effect<ReadonlyArray<ClackStreamCall>>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackStreamTest") {}
 
-export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> = Layer.effectContext(
+export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> = Layer.effectServices(
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<ClackStreamCall>>([]);
 
@@ -27,12 +26,11 @@ export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> = 
       (method: string) =>
       <E, R>(stream: Stream.Stream<string, E, R>) =>
         Effect.gen(function* () {
-          const chunks = yield* Stream.runCollect(stream);
-          const values = Chunk.toReadonlyArray(chunks);
+          const values = yield* Stream.runCollect(stream);
           yield* Ref.update(ref, (calls) => [...calls, { method, values }]);
         });
 
-    const service: Context.Tag.Service<typeof ClackStream> = {
+    const service: ServiceMap.Service.Shape<typeof ClackStream> = {
       message: makeMethod("message"),
       info: makeMethod("info"),
       success: makeMethod("success"),
@@ -41,14 +39,14 @@ export const ClackStreamTestLayer: Layer.Layer<ClackStream | ClackStreamTest> = 
       error: makeMethod("error"),
     };
 
-    const test: Context.Tag.Service<typeof ClackStreamTest> = {
+    const test: ServiceMap.Service.Shape<typeof ClackStreamTest> = {
       ref,
       get: Ref.get(ref),
     };
 
-    return Context.empty().pipe(
-      Context.add(ClackStream, service),
-      Context.add(ClackStreamTest, test),
+    return ServiceMap.empty().pipe(
+      ServiceMap.add(ClackStream, service),
+      ServiceMap.add(ClackStreamTest, test),
     );
   }),
 );

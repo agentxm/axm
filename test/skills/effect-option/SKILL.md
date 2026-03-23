@@ -6,9 +6,6 @@ user-invocable: false
 
 # Option vs Nullable Types in Effect
 
-> **Effect v3 notice:** Examples use Effect v3 APIs (`Option.fromNullable`,
-> etc.). v3 → v4 migration in progress.
-
 **Use `Option<T>` as the default for optional values within Effect codebases.** Reserve nullable types (`T | null | undefined`) for interop boundaries with external APIs, DOM operations, and JSON serialization.
 
 ---
@@ -47,17 +44,19 @@ const findUser = (id: string): Effect.Effect<Option<User>, DatabaseError> =>
 
 ## Conversion at Boundaries
 
-Convert eagerly—`fromNullable` at entry, `getOrNull` at exit:
+Convert eagerly with the boundary helper that matches the incoming shape, then
+return to nullable values only at the edge:
 
 ```typescript
-// Incoming: convert immediately
-const userOption = Option.fromNullable(externalApi.getUser());
+// Incoming: choose the helper that matches the source value
+const userOption = Option.fromNullOr(externalApi.getUser());
+const themeOverride = Option.fromUndefinedOr(process.env.AXM_THEME);
 
 // Work with Option throughout
 const result = pipe(
   userOption,
   Option.map((u) => u.preferences),
-  Option.flatMap((p) => Option.fromNullable(p.theme)),
+  Option.flatMap((p) => Option.fromUndefinedOr(p.theme)),
   Option.filter((theme) => theme !== "system"),
   Option.getOrElse(() => "dark"),
 );
@@ -68,12 +67,14 @@ const response = { theme: Option.getOrNull(themeOption) };
 
 ### Conversion Reference
 
-| From                     | To                    | Method                    |
-| ------------------------ | --------------------- | ------------------------- |
-| `T \| null \| undefined` | `Option<T>`           | `Option.fromNullable()`   |
-| `Option<T>`              | `T \| null`           | `Option.getOrNull()`      |
-| `Option<T>`              | `T \| undefined`      | `Option.getOrUndefined()` |
-| `() => T \| null`        | `(a: A) => Option<T>` | `Option.liftNullable()`   |
+| From              | To                    | Method                     |
+| ----------------- | --------------------- | -------------------------- |
+| `T \| null`       | `Option<T>`           | `Option.fromNullOr()`      |
+| `T \| undefined`  | `Option<T>`           | `Option.fromUndefinedOr()` |
+| `T \| nullish`    | `Option<T>`           | `Option.fromNullishOr()`   |
+| `Option<T>`       | `T \| null`           | `Option.getOrNull()`       |
+| `Option<T>`       | `T \| undefined`      | `Option.getOrUndefined()`  |
+| `() => T \| null` | `(a: A) => Option<T>` | `Option.liftNullable()`    |
 
 ---
 
@@ -98,9 +99,9 @@ Schema.OptionFromNullishOr(Schema.String); // null | undefined ↔ None
 
 ```typescript
 pipe(
-  Option.fromNullable(user),
+  Option.fromNullOr(user),
   Option.map((u) => u.preferences),
-  Option.flatMap((p) => Option.fromNullable(p.theme)),
+  Option.flatMap((p) => Option.fromUndefinedOr(p.theme)),
   Option.filter((theme) => theme !== "system"),
   Option.getOrElse(() => "dark"),
 );
@@ -110,8 +111,8 @@ pipe(
 
 ```typescript
 const result = Option.gen(function* () {
-  const user = yield* Option.fromNullable(maybeUser);
-  const prefs = yield* Option.fromNullable(user.preferences);
+  const user = yield* Option.fromNullOr(maybeUser);
+  const prefs = yield* Option.fromUndefinedOr(user.preferences);
   return prefs.theme;
 });
 ```
@@ -163,7 +164,7 @@ Effect.fromOption(opt).pipe(Effect.mapError(() => new NotFoundError()));
 const findUser = (id: string): Effect.Effect<Option<User>, DbError> =>
   Effect.gen(function* () {
     const result = yield* db.query(id);
-    return Option.fromNullable(result);
+    return Option.fromNullishOr(result);
   });
 ```
 
@@ -172,7 +173,7 @@ const findUser = (id: string): Effect.Effect<Option<User>, DbError> =>
 ## Effect Optional Checklist
 
 - [ ] **Option for domain models** — Optional properties use `Option<T>`
-- [ ] **Convert at boundaries** — `fromNullable` at entry, `getOrNull` at exit
+- [ ] **Convert at boundaries** — Use `fromNullOr` / `fromUndefinedOr` / `fromNullishOr` at entry, `getOrNull` / `getOrUndefined` at exit
 - [ ] **Schema transformations** — Use `OptionFromNullOr` for API contracts
 - [ ] **Distinguish absence from error** — `Effect<Option<A>, E>` for "not found"
 - [ ] **Exhausitve handling** — Use `Option.match` for both cases

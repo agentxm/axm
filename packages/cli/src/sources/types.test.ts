@@ -1,11 +1,10 @@
 /**
  * Tests for source domain types.
  *
- * Verifies discriminator-based narrowing, structural equality via Data.struct,
+ * Verifies discriminator-based narrowing and structural equality,
  * and type contracts for SourceHost, SourceParams, Source, and extension refs.
  */
 
-import * as Data from "effect/Data";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
@@ -601,10 +600,10 @@ describe("ExtensionRef", () => {
 });
 
 // -----------------------------------------------------------------------------
-// SourceParams structural equality via Data.struct
+// SourceParams structural equality
 // -----------------------------------------------------------------------------
 
-describe("SourceParams structural equality via Data.struct", () => {
+describe("SourceParams structural equality", () => {
   it("equal GitHubSourceParams are structurally equal", () => {
     const a: SourceParams = {
       type: "github",
@@ -620,7 +619,7 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.some("main"),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
+    expect(Equal.equals(a, b)).toBe(true);
   });
 
   it("different GitHubSourceParams are not equal", () => {
@@ -638,7 +637,7 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
+    expect(Equal.equals(a, b)).toBe(false);
   });
 
   it("different source types are not equal", () => {
@@ -656,7 +655,7 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
+    expect(Equal.equals(a, b)).toBe(false);
   });
 
   it("AzureRepos compares all 3 fields (bug fix)", () => {
@@ -676,7 +675,7 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
+    expect(Equal.equals(a, b)).toBe(false);
   });
 
   it("AzureRepos equal when all fields match", () => {
@@ -696,7 +695,7 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.some("main"),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
+    expect(Equal.equals(a, b)).toBe(true);
   });
 
   it("RegistrySourceParams has no additional fields", () => {
@@ -708,19 +707,19 @@ describe("SourceParams structural equality via Data.struct", () => {
       type: "registry",
       namespace: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
+    expect(Equal.equals(a, b)).toBe(true);
   });
 
   it("LocalSourceParams compares path", () => {
     const a: SourceParams = { type: "local", path: "/a" };
     const b: SourceParams = { type: "local", path: "/a" };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
+    expect(Equal.equals(a, b)).toBe(true);
   });
 
   it("BuiltinSourceParams are equal", () => {
     const a: SourceParams = { type: "builtin" };
     const b: SourceParams = { type: "builtin" };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
+    expect(Equal.equals(a, b)).toBe(true);
   });
 
   it("Option.some refs compare correctly", () => {
@@ -738,6 +737,6 @@ describe("SourceParams structural equality via Data.struct", () => {
       ref: Option.some("v2"),
       subPath: Option.none(),
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
+    expect(Equal.equals(a, b)).toBe(false);
   });
 });

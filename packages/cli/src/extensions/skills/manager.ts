@@ -8,13 +8,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type { CliError } from "../../cli-error/index.js";
 import { makeCliError } from "../../cli-error/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { sourceToLockEntry } from "../../sources/source-to-lock-entry.js";
@@ -41,10 +42,10 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class SkillManager extends Context.Tag("@axm.sh/cli/SkillManager")<
+export class SkillManager extends ServiceMap.Service<
   SkillManager,
   ExtensionManager<SkillExtensionRef>
->() {}
+>()("@axm.sh/cli/SkillManager") {}
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -90,9 +91,7 @@ export const SkillManagerLive = Layer.effect(
     );
 
     // Provide FileSystem + Path + CliEnvConfig to an effect that needs them
-    const provide = <A, E>(
-      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
-    ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
+    const provide: ProvideFS = (effect) => Effect.provide(effect, fsPathLayer);
 
     const materializeInstall = ({ ref }: { readonly ref: SkillExtensionRef }) =>
       Effect.gen(function* () {
@@ -139,9 +138,12 @@ export const SkillManagerLive = Layer.effect(
           });
         }
 
-        const installTargets = Array.filterMap(resolved, ({ outcome }) =>
-          outcome._tag === "supported" ? Option.some(path.normalize(outcome.dir)) : Option.none(),
-        );
+        const installTargets: Array<string> = [];
+        for (const { outcome } of resolved) {
+          if (outcome._tag === "supported") {
+            installTargets.push(path.normalize(outcome.dir));
+          }
+        }
         const distinctDirs = Array.dedupe(installTargets);
 
         yield* Effect.forEach(
@@ -168,11 +170,13 @@ export const SkillManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        const distinctDirs = Array.dedupe(
-          Array.filterMap(resolved, ({ outcome }) =>
-            outcome._tag === "supported" ? Option.some(path.normalize(outcome.dir)) : Option.none(),
-          ),
-        );
+        const uninstallTargets: Array<string> = [];
+        for (const { outcome } of resolved) {
+          if (outcome._tag === "supported") {
+            uninstallTargets.push(path.normalize(outcome.dir));
+          }
+        }
+        const distinctDirs = Array.dedupe(uninstallTargets);
 
         // Remove agent symlinks/copies concurrently from resolved directories
         yield* Effect.forEach(
@@ -181,7 +185,7 @@ export const SkillManagerLive = Layer.effect(
             const agentSkillPath = path.join(dir, sanitized);
             return fs
               .remove(agentSkillPath, { recursive: true })
-              .pipe(Effect.catchAll(() => Effect.void));
+              .pipe(Effect.catch(() => Effect.void));
           },
           { concurrency: "unbounded" },
         );
@@ -261,9 +265,11 @@ export const SkillManagerLive = Layer.effect(
 // Internal materialization helpers
 // -----------------------------------------------------------------------------
 
-type ProvideFS = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | CliEnvConfig>,
-) => Effect.Effect<A, E, never>;
+type ProvideFS = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<
+  A,
+  E,
+  Exclude<R, FileSystem.FileSystem | Path.Path | CliEnvConfig>
+>;
 
 const materializeByRefType = (
   ref: SkillExtensionRef,
@@ -273,7 +279,7 @@ const materializeByRefType = (
   baseDir: string,
   sources: SourceHostProvidersService,
   provide: ProvideFS,
-): Effect.Effect<string, import("../../cli-error/index.js").CliError, never> => {
+): Effect.Effect<string, CliError, never> => {
   switch (ref.refType) {
     case "git-hosted":
       return materializeGitHosted(ref, sanitizedName, fs, pathService, baseDir, provide);
@@ -511,7 +517,7 @@ const installForDirectory = (
         target: canonicalSkillSrcPath,
         link: agentSkillPath,
       }).pipe(
-        Effect.catchAll(() =>
+        Effect.catch(() =>
           copySkillDirectory(canonicalSkillSrcPath, agentSkillPath).pipe(Effect.ignore),
         ),
       ),

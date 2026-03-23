@@ -1,4 +1,4 @@
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -11,7 +11,7 @@ const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
   });
 
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(wsMock));
+  return Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock));
 };
 
 describe("DefaultCodingAgentRepository", () => {

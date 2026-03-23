@@ -7,7 +7,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { RefType } from "../../sources/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 
 /**
@@ -18,7 +17,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.j
  */
 export type SkillPathSource =
   | { readonly refType: "registry"; readonly namespace: string }
-  | { readonly refType: Exclude<RefType, "registry"> };
+  | { readonly refType: "git-hosted" | "local" | "builtin" };
 
 /**
  * Computed paths for an installed skill directory.

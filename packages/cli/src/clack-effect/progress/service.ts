@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
 import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { ClackProgressConfig, ClackProgressHandle } from "./types.js";
 
-export class ClackProgress extends Context.Tag("@axm.sh/cli/clack-effect/ClackProgress")<
+export class ClackProgress extends ServiceMap.Service<
   ClackProgress,
   {
     readonly start: (
@@ -19,7 +19,7 @@ export class ClackProgress extends Context.Tag("@axm.sh/cli/clack-effect/ClackPr
       stopMessage?: string,
     ) => Effect.Effect<A, E, R>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/ClackProgress") {}
 
 const makeHandle = (pr: p.ProgressResult): ClackProgressHandle => ({
   stop: (message) => Effect.sync(() => pr.stop(message)),
@@ -30,7 +30,7 @@ const makeHandle = (pr: p.ProgressResult): ClackProgressHandle => ({
   advance: (step, message) => Effect.sync(() => pr.advance(step, message)),
 });
 
-const makeLiveClackProgressService = (): Context.Tag.Service<typeof ClackProgress> => ({
+const makeLiveClackProgressService = (): ServiceMap.Service.Shape<typeof ClackProgress> => ({
   start: (config, message) =>
     Effect.sync(() => {
       const pr = p.progress(config);
@@ -47,7 +47,7 @@ const makeLiveClackProgressService = (): Context.Tag.Service<typeof ClackProgres
       return Effect.interruptible(f(handle)).pipe(
         Effect.matchCauseEffect({
           onFailure: (cause) => {
-            if (Cause.isInterruptedOnly(cause)) {
+            if (Cause.hasInterruptsOnly(cause)) {
               pr.cancel();
             } else {
               pr.error(message);

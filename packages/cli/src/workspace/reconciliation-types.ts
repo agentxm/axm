@@ -1,5 +1,5 @@
-import type * as FileSystem from "@effect/platform/FileSystem";
-import type * as Path from "@effect/platform/Path";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 import type { CliError } from "../cli-error/index.js";
 import type {
   CommandLockEntry,

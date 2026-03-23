@@ -5,8 +5,8 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -122,7 +122,7 @@ export const readSettings = (axmDir: string) =>
     });
 
     // Validate schema
-    const parsed = yield* Schema.decodeUnknown(SettingsSchema)(json).pipe(
+    const parsed = yield* Schema.decodeUnknownEffect(SettingsSchema)(json).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "SETTINGS_PARSE_FAILED",
@@ -163,7 +163,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     );
 
     // Encode through schema (converts Option -> nullable, URL -> string, etc.)
-    const encoded = yield* Schema.encode(SettingsSchema)(settings).pipe(
+    const encoded = yield* Schema.encodeEffect(SettingsSchema)(settings).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "SETTINGS_WRITE_FAILED",

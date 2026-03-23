@@ -10,9 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as Context from "effect/Context";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -43,10 +43,10 @@ export interface CredentialStoreService {
   readonly tier: StorageTier;
 }
 
-export class CredentialStore extends Context.Tag("@axm.sh/cli/CredentialStore")<
+export class CredentialStore extends ServiceMap.Service<
   CredentialStore,
   CredentialStoreService
->() {}
+>()("@axm.sh/cli/CredentialStore") {}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -84,7 +84,7 @@ const getCredentialsPath = (path: Path.Path, homeDir: string) =>
 const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDir: string) =>
   Effect.gen(function* () {
     const dir = getCredentialsDir(path, homeDir);
-    const exists = yield* fs.exists(dir).pipe(Effect.catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(dir).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((error) =>
@@ -100,7 +100,7 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
       yield* Effect.tryPromise({
         try: () => import("node:fs/promises").then((fsp) => fsp.chmod(dir, DIR_PERMISSIONS)),
         catch: () => undefined,
-      }).pipe(Effect.catchAll(() => Effect.void));
+      }).pipe(Effect.catch(() => Effect.void));
     }
   });
 
@@ -113,13 +113,13 @@ const checkFilePermissions = (filePath: string) =>
         return (stat.mode & 0o777) > FILE_PERMISSIONS;
       }),
     catch: () => false,
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 
 const setFilePermissions = (filePath: string) =>
   Effect.tryPromise({
     try: () => import("node:fs/promises").then((fsp) => fsp.chmod(filePath, FILE_PERMISSIONS)),
     catch: () => undefined,
-  }).pipe(Effect.catchAll(() => Effect.void));
+  }).pipe(Effect.catch(() => Effect.void));
 
 const readCredentialFile = (
   fs: FileSystem.FileSystem,
@@ -128,7 +128,7 @@ const readCredentialFile = (
 ): Effect.Effect<Option.Option<CredentialFile>, CliError> =>
   Effect.gen(function* () {
     const filePath = getCredentialsPath(path, homeDir);
-    const exists = yield* fs.exists(filePath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) return Option.none<CredentialFile>();
 
     const overly = yield* checkFilePermissions(filePath);
@@ -160,9 +160,9 @@ const readCredentialFile = (
         }),
     });
 
-    return yield* Schema.decodeUnknown(CredentialFileSchema)(json).pipe(
+    return yield* Schema.decodeUnknownEffect(CredentialFileSchema)(json).pipe(
       Effect.map((file) => Option.some(file)),
-      Effect.catchAll(() =>
+      Effect.catch(() =>
         Effect.logWarning("Credential file failed schema validation, treating as empty.").pipe(
           Effect.map(() => Option.none<CredentialFile>()),
         ),
@@ -179,7 +179,7 @@ const writeCredentialFile = (
   Effect.gen(function* () {
     yield* ensureCredentialsDir(fs, path, homeDir);
     const filePath = getCredentialsPath(path, homeDir);
-    const encoded = yield* Schema.encode(CredentialFileSchema)(data).pipe(
+    const encoded = yield* Schema.encodeEffect(CredentialFileSchema)(data).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",

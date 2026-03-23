@@ -116,7 +116,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       const manifestPath = env.path.join(canonicalPath, MANIFEST_FILENAME);
       const manifestRaw = yield* env.fs
         .readFileString(manifestPath)
-        .pipe(Effect.catchAll(() => Effect.succeed("")));
+        .pipe(Effect.catch(() => Effect.succeed("")));
 
       if (manifestRaw.length === 0) {
         return {
@@ -133,7 +133,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
             code: "LOCKFILE_RECONCILE_MANIFEST_INVALID",
             what: `Invalid skill manifest JSON at ${manifestPath}`,
           }),
-      }).pipe(Effect.catchAll(() => Effect.succeed<unknown>(null)));
+      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
 
       if (manifestJson === null) {
         return {
@@ -143,8 +143,8 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const manifest = yield* Schema.decodeUnknown(SkillManifestSchema)(manifestJson).pipe(
-        Effect.catchAll(() => Effect.succeed<null>(null)),
+      const manifest = yield* Schema.decodeUnknownEffect(SkillManifestSchema)(manifestJson).pipe(
+        Effect.catch(() => Effect.succeed<null>(null)),
       );
 
       if (manifest === null) {

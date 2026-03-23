@@ -20,6 +20,6 @@ export const makeCliError = (args: {
     code: args.code,
     what: args.what,
     details: args.details ?? [],
-    howToFix: Option.fromNullable(args.howToFix),
+    howToFix: Option.fromUndefinedOr(args.howToFix),
     cause: args.cause,
   });

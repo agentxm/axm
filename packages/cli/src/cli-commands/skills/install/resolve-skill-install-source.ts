@@ -129,21 +129,21 @@ const resolveRegistrySource = (
         client,
         namespace,
         skillName: options.skillName,
-      }).pipe(Effect.either);
+      }).pipe(Effect.result);
 
-      if (matchResult._tag === "Left") {
+      if (matchResult._tag === "Failure") {
         if (Option.isSome(options.resolutionOptions)) {
           options.resolutionOptions.value.onRegistryProbe({
             location: regConfig.location.href,
             outcome: "error",
-            reason: Option.some(summarizeLookupError(matchResult.left)),
+            reason: Option.some(summarizeLookupError(matchResult.failure)),
           });
         }
-        issues.push(toLookupIssue(regConfig.location, matchResult.left));
+        issues.push(toLookupIssue(regConfig.location, matchResult.failure));
         continue;
       }
 
-      if (matchResult.right.exists) {
+      if (matchResult.success.exists) {
         if (Option.isSome(options.resolutionOptions)) {
           options.resolutionOptions.value.onRegistryProbe({
             location: regConfig.location.href,
@@ -248,20 +248,20 @@ const resolveSkillRegistrySourceByName = (
       const client = yield* createRegistryClient(reg.location.href);
       const existsResult = yield* client
         .extensionExists({ namespace, type: "skill", name })
-        .pipe(Effect.either);
-      if (existsResult._tag === "Left") {
+        .pipe(Effect.result);
+      if (existsResult._tag === "Failure") {
         if (Option.isSome(resolutionOptions)) {
           resolutionOptions.value.onRegistryProbe({
             location: reg.location.href,
             outcome: "error",
-            reason: Option.some(summarizeLookupError(existsResult.left)),
+            reason: Option.some(summarizeLookupError(existsResult.failure)),
           });
         }
-        issues.push(toLookupIssue(reg.location, existsResult.left));
+        issues.push(toLookupIssue(reg.location, existsResult.failure));
         continue;
       }
 
-      if (existsResult.right.exists) {
+      if (existsResult.success.exists) {
         if (Option.isSome(resolutionOptions)) {
           resolutionOptions.value.onRegistryProbe({
             location: reg.location.href,
@@ -330,7 +330,7 @@ export const resolveSkillInstallSource = (
   options?: ResolveSkillInstallSourceOptions,
 ) =>
   Effect.gen(function* () {
-    const resolutionOptions = Option.fromNullable(options);
+    const resolutionOptions = Option.fromUndefinedOr(options);
     const pattern = parseResult.pattern;
     switch (pattern.pattern) {
       case "registry-pattern-input":

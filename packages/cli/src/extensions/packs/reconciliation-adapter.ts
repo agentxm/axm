@@ -60,6 +60,26 @@ const parsePackDependency = (
   });
 };
 
+const collectPackDependencyDeclarations = (
+  extensionType: "skills" | "commands" | "mcp-servers",
+  candidates: unknown,
+  declarations: Array<ReconciliationDeclaration>,
+) => {
+  if (candidates === null || typeof candidates !== "object") {
+    return;
+  }
+
+  for (const [fqn, constraint] of Object.entries(candidates)) {
+    if (typeof constraint !== "string") {
+      continue;
+    }
+    const parsedDep = parsePackDependency(extensionType, fqn, constraint, declarations.length);
+    if (Option.isSome(parsedDep)) {
+      declarations.push(parsedDep.value);
+    }
+  }
+};
+
 export const packReconciliationAdapter: ReconciliationAdapter = {
   extensionType: "packs",
   scanDeclarations: (context, env) =>
@@ -102,50 +122,34 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         const manifestPath = env.path.join(packDir, PACK_MANIFEST_FILENAME);
         const manifestRaw = yield* env.fs
           .readFileString(manifestPath)
-          .pipe(Effect.catchAll(() => Effect.succeed("")));
+          .pipe(Effect.catch(() => Effect.succeed("")));
         if (manifestRaw.length === 0) {
           continue;
         }
 
-        const parsedJson = yield* Effect.try(() => JSON.parse(manifestRaw) as unknown).pipe(
-          Effect.catchAll(() => Effect.succeed<null>(null)),
-        );
+        const parsedJson = yield* Effect.sync(() => {
+          try {
+            return JSON.parse(manifestRaw) as unknown;
+          } catch {
+            return null;
+          }
+        });
         if (parsedJson === null) {
           warnings.push(`PACK_MANIFEST_PARSE_FAILED: ${manifestPath}`);
           continue;
         }
 
-        const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(parsedJson).pipe(
-          Effect.catchAll(() => Effect.succeed<null>(null)),
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(parsedJson).pipe(
+          Effect.catch(() => Effect.succeed<null>(null)),
         );
         if (manifest === null) {
           warnings.push(`PACK_MANIFEST_INVALID: ${manifestPath}`);
           continue;
         }
 
-        for (const [fqn, constraint] of Object.entries(manifest.skills ?? {})) {
-          const parsedDep = parsePackDependency("skills", fqn, constraint, declarations.length);
-          if (Option.isSome(parsedDep)) {
-            declarations.push(parsedDep.value);
-          }
-        }
-        for (const [fqn, constraint] of Object.entries(manifest.commands ?? {})) {
-          const parsedDep = parsePackDependency("commands", fqn, constraint, declarations.length);
-          if (Option.isSome(parsedDep)) {
-            declarations.push(parsedDep.value);
-          }
-        }
-        for (const [fqn, constraint] of Object.entries(manifest["mcp-servers"] ?? {})) {
-          const parsedDep = parsePackDependency(
-            "mcp-servers",
-            fqn,
-            constraint,
-            declarations.length,
-          );
-          if (Option.isSome(parsedDep)) {
-            declarations.push(parsedDep.value);
-          }
-        }
+        collectPackDependencyDeclarations("skills", manifest.skills, declarations);
+        collectPackDependencyDeclarations("commands", manifest.commands, declarations);
+        collectPackDependencyDeclarations("mcp-servers", manifest["mcp-servers"], declarations);
       }
 
       return { declarations, warnings };
@@ -200,7 +204,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       const manifestPath = env.path.join(canonicalPath, PACK_MANIFEST_FILENAME);
       const manifestRaw = yield* env.fs
         .readFileString(manifestPath)
-        .pipe(Effect.catchAll(() => Effect.succeed("")));
+        .pipe(Effect.catch(() => Effect.succeed("")));
 
       if (manifestRaw.length === 0) {
         return {
@@ -226,8 +230,8 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(parsedJson).pipe(
-        Effect.catchAll(() => Effect.succeed<null>(null)),
+      const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(parsedJson).pipe(
+        Effect.catch(() => Effect.succeed<null>(null)),
       );
 
       if (manifest === null) {

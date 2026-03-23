@@ -18,17 +18,17 @@ export const CredentialEntrySchema = Schema.Struct({
   active: Schema.Boolean,
 });
 
-export type CredentialEntry = typeof CredentialEntrySchema.Type;
+export type CredentialEntry = Schema.Schema.Type<typeof CredentialEntrySchema>;
 
 // -----------------------------------------------------------------------------
 // Registry Accounts
 // -----------------------------------------------------------------------------
 
 export const RegistryAccountsSchema = Schema.Struct({
-  accounts: Schema.Record({ key: Schema.String, value: CredentialEntrySchema }),
+  accounts: Schema.Record(Schema.String, CredentialEntrySchema),
 });
 
-export type RegistryAccounts = typeof RegistryAccountsSchema.Type;
+export type RegistryAccounts = Schema.Schema.Type<typeof RegistryAccountsSchema>;
 
 // -----------------------------------------------------------------------------
 // Credential File (versioned, keyed by registry URL)
@@ -36,10 +36,10 @@ export type RegistryAccounts = typeof RegistryAccountsSchema.Type;
 
 export const CredentialFileSchema = Schema.Struct({
   version: Schema.Literal(1),
-  registries: Schema.Record({ key: Schema.String, value: RegistryAccountsSchema }),
+  registries: Schema.Record(Schema.String, RegistryAccountsSchema),
 });
 
-export type CredentialFile = typeof CredentialFileSchema.Type;
+export type CredentialFile = Schema.Schema.Type<typeof CredentialFileSchema>;
 
 // -----------------------------------------------------------------------------
 // Token Source (tagged union)

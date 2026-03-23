@@ -7,9 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
-import * as Context from "effect/Context";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -129,10 +129,10 @@ export interface AuthClientService {
   readonly getMe: (registryUrl: string, accessToken: string) => Effect.Effect<MeResponse, CliError>;
 }
 
-export class AuthClient extends Context.Tag("@axm.sh/cli/AuthClient")<
+export class AuthClient extends ServiceMap.Service<
   AuthClient,
   AuthClientService
->() {}
+>()("@axm.sh/cli/AuthClient") {}
 
 // -----------------------------------------------------------------------------
 // Internal helpers
@@ -157,13 +157,13 @@ const parseJsonBody = (bodyText: string, code: string, what: string) =>
     catch: (error) => makeCliError({ code, what: `Failed to parse JSON: ${what}`, cause: error }),
   });
 
-const decodeResponse = <A, I>(
-  schema: Schema.Schema<A, I, never>,
+const decodeResponse = <S extends Schema.Top>(
+  schema: S,
   parsed: unknown,
   code: string,
   what: string,
-) =>
-  Schema.decodeUnknown(schema)(parsed).pipe(
+): Effect.Effect<S["Type"], CliError, S["DecodingServices"]> =>
+  Schema.decodeUnknownEffect(schema)(parsed).pipe(
     Effect.mapError((error) =>
       makeCliError({ code, what: `Invalid response schema: ${what}`, cause: error }),
     ),
@@ -207,12 +207,12 @@ export const pollOnce = (
     // Error response — parse error code
     const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device token error");
     const json = yield* parseJsonBody(bodyText, "AUTH_LOGIN_FAILED", "device token error").pipe(
-      Effect.catchAll(() => Effect.succeed(null)),
+      Effect.catch(() => Effect.succeed(null)),
     );
 
     if (json !== null) {
-      const errorResult = yield* Schema.decodeUnknown(DeviceTokenErrorSchema)(json).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
+      const errorResult = yield* Schema.decodeUnknownEffect(DeviceTokenErrorSchema)(json).pipe(
+        Effect.catch(() => Effect.succeed(null)),
       );
 
       if (errorResult !== null) {
@@ -269,7 +269,7 @@ export const AuthClientLive = Layer.effect(
           );
 
           if (response.status !== 200) {
-            const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+            const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
             return yield* Effect.fail(
               makeCliError({
                 code: "AUTH_LOGIN_FAILED",
@@ -357,7 +357,7 @@ export const AuthClientLive = Layer.effect(
           );
 
           if (response.status !== 200) {
-            const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+            const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
             return yield* Effect.fail(
               makeCliError({
                 code: "AUTH_REFRESH_FAILED",
@@ -393,7 +393,7 @@ export const AuthClientLive = Layer.effect(
               }
               return Effect.void;
             }),
-            Effect.catchAll((error) =>
+            Effect.catch((error) =>
               Effect.logWarning(
                 `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
               ),
@@ -454,7 +454,7 @@ export const AuthClientLive = Layer.effect(
             email: decoded.user.email ?? "",
             tokenType: decoded.token.type,
             scopes: decoded.token.scopes,
-            orgs: decoded.orgs.map((org) => ({
+            orgs: decoded.orgs.map((org: (typeof decoded.orgs)[number]) => ({
               id: org.id,
               handle: org.handle,
             })),

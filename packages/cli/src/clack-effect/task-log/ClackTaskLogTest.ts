@@ -1,4 +1,4 @@
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -30,16 +30,16 @@ const emptyRecord: ClackTaskLogRecord = {
   groups: [],
 };
 
-export class ClackTaskLogTest extends Context.Tag("@axm.sh/cli/test/ClackTaskLogTest")<
+export class ClackTaskLogTest extends ServiceMap.Service<
   ClackTaskLogTest,
   {
     readonly ref: Ref.Ref<ClackTaskLogRecord>;
     readonly get: Effect.Effect<ClackTaskLogRecord>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackTaskLogTest") {}
 
 export const ClackTaskLogTestLayer: Layer.Layer<ClackTaskLog | ClackTaskLogTest> =
-  Layer.effectContext(
+  Layer.effectServices(
     Effect.gen(function* () {
       const ref = yield* Ref.make(emptyRecord);
 
@@ -64,7 +64,7 @@ export const ClackTaskLogTestLayer: Layer.Layer<ClackTaskLog | ClackTaskLogTest>
 
           const appendGroupCall = (method: string, args: ReadonlyArray<unknown>) =>
             Ref.update(groupCallsRef, (calls) => [...calls, { method, args }]).pipe(
-              Effect.zipRight(
+              Effect.andThen(
                 Ref.update(ref, (r) => ({
                   ...r,
                   groups: r.groups.map((g, i) =>
@@ -81,7 +81,7 @@ export const ClackTaskLogTestLayer: Layer.Layer<ClackTaskLog | ClackTaskLogTest>
           };
         });
 
-      const service: Context.Tag.Service<typeof ClackTaskLog> = {
+      const service: ServiceMap.Service.Shape<typeof ClackTaskLog> = {
         start: (config) =>
           appendCall("start", [config]).pipe(
             Effect.map(() => ({
@@ -94,14 +94,14 @@ export const ClackTaskLogTestLayer: Layer.Layer<ClackTaskLog | ClackTaskLogTest>
           ),
       };
 
-      const test: Context.Tag.Service<typeof ClackTaskLogTest> = {
+      const test: ServiceMap.Service.Shape<typeof ClackTaskLogTest> = {
         ref,
         get: Ref.get(ref),
       };
 
-      return Context.empty().pipe(
-        Context.add(ClackTaskLog, service),
-        Context.add(ClackTaskLogTest, test),
+      return ServiceMap.empty().pipe(
+        ServiceMap.add(ClackTaskLog, service),
+        ServiceMap.add(ClackTaskLogTest, test),
       );
     }),
   );

@@ -8,7 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -42,7 +42,7 @@ import type { InstallPackCommandIntent } from "./intent.js";
 // Types
 // -----------------------------------------------------------------------------
 
-/** Raw handler args from yargs. */
+/** Raw handler args from the CLI parser. */
 export interface InstallPackHandlerArgs {
   readonly source: string;
   readonly scope: WorkspaceScope;
@@ -141,9 +141,7 @@ const formatRegistrySourceLabel = ({
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class InstallPackCommandWorkflowActions extends Context.Tag(
-  "InstallPackCommandWorkflowActions",
-)<
+export class InstallPackCommandWorkflowActions extends ServiceMap.Service<
   InstallPackCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
     InstallPackHandlerArgs,
@@ -152,7 +150,7 @@ export class InstallPackCommandWorkflowActions extends Context.Tag(
     PackExtensionRef,
     InstallPackCommandIntent
   >
->() {}
+>()("InstallPackCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -342,31 +340,31 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
                 const probes: RegistryLookupProbe[] = [];
 
-                const initialResult = yield* findWith(req.source).pipe(Effect.either);
+                const initialResult = yield* findWith(req.source).pipe(Effect.result);
                 probes.push(
-                  initialResult._tag === "Right"
+                  initialResult._tag === "Success"
                     ? {
                         location: req.source.location.href,
-                        outcome: initialResult.right.length > 0 ? "matched" : "not-found",
+                        outcome: initialResult.success.length > 0 ? "matched" : "not-found",
                         reason: Option.none(),
                       }
                     : {
                         location: req.source.location.href,
                         outcome: "error",
-                        reason: Option.some(summarizeLookupError(initialResult.left)),
+                        reason: Option.some(summarizeLookupError(initialResult.failure)),
                       },
                 );
 
                 let resolvedRefs: ReadonlyArray<PackExtensionRef> | undefined;
                 let resolvedSource: RegistrySource = req.source;
 
-                if (initialResult._tag === "Right" && initialResult.right.length > 0) {
-                  resolvedRefs = initialResult.right.filter(
+                if (initialResult._tag === "Success" && initialResult.success.length > 0) {
+                  resolvedRefs = initialResult.success.filter(
                     (ref): ref is PackExtensionRef => ref.type === "pack",
                   );
                 } else if (
-                  initialResult._tag === "Left" &&
-                  isRemoteReadNotImplemented(initialResult.left)
+                  initialResult._tag === "Failure" &&
+                  isRemoteReadNotImplemented(initialResult.failure)
                 ) {
                   // Fallback to file:// registries
                   const registryHosts = yield* ws.getRegistrySourceHosts();
@@ -384,23 +382,23 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   for (const fallbackSource of fallbackSources) {
                     if (fallbackSource.location.href === req.source.location.href) continue;
 
-                    const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.either);
+                    const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.result);
                     probes.push(
-                      fallbackResult._tag === "Right"
+                      fallbackResult._tag === "Success"
                         ? {
                             location: fallbackSource.location.href,
-                            outcome: fallbackResult.right.length > 0 ? "matched" : "not-found",
+                            outcome: fallbackResult.success.length > 0 ? "matched" : "not-found",
                             reason: Option.none(),
                           }
                         : {
                             location: fallbackSource.location.href,
                             outcome: "error",
-                            reason: Option.some(summarizeLookupError(fallbackResult.left)),
+                            reason: Option.some(summarizeLookupError(fallbackResult.failure)),
                           },
                     );
 
-                    if (fallbackResult._tag === "Right" && fallbackResult.right.length > 0) {
-                      resolvedRefs = fallbackResult.right.filter(
+                    if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
+                      resolvedRefs = fallbackResult.success.filter(
                         (ref): ref is PackExtensionRef => ref.type === "pack",
                       );
                       resolvedSource = fallbackSource;
@@ -420,16 +418,16 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
                     });
                   }
-                } else if (initialResult._tag === "Left") {
+                } else if (initialResult._tag === "Failure") {
                   return yield* makeCliError({
                     code: "PACK_FETCH_FAILED",
                     what: "Failed to fetch pack from registry",
                     details: [
                       `Pack: ${req.namespace}/packs/${req.packName}`,
-                      `Reason: ${summarizeLookupError(initialResult.left)}`,
+                      `Reason: ${summarizeLookupError(initialResult.failure)}`,
                     ],
                     howToFix: "Verify the pack name and registry configuration.",
-                    cause: initialResult.left,
+                    cause: initialResult.failure,
                   });
                 }
 

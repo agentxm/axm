@@ -51,7 +51,7 @@ describe("ClackSpinner", () => {
       const spinner = yield* ClackSpinner;
       const result = yield* spinner
         .withSpinner("Working...", () => Effect.fail(new TestError({ message: "boom" })))
-        .pipe(Effect.catchAll(() => Effect.succeed("recovered")));
+        .pipe(Effect.catch(() => Effect.succeed("recovered")));
       expect(result).toBe("recovered");
       const { calls } = yield* (yield* ClackSpinnerTest).get;
       expect(calls).toEqual([
@@ -64,8 +64,8 @@ describe("ClackSpinner", () => {
   it.effect("withSpinner calls cancel on interruption", () =>
     Effect.gen(function* () {
       const spinner = yield* ClackSpinner;
-      const fiber = yield* Effect.fork(spinner.withSpinner("Working...", () => Effect.never));
-      yield* Effect.yieldNow();
+      const fiber = yield* Effect.forkChild(spinner.withSpinner("Working...", () => Effect.never));
+      yield* Effect.yieldNow;
       yield* Fiber.interrupt(fiber);
       yield* Fiber.await(fiber);
       const { calls } = yield* (yield* ClackSpinnerTest).get;

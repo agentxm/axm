@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -88,7 +88,7 @@ describe("WorkspaceContextService", () => {
     },
   });
   const BaseLayer = Layer.mergeAll(
-    NodeContext.layer,
+    NodeServices.layer,
     testLogLayer,
     testPromptLayer,
     CliFlagsTest(),
@@ -99,7 +99,7 @@ describe("WorkspaceContextService", () => {
     Layer.provide(workspaceLayer(options), BaseLayer);
 
   const getService = (options: WorkspaceContextOptions) =>
-    Workspace.pipe(Effect.provide(Layer.merge(BaseLayer, makeWsLayer(options))));
+    Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
 
   const logMessages = (
     mockLog: MockClackLogService,
@@ -188,7 +188,7 @@ describe("WorkspaceContextService", () => {
       });
       const flagsLayer = CliFlagsTest(flags);
       const base = Layer.mergeAll(
-        NodeContext.layer,
+        NodeServices.layer,
         logLayer,
         promptLayer,
         flagsLayer,
@@ -1592,7 +1592,7 @@ describe("WorkspaceContextService", () => {
       const flagsLayer = CliFlagsTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const base = Layer.mergeAll(
-        NodeContext.layer,
+        NodeServices.layer,
         logLayer,
         promptLayer,
         flagsLayer,
@@ -1600,7 +1600,7 @@ describe("WorkspaceContextService", () => {
       );
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
-        run: Workspace.pipe(Effect.provide(Layer.merge(base, wsLayer))),
+        run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),
         promptMock,
       };
     };

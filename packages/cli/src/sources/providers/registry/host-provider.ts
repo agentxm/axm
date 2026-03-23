@@ -8,8 +8,8 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -189,7 +189,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
           }),
         ),
       ),
-      (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignoreLogged),
+      (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
     );
 
     yield* extractZip(archiveBytes, tmpDir);

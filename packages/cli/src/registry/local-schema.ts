@@ -28,7 +28,7 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
 export const VersionEntrySchema = Schema.Struct({
   version: Schema.String,
   published: Schema.String,
-  dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   integrity: Schema.String,
 });
 
@@ -37,7 +37,7 @@ export const VersionEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type VersionEntry = typeof VersionEntrySchema.Type;
+export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
 
 // =============================================================================
 // Extension Index
@@ -74,4 +74,4 @@ export const ExtensionIndexSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionIndex = typeof ExtensionIndexSchema.Type;
+export type ExtensionIndex = Schema.Schema.Type<typeof ExtensionIndexSchema>;

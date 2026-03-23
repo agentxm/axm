@@ -8,8 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import {
   resolveSource,
   SourceHostProviders,
@@ -141,7 +141,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                     ? Option.some([name, sourceStr] as [string, string])
                     : Option.none<[string, string]>(),
                 ),
-                Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
+                Effect.catch(() => Effect.succeed(Option.none<[string, string]>())),
               ),
             { concurrency: "unbounded" },
           ).pipe(Effect.map(Array.getSomes));
@@ -225,7 +225,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               return Option.none<ResolveResult>();
             }
           }).pipe(
-            Effect.catchAll((error) => {
+            Effect.catch((error) => {
               return log
                 .warn(`Failed to resolve "${name}": ${String(error)}`)
                 .pipe(Effect.map(() => Option.none<ResolveResult>()));
@@ -378,26 +378,35 @@ const collectPackConstraints = () =>
 
         const exists = yield* fs
           .exists(manifestPath)
-          .pipe(Effect.catchAll(() => Effect.succeed(false)));
+          .pipe(Effect.catch(() => Effect.succeed(false)));
         if (!exists) return;
 
         const content = yield* fs
           .readFileString(manifestPath)
-          .pipe(Effect.catchAll(() => Effect.succeed("")));
+          .pipe(Effect.catch(() => Effect.succeed("")));
         if (content === "") return;
 
-        const json = yield* Effect.try(() => JSON.parse(content) as unknown).pipe(Effect.option);
+        const json = yield* Effect.sync(() => {
+          try {
+            return Option.some(JSON.parse(content) as unknown);
+          } catch {
+            return Option.none<unknown>();
+          }
+        });
         if (Option.isNone(json)) return;
 
-        const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json.value).pipe(
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json.value).pipe(
           Effect.option,
         );
         if (Option.isNone(manifest)) return;
 
         // Collect skill constraints from manifest
-        const skills = manifest.value.skills ?? {};
+        const skills = manifest.value.skills;
+        if (skills === null || skills === undefined || typeof skills !== "object") {
+          return;
+        }
         for (const [fqn, constraint] of Object.entries(skills)) {
-          if (constraint === "*" || constraint === "") continue;
+          if (typeof constraint !== "string" || constraint === "*" || constraint === "") continue;
           const existing = constraintMap.get(fqn) ?? [];
           existing.push({ packName, constraint });
           constraintMap.set(fqn, existing);

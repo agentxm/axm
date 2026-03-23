@@ -8,7 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -45,16 +45,14 @@ export interface ParsedMcpServerUninstallArgs {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class UninstallMcpServerCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/UninstallMcpServerCommandWorkflowActions",
-)<
+export class UninstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
   UninstallMcpServerCommandWorkflowActions,
   UninstallExtensionCommandWorkflowActions<
     UninstallMcpServerHandlerArgs,
     ParsedMcpServerUninstallArgs,
     UninstallMcpServerCommandIntent
   >
->() {}
+>()("@axm.sh/cli/UninstallMcpServerCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

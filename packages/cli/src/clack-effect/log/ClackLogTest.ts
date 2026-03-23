@@ -1,4 +1,4 @@
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -20,7 +20,7 @@ export interface ClackLogRecord {
   };
 }
 
-export type MockClackLogService = Context.Tag.Service<typeof ClackLog> & {
+export type MockClackLogService = ServiceMap.Service.Shape<typeof ClackLog> & {
   calls: Array<ClackLogCall>;
   logs: {
     info: Array<string>;
@@ -36,13 +36,13 @@ const emptyRecord: ClackLogRecord = {
   logs: { info: [], warn: [], error: [], success: [], message: [] },
 };
 
-export class ClackLogTest extends Context.Tag("@axm.sh/cli/test/ClackLogTest")<
+export class ClackLogTest extends ServiceMap.Service<
   ClackLogTest,
   {
     readonly ref: Ref.Ref<ClackLogRecord>;
     readonly get: Effect.Effect<ClackLogRecord>;
   }
->() {}
+>()("@axm.sh/cli/test/ClackLogTest") {}
 
 const appendCall = (
   ref: Ref.Ref<ClackLogRecord>,
@@ -113,42 +113,42 @@ export const makeClackLogTestLayer = (): readonly [
       }),
   };
 
-  const layer: Layer.Layer<ClackLog | ClackLogTest> = Layer.effectContext(
+  const layer: Layer.Layer<ClackLog | ClackLogTest> = Layer.effectServices(
     Effect.gen(function* () {
       const ref = yield* Ref.make(emptyRecord);
 
-      const service: Context.Tag.Service<typeof ClackLog> = {
+      const service: ServiceMap.Service.Shape<typeof ClackLog> = {
         message: (message) =>
-          Effect.zipRight(mock.message(message), appendCall(ref, "message", [message], "message")),
+          Effect.andThen(mock.message(message), appendCall(ref, "message", [message], "message")),
         info: (message) =>
-          Effect.zipRight(mock.info(message), appendCall(ref, "info", [message], "info")),
+          Effect.andThen(mock.info(message), appendCall(ref, "info", [message], "info")),
         success: (message) =>
-          Effect.zipRight(mock.success(message), appendCall(ref, "success", [message], "success")),
-        step: (message) => Effect.zipRight(mock.step(message), appendCall(ref, "step", [message])),
+          Effect.andThen(mock.success(message), appendCall(ref, "success", [message], "success")),
+        step: (message) => Effect.andThen(mock.step(message), appendCall(ref, "step", [message])),
         warn: (message) =>
-          Effect.zipRight(mock.warn(message), appendCall(ref, "warn", [message], "warn")),
+          Effect.andThen(mock.warn(message), appendCall(ref, "warn", [message], "warn")),
         error: (message) =>
-          Effect.zipRight(mock.error(message), appendCall(ref, "error", [message], "error")),
-        intro: (title) => Effect.zipRight(mock.intro(title), appendCall(ref, "intro", [title])),
+          Effect.andThen(mock.error(message), appendCall(ref, "error", [message], "error")),
+        intro: (title) => Effect.andThen(mock.intro(title), appendCall(ref, "intro", [title])),
         outro: (message) =>
-          Effect.zipRight(mock.outro(message), appendCall(ref, "outro", [message])),
+          Effect.andThen(mock.outro(message), appendCall(ref, "outro", [message])),
         cancel: (message) =>
-          Effect.zipRight(mock.cancel(message), appendCall(ref, "cancel", [message])),
+          Effect.andThen(mock.cancel(message), appendCall(ref, "cancel", [message])),
         note: (message, title) =>
-          Effect.zipRight(mock.note(message, title), appendCall(ref, "note", [message, title])),
+          Effect.andThen(mock.note(message, title), appendCall(ref, "note", [message, title])),
         box: (message, title, opts) =>
-          Effect.zipRight(
+          Effect.andThen(
             mock.box(message, title, opts),
             appendCall(ref, "box", [message, title, opts]),
           ),
       };
 
-      const test: Context.Tag.Service<typeof ClackLogTest> = {
+      const test: ServiceMap.Service.Shape<typeof ClackLogTest> = {
         ref,
         get: Ref.get(ref),
       };
 
-      return Context.empty().pipe(Context.add(ClackLog, service), Context.add(ClackLogTest, test));
+      return ServiceMap.empty().pipe(ServiceMap.add(ClackLog, service), ServiceMap.add(ClackLogTest, test));
     }),
   );
 

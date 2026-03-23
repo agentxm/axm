@@ -99,7 +99,7 @@ describe("runTasks", () => {
       { title: "Failing", task: () => Effect.fail(new TestError({ message: "fail" })) },
     ];
     return Effect.gen(function* () {
-      yield* runTasks(tasks).pipe(Effect.catchAll(() => Effect.void));
+      yield* runTasks(tasks).pipe(Effect.catch(() => Effect.void));
       const { calls } = yield* (yield* ClackSpinnerTest).get;
       expect(calls).toEqual([
         { method: "withSpinner.start", args: ["Failing"] },

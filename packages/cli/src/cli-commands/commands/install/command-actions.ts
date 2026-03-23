@@ -15,12 +15,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
@@ -71,9 +71,7 @@ export interface CommandInstallSourceRequest {
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class InstallCommandCommandWorkflowActions extends Context.Tag(
-  "@axm.sh/cli/InstallCommandCommandWorkflowActions",
-)<
+export class InstallCommandCommandWorkflowActions extends ServiceMap.Service<
   InstallCommandCommandWorkflowActions,
   InstallExtensionCommandWorkflowActions<
     InstallCommandHandlerArgs,
@@ -82,7 +80,7 @@ export class InstallCommandCommandWorkflowActions extends Context.Tag(
     CommandExtensionRef,
     InstallCommandCommandIntent
   >
->() {}
+>()("@axm.sh/cli/InstallCommandCommandWorkflowActions") {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

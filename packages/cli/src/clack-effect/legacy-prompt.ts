@@ -1,4 +1,4 @@
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -13,12 +13,12 @@ export interface ConfirmConfig {
   readonly initialValue?: boolean;
 }
 
-export class Confirm extends Context.Tag("@axm.sh/cli/clack-effect/Confirm")<
+export class Confirm extends ServiceMap.Service<
   Confirm,
   {
     readonly prompt: (config: ConfirmConfig) => Effect.Effect<boolean, PromptError>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/Confirm") {}
 
 export interface SelectConfig<T> {
   readonly message: string;
@@ -29,12 +29,12 @@ export interface SelectConfig<T> {
   };
 }
 
-export class Select extends Context.Tag("@axm.sh/cli/clack-effect/Select")<
+export class Select extends ServiceMap.Service<
   Select,
   {
     readonly prompt: <T>(config: SelectConfig<T>) => Effect.Effect<T, PromptError>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/Select") {}
 
 export interface MultiselectConfig<T> {
   readonly message: string;
@@ -48,14 +48,14 @@ export interface MultiselectConfig<T> {
   readonly required?: Option.Option<boolean>;
 }
 
-export class Multiselect extends Context.Tag("@axm.sh/cli/clack-effect/Multiselect")<
+export class Multiselect extends ServiceMap.Service<
   Multiselect,
   {
     readonly prompt: <T>(
       config: MultiselectConfig<T>,
     ) => Effect.Effect<ReadonlyArray<T>, PromptError>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/Multiselect") {}
 
 export interface TextInputConfig {
   readonly message: string;
@@ -64,24 +64,24 @@ export interface TextInputConfig {
   readonly validate?: (value: string) => string | undefined;
 }
 
-export class TextInput extends Context.Tag("@axm.sh/cli/clack-effect/TextInput")<
+export class TextInput extends ServiceMap.Service<
   TextInput,
   {
     readonly prompt: (config: TextInputConfig) => Effect.Effect<string, PromptError>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/TextInput") {}
 
 export interface PasswordInputConfig {
   readonly message: string;
   readonly mask?: string;
 }
 
-export class PasswordInput extends Context.Tag("@axm.sh/cli/clack-effect/PasswordInput")<
+export class PasswordInput extends ServiceMap.Service<
   PasswordInput,
   {
     readonly prompt: (config: PasswordInputConfig) => Effect.Effect<string, PromptError>;
   }
->() {}
+>()("@axm.sh/cli/clack-effect/PasswordInput") {}
 
 const toOptional = <T>(value: T | Option.Option<T> | undefined): T | undefined => {
   if (value === undefined) {
@@ -96,8 +96,8 @@ const toOptional = <T>(value: T | Option.Option<T> | undefined): T | undefined =
 const toHint = (hint: string | Option.Option<string> | undefined): string | undefined =>
   toOptional(hint);
 
-const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt>) => {
-  const confirm: Context.Tag.Service<typeof Confirm> = {
+const makeLegacyPromptServices = (prompt: ServiceMap.Service.Shape<typeof ClackPrompt>) => {
+  const confirm: ServiceMap.Service.Shape<typeof Confirm> = {
     prompt: (config) =>
       prompt.confirm({
         message: config.message,
@@ -105,7 +105,7 @@ const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt
       }),
   };
 
-  const select: Context.Tag.Service<typeof Select> = {
+  const select: ServiceMap.Service.Shape<typeof Select> = {
     prompt: (config) =>
       prompt.select({
         message: config.message,
@@ -121,7 +121,7 @@ const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt
       }),
   };
 
-  const multiselect: Context.Tag.Service<typeof Multiselect> = {
+  const multiselect: ServiceMap.Service.Shape<typeof Multiselect> = {
     prompt: (config) => {
       const initialValues = toOptional(config.initialValues);
       const required = toOptional(config.required);
@@ -142,7 +142,7 @@ const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt
     },
   };
 
-  const textInput: Context.Tag.Service<typeof TextInput> = {
+  const textInput: ServiceMap.Service.Shape<typeof TextInput> = {
     prompt: (config) =>
       prompt.text({
         message: config.message,
@@ -155,7 +155,7 @@ const makeLegacyPromptServices = (prompt: Context.Tag.Service<typeof ClackPrompt
       }),
   };
 
-  const passwordInput: Context.Tag.Service<typeof PasswordInput> = {
+  const passwordInput: ServiceMap.Service.Shape<typeof PasswordInput> = {
     prompt: (config) =>
       prompt.password({
         message: config.message,
@@ -176,16 +176,16 @@ export const LegacyPromptLive: Layer.Layer<
   Confirm | Select | Multiselect | TextInput | PasswordInput,
   never,
   ClackPrompt
-> = Layer.effectContext(
-  Effect.map(ClackPrompt, (prompt) => {
+> = Layer.effectServices(
+  Effect.map(ClackPrompt.asEffect(), (prompt) => {
     const { confirm, select, multiselect, textInput, passwordInput } =
       makeLegacyPromptServices(prompt);
-    return Context.empty().pipe(
-      Context.add(Confirm, confirm),
-      Context.add(Select, select),
-      Context.add(Multiselect, multiselect),
-      Context.add(TextInput, textInput),
-      Context.add(PasswordInput, passwordInput),
+    return ServiceMap.empty().pipe(
+      ServiceMap.add(Confirm, confirm),
+      ServiceMap.add(Select, select),
+      ServiceMap.add(Multiselect, multiselect),
+      ServiceMap.add(TextInput, textInput),
+      ServiceMap.add(PasswordInput, passwordInput),
     );
   }),
 );

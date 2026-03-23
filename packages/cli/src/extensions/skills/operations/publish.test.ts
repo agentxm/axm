@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -78,7 +78,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
   };
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
+  return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs));
 };
 
 /** Creates a minimal PublishSkillOperation for testing. */
@@ -338,7 +338,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/nonexistent", registryName: "local" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -354,7 +354,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/my-skill", registryName: "nonexistent" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

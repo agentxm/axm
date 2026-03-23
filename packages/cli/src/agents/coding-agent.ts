@@ -4,10 +4,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Context from "effect/Context";
+import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
-import type * as Path from "@effect/platform/Path";
-import type * as FileSystem from "@effect/platform/FileSystem";
+import type * as Path from "effect/Path";
+import type * as FileSystem from "effect/FileSystem";
 import type { CliError } from "../cli-error/index.js";
 import type { CliEnvConfig } from "../config/index.js";
 import type { Workspace } from "../workspace/service.js";
@@ -83,7 +83,7 @@ export interface CodingAgentRepositoryService {
   >;
 }
 
-export class CodingAgentRepository extends Context.Tag("CodingAgentRepository")<
+export class CodingAgentRepository extends ServiceMap.Service<
   CodingAgentRepository,
   CodingAgentRepositoryService
->() {}
+>()("CodingAgentRepository") {}

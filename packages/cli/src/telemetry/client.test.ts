@@ -1,12 +1,17 @@
-import * as HttpClient from "@effect/platform/HttpClient";
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CliEnvConfig } from "../config/index.js";
-import { TelemetryClient, TelemetryClientLive, TelemetryClientTest } from "./client.js";
+import {
+  TelemetryClient,
+  TelemetryClientLive,
+  TelemetryClientTest,
+  type TelemetryClientService,
+} from "./client.js";
 
 // ---------------------------------------------------------------------------
 // Mock HTTP client that captures requests
@@ -47,30 +52,29 @@ const makeMockLayer = (mock: { client: HttpClient.HttpClient }) =>
 // ---------------------------------------------------------------------------
 
 describe("TelemetryClientLive", () => {
-  const runWith = (
+  const getTelemetry = (
     mode: "all" | "errors" | "off",
     command: string,
     mock: { client: HttpClient.HttpClient },
-  ) => {
+  ): Effect.Effect<TelemetryClientService> => {
     const httpLayer = makeMockLayer(mock);
     const telemetryLayer = Layer.provide(
       TelemetryClientLive(mode, command),
       Layer.mergeAll(httpLayer, CliEnvConfig.testDefaults),
     );
-    return <A>(effect: Effect.Effect<A, never, TelemetryClient>) =>
-      effect.pipe(Effect.provide(telemetryLayer));
+    return TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
   };
 
   describe("mode 'all'", () => {
     it.effect("trackEvent sends POST to /events with correct payload shape", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* runWith("all", "skills install", mock)(TelemetryClient);
+        const telemetry = yield* getTelemetry("all", "skills install", mock);
 
         yield* telemetry.trackEvent("command:start", { command: "skills install" });
 
         // Daemon fibers need a tick to complete
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
         const req = mock.captured[0]!;
@@ -113,7 +117,7 @@ describe("TelemetryClientLive", () => {
     it.effect("reportError sends POST to /errors with correct payload shape", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* runWith("all", "init", mock)(TelemetryClient);
+        const telemetry = yield* getTelemetry("all", "init", mock);
 
         yield* telemetry.reportError({
           name: "WORKSPACE_NOT_FOUND",
@@ -125,7 +129,7 @@ describe("TelemetryClientLive", () => {
           command: "init",
         });
 
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
         const req = mock.captured[0]!;
@@ -162,7 +166,7 @@ describe("TelemetryClientLive", () => {
     it.effect("sends nothing for trackEvent or reportError", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* runWith("off", "init", mock)(TelemetryClient);
+        const telemetry = yield* getTelemetry("off", "init", mock);
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -173,7 +177,7 @@ describe("TelemetryClientLive", () => {
           command: "init",
         });
 
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(0);
       }),
@@ -184,10 +188,10 @@ describe("TelemetryClientLive", () => {
     it.effect("skips trackEvent but sends reportError", () =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
-        const telemetry = yield* runWith("errors", "init", mock)(TelemetryClient);
+        const telemetry = yield* getTelemetry("errors", "init", mock);
 
         yield* telemetry.trackEvent("command:start");
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
         expect(mock.captured).toHaveLength(0);
 
         yield* telemetry.reportError({
@@ -197,7 +201,7 @@ describe("TelemetryClientLive", () => {
           handled: true,
           command: "init",
         });
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
         expect(mock.captured[0]!.url).toBe("https://t.agentxm.ai/errors");
@@ -215,7 +219,7 @@ describe("TelemetryClientLive", () => {
           Layer.mergeAll(httpLayer, CliEnvConfig.testDefaults),
         );
 
-        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
 
         // These should not throw or affect the caller
         yield* telemetry.trackEvent("command:start");
@@ -227,7 +231,7 @@ describe("TelemetryClientLive", () => {
           command: "init",
         });
 
-        yield* Effect.yieldNow();
+        yield* Effect.yieldNow;
 
         // If we got here, failures were swallowed
         expect(true).toBe(true);
@@ -267,7 +271,7 @@ describe("VITEST auto-detection", () => {
         Layer.mergeAll(httpLayer, VitestTrueConfig),
       );
 
-      const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
+      const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
 
       yield* telemetry.trackEvent("command:start");
       yield* telemetry.reportError({
@@ -278,7 +282,7 @@ describe("VITEST auto-detection", () => {
         command: "init",
       });
 
-      yield* Effect.yieldNow();
+      yield* Effect.yieldNow;
 
       // No HTTP calls because vitest="true" triggers no-op
       expect(mock.captured).toHaveLength(0);
@@ -289,7 +293,7 @@ describe("VITEST auto-detection", () => {
 describe("TelemetryClientTest", () => {
   it.effect("provides a no-op implementation", () =>
     Effect.gen(function* () {
-      const telemetry = yield* TelemetryClient.pipe(Effect.provide(TelemetryClientTest));
+      const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(TelemetryClientTest));
 
       // Should complete without errors
       yield* telemetry.trackEvent("test-event");

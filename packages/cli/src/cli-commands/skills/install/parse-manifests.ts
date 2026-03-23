@@ -5,8 +5,8 @@
  * to discover explicitly declared skill directories.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -68,10 +68,13 @@ const readJsonFile = (
     const fs = yield* FileSystem.FileSystem;
     const content = yield* fs.readFileString(filePath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none();
-    return yield* Effect.try(() => JSON.parse(content.value) as unknown).pipe(
-      Effect.map((json) => Option.some(json)),
-      Effect.orElseSucceed(() => Option.none()),
-    );
+    return yield* Effect.sync(() => {
+      try {
+        return Option.some(JSON.parse(content.value) as unknown);
+      } catch {
+        return Option.none<unknown>();
+      }
+    });
   });
 
 /**
@@ -134,7 +137,7 @@ const parseMarketplaceJson = (
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
-    const data = yield* Schema.decodeUnknown(MarketplaceManifest)(json.value).pipe(Effect.option);
+    const data = yield* Schema.decodeUnknownEffect(MarketplaceManifest)(json.value).pipe(Effect.option);
     if (Option.isNone(data)) return [];
 
     // pluginRoot validation: if present and doesn't start with ./, skip entire manifest
@@ -172,12 +175,17 @@ const parsePluginJson = (
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
-    const data = yield* Schema.decodeUnknown(PluginManifest)(json.value).pipe(Effect.option);
+    const data = yield* Schema.decodeUnknownEffect(PluginManifest)(json.value).pipe(Effect.option);
     if (Option.isNone(data)) return [];
 
-    return Array.filterMap(data.value.skills, (skillPath) =>
-      validatePath(skillPath, basePath, path),
-    );
+    const validatedPaths: Array<string> = [];
+    for (const skillPath of data.value.skills) {
+      const validated = validatePath(skillPath, basePath, path);
+      if (Option.isSome(validated)) {
+        validatedPaths.push(validated.value);
+      }
+    }
+    return validatedPaths;
   });
 
 // -----------------------------------------------------------------------------

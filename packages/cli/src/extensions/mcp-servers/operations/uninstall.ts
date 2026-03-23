@@ -7,8 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -226,14 +226,14 @@ export const uninstallMcpServer: OperationHandler<
         "mcp-servers",
         lockEntry.name,
       );
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
+      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     } else if (installedOnDisk) {
       // Remove from all known locations
       yield* removeFromAllMcpServerLocations(fs, path, base, op.args.serverName);
     }
 
     // Remove from settings + lockfile (swallow errors)
-    yield* ws.removeMcpServer(op.args.serverName).pipe(Effect.catchAll(() => Effect.void));
+    yield* ws.removeMcpServer(op.args.serverName).pipe(Effect.catch(() => Effect.void));
 
     const agentSync = yield* syncConfiguredAgentsOnUninstall({
       wsBaseDir: ws.baseDir,
@@ -261,20 +261,20 @@ const checkInstalledOnDisk = (
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (!extensionsDirExists) return false;
 
     const scopeDirs = yield* fsService
       .readDirectory(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     const results = yield* Effect.forEach(
       scopeDirs,
       (scopeDir) => {
         if (!scopeDir.startsWith("@")) return Effect.succeed(false);
         const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
-        return fsService.exists(serverPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+        return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
       },
       { concurrency: "unbounded" },
     );
@@ -292,13 +292,13 @@ const removeFromAllMcpServerLocations = (
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
     const extensionsDirExists = yield* fsService
       .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      .pipe(Effect.catch(() => Effect.succeed(false)));
 
     if (!extensionsDirExists) return;
 
     const scopeDirs = yield* fsService
       .readDirectory(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     yield* Effect.forEach(
       scopeDirs,
@@ -307,7 +307,7 @@ const removeFromAllMcpServerLocations = (
         const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
         return fsService
           .remove(serverPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
+          .pipe(Effect.catch(() => Effect.void));
       },
       { concurrency: "unbounded" },
     );

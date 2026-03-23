@@ -564,13 +564,13 @@ describe("resolveSkillUninstallTargetsFromLockfile", () => {
 
     const result = Effect.runSync(
       resolveSkillUninstallTargetsFromLockfile([{ skillName: "nonexistent" }], lockfile).pipe(
-        Effect.either,
+        Effect.result,
       ),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("SKILL_NOT_FOUND_IN_LOCKFILE");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("SKILL_NOT_FOUND_IN_LOCKFILE");
     }
   });
 
@@ -592,12 +592,12 @@ describe("resolveSkillUninstallTargetsFromLockfile", () => {
       resolveSkillUninstallTargetsFromLockfile(
         [{ skillName: "exists" }, { skillName: "missing" }],
         lockfile,
-      ).pipe(Effect.either),
+      ).pipe(Effect.result),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.code).toBe("SKILL_NOT_FOUND_IN_LOCKFILE");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("SKILL_NOT_FOUND_IN_LOCKFILE");
     }
   });
 });

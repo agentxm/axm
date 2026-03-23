@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import { ExactSemverVersionSchema } from "./schema.js";
 
-const decodeExactSemverVersion = Schema.decodeUnknown(ExactSemverVersionSchema);
+const decodeExactSemverVersion = Schema.decodeUnknownEffect(ExactSemverVersionSchema);
 
 const makeResolvedVersionError = (field: string, value: string, cause: unknown): CliError =>
   makeCliError({

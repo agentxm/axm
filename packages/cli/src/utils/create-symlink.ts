@@ -1,5 +1,5 @@
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../cli-error/index.js";
@@ -40,7 +40,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     );
     const resolvedLink = yield* resolveParentSymlinks(opts.link).pipe(
       // Link parent may not exist yet — fall back to the raw path
-      Effect.catchAll(() => Effect.succeed(opts.link)),
+      Effect.catch(() => Effect.succeed(opts.link)),
     );
 
     // Self-reference detection: skip if both resolve to the same location
@@ -120,7 +120,7 @@ const inspectExisting = (
       // Resolve through realpath for cases where parent dirs are symlinks
       const resolvedCurrentTarget = yield* fs
         .realPath(currentAbsTarget)
-        .pipe(Effect.catchAll(() => Effect.succeed(currentAbsTarget)));
+        .pipe(Effect.catch(() => Effect.succeed(currentAbsTarget)));
 
       if (resolvedCurrentTarget === resolvedAbsTarget) return "no-op" as const;
 

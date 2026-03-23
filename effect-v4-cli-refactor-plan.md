@@ -89,14 +89,14 @@ commands. No command behavior changes in this phase.
 
 ### Tasks
 
-- [ ] **1.1 Create `output.ts`** — Port from `cli-spike/src/output.ts`:
+- [x] **1.1 Create `output.ts`** — Port from `cli-spike/src/output.ts`:
   - `OutputFormat` type (`"text" | "json" | "stream-json"`)
   - `resolveOutputFormat(explicit, isLongRunning?)` — TTY auto-detection
   - `writeOutput(format, schema, data, textRenderer)` — Schema-encoded output
   - `emitEvent(event)` — NDJSON event emitter for `stream-json`
   - NDJSON event schemas: `ProgressEventSchema`, `LogEventSchema`, `ErrorEventSchema`
 
-- [ ] **1.2 Add `--output-format` global flag** — Add to `main-effect-cli.ts`
+- [x] **1.2 Add `--output-format` global flag** — Add to `main-effect-cli.ts`
       global flags section:
 
   ```typescript
@@ -115,7 +115,7 @@ commands. No command behavior changes in this phase.
   flags but evaluate whether they should be subsumed by `--output-format text` +
   log levels in a later phase.
 
-- [ ] **1.3 Add pre-Effect format detection** — Add `resolveFormatFromArgv()`
+- [x] **1.3 Add pre-Effect format detection** — Add `resolveFormatFromArgv()`
       outside the Effect runtime (per spike pattern) so CLI parsing errors can be
       routed to the correct channel:
 
@@ -130,7 +130,7 @@ commands. No command behavior changes in this phase.
   };
   ```
 
-- [ ] **1.4 Add three-channel error handling** — Replace the current catch block
+- [x] **1.4 Add three-channel error handling** — Replace the current catch block
       in `runEffectCli()` with format-aware error routing (per spike `handleError`):
 
   | Channel   | text mode              | json/stream-json mode                 |
@@ -142,14 +142,15 @@ commands. No command behavior changes in this phase.
   Map `CliError` fields (`code`, `what`, `details`, `howToFix`) to the
   structured error JSON shape. Map `PromptCancelled` to exit code 4.
 
-- [ ] **1.5 Add graceful shutdown** — Add `withGracefulShutdown()` wrapper (from
+- [x] **1.5 Add graceful shutdown** — Add `withGracefulShutdown()` wrapper (from
       spike) to the `run()` boundary:
   - `Effect.forkChild` (supervised fiber)
   - SIGTERM/SIGINT → interrupt fiber with 5s timeout → `process.exit(130)`
   - Clean up listeners after normal completion
 
-- [ ] **1.6 Verify existing E2E tests pass** — All existing behavior unchanged;
-      foundation is additive only.
+- [x] **1.6 Verify existing E2E tests pass** — All existing behavior unchanged;
+      foundation is additive only. (56 pre-existing E2E failures confirmed
+      identical before and after changes; 2204 unit tests pass; typecheck clean.)
 
 ---
 
@@ -161,7 +162,7 @@ provision.
 
 ### Tasks
 
-- [ ] **2.1 Create `cli.ts`** — Extract from `main-effect-cli.ts` into a new
+- [x] **2.1 Create `cli.ts`** — Extract from `main-effect-cli.ts` into a new
       file containing:
   - Root command definition
   - Global flags
@@ -187,19 +188,24 @@ provision.
   };
   ```
 
-- [ ] **2.2 Consolidate layer provision** — Build a single `appLayer` provided
-      once at the `run()` boundary in `cli.ts`, replacing the dual provision
-      (`NodeServices.layer` in `runEffectCli()` + `ManagedRuntime.make(AppLayer)` in
-      `runtime/index.ts`). The `appLayer` composes:
+- [x] **2.2 Consolidate layer provision** — Build a single `baseLayer` provided
+      once at the `run()` boundary in `cli.ts`, replacing `NodeServices.layer`.
+      Per-command services (CliFlags, Clack, Telemetry) are provided by
+      `withCommandRuntime()` inside command handlers. The `baseLayer` composes:
   - `NodeServices.layer` — FileSystem, Path
   - `FetchHttpClient.layer` — HTTP
   - Auth layers (CredentialStore, AuthClient, AuthMiddleware)
-  - `ClackLive` — Prompt/log/spinner services
-  - `CliFlags` layer — Resolved from global flags
-  - `TelemetryClient` layer
   - `CliEnvConfig` layer
+  - Logger layer
 
-- [ ] **2.3 Wire global flags directly to CliFlags service** — Global flags feed
+    `withCommandRuntime()` provides per-command:
+
+  - `CliFlags` layer — Resolved from global flags
+  - `ClackLive` — Prompt/log/spinner services (depends on CliFlags)
+  - `TelemetryClient` layer (resolved per command name)
+  - Debug logger layer (resolved from diagnostic verbosity)
+
+- [x] **2.3 Wire global flags directly to CliFlags service** — Global flags feed
       into the `CliFlags` layer without the `extractFlags(argv)` bridge:
 
   ```typescript
@@ -212,19 +218,23 @@ provision.
   });
   ```
 
-  This eliminates `extractFlags()`, `baseArgv`, and the `executeCommand()` bridge.
+  This eliminates `extractFlags()`, `baseArgv`, and the `executeCommand()` bridge
+  for new-style commands. Old-style commands retain `executeCommand()` during
+  migration (coexistence).
 
 - [ ] **2.4 Convert Workspace to a scoped layer** — Commands that need
       `Workspace` declare it in their requirements and yield it from context. Provide
       it as a scoped layer that reads scope from the command's flags, rather than
-      passing workspace options through `run()`.
+      passing workspace options through `run()`. (Deferred to Phase 3 — no
+      workspace-requiring commands migrated yet.)
 
-- [ ] **2.5 Migrate one pilot command** — Pick a simple command (e.g. `auth
-whoami`) and convert it end-to-end to validate the unified runtime works.
-      Command handler yields services from Effect context instead of calling `run()`.
+- [x] **2.5 Migrate one pilot command** — `auth whoami` converted end-to-end.
+      Command handler uses `withCommandRuntime(handleWhoami(...))` — yields
+      services from Effect context instead of calling `run()`.
 
-- [ ] **2.6 Verify E2E tests pass** — Pilot command works identically. All other
-      commands still work via the old path (coexistence during migration).
+- [x] **2.6 Verify E2E tests pass** — Pilot command works identically. All other
+      commands still work via the old path (coexistence during migration). 2204
+      unit tests pass; typecheck clean; 56 pre-existing E2E failures unchanged.
 
 ---
 

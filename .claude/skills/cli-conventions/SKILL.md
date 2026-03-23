@@ -1,6 +1,6 @@
 ---
 name: cli-conventions
-description: yargs + Effect CLI architecture. Use when adding commands, defining flags, or wiring handlers. Covers file organization and testing.
+description: Effect CLI + Effect architecture. Use when adding commands, defining flags, or wiring handlers. Covers file organization, argument/flag patterns, and testing.
 user-invocable: false
 ---
 
@@ -8,46 +8,163 @@ user-invocable: false
 
 Apply these conventions when working on CLI commands.
 
+> **Reference implementation:** `packages/cli-spike` — a working spike proving
+> out idiomatic `effect/unstable/cli` patterns.
+
 ---
 
-## yargs + Effect Architecture
+## Effect CLI + Effect Architecture
 
-yargs handles parsing; Effect handles business logic. Separate handler functions
-for testability:
+`effect/unstable/cli` handles command parsing; Effect handlers own business
+logic. Each leaf command is a single-file module that defines its arguments,
+flags, and handler via `Command.make()`. For testability, extract the handler
+into a separate function:
 
 ```typescript
-// 1. Define args interface
-interface DeployArgs {
-  target: string;
-  env: string;
+import * as Effect from "effect/Effect";
+import { Argument, Command, Flag } from "effect/unstable/cli";
+
+// 1. Handler args interface (uses idiomatic Effect types)
+interface InstallHandlerArgs {
+  readonly source: string;
+  readonly scope: "project" | "user";
+  readonly skill: ReadonlyArray<string>;
+  readonly all: boolean;
 }
 
-// 2. Pure Effect handler (testable without yargs)
-const handleDeploy = (args: DeployArgs) =>
+// 2. Pure Effect handler (testable without CLI parsing)
+const handleInstall = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
     // Business logic here
   });
 
-// 3. CommandModule wires yargs to handler
-export const deployCommand: CommandModule<{}, DeployArgs> = {
-  command: "deploy <target>",
-  describe: "Deploy to target environment",
-  builder: (yargs) =>
-    yargs
-      .positional("target", { type: "string", demandOption: true })
-      .option("env", { type: "string", default: "staging" }),
-  handler: async (argv) => {
-    await Effect.runPromise(handleDeploy(argv));
+// 3. Command wires parsing to handler
+export const installCommand = Command.make(
+  "install",
+  {
+    source: Argument.string("source").pipe(
+      Argument.withDescription("GitHub shorthand, local path, or URL"),
+    ),
+    scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+      Flag.withDescription("Configuration scope"),
+      Flag.withDefault("project" as const),
+    ),
+    skill: Flag.string("skill").pipe(
+      Flag.withDescription("Install only specified skill(s)"),
+      Flag.atLeast(0),
+    ),
+    all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
   },
-};
+  (config) => handleInstall(config),
+).pipe(
+  Command.withDescription("Install skills from GitHub or local path"),
+  Command.withExamples([
+    { command: "axm skills install owner/repo", description: "Install interactively" },
+    {
+      command: "axm skills install owner/repo --all --yes",
+      description: "Install all, no prompts",
+    },
+  ]),
+);
 ```
 
 ### Architecture Checklist
 
-- [ ] **yargs for parsing** — Type-safe argument parsing via yargs
+- [ ] **Bun runtime** — Uses Bun for fast startup and built-in TypeScript
+- [ ] **Effect CLI for parsing** — Type-safe argument parsing via `effect/unstable/cli`
 - [ ] **Effect for logic** — Command handlers are Effect programs
-- [ ] **Handler separation** — Effect handlers separate from CommandModule
-- [ ] **Typed CommandModule** — Uses `CommandModule<ParentArgs, Args>` generics
+- [ ] **Handler separation** — Effect handlers separate from `Command.make()`
+- [ ] **Single-file leaf commands** — Each command defines args, flags, and handler in one file
+- [ ] **Global flags via `GlobalFlag.setting()`** — Defined once, yielded in any handler
+- [ ] **`Command.runWith()` for entry** — Provides `--help` and `--version` automatically
+
+---
+
+## Argument and Flag Patterns
+
+### Arguments (Positionals)
+
+```typescript
+import { Argument } from "effect/unstable/cli";
+
+// Required string — config.source: string
+source: Argument.string("source").pipe(
+  Argument.withDescription("GitHub shorthand, local path, or URL"),
+),
+
+// Optional positional — config.source: Option<string>
+source: Argument.string("source").pipe(
+  Argument.withDescription("Filter to skills from a specific source"),
+  Argument.optional,
+),
+
+// Variadic (1+ values) — config.extensions: ReadonlyArray<string>
+extensions: Argument.string("extensions").pipe(
+  Argument.withDescription("Extension names or glob patterns"),
+  Argument.atLeast(1),
+),
+
+// Multiple required positionals — ordered, map to camelCase property names
+oldName: Argument.string("old-name").pipe(
+  Argument.withDescription("Current name of the skill"),
+),
+newName: Argument.string("new-name").pipe(
+  Argument.withDescription("New name for the skill"),
+),
+```
+
+### Flags
+
+```typescript
+import { Flag } from "effect/unstable/cli";
+
+// Boolean flag — config.all: boolean
+all: Flag.boolean("all").pipe(
+  Flag.withDescription("Install all discovered skills"),
+),
+
+// Choice with default — config.scope: "project" | "user"
+scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+  Flag.withDescription("Configuration scope"),
+  Flag.withDefault("project" as const),
+),
+
+// Optional string flag — config.namespace: Option<string>
+namespace: Flag.string("namespace").pipe(
+  Flag.withDescription("Override the workspace namespace"),
+  Flag.optional,
+),
+
+// Multi-value flag (repeatable, 0+) — config.skill: ReadonlyArray<string>
+skill: Flag.string("skill").pipe(
+  Flag.withDescription("Target skill(s) by name"),
+  Flag.atLeast(0),
+),
+
+// Multi-value flag (optional, 1+ when present)
+agent: Flag.string("agent").pipe(
+  Flag.withDescription("Agent IDs to target"),
+  Flag.atLeast(1),
+  Flag.optional,
+),
+
+// Flag with alias — --yes or -y
+Flag.boolean("yes").pipe(
+  Flag.withAlias("y"),
+  Flag.withDescription("Auto-accept confirmation prompts"),
+),
+```
+
+### Argument/Flag Patterns Checklist
+
+- [ ] **Required positional** — `Argument.string(name)` for mandatory single value
+- [ ] **Optional positional** — `Argument.optional` returns `Option<T>`
+- [ ] **Variadic positional** — `Argument.atLeast(n)` returns `ReadonlyArray<T>`
+- [ ] **Choice flag** — `Flag.choice(name, [...] as const)` with `Flag.withDefault()`
+- [ ] **Multi-value flag** — `Flag.atLeast(0)` for repeatable flags
+- [ ] **Optional flag** — `Flag.optional` returns `Option<T>`
+- [ ] **Flag alias** — `Flag.withAlias("y")` for short form
+- [ ] **Descriptions on all** — Every argument and flag has `withDescription()`
 
 ---
 
@@ -56,7 +173,27 @@ export const deployCommand: CommandModule<{}, DeployArgs> = {
 ```bash
 # Noun-verb structure with flags over positionals
 mycli <resource> <action> [flags]
-mycli deploy create --env staging
+mycli skills install owner/repo --scope project
+```
+
+### File Organization
+
+```
+src/
+├── main.ts                     # Root command, global flags, run()
+└── commands/
+    └── skills/
+        ├── command.ts           # Parent command — composes subcommands
+        ├── install.ts           # Required arg + choice flag + multi-value flag + boolean flag
+        ├── uninstall.ts         # Required arg only
+        ├── list.ts              # Flags only + Command.withAlias("ls")
+        ├── update.ts            # Optional arg (Argument.optional) + multi-value flags
+        ├── new.ts               # Required arg + Flag.optional + Flag.atLeast(1)
+        ├── fork.ts              # Required arg + multi-value flag
+        ├── rename.ts            # Two required positional args
+        ├── publish.ts           # Variadic arg (Argument.atLeast(1)) + optional flag
+        ├── enable.ts            # Required arg + choice flag
+        └── disable.ts           # Required arg + choice flag
 ```
 
 ### Command Naming Checklist
@@ -67,110 +204,92 @@ mycli deploy create --env staging
 - [ ] **Flags over positionals** — Positionals only for single obvious value
 - [ ] **Consistent verbs** — Same verbs across resources (`create`, `list`, `delete`)
 
-### File Organization
-
-```
-src/commands/
-├── extensions.ts           # Parent command
-├── extensions/             # Subcommands folder
-│   ├── create.ts
-│   ├── list.ts
-│   └── utils.ts            # Shared utilities
-└── init.ts                 # Standalone command
-```
-
 ---
 
 ## Parent Command Behavior
 
-Parent commands show help menu, exit 0 (not error):
+Parent commands group subcommands — no handler, just `Command.withSubcommands()`.
+When invoked without a subcommand, Effect CLI shows help and exits 0:
 
 ```typescript
-export const extensionsCommand: CommandModule = {
-  command: "extensions",
-  describe: "Manage extensions",
-  builder: (yargs) =>
-    yargs
-      .command(addCommand)
-      .command(listCommand)
-      .demandCommand(1)
-      .fail((msg, err, yargs) => {
-        if (msg?.includes("Not enough non-option arguments")) {
-          yargs.showHelp();
-          process.exit(0); // Welcome, not error
-        }
-        console.error(msg);
-        process.exit(1);
-      }),
-  handler: () => {},
-};
+import { Command } from "effect/unstable/cli";
+
+export const skillsCommand = Command.make("skills").pipe(
+  Command.withDescription("Install, update, and manage skills"),
+  Command.withSubcommands([installCommand, uninstallCommand, listCommand]),
+);
+```
+
+### Command Decorators
+
+```typescript
+// Alias — axm skills ls → axm skills list
+Command.withAlias("ls"),
+
+// Examples — shown in --help output
+Command.withExamples([
+  { command: "axm skills list", description: "List project skills" },
+  { command: "axm skills list --scope user", description: "List user-level skills" },
+]),
 ```
 
 ---
 
-## Standard Flags
+## Global Flags
 
-| Flag                | Short | Purpose                       |
-| ------------------- | ----- | ----------------------------- |
-| `--verbose`         | `-v`  | Increase output detail        |
-| `--quiet`           | `-q`  | Suppress non-essential output |
-| `--json`            |       | Output as JSON                |
-| `--non-interactive` |       | Disable all prompts           |
-| `--yes`             | `-y`  | Skip confirmations            |
-
----
-
-## Interactive Prompts
-
-Use `@clack/prompts` for all interactive input:
+Defined once in `main.ts`, registered on the root command, yielded in any
+handler:
 
 ```typescript
-import * as p from "@clack/prompts";
+import * as Effect from "effect/Effect";
+import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
-const result = await p.select({
-  message: "Select environment",
-  options: [
-    { value: "staging", label: "Staging" },
-    { value: "production", label: "Production", hint: "requires approval" },
-  ],
+const nonInteractiveFlag = GlobalFlag.setting("app-non-interactive")({
+  flag: Flag.boolean("non-interactive").pipe(
+    Flag.optional,
+    Flag.withDescription("Disable all interactive prompts"),
+  ),
 });
 
-if (p.isCancel(result)) {
-  p.cancel("Operation cancelled.");
-  process.exit(0);
-}
-```
+const yesFlag = GlobalFlag.setting("app-yes")({
+  flag: Flag.boolean("yes").pipe(
+    Flag.withAlias("y"),
+    Flag.withDescription("Auto-accept confirmation prompts"),
+  ),
+});
 
-### Interactive Prompts Checklist
+const forceFlag = GlobalFlag.setting("app-force")({
+  flag: Flag.boolean("force").pipe(
+    Flag.withAlias("f"),
+    Flag.withDescription("Override constraints that would cause failure"),
+  ),
+});
 
-- [ ] **Uses clack** — All prompts use `@clack/prompts`
-- [ ] **Cancellation handled** — `p.isCancel()` checked after every prompt
-- [ ] **Cancel exits 0** — User cancellation exits cleanly
-- [ ] **Non-interactive fallback** — Every prompt has an equivalent flag
-- [ ] **TTY detection** — Prompts only shown when `process.stdin.isTTY`
+const previewFlag = GlobalFlag.setting("app-preview")({
+  flag: Flag.boolean("preview").pipe(Flag.withDescription("Display plan without applying")),
+});
 
----
+const globalFlags = [nonInteractiveFlag, yesFlag, forceFlag, previewFlag] as const;
 
-## Output Conventions
+const rootCommand = Command.make("axm").pipe(
+  Command.withDescription("Open agent extension manager"),
+  Command.withExamples([
+    { command: "axm skills list", description: "List installed skills" },
+    { command: "axm skills install owner/repo", description: "Install skills from GitHub" },
+  ]),
+  Command.withSubcommands([skillsCommand]),
+  Command.withGlobalFlags(globalFlags),
+);
 
-- **stdout** — Data/results for piping
-- **stderr** — Progress, spinners, errors
-
-```typescript
-if (process.stdout.isTTY) {
-  // Interactive: colors, spinners, tables
-} else {
-  // Piped: plain text, no ANSI codes
-}
-```
-
-Use clack output components:
-
-```typescript
-const spin = p.spinner();
-spin.start("Deploying");
-await deploy();
-spin.stop("Deployed successfully");
+// In any leaf command handler — yield to access global flags
+(config) =>
+  Effect.gen(function* () {
+    const yes = yield* yesFlag;
+    const preview = yield* previewFlag;
+    if (preview) {
+      /* show plan only */
+    }
+  });
 ```
 
 ---
@@ -183,12 +302,44 @@ spin.stop("Deployed successfully");
 | 1    | Error           |
 | 130  | SIGINT (Ctrl+C) |
 
+`Command.runWith()` handles `--help` and `--version` automatically. Catch
+`CliError` at the `run()` boundary:
+
+```typescript
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Effect from "effect/Effect";
+import { CliError, Command } from "effect/unstable/cli";
+
+const VERSION = "0.0.1";
+
+const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
+  try {
+    await Effect.runPromise(
+      Command.runWith(rootCommand, { version: VERSION })(args).pipe(
+        Effect.provide(NodeServices.layer),
+      ) as Effect.Effect<void>,
+    );
+  } catch (error) {
+    if (CliError.isCliError(error)) {
+      process.exit(1);
+    }
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+void run();
+```
+
+The entry point file uses `#!/usr/bin/env bun` shebang and `void run()` to
+invoke the async function without awaiting at top level.
+
 Format errors with recovery guidance:
 
 ```
 ✗ Could not find configuration file
-  Looked for: ./mycli.config.ts, ./mycli.config.json
-  Run 'mycli init' to create one.
+  Looked for: ./axm.config.ts, ./axm.config.json
+  Run 'axm init' to create one.
 ```
 
 ### Error Handling Checklist
@@ -200,32 +351,47 @@ Format errors with recovery guidance:
 
 ---
 
-## Testing Commands
+## Imports
 
-Test yargs validation and Effect handlers separately:
+All CLI APIs come from `effect/unstable/cli`. Node services from
+`@effect/platform-node`. Local imports use `.js` extensions (TypeScript module
+resolution):
 
 ```typescript
-// yargs validation test
-const createParser = () => yargs().command(deployCommand).exitProcess(false).fail(false);
+// Leaf commands
+import * as Console from "effect/Console";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
-it("requires target", () => {
-  expect(() => createParser().parse("deploy")).toThrow();
-});
+// main.ts
+#!/usr/bin/env bun
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Effect from "effect/Effect";
+import { CliError, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
-// Effect handler test
-it("deploys to target", async () => {
-  const TestLayer = Layer.succeed(DeployService, mockService);
+import { skillsCommand } from "./commands/skills/command.js";
+```
+
+---
+
+## Testing Commands
+
+Test Effect handlers independently of CLI parsing:
+
+```typescript
+// Effect handler test (no CLI parsing)
+it("installs skill", async () => {
+  const TestLayer = Layer.succeed(SkillService, mockService);
   const result = await Effect.runPromise(
-    handleDeploy({ target: "prod", env: "staging" }).pipe(Effect.provide(TestLayer)),
+    handleInstall({ source: "owner/repo", scope: "project", skill: [], all: false }).pipe(
+      Effect.provide(TestLayer),
+    ),
   );
-  expect(result).toEqual({ deployed: true });
+  expect(result).toEqual({ installed: true });
 });
 ```
 
 ### Testing Checklist
 
-- [ ] **Parser isolation** — Fresh yargs instance per test
-- [ ] **Exit disabled** — Uses `.exitProcess(false)`
-- [ ] **Fail disabled** — Uses `.fail(false)` to throw
-- [ ] **Handler unit tests** — Effect handlers tested independently
+- [ ] **Handler unit tests** — Effect handlers tested independently of CLI parsing
 - [ ] **Test layers provided** — Handler tests provide test layers
+- [ ] **E2E tests** — Full CLI binary tested via subprocess for user-visible behavior

@@ -19,7 +19,4 @@ import { ActivityStructured } from "../activity/activity-structured.js";
 export const makeUiLayer = (format: OutputFormat): Layer.Layer<Output | Activity> =>
   format === "text"
     ? Layer.mergeAll(OutputLive("text"), ActivityLive)
-    : Layer.mergeAll(
-        OutputStructured(format as Exclude<OutputFormat, "text">),
-        ActivityStructured(format as Exclude<OutputFormat, "text">),
-      );
+    : Layer.mergeAll(OutputStructured(format), ActivityStructured(format));

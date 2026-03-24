@@ -460,11 +460,7 @@ describe("disableSkill", () => {
             Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
           getLockedSkill: () =>
             Effect.succeed(
-              Option.some(
-                makeLocalLockEntry([
-                  "claude-code",
-                ]) as unknown as import("../../../lockfile/schema.js").SkillLockEntry,
-              ),
+              Option.some(makeLocalLockEntry(["claude-code"]) as unknown as SkillLockEntry),
             ),
           getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
           setSkill: () => Effect.void,

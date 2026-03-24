@@ -36,7 +36,6 @@ import type {
   CommandExtensionRef,
   McpServerExtensionRef,
 } from "../../../sources/index.js";
-import type { WorkspaceScope } from "../../../workspace/scope.js";
 import type { InstallPackCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -46,7 +45,6 @@ import type { InstallPackCommandIntent } from "./intent.js";
 /** Raw handler args from the CLI parser. */
 export interface InstallPackHandlerArgs {
   readonly source: string;
-  readonly scope: WorkspaceScope;
 }
 
 /** Parsed and validated pack install args. */

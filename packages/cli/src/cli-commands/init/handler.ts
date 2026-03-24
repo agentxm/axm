@@ -14,7 +14,6 @@ import { Output } from "../../output/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
-import { isUserScope } from "../../workspace/scope.js";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -32,10 +31,8 @@ import { isUserScope } from "../../workspace/scope.js";
 export const handleInit = Effect.fn("Init.handle")(function* () {
   const output = yield* Output;
   const context = yield* Workspace;
-  const scopeLabel = isUserScope(context.scope) ? "user" : "project";
-
   // Show intro
-  yield* output.info(`axm init (${scopeLabel})`);
+  yield* output.info(`axm init (${context.scope})`);
 
   // Display result
   const agentIds = yield* context.getConfiguredAgents();

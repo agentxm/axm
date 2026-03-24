@@ -24,7 +24,7 @@ export const TelemetryClientLive = (mode: TelemetryMode, command: string) =>
         command,
         client: { name: "cli", version: loadVersion() },
         runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-        ci: envConfig.ci === "true",
+        ci: envConfig.ci,
         test: envConfig.vitest === "true",
       });
     }),

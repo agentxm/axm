@@ -85,7 +85,6 @@ describe("parseCommandInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/commands/my-cmd",
-        scope: "project",
       }),
     );
     expect(result.profile).toBe("@acme");
@@ -98,7 +97,6 @@ describe("parseCommandInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/commands/my-cmd@^1.0.0",
-        scope: "project",
       }),
     );
     expect(result.profile).toBe("@acme");
@@ -110,7 +108,6 @@ describe("parseCommandInstallArgs", () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "my-cmd",
-        scope: "project",
       }),
     );
     expect(result.profile).toBe("@test-ns");
@@ -123,7 +120,6 @@ describe("parseCommandInstallArgs", () => {
       runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/skills/my-skill",
-          scope: "project",
         }),
       ),
     ).rejects.toThrow();
@@ -134,7 +130,6 @@ describe("parseCommandInstallArgs", () => {
       runWithActions((actions) =>
         actions.parseArgs({
           source: "https://example.com/repo",
-          scope: "project",
         }),
       ),
     ).rejects.toThrow();
@@ -156,7 +151,6 @@ describe("parseCommandInstallArgs", () => {
       const actions = yield* InstallCommandCommandWorkflowActions;
       return yield* actions.parseArgs({
         source: "my-cmd",
-        scope: "project",
       });
     }).pipe(Effect.provide(forceActionsLayer), Effect.runPromise);
     expect(result.force).toBe(true);

@@ -27,10 +27,10 @@ export const updateCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, agent, skill, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(scope, handleUpdate({ source, scope, agents: agent, skills: skill })),
-      { command: "skills update", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(scope, handleUpdate({ source, agents: agent, skills: skill })), {
+      command: "skills update",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Update installed skills to latest versions"),
   Command.withExamples([

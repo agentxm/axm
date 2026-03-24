@@ -9,7 +9,6 @@
 
 import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "../../../workflows/install-command/workflow.js";
-import type { WorkspaceScope } from "../../../workspace/scope.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 
 // -----------------------------------------------------------------------------
@@ -22,8 +21,6 @@ import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 export interface InstallHandlerArgs {
   /** Source to install skills from */
   readonly source: string;
-  /** Install to user scope (~/.axm/) instead of project scope (.axm/) */
-  readonly scope: WorkspaceScope;
   /** Specific skill(s) to install (by name) */
   readonly skills: readonly string[];
   /** Install all available skills */

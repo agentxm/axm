@@ -13,6 +13,7 @@ import { makeOutputTestLayer } from "../../../output/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import {
   SourceHostProviders,
+  type Source,
   type SourceHostProvidersService,
   type ExtensionRef,
 } from "../../../sources/index.js";
@@ -200,7 +201,7 @@ const withServices = (
 /** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
 const makeOp = (
   overrides: {
-    source?: import("../../../sources/types.js").Source;
+    source?: Source;
     force?: boolean;
     skillName?: string;
     sourcePath?: string;
@@ -218,16 +219,14 @@ const makeOp = (
     };
   } = {},
 ): InstallSkillOperation => {
-  const sourceInput =
-    overrides.source ??
-    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").Source);
+  const sourceInput = overrides.source ?? ({ type: "local", path: "/tmp/source" } as Source);
   const skill = overrides.skill ?? {
     name: overrides.skillName ?? "my-skill",
     description: Option.some("A test skill"),
     metadata: Option.none(),
   };
   const location = overrides.location ?? `file://${overrides.sourcePath ?? ""}`;
-  const source: import("../../../sources/types.js").Source =
+  const source: Source =
     sourceInput.type === "registry" && overrides.location !== undefined
       ? { ...sourceInput, location: new URL(overrides.location) }
       : sourceInput;

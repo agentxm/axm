@@ -2,56 +2,31 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
 import { CliFlags, CliFlagsTest, makeCliFlagsLayer, nonInteractiveFlag } from "./service.js";
 
 /**
  * Provide makeCliFlagsLayer with the given nonInteractive global flag value,
- * per-command flags, and optional env config overrides.
+ * per-command flags, and optional ci override.
  */
-const getFlags = (
-  flags: {
-    nonInteractive: Option.Option<boolean>;
-    yes?: boolean;
-    force?: boolean;
-    preview?: boolean;
-  },
-  configOverrides?: Partial<CliEnvConfigService>,
-) => {
-  const configLayer = configOverrides
-    ? Layer.succeed(CliEnvConfig, {
-        registryUrl: "https://registry.agentxm.ai",
-        token: Option.none(),
-        ci: "false",
-        doNotTrack: Option.none(),
-        telemetry: Option.none(),
-        sshClient: Option.none(),
-        sshTty: Option.none(),
-        xdgConfigHome: Option.none(),
-        claudeSkillsDir: Option.none(),
-        geminiCliSkillsDir: Option.none(),
-        installInternalSkills: Option.none(),
-        vitest: "false",
-        home: Option.none(),
-        userProfile: Option.none(),
-        homePath: Option.none(),
-        verbose: Option.none(),
-        debug: Option.none(),
-        ...configOverrides,
-      } satisfies CliEnvConfigService)
-    : CliEnvConfig.testDefaults;
-
+const getFlags = (flags: {
+  nonInteractive: Option.Option<boolean>;
+  ci?: boolean;
+  yes?: boolean;
+  force?: boolean;
+  preview?: boolean;
+}) => {
   const globalFlagsLayer = Layer.succeed(nonInteractiveFlag, flags.nonInteractive);
 
-  const perCommandFlags: { yes?: boolean; force?: boolean; preview?: boolean } = {};
-  if (flags.yes !== undefined) perCommandFlags.yes = flags.yes;
-  if (flags.force !== undefined) perCommandFlags.force = flags.force;
-  if (flags.preview !== undefined) perCommandFlags.preview = flags.preview;
+  const cliFlagsLayer = makeCliFlagsLayer({
+    ci: flags.ci,
+    flags: {
+      ...(flags.yes !== undefined && { yes: flags.yes }),
+      ...(flags.force !== undefined && { force: flags.force }),
+      ...(flags.preview !== undefined && { preview: flags.preview }),
+    },
+  });
 
-  const fullLayer = Layer.provide(
-    makeCliFlagsLayer(perCommandFlags),
-    Layer.mergeAll(globalFlagsLayer, configLayer),
-  );
+  const fullLayer = Layer.provide(cliFlagsLayer, globalFlagsLayer);
 
   return CliFlags.asEffect().pipe(Effect.provide(fullLayer));
 };
@@ -67,31 +42,27 @@ describe("makeCliFlagsLayer", () => {
       }),
     );
 
-    it.effect("explicit Option.some(false) resolves to false even with CI=true", () =>
+    it.effect("explicit Option.some(false) resolves to false even with ci=true", () =>
       Effect.gen(function* () {
-        const flags = yield* getFlags(
-          {
-            nonInteractive: Option.some(false),
-          },
-          { ci: "true" },
-        );
+        const flags = yield* getFlags({
+          nonInteractive: Option.some(false),
+          ci: true,
+        });
         expect(flags.nonInteractive).toBe(false);
       }),
     );
 
-    it.effect("Option.none() with CI=true resolves to true", () =>
+    it.effect("Option.none() with ci=true resolves to true", () =>
       Effect.gen(function* () {
-        const flags = yield* getFlags(
-          {
-            nonInteractive: Option.none(),
-          },
-          { ci: "true" },
-        );
+        const flags = yield* getFlags({
+          nonInteractive: Option.none(),
+          ci: true,
+        });
         expect(flags.nonInteractive).toBe(true);
       }),
     );
 
-    it.effect("Option.none() with CI unset falls back to TTY detection", () =>
+    it.effect("Option.none() with ci unset falls back to TTY detection", () =>
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.none(),
@@ -99,6 +70,38 @@ describe("makeCliFlagsLayer", () => {
         // In test environment, stdin.isTTY may be undefined (non-TTY)
         // so nonInteractive should be true
         expect(typeof flags.nonInteractive).toBe("boolean");
+      }),
+    );
+  });
+
+  describe("isCI", () => {
+    it.effect("isCI is true when ci option is true", () =>
+      Effect.gen(function* () {
+        const flags = yield* getFlags({
+          nonInteractive: Option.some(false),
+          ci: true,
+        });
+        expect(flags.isCI).toBe(true);
+      }),
+    );
+
+    it.effect("isCI is false when ci option is not provided", () =>
+      Effect.gen(function* () {
+        const flags = yield* getFlags({
+          nonInteractive: Option.some(false),
+        });
+        expect(flags.isCI).toBe(false);
+      }),
+    );
+
+    it.effect("isCI is independent of nonInteractive flag", () =>
+      Effect.gen(function* () {
+        const flags = yield* getFlags({
+          nonInteractive: Option.some(true),
+          ci: false,
+        });
+        expect(flags.isCI).toBe(false);
+        expect(flags.nonInteractive).toBe(true);
       }),
     );
   });
@@ -170,14 +173,17 @@ describe("makeCliFlagsLayer", () => {
 });
 
 describe("CliFlagsTest helper", () => {
-  it.effect("defaults to nonInteractive: true, yes: false, force: false, preview: false", () =>
-    Effect.gen(function* () {
-      const flags = yield* CliFlags.asEffect().pipe(Effect.provide(CliFlagsTest()));
-      expect(flags.nonInteractive).toBe(true);
-      expect(flags.yes).toBe(false);
-      expect(flags.force).toBe(false);
-      expect(flags.preview).toBe(false);
-    }),
+  it.effect(
+    "defaults to isCI: false, nonInteractive: true, yes: false, force: false, preview: false",
+    () =>
+      Effect.gen(function* () {
+        const flags = yield* CliFlags.asEffect().pipe(Effect.provide(CliFlagsTest()));
+        expect(flags.isCI).toBe(false);
+        expect(flags.nonInteractive).toBe(true);
+        expect(flags.yes).toBe(false);
+        expect(flags.force).toBe(false);
+        expect(flags.preview).toBe(false);
+      }),
   );
 
   it.effect("accepts partial overrides", () =>

@@ -54,7 +54,7 @@ export const detectWSL = Effect.gen(function* () {
  */
 export const detectCI: Effect.Effect<boolean, never, CliEnvConfig> = Effect.gen(function* () {
   const config = yield* CliEnvConfig;
-  return config.ci === "true";
+  return config.ci;
 });
 
 /**

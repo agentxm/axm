@@ -89,7 +89,6 @@ const defaultArgs = (
   overrides: Partial<InstallPackHandlerArgs> = {},
 ): InstallPackHandlerArgs => ({
   source,
-  scope: "project",
   ...overrides,
 });
 

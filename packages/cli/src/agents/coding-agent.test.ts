@@ -20,7 +20,7 @@ const makeTestLayer = (configOverrides?: Partial<CliEnvConfigService>) => {
     ? Layer.succeed(CliEnvConfig, {
         registryUrl: "https://registry.agentxm.ai",
         token: Option.none(),
-        ci: "false",
+        ci: false,
         doNotTrack: Option.none(),
         telemetry: Option.none(),
         sshClient: Option.none(),

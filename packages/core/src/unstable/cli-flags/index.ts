@@ -49,6 +49,7 @@ export const previewFlag = Flag.boolean("preview").pipe(
 // ---------------------------------------------------------------------------
 
 export interface CliFlagsService {
+  readonly isCI: boolean;
   readonly nonInteractive: boolean;
   readonly yes: boolean;
   readonly force: boolean;
@@ -73,12 +74,11 @@ export const makeCliFlagsLayer = (options?: {
     CliFlags,
     Effect.gen(function* () {
       const nonInteractiveOpt = yield* nonInteractiveFlag;
+      const isCI = options?.ci ?? false;
 
       return {
-        nonInteractive: Option.getOrElse(
-          nonInteractiveOpt,
-          () => (options?.ci ?? false) || !isInteractive(),
-        ),
+        isCI,
+        nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI || !isInteractive()),
         yes: options?.flags?.yes ?? false,
         force: options?.flags?.force ?? false,
         preview: options?.flags?.preview ?? false,
@@ -92,6 +92,7 @@ export const makeCliFlagsLayer = (options?: {
 
 export const CliFlagsTest = (overrides?: Partial<CliFlagsService>): Layer.Layer<CliFlags> =>
   Layer.succeed(CliFlags, {
+    isCI: false,
     nonInteractive: true,
     yes: false,
     force: false,

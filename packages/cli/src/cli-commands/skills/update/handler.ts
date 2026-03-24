@@ -25,7 +25,6 @@ import { expandGlobs } from "../../../skills/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -54,8 +53,6 @@ import {
 export interface UpdateHandlerArgs {
   /** Optional source to filter skills by */
   readonly source: Option.Option<string>;
-  /** Use user-scope workspace */
-  readonly scope: WorkspaceScope;
   /** Target agent(s) */
   readonly agents: readonly string[];
   /** Specific skill(s) to update (by name/glob) */
@@ -86,15 +83,13 @@ export interface UpdateHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const scopeLabel = isUserScope(args.scope) ? "user" : "project";
-
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;
   const output = yield* Output;
   const activity = yield* Activity;
   const flags = yield* CliFlags;
 
-  yield* output.info(`axm skills update (${scopeLabel})`);
+  yield* output.info(`axm skills update (${ws.scope})`);
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.getConfiguredSkills();

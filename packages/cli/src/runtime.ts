@@ -86,7 +86,7 @@ const makeCliTelemetryConfig = (envConfig: CliEnvConfigService): CliTelemetryCon
   ),
   client: { name: "cli", version: loadVersion() },
   runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-  ci: envConfig.ci === "true",
+  ci: envConfig.ci,
   test: envConfig.vitest === "true",
 });
 
@@ -134,7 +134,7 @@ const resolveRuntimeConfig = () =>
 
     return {
       envConfig,
-      ci: envConfig.ci === "true",
+      ci: envConfig.ci,
       diagnosticVerbosity,
       debugLoggerLayer: makeDebugLoggerLayer(diagnosticVerbosity),
       telemetryConfig: makeCliTelemetryConfig(envConfig),

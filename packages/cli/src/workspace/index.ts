@@ -43,12 +43,7 @@ export type { LockfileState } from "./service.js";
 export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
 
 // Scope utilities
-export {
-  WORKSPACE_SCOPES,
-  DEFAULT_WORKSPACE_SCOPE,
-  isUserScope,
-  type WorkspaceScope,
-} from "./scope.js";
+export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
 
 // Workspace context service (for CLI commands)
 export {

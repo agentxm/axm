@@ -163,15 +163,14 @@ describe("OutputStructured", () => {
         yield* output.info("stderr message");
 
         expect(stderrSpy).toHaveBeenCalledWith("stderr message");
-      })
-        .pipe(Effect.provide(layer))
-        .pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              stderrSpy.mockRestore();
-            }),
-          ),
-        );
+      }).pipe(
+        Effect.provide(layer),
+        Effect.ensuring(
+          Effect.sync(() => {
+            stderrSpy.mockRestore();
+          }),
+        ),
+      );
     });
 
     it.effect("emits result as plain JSON", () => {

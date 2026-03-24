@@ -134,11 +134,7 @@ describe("ActivityLive", () => {
     it.effect("provides a handle to the callback", () =>
       Effect.gen(function* () {
         const activity = yield* Activity;
-        yield* activity.withTaskLog({ title: "Build" }, (handle) =>
-          Effect.gen(function* () {
-            yield* handle.message("compiling");
-          }),
-        );
+        yield* activity.withTaskLog({ title: "Build" }, (handle) => handle.message("compiling"));
         expect(clack.taskLog).toHaveBeenCalledWith({ title: "Build" });
         const taskLogResult = (clack.taskLog as ReturnType<typeof vi.fn>).mock.results[0]!.value;
         expect(taskLogResult.message).toHaveBeenCalledWith("compiling");

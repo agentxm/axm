@@ -48,9 +48,12 @@ export const TelemetryClientTest = Layer.succeed(TelemetryClient, {
 
 const DEFAULT_BASE_URL = "https://t.agentxm.ai";
 
+const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
+  effect.pipe(Effect.catchCause(() => Effect.void));
+
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(
-    Effect.catchCause(() => Effect.void),
+    swallowFailure,
     Effect.forkDetach,
     Effect.asVoid,
   );
@@ -97,11 +100,13 @@ export const makeTelemetryClient = (
       };
 
       return fireAndForget(
-        httpClient.execute(
-          HttpClientRequest.post(`${baseUrl}/events`).pipe(
-            HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
-          ),
-        ),
+        httpClient
+          .execute(
+            HttpClientRequest.post(`${baseUrl}/events`).pipe(
+              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
+            ),
+          )
+          .pipe(Effect.asVoid),
       ).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
     };
 
@@ -118,12 +123,14 @@ export const makeTelemetryClient = (
         context: { ...context, command: error.command || options.command },
       };
 
-      return fireAndForget(
-        httpClient.execute(
-          HttpClientRequest.post(`${baseUrl}/errors`).pipe(
-            HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
-          ),
-        ),
+      return swallowFailure(
+        httpClient
+          .execute(
+            HttpClientRequest.post(`${baseUrl}/errors`).pipe(
+              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
+            ),
+          )
+          .pipe(Effect.asVoid),
       ).pipe(Effect.withSpan("TelemetryClient.reportError"));
     };
 

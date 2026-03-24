@@ -7,7 +7,12 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 import type { AppError } from "./app-error/index.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
-import { type CliTelemetryConfigService, withCliRuntime } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  type CliTelemetryConfigService,
+  makeFoundationLayer,
+  resolveCliFormat,
+  withCliErrorHandling,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
@@ -144,14 +149,18 @@ export const withRuntime = <A, R>(
 ): Effect.Effect<A, unknown, never> =>
   Effect.gen(function* () {
     const resolvedRuntime = yield* resolveRuntime(options);
-
-    return yield* withCliRuntime(program, {
-      command: options?.command,
-      isLongRunning: options?.isLongRunning,
+    const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
+    const foundationLayer = makeFoundationLayer(format, {
       ci: resolvedRuntime.ci,
       flags: options?.flags,
+    });
+    const appLayer = Layer.provideMerge(resolvedRuntime.programLayer, foundationLayer);
+    const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+
+    return yield* withCliErrorHandling(provided, {
+      command: options?.command,
+      format,
       telemetryConfig: resolvedRuntime.telemetryConfig,
       appErrorRenderOptions: resolvedRuntime.diagnosticVerbosity,
-      programLayer: resolvedRuntime.programLayer,
     });
   }).pipe(Effect.provide(baseLayer)) as Effect.Effect<A, unknown, never>;

@@ -5,8 +5,14 @@
  * Root command composition stays in app.ts.
  */
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 
-import { type CliTelemetryConfigService, withCliRuntime } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  type CliTelemetryConfigService,
+  makeFoundationLayer,
+  resolveCliFormat,
+  withCliErrorHandling,
+} from "@axm.sh/core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
@@ -44,10 +50,17 @@ export const withRuntime = <A, R>(
   program: Effect.Effect<A, AppError | PromptCancelled, R>,
   options?: RuntimeOptions,
 ) =>
-  withCliRuntime(program, {
-    command: options?.command,
-    isLongRunning: options?.isLongRunning,
-    ci: spikeCliTelemetryConfig.ci,
-    telemetryConfig: spikeCliTelemetryConfig,
-    programLayer: FakeSkillsManagerLive,
+  Effect.gen(function* () {
+    const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
+    const foundationLayer = makeFoundationLayer(format, {
+      ci: spikeCliTelemetryConfig.ci,
+    });
+    const appLayer = Layer.provideMerge(FakeSkillsManagerLive, foundationLayer);
+    const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+
+    return yield* withCliErrorHandling(provided, {
+      command: options?.command,
+      format,
+      telemetryConfig: spikeCliTelemetryConfig,
+    });
   });

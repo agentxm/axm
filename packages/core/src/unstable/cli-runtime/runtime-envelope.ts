@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
 import {
@@ -55,91 +56,112 @@ const writeExpectedCliError = (
   });
 };
 
-type ProgramLayerContext<ProgramLayer extends Layer.Any> = Exclude<
-  Layer.Services<ProgramLayer>,
-  CliRuntimeFoundation
->;
+// ---------------------------------------------------------------------------
+// Building blocks — composable pieces callers assemble directly
+// ---------------------------------------------------------------------------
 
-type ProgramLayerSuccess<ProgramLayer extends Layer.Any> = Layer.Success<ProgramLayer>;
+/**
+ * Build the foundation layer: Output + Activity + Input + CliFlags.
+ *
+ * The returned layer requires the `nonInteractiveFlag` global flag setting
+ * in its context (resolved by the Effect CLI framework at command dispatch).
+ */
+export const makeFoundationLayer = (
+  format: OutputFormat,
+  options?: {
+    readonly ci?: boolean | undefined;
+    readonly flags?: CliPerCommandFlags | undefined;
+  },
+) => {
+  const cliFlagsLayer = makeCliFlagsLayer({ ci: options?.ci, flags: options?.flags });
+  const uiLayer = makeUiLayer(format);
+  const inputLayer = format === "text" ? Layer.provide(InputLive, cliFlagsLayer) : InputStructured;
+  return Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer);
+};
 
-type WithCliRuntimeR<R, ProgramLayer extends Layer.Any> =
-  | Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>>
-  | ProgramLayerContext<ProgramLayer>;
+/**
+ * Resolve the output format from the global flag + options.
+ */
+export const resolveCliFormat = (options?: { readonly isLongRunning?: boolean | undefined }) =>
+  Effect.gen(function* () {
+    const explicit = yield* outputFormatFlag;
+    return resolveFormat(
+      explicit,
+      options?.isLongRunning === undefined ? undefined : { isLongRunning: options.isLongRunning },
+    );
+  });
 
-export interface WithCliRuntimeOptions<ProgramLayer extends Layer.Any = Layer.Layer<never>> {
+/**
+ * Wrap a pre-provided program in CLI error handling + telemetry.
+ *
+ * The program should already have all its service dependencies satisfied
+ * except for TelemetryClient (provided via telemetryLayer internally)
+ * and HttpClient (required by the telemetry layer).
+ * Callers compose their own layers before passing the program here.
+ */
+export const withCliErrorHandling = <A, R>(
+  program: Effect.Effect<A, ExpectedCliError, R>,
+  options: {
+    readonly command?: string | undefined;
+    readonly format: OutputFormat;
+    readonly telemetryConfig: CliTelemetryConfigService;
+    readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
+  },
+): Effect.Effect<A, unknown, R | HttpClient.HttpClient> => {
+  const command = options.command ?? "unknown";
+  const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
+  const runtimeProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
+
+  return runtimeProgram.pipe(
+    Effect.catch((error: ExpectedCliError) => {
+      const exitCode = defaultExitCodeForExpectedError(error);
+
+      return writeExpectedCliError(error, options.format, {
+        appErrorRenderOptions: options.appErrorRenderOptions,
+      }).pipe(
+        Effect.andThen(reportCliError(error, command)),
+        // Control-flow exit: intentionally uses defect channel to signal process termination
+        Effect.andThen(Effect.die(effectCliExit(exitCode))),
+      );
+    }),
+    Effect.catchCause((cause) => {
+      const defect = Cause.squash(cause);
+      if (isEffectCliExit(defect)) {
+        return Effect.failCause(cause);
+      }
+
+      return reportCliDefect(cause, command).pipe(Effect.andThen(Effect.failCause(cause)));
+    }),
+    Effect.provide(telemetryLayer),
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Convenience — for callers that don't need a programLayer
+// ---------------------------------------------------------------------------
+
+export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
   readonly isLongRunning?: boolean | undefined;
   readonly ci?: boolean | undefined;
   readonly flags?: CliPerCommandFlags | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
   readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-  readonly programLayer?: ProgramLayer;
 }
 
-export const withCliRuntime = <A, R, ProgramLayer extends Layer.Any = Layer.Layer<never>>(
+export const withCliRuntime = <A, R>(
   program: Effect.Effect<A, ExpectedCliError, R>,
-  options: WithCliRuntimeOptions<ProgramLayer>,
-): Effect.Effect<A, unknown, WithCliRuntimeR<R, ProgramLayer>> =>
+  options: WithCliRuntimeOptions,
+) =>
   Effect.gen(function* () {
-    const explicitFormat = yield* outputFormatFlag;
-    const format = resolveFormat(
-      explicitFormat,
-      options.isLongRunning === undefined ? undefined : { isLongRunning: options.isLongRunning },
-    );
-    const cliFlagsLayer = makeCliFlagsLayer({
-      ci: options.ci,
-      flags: options.flags,
+    const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
+    const foundationLayer = makeFoundationLayer(format, { ci: options.ci, flags: options.flags });
+    const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
+
+    return yield* withCliErrorHandling(provided, {
+      command: options.command,
+      format,
+      telemetryConfig: options.telemetryConfig,
+      appErrorRenderOptions: options.appErrorRenderOptions,
     });
-    const uiLayer = makeUiLayer(format);
-    const inputLayer =
-      format === "text" ? Layer.provide(InputLive, cliFlagsLayer) : InputStructured;
-    const foundationLayer = Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer);
-
-    const command = options.command ?? "unknown";
-    const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
-    const runtimeProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
-
-    // Assertion needed: generic ProgramLayer prevents TypeScript from inferring
-    // the correct types through Layer.provideMerge — cast once here at the boundary
-    const appLayer = Layer.provideMerge(
-      (options.programLayer ?? Layer.empty) as unknown as Layer.Layer<
-        ProgramLayerSuccess<ProgramLayer>,
-        Layer.Error<ProgramLayer>,
-        CliRuntimeFoundation | ProgramLayerContext<ProgramLayer>
-      >,
-      foundationLayer,
-    ) as unknown as Layer.Layer<
-      ProgramLayerSuccess<ProgramLayer>,
-      Layer.Error<ProgramLayer>,
-      ProgramLayerContext<ProgramLayer>
-    >;
-
-    const provided = runtimeProgram.pipe(Effect.provide(appLayer), Effect.scoped) as Effect.Effect<
-      A,
-      ExpectedCliError,
-      WithCliRuntimeR<R, ProgramLayer>
-    >;
-
-    return yield* provided.pipe(
-      Effect.catch((error: ExpectedCliError) => {
-        const exitCode = defaultExitCodeForExpectedError(error);
-
-        return writeExpectedCliError(error, format, {
-          appErrorRenderOptions: options.appErrorRenderOptions,
-        }).pipe(
-          Effect.andThen(reportCliError(error, command)),
-          // Control-flow exit: intentionally uses defect channel to signal process termination
-          Effect.andThen(Effect.die(effectCliExit(exitCode))),
-        );
-      }),
-      Effect.catchCause((cause) => {
-        const defect = Cause.squash(cause);
-        if (isEffectCliExit(defect)) {
-          return Effect.failCause(cause);
-        }
-
-        return reportCliDefect(cause, command).pipe(Effect.andThen(Effect.failCause(cause)));
-      }),
-      Effect.provide(telemetryLayer),
-    ) as Effect.Effect<A, unknown, WithCliRuntimeR<R, ProgramLayer>>;
-  }) as Effect.Effect<A, unknown, WithCliRuntimeR<R, ProgramLayer>>;
+  });

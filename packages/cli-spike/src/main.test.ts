@@ -178,3 +178,16 @@ describe("axm-spike telemetry demos", () => {
     }
   });
 });
+
+describe("axm-spike cli-spike services", () => {
+  it("provides FakeSkillsManager through withRuntime", async () => {
+    const result = await runSpike(["skills", "list", "--scope", "project"], {
+      AXM_TELEMETRY: "0",
+    });
+    const combined = result.stdout + result.stderr;
+
+    expect(result.exitCode).toBe(0);
+    expect(combined).toContain("FakeSkillsManager: listing project demo skills");
+    expect(combined).toContain("pr-review");
+  });
+});

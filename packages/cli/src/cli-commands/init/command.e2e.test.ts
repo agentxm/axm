@@ -76,7 +76,7 @@ describe("axm init", () => {
 
         expect(result.exitCode).toBe(0);
         // Should indicate initialization occurred
-        expect(result.stdout).toContain("init");
+        expect(result.stdout + result.stderr).toContain("init");
       } finally {
         temp.cleanup();
       }

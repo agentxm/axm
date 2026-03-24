@@ -75,6 +75,7 @@
     "prepublishOnly": "pnpm run build",
     "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",
+    "pretest:e2e": "pnpm --filter @axm.sh/core build",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "axm-dev": "bun src/dev-main.ts",
     "typecheck": "tsc --noEmit"

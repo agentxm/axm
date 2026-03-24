@@ -1,6 +1,10 @@
+import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
+
+import { isInteractive } from "../utils/tty.js";
 
 // ---------------------------------------------------------------------------
 // Global flag definition (parsed by Effect CLI at the root command level)
@@ -51,9 +55,36 @@ export interface CliFlagsService {
   readonly preview: boolean;
 }
 
+export interface CliPerCommandFlags {
+  readonly yes?: boolean;
+  readonly force?: boolean;
+  readonly preview?: boolean;
+}
+
 export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
   "@axm.sh/cli/CliFlags",
 ) {}
+
+export const makeCliFlagsLayer = (options?: {
+  readonly ci?: boolean | undefined;
+  readonly flags?: CliPerCommandFlags | undefined;
+}) =>
+  Layer.effect(
+    CliFlags,
+    Effect.gen(function* () {
+      const nonInteractiveOpt = yield* nonInteractiveFlag;
+
+      return {
+        nonInteractive: Option.getOrElse(
+          nonInteractiveOpt,
+          () => (options?.ci ?? false) || !isInteractive(),
+        ),
+        yes: options?.flags?.yes ?? false,
+        force: options?.flags?.force ?? false,
+        preview: options?.flags?.preview ?? false,
+      } satisfies CliFlagsService;
+    }),
+  );
 
 // ---------------------------------------------------------------------------
 // Test helper

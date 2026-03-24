@@ -24,10 +24,5 @@ import { uninstallCommand } from "./uninstall.js";
 
 export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Install, list, create, and uninstall skills"),
-  Command.withSubcommands([
-    installCommand,
-    uninstallCommand,
-    listCommand,
-    newCommand,
-  ]),
+  Command.withSubcommands([installCommand, uninstallCommand, listCommand, newCommand]),
 );

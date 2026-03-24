@@ -276,77 +276,75 @@ export const CredentialStoreLive = Layer.effect(
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     yield* emitEnvironmentWarnings(env, storageTier);
-    const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(function* (
-      registryUrl,
-      handle,
-      credentials,
-    ) {
-      const existing = yield* readCredentialFile(fs, path, homeDir);
-      const file = Option.getOrElse(existing, () => emptyCredentialFile);
+    const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(
+      function* (registryUrl, handle, credentials) {
+        const existing = yield* readCredentialFile(fs, path, homeDir);
+        const file = Option.getOrElse(existing, () => emptyCredentialFile);
 
-      const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
-      const updatedAccounts: Record<
-        string,
-        { access_token: string; refresh_token: string; expires_at: string; active: boolean }
-      > = {};
-      for (const [h, entry] of Object.entries(registryEntry.accounts)) {
-        if (entry !== undefined) {
-          updatedAccounts[h] = { ...entry, active: false };
+        const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
+        const updatedAccounts: Record<
+          string,
+          { access_token: string; refresh_token: string; expires_at: string; active: boolean }
+        > = {};
+        for (const [h, entry] of Object.entries(registryEntry.accounts)) {
+          if (entry !== undefined) {
+            updatedAccounts[h] = { ...entry, active: false };
+          }
         }
-      }
-      updatedAccounts[handle] = {
-        access_token: credentials.access_token,
-        refresh_token: credentials.refresh_token,
-        expires_at: credentials.expires_at,
-        active: true,
-      };
+        updatedAccounts[handle] = {
+          access_token: credentials.access_token,
+          refresh_token: credentials.refresh_token,
+          expires_at: credentials.expires_at,
+          active: true,
+        };
 
-      const updated: CredentialFile = {
-        ...file,
-        registries: {
-          ...file.registries,
-          [registryUrl]: { accounts: updatedAccounts },
-        },
-      };
+        const updated: CredentialFile = {
+          ...file,
+          registries: {
+            ...file.registries,
+            [registryUrl]: { accounts: updatedAccounts },
+          },
+        };
 
-      yield* writeCredentialFile(fs, path, homeDir, updated);
-    });
-    const load: CredentialStoreService["load"] = Effect.fn("CredentialStore.load")(function* (
-      registryUrl,
-    ) {
-      const existing = yield* readCredentialFile(fs, path, homeDir);
-      if (Option.isNone(existing)) return Option.none<StoredCredentials>();
+        yield* writeCredentialFile(fs, path, homeDir, updated);
+      },
+    );
+    const load: CredentialStoreService["load"] = Effect.fn("CredentialStore.load")(
+      function* (registryUrl) {
+        const existing = yield* readCredentialFile(fs, path, homeDir);
+        if (Option.isNone(existing)) return Option.none<StoredCredentials>();
 
-      const registry = existing.value.registries[registryUrl];
-      if (!registry) return Option.none<StoredCredentials>();
+        const registry = existing.value.registries[registryUrl];
+        if (!registry) return Option.none<StoredCredentials>();
 
-      for (const [handle, entry] of Object.entries(registry.accounts)) {
-        if (entry?.active) {
-          return Option.some<StoredCredentials>({
-            handle,
-            access_token: entry.access_token,
-            refresh_token: entry.refresh_token,
-            expires_at: entry.expires_at,
-          });
+        for (const [handle, entry] of Object.entries(registry.accounts)) {
+          if (entry?.active) {
+            return Option.some<StoredCredentials>({
+              handle,
+              access_token: entry.access_token,
+              refresh_token: entry.refresh_token,
+              expires_at: entry.expires_at,
+            });
+          }
         }
-      }
 
-      return Option.none<StoredCredentials>();
-    });
-    const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(function* (
-      registryUrl,
-    ) {
-      const existing = yield* readCredentialFile(fs, path, homeDir);
-      if (Option.isNone(existing)) return;
+        return Option.none<StoredCredentials>();
+      },
+    );
+    const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(
+      function* (registryUrl) {
+        const existing = yield* readCredentialFile(fs, path, homeDir);
+        if (Option.isNone(existing)) return;
 
-      const { [registryUrl]: _, ...remainingRegistries } = existing.value.registries;
-      const updated: CredentialFile = {
-        ...existing.value,
-        registries: remainingRegistries,
-      };
+        const { [registryUrl]: _, ...remainingRegistries } = existing.value.registries;
+        const updated: CredentialFile = {
+          ...existing.value,
+          registries: remainingRegistries,
+        };
 
-      yield* writeCredentialFile(fs, path, homeDir, updated);
-    });
+        yield* writeCredentialFile(fs, path, homeDir, updated);
+      },
+    );
 
     return {
       tier: storageTier,

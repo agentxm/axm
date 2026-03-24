@@ -97,62 +97,62 @@ export const SkillManagerLive = Layer.effect(
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
     )(function* ({ ref }) {
-        const sanitized = sanitizeName(ref.skill.name);
+      const sanitized = sanitizeName(ref.skill.name);
 
-        const skillSrcPath = yield* materializeByRefType(
-          ref,
-          sanitized,
-          fs,
-          path,
-          baseDir,
-          sources,
-          provide,
-        );
+      const skillSrcPath = yield* materializeByRefType(
+        ref,
+        sanitized,
+        fs,
+        path,
+        baseDir,
+        sources,
+        provide,
+      );
 
-        const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
-          Effect.provideService(Workspace, ws),
-        );
-        const resolved = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
-              Effect.provide(fsPathLayer),
-              Effect.map((outcome) => ({ agent, outcome })),
-            ),
-          { concurrency: "unbounded" },
-        );
+      const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
+        Effect.provideService(Workspace, ws),
+      );
+      const resolved = yield* Effect.forEach(
+        configuredAgents,
+        (agent) =>
+          agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+            Effect.provide(fsPathLayer),
+            Effect.map((outcome) => ({ agent, outcome })),
+          ),
+        { concurrency: "unbounded" },
+      );
 
-        const misconfigured = Array.filter(
-          resolved,
-          ({ outcome }) => outcome._tag === "misconfigured",
+      const misconfigured = Array.filter(
+        resolved,
+        ({ outcome }) => outcome._tag === "misconfigured",
+      );
+      if (misconfigured.length > 0) {
+        const details = misconfigured.map(({ agent, outcome }) =>
+          outcome._tag === "misconfigured"
+            ? `${agent.id}: ${outcome.reason}`
+            : `${agent.id}: invalid configuration`,
         );
-        if (misconfigured.length > 0) {
-          const details = misconfigured.map(({ agent, outcome }) =>
-            outcome._tag === "misconfigured"
-              ? `${agent.id}: ${outcome.reason}`
-              : `${agent.id}: invalid configuration`,
-          );
-          return yield* makeAppError({
-            code: "SKILL_DIR_MISCONFIGURED",
-            what: "One or more configured agents have invalid skills directory settings",
-            details,
-          });
+        return yield* makeAppError({
+          code: "SKILL_DIR_MISCONFIGURED",
+          what: "One or more configured agents have invalid skills directory settings",
+          details,
+        });
+      }
+
+      const installTargets: Array<string> = [];
+      for (const { outcome } of resolved) {
+        if (outcome._tag === "supported") {
+          installTargets.push(path.normalize(outcome.dir));
         }
+      }
+      const distinctDirs = Array.dedupe(installTargets);
 
-        const installTargets: Array<string> = [];
-        for (const { outcome } of resolved) {
-          if (outcome._tag === "supported") {
-            installTargets.push(path.normalize(outcome.dir));
-          }
-        }
-        const distinctDirs = Array.dedupe(installTargets);
-
-        yield* Effect.forEach(
-          distinctDirs,
-          (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
-          { concurrency: "unbounded" },
-        );
-      });
+      yield* Effect.forEach(
+        distinctDirs,
+        (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
+        { concurrency: "unbounded" },
+      );
+    });
 
     const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
       Effect.fn("SkillManager.materializeUninstall")(function* ({ target }) {

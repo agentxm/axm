@@ -70,8 +70,7 @@ export const McpServerManagerLive = Layer.effect(
       Effect.provide(effect, fsPathLayer);
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
-      Effect.fn("McpServerManager.materializeInstall")(
-        function* ({ ref }) {
+      Effect.fn("McpServerManager.materializeInstall")(function* ({ ref }) {
         if (ref.refType !== "registry") {
           return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
@@ -174,13 +173,10 @@ export const McpServerManagerLive = Layer.effect(
             fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
           );
         }
-      },
-        Effect.asVoid,
-      );
+      }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =
-      Effect.fn("McpServerManager.materializeUninstall")(
-        function* ({ target }) {
+      Effect.fn("McpServerManager.materializeUninstall")(function* ({ target }) {
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
           .exists(extensionsDir)
@@ -201,9 +197,7 @@ export const McpServerManagerLive = Layer.effect(
           },
           { concurrency: "unbounded" },
         );
-      },
-        Effect.asVoid,
-      );
+      }, Effect.asVoid);
 
     return {
       extensionType: "mcp-server",

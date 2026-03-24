@@ -100,7 +100,9 @@ describe("cli telemetry helpers", () => {
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
-      yield* reportCliDefect(Cause.die(new Error("boom")), "skills list").pipe(Effect.provide(layer));
+      yield* reportCliDefect(Cause.die(new Error("boom")), "skills list").pipe(
+        Effect.provide(layer),
+      );
 
       expect(capture.errors).toEqual([
         {

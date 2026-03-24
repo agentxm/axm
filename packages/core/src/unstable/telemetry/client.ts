@@ -52,11 +52,7 @@ const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(Effect.catchCause(() => Effect.void));
 
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
-  effect.pipe(
-    swallowFailure,
-    Effect.forkDetach,
-    Effect.asVoid,
-  );
+  effect.pipe(swallowFailure, Effect.forkDetach, Effect.asVoid);
 
 export const makeTelemetryClient = (
   options: TelemetryClientOptions,

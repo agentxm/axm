@@ -7,10 +7,7 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 import type { AppError } from "./app-error/index.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
-import {
-  type CliTelemetryConfigService,
-  withCliRuntime,
-} from "@axm.sh/core/unstable/cli-runtime";
+import { type CliTelemetryConfigService, withCliRuntime } from "@axm.sh/core/unstable/cli-runtime";
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
@@ -145,7 +142,7 @@ export const withRuntime = <A, R>(
   program: Effect.Effect<A, AppError | PromptCancelled, R>,
   options?: RuntimeOptions,
 ): Effect.Effect<A, unknown, never> =>
-  (Effect.gen(function* () {
+  Effect.gen(function* () {
     const resolvedRuntime = yield* resolveRuntime(options);
 
     return yield* withCliRuntime(program, {
@@ -157,4 +154,4 @@ export const withRuntime = <A, R>(
       appErrorRenderOptions: resolvedRuntime.diagnosticVerbosity,
       programLayer: resolvedRuntime.programLayer,
     });
-  }).pipe(Effect.provide(baseLayer)) as Effect.Effect<A, unknown, never>);
+  }).pipe(Effect.provide(baseLayer)) as Effect.Effect<A, unknown, never>;

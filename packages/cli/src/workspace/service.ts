@@ -605,69 +605,81 @@ const make = (options: WorkspaceContextOptions) =>
       path: workspaceDir,
       baseDir,
       resolvePlan: Effect.fn("Workspace.resolvePlan")(function* (plan: Plan) {
-          const flags = yield* CliFlags;
-          const resolvedYes = flags.yes || flags.nonInteractive;
-          const envConfig = yield* CliEnvConfig;
-          const verbosity = resolveDiagnosticVerbosity(process.argv, {
-            AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
-            AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
-          });
-          const showPlan = (targetPlan: Plan | ExecutedPlan) =>
-            displayPlan(targetPlan, { verbosity }).pipe(
-              Effect.provide(Layer.succeed(Output, output)),
-            );
-
-          // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
-          const augmentedPlan = yield* augmentPlanWithReconciliation(
-            plan,
-            getLockfileState,
-            output,
-            baseDir,
-            workspaceDir,
-            readSettingsSafe,
-            fsLayer,
+        const flags = yield* CliFlags;
+        const resolvedYes = flags.yes || flags.nonInteractive;
+        const envConfig = yield* CliEnvConfig;
+        const verbosity = resolveDiagnosticVerbosity(process.argv, {
+          AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
+          AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
+        });
+        const showPlan = (targetPlan: Plan | ExecutedPlan) =>
+          displayPlan(targetPlan, { verbosity }).pipe(
+            Effect.provide(Layer.succeed(Output, output)),
           );
 
-          // Scan readiness across all planned steps
-          const allSteps = Array.flatMap(augmentedPlan.jobs, (job) => [...job.steps]);
-          const hasErrors = allSteps.some((s) => s.readiness === "error");
-          const hasWarns = allSteps.some((s) => s.readiness === "warn");
+        // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
+        const augmentedPlan = yield* augmentPlanWithReconciliation(
+          plan,
+          getLockfileState,
+          output,
+          baseDir,
+          workspaceDir,
+          readSettingsSafe,
+          fsLayer,
+        );
 
-          // Aggregate error messages for the AppError detail
-          const errorMessages = allSteps
-            .filter((s) => s.readiness === "error")
-            .map((s) => `${s.label}: ${s.errorMessage}`);
+        // Scan readiness across all planned steps
+        const allSteps = Array.flatMap(augmentedPlan.jobs, (job) => [...job.steps]);
+        const hasErrors = allSteps.some((s) => s.readiness === "error");
+        const hasWarns = allSteps.some((s) => s.readiness === "warn");
 
-          // Block entire plan when any step has error readiness (unless --force)
-          if (hasErrors) {
-            if (flags.force) {
-              // --force: downgrade errors to warnings and proceed
-              yield* Effect.forEach(errorMessages, (msg) => output.warn(msg));
-            } else {
-              yield* showPlan(augmentedPlan);
-              return yield* makeAppError({
-                code: "PLAN_BLOCKED_BY_ERRORS",
-                what: "Plan has errors that prevent execution",
-                details: errorMessages,
-                howToFix: "Re-run with --force to override",
-              });
-            }
-          }
+        // Aggregate error messages for the AppError detail
+        const errorMessages = allSteps
+          .filter((s) => s.readiness === "error")
+          .map((s) => `${s.label}: ${s.errorMessage}`);
 
-          // Warnings are displayed but never block execution
-          if (hasWarns) {
-            const warnMessages = allSteps
-              .filter((s) => s.readiness === "warn")
-              .map((s) => `${s.label}: ${s.warnMessage}`);
-            yield* Effect.forEach(warnMessages, (msg) => output.warn(msg));
-          }
-
-          if (flags.preview) {
-            yield* output.info("Previewing changes...");
+        // Block entire plan when any step has error readiness (unless --force)
+        if (hasErrors) {
+          if (flags.force) {
+            // --force: downgrade errors to warnings and proceed
+            yield* Effect.forEach(errorMessages, (msg) => output.warn(msg));
+          } else {
             yield* showPlan(augmentedPlan);
+            return yield* makeAppError({
+              code: "PLAN_BLOCKED_BY_ERRORS",
+              what: "Plan has errors that prevent execution",
+              details: errorMessages,
+              howToFix: "Re-run with --force to override",
+            });
+          }
+        }
 
-            // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
-            if (flags.nonInteractive && !flags.yes) {
+        // Warnings are displayed but never block execution
+        if (hasWarns) {
+          const warnMessages = allSteps
+            .filter((s) => s.readiness === "warn")
+            .map((s) => `${s.label}: ${s.warnMessage}`);
+          yield* Effect.forEach(warnMessages, (msg) => output.warn(msg));
+        }
+
+        if (flags.preview) {
+          yield* output.info("Previewing changes...");
+          yield* showPlan(augmentedPlan);
+
+          // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
+          if (flags.nonInteractive && !flags.yes) {
+            return {
+              _tag: "ExecutedPlan",
+              name: augmentedPlan.name,
+              description: augmentedPlan.description,
+              jobs: [],
+            } satisfies ExecutedPlan;
+          }
+
+          if (!resolvedYes) {
+            const confirmed = yield* input.confirm({ message: "Apply changes?" });
+            if (!confirmed) {
+              yield* output.success("Cancelled.");
               return {
                 _tag: "ExecutedPlan",
                 name: augmentedPlan.name,
@@ -675,25 +687,13 @@ const make = (options: WorkspaceContextOptions) =>
                 jobs: [],
               } satisfies ExecutedPlan;
             }
-
-            if (!resolvedYes) {
-              const confirmed = yield* input.confirm({ message: "Apply changes?" });
-              if (!confirmed) {
-                yield* output.success("Cancelled.");
-                return {
-                  _tag: "ExecutedPlan",
-                  name: augmentedPlan.name,
-                  description: augmentedPlan.description,
-                  jobs: [],
-                } satisfies ExecutedPlan;
-              }
-            }
           }
+        }
 
-          const executed = yield* applyPlan(augmentedPlan);
-          yield* showPlan(executed);
-          return executed;
-        }),
+        const executed = yield* applyPlan(augmentedPlan);
+        yield* showPlan(executed);
+        return executed;
+      }),
 
       getLockfileState,
 

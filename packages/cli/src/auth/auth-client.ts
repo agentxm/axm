@@ -334,42 +334,42 @@ export const AuthClientLive = Layer.effect(
         }
       }
     });
-    const refreshToken: AuthClientService["refreshToken"] = Effect.fn(
-      "AuthClient.refreshToken",
-    )(function* (registryUrl, refreshTokenValue) {
-      const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
-      const request = setOAuthFormBody(HttpClientRequest.post(url), {
-        grant_type: "refresh_token",
-        refresh_token: refreshTokenValue,
-      });
+    const refreshToken: AuthClientService["refreshToken"] = Effect.fn("AuthClient.refreshToken")(
+      function* (registryUrl, refreshTokenValue) {
+        const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
+        const request = setOAuthFormBody(HttpClientRequest.post(url), {
+          grant_type: "refresh_token",
+          refresh_token: refreshTokenValue,
+        });
 
-      const response = yield* httpClient.execute(request).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "AUTH_REFRESH_FAILED",
-            what: "Token refresh request failed",
-            howToFix: "Run `axm login` to re-authenticate.",
-            cause: error,
-          }),
-        ),
-      );
-
-      if (response.status !== 200) {
-        const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-        return yield* Effect.fail(
-          makeAppError({
-            code: "AUTH_REFRESH_FAILED",
-            what: `Token refresh failed with status ${String(response.status)}`,
-            details: bodyText.length > 0 ? [bodyText] : [],
-            howToFix: "Run `axm login` to re-authenticate.",
-          }),
+        const response = yield* httpClient.execute(request).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "AUTH_REFRESH_FAILED",
+              what: "Token refresh request failed",
+              howToFix: "Run `axm login` to re-authenticate.",
+              cause: error,
+            }),
+          ),
         );
-      }
 
-      const bodyText = yield* readResponseBody(response, "AUTH_REFRESH_FAILED", "token refresh");
-      const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
-      return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
-    });
+        if (response.status !== 200) {
+          const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
+          return yield* Effect.fail(
+            makeAppError({
+              code: "AUTH_REFRESH_FAILED",
+              what: `Token refresh failed with status ${String(response.status)}`,
+              details: bodyText.length > 0 ? [bodyText] : [],
+              howToFix: "Run `axm login` to re-authenticate.",
+            }),
+          );
+        }
+
+        const bodyText = yield* readResponseBody(response, "AUTH_REFRESH_FAILED", "token refresh");
+        const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
+        return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
+      },
+    );
     const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
       function* (registryUrl, accessToken) {
         const url = `${normalizeUrl(registryUrl)}/v1/auth/token/revoke`;
@@ -394,67 +394,64 @@ export const AuthClientLive = Layer.effect(
         );
       },
     );
-    const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(function* (
-      registryUrl,
-      accessToken,
-    ) {
-      const url = `${normalizeUrl(registryUrl)}/v1/auth/me`;
-      const request = HttpClientRequest.get(url).pipe(
-        HttpClientRequest.bearerToken(accessToken),
-      );
+    const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(
+      function* (registryUrl, accessToken) {
+        const url = `${normalizeUrl(registryUrl)}/v1/auth/me`;
+        const request = HttpClientRequest.get(url).pipe(HttpClientRequest.bearerToken(accessToken));
 
-      const response = yield* httpClient.execute(request).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "AUTH_UNAUTHENTICATED",
-            what: "Identity request failed",
-            howToFix: "Run `axm login` to authenticate.",
-            cause: error,
-          }),
-        ),
-      );
-
-      if (response.status === 401 || response.status === 403) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "AUTH_UNAUTHENTICATED",
-            what: "Not authenticated or token is invalid",
-            howToFix: "Run `axm login` to re-authenticate.",
-          }),
+        const response = yield* httpClient.execute(request).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "AUTH_UNAUTHENTICATED",
+              what: "Identity request failed",
+              howToFix: "Run `axm login` to authenticate.",
+              cause: error,
+            }),
+          ),
         );
-      }
 
-      if (response.status !== 200) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "AUTH_UNAUTHENTICATED",
-            what: `Identity request failed with status ${String(response.status)}`,
-            howToFix: "Run `axm login` to re-authenticate.",
-          }),
+        if (response.status === 401 || response.status === 403) {
+          return yield* Effect.fail(
+            makeAppError({
+              code: "AUTH_UNAUTHENTICATED",
+              what: "Not authenticated or token is invalid",
+              howToFix: "Run `axm login` to re-authenticate.",
+            }),
+          );
+        }
+
+        if (response.status !== 200) {
+          return yield* Effect.fail(
+            makeAppError({
+              code: "AUTH_UNAUTHENTICATED",
+              what: `Identity request failed with status ${String(response.status)}`,
+              howToFix: "Run `axm login` to re-authenticate.",
+            }),
+          );
+        }
+
+        const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");
+        const json = yield* parseJsonBody(bodyText, "AUTH_UNAUTHENTICATED", "identity");
+        const decoded = yield* decodeResponse(
+          RegistryMeResponseSchema,
+          json,
+          "AUTH_UNAUTHENTICATED",
+          "identity",
         );
-      }
 
-      const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");
-      const json = yield* parseJsonBody(bodyText, "AUTH_UNAUTHENTICATED", "identity");
-      const decoded = yield* decodeResponse(
-        RegistryMeResponseSchema,
-        json,
-        "AUTH_UNAUTHENTICATED",
-        "identity",
-      );
-
-      return {
-        userId: decoded.user.id,
-        userHandle: decoded.user.handle,
-        email: decoded.user.email ?? "",
-        tokenType: decoded.token.type,
-        scopes: decoded.token.scopes,
-        orgs: decoded.orgs.map((org: (typeof decoded.orgs)[number]) => ({
-          id: org.id,
-          handle: org.handle,
-        })),
-      } satisfies MeResponse;
-    });
+        return {
+          userId: decoded.user.id,
+          userHandle: decoded.user.handle,
+          email: decoded.user.email ?? "",
+          tokenType: decoded.token.type,
+          scopes: decoded.token.scopes,
+          orgs: decoded.orgs.map((org: (typeof decoded.orgs)[number]) => ({
+            id: org.id,
+            handle: org.handle,
+          })),
+        } satisfies MeResponse;
+      },
+    );
 
     return {
       initiateDeviceFlow,

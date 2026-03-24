@@ -76,13 +76,7 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Output
-        | Input
-        | Workspace
-        | CliFlags
-        | CliEnvConfig
+        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -385,13 +379,7 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          | FileSystem.FileSystem
-          | Path.Path
-          | Output
-          | Input
-          | Workspace
-          | CliFlags
-          | CliEnvConfig
+          FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };

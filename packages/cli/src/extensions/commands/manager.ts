@@ -74,8 +74,7 @@ export const CommandManagerLive = Layer.effect(
       Effect.provide(effect, fsPathLayer);
 
     const materializeInstall: ExtensionManager<CommandExtensionRef>["materializeInstall"] =
-      Effect.fn("CommandManager.materializeInstall")(
-        function* ({ ref }) {
+      Effect.fn("CommandManager.materializeInstall")(function* ({ ref }) {
         if (ref.refType !== "registry") {
           return yield* makeAppError({
             code: "INSTALL_COMMAND_UNSUPPORTED_REF_TYPE",
@@ -178,13 +177,10 @@ export const CommandManagerLive = Layer.effect(
             fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
           );
         }
-      },
-        Effect.asVoid,
-      );
+      }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<CommandExtensionRef>["materializeUninstall"] =
-      Effect.fn("CommandManager.materializeUninstall")(
-        function* ({ target }) {
+      Effect.fn("CommandManager.materializeUninstall")(function* ({ target }) {
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
           .exists(extensionsDir)
@@ -205,9 +201,7 @@ export const CommandManagerLive = Layer.effect(
           },
           { concurrency: "unbounded" },
         );
-      },
-        Effect.asVoid,
-      );
+      }, Effect.asVoid);
 
     return {
       extensionType: "command",

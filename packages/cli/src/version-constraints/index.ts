@@ -3,4 +3,4 @@ export {
   parseVersionConstraint,
   resolveVersionWithConstraint,
   satisfiesConstraint,
-} from "./version-constraints.js";
+} from "@axm.sh/core/unstable/version-constraints";

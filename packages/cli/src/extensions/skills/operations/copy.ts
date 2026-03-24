@@ -16,11 +16,11 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "./copy-directory.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
-import { MANIFEST_FILENAME } from "../manifest-schema.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
+import { MANIFEST_FILENAME } from "../../index.js";
 import { stripFileProtocol } from "../../../utils/fs-helpers.js";
-import { parseFqn } from "../../fqn.js";
-import type { SkillExtensionRef } from "../../../sources/types.js";
+import { parseFqn } from "../../index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

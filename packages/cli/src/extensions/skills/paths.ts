@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../index.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.

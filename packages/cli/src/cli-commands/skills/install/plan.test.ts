@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { SkillsLockMap } from "../../../lockfile/schema.js";
+import type { SkillsLockMap } from "../../../lockfile/index.js";
 import {
   SourceHostProviders,
   type LocalSkillRef,

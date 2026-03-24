@@ -9,8 +9,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { PackManifestSchema } from "../extensions/packs/manifest-schema.js";
-import type { PackManifest } from "../extensions/packs/manifest-schema.js";
+import { PackManifestSchema, type PackManifest } from "../extensions/index.js";
 
 // -----------------------------------------------------------------------------
 // Identity Constants

@@ -17,21 +17,21 @@ import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 
-import * as azurerepos from "./azurerepos/index.js";
-import * as bitbucket from "./bitbucket/index.js";
+import * as azurerepos from "@axm.sh/core/unstable/sources/azurerepos";
+import * as bitbucket from "@axm.sh/core/unstable/sources/bitbucket";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import * as github from "./github/index.js";
-import * as gitlab from "./gitlab/index.js";
-import { parseLocalPath } from "./local/index.js";
-import { parseInputPattern } from "./parser.js";
+import * as github from "@axm.sh/core/unstable/sources/github";
+import * as gitlab from "@axm.sh/core/unstable/sources/gitlab";
+import { parseLocalPath } from "@axm.sh/core/unstable/sources/local";
+import { parseInputPattern } from "./index.js";
 import { createRegistryClient } from "../registry/index.js";
-import type { ExtensionType } from "../extensions/common.js";
-import type { RegistrySource, Source, SourceParams, SourceType } from "./types.js";
-import type { SourceHostConfig } from "../settings/schema.js";
+import type { ExtensionType } from "../extensions/index.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import type { RegistrySource, Source, SourceParams, SourceType } from "./index.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
-import type { InputParseResult, ShorthandInput } from "./parser.js";
+import type { InputParseResult, ShorthandInput } from "./index.js";
 
 // -----------------------------------------------------------------------------
 // Constants

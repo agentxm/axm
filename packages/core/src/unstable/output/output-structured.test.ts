@@ -16,10 +16,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -36,10 +36,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -56,10 +56,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -76,10 +76,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -94,10 +94,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -115,10 +115,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -135,10 +135,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {
@@ -178,10 +178,10 @@ describe("OutputStructured", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
         layer,
-        Layer.succeed(
-          Console.Console,
-          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
-        ),
+        Layer.succeed(Console.Console, {
+          ...console,
+          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
+        }),
       );
 
       return Effect.gen(function* () {

@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import matter from "gray-matter";
-import { getAgentById } from "../../../agents/registry.js";
+import { getAgentById } from "../../../agents/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { copySkillDirectory } from "./copy-directory.js";

@@ -27,10 +27,12 @@ import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
-import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../../extensions/index.js";
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import { buildUpdatePlan } from "./plan.js";

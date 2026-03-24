@@ -23,9 +23,7 @@ import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { MANIFEST_FILENAME } from "../../../extensions/skills/manifest-schema.js";
-import { parseFqn } from "../../../extensions/fqn.js";
+import { MANIFEST_FILENAME, REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../../extensions/index.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 
 // -----------------------------------------------------------------------------

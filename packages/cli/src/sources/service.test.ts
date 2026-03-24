@@ -26,7 +26,7 @@ import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import { taxonomyStubs } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
-import type { FindOptions } from "./provider.js";
+import type { FindOptions } from "./index.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 
 // -----------------------------------------------------------------------------

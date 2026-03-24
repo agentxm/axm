@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 import type { AppError } from "../../../app-error/index.js";
 import type { SourceHostConfig } from "../../../settings/index.js";
-import { parseInputPattern, type InputParseResult } from "../../../sources/parser.js";
+import { parseInputPattern, type InputParseResult } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";

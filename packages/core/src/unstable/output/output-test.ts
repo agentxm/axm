@@ -84,11 +84,7 @@ export const makeOutputTestLayer = (): readonly [Layer.Layer<Output>, MockOutput
         ),
         Effect.asVoid,
       ),
-    result: <A, I>(
-      schema: Schema.Codec<A, I>,
-      data: A,
-      textRenderer: (data: A) => string,
-    ) =>
+    result: <A, I>(schema: Schema.Codec<A, I>, data: A, textRenderer: (data: A) => string) =>
       Effect.sync(() => {
         mock.calls.push({ method: "result", args: [schema, data, textRenderer] });
       }),

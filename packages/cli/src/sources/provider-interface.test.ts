@@ -8,9 +8,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { BuiltinSource, GitHubSource, RegistrySource, ExtensionRef } from "./types.js";
-import type { SourceHostProvider, FindOptions } from "./provider.js";
-import type { ExtensionType } from "../extensions/common.js";
+import type { BuiltinSource, GitHubSource, RegistrySource, ExtensionRef } from "./index.js";
+import type { SourceHostProvider, FindOptions } from "./index.js";
+import type { ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "../registry/index.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {

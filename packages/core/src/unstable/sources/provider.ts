@@ -12,7 +12,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
-import type { ExtensionType } from "../extensions/common.js";
+import type { ExtensionType } from "../extensions/index.js";
 import type { ExtensionRef, Source } from "./types.js";
 
 // -----------------------------------------------------------------------------

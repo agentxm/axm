@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
+import type { SkillLockEntry } from "../../../lockfile/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";

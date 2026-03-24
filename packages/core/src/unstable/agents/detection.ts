@@ -11,8 +11,8 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as os from "node:os";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { getHome } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
 
@@ -44,7 +44,8 @@ export const detectAgent = (
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
 
-    const home = yield* getHome;
+    // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
+    const home = yield* Effect.sync(() => os.homedir());
 
     // Project-level: first segment of skills.dir in projectDir
     const firstSegment = agent.skills.dir.split("/")[0] ?? "";

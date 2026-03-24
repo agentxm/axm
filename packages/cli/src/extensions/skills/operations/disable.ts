@@ -13,12 +13,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../../agents/registry.js";
+import { getAgentById } from "../../../agents/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
+import type { SkillLockEntry } from "../../../lockfile/index.js";
 import { sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------

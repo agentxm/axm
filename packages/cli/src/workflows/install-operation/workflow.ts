@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "../../app-error/index.js";
 import type { JobStepResult, PlannedJobStep } from "../../workspace/plan.js";
-import type { ExtensionRef } from "../../sources/types.js";
+import type { ExtensionRef } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Extension Target Types

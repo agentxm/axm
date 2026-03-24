@@ -11,7 +11,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionType } from "../extensions/common.js";
+import type { ExtensionType } from "../extensions/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { expandGlob } from "../skills/glob.js";
 

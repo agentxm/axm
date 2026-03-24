@@ -1,7 +1,13 @@
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
-import type { VersionEntry } from "../registry/index.js";
+/**
+ * Minimal version entry shape used for constraint resolution.
+ * Compatible with the full VersionEntry from the registry module.
+ */
+export interface VersionEntryLike {
+  readonly version: string;
+}
 
 /**
  * Extract a version constraint suffix from a source string.
@@ -43,9 +49,9 @@ export const satisfiesConstraint = (version: string, constraint: string): boolea
  * - Invalid constraints match nothing.
  */
 export const resolveVersionWithConstraint = (
-  versions: ReadonlyArray<VersionEntry>,
+  versions: ReadonlyArray<VersionEntryLike>,
   constraint: Option.Option<string>,
-): Option.Option<VersionEntry> => {
+): Option.Option<VersionEntryLike> => {
   const constraintStr = Option.getOrElse(constraint, () => "*");
 
   // Wildcard means no constraint filtering

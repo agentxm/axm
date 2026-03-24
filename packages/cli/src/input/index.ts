@@ -11,13 +11,11 @@ export {
   type SelectConfig,
   type SelectKeyConfig,
   type TextConfig,
-} from "./input.js";
-export { InputLive } from "./input-live.js";
-export { InputStructured } from "./input-structured.js";
-export {
+  InputLive,
+  InputStructured,
   makeInputTestLayer,
   type InputCall,
   type InputPromptBehavior,
   type InputTestLayerConfig,
   type MockInputService,
-} from "./input-test.js";
+} from "@axm.sh/core/unstable/input";

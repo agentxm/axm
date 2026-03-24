@@ -12,7 +12,7 @@ import type {
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "../../sources/types.js";
+} from "../../sources/index.js";
 import {
   type ExtensionManager,
   type ExtensionTarget,

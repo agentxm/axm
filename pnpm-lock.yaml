@@ -58,6 +58,9 @@ importers:
 
   packages/cli:
     dependencies:
+      "@axm.sh/core":
+        specifier: workspace:*
+        version: link:../core
       "@clack/prompts":
         specifier: ^1.0.1
         version: 1.0.1
@@ -117,6 +120,46 @@ importers:
       "@types/bun":
         specifier: "catalog:"
         version: 1.3.7
+      typescript:
+        specifier: "catalog:"
+        version: 5.9.3
+      vitest:
+        specifier: "catalog:"
+        version: 3.2.4(@types/node@25.1.0)(yaml@2.8.2)
+
+  packages/core:
+    dependencies:
+      "@clack/prompts":
+        specifier: ^1.0.1
+        version: 1.0.1
+      "@effect/platform-node":
+        specifier: 4.0.0-beta.37
+        version: 4.0.0-beta.37(effect@4.0.0-beta.37)(ioredis@5.10.1)
+      effect:
+        specifier: "catalog:"
+        version: 4.0.0-beta.37
+      jsonc-parser:
+        specifier: ^3.3.1
+        version: 3.3.1
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
+      semver:
+        specifier: ^7.7.1
+        version: 7.7.3
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
+    devDependencies:
+      "@effect/vitest":
+        specifier: 4.0.0-beta.37
+        version: 4.0.0-beta.37(effect@4.0.0-beta.37)(vitest@3.2.4(@types/node@25.1.0)(yaml@2.8.2))
+      "@types/bun":
+        specifier: "catalog:"
+        version: 1.3.7
+      "@types/semver":
+        specifier: ^7.5.8
+        version: 7.7.1
       typescript:
         specifier: "catalog:"
         version: 5.9.3

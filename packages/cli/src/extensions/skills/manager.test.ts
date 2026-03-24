@@ -16,7 +16,7 @@ import { SkillManager, SkillManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { SourceHostProviders, type SourceHostProvidersService } from "../../sources/index.js";
-import type { SkillExtensionRef } from "../../sources/types.js";
+import type { SkillExtensionRef } from "../../sources/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

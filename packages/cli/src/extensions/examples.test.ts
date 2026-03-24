@@ -10,30 +10,31 @@ import * as path from "node:path";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import * as YAML from "yaml";
-import { LockfileSchema } from "../lockfile/schema.js";
-import { SettingsSchema } from "../settings/schema.js";
-import { SkillManifestSchema } from "./skills/manifest-schema.js";
-import { CommandManifestSchema } from "./commands/manifest-schema.js";
-import { McpServerManifestSchema } from "./mcp-servers/manifest-schema.js";
-import { PackManifestSchema } from "./packs/manifest-schema.js";
+import { LockfileSchema } from "../lockfile/index.js";
+import { SettingsSchema } from "../settings/index.js";
+import {
+  SkillManifestSchema,
+  CommandManifestSchema,
+  McpServerManifestSchema,
+  PackManifestSchema,
+} from "./index.js";
 
 const CLI_SRC = path.join(import.meta.dirname, "..");
+const CORE_SRC = path.join(import.meta.dirname, "../../../core/src/unstable");
 
-function readJsonExample(relativePath: string): unknown {
-  const fullPath = path.join(CLI_SRC, relativePath);
-  const content = fs.readFileSync(fullPath, "utf-8");
+function readJsonFile(filePath: string): unknown {
+  const content = fs.readFileSync(filePath, "utf-8");
   return JSON.parse(content);
 }
 
-function readYamlExample(relativePath: string): unknown {
-  const fullPath = path.join(CLI_SRC, relativePath);
-  const content = fs.readFileSync(fullPath, "utf-8");
+function readYamlFile(filePath: string): unknown {
+  const content = fs.readFileSync(filePath, "utf-8");
   return YAML.parse(content);
 }
 
 describe("example files", () => {
   it("axm-lock.example.yaml conforms to LockfileSchema", () => {
-    const example = readYamlExample("lockfile/axm-lock.example.yaml");
+    const example = readYamlFile(path.join(CORE_SRC, "lockfile/axm-lock.example.yaml"));
     const result = Schema.decodeUnknownSync(LockfileSchema)(example);
     expect(result).toBeDefined();
     expect(result.lockfileVersion).toBe(1);
@@ -41,7 +42,7 @@ describe("example files", () => {
   });
 
   it("settings.example.json conforms to SettingsSchema", () => {
-    const example = readJsonExample("settings/settings.example.json");
+    const example = readJsonFile(path.join(CORE_SRC, "settings/settings.example.json"));
     const result = Schema.decodeUnknownSync(SettingsSchema)(example);
     expect(result).toBeDefined();
     expect(result.namespace).toBe("@acme");
@@ -49,7 +50,7 @@ describe("example files", () => {
   });
 
   it("axm-skill.example.json conforms to SkillManifestSchema", () => {
-    const example = readJsonExample("extensions/skills/axm-skill.example.json");
+    const example = readJsonFile(path.join(CLI_SRC, "extensions/skills/axm-skill.example.json"));
     const result = Schema.decodeUnknownSync(SkillManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.namespace).toBe("@acme");
@@ -59,7 +60,9 @@ describe("example files", () => {
   });
 
   it("axm-command.example.json conforms to CommandManifestSchema", () => {
-    const example = readJsonExample("extensions/commands/axm-command.example.json");
+    const example = readJsonFile(
+      path.join(CLI_SRC, "extensions/commands/axm-command.example.json"),
+    );
     const result = Schema.decodeUnknownSync(CommandManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.namespace).toBe("@acme");
@@ -69,7 +72,9 @@ describe("example files", () => {
   });
 
   it("axm-mcp-server.example.json conforms to McpServerManifestSchema", () => {
-    const example = readJsonExample("extensions/mcp-servers/axm-mcp-server.example.json");
+    const example = readJsonFile(
+      path.join(CLI_SRC, "extensions/mcp-servers/axm-mcp-server.example.json"),
+    );
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.namespace).toBe("@acme");
@@ -79,7 +84,7 @@ describe("example files", () => {
   });
 
   it("axm-pack.example.json conforms to PackManifestSchema", () => {
-    const example = readJsonExample("extensions/packs/axm-pack.example.json");
+    const example = readJsonFile(path.join(CLI_SRC, "extensions/packs/axm-pack.example.json"));
     const result = Schema.decodeUnknownSync(PackManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.namespace).toBe("@acme");

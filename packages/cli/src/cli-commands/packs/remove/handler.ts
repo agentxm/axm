@@ -17,10 +17,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { RemoveFromPackOperation } from "../../../extensions/packs/operations/remove-from-pack.js";
 import { removeFromPack } from "../../../extensions/packs/operations/remove-from-pack.js";
-import {
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-} from "../../../extensions/packs/manifest-schema.js";
+import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "../../../extensions/index.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { Output } from "../../../output/index.js";

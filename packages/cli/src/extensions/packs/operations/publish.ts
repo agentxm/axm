@@ -13,11 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import {
-  PackManifestSchema,
-  type PackManifest,
-  PACK_MANIFEST_FILENAME,
-} from "../manifest-schema.js";
+import { PackManifestSchema, type PackManifest, PACK_MANIFEST_FILENAME } from "../../index.js";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -26,7 +22,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { parseFqn } from "../../fqn.js";
+import { parseFqn } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------

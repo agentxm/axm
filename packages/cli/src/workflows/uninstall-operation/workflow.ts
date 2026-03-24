@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { JobStepResult, PlannedJobStep } from "../../workspace/plan.js";
-import type { ExtensionRef } from "../../sources/types.js";
+import type { ExtensionRef } from "../../sources/index.js";
 import {
   type ExtensionManager,
   type ExtensionTargetFor,

@@ -9,7 +9,7 @@ import {
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./activity.js";
-import { emitEvent, type OutputFormat } from "../output.js";
+import { emitEvent, type OutputFormat } from "../output-format.js";
 
 type StructuredMode = Exclude<OutputFormat, "text">;
 

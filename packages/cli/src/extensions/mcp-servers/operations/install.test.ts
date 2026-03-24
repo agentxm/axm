@@ -22,7 +22,7 @@ import { Workspace, type WorkspaceContextService } from "../../../workspace/serv
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { InstallMcpServerOperation } from "./install.js";
 import { installMcpServer } from "./install.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../../sources/types.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

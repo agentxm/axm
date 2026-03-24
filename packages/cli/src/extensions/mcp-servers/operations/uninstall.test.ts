@@ -11,7 +11,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
 import { makeOutputTestLayer } from "../../../output/index.js";
-import type { McpServerLockEntry } from "../../../lockfile/schema.js";
+import type { McpServerLockEntry } from "../../../lockfile/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";

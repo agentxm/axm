@@ -13,9 +13,9 @@ import * as ServiceMap from "effect/ServiceMap";
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders } from "./service.js";
 import type { SourceHostProvidersService } from "./service.js";
-import type { FindOptions } from "./provider.js";
+import type { FindOptions } from "./index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { ExtensionRef, GitHubSource } from "./types.js";
+import type { ExtensionRef, GitHubSource } from "./index.js";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------

@@ -11,8 +11,8 @@
 import * as Effect from "effect/Effect";
 
 import { makeAppError } from "../../app-error/index.js";
-import type { SourceHostProvider } from "../provider.js";
-import type { BuiltinSource } from "../types.js";
+import type { SourceHostProvider } from "../index.js";
+import type { BuiltinSource } from "../index.js";
 
 /**
  * Source host provider for builtin extensions.

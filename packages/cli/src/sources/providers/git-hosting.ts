@@ -17,8 +17,8 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeAppError } from "../../app-error/index.js";
 import type { CliEnvConfig } from "../../config/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
-import type { SourceHostProvider } from "../provider.js";
-import { fileUrlToPath } from "../utils.js";
+import type { SourceHostProvider } from "../index.js";
+import { fileUrlToPath } from "../index.js";
 import type {
   GitHubSourceHost,
   GitLabSourceHost,
@@ -30,7 +30,7 @@ import type {
   AzureReposSource,
   GitHostingSourceHost,
   ExtensionRef,
-} from "../types.js";
+} from "../index.js";
 
 // -----------------------------------------------------------------------------
 // New Factory (SourceHostProvider)

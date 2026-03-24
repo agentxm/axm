@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { OutputFormat } from "../output.js";
+import type { OutputFormat } from "../output-format.js";
 import { Output, type StreamLevel } from "./output.js";
 
 const streamMethodMap: Record<StreamLevel, (iter: Iterable<string>) => Promise<void>> = {
@@ -45,11 +45,7 @@ export const OutputLive = (format: OutputFormat = "text"): Layer.Layer<Output> =
         });
       }) as Effect.Effect<void, AppError | E, R>,
 
-    result: <A, I>(
-      schema: Schema.Codec<A, I>,
-      data: A,
-      textRenderer: (data: A) => string,
-    ) =>
+    result: <A, I>(schema: Schema.Codec<A, I>, data: A, textRenderer: (data: A) => string) =>
       Effect.gen(function* () {
         switch (format) {
           case "text":

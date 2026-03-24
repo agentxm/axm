@@ -14,7 +14,7 @@ import { formatFqn } from "../../index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
+import { PACK_MANIFEST_FILENAME } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------

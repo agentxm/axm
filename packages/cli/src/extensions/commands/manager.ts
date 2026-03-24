@@ -19,14 +19,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../../app-error/index.js";
 import { isPathSafe } from "../../utils/path-safety.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../sources/types.js";
-import type { CommandLockEntry } from "../../lockfile/schema.js";
+import type { CommandExtensionRef, RegistryCommandRef } from "../../sources/index.js";
+import type { CommandLockEntry } from "../../lockfile/index.js";
 import type {
   ExtensionManager,
   CommandExtensionTarget,
 } from "../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
 import { computeIntegrity } from "../../utils/integrity.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";

@@ -23,7 +23,7 @@ import type {
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
-import type { McpServerExtensionRef } from "../../../sources/types.js";
+import type { McpServerExtensionRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args

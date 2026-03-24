@@ -32,8 +32,8 @@ import type {
   RegistrySkillRef,
   RegistrySource,
   ExtensionRef,
-} from "../../types.js";
-import type { FindOptions } from "../../provider.js";
+} from "../../index.js";
+import type { FindOptions } from "../../index.js";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,

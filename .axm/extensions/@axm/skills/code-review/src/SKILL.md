@@ -117,7 +117,7 @@ Use the **Findings Presentation** format from CLAUDE.md. Each finding is numbere
   b) <Option B> — <description>
   c) <Option C> — <description>
 
-**Recommendation:** (b) — <rationale>
+**Recommendation:** (b) — <rationale that explains long-term benefit>
 
 #### 2. <Finding title>
 ...
@@ -181,6 +181,19 @@ Check against loaded Effect skills. Key patterns:
 - **Error model** — Single `AppError` type, `AREA_REASON` codes, `PromptCancelled` distinct
 - **Handlers** — Accept parsed input, return Effects, require services via layers
 - **Testing** — Co-located, behavioral, isolated, deterministic
+
+---
+
+## Recommendation Philosophy
+
+**Prefer the option that provides the most long-term benefit and pays down the most technical debt.** When choosing between remediation options:
+
+- Favor structural fixes over workarounds — a refactor that eliminates a class of issues beats a comment acknowledging one instance
+- Favor compile-time safety over runtime assumptions — restoring type checker coverage beats annotating why an assertion is "safe"
+- Favor convention alignment over local convenience — bringing code in line with project conventions prevents drift even if the minimal fix is smaller
+- Only recommend the minimal/comment-based option when the structural fix has disproportionate cost or risk relative to the finding's severity
+
+The recommendation should explain the long-term value: what future issues it prevents, what debt it retires, or what invariants it restores.
 
 ---
 

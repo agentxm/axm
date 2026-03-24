@@ -67,10 +67,7 @@ setRootCommand(rootCommand);
 
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
-    (argv) =>
-      Command.runWith(rootCommand, { version })(argv).pipe(
-        Effect.provide(baseLayer),
-      ),
+    (argv) => Command.runWith(rootCommand, { version })(argv).pipe(Effect.provide(baseLayer)),
     { args },
   );
 };

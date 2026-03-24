@@ -93,13 +93,7 @@ describe("list.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Output
-        | Input
-        | Workspace
-        | CliFlags
-        | CliEnvConfig
+        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

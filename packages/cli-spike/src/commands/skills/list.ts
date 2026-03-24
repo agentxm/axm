@@ -15,10 +15,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { Output } from "@axm.sh/core/unstable/output";
-import {
-  FakeSkillInfoSchema,
-  FakeSkillsManager,
-} from "../../fake-skills-manager.js";
+import { FakeSkillInfoSchema, FakeSkillsManager } from "../../fake-skills-manager.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------

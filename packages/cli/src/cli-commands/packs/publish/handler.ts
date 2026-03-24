@@ -84,7 +84,6 @@ export type PackPublishOp =
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-
   yield* withAuthGuard(publishPackEffect(args));
 });
 

@@ -24,10 +24,7 @@ interface CaptureServer {
   readonly close: () => Promise<void>;
 }
 
-const runSpike = (
-  args: ReadonlyArray<string>,
-  env: Record<string, string>,
-): Promise<CliResult> =>
+const runSpike = (args: ReadonlyArray<string>, env: Record<string, string>): Promise<CliResult> =>
   new Promise((resolve, reject) => {
     const child = spawn("bun", ["run", CLI_PATH, ...args], {
       cwd: PACKAGE_ROOT,

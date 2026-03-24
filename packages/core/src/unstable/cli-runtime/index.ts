@@ -4,10 +4,7 @@ export { handleError } from "./handle-error.js";
 export { withGracefulShutdown } from "./graceful-shutdown.js";
 export { runCliMain } from "./run-cli-main.js";
 export { makeUiLayer } from "./ui-layer.js";
-export {
-  makeCliTelemetryLayer,
-  type CliTelemetryConfigService,
-} from "./telemetry-layer.js";
+export { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 export {
   type CliRuntimeFoundation,
   type WithCliRuntimeOptions,

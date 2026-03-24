@@ -82,7 +82,6 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
-
   yield* withAuthGuard(publishEffect(args));
 });
 

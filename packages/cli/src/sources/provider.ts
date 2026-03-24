@@ -11,7 +11,7 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { ExtensionRef, Source } from "./types.js";
 
@@ -72,12 +72,12 @@ export interface SourceHostProvider<S extends Source = Source, R = never> {
   /** Source type discriminator matching `S["type"]`. */
   readonly type: S["type"];
   /** Check if a URL belongs to this provider. */
-  readonly match: (url: URL) => Effect.Effect<boolean, CliError, R>;
+  readonly match: (url: URL) => Effect.Effect<boolean, AppError, R>;
   /** Discover extensions at the given source matching the search criteria. */
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, R>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, R>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, R>;
+  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, R>;
 }

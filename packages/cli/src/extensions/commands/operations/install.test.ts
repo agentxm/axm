@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
@@ -95,7 +95,7 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeCliError({
+              makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 what: "Mock write failed",
                 cause: error,
@@ -115,7 +115,7 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeCliError({
+              makeAppError({
                 code: "LOCKFILE_WRITE_FAILED",
                 what: "Mock write failed",
                 cause: error,
@@ -158,7 +158,7 @@ const withServices = (
         if (ref.refType === "registry") {
           return { directory: ref.source.location.pathname };
         }
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "SOURCE_FETCH_FAILED",
           what: "Builtin refs are not fetchable in tests",
         });
@@ -386,7 +386,7 @@ describe("installCommand", () => {
         setupRegistryCanonical(base, "@community");
         const setCommandFn = vi.fn(() =>
           Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               what: "write failed",
               cause: new Error("write failed"),

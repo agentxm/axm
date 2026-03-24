@@ -7,12 +7,12 @@
 
 import * as Effect from "effect/Effect";
 
-import type { CliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
 import type { LocalSourceParams } from "../types.js";
 
 /**
  * Parse a local filesystem path.
  */
-export const parseLocalPath = (input: string): Effect.Effect<LocalSourceParams, CliError> => {
+export const parseLocalPath = (input: string): Effect.Effect<LocalSourceParams, AppError> => {
   return Effect.succeed({ type: "local" as const, path: input });
 };

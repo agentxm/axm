@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import { CliError } from "./cli-error.js";
-import { renderCliError, renderDefect } from "./render.js";
+import { AppError } from "./app-error.js";
+import { renderAppError, renderDefect } from "./render.js";
 
-describe("renderCliError", () => {
+describe("renderAppError", () => {
   it("formats error with all fields", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
@@ -13,7 +13,7 @@ describe("renderCliError", () => {
       cause: undefined,
     });
 
-    const result = renderCliError(error);
+    const result = renderAppError(error);
 
     expect(result).toBe(
       [
@@ -25,7 +25,7 @@ describe("renderCliError", () => {
   });
 
   it("formats error with no howToFix", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
       details: ["Package: @namespace/name"],
@@ -33,7 +33,7 @@ describe("renderCliError", () => {
       cause: undefined,
     });
 
-    const result = renderCliError(error);
+    const result = renderAppError(error);
 
     expect(result).toBe(
       ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @namespace/name"].join("\n"),
@@ -41,7 +41,7 @@ describe("renderCliError", () => {
   });
 
   it("formats error with empty details", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "UNKNOWN",
       what: "Something went wrong",
       details: [],
@@ -49,13 +49,13 @@ describe("renderCliError", () => {
       cause: undefined,
     });
 
-    const result = renderCliError(error);
+    const result = renderAppError(error);
 
     expect(result).toBe("\u2717 Something went wrong (UNKNOWN)");
   });
 
   it("formats error with multiple detail lines", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "INVALID_SOURCE",
       what: "Could not resolve source",
       details: ["Input: my-skill", "No matching extensions found"],
@@ -63,7 +63,7 @@ describe("renderCliError", () => {
       cause: undefined,
     });
 
-    const result = renderCliError(error);
+    const result = renderAppError(error);
 
     expect(result).toBe(
       [
@@ -76,7 +76,7 @@ describe("renderCliError", () => {
   });
 
   it("includes cause message in verbose mode", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
       details: [],
@@ -84,7 +84,7 @@ describe("renderCliError", () => {
       cause: new Error("permission denied"),
     });
 
-    const result = renderCliError(error, { verbose: true, debug: false });
+    const result = renderAppError(error, { verbose: true, debug: false });
 
     expect(result).toBe(
       ["\u2717 Installation failed (INSTALL_FAILED)", "  Cause: permission denied"].join("\n"),
@@ -94,7 +94,7 @@ describe("renderCliError", () => {
   it("includes stack in debug mode", () => {
     const cause = new Error("permission denied");
     cause.stack = "Error: permission denied\n at test";
-    const error = new CliError({
+    const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
       details: [],
@@ -102,7 +102,7 @@ describe("renderCliError", () => {
       cause,
     });
 
-    const result = renderCliError(error, { verbose: true, debug: true });
+    const result = renderAppError(error, { verbose: true, debug: true });
 
     expect(result).toContain("Cause: permission denied");
     expect(result).toContain("Stack: Error: permission denied");
@@ -110,7 +110,7 @@ describe("renderCliError", () => {
   });
 
   it("does not duplicate cause details already present on parent error", () => {
-    const nested = new CliError({
+    const nested = new AppError({
       code: "REGISTRY_PUBLISH_NETWORK_ERROR",
       what: "Failed to connect to the remote registry",
       details: ["Request: PUT https://localhost:4300/v1/extensions/@axm/skill/effect-basics/0.1.0"],
@@ -118,7 +118,7 @@ describe("renderCliError", () => {
       cause: undefined,
     });
 
-    const error = new CliError({
+    const error = new AppError({
       code: "PUBLISH_SKILL_PUBLISH_FAILED",
       what: 'Failed to publish to registry "local-registry"',
       details: [
@@ -130,7 +130,7 @@ describe("renderCliError", () => {
       cause: nested,
     });
 
-    const result = renderCliError(error, { verbose: true, debug: true });
+    const result = renderAppError(error, { verbose: true, debug: true });
 
     expect(result).not.toContain(
       "Cause: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",

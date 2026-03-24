@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { CliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
 import type { JobStepResult, PlannedJobStep } from "../../workspace/plan.js";
 import type { ExtensionRef } from "../../sources/types.js";
 import {
@@ -46,7 +46,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   retentionPolicy: UninstallRetentionPolicy,
   args: UninstallOperationArgs<TRef>,
-): Effect.Effect<JobStepResult, CliError, never> =>
+): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
     const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
       target: args.target,

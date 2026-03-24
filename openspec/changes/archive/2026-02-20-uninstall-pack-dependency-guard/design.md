@@ -89,8 +89,8 @@ Note: current summary hardcodes "installed"/"to install" for all commands (even 
 
 Before applying, `resolvePlan` scans all `PlannedJobStep` entries for readiness:
 
-- **Any `error`**: Display the plan, then fail with `CliError`. The plan is not applied. The error message aggregates all error-readiness step messages.
-- **Any `warn` (no errors)**: Display the plan and force a confirmation prompt. This applies regardless of `--preview`/`--yes` — warnings always require acknowledgment. In non-interactive mode without `--yes`, fail with `CliError`.
+- **Any `error`**: Display the plan, then fail with `AppError`. The plan is not applied. The error message aggregates all error-readiness step messages.
+- **Any `warn` (no errors)**: Display the plan and force a confirmation prompt. This applies regardless of `--preview`/`--yes` — warnings always require acknowledgment. In non-interactive mode without `--yes`, fail with `AppError`.
 - **All `ready`/`skip`**: Current behavior unchanged.
 
 When warnings or errors force the plan to be displayed in non-preview mode, this effectively opts the user into preview behavior for that invocation. The plan is shown before apply, and the post-apply display still happens after execution.
@@ -109,12 +109,12 @@ resolvePlan(plan, handlers):
     displayPlan(plan)
 
     if hasErrors:
-      fail CliError { code: "PLAN_HAS_ERRORS", ... }
+      fail AppError { code: "PLAN_HAS_ERRORS", ... }
 
     if yes:
       if hasWarnings:
         if nonInteractive:
-          fail CliError { code: "PLAN_HAS_WARNINGS", ... }
+          fail AppError { code: "PLAN_HAS_WARNINGS", ... }
         confirmed = confirm.prompt("Plan has warnings. Continue anyway?")
         if !confirmed: return empty plan
       log.info("Pre-approved via --yes, applying changes...")
@@ -135,12 +135,12 @@ resolvePlan(plan, handlers):
   else:  // no preview — apply first, display after
     if hasErrors:
       displayPlan(plan)
-      fail CliError { code: "PLAN_HAS_ERRORS", ... }
+      fail AppError { code: "PLAN_HAS_ERRORS", ... }
 
     if hasWarnings:
       displayPlan(plan)
       if nonInteractive:
-        fail CliError { code: "PLAN_HAS_WARNINGS", ... }
+        fail AppError { code: "PLAN_HAS_WARNINGS", ... }
       confirmed = confirm.prompt("Plan has warnings. Continue anyway?")
       if !confirmed: return empty plan
 

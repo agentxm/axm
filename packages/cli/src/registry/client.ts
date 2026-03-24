@@ -15,7 +15,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { Author, ExtensionType } from "../extensions/common.js";
 import type { VersionEntry } from "./local-schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
@@ -194,17 +194,17 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
 export interface RegistryClient {
   readonly getExtensionsByScope: (
     args: GetExtensionsByNamespaceArgs,
-  ) => Effect.Effect<GetExtensionsByNamespaceResponse, CliError>;
-  readonly namespaceExists: (namespace: string) => Effect.Effect<NamespaceExistsResponse, CliError>;
+  ) => Effect.Effect<GetExtensionsByNamespaceResponse, AppError>;
+  readonly namespaceExists: (namespace: string) => Effect.Effect<NamespaceExistsResponse, AppError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
-  ) => Effect.Effect<GetExtensionPackageResponse, CliError>;
+  ) => Effect.Effect<GetExtensionPackageResponse, AppError>;
   readonly publishExtension: (
     args: PublishExtensionArgs,
-  ) => Effect.Effect<PublishExtensionResponse, CliError>;
+  ) => Effect.Effect<PublishExtensionResponse, AppError>;
   readonly extensionExists: (
     args: ExtensionExistsArgs,
-  ) => Effect.Effect<ExtensionExistsResponse, CliError>;
+  ) => Effect.Effect<ExtensionExistsResponse, AppError>;
 }
 
 // -----------------------------------------------------------------------------

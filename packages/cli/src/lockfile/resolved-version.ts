@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import { ExactSemverVersionSchema } from "./schema.js";
 
 const decodeExactSemverVersion = Schema.decodeUnknownEffect(ExactSemverVersionSchema);
 
-const makeResolvedVersionError = (field: string, value: string, cause: unknown): CliError =>
-  makeCliError({
+const makeResolvedVersionError = (field: string, value: string, cause: unknown): AppError =>
+  makeAppError({
     code: "LOCKFILE_RESOLVED_VERSION_INVALID",
     what: "Lockfile resolved versions must be exact semver values",
     details: [

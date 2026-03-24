@@ -7,7 +7,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { expandGlob } from "../skills/glob.js";
 
 /**
@@ -20,7 +20,7 @@ export const normalizeIgnoredPatterns = (patterns: ReadonlyArray<string>) =>
     const trimmed = Array.map(patterns, (p) => p.trim());
     const invalid = Array.filter(trimmed, (p) => p.length === 0);
     if (invalid.length > 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SETTINGS_IGNORED_PATTERN_INVALID",
         what: "Ignored pattern is empty after trimming whitespace",
         howToFix: "Remove empty ignored patterns from settings",
@@ -44,7 +44,7 @@ export const validateIgnoredConfigConflicts = (
       Array.some(ignoredPatterns, (pattern) => expandGlob(pattern, [name]).length > 0),
     );
     if (conflicts.length > 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SETTINGS_IGNORED_CONFIG_CONFLICT",
         what: `Configured extensions conflict with ignored patterns: ${conflicts.join(", ")}`,
         details: conflicts,

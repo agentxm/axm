@@ -22,7 +22,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { buildZipArchive } from "../../../utils/build-zip-archive.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -79,7 +79,7 @@ export const publishPack: OperationHandler<
     const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PUBLISH_PACK_NOT_FOUND",
         what: `Managed pack not found: ${packDir}`,
       });
@@ -89,7 +89,7 @@ export const publishPack: OperationHandler<
     const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_PACK_MANIFEST_READ_FAILED",
           what: `Failed to read manifest: ${manifestPath}`,
           cause: e,
@@ -100,7 +100,7 @@ export const publishPack: OperationHandler<
     const manifestJson = yield* Effect.try({
       try: () => JSON.parse(manifestContent) as unknown,
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_PACK_MANIFEST_PARSE_FAILED",
           what: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
@@ -111,7 +111,7 @@ export const publishPack: OperationHandler<
       manifestJson,
     ).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_PACK_MANIFEST_SCHEMA_INVALID",
           what: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
@@ -128,7 +128,7 @@ export const publishPack: OperationHandler<
     // Resolve target registry source
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
           what: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
@@ -137,7 +137,7 @@ export const publishPack: OperationHandler<
     );
 
     if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
@@ -182,7 +182,7 @@ export const publishPack: OperationHandler<
       })
       .pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "PUBLISH_PACK_PUBLISH_FAILED",
             what: "Failed to publish to registry",
             details: [e.what],

@@ -14,8 +14,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { CliError } from "../../../cli-error/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import type { AppError } from "../../../app-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -37,7 +37,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => Effect.Effect<void, CliError, R>;
+  ) => Effect.Effect<void, AppError, R>;
 };
 
 // -----------------------------------------------------------------------------
@@ -152,7 +152,7 @@ const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
   Effect.gen(function* () {
     if (ref.refType !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: "Ref missing registry details (namespace, version, integrity)",
       });
@@ -171,7 +171,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
 
     const actualIntegrity = yield* computeIntegrity(archiveBytes);
     if (actualIntegrity !== expectedIntegrity) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: `Integrity mismatch for ${type}:${name}@${version}`,
         details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
@@ -182,7 +182,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const tmpDir = yield* Effect.acquireRelease(
       fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "SOURCE_FETCH_FAILED",
             what: "Failed to create temp directory",
             cause: e,

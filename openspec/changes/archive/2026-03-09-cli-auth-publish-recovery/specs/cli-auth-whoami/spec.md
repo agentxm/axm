@@ -25,13 +25,13 @@ The `axm whoami` command SHALL resolve and display the current user's identity f
 #### Scenario: Not authenticated
 
 - **WHEN** the user runs `axm whoami` and no credentials are available
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_REQUIRED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_REQUIRED`
 - **AND** `howToFix` SHALL read "Run `axm login` to sign in."
 
 #### Scenario: Token expired and refresh fails
 
 - **WHEN** the user runs `axm whoami` and the token is expired and refresh fails
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_REFRESH_FAILED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_REFRESH_FAILED`
 - **AND** `howToFix` SHALL read "Session expired. Run `axm login` to re-authenticate."
 
 ### Requirement: Whoami --json flag
@@ -47,4 +47,4 @@ The `axm whoami` command SHALL accept a `--json` flag for machine-readable outpu
 #### Scenario: JSON error output
 
 - **WHEN** `axm whoami --json` fails due to auth error
-- **THEN** the error SHALL still be rendered via standard `CliError` handling (not JSON)
+- **THEN** the error SHALL still be rendered via standard `AppError` handling (not JSON)

@@ -25,7 +25,7 @@ The design goal is to finish this migration without changing command intent.
 - Move all mutating behavior in the 6 audited handlers behind operation handlers executed by `ws.resolvePlan()`.
 - Keep handlers as orchestration only: validate input, collect read-only context, build plan.
 - Ensure `--preview` works for all affected commands.
-- Reuse existing operation patterns and typed error handling (`CliError`).
+- Reuse existing operation patterns and typed error handling (`AppError`).
 - Require quality gates to pass: `pnpm lint`, `pnpm test`, and `pnpm typecheck`.
 
 **Non-Goals:**
@@ -92,7 +92,7 @@ Source fallback for implicit/configured promotion is deterministic:
 
 1. use `installedEntry.source` when present
 2. else derive source string from lock entry source metadata
-3. else fail with `CliError` (no silent fallback to name-only source)
+3. else fail with `AppError` (no silent fallback to name-only source)
 
 Why this over introducing extra “promote” operations:
 
@@ -135,7 +135,7 @@ Alternative considered: move all reads into operations. Rejected because handler
 
 For `packs add/remove`, handlers compute the exact manifest delta used for preview and pass that delta to operations for apply. Operations do not recompute glob expansion from scratch.
 
-To protect against drift between preview and apply, operations validate the target manifest precondition (for example, expected hash/version or equivalent optimistic check) before writing and fail with a `CliError` conflict when stale.
+To protect against drift between preview and apply, operations validate the target manifest precondition (for example, expected hash/version or equivalent optimistic check) before writing and fail with an `AppError` conflict when stale.
 
 ### 5. Use explicit operation unions per command handler
 

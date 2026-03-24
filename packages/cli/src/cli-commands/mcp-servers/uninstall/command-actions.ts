@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
@@ -70,16 +70,16 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (
       args: UninstallMcpServerHandlerArgs,
-    ): Effect.Effect<ParsedMcpServerUninstallArgs, CliError> =>
+    ): Effect.Effect<ParsedMcpServerUninstallArgs, AppError> =>
       Effect.succeed({ serverName: args.serverName.trim() });
 
     const finalizeIntent = (
       parsed: ParsedMcpServerUninstallArgs,
-    ): Effect.Effect<UninstallMcpServerCommandIntent, CliError> =>
+    ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
       Effect.gen(function* () {
         const lockEntry = yield* ws.getLockedMcpServer(parsed.serverName);
         if (Option.isNone(lockEntry)) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "MCP_SERVER_NOT_INSTALLED",
             what: `MCP server "${parsed.serverName}" is not installed`,
             howToFix: "Check installed MCP servers and verify the name.",
@@ -96,7 +96,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallMcpServerCommandIntent,
-    ): Effect.Effect<Plan, CliError> => {
+    ): Effect.Effect<Plan, AppError> => {
       const retentionPolicy = {
         isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
           ws.isExtensionRequiredByInstalledPack(args.target),

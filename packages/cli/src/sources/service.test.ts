@@ -20,7 +20,7 @@ import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
 import { CliEnvConfig } from "../config/index.js";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
@@ -93,7 +93,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
+  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
   getDefaultNamespace: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),

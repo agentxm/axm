@@ -11,7 +11,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
 
@@ -50,7 +50,7 @@ export interface LegacyPlan<TOperation> {
 export const bridgeLegacyPlan = <
   Op extends { readonly name: string },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  T extends Record<string, (op: any) => Effect.Effect<OperationResult, CliError, any>>,
+  T extends Record<string, (op: any) => Effect.Effect<OperationResult, AppError, any>>,
 >(
   legacyPlan: LegacyPlan<Op>,
   handlers: T,
@@ -91,7 +91,7 @@ export const bridgeLegacyPlan = <
             readiness: "warn",
             warnMessage: step.readiness.message,
             label: step.label,
-            run: (handler as (op: Op) => Effect.Effect<OperationResult, CliError, never>)(
+            run: (handler as (op: Op) => Effect.Effect<OperationResult, AppError, never>)(
               step.operation,
             ).pipe(Effect.map(toJobStepResult)),
           };
@@ -108,7 +108,7 @@ export const bridgeLegacyPlan = <
           return {
             readiness: "ready",
             label: step.label,
-            run: (handler as (op: Op) => Effect.Effect<OperationResult, CliError, never>)(
+            run: (handler as (op: Op) => Effect.Effect<OperationResult, AppError, never>)(
               step.operation,
             ).pipe(Effect.map(toJobStepResult)),
           };

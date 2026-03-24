@@ -2,7 +2,7 @@
 
 ### Requirement: Multiselect prompt collects multiple selections from a list
 
-The multiselect capability SHALL be provided by `Input.multiselect` from `src/input/`. It SHALL accept `message`, `options: ReadonlyArray<InputOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, CliError | PromptCancelled>`.
+The multiselect capability SHALL be provided by `Input.multiselect` from `src/input/`. It SHALL accept `message`, `options: ReadonlyArray<InputOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, AppError | PromptCancelled>`.
 
 #### Scenario: Basic multiselect
 

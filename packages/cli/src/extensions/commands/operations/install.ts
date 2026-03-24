@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -80,7 +80,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
     );
 
     if (!isPathSafe(ws.baseDir, canonicalPath)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "INSTALL_COMMAND_PATH_TRAVERSAL",
         what: `Path traversal detected: ${canonicalPath}`,
       });
@@ -89,7 +89,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
     // Empty integrity with existing canonical → skip fetch (synthetic refs from fork/publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_COMMAND_PATH_CHECK_FAILED",
           what: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
@@ -115,7 +115,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       if (ref.integrity !== "") {
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
             details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
@@ -125,7 +125,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "INSTALL_COMMAND_TEMP_DIR_FAILED",
             what: `Failed to create temporary directory for registry install`,
             cause: e,
@@ -139,7 +139,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
           yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "INSTALL_COMMAND_COPY_FAILED",
                 what: `Failed to create canonical directory: ${canonicalPath}`,
                 cause: e,
@@ -149,7 +149,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           // Copy extracted files to canonical
           const entries = yield* fs.readDirectory(tmpDir).pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "INSTALL_COMMAND_COPY_FAILED",
                 what: `Failed to read extracted directory`,
                 cause: e,
@@ -193,7 +193,7 @@ export const installCommand: OperationHandler<
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "INSTALL_COMMAND_UNSUPPORTED_REF_TYPE",
         what: `Unsupported ref type for command install: ${ref.refType}`,
       });

@@ -29,7 +29,7 @@ import {
   type ExtensionFiles,
   type RegistryPackRef,
 } from "../../../sources/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { installPack, type InstallPackOperation } from "./install.js";
 
 // -----------------------------------------------------------------------------
@@ -316,7 +316,7 @@ describe("installPack operation handler", () => {
   it.effect("returns error result when fetch fails", () => {
     const mockService: SourceHostProvidersService = {
       find: () => Effect.succeed([]),
-      fetch: () => Effect.fail(makeCliError({ code: "PACK_FETCH_FAILED", what: "Network error" })),
+      fetch: () => Effect.fail(makeAppError({ code: "PACK_FETCH_FAILED", what: "Network error" })),
       cloneUrl: () => Option.none(),
       origin: () => "unknown",
     };

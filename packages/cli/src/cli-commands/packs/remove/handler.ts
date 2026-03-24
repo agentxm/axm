@@ -13,7 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { RemoveFromPackOperation } from "../../../extensions/packs/operations/remove-from-pack.js";
 import { removeFromPack } from "../../../extensions/packs/operations/remove-from-pack.js";
@@ -66,7 +66,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "PACK_NOT_FOUND",
       what: `Pack '${args.pack}' not found`,
       howToFix: "Check available packs or create one with `axm packs new`",
@@ -87,7 +87,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_NOT_FOUND",
         what: `Pack manifest not found at ${manifestPath}`,
         howToFix: "Ensure the pack exists on disk",
@@ -101,7 +101,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const json = yield* Effect.try({
     try: () => JSON.parse(manifestContent) as unknown,
     catch: (e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
         what: `Failed to parse pack manifest: ${manifestPath}`,
         cause: e,
@@ -110,7 +110,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_MANIFEST_INVALID",
         what: `Invalid pack manifest: ${manifestPath}`,
         cause: e,
@@ -138,7 +138,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   if (matchedNames.length === 0) {
     if (isGlob) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
         what: `No extensions in pack match '${args.extension}'`,
         details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],
@@ -146,7 +146,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       });
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "EXTENSION_NOT_IN_PACK",
       what: `Extension '${args.extension}' is not in the pack`,
       details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],

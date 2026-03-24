@@ -21,7 +21,7 @@ When uninstalling a skill, the handler SHALL resolve eligibility from taxonomy i
 #### Scenario: Name resolves to unmanaged only
 
 - **WHEN** user runs `axm skills uninstall <name>` and `<name>` is unmanaged-only (not installed)
-- **THEN** uninstall SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** uninstall SHALL fail with an `AppError` indicating the skill is not installed
 - **AND** the flow SHALL NOT execute legacy unmanaged-marker removal shortcuts
 
 #### Scenario: Ignored name is treated as not installed

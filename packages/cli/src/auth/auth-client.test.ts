@@ -193,7 +193,7 @@ describe("pollOnce", () => {
     expect(result._tag).toBe("ExpiredToken");
   });
 
-  it("fails with CliError on unknown error response", async () => {
+  it("fails with AppError on unknown error response", async () => {
     const httpClient = makeMockHttpClient(
       () => new Response(JSON.stringify({ error: "server_error" }), { status: 500 }),
     );

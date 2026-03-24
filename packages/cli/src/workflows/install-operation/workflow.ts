@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { CliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
 import type { JobStepResult, PlannedJobStep } from "../../workspace/plan.js";
 import type { ExtensionRef } from "../../sources/types.js";
 
@@ -95,23 +95,23 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly extensionType: TRef["type"];
   readonly materializeInstall: (args: {
     readonly ref: TRef;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly upsertSettingsEntry: (args: {
     readonly ref: TRef;
     readonly versionConstraint: Option.Option<string>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly removeSettingsEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly upsertLockfileEntry: (args: {
     readonly ref: TRef;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
 }
 
 // -----------------------------------------------------------------------------
@@ -127,10 +127,10 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
 export interface UninstallRetentionPolicy {
   readonly isRequiredByInstalledPack: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, CliError, never>;
+  }) => Effect.Effect<boolean, AppError, never>;
   readonly markDependencyRetainedInLockfile: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
 }
 
 // -----------------------------------------------------------------------------
@@ -154,7 +154,7 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
 const runInstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   args: InstallOperationArgs<TRef>,
-): Effect.Effect<JobStepResult, CliError, never> =>
+): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
     yield* manager.materializeInstall({ ref: args.ref });
     yield* manager.upsertLockfileEntry({ ref: args.ref });

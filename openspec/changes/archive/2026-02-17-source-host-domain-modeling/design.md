@@ -60,8 +60,8 @@ interface SourceHostProvider<S extends Source = Source, R = never> {
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>;
-  readonly fetch: (source: S, ref: SourceExtensionRef) => Effect<ExtensionFiles, CliError, R>;
+  ) => Effect<ReadonlyArray<SourceExtensionRef>, AppError, R>;
+  readonly fetch: (source: S, ref: SourceExtensionRef) => Effect<ExtensionFiles, AppError, R>;
 }
 
 interface PublishableSourceHostProvider<
@@ -75,7 +75,7 @@ interface PublishableSourceHostProvider<
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => Effect<void, CliError, R>;
+  ) => Effect<void, AppError, R>;
 }
 ```
 
@@ -126,12 +126,12 @@ type LocalSkillRef = SkillRefBase & { source: LocalSource } & LocalRefDetails;
 
 ### 5. Providers own URL matching via `match`
 
-**Decision**: `SourceHostProvider` includes a `match(url: URL)` method that returns `Effect<boolean, CliError, R>`. The method answers "does this URL belong to me?" — nothing more. Parsing the URL into `SourceParams` is handled by the existing per-provider parsers (e.g., `github.parseUrl`, `gitlab.parseUrl`), which the resolution layer calls after `match` returns `true`.
+**Decision**: `SourceHostProvider` includes a `match(url: URL)` method that returns `Effect<boolean, AppError, R>`. The method answers "does this URL belong to me?" — nothing more. Parsing the URL into `SourceParams` is handled by the existing per-provider parsers (e.g., `github.parseUrl`, `gitlab.parseUrl`), which the resolution layer calls after `match` returns `true`.
 
 ```typescript
 interface SourceHostProvider<S extends Source = Source, R = never> {
   readonly type: S["type"]
-  readonly match: (url: URL) => Effect<boolean, CliError, R>
+  readonly match: (url: URL) => Effect<boolean, AppError, R>
   readonly find: ...
   readonly fetch: ...
 }
@@ -786,12 +786,12 @@ interface ExtensionFiles {
 interface SourceHostProvider<S extends Source = Source, R = never> {
   readonly type: S["type"];
   /** Check if a URL belongs to this provider. */
-  readonly match: (url: URL) => Effect<boolean, CliError, R>;
+  readonly match: (url: URL) => Effect<boolean, AppError, R>;
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>;
-  readonly fetch: (source: S, ref: SourceExtensionRef) => Effect<ExtensionFiles, CliError, R>;
+  ) => Effect<ReadonlyArray<SourceExtensionRef>, AppError, R>;
+  readonly fetch: (source: S, ref: SourceExtensionRef) => Effect<ExtensionFiles, AppError, R>;
 }
 
 /**
@@ -810,7 +810,7 @@ interface PublishableSourceHostProvider<
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => Effect<void, CliError, R>;
+  ) => Effect<void, AppError, R>;
 }
 ```
 
@@ -824,9 +824,9 @@ interface SourceHostProvidersService {
   readonly find: (
     source: Source,
     options: FindOptions,
-  ) => Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope>;
+  ) => Effect<ReadonlyArray<SourceExtensionRef>, AppError, Scope>;
   /** Fetch and materialize extension files for a found ref. */
-  readonly fetch: (ref: SourceExtensionRef) => Effect<ExtensionFiles, CliError, Scope>;
+  readonly fetch: (ref: SourceExtensionRef) => Effect<ExtensionFiles, AppError, Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source) => Option<string>;
   /** Canonical origin string for display/comparison (e.g., "github.com/owner/repo"). */

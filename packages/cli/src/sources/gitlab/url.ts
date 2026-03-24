@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { GitLabSourceParams } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "gitlab.com";
@@ -12,7 +12,7 @@ const GITLAB_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
     return Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid GitLab URL format",
         details: [url.href],
@@ -22,7 +22,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   const match = url.pathname.match(GITLAB_PATH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid GitLab URL format",
         details: [url.href],

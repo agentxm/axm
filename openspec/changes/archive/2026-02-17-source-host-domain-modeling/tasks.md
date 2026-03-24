@@ -57,7 +57,7 @@ Depends on: Phase 1.
 Rename `SourceProvider` → `SourceHostProvider`, add `match()` method. Define `PublishableSourceHostProvider`. Rename `SourceProviders` → `SourceHostProviders` service, add `cloneUrl()` and `origin()` methods.
 
 - [x] 3.1 Write tests for `SourceHostProvider` interface shape (type, match, find, fetch) and `PublishableSourceHostProvider` (extends with publishVersion)
-- [x] 3.2 Rename `SourceProvider` → `SourceHostProvider` in `sources/provider.ts`, add `match(url: URL) → Effect<boolean, CliError, R>` method, parameterize on `S extends Source`
+- [x] 3.2 Rename `SourceProvider` → `SourceHostProvider` in `sources/provider.ts`, add `match(url: URL) → Effect<boolean, AppError, R>` method, parameterize on `S extends Source`
 - [x] 3.3 Define `PublishableSourceHostProvider<S, R>` extending `SourceHostProvider<S, R>` with `publishVersion` method
 - [x] 3.4 Update `FindOptions.type` to use `FindableExtensionType | "*"` instead of `"skill" | "mcp-server" | "*"`
 - [x] 3.5 Rename `SourceProvidersService` → `SourceHostProvidersService` in `sources/service.ts` — replace `resolveExtension` with `find(source, options)`, keep `fetch(ref)`, add `cloneUrl(source) → Option<string>`, add `origin(source) → string`

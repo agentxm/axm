@@ -15,8 +15,8 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { CliError } from "../../cli-error/index.js";
-import { makeCliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { sourceToLockEntry } from "../../sources/source-to-lock-entry.js";
 import type { SkillExtensionRef } from "../../sources/types.js";
@@ -54,7 +54,7 @@ export class SkillManager extends ServiceMap.Service<
 const validatePathSafety = (baseDir: string, targetPath: string) =>
   isPathSafe(baseDir, targetPath)
     ? Effect.void
-    : makeCliError({
+    : makeAppError({
         code: "INSTALL_SKILL_PATH_TRAVERSAL",
         what: `Path traversal detected: ${targetPath}`,
       });
@@ -131,7 +131,7 @@ export const SkillManagerLive = Layer.effect(
               ? `${agent.id}: ${outcome.reason}`
               : `${agent.id}: invalid configuration`,
           );
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "SKILL_DIR_MISCONFIGURED",
             what: "One or more configured agents have invalid skills directory settings",
             details,
@@ -277,7 +277,7 @@ const materializeByRefType = (
   baseDir: string,
   sources: SourceHostProvidersService,
   provide: ProvideFS,
-): Effect.Effect<string, CliError, never> => {
+): Effect.Effect<string, AppError, never> => {
   switch (ref.refType) {
     case "git-hosted":
       return materializeGitHosted(ref, sanitizedName, fs, pathService, baseDir, provide);
@@ -304,7 +304,7 @@ const preCleanAndCopy = (
     yield* provide(
       copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "INSTALL_SKILL_COPY_FAILED",
             what: `Failed to copy skill files to ${copyTarget}`,
             cause: e,
@@ -394,7 +394,7 @@ const materializeBuiltin = (
     yield* validatePathSafety(baseDir, skillSrcPath);
     const fetched = yield* sources.fetch(ref).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
           what: `Failed to fetch files for ${ref.skill.name}`,
           cause: error,
@@ -434,7 +434,7 @@ const materializeRegistry = (
 
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_PATH_CHECK_FAILED",
           what: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
@@ -459,7 +459,7 @@ const materializeRegistry = (
       if (ref.integrity !== "") {
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
             details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
@@ -469,7 +469,7 @@ const materializeRegistry = (
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "INSTALL_SKILL_TEMP_DIR_FAILED",
             what: `Failed to create temporary directory for registry install`,
             cause: e,

@@ -32,7 +32,7 @@ Depends on: Phase 2.
 - [x] 3.1 Add `command?: string` to `RunOptions` in `packages/cli/src/runtime/index.ts`.
 - [x] 3.2 Add `TelemetryClient` to the `AppLayer` type union in `packages/cli/src/runtime/index.ts`.
 - [x] 3.3 Wire `TelemetryClientLive` into the `AppLayer` layer composition. Resolve `TelemetryMode` from env vars (and workspace settings when available) in `run()`. Pass the resolved mode and command name to the `TelemetryClientLive` layer factory.
-- [x] 3.4 In `run()`'s `catchAll` block, after `classifyError`, add a fire-and-forget `TelemetryClient.reportError()` call before `Effect.die`. Map `CliError` to `{ name: error.code, message: error.what, details: error.details, howToFix: error.howToFix, level: "error", handled: true, command }`. Map defects to `{ name: "Defect", message: <defect message>, level: "fatal", handled: false, command }`.
+- [x] 3.4 In `run()`'s `catchAll` block, after `classifyError`, add a fire-and-forget `TelemetryClient.reportError()` call before `Effect.die`. Map `AppError` to `{ name: error.code, message: error.what, details: error.details, howToFix: error.howToFix, level: "error", handled: true, command }`. Map defects to `{ name: "Defect", message: <defect message>, level: "fatal", handled: false, command }`.
 - [x] 3.5 Run `pnpm typecheck && pnpm lint && pnpm test` — fix any failures.
 
 ## 4. Command Handler Instrumentation

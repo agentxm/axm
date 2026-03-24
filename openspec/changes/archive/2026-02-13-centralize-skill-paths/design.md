@@ -25,7 +25,7 @@ Compounding the issue, scope representation is inconsistent. The parser strips t
 
 ```typescript
 // On WorkspaceContextService:
-readonly getSkillDir: (name: string, source?: SkillPathSource) => Effect.Effect<SkillDirPaths, CliError>;
+readonly getSkillDir: (name: string, source?: SkillPathSource) => Effect.Effect<SkillDirPaths, AppError>;
 ```
 
 The Workspace service already captures `path` (`@effect/platform Path.Path`) and knows `ws.path` (the `.axm` directory). This eliminates the `base` and `join` parameters — the service derives both internally.

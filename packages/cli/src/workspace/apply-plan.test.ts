@@ -9,7 +9,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
 import type { Plan, PlannedJobStep } from "./plan.js";
 
@@ -40,7 +40,7 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
   readiness: "ready",
   label,
   run: Effect.fail(
-    makeCliError({
+    makeAppError({
       code: "TEST_OP_FAILED",
       what: `Failed ${label}`,
     }),
@@ -108,7 +108,7 @@ describe("applyPlan", () => {
     }),
   );
 
-  it.effect("catches CliError from run closure and converts to error result", () =>
+  it.effect("catches AppError from run closure and converts to error result", () =>
     Effect.gen(function* () {
       const executed = yield* applyPlan(
         makePlan({

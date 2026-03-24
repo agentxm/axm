@@ -12,7 +12,7 @@ import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
 import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import type { McpServerLockEntry } from "../../../lockfile/schema.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallMcpServerOperation } from "./uninstall.js";
@@ -293,7 +293,7 @@ describe("uninstallMcpServer", () => {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn(() =>
           Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               what: "write failed",
               cause: new Error("write failed"),

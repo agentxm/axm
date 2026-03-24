@@ -28,7 +28,7 @@ The `RemoteRegistryClient.namespaceExists` method SHALL determine namespace exis
 #### Scenario: Namespace check network failure
 
 - **WHEN** the namespace existence request fails due to transport error
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR`
 
 ### Requirement: Remote package retrieval
 
@@ -52,12 +52,12 @@ The `RemoteRegistryClient.getExtensionPackage` method SHALL fetch extension arch
 #### Scenario: Requested version missing from index
 
 - **WHEN** an explicit requested version is not present in the remote index response
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_VERSION_NOT_FOUND`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_VERSION_NOT_FOUND`
 
 #### Scenario: Archive endpoint returns not found
 
 - **WHEN** index resolution succeeds but archive download returns `404`
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_PACKAGE_NOT_FOUND`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_PACKAGE_NOT_FOUND`
 
 ### Requirement: Remote namespace list discovery
 
@@ -86,22 +86,22 @@ The `RemoteRegistryClient.getExtensionsByScope` method SHALL support list-mode d
 #### Scenario: List response schema mismatch
 
 - **WHEN** remote list or index response JSON does not match expected schema
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE`
 
 ### Requirement: Authentication error mapping for read operations
 
-Remote registry read operations SHALL map 401 and 403 responses to auth-specific `CliError` codes.
+Remote registry read operations SHALL map 401 and 403 responses to auth-specific `AppError` codes.
 
 #### Scenario: Unauthenticated read (401)
 
 - **WHEN** any remote read operation (`getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, `extensionExists`) returns 401
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHENTICATED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHENTICATED`
 - **AND** `howToFix` SHALL read "Run `axm login` to sign in."
 
 #### Scenario: Unauthorized read (403)
 
 - **WHEN** any remote read operation returns 403
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHORIZED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHORIZED`
 - **AND** `details` SHALL include any `required_scope` or `required_role` from the response body
 - **AND** `howToFix` SHALL describe the missing permission
 

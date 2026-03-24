@@ -14,7 +14,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -73,7 +73,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
 
         if (Option.isNone(lockedPack)) {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "PACK_NOT_INSTALLED",
               what: `Pack "${args.name}" is not installed`,
               howToFix: "Install the pack first with `axm packs install`.",
@@ -85,7 +85,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
 
         if (entry.type !== "registry") {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "PACK_UNPACK_UNSUPPORTED",
               what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
             }),

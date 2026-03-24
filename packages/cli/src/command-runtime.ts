@@ -18,7 +18,7 @@ import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
-import type { CliError as AppCliError } from "./cli-error/index.js";
+import type { AppError } from "./app-error/index.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
 import { AuthClientLive } from "./auth/auth-client.js";
@@ -165,7 +165,7 @@ export interface CommandRuntimeOptions {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyProgram = Effect.Effect<void, AppCliError | PromptCancelled, any>;
+type AnyProgram = Effect.Effect<void, AppError | PromptCancelled, any>;
 
 export const withCommandRuntime = (
   program: AnyProgram,
@@ -220,7 +220,7 @@ export const withCommandRuntime = (
     // Build the provided program — optionally with Workspace (task 2.4)
     const catchErrors = (effect: AnyProgram) =>
       effect.pipe(
-        Effect.catch((error: AppCliError | PromptCancelled) => {
+        Effect.catch((error: AppError | PromptCancelled) => {
           const result = classifyError(error, diagnosticVerbosity);
           const writeError =
             result.exitCode === 0
@@ -232,7 +232,7 @@ export const withCommandRuntime = (
           // Provide telemetryLayer directly so it's available even when the
           // workspace layer (or any other inner layer) fails during construction.
           const report =
-            error._tag === "CliError"
+            error._tag === "AppError"
               ? Effect.gen(function* () {
                   const tc = yield* TelemetryClient;
                   yield* tc

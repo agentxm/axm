@@ -2,18 +2,18 @@
 // with HttpClient and unit-tested with mock HTTP layer. Out of scope for code review sweep.
 import * as Effect from "effect/Effect";
 
-import { makeCliError, type CliError } from "../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 
 export const checkAzureReposRepoExists = (
   organization: string,
   project: string,
   repo: string,
-): Effect.Effect<void, CliError> =>
+): Effect.Effect<void, AppError> =>
   Effect.tryPromise({
     try: () =>
       fetch(`https://dev.azure.com/${organization}/${project}/_git/${repo}`, { method: "HEAD" }),
     catch: (error) =>
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Failed to check Azure Repos: ${error instanceof Error ? error.message : String(error)}`,
         details: [`${organization}/${project}/${repo}`],
@@ -23,7 +23,7 @@ export const checkAzureReposRepoExists = (
       response.ok
         ? Effect.void
         : Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "SOURCE_PARSE_FAILED",
               what: `Not found on Azure Repos`,
               details: [`${organization}/${project}/${repo}`],

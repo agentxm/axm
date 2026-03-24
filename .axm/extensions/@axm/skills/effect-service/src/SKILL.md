@@ -24,10 +24,10 @@ dependency injection and testability.
 class NotificationService extends ServiceMap.Service<
   NotificationService,
   {
-    readonly send: (to: string, message: string) => Effect.Effect<void, CliError>;
+    readonly send: (to: string, message: string) => Effect.Effect<void, AppError>;
     readonly sendBatch: (
       notifications: ReadonlyArray<Notification>,
-    ) => Effect.Effect<void, CliError>;
+    ) => Effect.Effect<void, AppError>;
   }
 >()("@axm.sh/cli/NotificationService") {}
 ```

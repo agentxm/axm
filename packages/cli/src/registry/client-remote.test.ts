@@ -1,7 +1,7 @@
 /**
  * Tests for RemoteRegistryClient.
  *
- * Phase 1: RFC 7807 error mapping (mapProblemDetailToCliError).
+ * Phase 1: RFC 7807 error mapping (mapProblemDetailToAppError).
  * Phase 2: createRemoteRegistryClient — publish, network errors, stubs.
  */
 
@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { createRemoteRegistryClient, mapProblemDetailToCliError } from "./client-remote.js";
+import { createRemoteRegistryClient, mapProblemDetailToAppError } from "./client-remote.js";
 import type { PublishExtensionArgs } from "./client.js";
 import type { VersionEntry } from "./local-schema.js";
 
@@ -78,16 +78,16 @@ const makeTransportError = (request: HttpClientRequest.HttpClientRequest, cause:
   });
 
 // -----------------------------------------------------------------------------
-// mapProblemDetailToCliError
+// mapProblemDetailToAppError
 // -----------------------------------------------------------------------------
 
-describe("mapProblemDetailToCliError", () => {
+describe("mapProblemDetailToAppError", () => {
   // ---------------------------------------------------------------------------
   // 409 publish_conflict
   // ---------------------------------------------------------------------------
 
   it("maps 409 publish_conflict to REGISTRY_PUBLISH_CONFLICT", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       409,
       makeProblem({ code: "publish_conflict", detail: "Version 1.0.0 already exists" }),
     );
@@ -101,7 +101,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 400 malformed_archive to REGISTRY_PUBLISH_INVALID_ARCHIVE", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       400,
       makeProblem({ code: "malformed_archive", detail: "Archive is corrupted" }),
     );
@@ -109,7 +109,7 @@ describe("mapProblemDetailToCliError", () => {
   });
 
   it("maps 400 empty_archive to REGISTRY_PUBLISH_INVALID_ARCHIVE", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       400,
       makeProblem({ code: "empty_archive", detail: "Archive is empty" }),
     );
@@ -121,7 +121,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 413 ingest_archive_too_large to REGISTRY_PUBLISH_TOO_LARGE", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       413,
       makeProblem({ code: "ingest_archive_too_large", detail: "Archive exceeds 10MB limit" }),
     );
@@ -131,7 +131,7 @@ describe("mapProblemDetailToCliError", () => {
   });
 
   it("maps 413 ingest_file_too_large to REGISTRY_PUBLISH_TOO_LARGE", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       413,
       makeProblem({ code: "ingest_file_too_large", detail: "File exceeds limit" }),
     );
@@ -143,7 +143,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 415 ingest_unsupported_content_type to REGISTRY_PUBLISH_INVALID_ARCHIVE", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       415,
       makeProblem({ code: "ingest_unsupported_content_type", detail: "Expected application/zip" }),
     );
@@ -155,7 +155,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 422 manifest_missing to REGISTRY_PUBLISH_MANIFEST_INVALID", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       422,
       makeProblem({ code: "manifest_missing", detail: "No manifest found" }),
     );
@@ -165,7 +165,7 @@ describe("mapProblemDetailToCliError", () => {
   });
 
   it("maps 422 manifest_invalid_schema to REGISTRY_PUBLISH_MANIFEST_INVALID", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       422,
       makeProblem({ code: "manifest_invalid_schema", detail: "Invalid manifest schema" }),
     );
@@ -177,7 +177,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 422 integrity_mismatch to REGISTRY_PUBLISH_INTEGRITY_MISMATCH", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       422,
       makeProblem({ code: "integrity_mismatch", detail: "SRI hash does not match" }),
     );
@@ -189,7 +189,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 429 throttled to REGISTRY_PUBLISH_THROTTLED with retry time", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       429,
       makeProblem({
         code: "throttled",
@@ -207,7 +207,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 403 quota_exceeded to REGISTRY_PUBLISH_QUOTA_EXCEEDED", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       403,
       makeProblem({ code: "quota_exceeded", detail: "Quota exceeded" }),
     );
@@ -221,7 +221,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 501 publish_type_not_implemented to REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       501,
       makeProblem({ code: "publish_type_not_implemented", detail: "Type not supported" }),
     );
@@ -234,7 +234,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps 503 publish_disabled to REGISTRY_PUBLISH_DISABLED", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       503,
       makeProblem({ code: "publish_disabled", detail: "Publishing is disabled" }),
     );
@@ -248,7 +248,7 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps unexpected status to REGISTRY_PUBLISH_FAILED with body in details", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       500,
       makeProblem({ code: "internal_error", detail: "Unexpected server error" }),
     );
@@ -260,8 +260,8 @@ describe("mapProblemDetailToCliError", () => {
   // Preservation of detail and requestId
   // ---------------------------------------------------------------------------
 
-  it("preserves detail and requestId in CliError details array", () => {
-    const error = mapProblemDetailToCliError(
+  it("preserves detail and requestId in AppError details array", () => {
+    const error = mapProblemDetailToAppError(
       409,
       makeProblem({
         code: "publish_conflict",
@@ -276,20 +276,20 @@ describe("mapProblemDetailToCliError", () => {
   it("omits requestId from details when not present", () => {
     const problem = makeProblem({ code: "publish_conflict" });
     const { requestId: _, ...problemWithoutRequestId } = problem;
-    const error = mapProblemDetailToCliError(409, problemWithoutRequestId);
+    const error = mapProblemDetailToAppError(409, problemWithoutRequestId);
     expect(error.details.some((d) => d.includes("Request ID"))).toBe(false);
   });
 
   it("omits detail from details array when not present", () => {
     const problem = makeProblem({ code: "publish_conflict" });
     const { detail: _, ...problemWithoutDetail } = problem;
-    const error = mapProblemDetailToCliError(409, problemWithoutDetail);
+    const error = mapProblemDetailToAppError(409, problemWithoutDetail);
     // Should still produce the right error code
     expect(error.code).toBe("REGISTRY_PUBLISH_CONFLICT");
   });
 
   it("includes validation issue details when present", () => {
-    const error = mapProblemDetailToCliError(
+    const error = mapProblemDetailToAppError(
       400,
       makeProblem({
         code: "invalid_request",
@@ -315,12 +315,12 @@ describe("mapProblemDetailToCliError", () => {
   // ---------------------------------------------------------------------------
 
   it("maps null problem to REGISTRY_PUBLISH_FAILED", () => {
-    const error = mapProblemDetailToCliError(502, null);
+    const error = mapProblemDetailToAppError(502, null);
     expect(error.code).toBe("REGISTRY_PUBLISH_FAILED");
   });
 
   it("maps undefined problem to REGISTRY_PUBLISH_FAILED", () => {
-    const error = mapProblemDetailToCliError(502, undefined);
+    const error = mapProblemDetailToAppError(502, undefined);
     expect(error.code).toBe("REGISTRY_PUBLISH_FAILED");
   });
 });

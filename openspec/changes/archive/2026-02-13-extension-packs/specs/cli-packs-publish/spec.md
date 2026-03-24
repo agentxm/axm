@@ -22,7 +22,7 @@
 
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`
 - **AND** `axm-pack.json` does not exist in the pack directory
-- **THEN** the command fails with a `CliError`
+- **THEN** the command fails with an `AppError`
 
 #### Scenario: Idempotent publish
 
@@ -33,7 +33,7 @@
 
 - **WHEN** the same version with a different checksum is published
 - **AND** `--force` is not provided
-- **THEN** the command fails with a `CliError` indicating the version already exists with a different checksum
+- **THEN** the command fails with an `AppError` indicating the version already exists with a different checksum
 
 ### Requirement: Archive includes all pack files
 

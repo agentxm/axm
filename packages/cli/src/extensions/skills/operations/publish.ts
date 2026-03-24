@@ -18,7 +18,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { buildZipArchive } from "../../../utils/build-zip-archive.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -87,7 +87,7 @@ export const publishSkill: OperationHandler<
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
     if (!extensionDirExists) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PUBLISH_SKILL_NOT_FOUND",
         what: `Managed extension not found: ${extensionDir}`,
       });
@@ -97,7 +97,7 @@ export const publishSkill: OperationHandler<
     const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_SKILL_MANIFEST_READ_FAILED",
           what: `Failed to read manifest: ${manifestPath}`,
           cause: e,
@@ -108,7 +108,7 @@ export const publishSkill: OperationHandler<
     const manifestJson = yield* Effect.try({
       try: () => JSON.parse(manifestContent) as unknown,
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_SKILL_MANIFEST_PARSE_FAILED",
           what: `Invalid JSON in manifest: ${manifestPath}`,
           cause: e,
@@ -119,7 +119,7 @@ export const publishSkill: OperationHandler<
       manifestJson,
     ).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID",
           what: `Invalid manifest schema: ${manifestPath}`,
           cause: e,
@@ -136,7 +136,7 @@ export const publishSkill: OperationHandler<
     // Resolve target registry source
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PUBLISH_SKILL_REGISTRY_LOOKUP_FAILED",
           what: `Failed to lookup registry source "${op.args.registryName}"`,
           cause: e,
@@ -145,7 +145,7 @@ export const publishSkill: OperationHandler<
     );
 
     if (Option.isNone(registrySource)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
@@ -153,7 +153,7 @@ export const publishSkill: OperationHandler<
 
     const source = registrySource.value;
     if (source.type !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
@@ -182,7 +182,7 @@ export const publishSkill: OperationHandler<
       })
       .pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "PUBLISH_SKILL_PUBLISH_FAILED",
             what: `Failed to publish to registry "${op.args.registryName}"`,
             details: [

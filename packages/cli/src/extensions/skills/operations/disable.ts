@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -96,7 +96,7 @@ export const disableSkill: OperationHandler<
     // Check for lock entry
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "DISABLE_SKILL_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
@@ -142,7 +142,7 @@ export const disableSkill: OperationHandler<
         hasLockEntry ? deriveSourceString(lockEntryOption.value) : undefined,
       );
       if (source === undefined) {
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "DISABLE_SKILL_NO_SOURCE",
           what: `Cannot determine source for implicit skill "${op.args.skillName}"`,
           howToFix: "Provide a source when disabling this skill",

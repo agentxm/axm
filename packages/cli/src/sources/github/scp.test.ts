@@ -42,7 +42,7 @@ describe("parseScp", () => {
         Effect.flip,
       );
 
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
     }),
   );
 
@@ -50,7 +50,7 @@ describe("parseScp", () => {
     Effect.gen(function* () {
       const error = yield* parseScp("not-a-valid-ssh-url").pipe(Effect.flip);
 
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
     }),
   );
 });

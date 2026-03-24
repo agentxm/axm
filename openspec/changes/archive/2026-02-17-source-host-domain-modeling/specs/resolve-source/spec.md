@@ -14,7 +14,7 @@ The pipeline:
 
 The intersection SHALL be type-safe — no `as Source` assertions needed because `SourceHost` and `SourceParams` share the `type` discriminator.
 
-`resolveSource` SHALL require the `Workspace` service and MAY fail with `CliError`.
+`resolveSource` SHALL require the `Workspace` service and MAY fail with `AppError`.
 
 #### Scenario: GitHub shorthand resolves to GitHubSource with host config
 
@@ -67,7 +67,7 @@ The first successful match SHALL be returned. If no configured source matches, t
 
 - **WHEN** `resolveSource("https://unknown-host.com/owner/repo")` is called
 - **AND** no configured source has a matching hostname
-- **THEN** the result is a `CliError` with an appropriate error code
+- **THEN** the result is an `AppError` with an appropriate error code
 
 #### Scenario: Hostname matches but parse fails continues to next source
 

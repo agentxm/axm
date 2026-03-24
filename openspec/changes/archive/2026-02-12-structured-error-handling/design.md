@@ -13,8 +13,8 @@ Domain errors use inconsistent `cause` types: `cause: unknown`, `cause?: unknown
 
 **Goals:**
 
-- Single `CliError` wrapper type as the only expected error at the runtime boundary
-- Structured error details (what, details, howToFix, code) on `CliError`, formatted only at the boundary
+- Single `AppError` wrapper type as the only expected error at the runtime boundary
+- Structured error details (what, details, howToFix, code) on `AppError`, formatted only at the boundary
 - Consistent `cause: unknown` across all domain errors
 - `PromptCancelled` handled as a clean exit (code 0)
 - Unhandled errors treated as defects with diagnostic output
@@ -23,23 +23,23 @@ Domain errors use inconsistent `cause` types: `cause: unknown`, `cause?: unknown
 
 **Non-Goals:**
 
-- JSON error output mode (future work, but `CliError` structure enables it)
+- JSON error output mode (future work, but `AppError` structure enables it)
 - Internationalization of error messages
 - Error recovery/retry at the runtime boundary (handlers own recovery)
 - Changing domain error types beyond standardizing `cause`
 
 ## Decisions
 
-### 1. `CliError` lives in `packages/cli/src/cli-error/`
+### 1. `AppError` lives in `packages/cli/src/app-error/`
 
 New feature folder with `cli-error.ts` (type + factory helpers) and `render.ts` (formatting logic). Follows the co-location convention — it's a self-contained feature, not a utility.
 
 **Alternative considered:** Put it in `runtime/`. Rejected because rendering and the error type are reusable concerns, and `runtime/` is about layer wiring.
 
-### 2. `CliError` shape
+### 2. `AppError` shape
 
 ```typescript
-class CliError extends Data.TaggedError("CliError")<{
+class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
   readonly what: string;
   readonly details: ReadonlyArray<string>;
@@ -60,20 +60,20 @@ class CliError extends Data.TaggedError("CliError")<{
 
 ### 3. Error codes are plain strings, not an enum
 
-Error codes like `WORKSPACE_NOT_INIT` are string constants defined alongside the `mapError` call that creates the `CliError`. No central enum — each handler defines its codes locally.
+Error codes like `WORKSPACE_NOT_INIT` are string constants defined alongside the `mapError` call that creates the `AppError`. No central enum — each handler defines its codes locally.
 
 **Rationale:** Codes are a presentation concern owned by the handler. A central enum would create coupling and grow with every command. Codes are documented in output only — no programmatic matching against them.
 
 **Alternative considered:** Union type or enum of all codes. Rejected for the coupling reason above. Codes are for humans and scripts parsing stderr, not for internal branching.
 
-### 4. Runtime boundary catches `CliError | PromptCancelled` only
+### 4. Runtime boundary catches `AppError | PromptCancelled` only
 
 ```typescript
 program.pipe(
   Effect.catchTag("PromptCancelled", () => Effect.sync(() => process.exit(0))),
-  Effect.catchTag("CliError", (error) =>
+  Effect.catchTag("AppError", (error) =>
     Effect.sync(() => {
-      renderCliError(error);
+      renderAppError(error);
       process.exit(1);
     }),
   ),
@@ -93,15 +93,15 @@ The `catchAll` fallback remains as a safety net but logs a "this is a bug" diagn
 
 **Alternative considered:** Using `Effect.catchAllDefect` separately. Rejected because untyped errors in the E channel (from handlers that forgot to map) should also be treated as defects, and `catchAll` after the two `catchTag` calls handles exactly that.
 
-### 5. Handlers are responsible for the final `mapError` to `CliError`
+### 5. Handlers are responsible for the final `mapError` to `AppError`
 
-Each handler's top-level Effect maps its domain errors to `CliError`. This happens in the handler, not in the command or runtime. The handler has the most context to write a useful error message.
+Each handler's top-level Effect maps its domain errors to `AppError`. This happens in the handler, not in the command or runtime. The handler has the most context to write a useful error message.
 
-Handlers that currently have no error handling (`init`, `list`, `uninstall`) need a `mapError` added. Handlers with existing local error types (`InstallError`, `ForkError`, etc.) replace them — `CliError` subsumes their role.
+Handlers that currently have no error handling (`init`, `list`, `uninstall`) need a `mapError` added. Handlers with existing local error types (`InstallError`, `ForkError`, etc.) replace them — `AppError` subsumes their role.
 
 ### 6. Remove `formatError` and `formatEmptyResolutionError`
 
-These are replaced by `CliError` construction + `renderCliError`. The `renderCliError` function in `cli-error/render.ts` produces the same `✗` format but from structured data.
+These are replaced by `AppError` construction + `renderAppError`. The `renderAppError` function in `app-error/render.ts` produces the same `✗` format but from structured data.
 
 ### 7. Standardize `cause: unknown` on all domain errors
 
@@ -119,7 +119,7 @@ Not every function gets a span. Focus on operations that cross service boundarie
 
 ## Risks / Trade-offs
 
-- **Migration breadth** — Every handler needs a `mapError` to `CliError`. Risk of missing one. → Mitigation: Effect's type system will show unhandled errors in `run()`'s type signature. The `catchAll` defect fallback catches anything missed at runtime.
+- **Migration breadth** — Every handler needs a `mapError` to `AppError`. Risk of missing one. → Mitigation: Effect's type system will show unhandled errors in `run()`'s type signature. The `catchAll` defect fallback catches anything missed at runtime.
 - **Handler error types removed** — `InstallError`, `ForkError`, `PublishError`, `UpdateError` go away. Tests that catch these types need updating. → Mitigation: Tests should assert on behavior (output, exit code), not internal error types.
 - **Error code stability** — Codes are strings with no compile-time validation. Typos possible. → Mitigation: Codes are local to the handler, short, and reviewed in PRs. Low risk.
 - **Span overhead** — `Effect.withSpan` adds minimal overhead but increases code surface. → Mitigation: Only add to I/O boundaries, not pure functions.

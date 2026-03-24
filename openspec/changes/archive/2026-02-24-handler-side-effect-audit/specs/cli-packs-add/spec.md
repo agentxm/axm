@@ -15,7 +15,7 @@ The `axm packs add` handler SHALL compute manifest add changes during planning a
 
 - **WHEN** a precomputed add delta is planned
 - **AND** the target manifest changes before apply
-- **THEN** the operation SHALL fail with a `CliError` conflict indicating stale manifest state
+- **THEN** the operation SHALL fail with an `AppError` conflict indicating stale manifest state
 - **AND** the operation SHALL NOT write a partial manifest update
 
 ### Requirement: Packs add supports preview mode

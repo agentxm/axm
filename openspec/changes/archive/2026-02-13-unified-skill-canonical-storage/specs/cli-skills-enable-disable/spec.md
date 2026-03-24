@@ -17,7 +17,7 @@ The `enableSkill` operation handler SHALL verify the canonical directory exists 
 #### Scenario: Canonical directory missing on enable
 
 - **WHEN** an `EnableSkillOperation` is executed and the canonical directory does not exist
-- **THEN** the handler SHALL fail with a `CliError` with code `ENABLE_SKILL_MISSING_FILES`
+- **THEN** the handler SHALL fail with an `AppError` with code `ENABLE_SKILL_MISSING_FILES`
 - **AND** the error SHALL suggest reinstalling the skill with `axm skills install`
 - **AND** the skill SHALL remain `enabled: false`
 

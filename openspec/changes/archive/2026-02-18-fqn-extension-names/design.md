@@ -52,7 +52,7 @@ Replace `FQN_PATTERN = /^@[\w-]+\/[\w-]+$/` with a pattern matching `@scope/type
 
 Introduce focused utilities in a new `extensions/fqn.ts` module:
 
-- `parseFqn(input: string): Effect<Fqn, CliError>` — parse `@scope/type-plural/name` into `{ scope, type, name }`
+- `parseFqn(input: string): Effect<Fqn, AppError>` — parse `@scope/type-plural/name` into `{ scope, type, name }`
 - `parseFqnOrThrow(input: string): Fqn` — throwing variant for boundaries
 - `formatFqn(fqn: Fqn): string` — construct `@scope/type-plural/name` from parts
 - `Fqn` type: `{ readonly namespace: string; readonly type: ExtensionTypePlural; readonly name: string }`

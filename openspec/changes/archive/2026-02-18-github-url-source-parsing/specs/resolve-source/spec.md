@@ -26,4 +26,4 @@
 
 - **WHEN** `resolveSkillInstallSource` receives input `https://unknown-host.com/owner/repo`
 - **AND** no configured or built-in source matches the hostname
-- **THEN** the result is a `CliError` with code `SOURCE_PARSE_FAILED`
+- **THEN** the result is an `AppError` with code `SOURCE_PARSE_FAILED`

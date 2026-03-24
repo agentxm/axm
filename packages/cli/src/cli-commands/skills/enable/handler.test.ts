@@ -31,7 +31,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handleEnable, type EnableHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -151,8 +151,8 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("is not installed");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("is not installed");
         }),
       );
     });
@@ -164,8 +164,8 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("is not installed");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("is not installed");
         }),
       );
     });
@@ -223,8 +223,8 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("code-review")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("is not installed");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("is not installed");
         }),
       );
     });

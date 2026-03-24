@@ -19,7 +19,7 @@ import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -248,8 +248,8 @@ describe("packs-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksNew(defaultArgs("frontend-tools")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No namespace configured");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("No namespace configured");
         }),
       );
     });
@@ -268,8 +268,8 @@ describe("packs-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksNew(defaultArgs("frontend-tools")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("already exists");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("already exists");
         }),
       );
     });

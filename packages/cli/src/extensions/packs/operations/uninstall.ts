@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Log } from "../../../clack-effect/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -61,7 +61,7 @@ export const uninstallPack: OperationHandler<
     // Read pack lock entry
     const lockedPackOpt = yield* ws.getLockedPack(op.args.packName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "UNINSTALL_PACK_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,

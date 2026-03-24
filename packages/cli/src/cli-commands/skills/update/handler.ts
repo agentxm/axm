@@ -19,7 +19,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { expandGlobs } from "../../../skills/index.js";
@@ -122,7 +122,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ? yield* Effect.gen(function* () {
           const sourceArg = yield* resolveSource(sourceValue).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
                 details: [`Provided: ${sourceValue}`],
@@ -240,7 +240,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const resolved = Array.getSomes(results);
   if (resolved.length === 0) {
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "UPDATE_FAILED",
         what: "All source re-resolutions failed. Nothing to update.",
         howToFix: "Verify the original source paths are still accessible.",

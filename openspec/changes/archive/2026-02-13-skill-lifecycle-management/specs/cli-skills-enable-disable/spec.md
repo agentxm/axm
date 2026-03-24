@@ -23,12 +23,12 @@ The enable handler SHALL validate the skill state, build an `EnableSkillOperatio
 #### Scenario: Skill does not exist
 
 - **WHEN** the user runs `axm skills enable <name>` for a skill not in settings
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill was not found
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill was not found
 
 #### Scenario: Skill is unmanaged
 
 - **WHEN** the user runs `axm skills enable <name>` for an unmanaged skill
-- **THEN** the handler SHALL fail with a `CliError` indicating unmanaged skills cannot be enabled
+- **THEN** the handler SHALL fail with an `AppError` indicating unmanaged skills cannot be enabled
 
 #### Scenario: Skill is already enabled
 
@@ -84,12 +84,12 @@ The disable handler SHALL validate the skill state, build a `DisableSkillOperati
 #### Scenario: Skill does not exist
 
 - **WHEN** the user runs `axm skills disable <name>` for a skill not in settings
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill was not found
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill was not found
 
 #### Scenario: Skill is unmanaged
 
 - **WHEN** the user runs `axm skills disable <name>` for an unmanaged skill
-- **THEN** the handler SHALL fail with a `CliError` indicating unmanaged skills cannot be disabled
+- **THEN** the handler SHALL fail with an `AppError` indicating unmanaged skills cannot be disabled
 
 #### Scenario: Skill is already disabled
 

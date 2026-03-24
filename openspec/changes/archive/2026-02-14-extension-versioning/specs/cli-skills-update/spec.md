@@ -34,7 +34,7 @@ During update, the handler SHALL collect version constraints from settings sourc
 
 - **WHEN** skill "review" has settings source `@acme/code-review@^5.0.0`
 - **AND** no available version satisfies `^5.0.0`
-- **THEN** the handler SHALL fail with a CliError for that skill
+- **THEN** the handler SHALL fail with an AppError for that skill
 
 ### Requirement: Update warns when pack holds back user skill
 
@@ -74,7 +74,7 @@ During update, the handler SHALL warn when a pack constraint prevents a user-ins
 
 - **WHEN** pack "starter" has settings source `@acme/starter-pack@^5.0.0`
 - **AND** no available version satisfies `^5.0.0`
-- **THEN** the handler SHALL fail with a CliError for that pack
+- **THEN** the handler SHALL fail with an AppError for that pack
 
 ### Requirement: Pack update cascades to dependencies
 

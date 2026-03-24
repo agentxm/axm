@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -102,7 +102,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   getExtensionsByScope: () => Effect.succeed(toResult([])),
   namespaceExists: () => Effect.succeed({ exists: false }),
   getExtensionPackage: () =>
-    Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
+    Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
   ...overrides,
@@ -111,35 +111,35 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
 const createFailingClient = (): RegistryClient => ({
   getExtensionsByScope: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
     ),
   namespaceExists: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
     ),
   getExtensionPackage: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
     ),
   publishExtension: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
     ),
   extensionExists: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),

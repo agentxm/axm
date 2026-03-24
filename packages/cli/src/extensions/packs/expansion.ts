@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError, type CliError } from "../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionType } from "../common.js";
 import type { ExtensionRef, PackExtensionRef, RegistrySource } from "../../sources/types.js";
 import type {
@@ -59,7 +59,7 @@ const namespaceFromFqn = (fqn: string): string => {
 export const expandPackInstallRefs = (args: {
   readonly pack: PackExtensionRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
-}): Effect.Effect<ReadonlyArray<ExtensionRef>, CliError> => {
+}): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> => {
   const { pack, supportedDependencyTypes } = args;
   const deps: ExtensionRef[] = [];
 
@@ -154,7 +154,7 @@ export const expandPackUninstallTargets = (args: {
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly lockfile: Lockfile;
   readonly settings: UninstallSettingsContext;
-}): Effect.Effect<ReadonlyArray<ExtensionTarget>, CliError> => {
+}): Effect.Effect<ReadonlyArray<ExtensionTarget>, AppError> => {
   const { pack, supportedDependencyTypes, lockfile, settings } = args;
   const packs = lockfile.packs ?? {};
   const packEntry = packs[pack.name];
@@ -236,16 +236,16 @@ export const expandPackUninstallTargets = (args: {
 /**
  * Resolve skill names to lockfile-backed uninstall targets.
  *
- * Fails with CliError if any skill name is not found in the lockfile.
+ * Fails with AppError if any skill name is not found in the lockfile.
  */
 export const resolveSkillUninstallTargetsFromLockfile = (
   skills: ReadonlyArray<{ readonly skillName: string }>,
   lockfile: Lockfile,
-): Effect.Effect<ReadonlyArray<SkillExtensionTarget>, CliError> =>
+): Effect.Effect<ReadonlyArray<SkillExtensionTarget>, AppError> =>
   Effect.forEach(skills, (entry) => {
     if (!(entry.skillName in lockfile.skills)) {
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "SKILL_NOT_FOUND_IN_LOCKFILE",
           what: `Skill "${entry.skillName}" is not installed`,
           howToFix: "Check the skill name and try again",

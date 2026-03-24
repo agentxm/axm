@@ -9,7 +9,7 @@ The CLI already has a complete publish pipeline: read manifest → build zip →
 **Goals:**
 
 - Implement `publishExtension` on `RemoteRegistryClient` using `@effect/platform` HttpClient
-- Map the full backend error surface to `CliError` with actionable guidance
+- Map the full backend error surface to `AppError` with actionable guidance
 - Handle idempotent republishes (200) and new publishes (201) as success
 
 **Non-Goals:**
@@ -55,11 +55,11 @@ Use `HttpClientRequest.formData` from `@effect/platform` to construct the multip
 
 Authentication is out of scope. The remote client sends requests without an `Authorization` header. Auth will be added in a follow-up change. This keeps the HTTP transport and error mapping cleanly separated from token management.
 
-### 4. Error mapping: RFC 7807 → CliError
+### 4. Error mapping: RFC 7807 → AppError
 
-Parse non-2xx responses as RFC 7807 problem detail JSON and map to `CliError`:
+Parse non-2xx responses as RFC 7807 problem detail JSON and map to `AppError`:
 
-| HTTP Status | Backend Code                         | CliError Code                         | howToFix                                                                                 |
+| HTTP Status | Backend Code                         | AppError Code                         | howToFix                                                                                 |
 | ----------- | ------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------------- |
 | 400         | `malformed_archive`, `empty_archive` | `REGISTRY_PUBLISH_INVALID_ARCHIVE`    | "Check the extension directory and rebuild"                                              |
 | 409         | `publish_conflict`                   | `REGISTRY_PUBLISH_CONFLICT`           | "This version already exists with different content. Bump the version in your manifest." |
@@ -73,7 +73,7 @@ Parse non-2xx responses as RFC 7807 problem detail JSON and map to `CliError`:
 | 503         | `publish_disabled`                   | `REGISTRY_PUBLISH_DISABLED`           | "Publishing is temporarily disabled. Try again later."                                   |
 | Other       | —                                    | `REGISTRY_PUBLISH_FAILED`             | Include response body in details                                                         |
 
-Always preserve the backend's `detail` field and `requestId` in the CliError's `details` array for debugging.
+Always preserve the backend's `detail` field and `requestId` in the AppError's `details` array for debugging.
 
 ### 5. Factory signature change
 
@@ -89,7 +89,7 @@ createRemoteRegistryClient(baseUrl: string): RegistryClient
 
 The factory in `client.ts` already has `location` — pass it through. The `publishExtension` method builds the full URL: `{baseUrl}/v1/extensions/{namespace}/{type}/{name}/{version}`.
 
-The remote client's `publishExtension` requires `HttpClient.HttpClient` from the Effect context. This means the `RegistryClient.publishExtension` return type gains an `R` requirement. Since the interface currently returns `Effect<T, CliError>` (no `R`), the remote client must access HttpClient by closing over it — accept it as a construction parameter.
+The remote client's `publishExtension` requires `HttpClient.HttpClient` from the Effect context. This means the `RegistryClient.publishExtension` return type gains an `R` requirement. Since the interface currently returns `Effect<T, AppError>` (no `R`), the remote client must access HttpClient by closing over it — accept it as a construction parameter.
 
 ```typescript
 createRemoteRegistryClient(baseUrl: string, httpClient: HttpClient.HttpClient): RegistryClient
@@ -112,4 +112,4 @@ Both are success from the CLI's perspective. The backend's `publish_status` fiel
 
 **[No auth]** → Requests are unauthenticated. The backend may reject with 401/403 until auth is added. Mitigation: Auth is a planned follow-up change. The error mapping handles unexpected status codes gracefully.
 
-**[HttpClient as constructor arg]** → Slightly unusual to pass a service as a constructor parameter rather than accessing it from context. Mitigation: Keeps the `RegistryClient` interface clean (`Effect<T, CliError>` with no `R`), and the factory is the only call site.
+**[HttpClient as constructor arg]** → Slightly unusual to pass a service as a constructor parameter rather than accessing it from context. Mitigation: Keeps the `RegistryClient` interface clean (`Effect<T, AppError>` with no `R`), and the factory is the only call site.

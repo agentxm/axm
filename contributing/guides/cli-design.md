@@ -430,8 +430,8 @@ Effect's typed error system (`_tag` discriminator) maps to structured error
 output. Catch errors by tag and serialize to the appropriate channel:
 
 ```typescript
-// Map CliError to structured output at the run() boundary
-const handleError = (error: CliError | PromptCancelled, format: "text" | "json" | "stream-json") =>
+// Map AppError to structured output at the run() boundary
+const handleError = (error: AppError | PromptCancelled, format: "text" | "json" | "stream-json") =>
   Effect.gen(function* () {
     switch (error._tag) {
       case "PromptCancelled":
@@ -442,9 +442,9 @@ const handleError = (error: CliError | PromptCancelled, format: "text" | "json" 
         }
         process.exit(4);
         break;
-      case "CliError": {
+      case "AppError": {
         // Always write human-readable to stderr
-        yield* Console.error(renderCliError(error));
+        yield* Console.error(renderAppError(error));
         // Write structured error to stdout in json/stream-json modes
         if (format !== "text") {
           yield* Console.log(
@@ -465,7 +465,7 @@ const handleError = (error: CliError | PromptCancelled, format: "text" | "json" 
 ```
 
 `Command.runWith()` handles `--help` and `--version` output automatically.
-Catch `CliError` at the top-level `run()` boundary using `CliError.isCliError()`
+Catch `AppError` at the top-level `run()` boundary using `AppError.isAppError()`
 and route through the error handler.
 
 For error message format examples, see the `/cli-conventions` skill.
@@ -647,7 +647,7 @@ const handleInstall = Effect.fn("Install.handle")(function* (args: InstallHandle
 ### ClackPrompt — Interactive Prompts
 
 `ClackPrompt` wraps all `@clack/prompts` prompt types. Each method returns
-`Effect<T, CliError | PromptCancelled>` — cancellation and non-interactive mode
+`Effect<T, AppError | PromptCancelled>` — cancellation and non-interactive mode
 are handled automatically by the service.
 
 **Available prompt methods:**
@@ -666,7 +666,7 @@ are handled automatically by the service.
 | `path(config)`                    | `Effect<string>`           | `p.path`                    |
 
 **Built-in guards:** When `CliFlags.nonInteractive` is true, prompts fail with
-`CliError` code `PROMPT_IN_NON_INTERACTIVE` — the handler should bypass prompts
+`AppError` code `PROMPT_IN_NON_INTERACTIVE` — the handler should bypass prompts
 via the `promptOrFlag` pattern when non-interactive is set.
 
 ### ClackLog — Structured Messages
@@ -853,7 +853,7 @@ const scope =
 - [ ] **Non-interactive fallback** — Every prompt has an equivalent flag via `promptOrFlag`
 - [ ] **Suppressed in json modes** — No interactive prompts in json/stream-json output
 - [ ] **Test layers used** — Tests use `makeClackPromptTestLayer` and similar helpers
-- [ ] **Typed errors** — `CliError | PromptCancelled` in the error channel
+- [ ] **Typed errors** — `AppError | PromptCancelled` in the error channel
 
 ---
 

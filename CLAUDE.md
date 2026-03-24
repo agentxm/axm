@@ -155,10 +155,10 @@ One barrel file (`index.ts`) per folder. Each type is exported from exactly one 
 ```typescript
 // Good: import from the module that owns it
 import { WorkspaceContextService } from "@/workspace";
-import { CliError } from "@/cli-error";
+import { AppError } from "@/app-error";
 
 // Bad: re-exporting types from other modules
-// src/types.ts that re-exports WorkspaceContextService, CliError, etc.
+// src/types.ts that re-exports WorkspaceContextService, AppError, etc.
 import { WorkspaceContextService } from "@/types";
 ```
 
@@ -433,14 +433,14 @@ const results = yield * Effect.forEach(ids, (id) => fetchUser(id));
 
 ### Error Handling Patterns
 
-**Single error type: `CliError`** — all expected failures use `CliError`, created at the point of failure by the code with the best context. No domain error types (`SettingsError`, `GitError`, `SourceError`, etc.).
+**Single error type: `AppError`** — all expected failures use `AppError`, created at the point of failure by the code with the best context. No domain error types (`SettingsError`, `GitError`, `SourceError`, etc.).
 
 ```typescript
-// Create CliError where the failure occurs
+// Create AppError where the failure occurs
 yield *
   Schema.decodeUnknownEffect(SettingsSchema)(json).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "SETTINGS_PARSE_FAILED",
         what: "Failed to parse settings file",
         details: [e.message],
@@ -453,17 +453,17 @@ yield *
 
 **Error codes** — `AREA_REASON` format: `SETTINGS_PARSE_FAILED`, `GIT_CLONE_FAILED`, `REGISTRY_FETCH_FAILED`. Uppercase, greppable, stable across versions.
 
-**Runtime constraint** — `run` only accepts `Effect<A, CliError | PromptCancelled, R>`. Unmapped errors are compile-time failures.
+**Runtime constraint** — `run` only accepts `Effect<A, AppError | PromptCancelled, R>`. Unmapped errors are compile-time failures.
 
-**`PromptCancelled`** — control flow signal (exit 0), not an error. Stays distinct from `CliError`.
+**`PromptCancelled`** — control flow signal (exit 0), not an error. Stays distinct from `AppError`.
 
 **Expected errors vs defects:**
 
-- **Expected errors** (E channel): `CliError` — user-recoverable failures with code, what, details, howToFix
+- **Expected errors** (E channel): `AppError` — user-recoverable failures with code, what, details, howToFix
 - **Defects**: Bugs, invariant violations — crash the program, no recovery
 - Use `Effect.orDie` only when no caller can sensibly recover (e.g., missing config at startup)
 
-**Never throw in helper functions** — return `CliError`:
+**Never throw in helper functions** — return `AppError`:
 
 ```typescript
 // Bad: throws
@@ -472,21 +472,21 @@ const getPath = (source: Source): string => {
   return source.path;
 };
 
-// Good: typed Effect with CliError
+// Good: typed Effect with AppError
 const getPath = (source: Source) =>
   source._tag === "Remote"
     ? Effect.fail(
-        makeCliError({ code: "SOURCE_INVALID_TYPE", what: "Remote sources have no local path" }),
+        makeAppError({ code: "SOURCE_INVALID_TYPE", what: "Remote sources have no local path" }),
       )
     : Effect.succeed(source.path);
 ```
 
 Exception: Functions named `unsafe*` or `*OrThrow` may throw intentionally (like `Option.getOrThrow`). Use this pattern sparingly for escape hatches where the caller explicitly opts out of Effect error handling.
 
-**Yielding errors** — `CliError` is directly yieldable (extends `YieldableError`):
+**Yielding errors** — `AppError` is directly yieldable (extends `YieldableError`):
 
 ```typescript
-yield * makeCliError({ code: "WORKSPACE_NOT_FOUND", what: "Workspace not initialized" });
+yield * makeAppError({ code: "WORKSPACE_NOT_FOUND", what: "Workspace not initialized" });
 ```
 
 **Preserve error context** — always include `cause`:
@@ -495,7 +495,7 @@ yield * makeCliError({ code: "WORKSPACE_NOT_FOUND", what: "Workspace not initial
 Effect.tryPromise({
   try: () => externalLib.call(),
   catch: (error) =>
-    makeCliError({
+    makeAppError({
       code: "EXTERNAL_CALL_FAILED",
       what: "External operation failed",
       cause: error,
@@ -528,7 +528,7 @@ const data =
   yield *
   Schema.decodeUnknownEffect(ConfigSchema)(json).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "CONFIG_PARSE_FAILED",
         what: "Failed to parse configuration",
         details: [e.message],

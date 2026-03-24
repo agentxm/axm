@@ -27,7 +27,7 @@ The registry client SHALL select a version from `index.json` by matching against
 #### Scenario: Invalid version constraint rejected
 
 - **WHEN** resolving with a version constraint that `semver.validRange()` returns null for
-- **THEN** resolution SHALL fail with a CliError indicating the version constraint is invalid
+- **THEN** resolution SHALL fail with an AppError indicating the version constraint is invalid
 
 #### Scenario: Version constraint passed to selectVersion
 

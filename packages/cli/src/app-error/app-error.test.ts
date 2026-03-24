@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import { CliError, makeCliError } from "./cli-error.js";
+import { AppError, makeAppError } from "./app-error.js";
 
-describe("CliError", () => {
+describe("AppError", () => {
   it("constructs with all fields", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
@@ -12,7 +12,7 @@ describe("CliError", () => {
       cause: new Error("original"),
     });
 
-    expect(error._tag).toBe("CliError");
+    expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(error.what).toBe("Workspace not initialized");
     expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
@@ -21,7 +21,7 @@ describe("CliError", () => {
   });
 
   it("constructs with no howToFix", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
       details: ["Package: @namespace/name"],
@@ -33,7 +33,7 @@ describe("CliError", () => {
   });
 
   it("constructs with empty details", () => {
-    const error = new CliError({
+    const error = new AppError({
       code: "UNKNOWN",
       what: "Something went wrong",
       details: [],
@@ -45,9 +45,9 @@ describe("CliError", () => {
   });
 });
 
-describe("makeCliError", () => {
-  it("converts convenience args to CliError", () => {
-    const error = makeCliError({
+describe("makeAppError", () => {
+  it("converts convenience args to AppError", () => {
+    const error = makeAppError({
       code: "WORKSPACE_NOT_INIT",
       what: "Workspace not initialized",
       details: ["Looked for: .axm/settings.json"],
@@ -55,14 +55,14 @@ describe("makeCliError", () => {
       cause: new Error("original"),
     });
 
-    expect(error._tag).toBe("CliError");
+    expect(error._tag).toBe("AppError");
     expect(error.code).toBe("WORKSPACE_NOT_INIT");
     expect(Option.getOrNull(error.howToFix)).toBe("Run 'axm init' to create one.");
     expect(error.details).toEqual(["Looked for: .axm/settings.json"]);
   });
 
   it("defaults details to empty array", () => {
-    const error = makeCliError({
+    const error = makeAppError({
       code: "TEST",
       what: "Test error",
     });
@@ -73,7 +73,7 @@ describe("makeCliError", () => {
   });
 
   it("defaults howToFix to Option.none()", () => {
-    const error = makeCliError({
+    const error = makeAppError({
       code: "TEST",
       what: "Test error",
     });

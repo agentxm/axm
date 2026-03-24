@@ -24,7 +24,7 @@ The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, defau
 
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`
 - **AND** `axm-pack.json` does not exist in the pack directory
-- **THEN** the command fails with a `CliError`
+- **THEN** the command fails with an `AppError`
 
 #### Scenario: Idempotent publish
 
@@ -35,7 +35,7 @@ The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, defau
 
 - **WHEN** the same version with a different integrity is published
 - **AND** `--force` is not provided
-- **THEN** the command fails with a `CliError` indicating the version already exists with a different integrity
+- **THEN** the command fails with an `AppError` indicating the version already exists with a different integrity
 
 #### Scenario: Publish with --include-dependencies flag
 

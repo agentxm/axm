@@ -28,7 +28,7 @@ We have no visibility into how axm is used or when it fails in the wild. Telemet
 
 - **Settings schema**: New `telemetry` field (`true | false | "errors"`, defaults to `true`); project-scope takes precedence over user-scope
 - **Runtime layer**: `TelemetryClient` service added to `AppLayer` in the run boundary; active even without a workspace
-- **Error handling**: `run()` error handler reports errors/defects to telemetry before exiting; all `CliError` fields (code, what, details, howToFix) are sent; `cause` is excluded
+- **Error handling**: `run()` error handler reports errors/defects to telemetry before exiting; all `AppError` fields (code, what, details, howToFix) are sent; `cause` is excluded
 - **Init command**: Additional notice displayed after successful initialization
 - **Network**: New outbound HTTP calls to `https://t.agentxm.ai` (`POST /events`, `POST /errors`) per `api-1.json`; best-effort delivery via daemon fibers (fast commands may lose events)
 - **Testing**: All tests must run with telemetry disabled — either via a no-op layer or environment variable detection

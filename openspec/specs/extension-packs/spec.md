@@ -69,7 +69,7 @@ Packs SHALL only support registry sources. GitHub, git, and local path sources S
 #### Scenario: Non-registry source rejected
 
 - **WHEN** a pack source resolves to a GitHub, git, or local path source
-- **THEN** the operation fails with a `CliError` indicating packs only support registry sources
+- **THEN** the operation fails with a `AppError` indicating packs only support registry sources
 
 ### Requirement: PacksMap settings schema
 

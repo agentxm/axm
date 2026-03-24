@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import matter from "gray-matter";
 import { getAgentById } from "../../../agents/registry.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { copySkillDirectory } from "./copy-directory.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -65,7 +65,7 @@ export const renameSkill: OperationHandler<
 
     const lockEntryOption = yield* ws.getLockedSkill(op.args.oldName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "RENAME_SKILL_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
@@ -73,7 +73,7 @@ export const renameSkill: OperationHandler<
       ),
     );
     if (Option.isNone(lockEntryOption)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "RENAME_SKILL_NOT_FOUND",
         what: `Lock entry for "${op.args.oldName}" not found in lockfile`,
       });
@@ -101,7 +101,7 @@ export const renameSkill: OperationHandler<
       // Rename canonical directory — files before state
       yield* fs.rename(oldPaths.canonicalPath, newPaths.canonicalPath).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "RENAME_SKILL_DIR_FAILED",
             what: `Failed to rename skill directory from "${op.args.oldName}" to "${op.args.newName}"`,
             cause: e,

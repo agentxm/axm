@@ -6,7 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { createDefaultSettings, readSettings, writeSettings } from "./settings.js";
 import type { Settings } from "./schema.js";
 
@@ -97,14 +97,14 @@ describe("settings", () => {
       ),
     );
 
-    it.effect("returns CliError with SETTINGS_PARSE_FAILED for invalid JSON", () =>
+    it.effect("returns AppError with SETTINGS_PARSE_FAILED for invalid JSON", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
 
           const error = yield* readSettings(axmDir).pipe(Effect.flip);
-          expect(error).toBeInstanceOf(CliError);
+          expect(error).toBeInstanceOf(AppError);
           expect(error.code).toBe("SETTINGS_PARSE_FAILED");
         }),
       ),

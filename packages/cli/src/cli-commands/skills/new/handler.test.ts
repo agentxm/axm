@@ -20,7 +20,7 @@ import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -231,8 +231,8 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No namespace configured");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("No namespace configured");
         }),
       );
     });
@@ -246,8 +246,8 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("-bad-name")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("SKILL_NAME_INVALID");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -259,8 +259,8 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("MySkill")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("SKILL_NAME_INVALID");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -273,8 +273,8 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs(longName)).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("SKILL_NAME_INVALID");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -291,8 +291,8 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("already exists");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("already exists");
         }),
       );
     });

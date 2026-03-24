@@ -15,7 +15,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "../../../auth/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -111,7 +111,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
       : ws.getConfiguredNamespace().pipe(
           Effect.map((namespace) => `${namespace}/skills/${name}`),
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "NAMESPACE_RESOLUTION_FAILED",
               what: `Failed to resolve namespace: ${e._tag}`,
               howToFix: "Configure a namespace in your settings with `axm init`.",
@@ -145,7 +145,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
 
             if (!extensionDirExists) {
               return yield* Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "EXTENSION_NOT_FOUND",
                   what: `Managed extension not found: ${extName}`,
                   details: [`Expected at: ${extensionDir}`],
@@ -162,7 +162,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
 
             if (!manifestExists) {
               return yield* Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "MISSING_MANIFEST",
                   what: `Missing manifest: ${MANIFEST_FILENAME}`,
                   details: [`Expected at: ${manifestPath}`],
@@ -179,7 +179,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   // Step 4: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_SOURCES_FAILED",
         what: `Failed to get registry sources: ${e._tag}`,
         cause: e,
@@ -189,7 +189,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
 
   if (registrySources.length === 0) {
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
         what: "No registry sources configured",
         howToFix: "Run the registry guard first.",
@@ -239,7 +239,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     );
 
   if (failedStepDetails.length > 0) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "PUBLISH_PLAN_FAILED",
       what: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
       details: failedStepDetails,

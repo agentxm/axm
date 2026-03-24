@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import type { GitSource } from "../types.js";
 
@@ -31,7 +31,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
 
   find: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: "Generic git sources are not yet supported",
       }),
@@ -39,7 +39,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => 
 
   fetch: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: "Generic git sources are not yet supported",
       }),

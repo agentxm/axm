@@ -16,7 +16,7 @@ import type { AgentId } from "../../../agents/types.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Log } from "../../../clack-effect/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -91,7 +91,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       );
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
         what: message,
         details: unknownConfiguredAgentIds,
@@ -125,7 +125,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       const details = misconfigured.map(({ agentId, outcome }) =>
         outcome._tag === "misconfigured" ? `${agentId}: ${outcome.reason}` : `${agentId}: invalid`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
         what: `MCP server ${args.serverName} could not be removed from configured agents`,
         details,
@@ -137,7 +137,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       const details = failed.map(({ agentId, outcome }) =>
         outcome._tag === "failed" ? `${agentId}: ${outcome.reason}` : `${agentId}: failed`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_FAILED",
         what: `MCP server ${args.serverName} removal sync failed in strict mode`,
         details,
@@ -153,7 +153,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       const details = strictDisabledFailures.map(({ agentId, outcome }) =>
         outcome._tag === "disabled" ? `${agentId}: ${outcome.reason}` : `${agentId}: disabled`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
         what: `MCP server ${args.serverName} removal sync disabled for required configured agents`,
         details,
@@ -201,7 +201,7 @@ export const uninstallMcpServer: OperationHandler<
 
     const lockEntryOption = yield* ws.getLockedMcpServer(op.args.serverName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "UNINSTALL_MCP_SERVER_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,

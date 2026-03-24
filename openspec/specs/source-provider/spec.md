@@ -8,12 +8,12 @@ Defines the SourceHostProvider interface and SourceHostProviders service for uni
 
 ### Requirement: SourceHostProvider interface
 
-The `SourceHostProvider` interface SHALL have `match`, `find`, and `fetch` operations. The `source` parameter to `find` SHALL be the specific `Source` variant (the flat intersection of `SourceHost & SourceParams`). The error type SHALL be `CliError`.
+The `SourceHostProvider` interface SHALL have `match`, `find`, and `fetch` operations. The `source` parameter to `find` SHALL be the specific `Source` variant (the flat intersection of `SourceHost & SourceParams`). The error type SHALL be `AppError`.
 
 ```
-match(url: URL) → Effect<boolean, CliError, R>
-find(source: S, options: FindOptions) → Effect<ReadonlyArray<ExtensionRef>, CliError, R>
-fetch(source: S, ref: ExtensionRef) → Effect<ExtensionFiles, CliError, R>
+match(url: URL) → Effect<boolean, AppError, R>
+find(source: S, options: FindOptions) → Effect<ReadonlyArray<ExtensionRef>, AppError, R>
+fetch(source: S, ref: ExtensionRef) → Effect<ExtensionFiles, AppError, R>
 ```
 
 The `SourceHostProvider` SHALL be parameterized on `S extends Source` to constrain the source variant the provider handles.
@@ -40,7 +40,7 @@ The `SourceHostProvider` SHALL be parameterized on `S extends Source` to constra
 
 ### Requirement: Provider URL matching via match method
 
-Each `SourceHostProvider` SHALL implement a `match(url: URL)` method that returns `Effect<boolean, CliError, R>`. The method answers "does this URL belong to me?" — nothing more. URL-to-params parsing is handled separately by existing provider parsers.
+Each `SourceHostProvider` SHALL implement a `match(url: URL)` method that returns `Effect<boolean, AppError, R>`. The method answers "does this URL belong to me?" — nothing more. URL-to-params parsing is handled separately by existing provider parsers.
 
 The `match` method MAY require I/O (e.g., fetching `.well-known` for future source refinement).
 
@@ -69,7 +69,7 @@ The `match` method MAY require I/O (e.g., fetching `.well-known` for future sour
 `PublishableSourceHostProvider` SHALL extend `SourceHostProvider` with a `publishVersion` method for registry-specific operations. Only registry providers implement this interface.
 
 ```
-publishVersion(namespace, type, name, version, archive, metadata) → Effect<void, CliError, R>
+publishVersion(namespace, type, name, version, archive, metadata) → Effect<void, AppError, R>
 ```
 
 #### Scenario: Registry provider supports publish
@@ -140,17 +140,17 @@ publishVersion(namespace, type, name, version, archive, metadata) → Effect<voi
 
 ### Requirement: SourceError for provider failures
 
-All provider operations SHALL fail with `CliError`. The `CliError` SHALL include an appropriate error code, descriptive message, and original cause.
+All provider operations SHALL fail with `AppError`. The `AppError` SHALL include an appropriate error code, descriptive message, and original cause.
 
 #### Scenario: Find failure
 
 - **WHEN** a provider's `find` operation fails (e.g., network error, missing repo)
-- **THEN** it fails with `CliError` containing a descriptive `what` and the original `cause`
+- **THEN** it fails with `AppError` containing a descriptive `what` and the original `cause`
 
 #### Scenario: Fetch failure
 
 - **WHEN** a provider's `fetch` operation fails (e.g., integrity mismatch)
-- **THEN** it fails with `CliError`
+- **THEN** it fails with `AppError`
 
 ### Requirement: SourceHostProviders Effect service
 
@@ -301,7 +301,7 @@ The system SHALL implement `RemoteRegistrySourceHostProvider` as a `PublishableS
 #### Scenario: Any operation on remote host provider
 
 - **WHEN** `find`, `fetch`, or `publishExtension` is called on `RemoteRegistrySourceHostProvider`
-- **THEN** it fails with `CliError` containing "remote registry not yet supported" (from the underlying `RemoteRegistryClient`)
+- **THEN** it fails with `AppError` containing "remote registry not yet supported" (from the underlying `RemoteRegistryClient`)
 
 ### Requirement: Registry host provider factory
 

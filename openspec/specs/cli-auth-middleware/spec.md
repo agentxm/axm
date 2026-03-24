@@ -89,7 +89,7 @@ When a request returns 401, the middleware SHALL attempt one token refresh cycle
 
 - **WHEN** a request returns 401 and the refresh attempt also fails
 - **THEN** the middleware SHALL return the original 401 response
-- **AND** the caller SHALL receive a `CliError` with code `AUTH_UNAUTHENTICATED`
+- **AND** the caller SHALL receive a `AppError` with code `AUTH_UNAUTHENTICATED`
 - **AND** `howToFix` SHALL read "Session expired. Run `axm login` to re-authenticate."
 
 #### Scenario: No refresh for env var or flag tokens

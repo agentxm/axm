@@ -29,7 +29,7 @@ The registry client SHALL verify archive integrity using SHA-512 in SRI format.
 #### Scenario: Integrity mismatch
 
 - **WHEN** fetching an archive whose SHA-512 hash does not match the `integrity` field
-- **THEN** the operation fails with `CliError` indicating integrity verification failure
+- **THEN** the operation fails with `AppError` indicating integrity verification failure
 
 #### Scenario: Integrity format
 
@@ -68,7 +68,7 @@ The system SHALL implement `LocalRegistryClient` that performs all `RegistryClie
 #### Scenario: publishExtension fails on version conflict
 
 - **WHEN** `publishExtension` is called for a version that already exists with a different integrity
-- **THEN** the operation fails with a `CliError`
+- **THEN** the operation fails with an `AppError`
 
 ## RENAMED Requirements
 

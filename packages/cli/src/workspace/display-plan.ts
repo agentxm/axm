@@ -10,20 +10,20 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { ClackLog } from "../clack-effect/index.js";
-import { renderCliError, type RenderCliErrorOptions } from "../cli-error/index.js";
+import { renderAppError, type RenderAppErrorOptions } from "../app-error/index.js";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
 // -----------------------------------------------------------------------------
 
-const defaultVerbosity: RenderCliErrorOptions = {
+const defaultVerbosity: RenderAppErrorOptions = {
   verbose: false,
   debug: false,
 };
 
 export interface DisplayPlanOptions {
-  readonly verbosity?: RenderCliErrorOptions;
+  readonly verbosity?: RenderAppErrorOptions;
 }
 
 /**
@@ -85,7 +85,7 @@ const renderPlannedStep = (
 const renderCompletedStep = (
   step: CompletedJobStep,
   log: ServiceMap.Service.Shape<typeof ClackLog>,
-  verbosity: RenderCliErrorOptions,
+  verbosity: RenderAppErrorOptions,
 ) => {
   switch (step.result.result) {
     case "success": {
@@ -93,7 +93,7 @@ const renderCompletedStep = (
       return log.success(`  \u2713 ${step.label}${suffix}`);
     }
     case "error": {
-      const renderedLines = renderCliError(step.result.error, verbosity).split("\n");
+      const renderedLines = renderAppError(step.result.error, verbosity).split("\n");
       const [firstLine, ...rest] = renderedLines;
       const first = firstLine ?? step.result.message;
       const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;

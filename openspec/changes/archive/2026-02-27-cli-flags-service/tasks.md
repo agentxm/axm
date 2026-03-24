@@ -35,7 +35,7 @@ Depends on: Phase 1
 
 Depends on: Phase 1
 
-- [x] 3.1 Write tests for prompt guard in `packages/cli/src/clack-effect/prompt/service.test.ts`: calling any prompt method when `nonInteractive: true` fails with `PROMPT_IN_NON_INTERACTIVE` CliError; calling when `nonInteractive: false` proceeds normally
+- [x] 3.1 Write tests for prompt guard in `packages/cli/src/clack-effect/prompt/service.test.ts`: calling any prompt method when `nonInteractive: true` fails with `PROMPT_IN_NON_INTERACTIVE` AppError; calling when `nonInteractive: false` proceeds normally
 - [x] 3.2 Update `wrapPrompt` (or introduce `guardedPrompt`) in `packages/cli/src/clack-effect/prompt/service.ts` to yield `CliFlags` and fail fast when `nonInteractive` is true
 - [x] 3.3 Update `ClackPromptLive` from `Layer.succeed` to `Layer.effect` since it now needs to yield `CliFlags`
 - [x] 3.4 Run `pnpm typecheck` and fix any errors

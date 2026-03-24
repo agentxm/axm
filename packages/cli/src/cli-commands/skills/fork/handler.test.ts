@@ -268,7 +268,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           const result = yield* handleFork(
             defaultArgs(sourceDir, { skills: ["nonexistent-*"] }),
-          ).pipe(Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })));
+          ).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })));
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("No skills matched");
         }),
@@ -374,7 +374,7 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleFork(defaultArgs("nonexistent-*")).pipe(
-            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
           );
           expect(result).toHaveProperty("error", true);
           expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
@@ -490,12 +490,12 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleFork(defaultArgs("zzz-*")).pipe(
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({ code: e.code, details: e.details ?? [] }),
             ),
           );
           if (result === undefined) {
-            throw new Error("Expected CliError for unmatched glob");
+            throw new Error("Expected AppError for unmatched glob");
           }
           expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
           expect((result as { details: ReadonlyArray<string> }).details).toContain(
@@ -593,7 +593,7 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleFork(defaultArgs("nonexistent-skill")).pipe(
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({ error: true, code: e.code, what: e.what, details: e.details }),
             ),
           );
@@ -622,7 +622,7 @@ describe("fork.handler", () => {
         return provide(
           Effect.gen(function* () {
             const result = yield* handleFork(defaultArgs("/path/does/not/exist")).pipe(
-              Effect.catchTag("CliError", (e) =>
+              Effect.catchTag("AppError", (e) =>
                 Effect.succeed({ code: e.code, details: e.details }),
               ),
             );

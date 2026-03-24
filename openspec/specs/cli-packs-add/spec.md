@@ -62,7 +62,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs add my-pack "nonexistent-*"`
 - **AND** no installed extensions match the pattern
-- **THEN** the command fails with a `CliError` indicating no extensions matched
+- **THEN** the command fails with a `AppError` indicating no extensions matched
 
 #### Scenario: Glob excludes non-registry extensions
 
@@ -89,7 +89,7 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add my-pack some-local-skill`
 - **AND** `some-local-skill` is installed from a local path
-- **THEN** the command fails with a `CliError` indicating only managed, registry-sourced extensions can be added to packs
+- **THEN** the command fails with a `AppError` indicating only managed, registry-sourced extensions can be added to packs
 
 ### Requirement: Pack must exist
 
@@ -99,7 +99,7 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add nonexistent-pack @acme/code-review`
 - **AND** no pack named `nonexistent-pack` exists
-- **THEN** the command fails with a `CliError` indicating the pack was not found
+- **THEN** the command fails with a `AppError` indicating the pack was not found
 
 ### Requirement: Packs add uses plan execution with precomputed delta
 
@@ -116,7 +116,7 @@ The `axm packs add` handler SHALL compute manifest add changes during planning a
 
 - **WHEN** a precomputed add delta is planned
 - **AND** the target manifest changes before apply
-- **THEN** the operation SHALL fail with a `CliError` conflict indicating stale manifest state
+- **THEN** the operation SHALL fail with a `AppError` conflict indicating stale manifest state
 - **AND** the operation SHALL NOT write a partial manifest update
 
 ### Requirement: Packs add supports preview mode

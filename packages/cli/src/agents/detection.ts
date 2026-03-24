@@ -11,7 +11,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { type CliError, makeCliError } from "../cli-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import { getHome } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
@@ -39,7 +39,7 @@ import type { AgentDescriptor } from "./types.js";
 export const detectAgent = (
   agent: AgentDescriptor,
   projectDir: string,
-): Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<boolean, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
@@ -61,7 +61,7 @@ export const detectAgent = (
     return projectExists || globalExists;
   }).pipe(
     Effect.mapError((error) =>
-      makeCliError({
+      makeAppError({
         code: "AGENT_DETECTION_FAILED",
         what: `Failed to detect ${agent.name}`,
         cause: error,
@@ -82,7 +82,7 @@ export const detectAgent = (
  */
 export const detectAgents = (
   projectDir: string,
-): Effect.Effect<ReadonlyArray<AgentDescriptor>, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<AgentDescriptor>, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

@@ -164,7 +164,7 @@ This breaks when extension resolution uses a registry URL that differs from `Reg
 /** Look up stored credentials for a specific origin. */
 export const resolveStoredToken = (
   origin: string,
-): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore> => ...
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore> => ...
 
 /** Resolve ambient token (AXM_TOKEN env var or --token flag). Not origin-scoped. */
 export const resolveAmbientToken = (

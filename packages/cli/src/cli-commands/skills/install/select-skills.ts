@@ -10,7 +10,7 @@
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { Log, Multiselect } from "../../../clack-effect/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -53,7 +53,7 @@ export const determineSkillsToInstall = (
 
       if (matched.length === 0) {
         return yield* Effect.fail(
-          makeCliError({
+          makeAppError({
             code: "NO_SKILLS_MATCHED",
             what: `No skills matched: ${args.requestedSkills.join(", ")}`,
             details: [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
@@ -84,7 +84,7 @@ export const determineSkillsToInstall = (
  * Prompts the user to select which skills to install from a list.
  *
  * Shows a multiselect prompt with no skills pre-selected.
- * PromptCancelled bubbles up to the runtime; other errors become CliError.
+ * PromptCancelled bubbles up to the runtime; other errors become AppError.
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
   Effect.gen(function* () {
@@ -106,7 +106,7 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
         Effect.mapError((error) =>
           error._tag === "PromptCancelled"
             ? error
-            : makeCliError({
+            : makeAppError({
                 code: "PROMPT_FAILED",
                 what: "Failed to prompt for skill selection",
                 cause: error,

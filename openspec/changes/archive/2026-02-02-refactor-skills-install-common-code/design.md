@@ -169,6 +169,6 @@ function selectExtensionRef(
 
 ## Open Questions
 
-1. **PromptError type**: Should we create a dedicated `PromptError` tagged error, or reuse a generic `CliError`? Leaning toward dedicated type for better error handling.
+1. **PromptError type**: Should we create a dedicated `PromptError` tagged error, or reuse a generic `AppError`? Leaning toward dedicated type for better error handling.
 
 2. **Spinner async behavior**: Current spinner helper is synchronous. Should `start`/`stop` return Effects for consistency, or keep them synchronous for simplicity?

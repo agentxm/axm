@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { CommandLockEntry } from "../../../lockfile/schema.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallCommandOperation } from "./uninstall.js";
@@ -278,7 +278,7 @@ describe("uninstallCommand", () => {
         const { axmDir, lockfileCommands } = setupWorkspace();
         const removeCommandFn = vi.fn(() =>
           Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               what: "write failed",
               cause: new Error("write failed"),

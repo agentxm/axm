@@ -177,3 +177,40 @@ One agent. Depends on all Phase 2 and Phase 3 agents completing.
 - **Phase 4 is the gate** — no merge until verification passes
 - Total: ~4 serial steps, ~9 parallel agents
 - The `Data.TaggedError` tag change from `"CliError"` to `"AppError"` is a **breaking change** for any external code pattern-matching on `_tag` — this is acceptable per project values (backward compatibility is a non-goal)
+
+## Execution Log (2026-03-23)
+
+### Phase 1: Core Module Rename — DONE
+
+- Renamed `packages/cli/src/cli-error/` → `packages/cli/src/app-error/` via `git mv`
+- Renamed `cli-error.ts` → `app-error.ts`, `cli-error.test.ts` → `app-error.test.ts`
+- Updated class, factory, render, guard names and `Data.TaggedError` tag
+- All 16 module tests pass
+
+### Phase 2: Source Code Updates — DONE (5 parallel agents)
+
+- **2a** Runtime & CLI entry points: 5 files updated
+- **2b** Workspace, settings, lockfile: 21 files updated
+- **2c** Commands A-I: 10 files updated
+- **2d** Commands L-Z: 36 files updated
+- **2e** Shared services & utilities: 105 files updated
+
+### Phase 3: Documentation Updates — DONE (4 parallel agents)
+
+- **3a** Project-level docs: 3 files (CLAUDE.md, contributing guide, refactor plan)
+- **3b** Skill files: 1 file updated, 1 correctly left unchanged (Effect's CliError)
+- **3c** Active OpenSpec specs: 33 files + folder rename
+- **3d** Archived changes: 128 files + grammar fix ("a AppError" → "an AppError")
+
+### Phase 4: Verification — PASS
+
+| Check                                              | Result                                                 |
+| -------------------------------------------------- | ------------------------------------------------------ |
+| `pnpm typecheck`                                   | PASS — zero type errors                                |
+| `pnpm build`                                       | PASS — clean build                                     |
+| `pnpm test`                                        | PASS — 2202 passed, 1 skipped, 155 test files          |
+| `pnpm lint`                                        | PASS — no lint errors                                  |
+| Stale `CliError` refs                              | PASS — only Effect's `effect/unstable/cli` refs remain |
+| Stale `makeCliError`/`renderCliError`/`isCliError` | PASS — zero results                                    |
+| Stale `cli-error` import paths                     | PASS — zero results                                    |
+| `"CliError"` string literals                       | PASS — zero results                                    |

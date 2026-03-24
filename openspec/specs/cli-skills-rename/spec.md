@@ -14,10 +14,10 @@ The rename handler SHALL validate rename eligibility using taxonomy lifecycle st
 #### Scenario: Old name is not configured
 
 - **WHEN** `<old-name>` is implicit-only, unmanaged, ignored, or absent from configured settings entries
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill was not found in configured entries
+- **THEN** the handler SHALL fail with a `AppError` indicating the skill was not found in configured entries
 - **AND** the handler SHALL NOT rely on unmanaged marker checks
 
 #### Scenario: New name conflicts with existing configured skill
 
 - **WHEN** `<new-name>` already exists in configured settings entries
-- **THEN** the handler SHALL fail with a `CliError` indicating name conflict
+- **THEN** the handler SHALL fail with a `AppError` indicating name conflict

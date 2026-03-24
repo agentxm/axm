@@ -27,4 +27,4 @@ Configured entries used in this step SHALL expose concrete `source: string` sema
 - **WHEN** `resolveSource("my-skill")` is called
 - **AND** lockfile has no entry
 - **AND** settings has no configured entry
-- **THEN** `resolveSource` SHALL fail with a `CliError` indicating source resolution failed
+- **THEN** `resolveSource` SHALL fail with a `AppError` indicating source resolution failed

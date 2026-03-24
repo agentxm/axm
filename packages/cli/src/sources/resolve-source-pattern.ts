@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { getAgentById } from "../agents/index.js";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type { CliEnvConfig } from "../config/index.js";
 import {
   discoverSkillsInDir,
@@ -98,7 +98,7 @@ const resolveNameWithFallback = (
   onDiskByName: ReadonlyMap<string, string>,
 ) =>
   resolveSource(name).pipe(
-    Effect.catchTag("CliError", (error) => {
+    Effect.catchTag("AppError", (error) => {
       if (error.code !== "SOURCE_PARSE_FAILED") {
         return Effect.fail(error);
       }
@@ -136,7 +136,7 @@ export const resolveSourcePattern = (
   input: string,
 ): Effect.Effect<
   ReadonlyArray<Source>,
-  CliError,
+  AppError,
   Workspace | FileSystem.FileSystem | Path.Path | CliEnvConfig
 > =>
   isGlobPattern(input)
@@ -146,7 +146,7 @@ export const resolveSourcePattern = (
 
         if (matchedNames.length === 0) {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "NO_SKILLS_MATCHED",
               what: "No skills matched the given pattern",
               details: [`Pattern: ${input}`, `Available: ${candidates.names.join(", ")}`],
@@ -163,7 +163,7 @@ export const resolveSourcePattern = (
         );
       })
     : resolveSource(input).pipe(
-        Effect.catchTag("CliError", (error) => {
+        Effect.catchTag("AppError", (error) => {
           if (error.code !== "SOURCE_PARSE_FAILED") {
             return Effect.fail(error);
           }

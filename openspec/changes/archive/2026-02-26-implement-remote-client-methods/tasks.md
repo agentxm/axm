@@ -22,7 +22,7 @@
 > **Depends on:** Phase 1 complete.
 
 - [x] 2.1 Implement response schemas and decode helpers in `packages/cli/src/registry/client-remote.ts` for namespace/type collection responses and any shared remote read payloads.
-- [x] 2.2 Implement `namespaceExists` using `GET /v1/extensions/{namespace}` semantics and map non-success/network failures to typed `CliError` codes.
+- [x] 2.2 Implement `namespaceExists` using `GET /v1/extensions/{namespace}` semantics and map non-success/network failures to typed `AppError` codes.
 - [x] 2.3 Implement `getExtensionPackage` using index fetch + version resolution + archive download, returning raw `Uint8Array` bytes.
 - [x] 2.4 Enable `getExtensionsByScope` list mode for `names: []`, including namespace-only and namespace+type endpoint flows, index hydration, and pagination behavior.
 - [x] 2.5 Normalize remote read error mapping and request-context details for network errors, schema decode failures, and non-success HTTP responses.

@@ -45,12 +45,12 @@ The host provider maps at the boundary:
 **RegistryClient interface with 6 methods:**
 
 ```
-getExtensions(options: RegistrySearchOptions) → Effect<ReadonlyArray<RegistryExtensionEntry>, CliError, FileSystem | Path>
-namespaceExists(scope) → Effect<boolean, CliError, FileSystem | Path>
-fetchIndex(scope, type, name) → Effect<ExtensionIndex, CliError, FileSystem | Path>
-getExtension(scope, type, name, version) → Effect<Uint8Array, CliError, FileSystem | Path>
-publishExtension(scope, type, name, version, archive, metadata) → Effect<void, CliError, FileSystem | Path>
-extensionExists(scope, type, name) → Effect<boolean, CliError, FileSystem | Path>
+getExtensions(options: RegistrySearchOptions) → Effect<ReadonlyArray<RegistryExtensionEntry>, AppError, FileSystem | Path>
+namespaceExists(scope) → Effect<boolean, AppError, FileSystem | Path>
+fetchIndex(scope, type, name) → Effect<ExtensionIndex, AppError, FileSystem | Path>
+getExtension(scope, type, name, version) → Effect<Uint8Array, AppError, FileSystem | Path>
+publishExtension(scope, type, name, version, archive, metadata) → Effect<void, AppError, FileSystem | Path>
+extensionExists(scope, type, name) → Effect<boolean, AppError, FileSystem | Path>
 ```
 
 **`source` parameter removed from client methods.** The current `RegistrySourceProvider.getExtensions(source, options)` and `fetch(source, ref)` accept a `RegistrySourceParams` first argument. `RegistrySourceParams` is `{ type: "registry" }` — it carries no data beyond a type tag. Since `RegistryClient` is scoped to a specific registry root at construction time, this parameter is redundant and dropped. The registry root (passed to the factory) replaces what `source` provided. Callers that currently pass `source` (e.g., `service.ts` meta-provider, `resolve-source.ts`, publish commands) will instead create a `RegistryClient` via the factory and call methods directly. No information is lost. **`RegistrySourceParams` is removed** as it becomes unused.

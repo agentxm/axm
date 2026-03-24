@@ -20,7 +20,7 @@ The resolution algorithm SHALL evaluate branches in this order:
 
 - **WHEN** `resolvePlan` is called and the plan contains any `PlannedJobStep` with `readiness.status === "error"` and `force` is `false`
 - **THEN** the plan SHALL be displayed via `displayPlan`
-- **AND** `resolvePlan` SHALL fail with a `CliError` with code `PLAN_HAS_ERRORS`
+- **AND** `resolvePlan` SHALL fail with an `AppError` with code `PLAN_HAS_ERRORS`
 - **AND** the error message SHALL aggregate the messages from all error-readiness steps
 - **AND** the error's `howToFix` SHALL suggest using `--force` to override
 - **AND** `applyPlan` SHALL NOT be called

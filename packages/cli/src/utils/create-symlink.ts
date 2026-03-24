@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 
 /**
@@ -31,7 +31,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     // Resolve both paths through parent symlinks for accurate comparison
     const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           what: `Failed to resolve target path`,
           cause: e,
@@ -60,7 +60,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     if (existingResult === "replace") {
       yield* fs.remove(opts.link, { recursive: true }).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "SYMLINK_CREATE_FAILED",
             what: `Failed to remove existing path at ${opts.link}`,
             cause: e,
@@ -73,7 +73,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     const linkParent = p.dirname(opts.link);
     yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           what: `Failed to create parent directory ${linkParent}`,
           cause: e,
@@ -84,7 +84,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     // Create the symlink
     yield* fs.symlink(relTarget, opts.link).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SYMLINK_CREATE_FAILED",
           what: `Failed to create symlink at ${opts.link}`,
           cause: e,

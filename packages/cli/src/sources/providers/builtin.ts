@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import type { BuiltinSource } from "../types.js";
 
@@ -30,7 +30,7 @@ export const createBuiltinSourceHostProvider = (): SourceHostProvider<BuiltinSou
 
   find: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: "Builtin source provider find not yet implemented",
       }),
@@ -38,7 +38,7 @@ export const createBuiltinSourceHostProvider = (): SourceHostProvider<BuiltinSou
 
   fetch: () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_FETCH_FAILED",
         what: "Builtin source provider fetch not yet implemented",
       }),

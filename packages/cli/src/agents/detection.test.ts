@@ -16,7 +16,7 @@ import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { getHome } from "./constants.js";
 import { detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
@@ -239,14 +239,14 @@ describe("detectAgent", () => {
   });
 
   describe("handles filesystem errors", () => {
-    it.effect("wraps filesystem error in CliError", () =>
+    it.effect("wraps filesystem error in AppError", () =>
       Effect.gen(function* () {
         const error = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
           Effect.provide(createFailingFileSystem("Permission denied")),
           Effect.flip,
         );
-        expect(error).toBeInstanceOf(CliError);
-        expect(error._tag).toBe("CliError");
+        expect(error).toBeInstanceOf(AppError);
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("AGENT_DETECTION_FAILED");
         expect(error.what).toContain("Claude Code");
       }),
@@ -364,14 +364,14 @@ describe("detectAgents", () => {
   });
 
   describe("handles errors gracefully", () => {
-    it.effect("fails with CliError when filesystem fails", () =>
+    it.effect("fails with AppError when filesystem fails", () =>
       Effect.gen(function* () {
         const error = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createFailingFileSystem("Disk error")),
           Effect.flip,
         );
-        expect(error).toBeInstanceOf(CliError);
-        expect(error._tag).toBe("CliError");
+        expect(error).toBeInstanceOf(AppError);
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("AGENT_DETECTION_FAILED");
       }),
     );
@@ -379,17 +379,17 @@ describe("detectAgents", () => {
 });
 
 // =============================================================================
-// CliError from detection Tests
+// AppError from detection Tests
 // =============================================================================
 
-describe("CliError from detection", () => {
-  it.effect("detectAgent produces CliError with AGENT_DETECTION_FAILED code on failure", () =>
+describe("AppError from detection", () => {
+  it.effect("detectAgent produces AppError with AGENT_DETECTION_FAILED code on failure", () =>
     Effect.gen(function* () {
       const error = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
         Effect.provide(createFailingFileSystem("test error")),
         Effect.flip,
       );
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
       expect(error.code).toBe("AGENT_DETECTION_FAILED");
     }),
   );

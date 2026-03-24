@@ -15,7 +15,7 @@ The `axm packs remove` handler SHALL compute manifest remove changes during plan
 
 - **WHEN** a precomputed remove delta is planned
 - **AND** the target manifest changes before apply
-- **THEN** the operation SHALL fail with a `CliError` conflict indicating stale manifest state
+- **THEN** the operation SHALL fail with an `AppError` conflict indicating stale manifest state
 - **AND** the operation SHALL NOT write a partial manifest update
 
 ### Requirement: Packs remove supports preview mode

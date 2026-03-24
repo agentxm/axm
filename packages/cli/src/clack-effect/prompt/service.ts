@@ -3,7 +3,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliFlags } from "../../cli-flags/index.js";
-import { makeCliError, type CliError } from "../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import { PromptCancelled } from "../../prompt-cancelled.js";
 import type {
   ClackAutocompleteConfig,
@@ -22,7 +22,7 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   Effect.tryPromise({
     try: () => thunk(),
     catch: (error) =>
-      makeCliError({
+      makeAppError({
         code: "PROMPT_RENDER_FAILED",
         what: "Prompt failed to render",
         cause: error,
@@ -36,32 +36,32 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   );
 
 export interface ClackPromptService {
-  readonly text: (config: ClackTextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+  readonly text: (config: ClackTextConfig) => Effect.Effect<string, AppError | PromptCancelled>;
   readonly password: (
     config: ClackPasswordConfig,
-  ) => Effect.Effect<string, CliError | PromptCancelled>;
+  ) => Effect.Effect<string, AppError | PromptCancelled>;
   readonly confirm: (
     config: ClackConfirmConfig,
-  ) => Effect.Effect<boolean, CliError | PromptCancelled>;
+  ) => Effect.Effect<boolean, AppError | PromptCancelled>;
   readonly select: <V>(
     config: ClackSelectConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  ) => Effect.Effect<V, AppError | PromptCancelled>;
   readonly multiselect: <V>(
     config: ClackMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+  ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
   readonly groupMultiselect: <V>(
     config: ClackGroupMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+  ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
   readonly selectKey: <V extends string>(
     config: ClackSelectKeyConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  ) => Effect.Effect<V, AppError | PromptCancelled>;
   readonly autocomplete: <V>(
     config: ClackAutocompleteConfig<V>,
-  ) => Effect.Effect<V, CliError | PromptCancelled>;
+  ) => Effect.Effect<V, AppError | PromptCancelled>;
   readonly autocompleteMultiselect: <V>(
     config: ClackAutocompleteMultiselectConfig<V>,
-  ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-  readonly path: (config: ClackPathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+  ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
+  readonly path: (config: ClackPathConfig) => Effect.Effect<string, AppError | PromptCancelled>;
 }
 
 export class ClackPrompt extends ServiceMap.Service<ClackPrompt, ClackPromptService>()(
@@ -76,10 +76,10 @@ const asClack = <T>(config: unknown): T => config as T;
 const guardedPrompt = <T>(
   nonInteractive: boolean,
   thunk: () => Promise<T | symbol>,
-): Effect.Effect<T, CliError | PromptCancelled> =>
+): Effect.Effect<T, AppError | PromptCancelled> =>
   nonInteractive
     ? Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "PROMPT_IN_NON_INTERACTIVE",
           what: "Interactive prompt reached in non-interactive mode",
           howToFix:

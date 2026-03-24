@@ -13,7 +13,7 @@ The system SHALL implement `RemoteRegistryClient` with a real `publishExtension`
 #### Scenario: Read operations remain unsupported
 
 - **WHEN** `getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, or `extensionExists` is called on `RemoteRegistryClient`
-- **THEN** it fails with `CliError` containing "remote registry not yet supported"
+- **THEN** it fails with `AppError` containing "remote registry not yet supported"
 
 ### Requirement: RegistryClient factory
 

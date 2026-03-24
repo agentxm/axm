@@ -8,18 +8,18 @@ Add auth-specific error handling for 401/403 responses to remote read operations
 
 ### Requirement: Authentication error mapping for read operations
 
-Remote registry read operations SHALL map 401 and 403 responses to auth-specific `CliError` codes.
+Remote registry read operations SHALL map 401 and 403 responses to auth-specific `AppError` codes.
 
 #### Scenario: Unauthenticated read (401)
 
 - **WHEN** any remote read operation (`getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, `extensionExists`) returns 401
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHENTICATED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHENTICATED`
 - **AND** `howToFix` SHALL read "Run `axm login` to sign in."
 
 #### Scenario: Unauthorized read (403)
 
 - **WHEN** any remote read operation returns 403
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHORIZED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHORIZED`
 - **AND** `details` SHALL include any `required_scope` or `required_role` from the response body
 - **AND** `howToFix` SHALL describe the missing permission
 

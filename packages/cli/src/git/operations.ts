@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 
-import { type CliError, makeCliError } from "../cli-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
@@ -39,15 +39,15 @@ const operationToCode: Record<GitOperation, string> = {
 };
 
 /**
- * Maps unknown errors to CliError with appropriate context.
+ * Maps unknown errors to AppError with appropriate context.
  */
 const mapGitError =
   (operation: GitOperation, context?: string) =>
-  (error: unknown): CliError => {
+  (error: unknown): AppError => {
     const baseMessage = context ?? `Git ${operation} failed`;
     const details = error instanceof Error ? [error.message] : [String(error)];
 
-    return makeCliError({
+    return makeAppError({
       code: operationToCode[operation],
       what: baseMessage,
       details,

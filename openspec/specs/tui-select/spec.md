@@ -2,7 +2,7 @@
 
 ### Requirement: Select prompt collects single selection from a list
 
-The select capability SHALL be provided by `ClackPrompt.select` from `src/clack-effect/prompt/`. It SHALL accept `message` and `options: ReadonlyArray<ClackOption<V>>`, and return `Effect<V, CliError | PromptCancelled>`. Call sites that currently pass `items + toOption` SHALL map domain data to `options` before invoking the prompt.
+The select capability SHALL be provided by `ClackPrompt.select` from `src/clack-effect/prompt/`. It SHALL accept `message` and `options: ReadonlyArray<ClackOption<V>>`, and return `Effect<V, AppError | PromptCancelled>`. Call sites that currently pass `items + toOption` SHALL map domain data to `options` before invoking the prompt.
 
 #### Scenario: Basic select
 

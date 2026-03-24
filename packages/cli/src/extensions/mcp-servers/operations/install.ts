@@ -18,7 +18,7 @@ import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -89,7 +89,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
     );
 
     if (!isPathSafe(ws.baseDir, canonicalPath)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
         what: `Path traversal detected: ${canonicalPath}`,
       });
@@ -98,7 +98,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
     // Empty integrity with existing canonical → skip fetch (synthetic refs from fork/publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_MCP_SERVER_PATH_CHECK_FAILED",
           what: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
@@ -124,7 +124,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       if (ref.integrity !== "") {
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
             details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
@@ -134,7 +134,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
             what: `Failed to create temporary directory for registry install`,
             cause: e,
@@ -148,7 +148,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
           yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
           yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "INSTALL_MCP_SERVER_COPY_FAILED",
                 what: `Failed to create canonical directory: ${canonicalPath}`,
                 cause: e,
@@ -158,7 +158,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
           // Copy extracted files to canonical
           const entries = yield* fs.readDirectory(tmpDir).pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "INSTALL_MCP_SERVER_COPY_FAILED",
                 what: `Failed to read extracted directory`,
                 cause: e,
@@ -231,7 +231,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       );
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
         what: message,
         details: unknownConfiguredAgentIds,
@@ -268,7 +268,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       const details = misconfigured.map(({ agentId, outcome }) =>
         outcome._tag === "misconfigured" ? `${agentId}: ${outcome.reason}` : `${agentId}: invalid`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_MISCONFIGURED",
         what: `MCP server ${args.serverName} could not be synced to configured agents`,
         details,
@@ -280,7 +280,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       const details = failed.map(({ agentId, outcome }) =>
         outcome._tag === "failed" ? `${agentId}: ${outcome.reason}` : `${agentId}: failed`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_FAILED",
         what: `MCP server ${args.serverName} sync failed in strict mode`,
         details,
@@ -296,7 +296,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       const details = strictDisabledFailures.map(({ agentId, outcome }) =>
         outcome._tag === "disabled" ? `${agentId}: ${outcome.reason}` : `${agentId}: disabled`,
       );
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
         what: `MCP server ${args.serverName} sync disabled for required configured agents`,
         details,
@@ -340,7 +340,7 @@ export const installMcpServer: OperationHandler<
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
         what: `Unsupported ref type for MCP server install: ${ref.refType}`,
       });

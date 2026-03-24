@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -110,7 +110,7 @@ export const uninstallSkill: OperationHandler<
     // Read lockfile entry for this skill via Workspace
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "UNINSTALL_SKILL_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,
@@ -160,7 +160,7 @@ export const uninstallSkill: OperationHandler<
           })
           .pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "UNINSTALL_SKILL_LOCKFILE_WRITE_FAILED",
                 what: `Failed to update lockfile: ${e.what}`,
                 cause: e,

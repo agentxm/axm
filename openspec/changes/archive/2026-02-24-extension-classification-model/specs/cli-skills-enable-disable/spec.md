@@ -14,7 +14,7 @@ The enable handler SHALL validate skill state using taxonomy lifecycle views and
 #### Scenario: Skill is not installed
 
 - **WHEN** the user runs `axm skills enable <name>` for a name outside installed lifecycle sets
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill is not installed
 - **AND** the handler SHALL NOT use marker-based unmanaged validation paths
 
 #### Scenario: Skill is ignored
@@ -42,5 +42,5 @@ The disable handler SHALL validate skill state using taxonomy lifecycle views an
 #### Scenario: Skill is not installed for disable
 
 - **WHEN** the user runs `axm skills disable <name>` for a name outside installed lifecycle sets
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill is not installed
 - **AND** the handler SHALL NOT use marker-based unmanaged validation paths

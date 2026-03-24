@@ -22,7 +22,7 @@ This is a manifest edit only — it SHALL NOT uninstall any extensions from the 
 
 - **WHEN** user runs `axm packs remove frontend-tools @acme/nonexistent`
 - **AND** `@acme/nonexistent` is not in the pack manifest
-- **THEN** the command fails with a `CliError` indicating the extension is not in the pack
+- **THEN** the command fails with a `AppError` indicating the extension is not in the pack
 
 ### Requirement: Glob pattern expansion for remove
 
@@ -38,7 +38,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs remove my-pack "nonexistent-*"`
 - **AND** no extensions in the pack manifest match the pattern
-- **THEN** the command fails with a `CliError` indicating no extensions matched
+- **THEN** the command fails with a `AppError` indicating no extensions matched
 
 ### Requirement: Pack must exist
 
@@ -48,7 +48,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs remove nonexistent-pack @acme/code-review`
 - **AND** no pack named `nonexistent-pack` exists
-- **THEN** the command fails with a `CliError` indicating the pack was not found
+- **THEN** the command fails with a `AppError` indicating the pack was not found
 
 ### Requirement: Packs remove uses plan execution with precomputed delta
 
@@ -65,7 +65,7 @@ The `axm packs remove` handler SHALL compute manifest remove changes during plan
 
 - **WHEN** a precomputed remove delta is planned
 - **AND** the target manifest changes before apply
-- **THEN** the operation SHALL fail with a `CliError` conflict indicating stale manifest state
+- **THEN** the operation SHALL fail with a `AppError` conflict indicating stale manifest state
 - **AND** the operation SHALL NOT write a partial manifest update
 
 ### Requirement: Packs remove supports preview mode

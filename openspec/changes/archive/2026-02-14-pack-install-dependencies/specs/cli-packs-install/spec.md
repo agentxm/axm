@@ -45,4 +45,4 @@ Commands and mcp-servers listed in the pack manifest SHALL be stored as metadata
 
 - **WHEN** pack `@acme/frontend-pack` references skill `@acme/missing-skill@^1.0.0`
 - **AND** the skill cannot be found in the registry
-- **THEN** the command fails with a `CliError` before any plan is executed
+- **THEN** the command fails with an `AppError` before any plan is executed

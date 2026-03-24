@@ -6,7 +6,7 @@ The Workspace service SHALL provide a `getSkillDir` method that resolves the can
 
 `getSkillDir` SHALL accept a skill display name and an optional source discriminant:
 
-- **Name-only** `getSkillDir(name)` — looks up the lock entry to determine source type. SHALL fail with `CliError` if the skill is not in the lockfile.
+- **Name-only** `getSkillDir(name)` — looks up the lock entry to determine source type. SHALL fail with `AppError` if the skill is not in the lockfile.
 - **Explicit source** `getSkillDir(name, source)` — uses the provided source discriminant, skipping lockfile lookup. The source discriminant requires `type`; when `type` is `"registry"`, it also requires `namespace`.
 
 `getSkillDir` SHALL sanitize the name internally via `sanitizeName`.
@@ -47,7 +47,7 @@ For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<namespac
 #### Scenario: Name-only with missing lock entry
 
 - **WHEN** calling `getSkillDir("unknown-skill")` and no lockfile entry exists
-- **THEN** the call SHALL fail with a `CliError`
+- **THEN** the call SHALL fail with a `AppError`
 
 #### Scenario: Name is sanitized internally
 

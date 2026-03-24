@@ -43,7 +43,7 @@ Version constraints apply to registry-sourced extensions only. Non-registry sour
 
 - **WHEN** an extension source specifies `@acme/tool@not-a-version`
 - **AND** `semver.validRange()` returns null
-- **THEN** the system SHALL fail with a CliError indicating the version constraint is invalid
+- **THEN** the system SHALL fail with an AppError indicating the version constraint is invalid
 
 ### Requirement: Constraint priority
 
@@ -90,7 +90,7 @@ When multiple packs constrain the same extension and the user has no explicit co
 
 - **WHEN** the user's settings specify `@acme/tool@^5.0.0`
 - **AND** no available version satisfies `^5.0.0`
-- **THEN** the system SHALL fail with a CliError indicating no matching version exists
+- **THEN** the system SHALL fail with an AppError indicating no matching version exists
 
 ### Requirement: Update warnings
 

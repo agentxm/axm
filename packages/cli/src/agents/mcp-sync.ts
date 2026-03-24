@@ -7,7 +7,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
@@ -109,7 +109,7 @@ const unsupportedExecutableReason = (command: string): string =>
 
 export const runCliInvocation = (
   invocation: CliInvocation,
-): Effect.Effect<CliInvocationResult, CliError> =>
+): Effect.Effect<CliInvocationResult, AppError> =>
   Effect.tryPromise({
     try: async () => {
       const { spawn } = await import("node:child_process");
@@ -160,7 +160,7 @@ export const runCliInvocation = (
       return maybeResult;
     },
     catch: (error) =>
-      makeCliError({
+      makeAppError({
         code: "CODING_AGENT_MCP_CLI_EXECUTION_FAILED",
         what: `Failed to execute MCP CLI command: ${invocation.command}`,
         details: [
@@ -196,14 +196,14 @@ const upsertJsonConfigServer = (
   configPath: string,
   serverName: string,
   entry: unknown,
-): Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const dir = path.dirname(configPath);
     yield* fs.makeDirectory(dir, { recursive: true }).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           what: `Failed to create config directory: ${dir}`,
           cause: error,
@@ -225,7 +225,7 @@ const upsertJsonConfigServer = (
 
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           what: `Failed to write MCP config: ${configPath}`,
           cause: error,
@@ -237,7 +237,7 @@ const upsertJsonConfigServer = (
 const removeJsonConfigServer = (
   configPath: string,
   serverName: string,
-): Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
@@ -247,7 +247,7 @@ const removeJsonConfigServer = (
 
     const existing = yield* fs.readFileString(configPath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
           what: `Failed to read MCP config: ${configPath}`,
           cause: error,
@@ -264,7 +264,7 @@ const removeJsonConfigServer = (
 
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "CODING_AGENT_MCP_CONFIG_WRITE_FAILED",
           what: `Failed to write MCP config: ${configPath}`,
           cause: error,
@@ -369,7 +369,7 @@ const entryFromAddArgs = (args: AddMcpServerArgs) => ({
 export const addMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliAdd[0] ?? "cli",
@@ -432,7 +432,7 @@ export const addMcpServerMixed = (
 export const removeMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliRemove[0] ?? "cli",
@@ -485,7 +485,7 @@ export const removeMcpServerMixed = (
 export const addMcpServerConfigOnly = (
   configPathTemplate: string,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   upsertJsonConfigServer(
     configPathTemplate.replaceAll("{workspaceRoot}", args.workspaceRoot),
     args.serverName,
@@ -495,7 +495,7 @@ export const addMcpServerConfigOnly = (
 export const removeMcpServerConfigOnly = (
   configPathTemplate: string,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   removeJsonConfigServer(
     configPathTemplate.replaceAll("{workspaceRoot}", args.workspaceRoot),
     args.serverName,
@@ -511,7 +511,7 @@ export interface ConfigFirstStrategy {
 const verifyConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs | RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
       return { _tag: "success" } as const;
@@ -560,7 +560,7 @@ const verifyConfigFirst = (
 export const addMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     yield* upsertJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
@@ -573,7 +573,7 @@ export const addMcpServerConfigFirst = (
 export const removeMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     yield* removeJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),

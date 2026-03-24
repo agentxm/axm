@@ -160,7 +160,7 @@ describe("copySkill", () => {
       }),
     );
 
-    it.effect("fails with CliError when source does not exist", () =>
+    it.effect("fails with AppError when source does not exist", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 

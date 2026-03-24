@@ -31,7 +31,7 @@ The axm CLI currently publishes extensions and interacts with the registry witho
 
 ### Modified Capabilities
 
-- `remote-registry-publish`: Add Bearer auth header to publish requests; map `401`/`403` responses to auth-specific `CliError` codes with recovery guidance.
+- `remote-registry-publish`: Add Bearer auth header to publish requests; map `401`/`403` responses to auth-specific `AppError` codes with recovery guidance.
 - `remote-registry-read`: Add Bearer auth header to authenticated read requests; handle `401`/`403` responses.
 - `registry-client`: Factory wires auth middleware into remote client construction.
 - `cli`: Register `login`, `logout`, `whoami`, and `token` as top-level commands.

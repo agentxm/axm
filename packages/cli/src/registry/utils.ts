@@ -16,7 +16,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { VersionEntry } from "./local-schema.js";
 
@@ -87,7 +87,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
     yield* Effect.try({
       try: () => execSync("which unzip", { stdio: "pipe" }),
       catch: () =>
-        makeCliError({
+        makeAppError({
           code: "UNZIP_NOT_FOUND",
           what: "The `unzip` command is not available on this system",
           howToFix:
@@ -99,7 +99,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
     const archivePath = path.join(targetDir, "__archive__.zip");
     yield* fs.writeFile(archivePath, archive).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SOURCE_FETCH_FAILED",
           what: `Failed to write temp archive`,
           cause: e,
@@ -114,7 +114,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
           stdio: "pipe",
         }),
       catch: (e) =>
-        makeCliError({ code: "SOURCE_FETCH_FAILED", what: `Failed to extract archive`, cause: e }),
+        makeAppError({ code: "SOURCE_FETCH_FAILED", what: `Failed to extract archive`, cause: e }),
     });
 
     // Clean up temp archive file

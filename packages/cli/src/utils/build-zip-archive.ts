@@ -9,7 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 
 /**
  * Check that a required system binary exists on PATH.
@@ -21,7 +21,7 @@ const requireBinary = (name: string, errorCode: string) =>
       execFileSync("which", [name], { stdio: "pipe" });
     },
     catch: () =>
-      makeCliError({
+      makeAppError({
         code: errorCode,
         what: `Required system command "${name}" not found`,
         howToFix: `Install "${name}" and ensure it is available on your PATH.`,
@@ -69,7 +69,7 @@ export const buildZipArchive = (dir: string, errorCode: string) =>
         return new Uint8Array(bytes);
       },
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: errorCode,
           what: "Failed to build zip archive",
           cause: e,

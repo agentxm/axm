@@ -20,7 +20,7 @@ The enable handler SHALL validate installed skill state and resolve a single-ste
 #### Scenario: Skill is not installed
 
 - **WHEN** the user runs `axm skills enable <name>` for a skill outside installed lifecycle sets
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill is not installed
 
 #### Scenario: Skill is already enabled
 
@@ -43,7 +43,7 @@ The `enableSkill` operation handler SHALL support both lock-backed enable and se
 #### Scenario: Canonical directory missing on lock-backed enable
 
 - **WHEN** an `EnableSkillOperation` is executed with lock-backed state and the canonical directory does not exist
-- **THEN** the handler SHALL fail with a `CliError` with code `ENABLE_SKILL_MISSING_FILES`
+- **THEN** the handler SHALL fail with an `AppError` with code `ENABLE_SKILL_MISSING_FILES`
 - **AND** the error SHALL suggest reinstalling the skill with `axm skills install`
 - **AND** the skill SHALL remain `enabled: false`
 
@@ -73,7 +73,7 @@ The disable handler SHALL validate installed skill state and resolve a single-st
 #### Scenario: Skill is not installed for disable
 
 - **WHEN** the user runs `axm skills disable <name>` for a skill outside installed lifecycle sets
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill is not installed
 
 #### Scenario: Skill is already disabled
 
@@ -106,7 +106,7 @@ The `disableSkill` operation handler SHALL remove agent symlinks and update stat
 #### Scenario: Implicit disable promotion fails when source is unavailable
 
 - **WHEN** an implicit installed skill cannot produce source from installed state or lock metadata
-- **THEN** the operation SHALL fail with a `CliError`
+- **THEN** the operation SHALL fail with an `AppError`
 - **AND** the operation SHALL NOT write a partial settings mutation
 
 #### Scenario: Symlinks removed before state updated

@@ -34,7 +34,7 @@ The handler SHALL resolve a single `PackExtensionRef` (which carries dependency 
 #### Scenario: Non-registry source rejected
 
 - **WHEN** user runs `axm packs install github:owner/repo`
-- **THEN** the command fails with a `CliError` indicating packs only support registry sources
+- **THEN** the command fails with an `AppError` indicating packs only support registry sources
 
 ### Requirement: Cascading extension install
 

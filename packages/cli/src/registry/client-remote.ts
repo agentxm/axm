@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { type CliError, makeCliError } from "../cli-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
@@ -35,17 +35,17 @@ import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType } from "./utils.js";
 
 // -----------------------------------------------------------------------------
-// RFC 7807 Problem Detail → CliError Mapping
+// RFC 7807 Problem Detail → AppError Mapping
 // -----------------------------------------------------------------------------
 
 /**
- * Maps an HTTP status code and parsed RFC 7807 problem detail JSON to a `CliError`.
+ * Maps an HTTP status code and parsed RFC 7807 problem detail JSON to a `AppError`.
  *
  * Handles all backend error codes from the remote registry publish API.
  * When the problem detail is null/undefined (non-JSON response), falls back
  * to a generic `REGISTRY_PUBLISH_FAILED` error.
  */
-export const mapProblemDetailToCliError = (status: number, problem: unknown): CliError => {
+export const mapProblemDetailToAppError = (status: number, problem: unknown): AppError => {
   const detail = getStringField(problem, "detail");
   const requestId = getStringField(problem, "requestId");
   const validationIssueDetails = getValidationIssueDetails(problem);
@@ -55,7 +55,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
   if (code !== undefined) {
     // 409 publish_conflict
     if (status === 409 && code === "publish_conflict") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_CONFLICT",
         what: "Version already exists with different content",
         details,
@@ -66,7 +66,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 400 malformed_archive / empty_archive
     if (status === 400 && (code === "malformed_archive" || code === "empty_archive")) {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
         what: "Invalid extension archive",
         details,
@@ -76,7 +76,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 413 ingest_*_too_large
     if (status === 413 && code.startsWith("ingest_") && code.endsWith("_too_large")) {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_TOO_LARGE",
         what: "Extension archive exceeds size limit",
         details,
@@ -86,7 +86,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 415 ingest_unsupported_content_type
     if (status === 415 && code === "ingest_unsupported_content_type") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_INVALID_ARCHIVE",
         what: "Unsupported archive content type",
         details,
@@ -95,7 +95,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 422 integrity_mismatch (check before manifest_* since both are 422)
     if (status === 422 && code === "integrity_mismatch") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_INTEGRITY_MISMATCH",
         what: "Archive integrity does not match",
         details,
@@ -104,7 +104,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 422 manifest_*
     if (status === 422 && code.startsWith("manifest_")) {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_MANIFEST_INVALID",
         what: "Extension manifest validation failed",
         details,
@@ -119,7 +119,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
         retryAfter !== undefined
           ? `Rate limited. Retry after ${retryAfter} seconds.`
           : "Rate limited. Try again later.";
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_THROTTLED",
         what: "Publish request was rate limited",
         details,
@@ -129,7 +129,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 403 quota_exceeded
     if (status === 403 && code === "quota_exceeded") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_QUOTA_EXCEEDED",
         what: "Storage quota exceeded",
         details,
@@ -139,7 +139,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 501 publish_type_not_implemented
     if (status === 501 && code === "publish_type_not_implemented") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED",
         what: "Extension type is not supported for publishing",
         details,
@@ -148,7 +148,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 
     // 503 publish_disabled
     if (status === 503 && code === "publish_disabled") {
-      return makeCliError({
+      return makeAppError({
         code: "REGISTRY_PUBLISH_DISABLED",
         what: "Publishing is temporarily disabled",
         details,
@@ -158,7 +158,7 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
   }
 
   // Fallback: unexpected status or unrecognized code
-  return makeCliError({
+  return makeAppError({
     code: "REGISTRY_PUBLISH_FAILED",
     what: `Publish failed with status ${String(status)}`,
     details,
@@ -269,19 +269,19 @@ const buildDetails = (
 // -----------------------------------------------------------------------------
 
 /**
- * Build a CliError for a 401 Unauthenticated response.
+ * Build a AppError for a 401 Unauthenticated response.
  * Includes WWW-Authenticate header value in details when present.
  */
 const mapAuthUnauthenticated = (
   response: HttpClientResponse.HttpClientResponse,
   howToFix: string,
-): CliError => {
+): AppError => {
   const wwwAuth = response.headers["www-authenticate"];
   const details: Array<string> = [];
   if (wwwAuth !== undefined) {
     details.push(`WWW-Authenticate: ${wwwAuth}`);
   }
-  return makeCliError({
+  return makeAppError({
     code: "AUTH_UNAUTHENTICATED",
     what: "Authentication required",
     details,
@@ -290,10 +290,10 @@ const mapAuthUnauthenticated = (
 };
 
 /**
- * Build a CliError for a 403 Unauthorized response.
+ * Build a AppError for a 403 Unauthorized response.
  * Includes required_scope, token_scopes, required_role from response body when present.
  */
-const mapAuthUnauthorized = (problem: unknown): CliError => {
+const mapAuthUnauthorized = (problem: unknown): AppError => {
   const details: Array<string> = [];
   const requiredScope = getStringField(problem, "required_scope");
   const tokenScopes = getStringField(problem, "token_scopes");
@@ -302,7 +302,7 @@ const mapAuthUnauthorized = (problem: unknown): CliError => {
   if (tokenScopes !== undefined) details.push(`Token scopes: ${tokenScopes}`);
   if (requiredRole !== undefined) details.push(`Required role: ${requiredRole}`);
 
-  return makeCliError({
+  return makeAppError({
     code: "AUTH_UNAUTHORIZED",
     what: "Insufficient permissions",
     details,
@@ -312,12 +312,12 @@ const mapAuthUnauthorized = (problem: unknown): CliError => {
 
 /**
  * Check if a 401/403 response should be mapped to an auth error for read operations.
- * Returns the mapped CliError or undefined if not an auth error.
+ * Returns the mapped AppError or undefined if not an auth error.
  */
 const mapReadAuthError = (
   response: HttpClientResponse.HttpClientResponse,
   problem: unknown,
-): CliError | undefined => {
+): AppError | undefined => {
   if (response.status === 401) {
     return mapAuthUnauthenticated(response, "Run `axm login` to sign in.");
   }
@@ -328,11 +328,11 @@ const mapReadAuthError = (
 };
 
 const withRequestContext = (
-  error: CliError,
+  error: AppError,
   request: string,
   status: number | undefined,
-): CliError => {
-  return makeCliError({
+): AppError => {
+  return makeAppError({
     code: error.code,
     what: error.what,
     details: [
@@ -365,10 +365,10 @@ const readResponseText = ({
   readonly requestSummary: string;
   readonly code: string;
   readonly what: string;
-}): Effect.Effect<string, CliError> =>
+}): Effect.Effect<string, AppError> =>
   response.text.pipe(
     Effect.mapError((error) =>
-      makeCliError({
+      makeAppError({
         code,
         what,
         details: [requestSummary],
@@ -387,11 +387,11 @@ const parseJson = ({
   readonly requestSummary: string;
   readonly code: string;
   readonly what: string;
-}): Effect.Effect<unknown, CliError> =>
+}): Effect.Effect<unknown, AppError> =>
   Effect.try({
     try: () => JSON.parse(bodyText) as unknown,
     catch: (error) =>
-      makeCliError({
+      makeAppError({
         code,
         what,
         details: [requestSummary],
@@ -411,10 +411,10 @@ const decodeUnknown = <S extends Schema.Top>(
     readonly code: string;
     readonly what: string;
   },
-): Effect.Effect<S["Type"], CliError, S["DecodingServices"]> =>
+): Effect.Effect<S["Type"], AppError, S["DecodingServices"]> =>
   Schema.decodeUnknownEffect(schema)(parsed).pipe(
     Effect.mapError((error) =>
-      makeCliError({
+      makeAppError({
         code,
         what,
         details: [requestSummary],
@@ -437,7 +437,7 @@ const executeRequest = ({
   readonly url: string;
   readonly networkCode: string;
   readonly networkWhat: string;
-}): Effect.Effect<HttpClientResponse.HttpClientResponse, CliError> => {
+}): Effect.Effect<HttpClientResponse.HttpClientResponse, AppError> => {
   const request =
     method === "GET"
       ? HttpClientRequest.get(url)
@@ -447,7 +447,7 @@ const executeRequest = ({
 
   return httpClient.execute(request).pipe(
     Effect.mapError((error) =>
-      makeCliError({
+      makeAppError({
         code: networkCode,
         what: networkWhat,
         details: [`${method} ${url}`],
@@ -548,7 +548,7 @@ const getExtensionIndex = ({
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
           what: `Remote discovery failed with status ${String(response.status)}`,
           details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -615,7 +615,7 @@ const getExtensionCollection = ({
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
           what: `Remote discovery failed with status ${String(response.status)}`,
           details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -710,7 +710,7 @@ const namespaceExists = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
   namespace: string,
-): Effect.Effect<NamespaceExistsResponse, CliError> =>
+): Effect.Effect<NamespaceExistsResponse, AppError> =>
   Effect.gen(function* () {
     const url = `${normalizeBaseUrl(baseUrl)}/v1/extensions/${namespace}`;
     const requestSummary = `GET ${url}`;
@@ -743,7 +743,7 @@ const namespaceExists = (
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
           what: `Remote namespace check failed with status ${String(response.status)}`,
           details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -776,7 +776,7 @@ const getExtensionPackage = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
   args: GetExtensionPackageArgs,
-): Effect.Effect<GetExtensionPackageResponse, CliError> =>
+): Effect.Effect<GetExtensionPackageResponse, AppError> =>
   Effect.gen(function* () {
     const indexUrl = buildDiscoveryUrl({
       baseUrl,
@@ -797,7 +797,7 @@ const getExtensionPackage = (
 
     if (indexResponse.status === 404) {
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
           what: "Remote package index was not found",
           details: [indexRequestSummary],
@@ -821,7 +821,7 @@ const getExtensionPackage = (
     if (indexResponse.status !== 200) {
       const bodyText = yield* indexResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
           what: `Remote package index request failed with status ${String(indexResponse.status)}`,
           details: [indexRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -857,7 +857,7 @@ const getExtensionPackage = (
 
     if (Option.isNone(resolvedVersion)) {
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_VERSION_NOT_FOUND",
           what: "Requested package version is not available in remote index",
           details: [indexRequestSummary],
@@ -878,7 +878,7 @@ const getExtensionPackage = (
 
     if (archiveResponse.status === 404) {
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
           what: "Remote package archive was not found",
           details: [archiveRequestSummary],
@@ -889,7 +889,7 @@ const getExtensionPackage = (
     if (archiveResponse.status !== 200) {
       const bodyText = yield* archiveResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
           what: `Remote package archive request failed with status ${String(archiveResponse.status)}`,
           details: [archiveRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -899,7 +899,7 @@ const getExtensionPackage = (
 
     const arrayBuffer = yield* archiveResponse.arrayBuffer.pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_INVALID_RESPONSE",
           what: "Failed to read remote package archive response body",
           details: [archiveRequestSummary],
@@ -915,7 +915,7 @@ const getExtensionsByScope = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
   args: GetExtensionsByNamespaceArgs,
-): Effect.Effect<GetExtensionsByNamespaceResponse, CliError> =>
+): Effect.Effect<GetExtensionsByNamespaceResponse, AppError> =>
   Effect.gen(function* () {
     const allExtensions =
       args.names.length === 0
@@ -970,14 +970,14 @@ const extensionExists = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
   args: ExtensionExistsArgs,
-): Effect.Effect<ExtensionExistsResponse, CliError> =>
+): Effect.Effect<ExtensionExistsResponse, AppError> =>
   Effect.gen(function* () {
     const url = buildExtensionExistsUrl(baseUrl, args);
     const requestSummary = `HEAD ${url}`;
 
     const response = yield* httpClient.execute(HttpClientRequest.head(url)).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR",
           what: "Failed to connect to remote registry extension check endpoint",
           details: [requestSummary],
@@ -1010,7 +1010,7 @@ const extensionExists = (
 
     const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
         what: `Remote extension check failed with status ${String(response.status)}`,
         details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -1099,7 +1099,7 @@ const publishExtension = (
       Effect.catch((error) =>
         HttpClientError.isHttpClientError(error) && error.reason._tag === "TransportError"
           ? Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
                 details: [
@@ -1112,7 +1112,7 @@ const publishExtension = (
               }),
             )
           : Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
                 details: [
@@ -1157,7 +1157,7 @@ const publishExtension = (
         // Preserve existing quota_exceeded mapping (takes priority)
         return yield* Effect.fail(
           withRequestContext(
-            mapProblemDetailToCliError(response.status, problem),
+            mapProblemDetailToAppError(response.status, problem),
             requestSummary,
             response.status,
           ),
@@ -1171,7 +1171,7 @@ const publishExtension = (
     if (problem === null) {
       // Non-JSON error response
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_PUBLISH_FAILED",
           what: `Publish failed with status ${String(response.status)}`,
           details: [`Request: ${requestSummary}`, ...(bodyText.length > 0 ? [bodyText] : [])],
@@ -1181,7 +1181,7 @@ const publishExtension = (
 
     return yield* Effect.fail(
       withRequestContext(
-        mapProblemDetailToCliError(response.status, problem),
+        mapProblemDetailToAppError(response.status, problem),
         requestSummary,
         response.status,
       ),

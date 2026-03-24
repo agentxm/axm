@@ -20,7 +20,7 @@ The resolution algorithm SHALL evaluate branches in this order:
 
 - **WHEN** `resolvePlan` is called and `CliFlags` has `preview: true` and the plan contains any `PlannedJobStep` with `readiness.status === "error"`
 - **THEN** the plan SHALL be displayed via `displayPlan`
-- **AND** `resolvePlan` SHALL fail with a `CliError` with code `PLAN_HAS_ERRORS`
+- **AND** `resolvePlan` SHALL fail with an `AppError` with code `PLAN_HAS_ERRORS`
 - **AND** the error message SHALL aggregate the messages from all error-readiness steps
 - **AND** `applyPlan` SHALL NOT be called
 
@@ -28,7 +28,7 @@ The resolution algorithm SHALL evaluate branches in this order:
 
 - **WHEN** `resolvePlan` is called and `CliFlags` has `preview: false` and the plan contains any `PlannedJobStep` with `readiness.status === "error"`
 - **THEN** the plan SHALL be displayed via `displayPlan`
-- **AND** `resolvePlan` SHALL fail with a `CliError` with code `PLAN_HAS_ERRORS`
+- **AND** `resolvePlan` SHALL fail with an `AppError` with code `PLAN_HAS_ERRORS`
 - **AND** `applyPlan` SHALL NOT be called
 
 #### Scenario: Force flag overrides error readiness
@@ -55,7 +55,7 @@ The resolution algorithm SHALL evaluate branches in this order:
 #### Scenario: Warning readiness in non-interactive mode fails
 
 - **WHEN** `resolvePlan` is called and `CliFlags` has `nonInteractive: true`, `yes: false`, and the plan contains `PlannedJobStep` steps with `readiness.status === "warn"`
-- **THEN** `resolvePlan` SHALL fail with a `CliError` with code `PLAN_HAS_WARNINGS`
+- **THEN** `resolvePlan` SHALL fail with an `AppError` with code `PLAN_HAS_WARNINGS`
 - **AND** `applyPlan` SHALL NOT be called
 
 #### Scenario: Warning readiness forces confirmation in default mode

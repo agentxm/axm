@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -69,24 +69,24 @@ export interface PackSourceRequest {
 // Helpers (pure, no service dependencies)
 // -----------------------------------------------------------------------------
 
-const isCliError = (
+const isAppError = (
   error: unknown,
 ): error is {
-  readonly _tag: "CliError";
+  readonly _tag: "AppError";
   readonly code: string;
   readonly what: string;
 } =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
-  error._tag === "CliError" &&
+  error._tag === "AppError" &&
   "code" in error &&
   typeof error.code === "string" &&
   "what" in error &&
   typeof error.what === "string";
 
 const summarizeLookupError = (error: unknown): string => {
-  if (isCliError(error)) {
+  if (isAppError(error)) {
     return `${error.what} (${error.code})`;
   }
   if (error instanceof Error && error.message.length > 0) {
@@ -96,7 +96,7 @@ const summarizeLookupError = (error: unknown): string => {
 };
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
-  isCliError(error) &&
+  isAppError(error) &&
   (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
     (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
 
@@ -187,8 +187,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     // PromptCancelled propagates at runtime but is erased here;
     // the top-level `run()` function handles it as a clean exit.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
-    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, AppError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, AppError, never>;
 
     const parseArgs = (args: InstallPackHandlerArgs) =>
       provide(
@@ -236,7 +236,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             const pat = parsed.value.pattern;
 
             if (Option.isNone(pat.type) || pat.type.value !== "packs") {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
                 what: "Pack source must include /packs/ segment",
                 details: [`Provided: ${trimmed}`],
@@ -246,7 +246,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             }
 
             if (Option.isNone(pat.name)) {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
                 what: "Pack source must include a pack name",
                 details: [`Provided: ${trimmed}`],
@@ -264,7 +264,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           }
 
           // Reject everything else
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "PACK_SOURCE_NOT_REGISTRY",
             what: "Packs can only be installed from a registry",
             details: [`Provided: ${trimmed}`],
@@ -282,7 +282,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             () =>
               resolveSource(parsed.resolvedInput).pipe(
                 Effect.mapError((error) =>
-                  makeCliError({
+                  makeAppError({
                     code: "INVALID_SOURCE",
                     what: `Invalid source: ${error.message}`,
                     details: [`Provided: ${parsed.resolvedInput}`],
@@ -295,7 +295,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           );
 
           if (source.type !== "registry") {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "PACK_SOURCE_NOT_REGISTRY",
               what: "Packs can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
@@ -320,7 +320,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           // Pack install is single-source, take first request
           const req = reqs[0];
           if (!req) {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "PACK_NO_SOURCE_REQUEST",
               what: "No source request provided",
             });
@@ -407,7 +407,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   }
 
                   if (!resolvedRefs) {
-                    return yield* makeCliError({
+                    return yield* makeAppError({
                       code: "PACK_FETCH_FAILED",
                       what: "Failed to fetch pack from registry",
                       details: [
@@ -419,7 +419,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     });
                   }
                 } else if (initialResult._tag === "Failure") {
-                  return yield* makeCliError({
+                  return yield* makeAppError({
                     code: "PACK_FETCH_FAILED",
                     what: "Failed to fetch pack from registry",
                     details: [
@@ -442,7 +442,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 );
 
                 if (!resolvedRefs || resolvedRefs.length === 0) {
-                  return yield* makeCliError({
+                  return yield* makeAppError({
                     code: "PACK_NOT_FOUND",
                     what: `Pack "${req.packName}" not found in registry`,
                     howToFix: "Verify the pack name and check available packs.",
@@ -462,14 +462,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const packRef = refs[0];
         if (!packRef) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "PACK_NOT_FOUND",
             what: "No pack reference found",
           });
         }
 
         if (packRef.type !== "pack") {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "PACK_FETCH_FAILED",
             what: "Registry did not return a valid pack reference",
           });

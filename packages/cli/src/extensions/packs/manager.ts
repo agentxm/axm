@@ -13,7 +13,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { PackExtensionRef, RegistryPackRef } from "../../sources/types.js";
 import { SourceHostProviders } from "../../sources/index.js";
 import type {
@@ -90,7 +90,7 @@ export const PackManagerLive = Layer.effect(
               Effect.gen(function* () {
                 const fetched = yield* sources.fetch(ref).pipe(
                   Effect.mapError((e: Error) =>
-                    makeCliError({
+                    makeAppError({
                       code: "PACK_FETCH_FAILED",
                       what: `Failed to fetch builtin pack: ${e.message}`,
                       cause: e,
@@ -106,7 +106,7 @@ export const PackManagerLive = Layer.effect(
                 yield* provide(
                   copySkillDirectory(fetched.directory, packDir).pipe(
                     Effect.mapError((e) =>
-                      makeCliError({
+                      makeAppError({
                         code: "PACK_EXTRACT_FAILED",
                         what: `Failed to extract pack to ${packDir}`,
                         cause: e,
@@ -150,7 +150,7 @@ export const PackManagerLive = Layer.effect(
             Effect.gen(function* () {
               const fetched = yield* sources.fetch(ref).pipe(
                 Effect.mapError((e: Error) =>
-                  makeCliError({
+                  makeAppError({
                     code: "PACK_FETCH_FAILED",
                     what: `Failed to fetch pack archive: ${e.message}`,
                     cause: e,
@@ -160,7 +160,7 @@ export const PackManagerLive = Layer.effect(
               yield* provide(
                 copySkillDirectory(fetched.directory, packDir).pipe(
                   Effect.mapError((e) =>
-                    makeCliError({
+                    makeAppError({
                       code: "PACK_EXTRACT_FAILED",
                       what: `Failed to extract pack to ${packDir}`,
                       cause: e,

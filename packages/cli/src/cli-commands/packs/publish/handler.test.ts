@@ -268,7 +268,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublishPack(defaultArgs("@test/packs/no-manifest")).pipe(
-            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Missing manifest");
@@ -428,7 +428,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublishPack(defaultArgs("@test/packs/nonexistent")).pipe(
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
                 what: e.what,

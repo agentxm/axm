@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { PromptCancelled } from "../prompt-cancelled.js";
 import { classifyError, resolveDiagnosticVerbosity } from "./error-handling.js";
 
@@ -11,8 +11,8 @@ describe("classifyError", () => {
     expect(result).toEqual({ exitCode: 0 });
   });
 
-  it("returns exit 1 with rendered message for CliError", () => {
-    const error = new CliError({
+  it("returns exit 1 with rendered message for AppError", () => {
+    const error = new AppError({
       code: "TEST_ERROR",
       what: "Something failed",
       details: ["detail line"],
@@ -41,8 +41,8 @@ describe("classifyError", () => {
     expect(verbosity).toEqual({ debug: false, verbose: true });
   });
 
-  it("passes verbosity to rendered CliError output", () => {
-    const error = new CliError({
+  it("passes verbosity to rendered AppError output", () => {
+    const error = new AppError({
       code: "TEST_ERROR",
       what: "Something failed",
       details: [],

@@ -8,7 +8,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import type * as Path from "effect/Path";
 import type * as FileSystem from "effect/FileSystem";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { CliEnvConfig } from "../config/index.js";
 import type { Workspace } from "../workspace/service.js";
 import type { AgentId } from "./types.js";
@@ -56,29 +56,29 @@ export interface CodingAgent {
   readonly id: AgentId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
-  ) => Effect.Effect<ResolveSkillsDirOutcome, CliError, Path.Path | CliEnvConfig>;
+  ) => Effect.Effect<ResolveSkillsDirOutcome, AppError, Path.Path | CliEnvConfig>;
   readonly addMcpServer: (
     args: AddMcpServerArgs,
-  ) => Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
   readonly removeMcpServer: (
     args: RemoveMcpServerArgs,
-  ) => Effect.Effect<McpServerSyncOutcome, CliError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
 }
 
 /**
  * Repository for coding-agent implementations.
  */
 export interface CodingAgentRepositoryService {
-  readonly get: (id: AgentId) => Effect.Effect<CodingAgent, CliError>;
+  readonly get: (id: AgentId) => Effect.Effect<CodingAgent, AppError>;
   readonly all: Effect.Effect<ReadonlyArray<CodingAgent>, never>;
   readonly getConfiguredAgents: () => Effect.Effect<
     ReadonlyArray<CodingAgent>,
-    CliError,
+    AppError,
     Workspace
   >;
   readonly getUnknownConfiguredAgentIds: () => Effect.Effect<
     ReadonlyArray<string>,
-    CliError,
+    AppError,
     Workspace
   >;
 }

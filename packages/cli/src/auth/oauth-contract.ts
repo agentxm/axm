@@ -2,8 +2,8 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import type { CliError } from "../cli-error/cli-error.js";
-import { makeCliError } from "../cli-error/cli-error.js";
+import type { AppError } from "../app-error/app-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 
 const TokenWireResponseSchema = Schema.Struct({
   access_token: Schema.String,
@@ -27,10 +27,10 @@ export const decodeTokenResponse = (
   parsed: unknown,
   code: string,
   what: string,
-): Effect.Effect<NormalizedTokenResponse, CliError> =>
+): Effect.Effect<NormalizedTokenResponse, AppError> =>
   Schema.decodeUnknownEffect(TokenWireResponseSchema)(parsed).pipe(
     Effect.mapError((error) =>
-      makeCliError({
+      makeAppError({
         code,
         what: `Invalid response schema: ${what}`,
         cause: error,
@@ -54,7 +54,7 @@ export const decodeTokenResponse = (
       }
 
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code,
           what: `Invalid response schema: ${what}`,
           details: ["Expected token response to include expires_at or expires_in."],

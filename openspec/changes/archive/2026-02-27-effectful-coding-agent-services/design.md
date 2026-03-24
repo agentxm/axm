@@ -95,7 +95,7 @@ export interface CodingAgent {
   readonly id: AgentId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
-  ) => Effect.Effect<ResolveSkillsDirOutcome, CliError>;
+  ) => Effect.Effect<ResolveSkillsDirOutcome, AppError>;
 }
 
 export type ResolveSkillsDirOutcome =
@@ -107,9 +107,9 @@ export type ResolveSkillsDirOutcome =
 export class CodingAgentRepository extends Context.Tag("CodingAgentRepository")<
   CodingAgentRepository,
   {
-    readonly get: (id: AgentId) => Effect.Effect<CodingAgent, CliError>;
+    readonly get: (id: AgentId) => Effect.Effect<CodingAgent, AppError>;
     readonly all: Effect.Effect<ReadonlyArray<CodingAgent>, never>;
-    readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<CodingAgent>, CliError>;
+    readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<CodingAgent>, AppError>;
   }
 >() {}
 ```
@@ -185,7 +185,7 @@ export const CodingAgentRepositoryLive = Layer.effect(
       get: (id: AgentId) =>
         id in byId
           ? Effect.succeed(byId[id])
-          : makeCliError({
+          : makeAppError({
               code: "CODING_AGENT_NOT_SUPPORTED",
               what: `Unsupported coding agent: ${id}`,
             }),
@@ -199,7 +199,7 @@ export const CodingAgentRepositoryLive = Layer.effect(
               Effect.gen(function* () {
                 const agent = yield* id in byId
                   ? Effect.succeed(byId[id])
-                  : makeCliError({
+                  : makeAppError({
                       code: "CODING_AGENT_NOT_SUPPORTED",
                       what: `Unsupported coding agent: ${id}`,
                     });
@@ -247,13 +247,13 @@ const installSkill = (args: InstallSkillArgs) =>
 
     // 2b) Policy gate
     if (misconfigured.length > 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SKILL_DIR_MISCONFIGURED",
         what: "One or more configured agents have invalid skills directory settings",
       });
     }
     if (args.strict && unknownAgents.length > 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "CODING_AGENT_UNKNOWN_CONFIGURED",
         what: "Unknown configured agents found in strict mode",
       });

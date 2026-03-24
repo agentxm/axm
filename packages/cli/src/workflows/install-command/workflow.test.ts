@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { makeClackLogTestLayer, makeClackPromptTestLayer } from "../../clack-effect/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { CliFlagsTest } from "../../cli-flags/index.js";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
 import {
@@ -232,7 +232,7 @@ describe("runInstallCommandWorkflow", () => {
         TestRef,
         TestIntent
       > = {
-        parseArgs: () => Effect.fail(makeCliError({ code: "PARSE_FAILED", what: "bad args" })),
+        parseArgs: () => Effect.fail(makeAppError({ code: "PARSE_FAILED", what: "bad args" })),
         resolveSourceRequests: () => Effect.succeed([]),
         discoverRefs: () => Effect.succeed([]),
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
@@ -263,7 +263,7 @@ describe("runInstallCommandWorkflow", () => {
         resolveSourceRequests: () => Effect.succeed([{ source: "x" }]),
         discoverRefs: () => Effect.succeed([{ refName: "x" }]),
         finalizeIntent: () => Effect.succeed({ intentName: "x" }),
-        buildPlan: () => Effect.fail(makeCliError({ code: "PLAN_FAILED", what: "plan error" })),
+        buildPlan: () => Effect.fail(makeAppError({ code: "PLAN_FAILED", what: "plan error" })),
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
@@ -285,7 +285,7 @@ describe("runInstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedName: "x" }),
         resolveSourceRequests: () => {
           callOrder.push("resolveSourceRequests");
-          return Effect.fail(makeCliError({ code: "SOURCE_FAILED", what: "source error" }));
+          return Effect.fail(makeAppError({ code: "SOURCE_FAILED", what: "source error" }));
         },
         discoverRefs: () => {
           callOrder.push("discoverRefs");

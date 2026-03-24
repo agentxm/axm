@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { getTreeSha } from "./operations.js";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 
 describe("git", () => {
   let tempDir: string;
@@ -90,46 +90,46 @@ describe("git", () => {
       }),
     );
 
-    it.effect("fails with CliError for non-existent path", () =>
+    it.effect("fails with AppError for non-existent path", () =>
       Effect.gen(function* () {
         const repoPath = path.join(tempDir, "repo");
         yield* Effect.promise(() => createLocalRepo(repoPath));
 
         const error = yield* getTreeSha(repoPath, "non-existent").pipe(Effect.flip);
 
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
       }),
     );
 
-    it.effect("fails with CliError for non-git directory", () =>
+    it.effect("fails with AppError for non-git directory", () =>
       Effect.gen(function* () {
         const nonGitPath = path.join(tempDir, "not-a-repo");
         fs.mkdirSync(nonGitPath, { recursive: true });
 
         const error = yield* getTreeSha(nonGitPath).pipe(Effect.flip);
 
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
       }),
     );
   });
 
-  describe("CliError", () => {
+  describe("AppError", () => {
     it("is a tagged error with correct tag", () => {
-      const error = makeCliError({
+      const error = makeAppError({
         code: "GIT_CLONE_FAILED",
         what: "Failed to clone repository",
       });
 
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
       expect(error.code).toBe("GIT_CLONE_FAILED");
       expect(error.what).toBe("Failed to clone repository");
     });
 
     it("can include a cause", () => {
       const cause = new Error("Original error");
-      const error = makeCliError({
+      const error = makeAppError({
         code: "GIT_CLONE_FAILED",
         what: "Failed to clone repository",
         cause,

@@ -8,18 +8,18 @@ Add auth-specific error mapping for 401/403 responses to remote publish operatio
 
 ### Requirement: Authentication error mapping for publish
 
-The remote publish client SHALL map 401 and 403 responses to auth-specific `CliError` codes with recovery guidance.
+The remote publish client SHALL map 401 and 403 responses to auth-specific `AppError` codes with recovery guidance.
 
 #### Scenario: Unauthenticated publish (401)
 
 - **WHEN** the publish request returns 401
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHENTICATED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHENTICATED`
 - **AND** `howToFix` SHALL read "Session expired. Run `axm login` to re-authenticate."
 
 #### Scenario: Unauthorized publish (403) with scope detail
 
 - **WHEN** the publish request returns 403 with RFC 7807 body containing `required_scope` and `token_scopes`
-- **THEN** the method SHALL fail with `CliError` code `AUTH_UNAUTHORIZED`
+- **THEN** the method SHALL fail with `AppError` code `AUTH_UNAUTHORIZED`
 - **AND** `details` SHALL include the required scope, token scopes, and required role from the response
 - **AND** `howToFix` SHALL describe the missing permission
 

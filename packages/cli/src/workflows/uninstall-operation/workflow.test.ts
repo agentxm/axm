@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -201,7 +201,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
         extensionType: "skill",
         materializeInstall: () => Effect.void,
         materializeUninstall: () =>
-          Effect.fail(makeCliError({ code: "UNMATERIALIZE_FAILED", what: "disk error" })),
+          Effect.fail(makeAppError({ code: "UNMATERIALIZE_FAILED", what: "disk error" })),
         upsertSettingsEntry: () => Effect.void,
         removeSettingsEntry: () => Effect.void,
         upsertLockfileEntry: () => Effect.void,

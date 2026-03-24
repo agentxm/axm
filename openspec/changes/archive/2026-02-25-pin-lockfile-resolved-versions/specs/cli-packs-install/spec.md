@@ -15,4 +15,4 @@ Each stored value in `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServe
 #### Scenario: Range value in pack resolved maps is rejected
 
 - **WHEN** a pack lock entry would store `resolvedSkills: { "@acme/skills/code-review": "^1.0.0" }`
-- **THEN** the operation SHALL fail with a `CliError` indicating lockfile resolved values must be exact versions
+- **THEN** the operation SHALL fail with an `AppError` indicating lockfile resolved values must be exact versions

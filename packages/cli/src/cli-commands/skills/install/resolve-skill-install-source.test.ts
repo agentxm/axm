@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
-import type { CliError } from "../../../cli-error/index.js";
+import type { AppError } from "../../../app-error/index.js";
 import type { SourceHostConfig } from "../../../settings/index.js";
 import { parseInputPattern, type InputParseResult } from "../../../sources/parser.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -31,7 +31,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
+  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
   getDefaultNamespace: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
@@ -331,7 +331,7 @@ describe("resolveSkillInstallSource", () => {
       const error = yield* resolveSkillInstallSource(
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
       expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
       expect(error.what).toContain("@acme/my-skill");
       expect(error.details.join(" ")).toContain("Checked registries:");
@@ -466,7 +466,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.flip,
           Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
         );
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("@myns/missing-skill");
         expect(error.what).toContain("not found");
@@ -489,7 +489,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.flip,
           Effect.provide(provideLayersWithNamespace(sources, Option.none())),
         );
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("no default namespace");
         const detailsText = error.details.join(" ");
@@ -506,7 +506,7 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.flip,
           Effect.provide(provideLayersWithNamespace([], Option.some("@myns"))),
         );
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         expect(error.what).toContain("no registry sources");
         const detailsText = error.details.join(" ");
@@ -575,7 +575,7 @@ describe("resolveSkillUrl", () => {
     });
   });
 
-  it.effect("fails with CliError when no source matches the URL hostname", () => {
+  it.effect("fails with AppError when no source matches the URL hostname", () => {
     const sources: ReadonlyArray<SourceHostConfig> = [
       { name: "github", type: "github", url: new URL("https://github.com") },
       { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
@@ -587,7 +587,7 @@ describe("resolveSkillUrl", () => {
         "https://unknown-host.com/owner/repo",
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
 
-      expect(error._tag).toBe("CliError");
+      expect(error._tag).toBe("AppError");
       expect(error.code).toBe("SOURCE_PARSE_FAILED");
     });
   });

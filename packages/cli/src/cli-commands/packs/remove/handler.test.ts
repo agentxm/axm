@@ -20,7 +20,7 @@ import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -268,8 +268,8 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No extensions in pack match");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("No extensions in pack match");
         }),
       );
     });
@@ -340,8 +340,8 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("my-pack", "@acme/skills/nonexistent"),
           ).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not in the pack");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not in the pack");
         }),
       );
     });
@@ -357,8 +357,8 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("nonexistent-pack", "@acme/skills/some-ext"),
           ).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not found");
         }),
       );
     });

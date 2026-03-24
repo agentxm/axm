@@ -22,7 +22,7 @@ import type {
   UninstallRetentionPolicy,
 } from "../../../workflows/install-operation/workflow.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
-import type { CliError } from "../../../cli-error/index.js";
+import type { AppError } from "../../../app-error/index.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
@@ -75,7 +75,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (
       args: UninstallHandlerArgs,
-    ): Effect.Effect<ParsedSkillUninstallArgs, CliError> =>
+    ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
       Effect.gen(function* () {
         yield* log.info("axm skills uninstall");
 
@@ -101,14 +101,14 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const finalizeIntent = (
       parsed: ParsedSkillUninstallArgs,
-    ): Effect.Effect<UninstallSkillCommandIntent, CliError> =>
+    ): Effect.Effect<UninstallSkillCommandIntent, AppError> =>
       Effect.succeed({
         skillsToUninstall: parsed.skills.map((skillName) => ({ skillName })),
       } satisfies UninstallSkillCommandIntent);
 
     const buildUninstallPlan = (
       intent: UninstallSkillCommandIntent,
-    ): Effect.Effect<Plan, CliError> =>
+    ): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
         // Build retention policy from workspace service
         const retentionPolicy: UninstallRetentionPolicy = {

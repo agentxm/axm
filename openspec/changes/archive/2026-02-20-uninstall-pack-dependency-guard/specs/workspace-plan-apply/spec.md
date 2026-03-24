@@ -57,6 +57,6 @@ The plan apply module SHALL iterate over plan jobs and their steps, promoting ea
 
 #### Scenario: Handler error caught and converted to error result
 
-- **WHEN** a handler fails with a `CliError`
+- **WHEN** a handler fails with an `AppError`
 - **THEN** the step SHALL be promoted to `JobStepResult` with `result: { result: "error", message: error.what }`
 - **AND** `applyPlan` SHALL NOT fail — errors are captured in results

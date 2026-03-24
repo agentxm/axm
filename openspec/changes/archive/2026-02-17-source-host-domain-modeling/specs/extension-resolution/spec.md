@@ -128,17 +128,17 @@ The resolution module SHALL attempt resolution steps in a specific order, stoppi
 
 ### Requirement: Error Handling
 
-The resolution module SHALL return typed `CliError` errors (replacing `ResolutionError`) with recovery guidance.
+The resolution module SHALL return typed `AppError` errors (replacing `ResolutionError`) with recovery guidance.
 
 #### Scenario: Invalid input format
 
 - **WHEN** the input cannot be parsed as any recognized pattern
-- **THEN** `resolveSource` fails with `CliError` with an appropriate error code
+- **THEN** `resolveSource` fails with `AppError` with an appropriate error code
 
 #### Scenario: No config matches
 
 - **WHEN** a URL input has no matching configured source
-- **THEN** `resolveSource` fails with `CliError` indicating no configured source matches
+- **THEN** `resolveSource` fails with `AppError` indicating no configured source matches
 
 ## REMOVED Requirements
 

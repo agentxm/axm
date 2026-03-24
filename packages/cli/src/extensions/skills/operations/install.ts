@@ -20,7 +20,7 @@ import { Log } from "../../../clack-effect/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -80,7 +80,7 @@ type MaterializedSkill = {
 const validatePathSafety = (baseDir: string, targetPath: string) =>
   isPathSafe(baseDir, targetPath)
     ? Effect.void
-    : makeCliError({
+    : makeAppError({
         code: "INSTALL_SKILL_PATH_TRAVERSAL",
         what: `Path traversal detected: ${targetPath}`,
       });
@@ -94,7 +94,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, sanitizedName, path);
     yield* copySkillDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_COPY_FAILED",
           what: `Failed to copy skill files to ${copyTarget}`,
           cause: e,
@@ -149,7 +149,7 @@ const fetchSource = (ref: BuiltinSkillRef) =>
     const sources = yield* SourceHostProviders;
     const files = yield* sources.fetch(ref).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
           what: `Failed to fetch files for ${ref.skill.name}`,
           cause: error,
@@ -193,7 +193,7 @@ const installFromRegistry = (
     // Synthetic refs (fork/publish) may have empty integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_PATH_CHECK_FAILED",
           what: `Failed to check if canonical path exists: ${canonicalPath}`,
           cause: e,
@@ -219,7 +219,7 @@ const installFromRegistry = (
       if (ref.integrity !== "") {
         const actualIntegrity = yield* computeIntegrity(archive);
         if (actualIntegrity !== ref.integrity) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
             details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
@@ -229,7 +229,7 @@ const installFromRegistry = (
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "INSTALL_SKILL_TEMP_DIR_FAILED",
             what: `Failed to create temporary directory for registry install`,
             cause: e,
@@ -386,7 +386,7 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeCliError({
+        error: makeAppError({
           code: "CODING_AGENT_UNKNOWN_CONFIGURED",
           what: message,
           details: unknownConfiguredAgentIds,
@@ -423,7 +423,7 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeCliError({
+        error: makeAppError({
           code: "SKILL_DIR_MISCONFIGURED",
           what: message,
           details,
@@ -518,7 +518,7 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeCliError({
+        error: makeAppError({
           code: "SKILL_INSTALL_PARTIAL_FAILED",
           what: message,
           details: failedAgents,

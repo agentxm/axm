@@ -34,7 +34,7 @@ A standalone `writeOutput(format, schema, data, textRenderer)` function in `outp
 - **(b) Two services (Output + Input)** — Merges Activity into Output. Simpler provision but mixes fire-and-forget messages with lifecycle-managed operation wrappers, making the interface incoherent.
 - **(c) Three services (Output + Activity + Input)** — Natural split along concern boundaries: Output = fire-and-forget, Activity = lifecycle-managed, Input = user data acquisition.
 
-**Rationale for (c):** The split maps to a real architectural boundary. Output methods are `(string) => Effect<void>`. Activity methods are `<A, E, R>(msg, f: (handle) => Effect<A,E,R>) => Effect<A,E,R>`. Input methods are `(config) => Effect<T, CliError | PromptCancelled>`. Three distinct signatures, three services.
+**Rationale for (c):** The split maps to a real architectural boundary. Output methods are `(string) => Effect<void>`. Activity methods are `<A, E, R>(msg, f: (handle) => Effect<A,E,R>) => Effect<A,E,R>`. Input methods are `(config) => Effect<T, AppError | PromptCancelled>`. Three distinct signatures, three services.
 
 ### 2. Service definitions and module locations
 
@@ -87,7 +87,7 @@ class Output extends ServiceMap.Service<
     readonly stream: <E, R>(
       level: StreamLevel,
       stream: Stream.Stream<string, E, R>,
-    ) => Effect.Effect<void, CliError | E, R>;
+    ) => Effect.Effect<void, AppError | E, R>;
 
     // Typed result — absorbs writeOutput
     readonly result: <S extends Schema.Encoder<unknown>>(
@@ -390,28 +390,28 @@ yield *
 class Input extends ServiceMap.Service<
   Input,
   {
-    readonly text: (config: TextConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+    readonly text: (config: TextConfig) => Effect.Effect<string, AppError | PromptCancelled>;
     readonly password: (
       config: PasswordConfig,
-    ) => Effect.Effect<string, CliError | PromptCancelled>;
-    readonly confirm: (config: ConfirmConfig) => Effect.Effect<boolean, CliError | PromptCancelled>;
-    readonly select: <V>(config: SelectConfig<V>) => Effect.Effect<V, CliError | PromptCancelled>;
+    ) => Effect.Effect<string, AppError | PromptCancelled>;
+    readonly confirm: (config: ConfirmConfig) => Effect.Effect<boolean, AppError | PromptCancelled>;
+    readonly select: <V>(config: SelectConfig<V>) => Effect.Effect<V, AppError | PromptCancelled>;
     readonly multiselect: <V>(
       config: MultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
     readonly groupMultiselect: <V>(
       config: GroupMultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
     readonly selectKey: <V extends string>(
       config: SelectKeyConfig<V>,
-    ) => Effect.Effect<V, CliError | PromptCancelled>;
+    ) => Effect.Effect<V, AppError | PromptCancelled>;
     readonly autocomplete: <V>(
       config: AutocompleteConfig<V>,
-    ) => Effect.Effect<V, CliError | PromptCancelled>;
+    ) => Effect.Effect<V, AppError | PromptCancelled>;
     readonly autocompleteMultiselect: <V>(
       config: AutocompleteMultiselectConfig<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, CliError | PromptCancelled>;
-    readonly path: (config: PathConfig) => Effect.Effect<string, CliError | PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, AppError | PromptCancelled>;
+    readonly path: (config: PathConfig) => Effect.Effect<string, AppError | PromptCancelled>;
   }
 >()("@axm.sh/cli/Input") {}
 

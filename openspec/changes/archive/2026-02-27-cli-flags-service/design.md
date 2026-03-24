@@ -114,7 +114,7 @@ The `run()` function in `runtime/index.ts` accepts `CliFlagsInput` and construct
 
 ```typescript
 export function run<A>(
-  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  program: Effect.Effect<A, AppError | PromptCancelled, AppLayer>,
   options: { readonly flags: CliFlagsInput; readonly workspace?: WorkspaceInit },
 ): Promise<A>;
 ```
@@ -159,7 +159,7 @@ const guardedPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   Effect.gen(function* () {
     const flags = yield* CliFlags;
     if (flags.nonInteractive) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PROMPT_IN_NON_INTERACTIVE",
         what: "Interactive prompt reached in non-interactive mode",
         howToFix: Option.some(
@@ -171,7 +171,7 @@ const guardedPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   });
 ```
 
-This means `ClackPromptLive` changes from a simple `Layer.succeed` to a `Layer.effect` that yields `CliFlags`. The `ClackPrompt` tag's error channel gains `CliError` (already the case).
+This means `ClackPromptLive` changes from a simple `Layer.succeed` to a `Layer.effect` that yields `CliFlags`. The `ClackPrompt` tag's error channel gains `AppError` (already the case).
 
 ### 9. Handler arg types drop duplicated fields
 
@@ -212,5 +212,5 @@ Defaults to `nonInteractive: true` for tests (no prompts in test runs). Tests th
 **`--yes` and `--force` appear in `--help` for commands that don't use them** — E.g., `axm skills list --help` will show `--yes` even though list doesn't prompt.
 → Acceptable trade-off. Standard practice in major CLIs (kubectl, gh, docker). Consistency outweighs per-command help purity.
 
-**Prompt fail-fast changes error semantics** — A prompt reached in non-interactive mode currently hangs; after this change it fails with `PROMPT_IN_NON_INTERACTIVE`. Any handler that doesn't properly guard prompts will now surface a `CliError` instead of silently hanging.
+**Prompt fail-fast changes error semantics** — A prompt reached in non-interactive mode currently hangs; after this change it fails with `PROMPT_IN_NON_INTERACTIVE`. Any handler that doesn't properly guard prompts will now surface an `AppError` instead of silently hanging.
 → This is the desired behavior — bugs become visible instead of silent.

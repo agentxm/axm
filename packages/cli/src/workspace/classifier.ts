@@ -12,7 +12,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "../extensions/common.js";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { expandGlob } from "../skills/glob.js";
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =
  */
 const classifyExtensions = (
   input: ClassifierInput,
-): Effect.Effect<ReadonlyArray<ClassifiedExtension>, import("../cli-error/index.js").CliError> =>
+): Effect.Effect<ReadonlyArray<ClassifiedExtension>, import("../app-error/index.js").AppError> =>
   Effect.gen(function* () {
     const sourceMetaFor = (name: string) =>
       input.sourceMetaByName[name] ?? {
@@ -105,7 +105,7 @@ const classifyExtensions = (
     );
 
     if (invalidLockfileOnlyNonNative.length > 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY",
         what: "Lockfile-only non-native entries are invalid classifier input",
         details: invalidLockfileOnlyNonNative,

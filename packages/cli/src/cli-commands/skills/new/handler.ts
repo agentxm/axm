@@ -7,7 +7,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
@@ -60,7 +60,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "NAMESPACE_REQUIRED",
                   what: "No namespace configured for skill creation",
                   howToFix:
@@ -77,7 +77,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     args.name.length > MAX_NAME_LENGTH ||
     !NAME_PATTERN.test(args.name)
   ) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SKILL_NAME_INVALID",
       what: `Invalid skill name: "${args.name}"`,
       details: [
@@ -91,7 +91,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 3. Check existence
   const configuredSkills = yield* ws.getConfiguredSkills();
   if (args.name in configuredSkills) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SKILL_ALREADY_EXISTS",
       what: `Skill '${args.name}' already exists in settings`,
       howToFix: "Choose a different name or remove the existing skill first",

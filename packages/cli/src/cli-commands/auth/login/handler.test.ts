@@ -15,7 +15,7 @@ import {
   makeClackPromptTestLayer,
 } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { handleLogin } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -114,7 +114,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         const result = yield* handleLogin().pipe(
-          Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+          Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
       }),
@@ -207,7 +207,7 @@ describe("auth login handler", () => {
         }),
       getMe: () =>
         Effect.fail(
-          makeCliError({
+          makeAppError({
             code: "AUTH_UNAUTHENTICATED",
             what: "Not authenticated or token is invalid",
           }),
@@ -235,7 +235,7 @@ describe("auth login handler", () => {
 
     return handleLogin().pipe(
       Effect.as("unexpected_success" as const),
-      Effect.catchTag("CliError", (error) =>
+      Effect.catchTag("AppError", (error) =>
         Effect.gen(function* () {
           expect(error.code).toBe("AUTH_UNAUTHENTICATED");
           expect(mockLog2.logs.success.some((m) => m.includes("Login successful"))).toBe(false);

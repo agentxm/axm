@@ -17,7 +17,7 @@ import {
 } from "../clack-effect/index.js";
 import { CliFlagsTest } from "../cli-flags/index.js";
 import { withAuthGuard } from "./guard.js";
-import { makeCliError } from "../cli-error/cli-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
@@ -119,7 +119,7 @@ describe("withAuthGuard", () => {
     const { FullLayer } = makeLayers({ nonInteractive: true });
     return withAuthGuard(makeInnerEffect()).pipe(
       Effect.provide(FullLayer),
-      Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+      Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
       }),
@@ -141,7 +141,7 @@ describe("withAuthGuard", () => {
     const { FullLayer } = makeLayers({ confirmValue: false });
     return withAuthGuard(makeInnerEffect()).pipe(
       Effect.provide(FullLayer),
-      Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+      Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
       }),
@@ -163,11 +163,11 @@ describe("withAuthGuard", () => {
   it.effect("propagates inner effect errors", () => {
     const { FullLayer } = makeLayers({ hasToken: true });
     const failingEffect = Effect.fail(
-      makeCliError({ code: "PUBLISH_PLAN_FAILED", what: "Publish failed" }),
+      makeAppError({ code: "PUBLISH_PLAN_FAILED", what: "Publish failed" }),
     );
     return withAuthGuard(failingEffect).pipe(
       Effect.provide(FullLayer),
-      Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+      Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
       }),

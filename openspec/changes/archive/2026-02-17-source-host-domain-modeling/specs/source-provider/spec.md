@@ -2,12 +2,12 @@
 
 ### Requirement: SourceProvider interface
 
-The `SourceProvider` interface SHALL be renamed to `SourceHostProvider`. It SHALL have `match`, `find`, and `fetch` operations. The `source` parameter to `find` SHALL be the specific `Source` variant (the flat intersection of `SourceHost & SourceParams`). The error type SHALL be `CliError` (replacing `SourceError`).
+The `SourceProvider` interface SHALL be renamed to `SourceHostProvider`. It SHALL have `match`, `find`, and `fetch` operations. The `source` parameter to `find` SHALL be the specific `Source` variant (the flat intersection of `SourceHost & SourceParams`). The error type SHALL be `AppError` (replacing `SourceError`).
 
 ```
-match(url: URL) → Effect<boolean, CliError, R>
-find(source: S, options: FindOptions) → Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>
-fetch(source: S, ref: SourceExtensionRef) → Effect<ExtensionFiles, CliError, R>
+match(url: URL) → Effect<boolean, AppError, R>
+find(source: S, options: FindOptions) → Effect<ReadonlyArray<SourceExtensionRef>, AppError, R>
+fetch(source: S, ref: SourceExtensionRef) → Effect<ExtensionFiles, AppError, R>
 ```
 
 The `SourceHostProvider` SHALL be parameterized on `S extends Source` to constrain the source variant the provider handles.
@@ -189,23 +189,23 @@ The registry provider's `find()` SHALL return `SourceExtensionRef` with `checksu
 
 ### Requirement: SourceError for provider failures
 
-All provider operations SHALL fail with `CliError` (replacing `SourceError`). The `CliError` SHALL include an appropriate error code, descriptive message, and original cause.
+All provider operations SHALL fail with `AppError` (replacing `SourceError`). The `AppError` SHALL include an appropriate error code, descriptive message, and original cause.
 
 #### Scenario: Find failure
 
 - **WHEN** a provider's `find` operation fails (e.g., network error, missing repo)
-- **THEN** it fails with `CliError` containing a descriptive `what` and the original `cause`
+- **THEN** it fails with `AppError` containing a descriptive `what` and the original `cause`
 
 #### Scenario: Fetch failure
 
 - **WHEN** a provider's `fetch` operation fails (e.g., checksum mismatch)
-- **THEN** it fails with `CliError`
+- **THEN** it fails with `AppError`
 
 ## ADDED Requirements
 
 ### Requirement: Provider URL matching via match method
 
-Each `SourceHostProvider` SHALL implement a `match(url: URL)` method that returns `Effect<boolean, CliError, R>`. The method answers "does this URL belong to me?" — nothing more. URL-to-params parsing is handled separately by existing provider parsers.
+Each `SourceHostProvider` SHALL implement a `match(url: URL)` method that returns `Effect<boolean, AppError, R>`. The method answers "does this URL belong to me?" — nothing more. URL-to-params parsing is handled separately by existing provider parsers.
 
 The `match` method MAY require I/O (e.g., fetching `.well-known` for future source refinement).
 
@@ -234,7 +234,7 @@ The `match` method MAY require I/O (e.g., fetching `.well-known` for future sour
 `PublishableSourceHostProvider` SHALL extend `SourceHostProvider` with a `publishVersion` method for registry-specific operations. Only registry providers implement this interface.
 
 ```
-publishVersion(scope, type, name, version, archive, metadata) → Effect<void, CliError, R>
+publishVersion(scope, type, name, version, archive, metadata) → Effect<void, AppError, R>
 ```
 
 #### Scenario: Registry provider supports publish

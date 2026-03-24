@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { createRegistryClient, type RegistryClient } from "../../../registry/index.js";
 import type { InputParseResult, InputPattern } from "../../../sources/parser.js";
 import {
@@ -27,16 +27,16 @@ type RegistryLookupIssue = {
   readonly code: Option.Option<string>;
 };
 
-const isCliError = (error: unknown): error is CliError =>
+const isAppError = (error: unknown): error is AppError =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
-  error._tag === "CliError" &&
+  error._tag === "AppError" &&
   "what" in error &&
   "code" in error;
 
 const summarizeLookupError = (error: unknown): string => {
-  if (isCliError(error)) {
+  if (isAppError(error)) {
     return `${error.what} (${error.code})`;
   }
   if (error instanceof Error) {
@@ -48,7 +48,7 @@ const summarizeLookupError = (error: unknown): string => {
 const toLookupIssue = (location: URL, error: unknown): RegistryLookupIssue => ({
   location: location.href,
   message: summarizeLookupError(error),
-  code: isCliError(error) ? Option.some(error.code) : Option.none<string>(),
+  code: isAppError(error) ? Option.some(error.code) : Option.none<string>(),
 });
 
 const hasRemoteNotSupportedIssue = (issues: ReadonlyArray<RegistryLookupIssue>): boolean =>
@@ -97,7 +97,7 @@ const resolveRegistrySource = (
     const ws = yield* Workspace;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
           what: `Failed to read configured registry sources for namespace "${namespace}"`,
           details: [input],
@@ -108,7 +108,7 @@ const resolveRegistrySource = (
     );
 
     if (registrySources.length === 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
         what: `No registry source is configured for namespace "${namespace}"`,
         details: [`Provided: ${input}`],
@@ -169,7 +169,7 @@ const resolveRegistrySource = (
 
     if (Option.isSome(options.skillName)) {
       const skillName = options.skillName.value;
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${namespace}/${skillName}" was not found in configured registries`,
         details: [
@@ -185,7 +185,7 @@ const resolveRegistrySource = (
       });
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
       what: `None of the configured registry sources contain namespace "${namespace}"`,
       details: [
@@ -212,7 +212,7 @@ const resolveSkillRegistrySourceByName = (
     const maybeNamespace = yield* ws.getDefaultNamespace();
 
     if (Option.isNone(maybeNamespace)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${name}" could not be looked up (no default namespace)`,
         details: [`Provided: ${input}`, `No default namespace configured and not logged in`],
@@ -225,7 +225,7 @@ const resolveSkillRegistrySourceByName = (
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${namespace}/${name}" could not be looked up (no registry sources)`,
         details: [
@@ -285,7 +285,7 @@ const resolveSkillRegistrySourceByName = (
       }
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
       what: `Skill "${namespace}/${name}" was not found in configured registries`,
       details: [
@@ -309,7 +309,7 @@ const resolveSkillRegistrySource = (
 ) =>
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SKILL_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
         details: [pattern.namespace],
@@ -359,7 +359,7 @@ export const resolveSkillInstallSource = (
       // Unsupported:
       case "git-scp-address":
       case "glob-input":
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "SKILL_INSTALL_UNSUPPORTED_INPUT",
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           details: [parseResult.originalInput],

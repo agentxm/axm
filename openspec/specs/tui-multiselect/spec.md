@@ -2,7 +2,7 @@
 
 ### Requirement: Multiselect prompt collects multiple selections from a list
 
-The multiselect capability SHALL be provided by `ClackPrompt.multiselect` from `src/clack-effect/prompt/`. It SHALL accept `message`, `options: ReadonlyArray<ClackOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, CliError | PromptCancelled>`. Call sites that currently pass `items + toOption` and `Option`-wrapped config fields SHALL map to clack `options` and unwrap optional values before invoking the prompt.
+The multiselect capability SHALL be provided by `ClackPrompt.multiselect` from `src/clack-effect/prompt/`. It SHALL accept `message`, `options: ReadonlyArray<ClackOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, AppError | PromptCancelled>`. Call sites that currently pass `items + toOption` and `Option`-wrapped config fields SHALL map to clack `options` and unwrap optional values before invoking the prompt.
 
 #### Scenario: Basic multiselect
 

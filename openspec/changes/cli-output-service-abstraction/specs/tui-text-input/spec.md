@@ -2,7 +2,7 @@
 
 ### Requirement: Text input prompt collects free-form text
 
-The text-input capability SHALL be provided by `Input.text` from `src/input/`. It SHALL accept `message` with optional `placeholder`, `defaultValue`/`initialValue`, and `validate`, and return `Effect<string, CliError | PromptCancelled>`.
+The text-input capability SHALL be provided by `Input.text` from `src/input/`. It SHALL accept `message` with optional `placeholder`, `defaultValue`/`initialValue`, and `validate`, and return `Effect<string, AppError | PromptCancelled>`.
 
 #### Scenario: Basic text input
 

@@ -1,4 +1,4 @@
-import { type CliError, renderCliError } from "../cli-error/index.js";
+import { type AppError, renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 
 export interface DiagnosticVerbosity {
@@ -29,13 +29,13 @@ export const resolveDiagnosticVerbosity = (
 };
 
 export const classifyError = (
-  error: CliError | PromptCancelled,
+  error: AppError | PromptCancelled,
   verbosity: DiagnosticVerbosity = resolveDiagnosticVerbosity(),
 ): ErrorClassification => {
   switch (error._tag) {
     case "PromptCancelled":
       return { exitCode: 0 };
-    case "CliError":
-      return { exitCode: 1, message: renderCliError(error, verbosity) };
+    case "AppError":
+      return { exitCode: 1, message: renderAppError(error, verbosity) };
   }
 };

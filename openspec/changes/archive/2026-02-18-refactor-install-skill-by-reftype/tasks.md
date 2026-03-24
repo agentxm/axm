@@ -21,7 +21,7 @@
 Depends on: Phase 1
 
 - [x] 2.1 Write tests for `validatePathSafety(baseDir, targetPath)` — returns `Effect.void` when safe, fails with `INSTALL_SKILL_PATH_TRAVERSAL` when unsafe
-- [x] 2.2 Implement `validatePathSafety` in `install-skill.ts` wrapping `isPathSafe` + `makeCliError`
+- [x] 2.2 Implement `validatePathSafety` in `install-skill.ts` wrapping `isPathSafe` + `makeAppError`
 - [x] 2.3 Write tests for `preCleanAndCopy(sanitizedName, sourcePath, copyTarget)` — yields `Workspace`, `FileSystem`, `Path`; calls `removeFromAllCanonicalLocations` then `copySkillDirectory`
 - [x] 2.4 Implement `preCleanAndCopy` in `install-skill.ts`
 - [x] 2.5 Run `pnpm typecheck` — fix any errors

@@ -3,25 +3,18 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
-import {
-  CliFlags,
-  CliFlagsLive,
-  CliFlagsTest,
-  forceFlag,
-  nonInteractiveFlag,
-  previewFlag,
-  yesFlag,
-} from "./service.js";
+import { CliFlags, CliFlagsTest, makeCliFlagsLayer, nonInteractiveFlag } from "./service.js";
 
 /**
- * Provide CliFlagsLive with the given global flag values and optional env config overrides.
+ * Provide makeCliFlagsLayer with the given nonInteractive global flag value,
+ * per-command flags, and optional env config overrides.
  */
 const getFlags = (
   flags: {
     nonInteractive: Option.Option<boolean>;
-    yes: boolean;
-    force: boolean;
-    preview: boolean;
+    yes?: boolean;
+    force?: boolean;
+    preview?: boolean;
   },
   configOverrides?: Partial<CliEnvConfigService>,
 ) => {
@@ -48,27 +41,27 @@ const getFlags = (
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;
 
-  const globalFlagsLayer = Layer.mergeAll(
-    Layer.succeed(nonInteractiveFlag, flags.nonInteractive),
-    Layer.succeed(yesFlag, flags.yes),
-    Layer.succeed(forceFlag, flags.force),
-    Layer.succeed(previewFlag, flags.preview),
+  const globalFlagsLayer = Layer.succeed(nonInteractiveFlag, flags.nonInteractive);
+
+  const perCommandFlags: { yes?: boolean; force?: boolean; preview?: boolean } = {};
+  if (flags.yes !== undefined) perCommandFlags.yes = flags.yes;
+  if (flags.force !== undefined) perCommandFlags.force = flags.force;
+  if (flags.preview !== undefined) perCommandFlags.preview = flags.preview;
+
+  const fullLayer = Layer.provide(
+    makeCliFlagsLayer(perCommandFlags),
+    Layer.mergeAll(globalFlagsLayer, configLayer),
   );
 
-  return CliFlags.asEffect().pipe(
-    Effect.provide(Layer.provide(CliFlagsLive, Layer.mergeAll(globalFlagsLayer, configLayer))),
-  );
+  return CliFlags.asEffect().pipe(Effect.provide(fullLayer));
 };
 
-describe("CliFlagsLive", () => {
+describe("makeCliFlagsLayer", () => {
   describe("nonInteractive resolution chain", () => {
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.some(true),
-          yes: false,
-          force: false,
-          preview: false,
         });
         expect(flags.nonInteractive).toBe(true);
       }),
@@ -79,9 +72,6 @@ describe("CliFlagsLive", () => {
         const flags = yield* getFlags(
           {
             nonInteractive: Option.some(false),
-            yes: false,
-            force: false,
-            preview: false,
           },
           { ci: "true" },
         );
@@ -94,9 +84,6 @@ describe("CliFlagsLive", () => {
         const flags = yield* getFlags(
           {
             nonInteractive: Option.none(),
-            yes: false,
-            force: false,
-            preview: false,
           },
           { ci: "true" },
         );
@@ -108,9 +95,6 @@ describe("CliFlagsLive", () => {
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.none(),
-          yes: false,
-          force: false,
-          preview: false,
         });
         // In test environment, stdin.isTTY may be undefined (non-TTY)
         // so nonInteractive should be true
@@ -119,17 +103,13 @@ describe("CliFlagsLive", () => {
     );
   });
 
-  describe("yes stores only explicit value", () => {
-    it.effect("yes is false when only nonInteractive is true", () =>
+  describe("per-command flags pass through", () => {
+    it.effect("yes defaults to false when not provided", () =>
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.some(true),
-          yes: false,
-          force: false,
-          preview: false,
         });
         expect(flags.yes).toBe(false);
-        expect(flags.nonInteractive).toBe(true);
       }),
     );
 
@@ -138,22 +118,16 @@ describe("CliFlagsLive", () => {
         const flags = yield* getFlags({
           nonInteractive: Option.some(false),
           yes: true,
-          force: false,
-          preview: false,
         });
         expect(flags.yes).toBe(true);
       }),
     );
-  });
 
-  describe("boolean inputs pass through directly", () => {
     it.effect("force passes through", () =>
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.some(false),
-          yes: false,
           force: true,
-          preview: false,
         });
         expect(flags.force).toBe(true);
       }),
@@ -163,11 +137,33 @@ describe("CliFlagsLive", () => {
       Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.some(false),
-          yes: false,
-          force: false,
           preview: true,
         });
         expect(flags.preview).toBe(true);
+      }),
+    );
+  });
+
+  describe("defaults", () => {
+    it.effect("all per-command flags default to false", () =>
+      Effect.gen(function* () {
+        const flags = yield* getFlags({ nonInteractive: Option.some(false) });
+        expect(flags.yes).toBe(false);
+        expect(flags.force).toBe(false);
+        expect(flags.preview).toBe(false);
+      }),
+    );
+
+    it.effect("explicit values override defaults", () =>
+      Effect.gen(function* () {
+        const flags = yield* getFlags({
+          nonInteractive: Option.some(false),
+          yes: true,
+          force: true,
+        });
+        expect(flags.yes).toBe(true);
+        expect(flags.force).toBe(true);
+        expect(flags.preview).toBe(false);
       }),
     );
   });

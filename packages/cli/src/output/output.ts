@@ -34,7 +34,7 @@ export class Output extends ServiceMap.Service<
       stream: Stream.Stream<string, E, R>,
     ) => Effect.Effect<void, AppError | E, R>;
     readonly result: <A, I>(
-      schema: Schema.Schema<A, I, never>,
+      schema: Schema.Codec<A, I>,
       data: A,
       textRenderer: (data: A) => string,
     ) => Effect.Effect<void>;

@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handlePublish } from "../../cli-commands/skills/publish/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
 
@@ -18,11 +19,15 @@ export const publishCommand = Command.make(
       Flag.withDescription("Named registry source to publish to"),
       Flag.optional,
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ extensions, registry }) =>
+  ({ extensions, registry, yes, force, preview }) =>
     withCommandRuntime(handlePublish({ extensions: [...extensions], registry }), {
       command: "skills publish",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+      flags: { yes, force, preview },
     }),
 ).pipe(
   Command.withDescription("Publish extensions to a registry"),

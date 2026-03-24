@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleRename } from "../../cli-commands/skills/rename/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -20,11 +21,15 @@ export const renameCommand = Command.make(
       Flag.withDescription("Configuration scope: project (default) or user"),
       Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ oldName, newName, scope }) =>
+  ({ oldName, newName, scope, yes, force, preview }) =>
     withCommandRuntime(handleRename({ oldName, newName }), {
       command: "skills rename",
       workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+      flags: { yes, force, preview },
     }),
 ).pipe(
   Command.withDescription("Rename a skill"),

@@ -165,48 +165,51 @@ Effect CLI provides `--help` and `--version` automatically through
 `Command.runWith()`. See CLAUDE.md for detailed flag semantics (`--yes`,
 `--non-interactive`, `--force`, `--preview`).
 
+### Global Flags
+
+Applied to every command via `Command.withGlobalFlags()`:
+
 | Flag                | Short | Type    | Purpose                                    |
 | ------------------- | ----- | ------- | ------------------------------------------ |
-| `--yes`             | `-y`  | boolean | Auto-accept confirmation prompts           |
 | `--non-interactive` |       | boolean | Disable all interactive prompts            |
-| `--force`           | `-f`  | boolean | Override constraints that would fail       |
-| `--preview`         |       | boolean | Display plan without applying              |
 | `--output-format`   |       | choice  | Output mode: `text`, `json`, `stream-json` |
 
+### Per-Command Flags
+
+Reusable `Flag` definitions in `cli-flags/service.ts`. Import and include in `Command.make()` for commands that need them:
+
+| Flag        | Short | Type    | Purpose                              |
+| ----------- | ----- | ------- | ------------------------------------ |
+| `--yes`     | `-y`  | boolean | Auto-accept confirmation prompts     |
+| `--force`   | `-f`  | boolean | Override constraints that would fail |
+| `--preview` |       | boolean | Display plan without applying        |
+
 ```typescript
-// In main.ts — define once
-const yesFlag = GlobalFlag.setting("axm-yes")({
-  flag: Flag.boolean("yes").pipe(
-    Flag.withAlias("y"),
-    Flag.withDescription("Auto-accept confirmation prompts"),
-  ),
+// Global flags — defined once, registered on root command
+const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
+  flag: Flag.boolean("non-interactive").pipe(Flag.optional, Flag.withDescription("...")),
 });
-
-const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
-  flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
-    Flag.withDescription("Output format (default: auto-detect from TTY)"),
-    Flag.optional,
-  ),
-});
-
-const globalFlags = [
-  nonInteractiveFlag,
-  yesFlag,
-  forceFlag,
-  previewFlag,
-  outputFormatFlag,
-] as const;
-
-// Register on root command
+const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
 Command.withGlobalFlags(globalFlags);
 
-// In any leaf command handler — yield to access
-(config) =>
-  Effect.gen(function* () {
-    const yes = yield* yesFlag;
-    const outputFormat = yield* outputFormatFlag;
-    const format = Option.getOrElse(outputFormat, () => (process.stdout.isTTY ? "text" : "json"));
-  });
+// Per-command flags — reusable Flag definitions (not GlobalFlag)
+import { yesFlag, forceFlag, previewFlag } from "../../cli-flags/index.js";
+
+Command.make("install", {
+  source: Argument.string("source").pipe(...),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+}, ({ source, yes, force, preview }) =>
+  withCommandRuntime(handleInstall({ source }), {
+    command: "skills install",
+    flags: { yes, force, preview },
+  }),
+);
+
+// Handlers read from the CliFlags service (unchanged)
+const flags = yield* CliFlags;
+if (flags.yes) { /* ... */ }
 ```
 
 ### `--quiet` Behavior

@@ -46,7 +46,7 @@ export const OutputLive = (format: OutputFormat = "text"): Layer.Layer<Output> =
       }) as Effect.Effect<void, AppError | E, R>,
 
     result: <A, I>(
-      schema: Schema.Schema<A, I, never>,
+      schema: Schema.Codec<A, I>,
       data: A,
       textRenderer: (data: A) => string,
     ) =>

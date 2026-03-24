@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import { Activity } from "./activity.js";
 import { ActivityLive } from "./activity-live.js";

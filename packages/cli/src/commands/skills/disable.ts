@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleDisable } from "../../cli-commands/skills/disable/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -17,10 +18,14 @@ export const disableCommand = Command.make(
       Flag.withDescription("Configuration scope: project (default) or user"),
       Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ name, scope }) =>
+  ({ name, scope, yes, force, preview }) =>
     withCommandRuntime(handleDisable({ name }), {
       command: "skills disable",
       workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+      flags: { yes, force, preview },
     }),
 ).pipe(Command.withDescription("Disable a skill without uninstalling it"));

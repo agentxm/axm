@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import type * as ServiceMap from "effect/ServiceMap";
 import { describe, expect, it } from "vitest";
 import { Input } from "./input.js";
 import { InputStructured } from "./input-structured.js";
@@ -45,14 +46,15 @@ describe("InputStructured", () => {
     { name: "path", call: (input: ServiceShape) => input.path({ message: "Path:" }) },
   ] as const;
 
-  type ServiceShape = Effect.Effect.Success<typeof Input>;
+  type ServiceShape = ServiceMap.Service.Shape<typeof Input>;
 
   for (const { name, call } of methods) {
     it(`${name} fails with PROMPT_IN_STRUCTURED_OUTPUT`, async () => {
-      const exit = await Effect.gen(function* () {
+      const program = Effect.gen(function* () {
         const input = yield* Input;
         return yield* call(input);
-      }).pipe(Effect.provide(InputStructured), Effect.runPromiseExit);
+      }).pipe(Effect.provide(InputStructured));
+      const exit = await Effect.runPromiseExit(program);
       expect(Exit.isFailure(exit)).toBe(true);
       if (Exit.isFailure(exit)) {
         const error = firstFailure(exit);

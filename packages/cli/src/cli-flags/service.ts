@@ -7,7 +7,7 @@ import { CliEnvConfig } from "../config/index.js";
 import { isInteractive } from "../utils/tty.js";
 
 // ---------------------------------------------------------------------------
-// Global flag definitions (parsed by Effect CLI, yielded by CliFlagsLive)
+// Global flag definition (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
 export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
@@ -17,23 +17,25 @@ export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
   ),
 });
 
-export const yesFlag = GlobalFlag.setting("axm-yes")({
-  flag: Flag.boolean("yes").pipe(
-    Flag.withAlias("y"),
-    Flag.withDescription("Auto-accept confirmation prompts"),
-  ),
-});
+// ---------------------------------------------------------------------------
+// Per-command flag definitions — import and include in Command.make() flags
+// for commands that need them. Not global — they only appear in --help for
+// commands that declare them.
+// ---------------------------------------------------------------------------
 
-export const forceFlag = GlobalFlag.setting("axm-force")({
-  flag: Flag.boolean("force").pipe(
-    Flag.withAlias("f"),
-    Flag.withDescription("Override constraints that would cause failure"),
-  ),
-});
+export const yesFlag = Flag.boolean("yes").pipe(
+  Flag.withAlias("y"),
+  Flag.withDescription("Auto-accept confirmation prompts"),
+);
 
-export const previewFlag = GlobalFlag.setting("axm-preview")({
-  flag: Flag.boolean("preview").pipe(Flag.withDescription("Display plan without applying")),
-});
+export const forceFlag = Flag.boolean("force").pipe(
+  Flag.withAlias("f"),
+  Flag.withDescription("Override constraints that would cause failure"),
+);
+
+export const previewFlag = Flag.boolean("preview").pipe(
+  Flag.withDescription("Display plan without applying"),
+);
 
 // ---------------------------------------------------------------------------
 // Service
@@ -51,25 +53,31 @@ export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
 ) {}
 
 // ---------------------------------------------------------------------------
-// Live layer — resolves global flags + env config into CliFlags
+// Layer factory — resolves nonInteractive from the global flag + env config,
+// and accepts per-command yes/force/preview values (default false).
 // ---------------------------------------------------------------------------
 
-export const CliFlagsLive = Layer.effect(
-  CliFlags,
-  Effect.gen(function* () {
-    const nonInteractiveOpt = yield* nonInteractiveFlag;
-    const envConfig = yield* CliEnvConfig;
-    return {
-      nonInteractive: Option.getOrElse(
-        nonInteractiveOpt,
-        () => envConfig.ci === "true" || !isInteractive(),
-      ),
-      yes: yield* yesFlag,
-      force: yield* forceFlag,
-      preview: yield* previewFlag,
-    };
-  }),
-);
+export const makeCliFlagsLayer = (perCommandFlags?: {
+  readonly yes?: boolean;
+  readonly force?: boolean;
+  readonly preview?: boolean;
+}) =>
+  Layer.effect(
+    CliFlags,
+    Effect.gen(function* () {
+      const nonInteractiveOpt = yield* nonInteractiveFlag;
+      const envConfig = yield* CliEnvConfig;
+      return {
+        nonInteractive: Option.getOrElse(
+          nonInteractiveOpt,
+          () => envConfig.ci === "true" || !isInteractive(),
+        ),
+        yes: perCommandFlags?.yes ?? false,
+        force: perCommandFlags?.force ?? false,
+        preview: perCommandFlags?.preview ?? false,
+      };
+    }),
+  );
 
 // ---------------------------------------------------------------------------
 // Test helper

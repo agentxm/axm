@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUninstallPack } from "../../cli-commands/packs/uninstall/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
 
@@ -11,11 +12,15 @@ export const uninstallCommand = Command.make(
     name: Argument.string("name").pipe(
       Argument.withDescription("Name or glob pattern of the pack to uninstall"),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ name }) =>
+  ({ name, yes, force, preview }) =>
     withCommandRuntime(handleUninstallPack({ name }), {
       command: "packs uninstall",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+      flags: { yes, force, preview },
     }),
 ).pipe(
   Command.withDescription("Uninstall a pack"),

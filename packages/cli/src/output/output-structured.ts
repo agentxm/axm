@@ -48,7 +48,7 @@ export const OutputStructured = (mode: StructuredMode): Layer.Layer<Output> => {
     stream: (level, stream) => collectAndLog(levelToLogLevel(level))(stream),
 
     result: <A, I>(
-      schema: Schema.Schema<A, I, never>,
+      schema: Schema.Codec<A, I>,
       data: A,
       _textRenderer: (data: A) => string,
     ) =>

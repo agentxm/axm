@@ -7,7 +7,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer, type MockOutputService } from "../output/index.js";
+import { makeOutputTestLayer, type MockOutputService, Output } from "../output/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
@@ -40,7 +40,7 @@ const messagesByMethod = (
 
 /** Creates a fresh output test layer and runs the effect, returning the mock for inspection. */
 const withOutput = <A, E>(
-  fn: (mock: MockOutputService) => Effect.Effect<A, E>,
+  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output>,
 ): Effect.Effect<A, E> => {
   const [outputLayer, mock] = makeOutputTestLayer();
   return fn(mock).pipe(Effect.provide(outputLayer));

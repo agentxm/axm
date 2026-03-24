@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstall } from "../../cli-commands/skills/install/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -24,13 +25,17 @@ export const installCommand = Command.make(
       Flag.atLeast(0),
     ),
     all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ source, scope, skill, all }) =>
+  ({ source, scope, skill, all, yes, force, preview }) =>
     withCommandRuntime(
       handleInstall({ source, scope: resolveWorkspaceScope(scope), skills: skill, all }),
       {
         command: "skills install",
         workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+        flags: { yes, force, preview },
       },
     ),
 ).pipe(

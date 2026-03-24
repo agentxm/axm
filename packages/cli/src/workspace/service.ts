@@ -74,7 +74,8 @@ import { isUserScope, type WorkspaceScope } from "./scope.js";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { ClackLog, ClackPrompt } from "../clack-effect/index.js";
+import { Output } from "../output/index.js";
+import { Input } from "../input/index.js";
 import { PromptCancelled } from "../prompt-cancelled.js";
 import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
@@ -204,7 +205,7 @@ import type {
 const augmentPlanWithReconciliation = (
   plan: Plan,
   getLockfileState: () => Effect.Effect<LockfileState, AppError>,
-  log: ServiceMap.Service.Shape<typeof ClackLog>,
+  output: ServiceMap.Service.Shape<typeof Output>,
   baseDir: string,
   workspaceDir: string,
   readSettingsSafe: (dir: string) => Effect.Effect<Settings, AppError>,
@@ -218,7 +219,7 @@ const augmentPlanWithReconciliation = (
     }
 
     if (lockfileState === "invalid") {
-      yield* log.warn("LOCKFILE_INVALID_RECONCILE");
+      yield* output.warn("LOCKFILE_INVALID_RECONCILE");
     }
 
     const reason = lockfileState as "missing" | "invalid";
@@ -310,7 +311,7 @@ export interface WorkspaceContextOptions {
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * clack prompt service is required for agent selection.
+ * Input service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Effect yielding WorkspaceContextService
@@ -333,8 +334,8 @@ const make = (options: WorkspaceContextOptions) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const envConfig = yield* CliEnvConfig;
-    const log = yield* ClackLog;
-    const prompt = yield* ClackPrompt;
+    const output = yield* Output;
+    const input = yield* Input;
     const semaphore = yield* Semaphore.make(1);
 
     const baseDir = path.dirname(workspaceDir);
@@ -615,14 +616,14 @@ const make = (options: WorkspaceContextOptions) =>
           });
           const showPlan = (targetPlan: Plan | ExecutedPlan) =>
             displayPlan(targetPlan, { verbosity }).pipe(
-              Effect.provide(Layer.succeed(ClackLog, log)),
+              Effect.provide(Layer.succeed(Output, output)),
             );
 
           // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
           const augmentedPlan = yield* augmentPlanWithReconciliation(
             plan,
             getLockfileState,
-            log,
+            output,
             baseDir,
             workspaceDir,
             readSettingsSafe,
@@ -643,7 +644,7 @@ const make = (options: WorkspaceContextOptions) =>
           if (hasErrors) {
             if (flags.force) {
               // --force: downgrade errors to warnings and proceed
-              yield* Effect.forEach(errorMessages, (msg) => log.warn(msg));
+              yield* Effect.forEach(errorMessages, (msg) => output.warn(msg));
             } else {
               yield* showPlan(augmentedPlan);
               return yield* makeAppError({
@@ -660,11 +661,11 @@ const make = (options: WorkspaceContextOptions) =>
             const warnMessages = allSteps
               .filter((s) => s.readiness === "warn")
               .map((s) => `${s.label}: ${s.warnMessage}`);
-            yield* Effect.forEach(warnMessages, (msg) => log.warn(msg));
+            yield* Effect.forEach(warnMessages, (msg) => output.warn(msg));
           }
 
           if (flags.preview) {
-            yield* log.info("Previewing changes...");
+            yield* output.info("Previewing changes...");
             yield* showPlan(augmentedPlan);
 
             // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
@@ -678,9 +679,9 @@ const make = (options: WorkspaceContextOptions) =>
             }
 
             if (!resolvedYes) {
-              const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
+              const confirmed = yield* input.confirm({ message: "Apply changes?" });
               if (!confirmed) {
-                yield* log.success("Cancelled.");
+                yield* output.success("Cancelled.");
                 return {
                   _tag: "ExecutedPlan",
                   name: augmentedPlan.name,
@@ -1585,7 +1586,7 @@ const make = (options: WorkspaceContextOptions) =>
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * clack prompt service is required for agent selection.
+ * Input service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext

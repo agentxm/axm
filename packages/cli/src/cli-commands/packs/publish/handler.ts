@@ -18,7 +18,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
@@ -93,11 +94,11 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
-  const log = yield* Log;
-  const spinnerSvc = yield* Spinner;
+  const output = yield* Output;
+  const activity = yield* Activity;
   const base = ws.baseDir;
 
-  yield* log.info("axm packs publish");
+  yield* output.info("axm packs publish");
 
   // Step 1: Resolve pack name
   const hasNamespace = args.pack.startsWith("@") && args.pack.includes("/");
@@ -119,7 +120,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const fqn = yield* parseFqn(packName);
 
   // Step 2: Validate managed pack exists
-  const manifestPath = yield* spinnerSvc.withSpinner(
+  const manifestPath = yield* activity.withSpinner(
     "Validating pack...",
     () =>
       Effect.gen(function* () {
@@ -246,7 +247,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             const step = yield* makeDependencyStep(parsed, depFqn, registryName);
             dependencySteps.push(step);
           } else {
-            yield* log.warn(`Skipping non-local dependency: ${depFqn}`);
+            yield* output.warn(`Skipping non-local dependency: ${depFqn}`);
           }
         }),
       { concurrency: "unbounded" },
@@ -293,7 +294,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     }),
   );
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });
 
 // -----------------------------------------------------------------------------

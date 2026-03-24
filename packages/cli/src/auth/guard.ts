@@ -14,9 +14,9 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/app-error.js";
 import { makeAppError } from "../app-error/app-error.js";
-import { ClackLog } from "../clack-effect/log/service.js";
-import { ClackPrompt } from "../clack-effect/prompt/service.js";
-import { ClackSpinner } from "../clack-effect/spinner/service.js";
+import { Output } from "../output/index.js";
+import { Input } from "../input/index.js";
+import { Activity } from "../activity/index.js";
 import { CliFlags } from "../cli-flags/index.js";
 import { CliEnvConfig } from "../config/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
@@ -65,9 +65,9 @@ export const withAuthGuard = <A, E, R>(
   | CliFlags
   | CliEnvConfig
   | RegistryUrl
-  | ClackPrompt
-  | ClackLog
-  | ClackSpinner
+  | Input
+  | Output
+  | Activity
 > =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;
@@ -87,8 +87,8 @@ export const withAuthGuard = <A, E, R>(
 
     // Interactive: prompt (auto-accept with --yes)
     if (!flags.yes) {
-      const prompt = yield* ClackPrompt;
-      const shouldLogin = yield* prompt.confirm({
+      const input = yield* Input;
+      const shouldLogin = yield* input.confirm({
         message: "You need to sign in to publish. Sign in now?",
       });
       if (!shouldLogin) {
@@ -111,19 +111,19 @@ const inlineLogin = (registryUrl: string) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
-    const log = yield* ClackLog;
-    const spinnerSvc = yield* ClackSpinner;
+    const output = yield* Output;
+    const activity = yield* Activity;
 
     // Initiate device flow
     const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
     const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
     // Display URL and code
-    yield* log.step(`Open this URL in your browser: ${verificationUrl}`);
-    yield* log.step(`Enter code: ${deviceFlow.user_code}`);
+    yield* output.step(`Open this URL in your browser: ${verificationUrl}`);
+    yield* output.step(`Enter code: ${deviceFlow.user_code}`);
 
     // Poll with spinner
-    const token = yield* spinnerSvc.withSpinner(
+    const token = yield* activity.withSpinner(
       "Waiting for approval in browser...",
       () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
       { successMessage: "Login successful." },
@@ -143,5 +143,5 @@ const inlineLogin = (registryUrl: string) =>
       expires_at: token.expires_at,
     });
 
-    yield* log.success(`Logged in as ${handle}`);
+    yield* output.success(`Logged in as ${handle}`);
   });

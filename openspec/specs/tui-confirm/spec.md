@@ -2,18 +2,18 @@
 
 ### Requirement: Confirm prompt collects yes/no boolean
 
-The confirm capability SHALL be provided by `ClackPrompt.confirm` from `src/clack-effect/prompt/`. It SHALL accept a config with `message` (required) and optional `initialValue` and return `Effect<boolean, AppError | PromptCancelled>`.
+The confirm capability SHALL be provided by `Input.confirm` from `src/input/`. It SHALL accept a config with `message` (required) and optional `initialValue` and return `Effect<boolean, AppError | PromptCancelled>`.
 
 #### Scenario: Confirm defaults to yes
 
-- **WHEN** a handler calls `prompt.confirm({ message: "Continue?" })`
+- **WHEN** a handler calls `input.confirm({ message: "Continue?" })`
 - **THEN** the prompt SHALL render with "Continue?" and default to yes
 - **WHEN** the user presses Enter without changing the choice
 - **THEN** the effect SHALL succeed with `true`
 
 #### Scenario: Confirm with initial value false
 
-- **WHEN** a handler calls `prompt.confirm({ message: "Delete?", initialValue: false })`
+- **WHEN** a handler calls `input.confirm({ message: "Delete?", initialValue: false })`
 - **THEN** the default choice SHALL be no
 - **WHEN** the user presses Enter
 - **THEN** the effect SHALL succeed with `false`
@@ -25,23 +25,23 @@ The confirm capability SHALL be provided by `ClackPrompt.confirm` from `src/clac
 
 ### Requirement: Confirm has a test layer
 
-Confirm tests SHALL use `makeClackPromptTestLayer()` and verify `confirm` method calls and configured outcomes.
+Confirm tests SHALL use `makeInputTestLayer()` and verify `confirm` method calls and configured outcomes.
 
 #### Scenario: Mock returns configured value
 
-- **WHEN** a test configures the clack prompt mock to return `true`
-- **AND** code calls `prompt.confirm(...)`
+- **WHEN** a test configures the input mock to return `true` for confirm
+- **AND** code calls `input.confirm(...)`
 - **THEN** the effect SHALL succeed with `true` without rendering UI
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test configures the clack prompt mock to cancel
-- **AND** code calls `prompt.confirm(...)`
+- **WHEN** a test configures the input mock to cancel
+- **AND** code calls `input.confirm(...)`
 - **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for confirm
 
-The dev command at `src/dev-cli-commands/tui/confirm/command.ts` SHALL provide a confirm demo backed by `ClackPrompt` and `ClackLive`.
+The dev command at `src/dev-cli-commands/tui/confirm/command.ts` SHALL provide a confirm demo backed by `Input` and `InputLive`.
 
 #### Scenario: Run confirm demo
 

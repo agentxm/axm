@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
-import { ClackLog } from "../../../clack-effect/log/service.js";
+import { Output } from "../../../output/index.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -26,14 +26,14 @@ import { ClackLog } from "../../../clack-effect/log/service.js";
 export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
-  const log = yield* ClackLog;
+  const output = yield* Output;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Load credentials
   const existing = yield* credStore.load(registryUrl);
 
   if (Option.isNone(existing)) {
-    yield* log.info("Not logged in.");
+    yield* output.info("Not logged in.");
     return;
   }
 
@@ -47,9 +47,11 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   // Step 4: Display result
   if (Option.isSome(revokeResult)) {
-    yield* log.success("Logged out successfully.");
+    yield* output.success("Logged out successfully.");
   } else {
-    yield* log.warn("Signed out locally, but remote revoke failed.");
-    yield* log.info("Your token may still be active on the server. It will expire automatically.");
+    yield* output.warn("Signed out locally, but remote revoke failed.");
+    yield* output.info(
+      "Your token may still be active on the server. It will expire automatically.",
+    );
   }
 }, Effect.asVoid);

@@ -2,11 +2,11 @@
 
 ### Requirement: Multiselect prompt collects multiple selections from a list
 
-The multiselect capability SHALL be provided by `ClackPrompt.multiselect` from `src/clack-effect/prompt/`. It SHALL accept `message`, `options: ReadonlyArray<ClackOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, AppError | PromptCancelled>`. Call sites that currently pass `items + toOption` and `Option`-wrapped config fields SHALL map to clack `options` and unwrap optional values before invoking the prompt.
+The multiselect capability SHALL be provided by `Input.multiselect` from `src/input/`. It SHALL accept `message`, `options: ReadonlyArray<InputOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, AppError | PromptCancelled>`.
 
 #### Scenario: Basic multiselect
 
-- **WHEN** a handler calls `prompt.multiselect({ message: "Skills?", options, ... })`
+- **WHEN** a handler calls `input.multiselect({ message: "Skills?", options })`
 - **THEN** the prompt SHALL render with toggleable selections
 - **WHEN** the user selects two options and submits
 - **THEN** the effect SHALL succeed with an array of the selected option `value` entries
@@ -28,23 +28,23 @@ The multiselect capability SHALL be provided by `ClackPrompt.multiselect` from `
 
 ### Requirement: Multiselect has a test layer
 
-Multiselect tests SHALL use `makeClackPromptTestLayer()` and assert `multiselect` calls and returned arrays.
+Multiselect tests SHALL use `makeInputTestLayer()` and assert `multiselect` calls and returned arrays.
 
 #### Scenario: Mock returns selected values
 
-- **WHEN** a test configures the clack prompt mock to return an array of selected values
-- **AND** code calls `prompt.multiselect(...)`
+- **WHEN** a test configures the input mock to return an array of selected values
+- **AND** code calls `input.multiselect(...)`
 - **THEN** the effect SHALL succeed with those values without rendering UI
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test configures the clack prompt mock to cancel
-- **AND** code calls `prompt.multiselect(...)`
+- **WHEN** a test configures the input mock to cancel
+- **AND** code calls `input.multiselect(...)`
 - **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for multiselect
 
-The dev command at `src/dev-cli-commands/tui/multiselect/command.ts` SHALL provide a multiselect demo backed by `ClackPrompt` and `ClackLive`.
+The dev command at `src/dev-cli-commands/tui/multiselect/command.ts` SHALL provide a multiselect demo backed by `Input` and `InputLive`.
 
 #### Scenario: Run multiselect demo
 

@@ -24,7 +24,9 @@ import {
   type Source,
 } from "../../../sources/index.js";
 import type { InputParseResult } from "../../../sources/parser.js";
-import { Log, Spinner, Multiselect, TextInput } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
+import { Input } from "../../../input/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
@@ -182,12 +184,11 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
   InstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
+    const output = yield* Output;
+    const activity = yield* Activity;
     const skillMgr = yield* SkillManager;
     const ws = yield* Workspace;
-    const multiselect = yield* Multiselect;
-    const textInput = yield* TextInput;
+    const input = yield* Input;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
     const flags = yield* CliFlags;
@@ -196,11 +197,10 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(Log, log),
-      Layer.succeed(Spinner, spinnerSvc),
+      Layer.succeed(Output, output),
+      Layer.succeed(Activity, activity),
       Layer.succeed(Workspace, ws),
-      Layer.succeed(Multiselect, multiselect),
-      Layer.succeed(TextInput, textInput),
+      Layer.succeed(Input, input),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(CliFlags, flags),
@@ -219,9 +219,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           const scopeLabel = isUserScope(args.scope) ? "user" : "project";
-          yield* log.info(`axm skills install (${scopeLabel})`);
+          yield* output.info(`axm skills install (${scopeLabel})`);
 
-          const parsed = yield* spinnerSvc.withSpinner(
+          const parsed = yield* activity.withSpinner(
             "Parsing source...",
             () =>
               Effect.gen(function* () {
@@ -274,7 +274,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           } = parsed;
 
           if (resolutionProbes.length > 0) {
-            yield* log.message(
+            yield* output.message(
               `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
             );
           }
@@ -311,7 +311,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          return yield* spinnerSvc.withSpinner(
+          return yield* activity.withSpinner(
             "Discovering skills...",
             () =>
               sources
@@ -369,8 +369,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           );
 
           if (Array.isReadonlyArrayEmpty(selectedSkills)) {
-            yield* log.warn("No skills selected.");
-            yield* log.success("Nothing to install.");
+            yield* output.warn("No skills selected.");
+            yield* output.success("Nothing to install.");
             return { skillsToInstall: [] } satisfies InstallSkillCommandIntent;
           }
 

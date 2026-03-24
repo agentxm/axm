@@ -14,11 +14,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeActivityTestLayer } from "../../../activity/index.js";
+import { makeInputTestLayer, type InputPromptBehavior } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
@@ -117,30 +115,26 @@ describe("packs install handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: import("../../../clack-effect/index.js").ConfirmBehavior;
-      selectBehavior?: import("../../../clack-effect/index.js").SelectBehavior;
-      multiselectBehavior?: import("../../../clack-effect/index.js").MultiselectBehavior;
+      confirmBehavior?: InputPromptBehavior;
+      selectBehavior?: InputPromptBehavior;
+      multiselectBehavior?: InputPromptBehavior;
     },
     flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer(
-      tuiConfig?.confirmBehavior ?? { type: "return", value: true },
-    );
-    const [selectLayer] = makeClackPromptTestLayer(
-      tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
-    );
-    const [multiselectLayer] = makeClackPromptTestLayer(
-      tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
-    );
+    const [outputLayer, mockLog] = makeOutputTestLayer();
+    const [activityLayer, mockSpinner] = makeActivityTestLayer();
+    const [inputLayer] = makeInputTestLayer({
+      methodBehaviors: {
+        confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
+        select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
+        multiselect: tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
+      },
+    });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      outputLayer,
+      activityLayer,
+      inputLayer,
       CliFlagsTest({ yes: true, ...flagsOverrides }),
       TelemetryClientTest,
       CliEnvConfig.testDefaults,
@@ -176,18 +170,20 @@ describe("packs install handler", () => {
     mockService: SourceHostProvidersService,
     flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
-    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
+    const [outputLayer, mockLog] = makeOutputTestLayer();
+    const [activityLayer, mockSpinner] = makeActivityTestLayer();
+    const [inputLayer] = makeInputTestLayer({
+      methodBehaviors: {
+        confirm: { type: "return", value: true },
+        select: { type: "select", index: 0 },
+        multiselect: { type: "multiselect", indices: [] },
+      },
+    });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      outputLayer,
+      activityLayer,
+      inputLayer,
       CliFlagsTest({ yes: true, preview: true, ...flagsOverrides }),
       TelemetryClientTest,
       CliEnvConfig.testDefaults,

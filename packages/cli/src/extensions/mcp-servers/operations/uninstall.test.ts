@@ -10,7 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import type { McpServerLockEntry } from "../../../lockfile/schema.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -129,7 +129,7 @@ const withServices = (
   Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
-    ClackLogTestLayer,
+    makeOutputTestLayer()[0],
   );
 
 const makeOp = (

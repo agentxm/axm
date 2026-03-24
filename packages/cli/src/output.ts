@@ -1,6 +1,4 @@
 import * as Console from "effect/Console";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +17,7 @@ export type OutputFormat = "text" | "json" | "stream-json";
 //   progress → drive progress bars (phase, percent, message)
 //   log      → informational messages at different severity levels
 //   error    → typed error with stable code for programmatic handling
-//   result   → final output (emitted by writeOutput, always last)
+//   result   → final output (emitted last, wraps command-specific data)
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
@@ -48,50 +46,7 @@ export type ErrorEvent = typeof ErrorEventSchema.Type;
 export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent;
 
 // ---------------------------------------------------------------------------
-// Format resolution
-//
-// Resolution cascade:
-//   1. Explicit --output-format flag (user override)
-//   2. TTY → "text" (interactive terminal)
-//   3. Pipe + instant command → "json" (single parseable object)
-//   4. Pipe + long-running command → "stream-json" (NDJSON with progress)
+// Event emitter — writes a single NDJSON line to stdout
 // ---------------------------------------------------------------------------
 
-export const resolveOutputFormat = (
-  explicit: Option.Option<OutputFormat>,
-  isLongRunning: boolean = false,
-): OutputFormat =>
-  Option.getOrElse(explicit, () =>
-    process.stdout.isTTY ? "text" : isLongRunning ? "stream-json" : "json",
-  );
-
-// ---------------------------------------------------------------------------
-// Output helpers
-// ---------------------------------------------------------------------------
-
-export const writeOutput = <S extends Schema.Encoder<unknown>>(
-  format: OutputFormat,
-  schema: S,
-  data: S["Type"],
-  textRenderer: (data: S["Type"]) => string,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    switch (format) {
-      case "text":
-        yield* Console.log(textRenderer(data));
-        break;
-      case "json": {
-        const encoded = Schema.encodeSync(schema)(data);
-        yield* Console.log(JSON.stringify(encoded));
-        break;
-      }
-      case "stream-json": {
-        const encoded = Schema.encodeSync(schema)(data);
-        yield* Console.log(JSON.stringify({ type: "result", data: encoded }));
-        break;
-      }
-    }
-  });
-
-export const emitEvent = (event: StreamEvent): Effect.Effect<void> =>
-  Console.log(JSON.stringify(event));
+export const emitEvent = (event: StreamEvent) => Console.log(JSON.stringify(event));

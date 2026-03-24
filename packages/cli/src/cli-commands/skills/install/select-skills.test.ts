@@ -9,12 +9,8 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import {
-  type Log,
-  type Multiselect,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer, type Output } from "../../../output/index.js";
+import { makeInputTestLayer, type Input } from "../../../input/index.js";
 import { type CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 import { AppError } from "../../../app-error/index.js";
@@ -32,16 +28,18 @@ const makeSkill = (name: string): SkillExtensionRef => ({
   location: `file:///fake/${name}`,
 });
 
-const [logLayer] = makeLogTestLayer();
-const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
-const TestLayer = Layer.mergeAll(logLayer, multiselectLayer, CliFlagsTest());
+const [outputLayer] = makeOutputTestLayer();
+const [inputLayer] = makeInputTestLayer({
+  methodBehaviors: { multiselect: { type: "multiselect", indices: [0, 1] } },
+});
+const TestLayer = Layer.mergeAll(outputLayer, inputLayer, CliFlagsTest());
 
-const provide = <A, E>(effect: Effect.Effect<A, E, Log | Multiselect | CliFlags>) =>
+const provide = <A, E>(effect: Effect.Effect<A, E, Output | Input | CliFlags>) =>
   effect.pipe(Effect.provide(TestLayer));
 
 const provideWithFlags = (overrides: Parameters<typeof CliFlagsTest>[0]) => {
-  const layer = Layer.mergeAll(logLayer, multiselectLayer, CliFlagsTest(overrides));
-  return <A, E>(effect: Effect.Effect<A, E, Log | Multiselect | CliFlags>) =>
+  const layer = Layer.mergeAll(outputLayer, inputLayer, CliFlagsTest(overrides));
+  return <A, E>(effect: Effect.Effect<A, E, Output | Input | CliFlags>) =>
     effect.pipe(Effect.provide(layer));
 };
 

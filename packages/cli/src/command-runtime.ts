@@ -19,6 +19,7 @@ import * as Option from "effect/Option";
 import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
 import type { AppError } from "./app-error/index.js";
+import type { OutputFormat } from "./output.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
 import { AuthClientLive } from "./auth/auth-client.js";
@@ -31,7 +32,9 @@ import {
   previewFlag,
   yesFlag,
 } from "./cli-flags/index.js";
-import { ClackLive, ClackStructuredLive } from "./clack-effect/index.js";
+import { OutputLive, OutputStructured } from "./output/index.js";
+import { ActivityLive, ActivityStructured } from "./activity/index.js";
+import { InputLive, InputStructured } from "./input/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "./config/index.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
 import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
@@ -153,7 +156,7 @@ export const baseLayer = Layer.mergeAll(
 
 // ---------------------------------------------------------------------------
 // Unified command runtime — resolves global flags and provides per-command
-// services (CliFlags, Clack, Telemetry) within the Effect context.
+// services (CliFlags, Output/Activity/Input, Telemetry) within the Effect context.
 //
 // Optionally provides Workspace + SourceHostProviders when workspace options
 // are passed (task 2.4 — workspace as scoped layer).
@@ -198,24 +201,29 @@ export const withCommandRuntime = (
       ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
       : Layer.empty;
 
-    // Resolve output mode to select the appropriate Clack layer.
-    // Only use structured Clack when the user explicitly requests it via
-    // --output-format json/stream-json. Auto-detection (TTY) is handled by
-    // resolveOutputFormat() inside command handlers for writeOutput() calls,
-    // but Clack services default to interactive (live) unless overridden.
+    // Resolve output mode to select the appropriate UI layers.
+    // Only use structured layers when the user explicitly requests it via
+    // --output-format json/stream-json. UI services default to interactive
+    // (live) unless overridden.
     const explicitFormat = yield* outputFormatFlag;
-    const clackLayer =
-      Option.isSome(explicitFormat) && explicitFormat.value !== "text"
-        ? ClackStructuredLive(explicitFormat.value)
-        : Layer.provide(ClackLive, cliFlagsLayer);
+    const isStructured = Option.isSome(explicitFormat) && explicitFormat.value !== "text";
 
-    // Per-command layer: CliFlags + Clack + Telemetry + debug logging
-    const commandLayer = Layer.mergeAll(
-      cliFlagsLayer,
-      clackLayer,
-      telemetryLayer,
-      debugLoggerLayer,
-    );
+    // Assertion needed: TS doesn't narrow Option.value via boolean check above
+    const structuredMode = isStructured
+      ? (explicitFormat.value as Exclude<OutputFormat, "text">)
+      : undefined;
+
+    // New Output/Activity/Input service layers
+    const uiLayer = structuredMode
+      ? Layer.mergeAll(
+          OutputStructured(structuredMode),
+          ActivityStructured(structuredMode),
+          InputStructured,
+        )
+      : Layer.mergeAll(OutputLive("text"), ActivityLive, Layer.provide(InputLive, cliFlagsLayer));
+
+    // Per-command layer: CliFlags + Output/Activity/Input + Telemetry + debug logging
+    const commandLayer = Layer.mergeAll(cliFlagsLayer, uiLayer, telemetryLayer, debugLoggerLayer);
 
     // Build the provided program — optionally with Workspace (task 2.4)
     const catchErrors = (effect: AnyProgram) =>
@@ -268,8 +276,8 @@ export const withCommandRuntime = (
         Layer.provideMerge(cliFlagsLayer, CliEnvConfigOrDie),
       );
       const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-      // commandLayer provides ClackLog/ClackPrompt that wsLayer may depend on,
-      // so use provideMerge to satisfy dependencies in order.
+      // commandLayer provides Output/Activity/Input services
+      // that wsLayer may depend on, so use provideMerge to satisfy dependencies in order.
       const fullLayer = Layer.provideMerge(
         Layer.mergeAll(wsLayer, sourceProvidersLayer),
         commandLayer,

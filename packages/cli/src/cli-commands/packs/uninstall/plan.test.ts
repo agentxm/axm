@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
 import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 
@@ -71,8 +71,9 @@ const makeOp = (name: string) => ({
 
 const workspaceMock = {} as WorkspaceContextService;
 
+const [OutputTestLayer] = makeOutputTestLayer();
 const testLayer = Layer.mergeAll(
-  ClackLogTestLayer,
+  OutputTestLayer,
   Layer.succeed(Workspace, workspaceMock),
   Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
   Layer.succeed(Path.Path, {} as Path.Path),

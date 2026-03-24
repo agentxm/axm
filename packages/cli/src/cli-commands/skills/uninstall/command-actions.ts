@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlob } from "../../../skills/index.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
@@ -70,14 +70,14 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
   UninstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const skillMgr = yield* SkillManager;
 
     const parseArgs = (
       args: UninstallHandlerArgs,
     ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
       Effect.gen(function* () {
-        yield* log.info("axm skills uninstall");
+        yield* output.info("axm skills uninstall");
 
         // Load installed skills for glob expansion
         const taxonomyInstalled = yield* ws.getInstalledSkills();
@@ -88,8 +88,8 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
         // Handle glob matching zero skills
         if (args.skill.includes("*") && skillNames.length === 0) {
-          yield* log.warn(`No skills matched pattern "${args.skill}"`);
-          yield* log.success("Nothing to uninstall.");
+          yield* output.warn(`No skills matched pattern "${args.skill}"`);
+          yield* output.success("Nothing to uninstall.");
           return { skills: [] } satisfies ParsedSkillUninstallArgs;
         }
 

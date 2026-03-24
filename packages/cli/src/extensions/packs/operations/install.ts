@@ -18,7 +18,7 @@ import {
 } from "../../../lockfile/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -71,11 +71,11 @@ export type InstallPackOperation = Operation<"install-pack", InstallPackOperatio
  */
 export const installPack: OperationHandler<
   InstallPackOperation,
-  Workspace | Log | SourceHostProviders | FileSystem.FileSystem | Path.Path
+  Workspace | Output | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const sources = yield* SourceHostProviders;
     const path = yield* Path.Path;
 
@@ -144,7 +144,7 @@ export const installPack: OperationHandler<
         resolvedMcpServers: { ...op.args.resolvedMcpServers },
         versionConstraint: op.args.versionConstraint,
       })
-      .pipe(Effect.catch((e) => log.warn(`Pack metadata update failed: ${String(e)}`)));
+      .pipe(Effect.catch((e) => output.warn(`Pack metadata update failed: ${String(e)}`)));
 
     return {
       result: "success",

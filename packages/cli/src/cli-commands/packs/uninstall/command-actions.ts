@@ -28,7 +28,7 @@ import {
   type ExtensionTarget,
 } from "../../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { expandGlob } from "../../../skills/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
 import type {
@@ -88,7 +88,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
   UninstallPackCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const packMgr = yield* PackManager;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
@@ -96,7 +96,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
-        yield* log.info("axm packs uninstall");
+        yield* output.info("axm packs uninstall");
 
         const lockedPacks = yield* ws.getLockedPacks();
         const isGlob = args.name.includes("*");
@@ -104,8 +104,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
         // Handle glob matching zero packs
         if (isGlob && packNames.length === 0) {
-          yield* log.warn(`No packs matched pattern "${args.name}"`);
-          yield* log.success("Nothing to uninstall.");
+          yield* output.warn(`No packs matched pattern "${args.name}"`);
+          yield* output.success("Nothing to uninstall.");
           return { packNames: [], isGlob, earlyExit: true };
         }
 

@@ -15,11 +15,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import {
-  makeClackLogTestLayer,
-  makeClackPromptTestLayer,
-  makeClackSpinnerTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeActivityTestLayer } from "../../../activity/index.js";
+import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
@@ -121,18 +119,20 @@ describe("installPack operation handler", () => {
   });
 
   const makeLayers = (mockService: SourceHostProvidersService) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [spinnerLayer] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
-    const [multiselectLayer] = makeClackPromptTestLayer({ type: "multiselect", indices: [] });
+    const [outputLayer, mockLog] = makeOutputTestLayer();
+    const [activityLayer] = makeActivityTestLayer();
+    const [inputLayer] = makeInputTestLayer({
+      methodBehaviors: {
+        confirm: { type: "return", value: true },
+        select: { type: "select", index: 0 },
+        multiselect: { type: "multiselect", indices: [] },
+      },
+    });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      outputLayer,
+      activityLayer,
+      inputLayer,
       CliFlagsTest(),
       CliEnvConfig.testDefaults,
     );

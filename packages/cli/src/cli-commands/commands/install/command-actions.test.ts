@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { makeClackPromptTestLayer } from "../../../clack-effect/index.js";
+import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -52,7 +52,7 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } as unknown as ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
-const [promptLayer] = makeClackPromptTestLayer({
+const [promptLayer] = makeInputTestLayer({
   methodBehaviors: {
     confirm: { type: "return", value: true },
     text: { type: "return", value: "" },

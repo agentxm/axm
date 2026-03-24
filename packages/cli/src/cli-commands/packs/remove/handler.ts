@@ -23,7 +23,7 @@ import {
 } from "../../../extensions/packs/manifest-schema.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -57,9 +57,9 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm packs remove");
+  yield* output.info("axm packs remove");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.getConfiguredPacks();
@@ -175,5 +175,5 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }));
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

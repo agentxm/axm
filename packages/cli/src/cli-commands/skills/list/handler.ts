@@ -7,7 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 
@@ -40,7 +40,7 @@ export interface ListHandlerArgs {
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "skills list" });
-  const log = yield* Log;
+  const output = yield* Output;
   const ws = yield* Workspace;
   const skills = yield* ws.getLockedSkills();
 
@@ -52,7 +52,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       : entries;
 
   if (filtered.length === 0) {
-    yield* log.info("No skills installed");
+    yield* output.info("No skills installed");
     return;
   }
 
@@ -61,7 +61,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     filtered,
     ([name, entry]) => {
       const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-      return log.message(`${name}  (${entry.type})  [${agents}]`);
+      return output.message(`${name}  (${entry.type})  [${agents}]`);
     },
     { discard: true },
   );

@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -82,7 +82,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
   readonly serverName: string;
 }) =>
   Effect.gen(function* () {
-    const log = yield* Log;
+    const output = yield* Output;
     const ws = yield* Workspace;
 
     const unknownConfiguredAgentIds =
@@ -99,7 +99,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* log.warn(
+      yield* output.warn(
         `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
       );
     }
@@ -171,7 +171,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
           outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
         )
         .join(", ");
-      yield* log.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+      yield* output.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
     }
 
     return summarizeAgentSync(outcomes);
@@ -190,7 +190,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
  */
 export const uninstallMcpServer: OperationHandler<
   UninstallMcpServerOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Output
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

@@ -17,7 +17,8 @@ import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { PackManager } from "../../../extensions/packs/manager.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -165,8 +166,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const ws = yield* Workspace;
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
+    const output = yield* Output;
+    const activity = yield* Activity;
     const packMgr = yield* PackManager;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
@@ -178,8 +179,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Workspace, ws),
-      Layer.succeed(Log, log),
-      Layer.succeed(Spinner, spinnerSvc),
+      Layer.succeed(Output, output),
+      Layer.succeed(Activity, activity),
       Layer.succeed(CliFlags, cliFlags),
     );
 
@@ -199,7 +200,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           // Handle bare name (e.g., "my-pack")
           if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
             const namespace = yield* ws.getConfiguredNamespace();
-            yield* log.info(
+            yield* output.info(
               `Source resolution: ${trimmed} -> ${namespace}/packs/${parsed.value.pattern.name}`,
             );
             return {
@@ -218,7 +219,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             const constraint = trimmed.slice(atIndex + 1);
             if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
               const namespace = yield* ws.getConfiguredNamespace();
-              yield* log.info(
+              yield* output.info(
                 `Source resolution: ${trimmed} -> ${namespace}/packs/${name}@${constraint}`,
               );
               return {
@@ -277,7 +278,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedPackInstallArgs) =>
       provide(
         Effect.gen(function* () {
-          const source = yield* spinnerSvc.withSpinner(
+          const source = yield* activity.withSpinner(
             "Parsing source...",
             () =>
               resolveSource(parsed.resolvedInput).pipe(
@@ -326,7 +327,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          const discovered = yield* spinnerSvc.withSpinner(
+          const discovered = yield* activity.withSpinner(
             "Fetching pack from registry...",
             () =>
               Effect.gen(function* () {
@@ -433,11 +434,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
                 // Log resolution probes for bare-name inputs
                 if (req.packName && probes.length > 0) {
-                  yield* log.info(`Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`);
+                  yield* output.info(
+                    `Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`,
+                  );
                 }
 
                 const registryHosts = yield* ws.getRegistrySourceHosts();
-                yield* log.info(
+                yield* output.info(
                   `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
                 );
 

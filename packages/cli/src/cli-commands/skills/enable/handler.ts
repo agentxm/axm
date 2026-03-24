@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../../app-error/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
@@ -34,9 +34,9 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "skills enable" });
   const ws = yield* Workspace;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm skills enable");
+  yield* output.info("axm skills enable");
 
   // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
   const installedSkills = yield* ws.getInstalledSkills();
@@ -53,8 +53,8 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   // Validate: skill is currently disabled
   if (entry.enabled) {
-    yield* log.info(`Skill '${args.name}' is already enabled`);
-    yield* log.success("Nothing to do.");
+    yield* output.info(`Skill '${args.name}' is already enabled`);
+    yield* output.success("Nothing to do.");
     return;
   }
 
@@ -74,5 +74,5 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "enable-skill": enableSkill }));
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

@@ -17,7 +17,7 @@ import {
   type SourceHostProvidersService,
 } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
@@ -87,8 +87,9 @@ const runBuildPlan = ({
   };
 
   // Provide all required services (FileSystem/Path/Log only needed inside run closures, not plan construction)
+  const [outputTestLayer] = makeOutputTestLayer();
   const testLayer = Layer.mergeAll(
-    ClackLogTestLayer,
+    outputTestLayer,
     Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
     Layer.succeed(Path.Path, {} as Path.Path),
     CliEnvConfig.testDefaults,

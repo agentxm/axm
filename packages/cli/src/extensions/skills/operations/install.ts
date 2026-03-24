@@ -16,7 +16,7 @@ import type { AgentId } from "../../../agents/types.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
@@ -355,12 +355,12 @@ const materializeSkill = (
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log | SourceHostProviders | CliEnvConfig
+  FileSystem.FileSystem | Path.Path | Workspace | Output | SourceHostProviders | CliEnvConfig
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const path = yield* Path.Path;
-    const log = yield* Log;
+    const output = yield* Output;
     const { ref } = op.args;
     const agents = yield* ws.getConfiguredAgents();
     const sanitizedName = sanitizeName(ref.skill.name);
@@ -395,7 +395,7 @@ export const installSkill: OperationHandler<
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* log.warn(
+      yield* output.warn(
         `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
       );
     }
@@ -443,7 +443,7 @@ export const installSkill: OperationHandler<
             : `${agentId}: ${outcome.reason}`,
         )
         .join(", ");
-      yield* log.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
+      yield* output.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
     }
 
     const installableTargets: Array<{ agentId: AgentId; targetDir: string }> = [];
@@ -505,7 +505,7 @@ export const installSkill: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)
       : ws.setSkill(skillArgs);
-    yield* writeEffect.pipe(Effect.catch((e) => log.warn(`Skill update failed: ${String(e)}`)));
+    yield* writeEffect.pipe(Effect.catch((e) => output.warn(`Skill update failed: ${String(e)}`)));
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);

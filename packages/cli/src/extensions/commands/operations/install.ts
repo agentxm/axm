@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import { makeAppError } from "../../../app-error/index.js";
@@ -185,11 +185,11 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
  */
 export const installCommand: OperationHandler<
   InstallCommandOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Output
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
@@ -211,7 +211,9 @@ export const installCommand: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setCommandLock({ name: ref.command.name, lockEntry })
       : ws.setCommand({ name: ref.command.name, lockEntry });
-    yield* writeEffect.pipe(Effect.catch((e) => log.warn(`Command update failed: ${String(e)}`)));
+    yield* writeEffect.pipe(
+      Effect.catch((e) => output.warn(`Command update failed: ${String(e)}`)),
+    );
 
     return {
       result: "success",

@@ -8,13 +8,13 @@
  */
 
 import type { SkillExtensionRef } from "../../../sources/index.js";
-import { Log, Multiselect } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Input } from "../../../input/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -43,7 +43,7 @@ export const determineSkillsToInstall = (
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
-    const log = yield* Log;
+    const output = yield* Output;
     const flags = yield* CliFlags;
 
     // 1. --skill specified -> glob-aware matching
@@ -67,7 +67,7 @@ export const determineSkillsToInstall = (
 
     // 2. --all / --non-interactive -> return all
     if (args.all || flags.nonInteractive) {
-      if (args.all) yield* log.info(`Installing all ${skills.length} skill(s)`);
+      if (args.all) yield* output.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }
 
@@ -88,19 +88,17 @@ export const determineSkillsToInstall = (
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
   Effect.gen(function* () {
-    const multiselect = yield* Multiselect;
+    const input = yield* Input;
 
-    return yield* multiselect
-      .prompt({
+    return yield* input
+      .multiselect({
         message: "Select skills to install",
-        items: skills,
-        toOption: (s) => ({
-          value: s.skill.name,
+        options: skills.map((s) => ({
+          value: s,
           label: s.skill.name,
           hint: s.skill.description,
-        }),
-        initialValues: Option.none(),
-        required: Option.some(true),
+        })),
+        required: true,
       })
       .pipe(
         Effect.mapError((error) =>

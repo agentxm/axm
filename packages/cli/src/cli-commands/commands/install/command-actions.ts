@@ -21,7 +21,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { ClackPrompt } from "../../../clack-effect/index.js";
+import { Input } from "../../../input/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
@@ -98,7 +98,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const commandMgr = yield* CommandManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const prompt = yield* ClackPrompt;
+    const input = yield* Input;
     const flags = yield* CliFlags;
 
     // Build a service layer to provide to inner effects that still require
@@ -108,7 +108,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(ClackPrompt, prompt),
+      Layer.succeed(Input, input),
       Layer.succeed(CliFlags, flags),
     );
 
@@ -116,7 +116,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       effect: Effect.Effect<
         A,
         E,
-        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | ClackPrompt | CliFlags
+        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | Input | CliFlags
       >,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
 

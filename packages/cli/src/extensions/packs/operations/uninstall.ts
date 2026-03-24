@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../../app-error/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -49,13 +49,13 @@ export type UninstallPackOperation = Operation<"uninstall-pack", UninstallPackOp
  */
 export const uninstallPack: OperationHandler<
   UninstallPackOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Output
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const base = ws.baseDir;
 
     // Read pack lock entry
@@ -124,7 +124,7 @@ export const uninstallPack: OperationHandler<
     // Remove pack from settings and lockfile
     yield* ws
       .removePack(op.args.packName)
-      .pipe(Effect.catch((e) => log.warn(`Pack removal from settings failed: ${String(e)}`)));
+      .pipe(Effect.catch((e) => output.warn(`Pack removal from settings failed: ${String(e)}`)));
 
     return {
       result: "success",

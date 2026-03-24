@@ -604,8 +604,7 @@ const make = (options: WorkspaceContextOptions) =>
       scope: options.scope,
       path: workspaceDir,
       baseDir,
-      resolvePlan: (plan: Plan) =>
-        Effect.gen(function* () {
+      resolvePlan: Effect.fn("Workspace.resolvePlan")(function* (plan: Plan) {
           const flags = yield* CliFlags;
           const resolvedYes = flags.yes || flags.nonInteractive;
           const envConfig = yield* CliEnvConfig;
@@ -694,7 +693,7 @@ const make = (options: WorkspaceContextOptions) =>
           const executed = yield* applyPlan(augmentedPlan);
           yield* showPlan(executed);
           return executed;
-        }).pipe(Effect.withSpan("Workspace.resolvePlan")),
+        }),
 
       getLockfileState,
 

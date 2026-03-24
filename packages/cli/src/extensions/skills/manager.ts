@@ -94,11 +94,11 @@ export const SkillManagerLive = Layer.effect(
     // Provide FileSystem + Path + CliEnvConfig to an effect that needs them
     const provide: ProvideFS = (effect) => Effect.provide(effect, fsPathLayer);
 
-    const materializeInstall = ({ ref }: { readonly ref: SkillExtensionRef }) =>
-      Effect.gen(function* () {
+    const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
+      "SkillManager.materializeInstall",
+    )(function* ({ ref }) {
         const sanitized = sanitizeName(ref.skill.name);
 
-        // Per-refType materialization producing the skillSrcPath
         const skillSrcPath = yield* materializeByRefType(
           ref,
           sanitized,
@@ -152,10 +152,10 @@ export const SkillManagerLive = Layer.effect(
           (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
           { concurrency: "unbounded" },
         );
-      }).pipe(Effect.withSpan("SkillManager.materializeInstall"));
+      });
 
-    const materializeUninstall = ({ target }: { readonly target: SkillExtensionTarget }) =>
-      Effect.gen(function* () {
+    const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
+      Effect.fn("SkillManager.materializeUninstall")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
         const configuredAgents = yield* DefaultCodingAgentRepository.getConfiguredAgents().pipe(
@@ -179,7 +179,6 @@ export const SkillManagerLive = Layer.effect(
         }
         const distinctDirs = Array.dedupe(uninstallTargets);
 
-        // Remove agent symlinks/copies concurrently from resolved directories
         yield* Effect.forEach(
           distinctDirs,
           (dir) => {
@@ -191,9 +190,8 @@ export const SkillManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        // Remove from all canonical locations
         yield* removeFromAllCanonicalLocations(fs, baseDir, sanitized, path);
-      }).pipe(Effect.withSpan("SkillManager.materializeUninstall"));
+      });
 
     return {
       extensionType: "skill",

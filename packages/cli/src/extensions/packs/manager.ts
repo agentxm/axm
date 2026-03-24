@@ -78,110 +78,113 @@ export const PackManagerLive = Layer.effect(
     const provide = <A, E>(
       effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
-
-    return {
-      extensionType: "pack",
-
-      materializeInstall: ({ ref }: { readonly ref: PackExtensionRef }) =>
-        Effect.gen(function* () {
-          if (ref.refType === "builtin") {
-            // Builtin packs — fetch via source host providers
-            yield* Effect.scoped(
-              Effect.gen(function* () {
-                const fetched = yield* sources.fetch(ref).pipe(
-                  Effect.mapError((e: Error) =>
-                    makeAppError({
-                      code: "PACK_FETCH_FAILED",
-                      what: `Failed to fetch builtin pack: ${e.message}`,
-                      cause: e,
-                    }),
-                  ),
-                );
-                const packDir = computePackPaths(
-                  path.join,
-                  baseDir,
-                  ref.profile,
-                  ref.pack.name,
-                ).canonicalPath;
-                yield* provide(
-                  copySkillDirectory(fetched.directory, packDir).pipe(
-                    Effect.mapError((e) =>
-                      makeAppError({
-                        code: "PACK_EXTRACT_FAILED",
-                        what: `Failed to extract pack to ${packDir}`,
-                        cause: e,
-                      }),
-                    ),
-                  ),
-                );
-              }),
+    const materializeInstall: ExtensionManager<PackExtensionRef>["materializeInstall"] = Effect.fn(
+      "PackManager.materializeInstall",
+    )(function* ({ ref }: { readonly ref: PackExtensionRef }) {
+      if (ref.refType === "builtin") {
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const fetched = yield* sources.fetch(ref).pipe(
+              Effect.mapError((e: Error) =>
+                makeAppError({
+                  code: "PACK_FETCH_FAILED",
+                  what: `Failed to fetch builtin pack: ${e.message}`,
+                  cause: e,
+                }),
+              ),
             );
-            return;
-          }
-
-          // Registry pack
-          const registryRef = ref as RegistryPackRef;
-
-          yield* validateExactResolvedVersion(
-            `packs.${ref.pack.name}.resolvedVersion`,
-            registryRef.version,
-          );
-          yield* validateExactResolvedVersionMap(
-            `packs.${ref.pack.name}.resolvedSkills`,
-            ref.pack.skills,
-          );
-          yield* validateExactResolvedVersionMap(
-            `packs.${ref.pack.name}.resolvedCommands`,
-            ref.pack.commands,
-          );
-          yield* validateExactResolvedVersionMap(
-            `packs.${ref.pack.name}.resolvedMcpServers`,
-            ref.pack.mcpServers,
-          );
-
-          const packDir = computePackPaths(
-            path.join,
-            baseDir,
-            registryRef.profile,
-            ref.pack.name,
-          ).canonicalPath;
-
-          yield* Effect.scoped(
-            Effect.gen(function* () {
-              const fetched = yield* sources.fetch(ref).pipe(
-                Effect.mapError((e: Error) =>
+            const packDir = computePackPaths(
+              path.join,
+              baseDir,
+              ref.profile,
+              ref.pack.name,
+            ).canonicalPath;
+            yield* provide(
+              copySkillDirectory(fetched.directory, packDir).pipe(
+                Effect.mapError((e) =>
                   makeAppError({
-                    code: "PACK_FETCH_FAILED",
-                    what: `Failed to fetch pack archive: ${e.message}`,
+                    code: "PACK_EXTRACT_FAILED",
+                    what: `Failed to extract pack to ${packDir}`,
                     cause: e,
                   }),
                 ),
-              );
-              yield* provide(
-                copySkillDirectory(fetched.directory, packDir).pipe(
-                  Effect.mapError((e) =>
-                    makeAppError({
-                      code: "PACK_EXTRACT_FAILED",
-                      what: `Failed to extract pack to ${packDir}`,
-                      cause: e,
-                    }),
-                  ),
-                ),
-              );
-            }),
-          );
-        }).pipe(Effect.withSpan("PackManager.materializeInstall")),
+              ),
+            );
+          }),
+        );
+        return;
+      }
 
-      materializeUninstall: ({ target }: { readonly target: PackExtensionTarget }) =>
+      const registryRef = ref as RegistryPackRef;
+
+      yield* validateExactResolvedVersion(
+        `packs.${ref.pack.name}.resolvedVersion`,
+        registryRef.version,
+      );
+      yield* validateExactResolvedVersionMap(
+        `packs.${ref.pack.name}.resolvedSkills`,
+        ref.pack.skills,
+      );
+      yield* validateExactResolvedVersionMap(
+        `packs.${ref.pack.name}.resolvedCommands`,
+        ref.pack.commands,
+      );
+      yield* validateExactResolvedVersionMap(
+        `packs.${ref.pack.name}.resolvedMcpServers`,
+        ref.pack.mcpServers,
+      );
+
+      const packDir = computePackPaths(
+        path.join,
+        baseDir,
+        registryRef.profile,
+        ref.pack.name,
+      ).canonicalPath;
+
+      yield* Effect.scoped(
         Effect.gen(function* () {
-          const packDir = computePackPaths(
-            path.join,
-            baseDir,
-            target.profile,
-            target.name,
-          ).canonicalPath;
-          yield* removeIfExists(fs, packDir);
-        }).pipe(Effect.withSpan("PackManager.materializeUninstall")),
+          const fetched = yield* sources.fetch(ref).pipe(
+            Effect.mapError((e: Error) =>
+              makeAppError({
+                code: "PACK_FETCH_FAILED",
+                what: `Failed to fetch pack archive: ${e.message}`,
+                cause: e,
+              }),
+            ),
+          );
+          yield* provide(
+            copySkillDirectory(fetched.directory, packDir).pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "PACK_EXTRACT_FAILED",
+                  what: `Failed to extract pack to ${packDir}`,
+                  cause: e,
+                }),
+              ),
+            ),
+          );
+        }),
+      );
+    });
+    const materializeUninstall: ExtensionManager<PackExtensionRef>["materializeUninstall"] =
+      Effect.fn("PackManager.materializeUninstall")(function* ({
+        target,
+      }: {
+        readonly target: PackExtensionTarget;
+      }) {
+        const packDir = computePackPaths(
+          path.join,
+          baseDir,
+          target.profile,
+          target.name,
+        ).canonicalPath;
+        yield* removeIfExists(fs, packDir);
+      });
+
+    return {
+      extensionType: "pack",
+      materializeInstall,
+      materializeUninstall,
 
       upsertSettingsEntry: ({
         ref,

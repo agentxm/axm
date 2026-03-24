@@ -246,219 +246,222 @@ export const AuthClientLive = Layer.effect(
   AuthClient,
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient;
+    const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
+      "AuthClient.initiateDeviceFlow",
+    )(function* (registryUrl) {
+      const url = `${normalizeUrl(registryUrl)}/v1/auth/device/code`;
+      const request = setOAuthFormBody(HttpClientRequest.post(url), {
+        client_id: CLIENT_ID,
+        scope: DEVICE_CODE_SCOPES,
+      });
+
+      const response = yield* httpClient.execute(request).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "AUTH_LOGIN_FAILED",
+            what: "Device code request failed",
+            howToFix: "Check network connectivity and try again.",
+            cause: error,
+          }),
+        ),
+      );
+
+      if (response.status !== 200) {
+        const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
+        return yield* Effect.fail(
+          makeAppError({
+            code: "AUTH_LOGIN_FAILED",
+            what: `Device code request failed with status ${String(response.status)}`,
+            details: bodyText.length > 0 ? [bodyText] : [],
+            howToFix: "Check network connectivity and try again.",
+          }),
+        );
+      }
+
+      const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device code");
+      const json = yield* parseJsonBody(bodyText, "AUTH_LOGIN_FAILED", "device code");
+      const decoded = yield* decodeResponse(
+        DeviceFlowResponseSchema,
+        json,
+        "AUTH_LOGIN_FAILED",
+        "device code",
+      );
+
+      return {
+        device_code: decoded.device_code,
+        user_code: decoded.user_code,
+        verification_uri: decoded.verification_uri,
+        interval: decoded.interval,
+        expires_in: decoded.expires_in,
+        ...(decoded.verification_uri_complete
+          ? { verification_uri_complete: decoded.verification_uri_complete }
+          : {}),
+      } satisfies DeviceFlowResponse;
+    });
+    const pollDeviceToken: AuthClientService["pollDeviceToken"] = Effect.fn(
+      "AuthClient.pollDeviceToken",
+    )(function* (registryUrl, deviceCode, interval) {
+      let currentInterval = interval * 1000;
+
+      while (true) {
+        yield* Effect.sleep(currentInterval);
+        const result = yield* pollOnce(httpClient, registryUrl, deviceCode);
+
+        switch (result._tag) {
+          case "Success":
+            return result.token;
+          case "Pending":
+            continue;
+          case "SlowDown":
+            currentInterval += SLOW_DOWN_INCREMENT_MS;
+            continue;
+          case "AccessDenied":
+            return yield* Effect.fail(
+              makeAppError({
+                code: "AUTH_LOGIN_CANCELLED",
+                what: "Login was denied or cancelled",
+                howToFix: "Run `axm login` to try again.",
+              }),
+            );
+          case "ExpiredToken":
+            return yield* Effect.fail(
+              makeAppError({
+                code: "AUTH_LOGIN_FAILED",
+                what: "Login code expired",
+                howToFix: "Run `axm login` to try again.",
+              }),
+            );
+        }
+      }
+    });
+    const refreshToken: AuthClientService["refreshToken"] = Effect.fn(
+      "AuthClient.refreshToken",
+    )(function* (registryUrl, refreshTokenValue) {
+      const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
+      const request = setOAuthFormBody(HttpClientRequest.post(url), {
+        grant_type: "refresh_token",
+        refresh_token: refreshTokenValue,
+      });
+
+      const response = yield* httpClient.execute(request).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "AUTH_REFRESH_FAILED",
+            what: "Token refresh request failed",
+            howToFix: "Run `axm login` to re-authenticate.",
+            cause: error,
+          }),
+        ),
+      );
+
+      if (response.status !== 200) {
+        const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
+        return yield* Effect.fail(
+          makeAppError({
+            code: "AUTH_REFRESH_FAILED",
+            what: `Token refresh failed with status ${String(response.status)}`,
+            details: bodyText.length > 0 ? [bodyText] : [],
+            howToFix: "Run `axm login` to re-authenticate.",
+          }),
+        );
+      }
+
+      const bodyText = yield* readResponseBody(response, "AUTH_REFRESH_FAILED", "token refresh");
+      const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
+      return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
+    });
+    const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
+      function* (registryUrl, accessToken) {
+        const url = `${normalizeUrl(registryUrl)}/v1/auth/token/revoke`;
+        const request = setOAuthFormBody(HttpClientRequest.post(url), {
+          token: accessToken,
+        });
+
+        yield* httpClient.execute(request).pipe(
+          Effect.flatMap((response) => {
+            if (response.status !== 200 && response.status !== 204) {
+              return Effect.logWarning(
+                `Token revocation returned status ${String(response.status)}. Local credentials will still be cleared.`,
+              );
+            }
+            return Effect.void;
+          }),
+          Effect.catch((error) =>
+            Effect.logWarning(
+              `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
+            ),
+          ),
+        );
+      },
+    );
+    const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(function* (
+      registryUrl,
+      accessToken,
+    ) {
+      const url = `${normalizeUrl(registryUrl)}/v1/auth/me`;
+      const request = HttpClientRequest.get(url).pipe(
+        HttpClientRequest.bearerToken(accessToken),
+      );
+
+      const response = yield* httpClient.execute(request).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "AUTH_UNAUTHENTICATED",
+            what: "Identity request failed",
+            howToFix: "Run `axm login` to authenticate.",
+            cause: error,
+          }),
+        ),
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        return yield* Effect.fail(
+          makeAppError({
+            code: "AUTH_UNAUTHENTICATED",
+            what: "Not authenticated or token is invalid",
+            howToFix: "Run `axm login` to re-authenticate.",
+          }),
+        );
+      }
+
+      if (response.status !== 200) {
+        return yield* Effect.fail(
+          makeAppError({
+            code: "AUTH_UNAUTHENTICATED",
+            what: `Identity request failed with status ${String(response.status)}`,
+            howToFix: "Run `axm login` to re-authenticate.",
+          }),
+        );
+      }
+
+      const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");
+      const json = yield* parseJsonBody(bodyText, "AUTH_UNAUTHENTICATED", "identity");
+      const decoded = yield* decodeResponse(
+        RegistryMeResponseSchema,
+        json,
+        "AUTH_UNAUTHENTICATED",
+        "identity",
+      );
+
+      return {
+        userId: decoded.user.id,
+        userHandle: decoded.user.handle,
+        email: decoded.user.email ?? "",
+        tokenType: decoded.token.type,
+        scopes: decoded.token.scopes,
+        orgs: decoded.orgs.map((org: (typeof decoded.orgs)[number]) => ({
+          id: org.id,
+          handle: org.handle,
+        })),
+      } satisfies MeResponse;
+    });
 
     return {
-      initiateDeviceFlow: (registryUrl) =>
-        Effect.gen(function* () {
-          const url = `${normalizeUrl(registryUrl)}/v1/auth/device/code`;
-          const request = setOAuthFormBody(HttpClientRequest.post(url), {
-            client_id: CLIENT_ID,
-            scope: DEVICE_CODE_SCOPES,
-          });
-
-          const response = yield* httpClient.execute(request).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "AUTH_LOGIN_FAILED",
-                what: "Device code request failed",
-                howToFix: "Check network connectivity and try again.",
-                cause: error,
-              }),
-            ),
-          );
-
-          if (response.status !== 200) {
-            const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_LOGIN_FAILED",
-                what: `Device code request failed with status ${String(response.status)}`,
-                details: bodyText.length > 0 ? [bodyText] : [],
-                howToFix: "Check network connectivity and try again.",
-              }),
-            );
-          }
-
-          const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device code");
-          const json = yield* parseJsonBody(bodyText, "AUTH_LOGIN_FAILED", "device code");
-          const decoded = yield* decodeResponse(
-            DeviceFlowResponseSchema,
-            json,
-            "AUTH_LOGIN_FAILED",
-            "device code",
-          );
-
-          return {
-            device_code: decoded.device_code,
-            user_code: decoded.user_code,
-            verification_uri: decoded.verification_uri,
-            interval: decoded.interval,
-            expires_in: decoded.expires_in,
-            ...(decoded.verification_uri_complete
-              ? { verification_uri_complete: decoded.verification_uri_complete }
-              : {}),
-          } satisfies DeviceFlowResponse;
-        }).pipe(Effect.withSpan("AuthClient.initiateDeviceFlow")),
-
-      pollDeviceToken: (registryUrl, deviceCode, interval) =>
-        Effect.gen(function* () {
-          let currentInterval = interval * 1000; // convert to ms
-
-          while (true) {
-            yield* Effect.sleep(currentInterval);
-            const result = yield* pollOnce(httpClient, registryUrl, deviceCode);
-
-            switch (result._tag) {
-              case "Success":
-                return result.token;
-              case "Pending":
-                continue;
-              case "SlowDown":
-                currentInterval += SLOW_DOWN_INCREMENT_MS;
-                continue;
-              case "AccessDenied":
-                return yield* Effect.fail(
-                  makeAppError({
-                    code: "AUTH_LOGIN_CANCELLED",
-                    what: "Login was denied or cancelled",
-                    howToFix: "Run `axm login` to try again.",
-                  }),
-                );
-              case "ExpiredToken":
-                return yield* Effect.fail(
-                  makeAppError({
-                    code: "AUTH_LOGIN_FAILED",
-                    what: "Login code expired",
-                    howToFix: "Run `axm login` to try again.",
-                  }),
-                );
-            }
-          }
-        }).pipe(Effect.withSpan("AuthClient.pollDeviceToken")),
-
-      refreshToken: (registryUrl, refreshTokenValue) =>
-        Effect.gen(function* () {
-          const url = `${normalizeUrl(registryUrl)}/v1/auth/token/refresh`;
-          const request = setOAuthFormBody(HttpClientRequest.post(url), {
-            grant_type: "refresh_token",
-            refresh_token: refreshTokenValue,
-          });
-
-          const response = yield* httpClient.execute(request).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "AUTH_REFRESH_FAILED",
-                what: "Token refresh request failed",
-                howToFix: "Run `axm login` to re-authenticate.",
-                cause: error,
-              }),
-            ),
-          );
-
-          if (response.status !== 200) {
-            const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_REFRESH_FAILED",
-                what: `Token refresh failed with status ${String(response.status)}`,
-                details: bodyText.length > 0 ? [bodyText] : [],
-                howToFix: "Run `axm login` to re-authenticate.",
-              }),
-            );
-          }
-
-          const bodyText = yield* readResponseBody(
-            response,
-            "AUTH_REFRESH_FAILED",
-            "token refresh",
-          );
-          const json = yield* parseJsonBody(bodyText, "AUTH_REFRESH_FAILED", "token refresh");
-          return yield* decodeTokenResponse(json, "AUTH_REFRESH_FAILED", "token refresh");
-        }).pipe(Effect.withSpan("AuthClient.refreshToken")),
-
-      revokeToken: (registryUrl, accessToken) =>
-        Effect.gen(function* () {
-          const url = `${normalizeUrl(registryUrl)}/v1/auth/token/revoke`;
-          const request = setOAuthFormBody(HttpClientRequest.post(url), {
-            token: accessToken,
-          });
-
-          yield* httpClient.execute(request).pipe(
-            Effect.flatMap((response) => {
-              if (response.status !== 200 && response.status !== 204) {
-                return Effect.logWarning(
-                  `Token revocation returned status ${String(response.status)}. Local credentials will still be cleared.`,
-                );
-              }
-              return Effect.void;
-            }),
-            Effect.catch((error) =>
-              Effect.logWarning(
-                `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
-              ),
-            ),
-          );
-        }).pipe(Effect.withSpan("AuthClient.revokeToken")),
-
-      getMe: (registryUrl, accessToken) =>
-        Effect.gen(function* () {
-          const url = `${normalizeUrl(registryUrl)}/v1/auth/me`;
-          const request = HttpClientRequest.get(url).pipe(
-            HttpClientRequest.bearerToken(accessToken),
-          );
-
-          const response = yield* httpClient.execute(request).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "AUTH_UNAUTHENTICATED",
-                what: "Identity request failed",
-                howToFix: "Run `axm login` to authenticate.",
-                cause: error,
-              }),
-            ),
-          );
-
-          if (response.status === 401 || response.status === 403) {
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_UNAUTHENTICATED",
-                what: "Not authenticated or token is invalid",
-                howToFix: "Run `axm login` to re-authenticate.",
-              }),
-            );
-          }
-
-          if (response.status !== 200) {
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_UNAUTHENTICATED",
-                what: `Identity request failed with status ${String(response.status)}`,
-                howToFix: "Run `axm login` to re-authenticate.",
-              }),
-            );
-          }
-
-          const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");
-          const json = yield* parseJsonBody(bodyText, "AUTH_UNAUTHENTICATED", "identity");
-          const decoded = yield* decodeResponse(
-            RegistryMeResponseSchema,
-            json,
-            "AUTH_UNAUTHENTICATED",
-            "identity",
-          );
-
-          return {
-            userId: decoded.user.id,
-            userHandle: decoded.user.handle,
-            email: decoded.user.email ?? "",
-            tokenType: decoded.token.type,
-            scopes: decoded.token.scopes,
-            orgs: decoded.orgs.map((org: (typeof decoded.orgs)[number]) => ({
-              id: org.id,
-              handle: org.handle,
-            })),
-          } satisfies MeResponse;
-        }).pipe(Effect.withSpan("AuthClient.getMe")),
+      initiateDeviceFlow,
+      pollDeviceToken,
+      refreshToken,
+      revokeToken,
+      getMe,
     } satisfies AuthClientService;
   }),
 );

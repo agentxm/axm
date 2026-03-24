@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handlePacksAdd } from "../../cli-commands/packs/add/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -18,11 +18,13 @@ export const addCommand = Command.make(
     preview: previewFlag,
   },
   ({ pack, extension, yes, force, preview }) =>
-    withRuntime(handlePacksAdd({ pack, extension }), {
-      command: "packs add",
-      workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-      flags: { yes, force, preview },
-    }),
+    withRuntime(
+      withWorkspace(
+        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+        handlePacksAdd({ pack, extension }),
+      ),
+      { command: "packs add", flags: { yes, force, preview } },
+    ),
 ).pipe(
   Command.withDescription("Add an extension to a pack manifest"),
   Command.withExamples([

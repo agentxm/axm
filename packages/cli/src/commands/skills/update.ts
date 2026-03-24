@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUpdate } from "../../cli-commands/skills/update/handler.js";
 import {
@@ -37,12 +37,11 @@ export const updateCommand = Command.make(
   },
   ({ source, scope, agent, skill, yes, force, preview }) =>
     withRuntime(
-      handleUpdate({ source, scope: resolveWorkspaceScope(scope), agents: agent, skills: skill }),
-      {
-        command: "skills update",
-        workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        flags: { yes, force, preview },
-      },
+      withWorkspace(
+        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+        handleUpdate({ source, scope: resolveWorkspaceScope(scope), agents: agent, skills: skill }),
+      ),
+      { command: "skills update", flags: { yes, force, preview } },
     ),
 ).pipe(
   Command.withDescription("Update installed skills to latest versions"),

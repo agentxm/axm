@@ -60,7 +60,6 @@ export { baseLayer };
 interface RuntimeOptions {
   readonly command?: string;
   readonly isLongRunning?: boolean;
-  readonly workspace?: Omit<WorkspaceContextOptions, "builtInSources">;
   readonly flags?: {
     readonly yes?: boolean;
     readonly force?: boolean;
@@ -69,9 +68,9 @@ interface RuntimeOptions {
 }
 
 const makeDebugLoggerLayer = (diagnosticVerbosity: DiagnosticVerbosity) =>
-  diagnosticVerbosity.debug
-    ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
-    : Layer.empty;
+  Logger.layer(diagnosticVerbosity.debug ? [Logger.consolePretty()] : [], {
+    mergeWithExisting: false,
+  });
 
 const makeCliTelemetryConfig = (envConfig: CliEnvConfigService): CliTelemetryConfigService => ({
   mode: resolveTelemetryMode(
@@ -90,7 +89,6 @@ const makeCliTelemetryConfig = (envConfig: CliEnvConfigService): CliTelemetryCon
 const makeWorkspaceProgramLayer = (
   envConfig: CliEnvConfigService,
   workspace: Omit<WorkspaceContextOptions, "builtInSources">,
-  debugLoggerLayer: Layer.Layer<never>,
 ) => {
   const wsLayer = Layer.provide(
     workspaceLayer({
@@ -119,48 +117,54 @@ const makeWorkspaceProgramLayer = (
     Layer.provide(UninstallMcpServerCommandWorkflowActionsLive, workspaceCommandSupportLayer),
   );
 
-  return Layer.mergeAll(debugLoggerLayer, workspaceCommandSupportLayer, workflowActionsLayer);
+  return Layer.mergeAll(workspaceCommandSupportLayer, workflowActionsLayer);
 };
 
-const resolveRuntime = (options?: RuntimeOptions) =>
+const resolveRuntimeConfig = () =>
   Effect.gen(function* () {
     const envConfig = yield* CliEnvConfig;
     const diagnosticVerbosity = resolveDiagnosticVerbosity(process.argv, {
       AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
       AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
     });
-    const debugLoggerLayer = makeDebugLoggerLayer(diagnosticVerbosity);
-    const programLayer =
-      options?.workspace === undefined
-        ? debugLoggerLayer
-        : makeWorkspaceProgramLayer(envConfig, options.workspace, debugLoggerLayer);
 
     return {
+      envConfig,
       ci: envConfig.ci === "true",
       diagnosticVerbosity,
+      debugLoggerLayer: makeDebugLoggerLayer(diagnosticVerbosity),
       telemetryConfig: makeCliTelemetryConfig(envConfig),
-      programLayer,
     } as const;
+  });
+
+export const withWorkspace = <A, E, R>(
+  options: Omit<WorkspaceContextOptions, "builtInSources">,
+  program: Effect.Effect<A, E, R>,
+) =>
+  Effect.gen(function* () {
+    const envConfig = yield* CliEnvConfig;
+    const wsLayer = makeWorkspaceProgramLayer(envConfig, options);
+    return yield* Effect.provide(program, wsLayer);
   });
 
 export const withRuntime = <A, R>(
   program: Effect.Effect<A, AppError | PromptCancelled, R>,
   options?: RuntimeOptions,
-): Effect.Effect<A, unknown, never> =>
+) =>
   Effect.gen(function* () {
-    const resolvedRuntime = yield* resolveRuntime(options);
+    const config = yield* resolveRuntimeConfig();
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
     const foundationLayer = makeFoundationLayer(format, {
-      ci: resolvedRuntime.ci,
+      ci: config.ci,
       flags: options?.flags,
     });
-    const appLayer = Layer.provideMerge(resolvedRuntime.programLayer, foundationLayer);
+    const appLayer = Layer.provideMerge(config.debugLoggerLayer, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {
       command: options?.command,
       format,
-      telemetryConfig: resolvedRuntime.telemetryConfig,
-      appErrorRenderOptions: resolvedRuntime.diagnosticVerbosity,
+      telemetryConfig: config.telemetryConfig,
+      appErrorRenderOptions: config.diagnosticVerbosity,
     });
-  }).pipe(Effect.provide(baseLayer)) as Effect.Effect<A, unknown, never>;
+  });

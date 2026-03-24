@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstallPack } from "../../cli-commands/packs/install/handler.js";
 import {
@@ -27,11 +27,13 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(handleInstallPack({ source, scope: resolveWorkspaceScope(scope) }), {
-      command: "packs install",
-      workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-      flags: { yes, force, preview },
-    }),
+    withRuntime(
+      withWorkspace(
+        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+        handleInstallPack({ source, scope: resolveWorkspaceScope(scope) }),
+      ),
+      { command: "packs install", flags: { yes, force, preview } },
+    ),
 ).pipe(
   Command.withDescription("Install a pack and its extensions from a registry"),
   Command.withExamples([

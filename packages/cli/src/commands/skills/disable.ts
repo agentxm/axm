@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleDisable } from "../../cli-commands/skills/disable/handler.js";
 import {
@@ -23,9 +23,11 @@ export const disableCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, scope, yes, force, preview }) =>
-    withRuntime(handleDisable({ name }), {
-      command: "skills disable",
-      workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-      flags: { yes, force, preview },
-    }),
+    withRuntime(
+      withWorkspace(
+        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+        handleDisable({ name }),
+      ),
+      { command: "skills disable", flags: { yes, force, preview } },
+    ),
 ).pipe(Command.withDescription("Disable a skill without uninstalling it"));

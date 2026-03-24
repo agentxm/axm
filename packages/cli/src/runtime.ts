@@ -2,17 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
-import type * as Scope from "effect/Scope";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
 import type { AppError } from "./app-error/index.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
 import {
-  type CliRuntimeFoundation,
   type CliTelemetryConfigService,
-  makeCliRuntimeContext,
-  runCliRuntime,
+  withCliRuntime,
 } from "@axm.sh/core/unstable/cli-runtime";
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
@@ -30,10 +27,7 @@ import { PackManagerLive } from "./extensions/packs/manager.js";
 import { SkillManagerLive } from "./extensions/skills/manager.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
 import { resolveTelemetryMode } from "./telemetry/index.js";
-import {
-  type DiagnosticVerbosity,
-  resolveDiagnosticVerbosity,
-} from "./runtime/error-handling.js";
+import { type DiagnosticVerbosity, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
 import { baseLayer, CliEnvConfigOrDie } from "./runtime/base-layer.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
 import { loadVersion } from "./version.js";
@@ -71,13 +65,6 @@ interface RuntimeOptions {
     readonly preview?: boolean;
   };
 }
-
-type RuntimeRootServices = Layer.Success<typeof baseLayer>;
-type RuntimeProgramLayer = ReturnType<typeof makeWorkspaceProgramLayer> | Layer.Layer<never>;
-type RuntimeProvidedServices =
-  | CliRuntimeFoundation
-  | Scope.Scope
-  | Layer.Success<RuntimeProgramLayer>;
 
 const makeDebugLoggerLayer = (diagnosticVerbosity: DiagnosticVerbosity) =>
   diagnosticVerbosity.debug
@@ -130,11 +117,7 @@ const makeWorkspaceProgramLayer = (
     Layer.provide(UninstallMcpServerCommandWorkflowActionsLive, workspaceCommandSupportLayer),
   );
 
-  return Layer.mergeAll(
-    debugLoggerLayer,
-    workspaceCommandSupportLayer,
-    workflowActionsLayer,
-  );
+  return Layer.mergeAll(debugLoggerLayer, workspaceCommandSupportLayer, workflowActionsLayer);
 };
 
 const resolveRuntime = (options?: RuntimeOptions) =>
@@ -161,20 +144,17 @@ const resolveRuntime = (options?: RuntimeOptions) =>
 export const withRuntime = <A, R>(
   program: Effect.Effect<A, AppError | PromptCancelled, R>,
   options?: RuntimeOptions,
-): Effect.Effect<A, unknown, Exclude<R, RuntimeProvidedServices> | RuntimeRootServices> =>
+): Effect.Effect<A, unknown, never> =>
   (Effect.gen(function* () {
     const resolvedRuntime = yield* resolveRuntime(options);
-    const runtime = yield* makeCliRuntimeContext({
+
+    return yield* withCliRuntime(program, {
+      command: options?.command,
       isLongRunning: options?.isLongRunning,
       ci: resolvedRuntime.ci,
       flags: options?.flags,
-    });
-
-    return yield* runCliRuntime(program, {
-      command: options?.command,
-      runtime,
       telemetryConfig: resolvedRuntime.telemetryConfig,
       appErrorRenderOptions: resolvedRuntime.diagnosticVerbosity,
       programLayer: resolvedRuntime.programLayer,
     });
-  }) as Effect.Effect<A, unknown, Exclude<R, RuntimeProvidedServices> | RuntimeRootServices>);
+  }).pipe(Effect.provide(baseLayer)) as Effect.Effect<A, unknown, never>);

@@ -24,13 +24,12 @@ import { reportCliDefect, reportCliError, trackCliCommand } from "./telemetry.js
 export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = Output | Activity | Input | CliFlags;
 
-export interface CliRuntimeContext {
+interface CliRuntimeContext {
   readonly format: OutputFormat;
-  readonly uiLayer: Layer.Layer<Output | Activity>;
   readonly foundationLayer: Layer.Layer<CliRuntimeFoundation, never, unknown>;
 }
 
-export interface MakeCliRuntimeContextOptions {
+interface MakeCliRuntimeContextOptions {
   readonly isLongRunning?: boolean | undefined;
   readonly ci?: boolean | undefined;
   readonly flags?: CliPerCommandFlags | undefined;
@@ -67,47 +66,34 @@ const writeExpectedCliError = (
   });
 };
 
-export interface WithCliRuntimeEnvelopeOptions<
-  ProgramLayer = Output | Activity,
-  ProgramLayerError extends ExpectedCliError = never,
-  ProgramContext = never,
-> {
-  readonly command?: string | undefined;
-  readonly isLongRunning?: boolean | undefined;
-  readonly telemetryConfig: CliTelemetryConfigService;
-  readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-  readonly makeProgramLayer?: (
-    context: CliRuntimeContext,
-  ) => Layer.Layer<ProgramLayer, ProgramLayerError, ProgramContext>;
-}
-
-export interface RunCliRuntimeOptions<
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
-  ProgramContext = never,
+interface RunCliRuntimeOptions<
+  ProgramLayer extends Layer.Any = Layer.Layer<never>,
 > {
   readonly command?: string | undefined;
   readonly runtime: CliRuntimeContext;
   readonly telemetryConfig: CliTelemetryConfigService;
   readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-  readonly programLayer?: Layer.Layer<ProgramLayer, ProgramLayerError, ProgramContext>;
-  readonly mergeFoundationLayer?: boolean | undefined;
+  readonly programLayer?: ProgramLayer;
 }
 
-export interface WithCliRuntimeOptions<
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
-> {
+type ProgramLayerContext<ProgramLayer extends Layer.Any> = Exclude<
+  Layer.Services<ProgramLayer>,
+  CliRuntimeFoundation
+>;
+
+type ProgramLayerSuccess<ProgramLayer extends Layer.Any> = Layer.Success<ProgramLayer>;
+
+export interface WithCliRuntimeOptions<ProgramLayer extends Layer.Any = Layer.Layer<never>> {
   readonly command?: string | undefined;
   readonly isLongRunning?: boolean | undefined;
   readonly ci?: boolean | undefined;
   readonly flags?: CliPerCommandFlags | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
   readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-  readonly programLayer?: Layer.Layer<ProgramLayer, ProgramLayerError, CliRuntimeFoundation>;
+  readonly programLayer?: ProgramLayer;
 }
 
-export const makeCliRuntimeContext = (options?: MakeCliRuntimeContextOptions) =>
+const makeCliRuntimeContext = (options?: MakeCliRuntimeContextOptions) =>
   Effect.gen(function* () {
     const explicitFormat = yield* outputFormatFlag;
     const format = resolveFormat(
@@ -126,58 +112,58 @@ export const makeCliRuntimeContext = (options?: MakeCliRuntimeContextOptions) =>
 
     return {
       format,
-      uiLayer,
       foundationLayer: Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer),
     } satisfies CliRuntimeContext;
   });
 
-export function runCliRuntime<
-  A,
-  RootContext = never,
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
->(
-  program: Effect.Effect<A, ExpectedCliError, CliRuntimeFoundation | ProgramLayer | RootContext>,
-  options: RunCliRuntimeOptions<ProgramLayer, ProgramLayerError, CliRuntimeFoundation>,
-): Effect.Effect<A, unknown, RootContext>;
-export function runCliRuntime<
+const runCliRuntime = <
   A,
   R,
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
-  ProgramContext = never,
+  ProgramLayer extends Layer.Any = Layer.Layer<never>,
 >(
   program: Effect.Effect<A, ExpectedCliError, R>,
-  options: RunCliRuntimeOptions<ProgramLayer, ProgramLayerError, ProgramContext>,
-): Effect.Effect<A, unknown, unknown>;
-export function runCliRuntime<
+  options: RunCliRuntimeOptions<ProgramLayer>,
+): Effect.Effect<
   A,
-  R,
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
-  ProgramContext = never,
->(
-  program: Effect.Effect<A, ExpectedCliError, R>,
-  options: RunCliRuntimeOptions<ProgramLayer, ProgramLayerError, ProgramContext>,
-): Effect.Effect<A, unknown, unknown> {
+  unknown,
+  Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>> |
+    ProgramLayerContext<ProgramLayer>
+> => {
   const command = options.command ?? "unknown";
   const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
-  const programLayer: Layer.Layer<ProgramLayer, ProgramLayerError, ProgramContext> =
+  const programLayer: Layer.Layer<
+    ProgramLayerSuccess<ProgramLayer>,
+    Layer.Error<ProgramLayer>,
+    ProgramLayerContext<ProgramLayer>
+  > =
     options.programLayer === undefined
       ? (options.runtime.foundationLayer as unknown as Layer.Layer<
-          ProgramLayer,
-          ProgramLayerError,
-          ProgramContext
+          ProgramLayerSuccess<ProgramLayer>,
+          Layer.Error<ProgramLayer>,
+          ProgramLayerContext<ProgramLayer>
         >)
-      : options.mergeFoundationLayer === false
-        ? options.programLayer
-        : (Layer.provideMerge(options.programLayer, options.runtime.foundationLayer) as Layer.Layer<
-            ProgramLayer,
-            ProgramLayerError,
-            ProgramContext
-          >);
+      : (Layer.provideMerge(
+          options.programLayer as unknown as Layer.Layer<
+            ProgramLayerSuccess<ProgramLayer>,
+            Layer.Error<ProgramLayer>,
+            CliRuntimeFoundation | ProgramLayerContext<ProgramLayer>
+          >,
+          options.runtime.foundationLayer,
+        ) as unknown as Layer.Layer<
+          ProgramLayerSuccess<ProgramLayer>,
+          Layer.Error<ProgramLayer>,
+          ProgramLayerContext<ProgramLayer>
+        >);
   const runtimeProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
-  const provided = runtimeProgram.pipe(Effect.provide(programLayer), Effect.scoped);
+  const provided = runtimeProgram.pipe(
+    Effect.provide(programLayer),
+    Effect.scoped,
+  ) as Effect.Effect<
+    A,
+    ExpectedCliError,
+    Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>> |
+      ProgramLayerContext<ProgramLayer>
+  >;
 
   return provided.pipe(
     Effect.catch((error: ExpectedCliError) => {
@@ -201,46 +187,27 @@ export function runCliRuntime<
       );
     }),
     Effect.provide(telemetryLayer),
-  );
-}
-
-export const withCliRuntimeEnvelope = <
-  A,
-  R,
-  ProgramLayer = Output | Activity,
-  ProgramLayerError extends ExpectedCliError = never,
-  ProgramContext = never,
->(
-  program: Effect.Effect<A, ExpectedCliError, R>,
-  options: WithCliRuntimeEnvelopeOptions<ProgramLayer, ProgramLayerError, ProgramContext>,
-): Effect.Effect<A, unknown, unknown> =>
-  Effect.gen(function* () {
-    const context = yield* makeCliRuntimeContext({
-      isLongRunning: options.isLongRunning,
-    });
-    const programLayer: Layer.Layer<ProgramLayer, ProgramLayerError, ProgramContext> =
-      options.makeProgramLayer?.(context) ??
-      (context.uiLayer as unknown as Layer.Layer<ProgramLayer, ProgramLayerError, ProgramContext>);
-
-    return yield* runCliRuntime(program, {
-      command: options.command,
-      runtime: context,
-      telemetryConfig: options.telemetryConfig,
-      appErrorRenderOptions: options.appErrorRenderOptions,
-      programLayer,
-      mergeFoundationLayer: false,
-    });
-  });
+  ) as Effect.Effect<
+    A,
+    unknown,
+    Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>> |
+      ProgramLayerContext<ProgramLayer>
+  >;
+};
 
 export const withCliRuntime = <
   A,
   R,
-  ProgramLayer = never,
-  ProgramLayerError extends ExpectedCliError = never,
+  ProgramLayer extends Layer.Any = Layer.Layer<never>,
 >(
   program: Effect.Effect<A, ExpectedCliError, R>,
-  options: WithCliRuntimeOptions<ProgramLayer, ProgramLayerError>,
-): Effect.Effect<A, unknown, Exclude<R, CliRuntimeFoundation | ProgramLayer>> =>
+  options: WithCliRuntimeOptions<ProgramLayer>,
+): Effect.Effect<
+  A,
+  unknown,
+  Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>> |
+    ProgramLayerContext<ProgramLayer>
+> =>
   (Effect.gen(function* () {
     const runtime = yield* makeCliRuntimeContext({
       isLongRunning: options.isLongRunning,
@@ -255,4 +222,9 @@ export const withCliRuntime = <
       appErrorRenderOptions: options.appErrorRenderOptions,
       ...(options.programLayer !== undefined && { programLayer: options.programLayer }),
     });
-  }) as Effect.Effect<A, unknown, Exclude<R, CliRuntimeFoundation | ProgramLayer>>);
+  }) as Effect.Effect<
+    A,
+    unknown,
+    Exclude<R, CliRuntimeFoundation | ProgramLayerSuccess<ProgramLayer>> |
+      ProgramLayerContext<ProgramLayer>
+  >);

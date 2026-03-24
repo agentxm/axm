@@ -10,8 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "spike": "bun src/main.ts"
+    "test": "pnpm --filter @axm.sh/core build && vitest run",
+    "spike": "pnpm --filter @axm.sh/core build && bun src/main.ts"
   },
   "dependencies": {
     "@axm.sh/core": "workspace:*",

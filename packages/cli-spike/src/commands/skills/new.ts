@@ -1,4 +1,5 @@
 import * as Console from "effect/Console";
+import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 export const newCommand = Command.make(
@@ -17,7 +18,15 @@ export const newCommand = Command.make(
       Flag.optional,
     ),
   },
-  (config) => Console.log(`[stub] skills new name=${config.name}`),
+  (config) => {
+    const namespace = Option.getOrElse(config.namespace, () => "-");
+    const agents = Option.match(config.agent, {
+      onNone: () => "-",
+      onSome: (agentIds) => agentIds.join(", "),
+    });
+
+    return Console.log(`[stub] skills new name=${config.name} namespace=${namespace} agents=${agents}`);
+  },
 ).pipe(
   Command.withDescription("Create a new skill"),
   Command.withExamples([
@@ -25,6 +34,10 @@ export const newCommand = Command.make(
     {
       command: "axm-spike skills new my-skill --namespace @acme",
       description: "Create with custom namespace",
+    },
+    {
+      command: "axm-spike skills new my-skill --agent codex --agent claude-code",
+      description: "Create for specific agent targets",
     },
   ]),
 );

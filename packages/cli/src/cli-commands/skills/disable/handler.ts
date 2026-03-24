@@ -11,7 +11,6 @@
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../../app-error/index.js";
 import { Output } from "../../../output/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { DisableSkillOperation } from "../../../extensions/skills/operations/disable.js";
 import { disableSkill } from "../../../extensions/skills/operations/disable.js";
@@ -32,8 +31,6 @@ export interface DisableHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills disable" });
   const ws = yield* Workspace;
   const output = yield* Output;
 

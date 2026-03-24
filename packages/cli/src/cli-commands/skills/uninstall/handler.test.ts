@@ -18,7 +18,6 @@ import { makeOutputTestLayer } from "../../../output/index.js";
 import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -148,7 +147,6 @@ describe("uninstall.handler", () => {
       outputLayer,
       inputLayer,
       CliFlagsTest(),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

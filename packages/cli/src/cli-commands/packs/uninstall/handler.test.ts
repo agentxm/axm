@@ -19,7 +19,6 @@ import { makeActivityTestLayer } from "../../../activity/index.js";
 import { makeInputTestLayer, type InputPromptBehavior } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
@@ -130,7 +129,6 @@ describe("packs uninstall handler", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest(),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

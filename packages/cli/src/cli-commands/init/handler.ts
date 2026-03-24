@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Output } from "../../output/index.js";
 import { CliEnvConfig } from "../../config/index.js";
-import { TelemetryClient, resolveTelemetryMode } from "../../telemetry/index.js";
+import { resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
 import { isUserScope } from "../../workspace/scope.js";
 
@@ -30,8 +30,6 @@ import { isUserScope } from "../../workspace/scope.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const handleInit = Effect.fn("Init.handle")(function* () {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "init" });
   const output = yield* Output;
   const context = yield* Workspace;
   const scopeLabel = isUserScope(context.scope) ? "user" : "project";

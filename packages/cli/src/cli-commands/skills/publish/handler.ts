@@ -18,7 +18,6 @@ import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
@@ -83,8 +82,6 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills publish" });
 
   yield* withAuthGuard(publishEffect(args));
 });

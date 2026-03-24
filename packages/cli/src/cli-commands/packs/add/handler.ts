@@ -19,7 +19,6 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
 } from "../../../extensions/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
 import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
@@ -57,8 +56,6 @@ const toVersionRange = (version: string): string => `^${version}`;
 // -----------------------------------------------------------------------------
 
 export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "packs add" });
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

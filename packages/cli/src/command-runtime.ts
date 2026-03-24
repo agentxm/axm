@@ -11,6 +11,7 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Cause from "effect/Cause";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -27,6 +28,9 @@ import {
   effectCliExit,
   isEffectCliExit,
   makeUiLayer,
+  reportCliDefect,
+  reportCliError,
+  trackCliCommand,
 } from "@axm.sh/core/unstable/cli-runtime";
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClientLive } from "./auth/auth-client.js";
@@ -36,23 +40,11 @@ import { makeCliFlagsLayer } from "./cli-flags/index.js";
 import { InputLive, InputStructured } from "./input/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "./config/index.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
-import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
+import { TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
 import { classifyError, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
-import { SkillManagerLive } from "./extensions/skills/manager.js";
-import { PackManagerLive } from "./extensions/packs/manager.js";
-import { CommandManagerLive } from "./extensions/commands/manager.js";
-import { McpServerManagerLive } from "./extensions/mcp-servers/manager.js";
-import { InstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/install/command-actions.js";
-import { UninstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/uninstall/command-actions.js";
-import { InstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/install/command-actions.js";
-import { UninstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/uninstall/command-actions.js";
-import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
-import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/install/command-actions.js";
-import { UninstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/uninstall/command-actions.js";
 
 // Re-export for consumers that import from command-runtime
 export { type EffectCliExit, effectCliExit, isEffectCliExit, outputFormatFlag };
@@ -136,24 +128,6 @@ export const baseLayer = Layer.mergeAll(
   Logger.layer([], { mergeWithExisting: false }),
 );
 
-const extensionManagersLayer = Layer.mergeAll(
-  SkillManagerLive,
-  PackManagerLive,
-  CommandManagerLive,
-  McpServerManagerLive,
-);
-
-const commandWorkflowActionsLayer = Layer.mergeAll(
-  InstallSkillCommandWorkflowActionsLive,
-  UninstallSkillCommandWorkflowActionsLive,
-  InstallPackCommandWorkflowActionsLive,
-  UninstallPackCommandWorkflowActionsLive,
-  InstallCommandCommandWorkflowActionsLive,
-  UninstallCommandCommandWorkflowActionsLive,
-  InstallMcpServerCommandWorkflowActionsLive,
-  UninstallMcpServerCommandWorkflowActionsLive,
-);
-
 // ---------------------------------------------------------------------------
 // Unified command runtime — resolves global flags and provides per-command
 // services (CliFlags, Output/Activity/Input, Telemetry) within the Effect context.
@@ -220,11 +194,14 @@ export const withCommandRuntime = (
 
     // Output/Activity from core, Input added separately (depends on CliFlags)
     const baseUiLayer = makeUiLayer(structuredMode ?? "text");
-    const inputLayer = structuredMode ? InputStructured : Layer.provide(InputLive, cliFlagsLayer);
+    const inputLayer = structuredMode
+      ? InputStructured
+      : Layer.provide(InputLive, cliFlagsLayer);
     const uiLayer = Layer.mergeAll(baseUiLayer, inputLayer);
 
     // Per-command layer: CliFlags + Output/Activity/Input + Telemetry + debug logging
     const commandLayer = Layer.mergeAll(cliFlagsLayer, uiLayer, telemetryLayer, debugLoggerLayer);
+    const instrumentedProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
 
     // Build the provided program — optionally with Workspace (task 2.4)
     const catchErrors = (effect: AnyProgram) =>
@@ -240,30 +217,25 @@ export const withCommandRuntime = (
 
           // Provide telemetryLayer directly so it's available even when the
           // workspace layer (or any other inner layer) fails during construction.
-          const report =
-            error._tag === "AppError"
-              ? Effect.gen(function* () {
-                  const tc = yield* TelemetryClient;
-                  yield* tc
-                    .reportError({
-                      name: error.code,
-                      message: error.what,
-                      details: error.details,
-                      ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
-                      level: "error" as const,
-                      handled: true,
-                      command,
-                    })
-                    .pipe(Effect.catchCause(() => Effect.void));
-                }).pipe(
-                  Effect.provide(telemetryLayer),
-                  Effect.catchCause(() => Effect.void),
-                )
-              : Effect.void;
+          const report = reportCliError(error, command).pipe(
+            Effect.provide(telemetryLayer),
+            Effect.catchCause(() => Effect.void),
+          );
 
           return writeError.pipe(
             Effect.andThen(report),
             Effect.flatMap(() => Effect.die(effectCliExit(result.exitCode))),
+          );
+        }),
+        Effect.catchCause((cause) => {
+          const defect = Cause.squash(cause);
+          if (isEffectCliExit(defect)) {
+            return Effect.failCause(cause);
+          }
+
+          return reportCliDefect(cause, command).pipe(
+            Effect.provide(telemetryLayer),
+            Effect.andThen(Effect.failCause(cause)),
           );
         }),
       );
@@ -277,18 +249,14 @@ export const withCommandRuntime = (
         Layer.provideMerge(cliFlagsLayer, CliEnvConfigOrDie),
       );
       const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-      const workspaceCommandLayer = Layer.provideMerge(
+      // commandLayer provides Output/Activity/Input services
+      // that wsLayer may depend on, so use provideMerge to satisfy dependencies in order.
+      const fullLayer = Layer.provideMerge(
         Layer.mergeAll(wsLayer, sourceProvidersLayer),
         commandLayer,
       );
-      const managersLayer = Layer.provide(extensionManagersLayer, workspaceCommandLayer);
-      const workflowActionsLayer = Layer.provide(
-        commandWorkflowActionsLayer,
-        Layer.merge(workspaceCommandLayer, managersLayer),
-      );
-      const fullLayer = Layer.mergeAll(workspaceCommandLayer, managersLayer, workflowActionsLayer);
-      yield* catchErrors(program.pipe(Effect.provide(fullLayer), Effect.scoped));
+      yield* catchErrors(instrumentedProgram.pipe(Effect.provide(fullLayer), Effect.scoped));
     } else {
-      yield* catchErrors(program.pipe(Effect.provide(commandLayer)));
+      yield* catchErrors(instrumentedProgram.pipe(Effect.provide(commandLayer)));
     }
   });

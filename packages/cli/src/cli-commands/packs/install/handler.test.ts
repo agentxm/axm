@@ -19,7 +19,6 @@ import { makeActivityTestLayer } from "../../../activity/index.js";
 import { makeInputTestLayer, type InputPromptBehavior } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -136,7 +135,6 @@ describe("packs install handler", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest({ yes: true, ...flagsOverrides }),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -185,7 +183,6 @@ describe("packs install handler", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest({ yes: true, preview: true, ...flagsOverrides }),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

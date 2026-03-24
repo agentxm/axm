@@ -19,7 +19,6 @@ import { makeOutputTestLayer, type Output } from "../../../output/index.js";
 import { makeInputTestLayer, type Input } from "../../../input/index.js";
 import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClient, TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -95,7 +94,6 @@ describe("rename.handler", () => {
       outputLayer,
       inputLayer,
       CliFlagsTest(),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -115,7 +113,6 @@ describe("rename.handler", () => {
         | Output
         | Input
         | Workspace
-        | TelemetryClient
         | CliFlags
         | CliEnvConfig
       >,

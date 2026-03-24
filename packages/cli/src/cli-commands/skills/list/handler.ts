@@ -8,7 +8,6 @@
 
 import * as Effect from "effect/Effect";
 import { Output } from "../../../output/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -38,8 +37,6 @@ export interface ListHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills list" });
   const output = yield* Output;
   const ws = yield* Workspace;
   const skills = yield* ws.getLockedSkills();

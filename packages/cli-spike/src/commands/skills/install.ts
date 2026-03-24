@@ -100,7 +100,7 @@ export const installCommand = Command.make(
         };
         yield* output.result(InstallResultSchema, result, renderText);
       }),
-      { isLongRunning: true },
+      { command: "skills install", isLongRunning: true },
     ),
 ).pipe(
   Command.withDescription("Install skills from GitHub or local path"),

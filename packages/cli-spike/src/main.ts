@@ -11,17 +11,30 @@
 //   5. Graceful shutdown with fiber interruption
 // ==========================================================================
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as Layer from "effect/Layer";
 import { Command } from "effect/unstable/cli";
 
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import {
   handleError,
+  isEffectCliExit,
   makeUiLayer,
+  reportCliDefect,
+  reportCliError,
   resolveFormat,
   resolveFormatFromArgv,
+  trackCliCommand,
   withGracefulShutdown,
 } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  TelemetryClientLive,
+  resolveTelemetryMode,
+} from "@axm.sh/core/unstable/telemetry";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import { skillsCommand } from "./commands/skills/command.js";
 
@@ -53,13 +66,45 @@ const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
 
 export const withRuntime = <A, E, R>(
   program: Effect.Effect<A, E, R>,
-  options?: { readonly isLongRunning?: boolean },
+  options?: {
+    readonly command?: string;
+    readonly isLongRunning?: boolean;
+  },
 ) =>
   Effect.gen(function* () {
     const explicit = yield* outputFormatFlag;
     const format = resolveFormat(explicit, options);
+    const command = options?.command ?? "unknown";
+    const telemetryLayer = TelemetryClientLive({
+      mode: resolveTelemetryMode(
+        {
+          doNotTrack: process.env["DO_NOT_TRACK"],
+          telemetry: process.env["AXM_TELEMETRY"],
+        },
+        {},
+      ),
+      command,
+      client: { name: ROOT_COMMAND, version: VERSION },
+      runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
+      ci: process.env["CI"] === "true",
+      test: process.env["VITEST"] === "true",
+    });
 
-    return yield* program.pipe(Effect.provide(makeUiLayer(format)));
+    return yield* trackCliCommand({ command }).pipe(
+      Effect.andThen(program as Effect.Effect<A, AppError | PromptCancelled, R>),
+      Effect.catch((error: AppError | PromptCancelled) =>
+        reportCliError(error, command).pipe(Effect.andThen(Effect.fail(error))),
+      ),
+      Effect.catchCause((cause) => {
+        const defect = Cause.squash(cause);
+        if (isEffectCliExit(defect)) {
+          return Effect.failCause(cause);
+        }
+
+        return reportCliDefect(cause, command).pipe(Effect.andThen(Effect.failCause(cause)));
+      }),
+      Effect.provide(Layer.mergeAll(makeUiLayer(format), telemetryLayer)),
+    );
   });
 
 // ---------------------------------------------------------------------------
@@ -89,7 +134,7 @@ const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise
     await Effect.runPromise(
       withGracefulShutdown(
         Command.runWith(rootCommand, { version: VERSION })(args).pipe(
-          Effect.provide(NodeServices.layer),
+          Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),
         ) as Effect.Effect<void>,
       ),
     );

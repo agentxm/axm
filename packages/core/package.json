@@ -89,6 +89,10 @@
     "./unstable/cli-runtime": {
       "types": "./src/unstable/cli-runtime/index.ts",
       "default": "./dist/src/unstable/cli-runtime/index.js"
+    },
+    "./unstable/telemetry": {
+      "types": "./src/unstable/telemetry/index.ts",
+      "default": "./dist/src/unstable/telemetry/index.js"
     }
   },
   "files": [

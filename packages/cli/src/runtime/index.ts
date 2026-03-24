@@ -9,6 +9,7 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as p from "@clack/prompts";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
@@ -32,7 +33,8 @@ import { Input, InputLive } from "../input/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "../config/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
-import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "../telemetry/index.js";
+import { type TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "../telemetry/index.js";
+import { reportCliDefect, reportCliError, trackCliCommand } from "@axm.sh/core/unstable/cli-runtime";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -255,6 +257,8 @@ export function withCliRuntime<A>(
       ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
       : Layer.empty;
 
+    const instrumentedProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
+
     const provided: Effect.Effect<A, AppError | PromptCancelled, AppLayer> = options?.workspace
       ? (() => {
           const wsLayer = Layer.provide(
@@ -265,7 +269,7 @@ export function withCliRuntime<A>(
             Layer.mergeAll(flagsLayer, CliEnvConfigOrDie),
           );
           const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-          return program.pipe(
+          return instrumentedProgram.pipe(
             Effect.provide(
               Layer.mergeAll(
                 flagsLayer,
@@ -278,7 +282,7 @@ export function withCliRuntime<A>(
             Effect.scoped,
           ) as Effect.Effect<A, AppError | PromptCancelled, AppLayer>;
         })()
-      : (program.pipe(
+      : (instrumentedProgram.pipe(
           Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer)),
         ) as Effect.Effect<A, AppError | PromptCancelled, AppLayer>);
 
@@ -292,25 +296,25 @@ export function withCliRuntime<A>(
                 console.error(result.message);
               });
 
-        const report =
-          error._tag === "AppError"
-            ? Effect.gen(function* () {
-                const tc = yield* TelemetryClient;
-                yield* tc.reportError({
-                  name: error.code,
-                  message: error.what,
-                  details: error.details,
-                  ...(Option.isSome(error.howToFix) && { howToFix: error.howToFix.value }),
-                  level: "error",
-                  handled: true,
-                  command,
-                });
-              }).pipe(Effect.catchCause(() => Effect.void))
-            : Effect.void;
+        const report = reportCliError(error, command).pipe(
+          Effect.provide(telemetryLayer),
+          Effect.catchCause(() => Effect.void),
+        );
 
         return writeError.pipe(
           Effect.andThen(report),
           Effect.flatMap(() => Effect.die({ _tag: "CliExit", exitCode: result.exitCode } as const)),
+        );
+      }),
+      Effect.catchCause((cause) => {
+        const defect = Cause.squash(cause);
+        if (isCliExit(defect)) {
+          return Effect.failCause(cause);
+        }
+
+        return reportCliDefect(cause, command).pipe(
+          Effect.provide(telemetryLayer),
+          Effect.andThen(Effect.failCause(cause)),
         );
       }),
     );

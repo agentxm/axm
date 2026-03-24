@@ -19,7 +19,6 @@ import { makeActivityTestLayer } from "../../../activity/index.js";
 import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
@@ -143,7 +142,6 @@ describe("publish.handler", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest(),
-      TelemetryClientTest,
       AuthClientTest(),
       authCredStoreLayer,
       Layer.succeed(RegistryUrl, "https://registry.agentxm.ai"),

@@ -1,14 +1,8 @@
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUpdate } from "../../cli-commands/skills/update/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const updateCommand = Command.make(
   "update",
@@ -19,10 +13,7 @@ export const updateCommand = Command.make(
       ),
       Argument.optional,
     ),
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     agent: Flag.string("agent").pipe(
       Flag.withDescription("Update only skills for specified agent(s)"),
       Flag.atLeast(0),
@@ -37,10 +28,7 @@ export const updateCommand = Command.make(
   },
   ({ source, scope, agent, skill, yes, force, preview }) =>
     withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        handleUpdate({ source, scope: resolveWorkspaceScope(scope), agents: agent, skills: skill }),
-      ),
+      withWorkspace(scope, handleUpdate({ source, scope, agents: agent, skills: skill })),
       { command: "skills update", flags: { yes, force, preview } },
     ),
 ).pipe(

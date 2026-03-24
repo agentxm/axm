@@ -295,8 +295,8 @@ export type WorkspaceContextError = AppError | PromptCancelled;
 export interface WorkspaceContextOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
-  /** Explicit agent IDs to use (overrides detection and prompting) */
-  readonly agents: Option.Option<readonly string[]>;
+  /** Explicit agent IDs to use during initialization (overrides detection and prompting) */
+  readonly agents?: Option.Option<readonly string[]>;
   /** Built-in source host configs (defaults to git forges only when not provided) */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
 }

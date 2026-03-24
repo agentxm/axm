@@ -1,10 +1,9 @@
-import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handlePacksRemove } from "../../cli-commands/packs/remove/handler.js";
-import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 export const removeCommand = Command.make(
   "remove",
@@ -18,13 +17,10 @@ export const removeCommand = Command.make(
     preview: previewFlag,
   },
   ({ pack, extension, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-        handlePacksRemove({ pack, extension }),
-      ),
-      { command: "packs remove", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksRemove({ pack, extension })), {
+      command: "packs remove",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Remove an extension from a pack manifest"),
   Command.withExamples([

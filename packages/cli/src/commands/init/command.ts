@@ -2,21 +2,13 @@ import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInit } from "../../cli-commands/init/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const initCommand = Command.make(
   "init",
   {
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     agent: Flag.string("agent").pipe(
       Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
       Flag.atLeast(0),
@@ -27,13 +19,7 @@ export const initCommand = Command.make(
   },
   ({ scope, agent, yes, force, preview }) =>
     withRuntime(
-      withWorkspace(
-        {
-          scope: resolveWorkspaceScope(scope),
-          agents: agent.length > 0 ? Option.some(agent) : Option.none(),
-        },
-        handleInit(),
-      ),
+      withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
       { command: "init", flags: { yes, force, preview } },
     ),
 ).pipe(

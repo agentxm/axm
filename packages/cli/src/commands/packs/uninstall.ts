@@ -1,10 +1,9 @@
-import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUninstallPack } from "../../cli-commands/packs/uninstall/handler.js";
-import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -17,13 +16,10 @@ export const uninstallCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-        handleUninstallPack({ name }),
-      ),
-      { command: "packs uninstall", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstallPack({ name })), {
+      command: "packs uninstall",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Uninstall a pack"),
   Command.withExamples([

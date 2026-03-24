@@ -4,7 +4,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleSkillsNew } from "../../cli-commands/skills/new/handler.js";
-import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 export const newCommand = Command.make(
   "new",
@@ -28,7 +28,7 @@ export const newCommand = Command.make(
   ({ name, profile, agent, yes, force, preview }) =>
     withRuntime(
       withWorkspace(
-        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+        DEFAULT_WORKSPACE_SCOPE,
         handleSkillsNew({
           name,
           profile,

@@ -1,14 +1,8 @@
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstall } from "../../cli-commands/skills/install/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const installCommand = Command.make(
   "install",
@@ -16,10 +10,7 @@ export const installCommand = Command.make(
     source: Argument.string("source").pipe(
       Argument.withDescription("GitHub shorthand (owner/repo), local path, or URL"),
     ),
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     skill: Flag.string("skill").pipe(
       Flag.withDescription("Install only specified skill(s) by name"),
       Flag.atLeast(0),
@@ -30,13 +21,10 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, skill, all, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        handleInstall({ source, scope: resolveWorkspaceScope(scope), skills: skill, all }),
-      ),
-      { command: "skills install", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(scope, handleInstall({ source, scope, skills: skill, all })), {
+      command: "skills install",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Install skills from GitHub or local path"),
   Command.withExamples([

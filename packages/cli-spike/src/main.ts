@@ -2,76 +2,40 @@
 // ==========================================================================
 // main.ts — CLI entry point and runtime wiring
 //
-// This is the reference implementation for an Effect v4 CLI. It demonstrates:
-//   1. Global flags as Effect services via GlobalFlag.setting()
-//   2. Three-channel error handling (stdout, stderr, exit code)
-//   3. Graceful shutdown with fiber interruption on SIGTERM/SIGINT
-//   4. Pre-Effect format detection for error routing
-//   5. NodeServices.layer provision for platform services
-//
-// File structure:
-//   src/
-//   ├── main.ts              ← You are here (root command, global flags, run)
-//   ├── output.ts            ← Output formatting, NDJSON schemas, helpers
-//   └── commands/
-//       └── skills/
-//           ├── command.ts    ← Parent command (composes subcommands)
-//           ├── list.ts       ← Reference: instant command with structured output
-//           ├── install.ts    ← Reference: long-running command with NDJSON streaming
-//           └── *.ts          ← Stubs showing minimal command interface
+// Reference implementation for an Effect v4 CLI using @axm.sh/core services.
+// Demonstrates:
+//   1. Global flags: nonInteractiveFlag from core, outputFormatFlag local
+//   2. Per-command flags (yes, force, preview) from core — NOT global
+//   3. Output/Activity services provided via withRuntime()
+//   4. Three-channel error handling with AppError
+//   5. Graceful shutdown with fiber interruption
 // ==========================================================================
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { CliError, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
+import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
+import type { OutputFormat } from "@axm.sh/core/unstable/output-format";
+import { OutputLive, OutputStructured } from "@axm.sh/core/unstable/output";
+import { ActivityLive, ActivityStructured } from "@axm.sh/core/unstable/activity";
+
 import { skillsCommand } from "./commands/skills/command.js";
-import type { OutputFormat } from "./output.js";
 
 // ---------------------------------------------------------------------------
-// Global flags — available to every command in the tree
+// Global flags — truly global, available to every command
 //
-// GlobalFlag.setting() creates an Effect service (not just a parsed value).
-// Each flag gets a unique key (e.g. "spike-non-interactive") and can be
-// yielded in any handler anywhere in the command tree:
+// nonInteractiveFlag comes from @axm.sh/core (shared across all CLIs).
+// outputFormatFlag is local because it drives format-aware layer selection.
 //
-//   const yes = yield* yesFlag;   // boolean
-//   const fmt = yield* outputFormatFlag; // Option<OutputFormat>
-//
-// This is the idiomatic Effect CLI pattern for cross-cutting concerns.
-// The flags are registered once on the root command via
-// Command.withGlobalFlags() and the CLI framework handles threading them
-// through the Effect context.
+// IMPORTANT: yes/force/preview are NOT global — they are per-command flags
+// imported from @axm.sh/core/unstable/cli-flags by commands that need them.
+// This matches the project convention: only truly cross-cutting concerns
+// are global.
 // ---------------------------------------------------------------------------
 
-const nonInteractiveFlag = GlobalFlag.setting("spike-non-interactive")({
-  flag: Flag.boolean("non-interactive").pipe(
-    Flag.optional,
-    Flag.withDescription("Disable all interactive prompts"),
-  ),
-});
-
-const yesFlag = GlobalFlag.setting("spike-yes")({
-  flag: Flag.boolean("yes").pipe(
-    Flag.withAlias("y"),
-    Flag.withDescription("Auto-accept confirmation prompts"),
-  ),
-});
-
-const forceFlag = GlobalFlag.setting("spike-force")({
-  flag: Flag.boolean("force").pipe(
-    Flag.withAlias("f"),
-    Flag.withDescription("Override constraints that would cause failure"),
-  ),
-});
-
-const previewFlag = GlobalFlag.setting("spike-preview")({
-  flag: Flag.boolean("preview").pipe(Flag.withDescription("Display plan without applying")),
-});
-
-// Exported because command handlers need to yield this to resolve output format.
-// Other global flags are only read by infrastructure (e.g. CliFlags service)
-// and don't need to be exported.
 export const outputFormatFlag = GlobalFlag.setting("spike-output-format")({
   flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
     Flag.withDescription("Output format (default: auto-detect from TTY)"),
@@ -79,13 +43,47 @@ export const outputFormatFlag = GlobalFlag.setting("spike-output-format")({
   ),
 });
 
-const globalFlags = [
-  nonInteractiveFlag,
-  yesFlag,
-  forceFlag,
-  previewFlag,
-  outputFormatFlag,
-] as const;
+const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
+
+// ---------------------------------------------------------------------------
+// Runtime layer helper — resolves format and provides Output + Activity
+//
+// Commands call withRuntime() to get format-aware services. The format
+// drives which layer variant is provided:
+//   text        → OutputLive + ActivityLive (interactive clack prompts)
+//   json/stream → OutputStructured + ActivityStructured (NDJSON events)
+//
+// This replaces the old pattern of manually branching on format in every
+// handler. Commands just use Output.result() and Activity.withSpinner()
+// and the services handle format differences transparently.
+// ---------------------------------------------------------------------------
+
+const resolveFormat = (
+  explicit: Option.Option<OutputFormat>,
+  isLongRunning = false,
+): OutputFormat =>
+  Option.getOrElse(explicit, () =>
+    process.stdout.isTTY ? "text" : isLongRunning ? "stream-json" : "json",
+  );
+
+export const withRuntime = <A, E, R>(
+  program: Effect.Effect<A, E, R>,
+  options?: { readonly isLongRunning?: boolean },
+) =>
+  Effect.gen(function* () {
+    const explicit = yield* outputFormatFlag;
+    const format = resolveFormat(explicit, options?.isLongRunning);
+
+    const uiLayer =
+      format === "text"
+        ? Layer.mergeAll(OutputLive("text"), ActivityLive)
+        : Layer.mergeAll(
+            OutputStructured(format as Exclude<OutputFormat, "text">),
+            ActivityStructured(format as Exclude<OutputFormat, "text">),
+          );
+
+    return yield* program.pipe(Effect.provide(uiLayer));
+  });
 
 // ---------------------------------------------------------------------------
 // Root command
@@ -163,13 +161,13 @@ const handleError = (error: unknown, format: OutputFormat): never => {
   const code = error instanceof Error && "code" in error ? String(error.code) : "UNKNOWN_ERROR";
 
   if (format === "text") {
-    console.error(`✗ ${message}`);
+    console.error(`\u2717 ${message}`);
   } else {
     // Both channels: typed JSON on stdout for machines, brief message on
     // stderr for humans debugging a pipe
     const errorObj = { type: "error", code, message };
     process.stdout.write(JSON.stringify(errorObj) + "\n");
-    console.error(`✗ ${message}`);
+    console.error(`\u2717 ${message}`);
   }
 
   process.exit(1);

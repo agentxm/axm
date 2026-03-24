@@ -1,6 +1,8 @@
 import * as Console from "effect/Console";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+
 export const updateCommand = Command.make(
   "update",
   {
@@ -20,8 +22,14 @@ export const updateCommand = Command.make(
       Flag.withDescription("Update only specified skill(s) by name or glob"),
       Flag.atLeast(0),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  (config) => Console.log(`[stub] skills update scope=${config.scope}`),
+  (config) =>
+    Console.log(
+      `[stub] skills update scope=${config.scope} yes=${config.yes} force=${config.force} preview=${config.preview}`,
+    ),
 ).pipe(
   Command.withDescription("Update installed skills to latest versions"),
   Command.withExamples([
@@ -33,6 +41,10 @@ export const updateCommand = Command.make(
     {
       command: "axm-spike skills update --skill pr-review",
       description: "Update a specific skill",
+    },
+    {
+      command: "axm-spike skills update --preview",
+      description: "Preview what would be updated",
     },
   ]),
 );

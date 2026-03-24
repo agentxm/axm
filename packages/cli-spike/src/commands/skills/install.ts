@@ -1,32 +1,22 @@
 // ==========================================================================
-// install.ts — Reference pattern for LONG-RUNNING commands with NDJSON streaming
+// install.ts — Reference pattern for LONG-RUNNING commands using Activity service
 //
-// This file demonstrates how long-running operations differ from instant
-// commands (compare with list.ts):
+// Demonstrates how Activity.withSpinner() replaces manual NDJSON streaming:
+//   - In text mode: shows an interactive spinner with status updates
+//   - In stream-json mode: emits NDJSON progress events automatically
+//   - In json mode: runs silently, only emits final result
 //
-//   - resolveOutputFormat(explicit, true) — the `true` signals long-running,
-//     so piped output defaults to "stream-json" instead of "json"
-//   - In stream-json mode, emitEvent() sends incremental progress events
-//     BEFORE the final result. Each line is independently parseable.
-//   - In text/json mode, only the final result is emitted (no progress).
-//
-// NDJSON event sequence for stream-json:
-//   {"type":"progress","phase":"download","percent":0,...}
-//   {"type":"progress","phase":"download","percent":100,...}
-//   {"type":"log","level":"info","message":"Resolved 3 skills..."}
-//   {"type":"progress","phase":"install","percent":33,...}
-//   {"type":"progress","phase":"install","percent":66,...}
-//   {"type":"progress","phase":"install","percent":100,...}
-//   {"type":"result","data":{"_version":1,"source":"...","installed":[...]}}
-//
-// The "result" event is always last. Consumers can stop reading after it.
+// The handler is completely format-agnostic. No emitEvent(), no format
+// branching. The Activity service handles all format differences.
 // ==========================================================================
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { outputFormatFlag } from "../../main.js";
-import { emitEvent, resolveOutputFormat, writeOutput } from "../../output.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
+import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withRuntime } from "../../main.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — the JSON contract for `skills install`
@@ -45,74 +35,20 @@ export type InstallResult = typeof InstallResultSchema.Type;
 
 const renderText = (result: InstallResult): string => {
   const lines = [
-    `✓ Installed ${result.installed.length} skill(s) from ${result.source}`,
-    ...result.installed.map((s) => `  • ${s}`),
+    `\u2713 Installed ${result.installed.length} skill(s) from ${result.source}`,
+    ...result.installed.map((s) => `  \u2022 ${s}`),
   ];
   return lines.join("\n");
 };
 
 // ---------------------------------------------------------------------------
-// Simulated long-running install (demonstrates NDJSON streaming)
-//
-// The format branching is intentional: stream-json emits incremental events
-// for real-time UI updates in desktop apps, while text/json modes only emit
-// the final result. In a real implementation, the business logic wouldn't
-// change — only the observability layer (progress events) differs.
-//
-// Effect.sleep simulates network/disk latency. In production, natural I/O
-// would provide the delays, and progress events would be emitted at
-// meaningful checkpoints (download complete, each skill installed, etc.).
-// ---------------------------------------------------------------------------
-
-const simulateInstall = (source: string, format: "text" | "json" | "stream-json") =>
-  Effect.gen(function* () {
-    const skills = ["pr-review", "test-gen", "doc-writer"];
-
-    if (format === "stream-json") {
-      // NDJSON progress events — each line is independently parseable
-      yield* emitEvent({
-        type: "progress",
-        phase: "download",
-        percent: 0,
-        message: `Downloading ${source}`,
-      });
-      yield* Effect.sleep("200 millis");
-      yield* emitEvent({
-        type: "progress",
-        phase: "download",
-        percent: 100,
-        message: "Download complete",
-      });
-
-      yield* emitEvent({
-        type: "log",
-        level: "info",
-        message: `Resolved ${skills.length} skills from manifest`,
-      });
-
-      for (let i = 0; i < skills.length; i++) {
-        yield* emitEvent({
-          type: "progress",
-          phase: "install",
-          percent: Math.round(((i + 1) / skills.length) * 100),
-          message: `Installing ${skills[i]}`,
-        });
-        yield* Effect.sleep("100 millis");
-      }
-    }
-
-    const result: InstallResult = { _version: 1, source, installed: skills };
-
-    yield* writeOutput(format, InstallResultSchema, result, renderText);
-  });
-
-// ---------------------------------------------------------------------------
 // Command
 //
-// Key difference from list.ts: resolveOutputFormat(explicit, true) passes
-// isLongRunning=true, which changes the pipe default from "json" to
-// "stream-json". This means `axm skills install foo/bar | jq` gets NDJSON
-// with progress events instead of blocking until completion.
+// Key differences from list.ts:
+//   - withRuntime(..., { isLongRunning: true }) sets pipe default to stream-json
+//   - Activity.withSpinner() wraps the long-running work
+//   - The spinner handle provides .message() for status updates
+//   - Per-command --yes flag imported from core (demonstrates the pattern)
 // ---------------------------------------------------------------------------
 
 export const installCommand = Command.make(
@@ -130,14 +66,42 @@ export const installCommand = Command.make(
       Flag.atLeast(0),
     ),
     all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
+    yes: yesFlag,
   },
   (config) =>
-    Effect.gen(function* () {
-      const explicitFormat = yield* outputFormatFlag;
-      const format = resolveOutputFormat(explicitFormat, true); // long-running → stream-json when piped
+    withRuntime(
+      Effect.gen(function* () {
+        const activity = yield* Activity;
+        const output = yield* Output;
 
-      yield* simulateInstall(config.source, format);
-    }),
+        // Activity.withSpinner handles format differences:
+        //   text        → shows animated spinner with status messages
+        //   stream-json → emits NDJSON progress events
+        //   json        → runs silently (no output until result)
+        const skills = yield* activity.withSpinner(
+          `Installing from ${config.source}`,
+          (handle) =>
+            Effect.gen(function* () {
+              yield* handle.message("Downloading...");
+              yield* Effect.sleep("200 millis");
+              yield* handle.message("Resolving skills from manifest...");
+              yield* Effect.sleep("100 millis");
+              yield* handle.message("Installing skills...");
+              yield* Effect.sleep("100 millis");
+              return ["pr-review", "test-gen", "doc-writer"] as const;
+            }),
+          "Installation complete",
+        );
+
+        const result: InstallResult = {
+          _version: 1,
+          source: config.source,
+          installed: Array.from(skills),
+        };
+        yield* output.result(InstallResultSchema, result, renderText);
+      }),
+      { isLongRunning: true },
+    ),
 ).pipe(
   Command.withDescription("Install skills from GitHub or local path"),
   Command.withExamples([
@@ -156,7 +120,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm-spike skills install owner/repo --output-format json",
-      description: "Install with JSON output (for scripting)",
+      description: "Install with JSON output",
     },
   ]),
 );

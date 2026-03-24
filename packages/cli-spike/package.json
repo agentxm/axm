@@ -14,6 +14,7 @@
     "spike": "bun src/main.ts"
   },
   "dependencies": {
+    "@axm.sh/core": "workspace:*",
     "effect": "catalog:",
     "@effect/platform-node": "4.0.0-beta.37"
   },

@@ -1,27 +1,21 @@
 // ==========================================================================
-// list.ts — Reference pattern for INSTANT commands with structured output
+// list.ts — Reference pattern for INSTANT commands using Output service
 //
-// This file demonstrates the standard command structure:
+// Demonstrates the idiomatic command structure with @axm.sh/core services:
 //   1. Output schema — defines the JSON contract (with _version)
 //   2. Text renderer — pure function for human-readable output
-//   3. Command handler — resolves format, does work, writes output
-//   4. Command definition — args, flags, description, examples
+//   3. Command handler — uses Output.result() via withRuntime()
 //
-// "Instant" means the command completes quickly and emits a single result.
-// Compare with install.ts which demonstrates long-running commands with
-// NDJSON streaming progress events.
-//
-// Handler pattern (3 steps, same for every command):
-//   1. const format = resolveOutputFormat(yield* outputFormatFlag)
-//   2. const data = yield* doWork(config)
-//   3. yield* writeOutput(format, schema, data, renderText)
+// The key improvement over manual format branching: the handler doesn't
+// know or care about the output format. Output.result() handles text/json/
+// stream-json routing transparently based on which layer was provided.
 // ==========================================================================
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { outputFormatFlag } from "../../main.js";
-import { resolveOutputFormat, writeOutput } from "../../output.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { withRuntime } from "../../main.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — the JSON contract for `skills list`
@@ -87,10 +81,10 @@ const renderText = (skills: SkillListOutput): string => {
   if (skills.length === 0) return "No skills installed.";
 
   const header = `${"Name".padEnd(16)} ${"Source".padEnd(16)} ${"Version".padEnd(10)} ${"Enabled".padEnd(8)} Scope`;
-  const separator = "─".repeat(header.length);
+  const separator = "\u2500".repeat(header.length);
   const rows = skills.map(
     (s) =>
-      `${s.name.padEnd(16)} ${s.source.padEnd(16)} ${(s.version ?? "—").padEnd(10)} ${(s.enabled ? "yes" : "no").padEnd(8)} ${s.scope}`,
+      `${s.name.padEnd(16)} ${s.source.padEnd(16)} ${(s.version ?? "\u2014").padEnd(10)} ${(s.enabled ? "yes" : "no").padEnd(8)} ${s.scope}`,
   );
   return [header, separator, ...rows].join("\n");
 };
@@ -98,14 +92,13 @@ const renderText = (skills: SkillListOutput): string => {
 // ---------------------------------------------------------------------------
 // Command
 //
-// The handler follows the standard 3-step pattern:
-//   1. Resolve output format (yield global flag → detect TTY)
-//   2. Do work (here: filter mock data; real impl would query workspace)
-//   3. Write output (format-aware: text table, JSON array, or NDJSON result)
+// The handler is now format-agnostic:
+//   1. withRuntime() resolves format and provides Output + Activity services
+//   2. yield* Output to get the service
+//   3. yield* output.result(schema, data, renderText) to emit output
 //
-// Note: resolveOutputFormat(explicit) without isLongRunning=true means
-// piped output defaults to "json" (single array), not "stream-json".
-// This is correct for instant commands that return a complete result.
+// No more: const format = resolveOutputFormat(yield* outputFormatFlag)
+// No more: yield* writeOutput(format, schema, data, renderText)
 // ---------------------------------------------------------------------------
 
 export const listCommand = Command.make(
@@ -118,15 +111,13 @@ export const listCommand = Command.make(
     agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
   },
   (config) =>
-    Effect.gen(function* () {
-      const explicitFormat = yield* outputFormatFlag;
-      const format = resolveOutputFormat(explicitFormat);
-
-      // Filter mock data by scope
-      const filtered = MOCK_SKILLS.filter((s) => s.scope === config.scope);
-
-      yield* writeOutput(format, SkillListOutputSchema, filtered, renderText);
-    }),
+    withRuntime(
+      Effect.gen(function* () {
+        const output = yield* Output;
+        const filtered = MOCK_SKILLS.filter((s) => s.scope === config.scope);
+        yield* output.result(SkillListOutputSchema, filtered, renderText);
+      }),
+    ),
 ).pipe(
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),

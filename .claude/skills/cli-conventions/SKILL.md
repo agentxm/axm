@@ -237,61 +237,40 @@ Command.withExamples([
 
 ---
 
-## Global Flags
+## Global and Per-Command Flags
 
-Defined once in `main.ts`, registered on the root command, yielded in any
-handler:
+`--non-interactive` is a global flag (applies to every command). `--yes`, `--force`, `--preview` are per-command flags — import and include in `Command.make()` only for commands that need them.
 
 ```typescript
-import * as Effect from "effect/Effect";
 import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
+import { yesFlag, forceFlag, previewFlag } from "../../cli-flags/index.js";
 
+// Global flag — defined once, registered on root command
 const nonInteractiveFlag = GlobalFlag.setting("app-non-interactive")({
   flag: Flag.boolean("non-interactive").pipe(
     Flag.optional,
     Flag.withDescription("Disable all interactive prompts"),
   ),
 });
+const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
+Command.withGlobalFlags(globalFlags);
 
-const yesFlag = GlobalFlag.setting("app-yes")({
-  flag: Flag.boolean("yes").pipe(
-    Flag.withAlias("y"),
-    Flag.withDescription("Auto-accept confirmation prompts"),
-  ),
-});
-
-const forceFlag = GlobalFlag.setting("app-force")({
-  flag: Flag.boolean("force").pipe(
-    Flag.withAlias("f"),
-    Flag.withDescription("Override constraints that would cause failure"),
-  ),
-});
-
-const previewFlag = GlobalFlag.setting("app-preview")({
-  flag: Flag.boolean("preview").pipe(Flag.withDescription("Display plan without applying")),
-});
-
-const globalFlags = [nonInteractiveFlag, yesFlag, forceFlag, previewFlag] as const;
-
-const rootCommand = Command.make("axm").pipe(
-  Command.withDescription("Open agent extension manager"),
-  Command.withExamples([
-    { command: "axm skills list", description: "List installed skills" },
-    { command: "axm skills install owner/repo", description: "Install skills from GitHub" },
-  ]),
-  Command.withSubcommands([skillsCommand]),
-  Command.withGlobalFlags(globalFlags),
+// Per-command flags — add to Command.make() for commands that need them
+Command.make("install", {
+  source: Argument.string("source").pipe(...),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+}, ({ source, yes, force, preview }) =>
+  withCommandRuntime(handleInstall({ source }), {
+    command: "skills install",
+    flags: { yes, force, preview },
+  }),
 );
 
-// In any leaf command handler — yield to access global flags
-(config) =>
-  Effect.gen(function* () {
-    const yes = yield* yesFlag;
-    const preview = yield* previewFlag;
-    if (preview) {
-      /* show plan only */
-    }
-  });
+// Handlers read from the CliFlags service (unchanged)
+const flags = yield* CliFlags;
+if (flags.preview) { /* show plan only */ }
 ```
 
 ---

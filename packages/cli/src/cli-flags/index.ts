@@ -1,8 +1,8 @@
 export {
   CliFlags,
-  CliFlagsLive,
   CliFlagsTest,
   forceFlag,
+  makeCliFlagsLayer,
   nonInteractiveFlag,
   previewFlag,
   yesFlag,

@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleFork } from "../../cli-commands/skills/fork/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
 
@@ -17,11 +18,15 @@ export const forkCommand = Command.make(
       Flag.withDescription("Fork only specified skill(s) by name or glob pattern"),
       Flag.atLeast(0),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ source, skill }) =>
+  ({ source, skill, yes, force, preview }) =>
     withCommandRuntime(handleFork({ source, skills: [...skill] }), {
       command: "skills fork",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+      flags: { yes, force, preview },
     }),
 ).pipe(
   Command.withDescription("Fork a skill for customization"),

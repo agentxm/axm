@@ -18,7 +18,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -38,7 +38,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -58,7 +58,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -78,7 +78,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -96,7 +96,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -117,7 +117,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -137,7 +137,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 
@@ -180,7 +180,7 @@ describe("OutputStructured", () => {
         layer,
         Layer.succeed(
           Console.Console,
-          Console.make({ log: (...args) => lines.push(args.map(String).join(" ")) }),
+          { ...console, log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")) },
         ),
       );
 

@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInit } from "../../cli-commands/init/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -20,14 +21,18 @@ export const initCommand = Command.make(
       Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
       Flag.atLeast(0),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ scope, agent }) =>
+  ({ scope, agent, yes, force, preview }) =>
     withCommandRuntime(handleInit(), {
       command: "init",
       workspace: {
         scope: resolveWorkspaceScope(scope),
         agents: agent.length > 0 ? Option.some(agent) : Option.none(),
       },
+      flags: { yes, force, preview },
     }),
 ).pipe(
   Command.withDescription("Set up axm in the current project"),

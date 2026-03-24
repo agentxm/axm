@@ -25,13 +25,7 @@ import type { PromptCancelled } from "./prompt-cancelled.js";
 import { AuthClientLive } from "./auth/auth-client.js";
 import { AuthMiddlewareLive, RegistryUrl } from "./auth/auth-middleware.js";
 import { CredentialStoreLive } from "./auth/credential-store.js";
-import {
-  CliFlagsLive,
-  forceFlag,
-  nonInteractiveFlag,
-  previewFlag,
-  yesFlag,
-} from "./cli-flags/index.js";
+import { makeCliFlagsLayer, nonInteractiveFlag } from "./cli-flags/index.js";
 import { OutputLive, OutputStructured } from "./output/index.js";
 import { ActivityLive, ActivityStructured } from "./activity/index.js";
 import { InputLive, InputStructured } from "./input/index.js";
@@ -91,9 +85,6 @@ export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
 
 export const axmGlobalFlags = [
   nonInteractiveFlag,
-  yesFlag,
-  forceFlag,
-  previewFlag,
   verboseFlag,
   debugFlag,
   outputFormatFlag,
@@ -165,6 +156,11 @@ export const baseLayer = Layer.mergeAll(
 export interface CommandRuntimeOptions {
   readonly command?: string;
   readonly workspace?: Omit<WorkspaceContextOptions, "builtInSources">;
+  readonly flags?: {
+    readonly yes?: boolean;
+    readonly force?: boolean;
+    readonly preview?: boolean;
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,7 +171,7 @@ export const withCommandRuntime = (
   options?: CommandRuntimeOptions,
 ): Effect.Effect<void, unknown, unknown> =>
   Effect.gen(function* () {
-    const cliFlagsLayer = CliFlagsLive;
+    const cliFlagsLayer = makeCliFlagsLayer(options?.flags);
     const envConfig = yield* CliEnvConfig;
 
     // Resolve telemetry

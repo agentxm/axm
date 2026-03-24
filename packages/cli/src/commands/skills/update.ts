@@ -2,6 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withCommandRuntime } from "../../command-runtime.js";
+import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUpdate } from "../../cli-commands/skills/update/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -30,13 +31,17 @@ export const updateCommand = Command.make(
       Flag.withDescription("Update only specified skill(s) by name or glob"),
       Flag.atLeast(0),
     ),
+    yes: yesFlag,
+    force: forceFlag,
+    preview: previewFlag,
   },
-  ({ source, scope, agent, skill }) =>
+  ({ source, scope, agent, skill, yes, force, preview }) =>
     withCommandRuntime(
       handleUpdate({ source, scope: resolveWorkspaceScope(scope), agents: agent, skills: skill }),
       {
         command: "skills update",
         workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
+        flags: { yes, force, preview },
       },
     ),
 ).pipe(

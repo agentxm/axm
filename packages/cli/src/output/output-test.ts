@@ -85,7 +85,7 @@ export const makeOutputTestLayer = (): readonly [Layer.Layer<Output>, MockOutput
         Effect.asVoid,
       ),
     result: <A, I>(
-      schema: Schema.Schema<A, I, never>,
+      schema: Schema.Codec<A, I>,
       data: A,
       textRenderer: (data: A) => string,
     ) =>

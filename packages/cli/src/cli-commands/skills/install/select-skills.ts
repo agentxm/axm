@@ -15,6 +15,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -93,11 +94,12 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
     return yield* input
       .multiselect({
         message: "Select skills to install",
-        options: skills.map((s) => ({
-          value: s,
-          label: s.skill.name,
-          hint: s.skill.description,
-        })),
+        options: skills.map((s) => {
+          const base = { value: s, label: s.skill.name };
+          return Option.isSome(s.skill.description)
+            ? { ...base, hint: s.skill.description.value }
+            : base;
+        }),
         required: true,
       })
       .pipe(

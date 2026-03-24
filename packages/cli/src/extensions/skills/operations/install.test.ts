@@ -280,6 +280,7 @@ const makeOp = (
       versionConstraint: overrides.versionConstraint ?? Option.none(),
       skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
       strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
+      sourceName: Option.none(),
     },
   };
 };

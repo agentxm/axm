@@ -55,6 +55,10 @@ export type InstallSkillOperationArgs = {
   readonly skipSettings: Option.Option<boolean>;
   /** When true, fail on unknown configured agents instead of warning+skip. */
   readonly strictUnknownAgents?: Option.Option<boolean>;
+  /** When updating, preserve the original install timestamp instead of using now. */
+  readonly existingInstalledAt?: Option.Option<Date>;
+  /** Named registry source that provided the ref (written to lockfile for registry skills). */
+  readonly sourceName: Option.Option<string>;
 };
 
 /**
@@ -487,7 +491,8 @@ export const installSkill: OperationHandler<
       ref,
       agents,
       now: new Date(),
-      sourceName: Option.none(),
+      sourceName: op.args.sourceName,
+      existingInstalledAt: op.args.existingInstalledAt ?? Option.none(),
     });
 
     if (lockEntry.type === "registry") {

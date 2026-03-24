@@ -38,7 +38,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.some("abc123"),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "github",
@@ -68,7 +74,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "github",
@@ -99,7 +111,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "gitlab",
@@ -131,7 +149,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "bitbucket",
@@ -164,7 +188,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.some("def456"),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "azurerepos",
@@ -196,7 +226,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "git",
@@ -225,7 +261,13 @@ describe("sourceToLockEntry", () => {
       location: "file:///home/user/skills/my-skill",
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "local",
@@ -265,6 +307,7 @@ describe("sourceToLockEntry", () => {
       agents,
       now,
       sourceName: Option.some("local"),
+      existingInstalledAt: Option.none(),
     });
 
     expect(result).toEqual({
@@ -300,7 +343,13 @@ describe("sourceToLockEntry", () => {
       integrity: "sha512-AAAA==",
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result.type).toBe("registry");
     if (result.type !== "registry") throw new Error("Expected registry");
@@ -323,7 +372,13 @@ describe("sourceToLockEntry", () => {
       source: { type: "builtin" },
     };
 
-    const result = sourceToLockEntry({ ref, agents, now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).toEqual({
       type: "builtin",
@@ -352,13 +407,78 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.some("sha"),
     };
 
-    const result = sourceToLockEntry({ ref, agents: [], now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents: [],
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result.type).toBe("github");
     if (result.type !== "github") throw new Error("Expected github");
     expect(result.ref).toBe("v1");
     expect(result.path).toBe("dir");
     expect(result.gitTreeHash).toBe("sha");
+  });
+
+  // ---------------------------------------------------------------------------
+  // existingInstalledAt preservation
+  // ---------------------------------------------------------------------------
+
+  it("preserves existingInstalledAt when provided", () => {
+    const originalInstallDate = new Date("2024-06-01T00:00:00.000Z");
+    const ref: GitHostedSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "acme",
+        repo: "skills",
+        ref: Option.none(),
+        subPath: Option.none(),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
+    };
+
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.some(originalInstallDate),
+    });
+
+    expect(result.installedAt).toEqual(originalInstallDate);
+    expect(result.updatedAt).toEqual(now);
+  });
+
+  it("uses now for installedAt when existingInstalledAt is none", () => {
+    const ref: GitHostedSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "acme",
+        repo: "skills",
+        ref: Option.none(),
+        subPath: Option.none(),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
+    };
+
+    const result = sourceToLockEntry({
+      ref,
+      agents,
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
+
+    expect(result.installedAt).toEqual(now);
+    expect(result.updatedAt).toEqual(now);
   });
 
   it("converts Option.none to undefined (omitted)", () => {
@@ -376,7 +496,13 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({ ref, agents: [], now, sourceName: Option.none() });
+    const result = sourceToLockEntry({
+      ref,
+      agents: [],
+      now,
+      sourceName: Option.none(),
+      existingInstalledAt: Option.none(),
+    });
 
     expect(result).not.toHaveProperty("ref");
     expect(result).not.toHaveProperty("path");

@@ -41,6 +41,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
     force: false,
     versionConstraint: Option.none(),
     skipSettings: Option.none(),
+    sourceName: Option.none(),
   },
 });
 

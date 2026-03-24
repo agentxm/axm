@@ -122,6 +122,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         force: false,
         versionConstraint: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
+        sourceName: Option.none<string>(),
       },
     }),
   );

@@ -22,6 +22,8 @@ export interface SourceToLockEntryInput {
   readonly now: Date;
   /** Required for registry sources — which named registry config was used. */
   readonly sourceName: Option.Option<string>;
+  /** When updating, preserve the original install timestamp instead of using `now`. */
+  readonly existingInstalledAt: Option.Option<Date>;
 }
 
 // -----------------------------------------------------------------------------
@@ -37,7 +39,7 @@ const optionalField = <K extends string, V>(key: K, value: Option.Option<V>): { 
 
 const commonFields = (input: SourceToLockEntryInput) => ({
   agents: [...input.agents],
-  installedAt: input.now,
+  installedAt: Option.getOrElse(input.existingInstalledAt, () => input.now),
   updatedAt: input.now,
 });
 

@@ -9,6 +9,9 @@
  * 5. Build plan: fork → publish → install (sequential)
  * 6. Execute via resolvePlan
  *
+ * The install step queries the registry at execution time to obtain the
+ * integrity hash computed during publish, avoiding stale empty-string integrity.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -28,7 +31,9 @@ import { copySkill } from "../../../extensions/skills/operations/copy.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { expandGlobs } from "../../../skills/index.js";
-import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import { createRegistryClient } from "../../../registry/index.js";
+import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import type { Plan } from "../../../workspace/plan.js";
 import type { SkillExtensionRef, RegistrySkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
@@ -45,7 +50,19 @@ export interface ForkHandlerArgs {
   readonly skills: readonly string[];
 }
 
-type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;
+// ---------------------------------------------------------------------------
+// Plan step helpers
+// ---------------------------------------------------------------------------
+
+/** Convert an OperationResult to a JobStepResult. */
+const toJobStepResult = (result: {
+  readonly result: string;
+  readonly message: string;
+  readonly error?: AppError;
+}): JobStepResult =>
+  result.result === "error" && result.error != null
+    ? { result: "error", message: result.message, error: result.error }
+    : { result: "success", message: result.message };
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -246,84 +263,107 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const registryName = registrySource.name;
 
   // Step 5: Build plan — fork + publish + install per skill (3 sequential ops)
-  const steps: ReadonlyArray<LegacyPlannedStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
+  // Steps use inline run closures so the install step can query the registry
+  // at execution time for the integrity hash computed during publish.
+  const registryLocationStr =
+    registrySource.location.protocol === "file:"
+      ? registrySource.location.pathname
+      : registrySource.location.href;
+
+  const steps: ReadonlyArray<PlannedJobStep> = Array.flatMap(filtered, (ref) => {
     const targetName = `${namespace}/skills/${ref.skill.name}`;
     const extensionRef = ref;
-    // After fork + publish, the skill lives in the registry extensions dir.
-    // Build a registry SkillExtensionRef for the install step.
-    const registryRef: RegistrySkillRef = {
-      type: "skill" as const,
-      refType: "registry" as const,
-      skill: {
-        name: ref.skill.name,
-        description: ref.skill.description,
-        metadata: ref.skill.metadata,
-      },
-      source: {
-        type: "registry" as const,
-        location: registrySource.location,
-        namespace: Option.none(),
-      },
-      namespace,
-      name: ref.skill.name,
-      version: "0.1.0",
-      integrity: "",
+
+    // Cast run closures to Effect<JobStepResult, AppError, never>: services are
+    // provided in the ambient fiber context when applyPlan executes the closures.
+    // This mirrors the same cast used by bridgeLegacyPlan.
+    const copyStep: PlannedJobStep = {
+      readiness: "ready",
+      label: `Fork ${ref.skill.name}`,
+      run: copySkill({
+        name: "copy-skill",
+        args: { ref: extensionRef, targetName },
+      } satisfies CopySkillOperation).pipe(Effect.map(toJobStepResult)) as Effect.Effect<
+        JobStepResult,
+        AppError,
+        never
+      >,
     };
-    return [
-      {
-        _tag: "PlannedJobStep" as const,
-        operation: {
-          name: "copy-skill",
-          args: {
-            ref: extensionRef,
-            targetName,
+
+    const publishStep: PlannedJobStep = {
+      readiness: "ready",
+      label: `Publish ${targetName}`,
+      run: publishSkill({
+        name: "publish-skill",
+        args: { name: targetName, registryName },
+      } satisfies PublishSkillOperation).pipe(Effect.map(toJobStepResult)) as Effect.Effect<
+        JobStepResult,
+        AppError,
+        never
+      >,
+    };
+
+    // Install step queries the registry at execution time to obtain the
+    // integrity hash that publish computed, rather than using a stale value.
+    const installStep: PlannedJobStep = {
+      readiness: "ready",
+      label: `Install ${ref.skill.name}`,
+      run: Effect.gen(function* () {
+        const client = yield* createRegistryClient(registryLocationStr);
+        const response = yield* client.getExtensionsByScope({
+          namespace,
+          names: [ref.skill.name],
+          types: ["skill"],
+          limit: Option.some(1),
+          offset: 0,
+        });
+
+        const published = response.extensions[0];
+        const integrity = published != null ? published.integrity : "";
+
+        const registryRef: RegistrySkillRef = {
+          type: "skill" as const,
+          refType: "registry" as const,
+          skill: {
+            name: ref.skill.name,
+            description: ref.skill.description,
+            metadata: ref.skill.metadata,
           },
-        } satisfies CopySkillOperation,
-        readiness: { status: "ready", message: Option.none() },
-        label: `Fork ${ref.skill.name}`,
-      },
-      {
-        _tag: "PlannedJobStep" as const,
-        operation: {
-          name: "publish-skill",
-          args: {
-            name: targetName,
-            registryName,
+          source: {
+            type: "registry" as const,
+            location: registrySource.location,
+            namespace: Option.none(),
           },
-        } satisfies PublishSkillOperation,
-        readiness: { status: "ready", message: Option.none() },
-        label: `Publish ${targetName}`,
-      },
-      {
-        _tag: "PlannedJobStep" as const,
-        operation: {
+          namespace,
+          name: ref.skill.name,
+          version: published != null ? published.version : "0.1.0",
+          integrity,
+        };
+
+        return yield* installSkill({
           name: "install-skill",
           args: {
             ref: registryRef,
             force: true,
             versionConstraint: Option.none(),
             skipSettings: Option.none(),
+            sourceName: Option.some(registryName),
           },
-        } satisfies InstallSkillOperation,
-        readiness: { status: "ready", message: Option.none() },
-        label: `Install ${ref.skill.name}`,
-      },
-    ];
+        } satisfies InstallSkillOperation).pipe(Effect.map(toJobStepResult));
+      }) as Effect.Effect<JobStepResult, AppError, never>,
+    };
+
+    return [copyStep, publishStep, installStep];
   });
 
-  const plan = {
+  const plan: Plan = {
+    _tag: "Plan",
     name: "Fork skill(s)",
     description: Option.some(`Fork and publish ${filtered.length} skill(s)`),
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* ws.resolvePlan(
-    bridgeLegacyPlan(plan, {
-      "copy-skill": copySkill,
-      "publish-skill": publishSkill,
-      "install-skill": installSkill,
-    }),
-  );
+  yield* ws.resolvePlan(plan);
 
   yield* output.success("Done");
 });

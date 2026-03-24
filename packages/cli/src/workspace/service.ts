@@ -54,7 +54,7 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseSkillEntry,
   createDefaultSettings,
-  DEFAULT_NAMESPACE,
+  DEFAULT_PROFILE,
   getSkillEntrySource,
   type NonSkillExtensionsMap,
   type NormalizedSkillEntry,
@@ -226,7 +226,7 @@ const augmentPlanWithReconciliation = (
     const reconciliationContext: ReconciliationContext = {
       baseDir,
       now: new Date(),
-      defaultNamespace: settings.namespace ?? DEFAULT_NAMESPACE,
+      defaultProfile: settings.profile ?? DEFAULT_PROFILE,
       agents: settings.agents ?? [],
       settings,
     };
@@ -304,7 +304,7 @@ export interface WorkspaceContextOptions {
 /**
  * Create workspace context effect.
  *
- * Loads settings and lockfile based on workspace namespace:
+ * Loads settings and lockfile based on workspace profile:
  * - User-scope mode: reads only user-scope settings (auto-creates with {} if not found)
  * - Project mode: merges user-scope and project settings (project overrides user),
  *   runs initialization flow if local settings don't exist
@@ -715,26 +715,25 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
-      getConfiguredNamespace: () =>
+      getConfiguredProfile: () =>
         Effect.gen(function* () {
-          const normalizeNamespace = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
+          const normalizeProfile = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.namespace) return normalizeNamespace(projectSettings.namespace);
+          if (projectSettings.profile) return normalizeProfile(projectSettings.profile);
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.namespace) return normalizeNamespace(globalSettings.namespace);
-          return DEFAULT_NAMESPACE;
+          if (globalSettings.profile) return normalizeProfile(globalSettings.profile);
+          return DEFAULT_PROFILE;
         }),
 
       // TODO: check logged-in identity handle when auth is implemented
-      getDefaultNamespace: () =>
+      getDefaultProfile: () =>
         Effect.gen(function* () {
-          const normalizeNamespace = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
+          const normalizeProfile = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.namespace)
-            return Option.some(normalizeNamespace(projectSettings.namespace));
+          if (projectSettings.profile)
+            return Option.some(normalizeProfile(projectSettings.profile));
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.namespace)
-            return Option.some(normalizeNamespace(globalSettings.namespace));
+          if (globalSettings.profile) return Option.some(normalizeProfile(globalSettings.profile));
           return Option.none<string>();
         }),
 
@@ -811,7 +810,7 @@ const make = (options: WorkspaceContextOptions) =>
           const entry = lockEntry.value;
           const entrySource: SkillPathSource =
             entry.type === "registry"
-              ? { refType: "registry", namespace: entry.namespace }
+              ? { refType: "registry", profile: entry.profile }
               : entry.type === "local"
                 ? { refType: "local" }
                 : entry.type === "builtin"
@@ -830,7 +829,7 @@ const make = (options: WorkspaceContextOptions) =>
             const source =
               lockEntry.type === "registry"
                 ? (() => {
-                    const fqn = formatFqn({ namespace: lockEntry.namespace, type: "skills", name });
+                    const fqn = formatFqn({ handle: lockEntry.profile, type: "skills", name });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
                       : fqn;
@@ -1146,7 +1145,7 @@ const make = (options: WorkspaceContextOptions) =>
             const { name, versionConstraint, ...lockFields } = args;
             const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
             // Update settings — thread versionConstraint through so it's preserved
-            const fqn = formatFqn({ namespace: args.namespace, type: "packs", name });
+            const fqn = formatFqn({ handle: args.profile, type: "packs", name });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`
               : fqn;
@@ -1200,8 +1199,8 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ).pipe(Effect.withSpan("Workspace.removePack")),
 
-      getPackDir: (name: string, namespace: string) =>
-        Effect.succeed(computePackPaths(path.join, baseDir, namespace, name)),
+      getPackDir: (name: string, profile: string) =>
+        Effect.succeed(computePackPaths(path.join, baseDir, profile, name)),
 
       // -----------------------------------------------------------------------
       // Command methods
@@ -1632,10 +1631,10 @@ export interface WorkspaceContextService {
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
     AppError
   >;
-  /** Resolve namespace: project settings -> user-scope settings -> DEFAULT_NAMESPACE. */
-  readonly getConfiguredNamespace: () => Effect.Effect<string, AppError>;
-  /** Resolve namespace without fallback: project settings -> user-scope settings -> Option.none(). */
-  readonly getDefaultNamespace: () => Effect.Effect<Option.Option<string>, AppError>;
+  /** Resolve profile: project settings -> user-scope settings -> DEFAULT_PROFILE. */
+  readonly getConfiguredProfile: () => Effect.Effect<string, AppError>;
+  /** Resolve profile without fallback: project settings -> user-scope settings -> Option.none(). */
+  readonly getDefaultProfile: () => Effect.Effect<Option.Option<string>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Configured skills from settings with source metadata. */
@@ -1812,7 +1811,7 @@ export interface WorkspaceContextService {
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, namespace: string) => Effect.Effect<PackDirPath, AppError>;
+  readonly getPackDir: (name: string, profile: string) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
   readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific command, or Option.none(). */

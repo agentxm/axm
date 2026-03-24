@@ -23,7 +23,7 @@ import {
 } from "./command-actions.js";
 
 const mockWorkspace = {
-  getConfiguredNamespace: () => Effect.succeed("@test-ns"),
+  getConfiguredProfile: () => Effect.succeed("@test-ns"),
   getRegistrySourceHosts: () => Effect.succeed([]),
   getLockedCommand: () => Effect.succeed(Option.none()),
   getLockedSkills: () => Effect.succeed({}),
@@ -81,39 +81,39 @@ const runWithActions = <A, E>(
   }).pipe(Effect.provide(actionsLayer), Effect.runPromise);
 
 describe("parseCommandInstallArgs", () => {
-  it("parses @namespace/commands/name registry pattern", async () => {
+  it("parses @profile/commands/name registry pattern", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/commands/my-cmd",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.commandName).toBe("my-cmd");
     expect(Option.isNone(result.versionConstraint)).toBe(true);
     expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
   });
 
-  it("parses @namespace/commands/name@version with constraint", async () => {
+  it("parses @profile/commands/name@version with constraint", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/commands/my-cmd@^1.0.0",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.commandName).toBe("my-cmd");
     expect(Option.getOrNull(result.versionConstraint)).toBe("^1.0.0");
   });
 
-  it("resolves bare name using configured namespace", async () => {
+  it("resolves bare name using configured profile", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "my-cmd",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@test-ns");
+    expect(result.profile).toBe("@test-ns");
     expect(result.commandName).toBe("my-cmd");
     expect(result.resolvedInput).toBe("@test-ns/commands/my-cmd");
   });

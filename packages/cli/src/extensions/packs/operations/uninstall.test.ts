@@ -27,8 +27,8 @@ const makeWorkspaceMock = (axmDir: string): WorkspaceContextService => ({
   getConfiguredSources: () => Effect.succeed([]),
   getConfiguredSourceByName: () => Effect.succeed(Option.none()),
   getRegistrySourceHosts: () => Effect.succeed([]),
-  getConfiguredNamespace: () => Effect.succeed("@community"),
-  getDefaultNamespace: () => Effect.succeed(Option.none()),
+  getConfiguredProfile: () => Effect.succeed("@community"),
+  getDefaultProfile: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -110,7 +110,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        // Create pack folder on disk under a namespace
+        // Create pack folder on disk under a profile
         const packDir = path.join(base, ".axm", "extensions", "@test", "packs", "testing");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(path.join(packDir, "pack.json"), "{}");

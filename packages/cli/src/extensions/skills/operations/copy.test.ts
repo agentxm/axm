@@ -24,8 +24,8 @@ const withServices = (axmDir: string) => {
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -120,7 +120,7 @@ describe("copySkill", () => {
   };
 
   describe("file copy", () => {
-    it.effect("copies source files to .axm/extensions/@namespace/skills/<name>/src/", () =>
+    it.effect("copies source files to .axm/extensions/@profile/skills/<name>/src/", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -143,7 +143,7 @@ describe("copySkill", () => {
       }),
     );
 
-    it.effect("uses the namespace from targetName", () =>
+    it.effect("uses the profile from targetName", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -193,7 +193,7 @@ describe("copySkill", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.namespace).toBe("@community");
+        expect(manifest.profile).toBe("@community");
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.1.0");

@@ -73,20 +73,20 @@ const registryLookupHowToFix = ({
 
 const checkRegistryMatch = ({
   client,
-  namespace,
+  profile,
   skillName,
 }: {
   readonly client: RegistryClient;
-  readonly namespace: string;
+  readonly profile: string;
   readonly skillName: Option.Option<string>;
 }) =>
   Option.match(skillName, {
-    onNone: () => client.namespaceExists(namespace),
-    onSome: (name) => client.extensionExists({ namespace, type: "skill", name }),
+    onNone: () => client.profileExists(profile),
+    onSome: (name) => client.extensionExists({ handle: profile, type: "skill", name }),
   });
 
 const resolveRegistrySource = (
-  namespace: string,
+  profile: string,
   input: string,
   options: {
     readonly skillName: Option.Option<string>;
@@ -99,7 +99,7 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
-          what: `Failed to read configured registry sources for namespace "${namespace}"`,
+          what: `Failed to read configured registry sources for profile "${profile}"`,
           details: [input],
           howToFix: "Check that your workspace settings file is valid and accessible",
           cause: e,
@@ -110,9 +110,9 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
-        what: `No registry source is configured for namespace "${namespace}"`,
+        what: `No registry source is configured for profile "${profile}"`,
         details: [`Provided: ${input}`],
-        howToFix: `Add a registry source for namespace "${namespace}" using "axm sources add"`,
+        howToFix: `Add a registry source for profile "${profile}" using "axm sources add"`,
       });
     }
 
@@ -127,7 +127,7 @@ const resolveRegistrySource = (
       const client = yield* createRegistryClient(regConfig.location.href);
       const matchResult = yield* checkRegistryMatch({
         client,
-        namespace,
+        profile,
         skillName: options.skillName,
       }).pipe(Effect.result);
 
@@ -154,7 +154,7 @@ const resolveRegistrySource = (
         return {
           type: "registry" as const,
           location: regConfig.location,
-          namespace: Option.some(namespace),
+          profile: Option.some(profile),
         } satisfies RegistrySource;
       }
 
@@ -171,7 +171,7 @@ const resolveRegistrySource = (
       const skillName = options.skillName.value;
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${namespace}/${skillName}" was not found in configured registries`,
+        what: `Skill "${profile}/${skillName}" was not found in configured registries`,
         details: [
           `Provided: ${input}`,
           `Checked registries: ${checked.join(", ")}`,
@@ -180,14 +180,14 @@ const resolveRegistrySource = (
         howToFix: registryLookupHowToFix({
           issues,
           fallback:
-            "Verify the namespace/skill name, or install with an explicit source like github:owner/repo",
+            "Verify the profile/skill name, or install with an explicit source like github:owner/repo",
         }),
       });
     }
 
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
-      what: `None of the configured registry sources contain namespace "${namespace}"`,
+      what: `None of the configured registry sources contain profile "${profile}"`,
       details: [
         `Provided: ${input}`,
         `Checked registries: ${checked.join(", ")}`,
@@ -195,7 +195,7 @@ const resolveRegistrySource = (
       ],
       howToFix: registryLookupHowToFix({
         issues,
-        fallback: `Verify the namespace name is correct, or add a registry that hosts "${namespace}"`,
+        fallback: `Verify the profile name is correct, or add a registry that hosts "${profile}"`,
       }),
     });
   });
@@ -208,29 +208,29 @@ const resolveSkillRegistrySourceByName = (
   Effect.gen(function* () {
     const ws = yield* Workspace;
 
-    // DefaultNamespace: project settings > user settings > logged-in identity > none
-    const maybeNamespace = yield* ws.getDefaultNamespace();
+    // DefaultProfile: project settings > user settings > logged-in identity > none
+    const maybeProfile = yield* ws.getDefaultProfile();
 
-    if (Option.isNone(maybeNamespace)) {
+    if (Option.isNone(maybeProfile)) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${name}" could not be looked up (no default namespace)`,
-        details: [`Provided: ${input}`, `No default namespace configured and not logged in`],
+        what: `Skill "${name}" could not be looked up (no default profile)`,
+        details: [`Provided: ${input}`, `No default profile configured and not logged in`],
         howToFix:
-          "Configure a namespace in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+          "Configure a profile in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @profile/skills/name",
       });
     }
-    const namespace = maybeNamespace.value;
+    const profile = maybeProfile.value;
 
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${namespace}/${name}" could not be looked up (no registry sources)`,
+        what: `Skill "${profile}/${name}" could not be looked up (no registry sources)`,
         details: [
           `Provided: ${input}`,
-          `Default namespace: ${namespace}`,
+          `Default profile: ${profile}`,
           `No registry sources configured`,
         ],
         howToFix:
@@ -247,7 +247,7 @@ const resolveSkillRegistrySourceByName = (
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
       const existsResult = yield* client
-        .extensionExists({ namespace, type: "skill", name })
+        .extensionExists({ handle: profile, type: "skill", name })
         .pipe(Effect.result);
       if (existsResult._tag === "Failure") {
         if (Option.isSome(resolutionOptions)) {
@@ -272,7 +272,7 @@ const resolveSkillRegistrySourceByName = (
         return {
           type: "registry" as const,
           location: reg.location,
-          namespace: Option.some(namespace),
+          profile: Option.some(profile),
         } satisfies RegistrySource;
       }
 
@@ -287,17 +287,17 @@ const resolveSkillRegistrySourceByName = (
 
     return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
-      what: `Skill "${namespace}/${name}" was not found in configured registries`,
+      what: `Skill "${profile}/${name}" was not found in configured registries`,
       details: [
         `Provided: ${input}`,
-        `Default namespace: ${namespace}`,
+        `Default profile: ${profile}`,
         `Checked registries: ${checked.join(", ")}`,
         ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
       ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback:
-          "Verify the skill name, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+          "Verify the skill name, or install with an explicit source like github:owner/repo or @profile/skills/name",
       }),
     });
   });
@@ -312,12 +312,12 @@ const resolveSkillRegistrySource = (
       return yield* makeAppError({
         code: "SKILL_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        details: [pattern.namespace],
+        details: [pattern.profile],
         howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
 
-    return yield* resolveRegistrySource(pattern.namespace, input, {
+    return yield* resolveRegistrySource(pattern.profile, input, {
       skillName: pattern.name,
       resolutionOptions,
     });
@@ -364,7 +364,7 @@ export const resolveSkillInstallSource = (
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           details: [parseResult.originalInput],
           howToFix:
-            "Use a registry reference (e.g., @namespace/skill-name), a URL, or a shorthand (owner/repo) instead",
+            "Use a registry reference (e.g., @profile/skill-name), a URL, or a shorthand (owner/repo) instead",
         });
     }
   });

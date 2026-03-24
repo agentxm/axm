@@ -15,7 +15,7 @@ readonly pack: {
 };
 ```
 
-Keys in each map SHALL be fully qualified names including the type segment (e.g., `@namespace/skills/name`, `@namespace/commands/name`, `@namespace/mcp-servers/name`). Values SHALL be version constraints (e.g., `"^1.0.0"`, `"*"`).
+Keys in each map SHALL be fully qualified names including the type segment (e.g., `@profile/skills/name`, `@profile/commands/name`, `@profile/mcp-servers/name`). Values SHALL be version constraints (e.g., `"^1.0.0"`, `"*"`).
 
 #### Scenario: Registry pack ref includes dependencies from registry manifest
 
@@ -33,7 +33,7 @@ Keys in each map SHALL be fully qualified names including the type segment (e.g.
 
 When publishing a pack, the publish operation SHALL write the pack manifest's skill, command, and mcp-server dependencies into the `VersionEntry.dependencies` field.
 
-Dependency keys SHALL use the format `@namespace/<type-plural>/<name>` (e.g., `@acme/skills/code-review`, `@acme/commands/formatter`, `@acme/mcp-servers/db`). Values SHALL be the version constraint from the pack manifest.
+Dependency keys SHALL use the format `@profile/<type-plural>/<name>` (e.g., `@acme/skills/code-review`, `@acme/commands/formatter`, `@acme/mcp-servers/db`). Values SHALL be the version constraint from the pack manifest.
 
 #### Scenario: Pack with skill dependencies published
 
@@ -61,5 +61,5 @@ When mapping a `RegistryExtensionManifest` with type `"pack"` to a `PackExtensio
 
 #### Scenario: Malformed dependency key rejected
 
-- **WHEN** a dependency key does not match the `@namespace/<type-plural>/<name>` format
+- **WHEN** a dependency key does not match the `@profile/<type-plural>/<name>` format
 - **THEN** the key SHALL be ignored with a warning (not a hard failure)

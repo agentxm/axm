@@ -108,7 +108,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
           return yield* svc.find(source, {
             skillNames: [],
             type: "skill",
-            namespace: Option.none(),
+            profile: Option.none(),
             versionConstraint: Option.none(),
           });
         }).pipe(Effect.provide(providers), Effect.scoped);

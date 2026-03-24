@@ -15,7 +15,7 @@ export const installCommand = Command.make(
   {
     source: Argument.string("source").pipe(
       Argument.withDescription(
-        "Registry pack reference (@namespace/packs/name, @namespace/packs/name@version, or bare pack-name)",
+        "Registry pack reference (@profile/packs/name, @profile/packs/name@version, or bare pack-name)",
       ),
     ),
     scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
@@ -45,7 +45,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm packs install frontend-tools",
-      description: "Install using the default namespace",
+      description: "Install using the default profile",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools --preview",

@@ -73,7 +73,7 @@ describe("axm skills disable", () => {
   it("shows already disabled message for already disabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], {
+      await runCli(["init", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 
@@ -101,7 +101,7 @@ describe("axm skills disable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], {
+      await runCli(["init", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 

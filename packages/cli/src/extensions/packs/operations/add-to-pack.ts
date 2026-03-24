@@ -31,10 +31,10 @@ import { hashContent } from "./hash-content.js";
  * Args for the add-to-pack operation.
  */
 export interface AddToPackOperationArgs {
-  /** Pack name (without namespace). */
+  /** Pack name (without profile). */
   readonly packName: string;
-  /** Pack namespace (e.g., "@myorg"). */
-  readonly packNamespace: string;
+  /** Pack profile (e.g., "@myorg"). */
+  readonly packProfile: string;
   /** Precomputed manifest delta: FQN -> version range entries to add. */
   readonly additions: Readonly<Record<string, string>>;
   /** Manifest content hash at plan time for stale-check. */
@@ -71,7 +71,7 @@ export const addToPack: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { packName, packNamespace, additions, manifestHash } = op.args;
+    const { packName, packProfile, additions, manifestHash } = op.args;
 
     // 1. Short-circuit if nothing to add
     if (Object.keys(additions).length === 0) {
@@ -79,7 +79,7 @@ export const addToPack: OperationHandler<
     }
 
     // 2. Read current manifest
-    const packDir = computePackPaths(path.join, base, packNamespace, packName);
+    const packDir = computePackPaths(path.join, base, packProfile, packName);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(

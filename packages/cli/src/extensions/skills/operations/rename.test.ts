@@ -47,8 +47,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(
@@ -82,17 +82,17 @@ const makeWorkspaceMock = (
               ? "builtin"
               : "git-hosted");
       if (srcRefType === "registry") {
-        const namespace =
+        const profile =
           source?.refType === "registry"
-            ? source.namespace
-            : "namespace" in (lockfileSkills[name] ?? {})
-              ? (lockfileSkills[name] as { namespace: string }).namespace
+            ? source.profile
+            : "profile" in (lockfileSkills[name] ?? {})
+              ? (lockfileSkills[name] as { profile: string }).profile
               : "@community";
         // Resolve immutable registry name from lock entry, not user-facing name
         const lockEntry = lockfileSkills[name] as (SkillLockEntry & { name?: string }) | undefined;
         const dirName = lockEntry?.name ?? name;
         const sanitized = sanitizeName(dirName);
-        const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", sanitized);
+        const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const sanitized = sanitizeName(name);
@@ -161,9 +161,9 @@ const makeLocalLockEntry = (agents: string[]) => ({
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[], namespace = "@community") => ({
+const makeRegistryLockEntry = (agents: string[], profile = "@community") => ({
   type: "registry" as const,
-  namespace,
+  profile,
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -404,12 +404,12 @@ describe("renameSkill", () => {
     const setupRegistryWorkspace = (
       opts: {
         skillName?: string;
-        namespace?: string;
+        profile?: string;
         agents?: string[];
       } = {},
     ) => {
       const skillName = opts.skillName ?? "my-skill";
-      const namespace = opts.namespace ?? "@community";
+      const profile = opts.profile ?? "@community";
       const agents = opts.agents ?? ["claude-code"];
 
       const base = path.join(tmpDir, "project");
@@ -417,7 +417,7 @@ describe("renameSkill", () => {
       fs.mkdirSync(axmDir, { recursive: true });
 
       // Create registry canonical skill dir with src/ subdirectory
-      const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", skillName);
+      const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", skillName);
       const srcPath = path.join(canonicalPath, "src");
       fs.mkdirSync(srcPath, { recursive: true });
       fs.writeFileSync(

@@ -69,14 +69,14 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settings = { namespace: "@myorg" };
+          const settings = { profile: "@myorg" };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
 
           const result = yield* readSettings(axmDir);
 
           expect(Option.isSome(result)).toBe(true);
           const value = Option.getOrThrow(result);
-          expect(value.namespace).toBe("@myorg");
+          expect(value.profile).toBe("@myorg");
           expect(value.agents).toBeUndefined();
           expect(value.skills).toBeUndefined();
         }),
@@ -145,14 +145,14 @@ describe("settings", () => {
           const settings: Settings = {
             skills: { commit: "^1.0.0" },
             agents: ["claude-code"],
-            namespace: "@acme",
+            profile: "@acme",
           };
 
           yield* writeSettings(axmDir, settings);
 
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const keys = Object.keys(JSON.parse(content) as Record<string, unknown>);
-          expect(keys).toEqual(["namespace", "agents", "skills"]);
+          expect(keys).toEqual(["profile", "agents", "skills"]);
         }),
       ),
     );

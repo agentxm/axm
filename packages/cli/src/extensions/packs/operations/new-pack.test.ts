@@ -21,11 +21,11 @@ import { newPack } from "./new-pack.js";
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
-    configuredNamespace?: string;
+    configuredProfile?: string;
     setPackFn?: ReturnType<typeof vi.fn>;
   } = {},
 ): WorkspaceContextService => {
-  const configuredNamespace = opts.configuredNamespace ?? "@myorg";
+  const configuredProfile = opts.configuredProfile ?? "@myorg";
 
   return {
     ...taxonomyStubs,
@@ -37,8 +37,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed(configuredNamespace),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed(configuredProfile),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -98,7 +98,7 @@ const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOpera
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
-    namespace: overrides.namespace ?? "@myorg",
+    profile: overrides.profile ?? "@myorg",
   },
 });
 
@@ -158,7 +158,7 @@ describe("newPack", () => {
           "axm-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.namespace).toBe("@myorg");
+        expect(manifest.profile).toBe("@myorg");
         expect(manifest.type).toBe("pack");
         expect(manifest.name).toBe("my-pack");
         expect(manifest.version).toBe("0.0.1");
@@ -181,7 +181,7 @@ describe("newPack", () => {
         expect(setPackFn).toHaveBeenCalledOnce();
         expect(setPackFn).toHaveBeenCalledWith(
           expect.objectContaining({
-            namespace: "@myorg",
+            profile: "@myorg",
             name: "my-pack",
           }),
         );
@@ -199,7 +199,7 @@ describe("newPack", () => {
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
           path.join(packDir, "axm-pack.json"),
-          JSON.stringify({ namespace: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
+          JSON.stringify({ profile: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 
         const result = yield* newPack(makeOp()).pipe(

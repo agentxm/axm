@@ -15,7 +15,7 @@ For registry-sourced skills, any `resolvedVersion` written to lockfile MUST be a
 
 - **WHEN** writing skill files for a registry source
 - **THEN** skill content SHALL be written to the `skillSrcPath` returned by `getSkillDir(name, source)`
-- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<namespace>/skills/<sanitized-name>/src/`
+- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<profile>/skills/<sanitized-name>/src/`
 - **AND** the canonical path SHALL NOT depend on which agents are targeted
 
 #### Scenario: Non-registry source canonical location
@@ -131,7 +131,7 @@ The install skill executor SHALL call `ws.setSkill` after successful file instal
 
 - **WHEN** pre-cleaning before install
 - **THEN** the handler SHALL remove from `.axm/extensions/external/skills/<name>` (non-registry canonical)
-- **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any namespace)
+- **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any profile)
 
 #### Scenario: Per-refType dispatch is exhaustive
 

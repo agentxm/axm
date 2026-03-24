@@ -23,23 +23,23 @@ const makeVersionEntryLike = (version: string): VersionEntryLike => ({
 
 describe("parseVersionConstraint", () => {
   it("returns Option.none() for a bare namespaced name", () => {
-    expect(parseVersionConstraint("@namespace/name")).toEqual(Option.none());
+    expect(parseVersionConstraint("@handle/name")).toEqual(Option.none());
   });
 
   it("extracts a caret constraint", () => {
-    expect(parseVersionConstraint("@namespace/name@^1.0.0")).toEqual(Option.some("^1.0.0"));
+    expect(parseVersionConstraint("@handle/name@^1.0.0")).toEqual(Option.some("^1.0.0"));
   });
 
   it("extracts an exact version", () => {
-    expect(parseVersionConstraint("@namespace/name@1.2.3")).toEqual(Option.some("1.2.3"));
+    expect(parseVersionConstraint("@handle/name@1.2.3")).toEqual(Option.some("1.2.3"));
   });
 
   it("extracts a tilde constraint", () => {
-    expect(parseVersionConstraint("@namespace/name@~1.2.0")).toEqual(Option.some("~1.2.0"));
+    expect(parseVersionConstraint("@handle/name@~1.2.0")).toEqual(Option.some("~1.2.0"));
   });
 
   it("extracts a range constraint", () => {
-    expect(parseVersionConstraint("@namespace/name@>=1.0.0 <2.0.0")).toEqual(
+    expect(parseVersionConstraint("@handle/name@>=1.0.0 <2.0.0")).toEqual(
       Option.some(">=1.0.0 <2.0.0"),
     );
   });

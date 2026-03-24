@@ -43,7 +43,7 @@ export class CommandManager extends ServiceMap.Service<
 // Build lock entry from registry ref
 const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({
   type: "registry",
-  namespace: ref.namespace,
+  profile: ref.profile,
   name: ref.name,
   resolvedVersion: ref.version,
   integrity: ref.integrity,
@@ -88,7 +88,7 @@ export const CommandManagerLive = Layer.effect(
         const canonicalPath = path.join(
           baseDir,
           REGISTRY_EXTENSIONS_DIR,
-          registryRef.namespace,
+          registryRef.profile,
           "commands",
           registryRef.name,
         );
@@ -118,7 +118,7 @@ export const CommandManagerLive = Layer.effect(
               : registryRef.source.location.href;
           const client = yield* provide(createRegistryClient(locationStr));
           const { archive } = yield* client.getExtensionPackage({
-            namespace: registryRef.namespace,
+            handle: registryRef.profile,
             type: "command",
             name: registryRef.name,
             version: Option.some(registryRef.version),

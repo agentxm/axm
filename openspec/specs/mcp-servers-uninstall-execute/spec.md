@@ -62,11 +62,11 @@ The handler SHALL:
 
 ### Requirement: Canonical directory lookup
 
-When a lockfile entry exists, the canonical directory SHALL be computed from the lock entry's namespace and name. When no lockfile entry exists, the handler SHALL scan `.axm/extensions/@*/mcp-servers/<name>/` for matching directories.
+When a lockfile entry exists, the canonical directory SHALL be computed from the lock entry's profile and name. When no lockfile entry exists, the handler SHALL scan `.axm/extensions/@*/mcp-servers/<name>/` for matching directories.
 
-#### Scenario: Lockfile entry provides namespace
+#### Scenario: Lockfile entry provides profile
 
-- **WHEN** the lockfile contains an MCP server entry with namespace `@acme` and name `db-connector`
+- **WHEN** the lockfile contains an MCP server entry with profile `@acme` and name `db-connector`
 - **THEN** the canonical directory SHALL be `.axm/extensions/@acme/mcp-servers/db-connector/`
 
 #### Scenario: No lockfile entry — scan for orphaned directories

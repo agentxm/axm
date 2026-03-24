@@ -10,7 +10,7 @@ export const publishCommand = Command.make(
   "publish",
   {
     pack: Argument.string("pack").pipe(
-      Argument.withDescription("Pack name (@namespace/name or bare name)"),
+      Argument.withDescription("Pack name (@profile/name or bare name)"),
     ),
     registry: Flag.string("registry").pipe(
       Flag.withDescription("Named registry source to publish to"),
@@ -39,7 +39,7 @@ export const publishCommand = Command.make(
     },
     {
       command: "axm packs publish frontend-tools --registry local",
-      description: "Publish with namespace from settings to the local registry",
+      description: "Publish with profile from settings to the local registry",
     },
   ]),
 );

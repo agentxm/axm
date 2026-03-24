@@ -1099,7 +1099,7 @@ scope: Flag.choice("scope", ["project", "user"] as const).pipe(
 skill: Flag.string("skill").pipe(Flag.atLeast(0)),
 
 // Optional flag (returns Option)
-namespace: Flag.string("namespace").pipe(Flag.optional),
+profile: Flag.string("profile").pipe(Flag.optional),
 ```
 
 ### Validation Checklist

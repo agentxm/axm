@@ -94,7 +94,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              namespace: parsed.namespace,
+              profile: parsed.handle,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",
@@ -120,7 +120,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              namespace: parsed.namespace,
+              profile: parsed.handle,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",
@@ -144,7 +144,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              namespace: parsed.namespace,
+              profile: parsed.handle,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",

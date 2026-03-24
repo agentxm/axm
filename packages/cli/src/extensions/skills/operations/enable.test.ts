@@ -47,8 +47,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(
@@ -96,9 +96,9 @@ const makeWorkspaceMock = (
         );
       }
       if (lockEntry.type === "registry") {
-        const namespace =
-          "namespace" in lockEntry ? (lockEntry as { namespace: string }).namespace : "@community";
-        const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", sanitized);
+        const profile =
+          "profile" in lockEntry ? (lockEntry as { profile: string }).profile : "@community";
+        const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
@@ -169,7 +169,7 @@ const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source") => ({
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
 const makeRegistryLockEntry = (agents: string[]) => ({
   type: "registry" as const,
-  namespace: "@community",
+  profile: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

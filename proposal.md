@@ -40,7 +40,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Extension**      | A unit of functionality that enhances a host agent's capabilities                           |
 | **Extension Type** | Category of extension determining its manifest schema and behavior                          |
 | **Level**          | Context where configuration or extensions are stored: `project` (.axm/) or `user` (~/.axm/) |
-| **Namespace**      | Namespace for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                         |
+| **Profile**        | Profile for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                           |
 | **Source**         | Origin of an extension: registry, github, gitlab, bitbucket, azuredevops, git, url, or path |
 | **Manifest**       | JSON file describing an extension's metadata (e.g., `axm-skill.json`)                       |
 | **Fork**           | Create a named universal extension from an existing extension                               |
@@ -90,17 +90,17 @@ share common fields with type-specific extensions.
 
 #### Common Fields
 
-| Field         | Type     | Required | Description                                  |
-| ------------- | -------- | -------- | -------------------------------------------- |
-| `name`        | string   | Yes      | Fully qualified name (`@<namespace>/<name>`) |
-| `version`     | string   | Yes      | Semver version                               |
-| `description` | string   | No       | Short description                            |
-| `keywords`    | string[] | No       | Tags for discovery                           |
-| `repository`  | string   | No       | Source repository URL                        |
-| `homepage`    | string   | No       | Project homepage URL                         |
-| `license`     | string   | No       | SPDX license identifier                      |
-| `bugs`        | string   | No       | Issue tracker URL                            |
-| `author`      | object   | No       | `{ name, email?, url? }`                     |
+| Field         | Type     | Required | Description                                |
+| ------------- | -------- | -------- | ------------------------------------------ |
+| `name`        | string   | Yes      | Fully qualified name (`@<profile>/<name>`) |
+| `version`     | string   | Yes      | Semver version                             |
+| `description` | string   | No       | Short description                          |
+| `keywords`    | string[] | No       | Tags for discovery                         |
+| `repository`  | string   | No       | Source repository URL                      |
+| `homepage`    | string   | No       | Project homepage URL                       |
+| `license`     | string   | No       | SPDX license identifier                    |
+| `bugs`        | string   | No       | Issue tracker URL                          |
+| `author`      | object   | No       | `{ name, email?, url? }`                   |
 
 #### axm-skill.json
 
@@ -194,7 +194,7 @@ settings.
 | Pattern                            | Example                         | Interpretation           |
 | ---------------------------------- | ------------------------------- | ------------------------ |
 | `<name>`                           | `grappling-hook`                | Bare name                |
-| `@<namespace>/<name>`              | `@wayne/grappling-hook`         | Fully qualified AXM name |
+| `@<profile>/<name>`                | `@wayne/grappling-hook`         | Fully qualified AXM name |
 | `<a>/<b>[/<path>]`                 | `myorg/skills`                  | Ambiguous slash pattern  |
 | `<source>:<owner>/<repo>[/<path>]` | `github:myorg/skills`           | Explicit source          |
 | Local path                         | `./skills`, `/abs/path`         | Filesystem path          |
@@ -207,12 +207,12 @@ Attempt in order. Stop at first match.
 1. **Explicit local path** — Input is absolute path or starts with `./`/`../` →
    resolve as path
 
-2. **Fully qualified AXM name** — Input matches `@<namespace>/<name>` → lookup via
+2. **Fully qualified AXM name** — Input matches `@<profile>/<name>` → lookup via
    AXM name resolution (see below). Return empty result if lookup finds nothing.
 
-3. **Bare name with implied namespace** — Input is `<name>` (no `/`) → if implied
-   namespace configured, lookup `@<implied-namespace>/<name>` via AXM name resolution.
-   Return empty result if no implied namespace configured or lookup finds nothing.
+3. **Bare name with implied profile** — Input is `<name>` (no `/`) → if implied
+   profile configured, lookup `@<implied-profile>/<name>` via AXM name resolution.
+   Return empty result if no implied profile configured or lookup finds nothing.
 
 4. **Explicit source** — Input matches `<source>:<owner>/<repo>[/<path>]` or is
    a URL matching a known source pattern → normalize if needed (original input
@@ -235,10 +235,10 @@ Attempt in order. Stop at first match.
 
 #### AXM Name Resolution
 
-For fully qualified names (`@<namespace>/<name>`), check levels in order:
+For fully qualified names (`@<profile>/<name>`), check levels in order:
 
-1. **Project** — `.axm/<type>/@<namespace>/<name>/` in current workspace
-2. **Global** — `~/.axm/<type>/@<namespace>/<name>/`
+1. **Project** — `.axm/<type>/@<profile>/<name>/` in current workspace
+2. **Global** — `~/.axm/<type>/@<profile>/<name>/`
 3. **Registry** — Remote AXM registry
 
 At each level, search all type directories in parallel: `skills`, `commands`,
@@ -293,7 +293,7 @@ Returns `ExtensionRef[]`. Empty array if nothing found.
 | `source`        | enum    | `github`, `gitlab`, `bitbucket`, `azuredevops`, `git`, `url`, `path`, `registry` |
 | `origin`        | string  | Fully resolved value (URL, path, or registry identifier)                         |
 | `ref`           | string? | Git ref (branch, tag, commit) if from git source                                 |
-| `name`          | string? | Resolved name (e.g., `@namespace/name`)                                          |
+| `name`          | string? | Resolved name (e.g., `@profile/name`)                                            |
 | `originalInput` | string  | Input string before normalization                                                |
 | `metadata`      | object  | Additional data (see below)                                                      |
 
@@ -327,14 +327,14 @@ Sources define where extensions can be fetched from.
 | `azuredevops` | Azure DevOps repositories | `https://dev.azure.com/<org>/_git/<repo>[?path=<path>]`   | `azuredevops:<org>/<repo>[/<path>]` |
 | `git`         | Generic git repositories  | `https://<host>/<path>.git`                               | `git:<url>`                         |
 | `url`         | Direct URL to extension   | `https://<host>/<path>`                                   | (use URL directly)                  |
-| `registry`    | AXM extension registry    | Filesystem path or remote URL                             | `@<namespace>/<name>`               |
+| `registry`    | AXM extension registry    | Filesystem path or remote URL                             | `@<profile>/<name>`                 |
 
 **Registry sources:**
 
 - **Filesystem registry**: `origin` is a local path to a directory with
   `axm-index.json` (see §4.1)
 - **Remote registry**: `origin` is a URL (e.g.,
-  `https://registry.agentxm.ai/extensions/<namespace>/<name>`)
+  `https://registry.agentxm.ai/extensions/<profile>/<name>`)
 
 ---
 
@@ -346,8 +346,8 @@ Settings are configured at the project level (`.axm/settings.json`).
 
 ```jsonc
 {
-  // Project default namespace. Falls back to logged-in user's namespace, or @community if not logged in.
-  "namespace": "@myorg",
+  // Project default profile. Falls back to logged-in user's profile, or @community if not logged in.
+  "profile": "@myorg",
   "sources": {
     "github": { "url": "https://github.com" },
     "gitlab": { "url": "https://gitlab.com" },
@@ -375,12 +375,12 @@ Settings are configured at the project level (`.axm/settings.json`).
 
 #### Fields
 
-| Field        | Type     | Description                                                            |
-| ------------ | -------- | ---------------------------------------------------------------------- |
-| `sources`    | object   | Source configuration (see Source Configuration below)                  |
-| `agents`     | string[] | List of agent IDs to sync extensions to                                |
-| `namespace`  | string   | Default namespace for resolving and publishing (default: `@community`) |
-| `extensions` | object   | Desired extensions by type (similar to npm dependencies)               |
+| Field        | Type     | Description                                                          |
+| ------------ | -------- | -------------------------------------------------------------------- |
+| `sources`    | object   | Source configuration (see Source Configuration below)                |
+| `agents`     | string[] | List of agent IDs to sync extensions to                              |
+| `profile`    | string   | Default profile for resolving and publishing (default: `@community`) |
+| `extensions` | object   | Desired extensions by type (similar to npm dependencies)             |
 
 The `extensions` field maps extension type to a dictionary of name → version
 specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,
@@ -616,10 +616,10 @@ A filesystem registry is a directory structure containing extensions, indexed by
 an `axm-index.json` manifest. Used for local development, monorepos, and
 self-hosted extension collections. This is the MVP registry implementation.
 
-When resolving `@<namespace>/<name>`, the filesystem registry is checked at project
+When resolving `@<profile>/<name>`, the filesystem registry is checked at project
 level (`.axm/`) and user level (`~/.axm/`) before any remote registry.
 
-> **Note:** Within a single registry, the fully qualified name (`@<namespace>/<name>`)
+> **Note:** Within a single registry, the fully qualified name (`@<profile>/<name>`)
 > must be unique across all extension types. For example, you cannot have both a
 > skill and a command named `@wayne/grappling-hook` in the same registry.
 
@@ -654,17 +654,17 @@ A manifest describing multiple extensions in a directory structure.
 
 Common fields for all entry types:
 
-| Field         | Type     | Required | Description                                  |
-| ------------- | -------- | -------- | -------------------------------------------- |
-| `name`        | string   | Yes      | Fully qualified name (`@<namespace>/<name>`) |
-| `description` | string   | Yes      | Short description                            |
-| `files`       | string[] | No       | Relative paths to extension files            |
+| Field         | Type     | Required | Description                                |
+| ------------- | -------- | -------- | ------------------------------------------ |
+| `name`        | string   | Yes      | Fully qualified name (`@<profile>/<name>`) |
+| `description` | string   | Yes      | Short description                          |
+| `files`       | string[] | No       | Relative paths to extension files          |
 
 Additional fields vary by extension type (see Extension Manifests).
 
 ##### Directory Structure
 
-Extensions are located at `<type>/@<namespace>/<name>/` relative to the index file:
+Extensions are located at `<type>/@<profile>/<name>/` relative to the index file:
 
 ```
 project/
@@ -806,7 +806,7 @@ axm publish @wayne-industries/utility-belt
 # update extensions
 axm update
 
-# update extensions for namespace
+# update extensions for profile
 axm update @wayne-industries
 
 # fork an extension into axm (works with axm or non-axm sources like Claude Code)
@@ -1487,7 +1487,7 @@ axm packs validate [pack]
    `--version` flag sufficient?
 9. `--json` flag — is machine-readable JSON output needed for scripting/tooling
    integration?
-10. Glob/namespace patterns — should commands support patterns like `@wayne/*` or
+10. Glob/profile patterns — should commands support patterns like `@wayne/*` or
     `**/*-skill` for bulk operations?
 11. Explicit disable syntax — should sources/agents support `false` value to
     explicitly disable (e.g., `"bitbucket": false`)? Currently, removing the key

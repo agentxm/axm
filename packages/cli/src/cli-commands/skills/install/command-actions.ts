@@ -52,7 +52,7 @@ export interface ParsedSkillInstallArgs {
   readonly source: Source;
   readonly versionConstraint: Option.Option<string>;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedNamespace: Option.Option<string>;
+  readonly requestedProfile: Option.Option<string>;
   readonly all: boolean;
   readonly scope: WorkspaceScope;
 }
@@ -63,7 +63,7 @@ export interface ParsedSkillInstallArgs {
 export interface SkillSourceRequest {
   readonly source: Source;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedNamespace: Option.Option<string>;
+  readonly requestedProfile: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -99,7 +99,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
     if (isRemoteReadNotImplemented(error)) {
       return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo.";
     }
-    return "Verify the configured registry is reachable and contains the requested namespace/skill.";
+    return "Verify the configured registry is reachable and contains the requested profile/skill.";
   }
   if (source.type === "local") {
     return "Verify the source path contains directories with SKILL.md files.";
@@ -109,7 +109,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
 
 const noSkillsFoundHowToFix = (source: Source): string => {
   if (source.type === "registry") {
-    return "Verify the namespace and skill name exist in the configured registry.";
+    return "Verify the profile and skill name exist in the configured registry.";
   }
   if (source.type === "local") {
     return "Verify the source path contains directories with SKILL.md files.";
@@ -145,14 +145,14 @@ const extractRequestedSkills = (
           : []
         : [];
 
-const extractRequestedNamespace = (
+const extractRequestedProfile = (
   parsedSource: InputParseResult,
   source: Source,
 ): Option.Option<string> =>
   parsedSource.pattern.pattern === "registry-pattern-input"
-    ? Option.some(parsedSource.pattern.namespace)
+    ? Option.some(parsedSource.pattern.profile)
     : source.type === "registry"
-      ? (source.namespace ?? Option.none<string>())
+      ? (source.profile ?? Option.none<string>())
       : Option.none<string>();
 
 // -----------------------------------------------------------------------------
@@ -250,13 +250,13 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 });
 
                 const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
-                const requestedNamespace = extractRequestedNamespace(parsedSource, source);
+                const requestedProfile = extractRequestedProfile(parsedSource, source);
 
                 return {
                   source,
                   versionConstraint,
                   requestedSkills,
-                  requestedNamespace,
+                  requestedProfile,
                   resolutionProbes,
                 };
               }),
@@ -265,13 +265,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             },
           );
 
-          const {
-            source,
-            versionConstraint,
-            requestedSkills,
-            requestedNamespace,
-            resolutionProbes,
-          } = parsed;
+          const { source, versionConstraint, requestedSkills, requestedProfile, resolutionProbes } =
+            parsed;
 
           if (resolutionProbes.length > 0) {
             yield* output.message(
@@ -283,7 +278,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             source,
             versionConstraint,
             requestedSkills,
-            requestedNamespace,
+            requestedProfile,
             all: args.all,
             scope: args.scope,
           } satisfies ParsedSkillInstallArgs;
@@ -295,7 +290,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         {
           source: parsed.source,
           requestedSkills: parsed.requestedSkills,
-          requestedNamespace: parsed.requestedNamespace,
+          requestedProfile: parsed.requestedProfile,
           versionConstraint: parsed.versionConstraint,
         },
       ]);
@@ -318,7 +313,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 .find(req.source, {
                   skillNames: req.requestedSkills,
                   type: "skill" as const,
-                  namespace: req.requestedNamespace,
+                  profile: req.requestedProfile,
                   versionConstraint: req.versionConstraint,
                 })
                 .pipe(

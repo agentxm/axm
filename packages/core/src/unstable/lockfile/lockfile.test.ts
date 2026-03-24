@@ -140,7 +140,7 @@ describe("lockfile", () => {
               skills: {
                 "dep-skill": {
                   type: "registry",
-                  namespace: "@acme",
+                  profile: "@acme",
                   name: "dep-skill",
                   resolvedVersion: "^1.0.0",
                   integrity: "sha512-abc123",
@@ -174,7 +174,7 @@ describe("lockfile", () => {
               packs: {
                 "deps-pack": {
                   type: "registry",
-                  namespace: "@acme",
+                  profile: "@acme",
                   name: "deps-pack",
                   resolvedVersion: "1.0.0",
                   integrity: "sha512-abc123",

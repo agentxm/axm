@@ -1,5 +1,5 @@
 {
-  "namespace": "@acme",
+  "profile": "@acme",
   "type": "mcp-server",
   "name": "database-mcp",
   "version": "1.0.0",

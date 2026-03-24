@@ -35,14 +35,14 @@ const makePackRef = (
 ): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
-  source: { type: "registry", location: new URL("file:///tmp/registry"), namespace: Option.none() },
+  source: { type: "registry", location: new URL("file:///tmp/registry"), profile: Option.none() },
   pack: {
     name,
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
-  namespace: "@acme",
+  profile: "@acme",
   name,
   version: opts?.version ?? "1.0.0",
   integrity: "sha512-AAAA==",
@@ -78,7 +78,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        namespace: "@acme",
+        profile: "@acme",
         name,
         resolvedVersion: "1.0.0",
         integrity: "sha512-AAAA==",
@@ -103,9 +103,9 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
-        namespace: Option.none(),
+        profile: Option.none(),
       },
-      namespace: "@acme",
+      profile: "@acme",
       name,
       version: "1.0.0",
       integrity: "",
@@ -126,9 +126,9 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
-        namespace: Option.none(),
+        profile: Option.none(),
       },
-      namespace: "@acme",
+      profile: "@acme",
       name,
       version: "1.0.0",
       integrity: "",
@@ -147,7 +147,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        namespace: "@acme",
+        profile: "@acme",
         name,
         resolvedVersion: "1.0.0",
         integrity: "",
@@ -167,7 +167,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        namespace: "@acme",
+        profile: "@acme",
         name,
         resolvedVersion: "1.0.0",
         integrity: "",
@@ -605,7 +605,7 @@ describe("buildInstallPlan", () => {
       commands: {
         "cmd-a": {
           type: "registry" as const,
-          namespace: "@acme",
+          profile: "@acme",
           name: "cmd-a",
           resolvedVersion: "1.0.0",
           integrity: "",

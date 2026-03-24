@@ -191,7 +191,7 @@ describe("disable.handler", () => {
         {
           "code-review": {
             type: "registry",
-            namespace: "@acme",
+            profile: "@acme",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -232,7 +232,7 @@ describe("disable.handler", () => {
         {
           "code-review": {
             type: "registry",
-            namespace: "@acme",
+            profile: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
             integrity: "sha512-AAAA==",

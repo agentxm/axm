@@ -41,8 +41,8 @@ describe("computeSkillPaths", () => {
   });
 
   describe("registry source", () => {
-    it("produces registry extensions path with namespace", () => {
-      const source: SkillPathSource = { refType: "registry", namespace: "@acme" };
+    it("produces registry extensions path with profile", () => {
+      const source: SkillPathSource = { refType: "registry", profile: "@acme" };
       const result = computeSkillPaths(join, base, source, "code-review");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@acme/skills/code-review");
@@ -50,14 +50,14 @@ describe("computeSkillPaths", () => {
     });
 
     it("canonicalPath and skillSrcPath differ by /src suffix", () => {
-      const source: SkillPathSource = { refType: "registry", namespace: "@corp" };
+      const source: SkillPathSource = { refType: "registry", profile: "@corp" };
       const result = computeSkillPaths(join, base, source, "linter");
 
       expect(result.skillSrcPath).toBe(result.canonicalPath + "/src");
     });
 
     it("handles different namespaces correctly", () => {
-      const source: SkillPathSource = { refType: "registry", namespace: "@community" };
+      const source: SkillPathSource = { refType: "registry", profile: "@community" };
       const result = computeSkillPaths(join, base, source, "test-gen");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@community/skills/test-gen");

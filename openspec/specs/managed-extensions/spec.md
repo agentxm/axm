@@ -5,12 +5,12 @@
 Managed extensions (registry-sourced or forked) SHALL be stored in `.axm/extensions/` with the layout:
 
 ```
-.axm/extensions/@<namespace>/skills/<name>/
+.axm/extensions/@<profile>/skills/<name>/
   axm-skill.json
   src/
     <skill content files>
-.axm/extensions/@<namespace>/mcp-servers/<name>/
-.axm/extensions/@<namespace>/packs/<name>/
+.axm/extensions/@<profile>/mcp-servers/<name>/
+.axm/extensions/@<profile>/packs/<name>/
   axm-pack.json
   <optional additional files>
 ```

@@ -38,7 +38,7 @@ export const toAuthor = (author: Schema.Schema.Type<typeof AuthorSchema>): Autho
 });
 
 /**
- * Fully qualified name regex: `@<namespace>/<type>/<name>` where namespace and name
+ * Fully qualified name regex: `@<handle>/<type>/<name>` where handle and name
  * contain only alphanumeric characters, hyphens, and underscores, and type is one
  * of skills, packs, commands, or mcp-servers.
  *
@@ -47,9 +47,9 @@ export const toAuthor = (author: Schema.Schema.Type<typeof AuthorSchema>): Autho
 export const FQN_PATTERN = /^@[\w-]+\/(skills|packs|commands|mcp-servers)\/[\w-]+$/;
 
 /**
- * Manifest namespace regex: `@<namespace>`.
+ * Manifest handle regex: `@<handle>`.
  */
-export const MANIFEST_NAMESPACE_PATTERN = /^@[\w-]+$/;
+export const MANIFEST_HANDLE_PATTERN = /^@[\w-]+$/;
 
 /**
  * Manifest short name regex: `<name>` with alphanumeric, hyphen, underscore.
@@ -73,10 +73,10 @@ export const FullyQualifiedNameSchema = Schema.String.pipe(
 export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSchema>;
 
 /**
- * Manifest namespace schema.
+ * Manifest handle schema.
  */
-export const ManifestNamespaceSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(MANIFEST_NAMESPACE_PATTERN)),
+export const ManifestHandleSchema = Schema.String.pipe(
+  Schema.check(Schema.isPattern(MANIFEST_HANDLE_PATTERN)),
 );
 
 /**
@@ -93,7 +93,7 @@ export const ManifestNameSchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestFields = {
-  namespace: ManifestNamespaceSchema,
+  profile: ManifestHandleSchema,
   name: ManifestNameSchema,
   version: Schema.String,
   description: Schema.optional(Schema.String),

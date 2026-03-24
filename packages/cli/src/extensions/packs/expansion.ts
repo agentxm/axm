@@ -34,7 +34,7 @@ const nameFromFqn = (fqn: string): string => {
 };
 
 /**
- * Extract the namespace from a fully-qualified name.
+ * Extract the profile from a fully-qualified name.
  * e.g. "@acme/skills/code-review" -> "@acme"
  */
 const namespaceFromFqn = (fqn: string): string => {
@@ -70,7 +70,7 @@ export const expandPackInstallRefs = (args: {
       : {
           type: "registry",
           location: new URL("file:///builtin"),
-          namespace: Option.none(),
+          profile: Option.none(),
         };
 
   // Skills
@@ -85,7 +85,7 @@ export const expandPackInstallRefs = (args: {
           metadata: Option.none(),
         },
         source: depSource,
-        namespace: namespaceFromFqn(fqn),
+        profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
         integrity: "",
@@ -101,7 +101,7 @@ export const expandPackInstallRefs = (args: {
         refType: "registry",
         command: { name: nameFromFqn(fqn) },
         source: depSource,
-        namespace: namespaceFromFqn(fqn),
+        profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
         integrity: "",
@@ -117,7 +117,7 @@ export const expandPackInstallRefs = (args: {
         refType: "registry",
         server: { name: nameFromFqn(fqn) },
         source: depSource,
-        namespace: namespaceFromFqn(fqn),
+        profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
         integrity: "",

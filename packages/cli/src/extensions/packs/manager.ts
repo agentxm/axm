@@ -43,7 +43,7 @@ const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionConstraint: Option.Option<string>,
 ): SetPackArgs => ({
-  namespace: ref.namespace,
+  profile: ref.profile,
   name: ref.pack.name,
   resolvedVersion: ref.version,
   integrity: ref.integrity,
@@ -100,7 +100,7 @@ export const PackManagerLive = Layer.effect(
                 const packDir = computePackPaths(
                   path.join,
                   baseDir,
-                  ref.namespace,
+                  ref.profile,
                   ref.pack.name,
                 ).canonicalPath;
                 yield* provide(
@@ -142,7 +142,7 @@ export const PackManagerLive = Layer.effect(
           const packDir = computePackPaths(
             path.join,
             baseDir,
-            registryRef.namespace,
+            registryRef.profile,
             ref.pack.name,
           ).canonicalPath;
 
@@ -177,7 +177,7 @@ export const PackManagerLive = Layer.effect(
           const packDir = computePackPaths(
             path.join,
             baseDir,
-            target.namespace,
+            target.profile,
             target.name,
           ).canonicalPath;
           yield* removeIfExists(fs, packDir);

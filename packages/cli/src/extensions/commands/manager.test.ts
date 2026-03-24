@@ -23,7 +23,7 @@ import type { RegistryCommandRef, RegistrySource } from "../../sources/index.js"
 const registrySource: RegistrySource = {
   type: "registry",
   location: new URL("https://registry.example.com"),
-  namespace: Option.none(),
+  profile: Option.none(),
 };
 
 const makeRegistryCommandRef = (name: string): RegistryCommandRef => ({
@@ -31,7 +31,7 @@ const makeRegistryCommandRef = (name: string): RegistryCommandRef => ({
   refType: "registry",
   source: registrySource,
   command: { name },
-  namespace: "@test",
+  profile: "@test",
   name,
   version: "1.0.0",
   integrity: "sha512-abc",

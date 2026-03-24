@@ -28,9 +28,9 @@ import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeRegistryLockEntry = (namespace: string, name: string, version: string) => ({
+const makeRegistryLockEntry = (profile: string, name: string, version: string) => ({
   type: "registry",
-  namespace,
+  profile,
   name,
   resolvedVersion: version,
   integrity: "sha512-AAAA==",
@@ -51,7 +51,7 @@ const makeLocalLockEntry = () => ({
 const initWorkspace = (
   axmDir: string,
   opts: {
-    namespace?: string;
+    profile?: string;
     packs?: Record<string, unknown>;
     skills?: Record<string, unknown>;
     lockfileSkills?: Record<string, unknown>;
@@ -60,7 +60,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: ["claude-code"],
-    ...(opts.namespace && { namespace: opts.namespace }),
+    ...(opts.profile && { profile: opts.profile }),
     ...(opts.packs && { packs: opts.packs }),
     ...(opts.skills && { skills: opts.skills }),
   };
@@ -73,18 +73,18 @@ const initWorkspace = (
 
 const createPackManifest = (
   tempDir: string,
-  namespace: string,
+  profile: string,
   name: string,
   manifest?: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", profile, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       {
         ...(manifest ?? {}),
-        namespace,
+        profile,
         type: "pack",
         name,
         version: manifest?.["version"] ?? "0.0.1",
@@ -159,7 +159,7 @@ describe("packs-add.handler", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
@@ -193,7 +193,7 @@ describe("packs-add.handler", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, mockLog } = makeLayers({ preview: true, yes: false });
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
@@ -230,7 +230,7 @@ describe("packs-add.handler", () => {
     it.effect("expands glob against managed registry-sourced extensions", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "effect-basics": makeRegistryLockEntry("@acme", "effect-basics", "1.0.0"),
@@ -264,7 +264,7 @@ describe("packs-add.handler", () => {
     it.effect("fails when glob matches no extensions", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "some-skill": makeRegistryLockEntry("@acme", "some-skill", "1.0.0"),
@@ -288,7 +288,7 @@ describe("packs-add.handler", () => {
     it.effect("fails when extension is not registry-sourced", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "local-skill": makeLocalLockEntry(),
@@ -311,7 +311,7 @@ describe("packs-add.handler", () => {
   describe("pack not found", () => {
     it.effect("fails when pack does not exist in settings", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -338,7 +338,7 @@ describe("packs-add.handler", () => {
       // Here we test the happy end-to-end path works correctly with the real workspace.
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         lockfileSkills: {
           "skill-a": makeRegistryLockEntry("@acme", "skill-a", "1.0.0"),
@@ -376,14 +376,14 @@ describe("packs-add.handler", () => {
     it.effect("reports no-op when extension is already in pack", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "code-review": makeRegistryLockEntry("@acme", "code-review", "1.2.0"),
         },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        namespace: "@acme",
+        profile: "@acme",
         type: "pack",
         name: "my-pack",
         version: "0.0.1",

@@ -21,11 +21,11 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `@namespace/(skills|commands|mcp-servers|packs)/name`. */
+/** A namespaced registry source: `@profile/(skills|commands|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
-  readonly namespace: string;
+  readonly profile: string;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 };
@@ -156,20 +156,20 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   }
 
   // 5. Registry source:
-  //    - @namespace
-  //    - @namespace/{type}
-  //    - @namespace/{type}/{name}@constraint
+  //    - @profile
+  //    - @profile/{type}
+  //    - @profile/{type}/{name}@constraint
   if (input.startsWith("@")) {
     const segments = input.split("/");
     if (segments.length >= 1 && REGISTRY_NAMESPACE_PATTERN.test(segments[0] ?? "")) {
-      const namespace = segments[0]!;
+      const profile = segments[0]!;
 
       if (segments.length === 1) {
         return Option.some(
           wrap({
             pattern: "registry-pattern-input",
             type: Option.none(),
-            namespace,
+            profile,
             name: Option.none(),
             versionConstraint: Option.none(),
           }),
@@ -188,7 +188,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
             wrap({
               pattern: "registry-pattern-input",
               type: Option.some(second),
-              namespace,
+              profile,
               name: Option.none(),
               versionConstraint: Option.none(),
             }),
@@ -211,7 +211,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
               wrap({
                 pattern: "registry-pattern-input",
                 type: Option.some(second),
-                namespace,
+                profile,
                 name: parsedName.value.name,
                 versionConstraint: parsedName.value.versionConstraint,
               }),

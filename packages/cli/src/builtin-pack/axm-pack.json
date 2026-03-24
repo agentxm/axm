@@ -1,5 +1,5 @@
 {
-  "namespace": "@axm",
+  "profile": "@axm",
   "type": "pack",
   "name": "cli",
   "version": "0.0.16",

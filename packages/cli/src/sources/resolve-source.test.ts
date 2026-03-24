@@ -32,7 +32,7 @@ const makeRegistryCollectionResponse = () =>
   JSON.stringify({
     extensions: [
       {
-        namespace: "@acme",
+        profile: "@acme",
         type: "skill",
         name: "my-skill",
         description: null,
@@ -200,7 +200,7 @@ describe("resolveSource", () => {
   });
 
   describe("registry resolution", () => {
-    it.effect("resolves @namespace/skills/name with registry host config", () =>
+    it.effect("resolves @profile/skills/name with registry host config", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
@@ -208,7 +208,7 @@ describe("resolveSource", () => {
           location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const result = yield* resolveSource("@namespace/skills/name").pipe(
+        const result = yield* resolveSource("@profile/skills/name").pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
         );
         expect(result.type).toBe("registry");
@@ -218,9 +218,9 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves @namespace/skills/name with built-in registry", () =>
+    it.effect("resolves @profile/skills/name with built-in registry", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("@namespace/skills/name");
+        const result = yield* resolve("@profile/skills/name");
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
@@ -228,9 +228,9 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves @namespace with built-in registry", () =>
+    it.effect("resolves @profile with built-in registry", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("@namespace");
+        const result = yield* resolve("@profile");
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
@@ -238,9 +238,9 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves @namespace/skills with built-in registry", () =>
+    it.effect("resolves @profile/skills with built-in registry", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("@namespace/skills");
+        const result = yield* resolve("@profile/skills");
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.location).toEqual(new URL("https://registry.agentxm.ai"));
@@ -286,7 +286,7 @@ describe("resolveSource", () => {
   });
 
   describe("slash source resolution", () => {
-    it.effect("resolves namespace/type/name slash pattern to registry when extension exists", () =>
+    it.effect("resolves profile/type/name slash pattern to registry when extension exists", () =>
       Effect.gen(function* () {
         const registryRoot = mkdtempSync(nodePath.join(tmpdir(), "slash-reg-"));
         const extensionDir = nodePath.join(

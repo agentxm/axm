@@ -18,7 +18,7 @@ Every extension ref SHALL have a top-level `refType` field with value `"git-host
 #### Scenario: Narrowing on refType reveals registry fields
 
 - **WHEN** code switches on `ref.refType === "registry"`
-- **THEN** TypeScript narrows the ref to include `namespace: string`, `name: string`, `version: string`, and `integrity: string` without type assertions
+- **THEN** TypeScript narrows the ref to include `profile: string`, `name: string`, `version: string`, and `integrity: string` without type assertions
 
 #### Scenario: RefType is independent of extension type
 
@@ -82,7 +82,7 @@ Each extension type SHALL have a layer-2 base that adds extension-specific metad
 Layer-3 concrete types SHALL compose the extension-type base with ref-type-specific detail interfaces:
 
 - Git-hosted refs intersect with `GitHostedRefDetails` (`location: string`, `gitTreeSha: Option<string>`)
-- Registry refs intersect with `RegistryRefDetails` (`namespace: string`, `name: string`, `version: string`, `integrity: string`)
+- Registry refs intersect with `RegistryRefDetails` (`profile: string`, `name: string`, `version: string`, `integrity: string`)
 - Local refs intersect with `LocalRefDetails` (`location: string`)
 - Builtin refs intersect with `BuiltinRefDetails` (empty)
 
@@ -94,7 +94,7 @@ Layer-3 concrete types SHALL compose the extension-type base with ref-type-speci
 #### Scenario: Registry skill ref shape
 
 - **WHEN** a `RegistrySkillRef` is constructed
-- **THEN** it has `type: "skill"`, `refType: "registry"`, `source: RegistrySource`, `skill: {...}`, `namespace: string`, `name: string`, `version: string`, `integrity: string`
+- **THEN** it has `type: "skill"`, `refType: "registry"`, `source: RegistrySource`, `skill: {...}`, `profile: string`, `name: string`, `version: string`, `integrity: string`
 
 #### Scenario: Local MCP server ref shape
 
@@ -104,7 +104,7 @@ Layer-3 concrete types SHALL compose the extension-type base with ref-type-speci
 #### Scenario: Registry pack ref shape
 
 - **WHEN** a `RegistryPackRef` is constructed
-- **THEN** it has `type: "pack"`, `refType: "registry"`, `source: RegistrySource`, `pack: { name }`, `namespace: string`, `name: string`, `version: string`, `integrity: string`
+- **THEN** it has `type: "pack"`, `refType: "registry"`, `source: RegistrySource`, `pack: { name }`, `profile: string`, `name: string`, `version: string`, `integrity: string`
 
 ### Requirement: Git-hosted refType collapses git source variants
 

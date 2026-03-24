@@ -118,7 +118,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...extraFields }),
     Schema.Struct({
       type: Schema.Literal("registry"),
-      namespace: Schema.String,
+      profile: Schema.String,
       name: Schema.String,
       resolvedVersion: ExactSemverVersionSchema,
       integrity: Schema.String,
@@ -270,7 +270,7 @@ export const ResolvedExtensionMapSchema = Schema.Record(Schema.String, ExactSemv
  */
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  namespace: Schema.String,
+  profile: Schema.String,
   name: Schema.String,
   resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
@@ -297,7 +297,7 @@ export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEn
  */
 export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
-  namespace: Schema.String,
+  profile: Schema.String,
   name: Schema.String,
   resolvedVersion: ExactSemverVersionSchema,
   installedAt: DateFromString,

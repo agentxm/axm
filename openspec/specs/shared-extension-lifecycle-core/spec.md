@@ -181,12 +181,12 @@ Manager methods SHALL have no runtime service requirements (`R = never`). All de
 
 ### Requirement: Extension target types
 
-Uninstall operations SHALL use typed extension targets for identifying extensions to remove. Pack targets SHALL include a namespace. Skill, command, and mcp-server targets SHALL be name-only.
+Uninstall operations SHALL use typed extension targets for identifying extensions to remove. Pack targets SHALL include a profile. Skill, command, and mcp-server targets SHALL be name-only.
 
-#### Scenario: Pack target includes namespace
+#### Scenario: Pack target includes profile
 
-- **WHEN** an uninstall target is created for pack `effect` in namespace `@axm`
-- **THEN** the target SHALL have type `pack`, name `effect`, and namespace `@axm`
+- **WHEN** an uninstall target is created for pack `effect` in profile `@axm`
+- **THEN** the target SHALL have type `pack`, name `effect`, and profile `@axm`
 - **AND** the target label SHALL be `@axm/effect`
 
 #### Scenario: Skill target is name-only

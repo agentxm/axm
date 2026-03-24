@@ -1,6 +1,6 @@
 {
   "name": "effect-iteration",
   "version": "0.1.0",
-  "namespace": "@axm",
+  "profile": "@axm",
   "type": "skill"
 }

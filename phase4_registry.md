@@ -10,16 +10,16 @@
 
 ### Test Results
 
-| #   | Test               | Command                                                 | Exit | Result                                                                             |
-| --- | ------------------ | ------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
-| 1   | Help flag          | `axm skills new --help`                                 | 0    | PASS — shows usage, flags, examples                                                |
-| 2   | Scaffold new skill | `axm skills new my-skill --yes` (namespace=@test)       | 0    | PASS — manifest, src/SKILL.md, settings entry, agent symlink all created correctly |
-| 3   | Namespace override | `axm skills new custom-skill --namespace @custom --yes` | 0    | PASS — manifest shows `@custom`, extension dir under `@custom/skills/`             |
-| 4   | Already exists     | `axm skills new my-skill --yes` (second time)           | 1    | PASS — `SKILL_ALREADY_EXISTS`, "already exists in settings"                        |
+| #   | Test               | Command                                               | Exit | Result                                                                             |
+| --- | ------------------ | ----------------------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
+| 1   | Help flag          | `axm skills new --help`                               | 0    | PASS — shows usage, flags, examples                                                |
+| 2   | Scaffold new skill | `axm skills new my-skill --yes` (profile=@test)       | 0    | PASS — manifest, src/SKILL.md, settings entry, agent symlink all created correctly |
+| 3   | Profile override   | `axm skills new custom-skill --profile @custom --yes` | 0    | PASS — manifest shows `@custom`, extension dir under `@custom/skills/`             |
+| 4   | Already exists     | `axm skills new my-skill --yes` (second time)         | 1    | PASS — `SKILL_ALREADY_EXISTS`, "already exists in settings"                        |
 
 **Verification details (test 2):**
 
-- `axm-skill.json`: `{"namespace":"@test","type":"skill","name":"my-skill","version":"0.0.1"}`
+- `axm-skill.json`: `{"profile":"@test","type":"skill","name":"my-skill","version":"0.0.1"}`
 - `src/SKILL.md`: frontmatter with `name: my-skill`
 - Settings: `skills.my-skill` present
 - Symlink: `.claude/skills/my-skill -> ../../.axm/extensions/@test/skills/my-skill/src`
@@ -61,7 +61,7 @@
 | --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
 | 1   | Help flag                                              | `axm skills publish --help`                                                           | 0           | PASS — shows usage, --registry flag, examples                      |
 | 2   | Publish to local registry                              | `axm skills publish @test/skills/my-pub-skill --yes` (AXM_TOKEN set)                  | 0           | PASS — index.json + 1.0.0.zip created in registry                  |
-| 3   | Bare name (namespace from settings)                    | `axm skills publish code-review --yes`                                                | 0           | PASS — resolved @test namespace, published to registry             |
+| 3   | Bare name (profile from settings)                      | `axm skills publish code-review --yes`                                                | 0           | PASS — resolved @test profile, published to registry               |
 | 4   | Nonexistent extension                                  | `axm skills publish @test/skills/nonexistent-skill --yes`                             | 1           | PASS — `EXTENSION_NOT_FOUND`, shows expected path                  |
 | 5   | Glob pattern                                           | `axm skills publish "effect-*" --yes`                                                 | 0           | PASS — published effect-basics and effect-stream, skipped commit   |
 | 6   | Multiple literal names                                 | `axm skills publish skill-a skill-b --yes`                                            | 0           | PASS — both published                                              |
@@ -72,7 +72,7 @@
 
 ### Registry artifact verification (test 2):
 
-- `index.json`: name, namespace, type, versions array with version/published/integrity
+- `index.json`: name, profile, type, versions array with version/published/integrity
 - `integrity`: `sha512-9j24+D8Tsn...` (valid SHA-512 base64)
 - `1.0.0.zip`: 380 bytes, valid ZIP magic bytes (PK/0x50 0x4b)
 
@@ -94,7 +94,7 @@
 - **Command:** `axm skills fork <fixture> --yes` (with file:// registry named "local")
 - **Expected:** Lockfile `sourceName` field is `"local"` (matching the configured registry source)
 - **Actual:** Lockfile shows `sourceName: "default"`
-- **Root Cause:** The fork handler determines the correct `registryName` at line 245 (`registrySource.name`), but only passes it to the `publish-skill` operation (line 289). The `install-skill` operation (line 298-308) builds a `registryRef` with `source.type: "registry"` but `source.namespace: Option.none()`, and the install operation calls `sourceToLockEntry` with `sourceName: Option.none()` (in `packages/cli/src/extensions/skills/operations/install.ts:490`). The `sourceToLockEntry` function falls back to `"default"` when `sourceName` is `None` (in `packages/cli/src/sources/source-to-lock-entry.ts:132`).
+- **Root Cause:** The fork handler determines the correct `registryName` at line 245 (`registrySource.name`), but only passes it to the `publish-skill` operation (line 289). The `install-skill` operation (line 298-308) builds a `registryRef` with `source.type: "registry"` but `source.profile: Option.none()`, and the install operation calls `sourceToLockEntry` with `sourceName: Option.none()` (in `packages/cli/src/extensions/skills/operations/install.ts:490`). The `sourceToLockEntry` function falls back to `"default"` when `sourceName` is `None` (in `packages/cli/src/sources/source-to-lock-entry.ts:132`).
 - **Category:** handler
 - **Severity:** major — the lockfile references the wrong registry source, which would cause update/reinstall to use the wrong registry
 
@@ -146,7 +146,7 @@
 
 ### Key Findings
 
-1. **`skills new` is solid** -- all tests pass, scaffolding, namespace override, and duplicate detection all work correctly.
+1. **`skills new` is solid** -- all tests pass, scaffolding, profile override, and duplicate detection all work correctly.
 
 2. **`skills fork` works functionally but has lockfile fidelity issues** -- the fork/publish/install pipeline succeeds end-to-end, but the lockfile entries have empty `integrity` and wrong `sourceName`. This is because the fork handler pre-builds the `registryRef` before publish runs (so integrity is unknown) and doesn't propagate the registry name to the install step.
 

@@ -47,7 +47,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      namespace: "@test",
+      profile: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
@@ -72,9 +72,9 @@ const initWorkspace = (
 const createCanonicalDirs = (
   baseDir: string,
   opts: {
-    skills?: ReadonlyArray<{ namespace: string; name: string }>;
-    commands?: ReadonlyArray<{ namespace: string; name: string }>;
-    mcpServers?: ReadonlyArray<{ namespace: string; name: string }>;
+    skills?: ReadonlyArray<{ profile: string; name: string }>;
+    commands?: ReadonlyArray<{ profile: string; name: string }>;
+    mcpServers?: ReadonlyArray<{ profile: string; name: string }>;
   },
 ) => {
   for (const skill of opts.skills ?? []) {
@@ -82,7 +82,7 @@ const createCanonicalDirs = (
       baseDir,
       ".axm",
       "extensions",
-      skill.namespace,
+      skill.profile,
       "skills",
       skill.name,
       "src",
@@ -91,12 +91,12 @@ const createCanonicalDirs = (
     fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${skill.name}`);
   }
   for (const cmd of opts.commands ?? []) {
-    const cmdDir = path.join(baseDir, ".axm", "extensions", cmd.namespace, "commands", cmd.name);
+    const cmdDir = path.join(baseDir, ".axm", "extensions", cmd.profile, "commands", cmd.name);
     fs.mkdirSync(cmdDir, { recursive: true });
     fs.writeFileSync(path.join(cmdDir, "run.sh"), "#!/bin/bash");
   }
   for (const srv of opts.mcpServers ?? []) {
-    const srvDir = path.join(baseDir, ".axm", "extensions", srv.namespace, "mcp-servers", srv.name);
+    const srvDir = path.join(baseDir, ".axm", "extensions", srv.profile, "mcp-servers", srv.name);
     fs.mkdirSync(srvDir, { recursive: true });
     fs.writeFileSync(path.join(srvDir, "server.js"), "module.exports = {}");
   }
@@ -174,7 +174,7 @@ describe("packs unpack.handler", () => {
         lockSkills: {
           "code-review": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -185,7 +185,7 @@ describe("packs unpack.handler", () => {
           },
           "test-writer": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "test-writer",
             resolvedVersion: "2.0.0",
             integrity: "",
@@ -198,7 +198,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -218,8 +218,8 @@ describe("packs unpack.handler", () => {
       // Create canonical dirs so install handlers skip fetch
       createCanonicalDirs(tempDir, {
         skills: [
-          { namespace: "@test", name: "code-review" },
-          { namespace: "@test", name: "test-writer" },
+          { profile: "@test", name: "code-review" },
+          { profile: "@test", name: "test-writer" },
         ],
       });
 
@@ -237,7 +237,7 @@ describe("packs unpack.handler", () => {
           const packs = settingsContent.packs ?? {};
           expect(Object.keys(packs)).not.toContain("frontend-tools");
           expect(settingsContent.skills).toBeDefined();
-          // Skills are stored by short name (after namespace/)
+          // Skills are stored by short name (after profile/)
           expect(settingsContent.skills["code-review"]).toBeDefined();
           expect(settingsContent.skills["test-writer"]).toBeDefined();
 
@@ -265,7 +265,7 @@ describe("packs unpack.handler", () => {
         lockSkills: {
           "code-review": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "code-review",
             resolvedVersion: "0.9.0",
             integrity: "",
@@ -276,7 +276,7 @@ describe("packs unpack.handler", () => {
           },
           "new-skill": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "new-skill",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -289,7 +289,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            namespace: "@test",
+            profile: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -309,8 +309,8 @@ describe("packs unpack.handler", () => {
       // Create canonical dirs so install handlers skip fetch
       createCanonicalDirs(tempDir, {
         skills: [
-          { namespace: "@test", name: "code-review" },
-          { namespace: "@test", name: "new-skill" },
+          { profile: "@test", name: "code-review" },
+          { profile: "@test", name: "new-skill" },
         ],
       });
 

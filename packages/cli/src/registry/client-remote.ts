@@ -21,14 +21,14 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
-  GetExtensionsByNamespaceArgs,
-  GetExtensionsByNamespaceResponse,
+  GetExtensionsByProfileArgs,
+  GetExtensionsByProfileResponse,
   PublishExtensionArgs,
   RegistryClient,
   RegistryExtensionManifest,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
-  NamespaceExistsResponse,
+  ProfileExistsResponse,
 } from "./client.js";
 import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/index.js";
 import { ExtensionIndexSchema } from "./local-schema.js";
@@ -346,7 +346,7 @@ const withRequestContext = (
 };
 
 const ExtensionSummarySchema = Schema.Struct({
-  namespace: Schema.String,
+  profile: Schema.String,
   type: ExtensionTypeSchema,
   name: Schema.String,
 });
@@ -473,7 +473,7 @@ const toRegistryManifest = (
   }
 
   return Option.some({
-    namespace: index.namespace,
+    profile: index.profile,
     type: index.type,
     name: index.name,
     description: Option.fromUndefinedOr(index.description),
@@ -491,32 +491,32 @@ const toRegistryManifest = (
 
 const buildDiscoveryUrl = ({
   baseUrl,
-  namespace,
+  profile,
   type,
   name,
 }: {
   readonly baseUrl: string;
-  readonly namespace: string;
+  readonly profile: string;
   readonly type: ExtensionType;
   readonly name: string;
 }): string =>
-  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${namespace}/${pluralizeType(type)}/${name}`;
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${profile}/${pluralizeType(type)}/${name}`;
 
 const getExtensionIndex = ({
   baseUrl,
   httpClient,
-  namespace,
+  profile,
   type,
   name,
 }: {
   readonly baseUrl: string;
   readonly httpClient: HttpClient.HttpClient;
-  readonly namespace: string;
+  readonly profile: string;
   readonly type: ExtensionType;
   readonly name: string;
 }) =>
   Effect.gen(function* () {
-    const url = buildDiscoveryUrl({ baseUrl, namespace, type, name });
+    const url = buildDiscoveryUrl({ baseUrl, profile, type, name });
     const requestSummary = `GET ${url}`;
 
     const response = yield* executeRequest({
@@ -651,14 +651,14 @@ const getListModeExtensions = ({
 }: {
   readonly baseUrl: string;
   readonly httpClient: HttpClient.HttpClient;
-  readonly args: GetExtensionsByNamespaceArgs;
+  readonly args: GetExtensionsByProfileArgs;
 }) =>
   Effect.gen(function* () {
-    const namespaceBaseUrl = `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}`;
+    const profileBaseUrl = `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.handle}`;
     const urls =
       args.types.length === 0
-        ? [namespaceBaseUrl]
-        : args.types.map((type) => `${namespaceBaseUrl}/${pluralizeType(type)}`);
+        ? [profileBaseUrl]
+        : args.types.map((type) => `${profileBaseUrl}/${pluralizeType(type)}`);
 
     const summaryGroups = yield* Effect.forEach(
       urls,
@@ -679,7 +679,7 @@ const getListModeExtensions = ({
         getExtensionIndex({
           baseUrl,
           httpClient,
-          namespace: summary.namespace,
+          profile: summary.profile,
           type: summary.type,
           name: summary.name,
         }),
@@ -694,8 +694,8 @@ const getListModeExtensions = ({
     );
 
     const sorted = [...allExtensions].sort((a, b) => {
-      if (a.namespace !== b.namespace) {
-        return a.namespace.localeCompare(b.namespace);
+      if (a.profile !== b.profile) {
+        return a.profile.localeCompare(b.profile);
       }
       if (a.name !== b.name) {
         return a.name.localeCompare(b.name);
@@ -706,13 +706,13 @@ const getListModeExtensions = ({
     return sorted;
   });
 
-const namespaceExists = (
+const profileExists = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
-  namespace: string,
-): Effect.Effect<NamespaceExistsResponse, AppError> =>
+  handle: string,
+): Effect.Effect<ProfileExistsResponse, AppError> =>
   Effect.gen(function* () {
-    const url = `${normalizeBaseUrl(baseUrl)}/v1/extensions/${namespace}`;
+    const url = `${normalizeBaseUrl(baseUrl)}/v1/extensions/${handle}`;
     const requestSummary = `GET ${url}`;
     const response = yield* executeRequest({
       baseUrl,
@@ -720,11 +720,11 @@ const namespaceExists = (
       method: "GET",
       url,
       networkCode: "REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR",
-      networkWhat: "Failed to connect to remote registry namespace endpoint",
+      networkWhat: "Failed to connect to remote registry profile endpoint",
     });
 
     if (response.status === 404) {
-      return { exists: false } satisfies NamespaceExistsResponse;
+      return { exists: false } satisfies ProfileExistsResponse;
     }
 
     // Auth error mapping for read operations
@@ -745,7 +745,7 @@ const namespaceExists = (
       return yield* Effect.fail(
         makeAppError({
           code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-          what: `Remote namespace check failed with status ${String(response.status)}`,
+          what: `Remote profile check failed with status ${String(response.status)}`,
           details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
         }),
       );
@@ -755,21 +755,21 @@ const namespaceExists = (
       response,
       requestSummary,
       code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-      what: "Failed to read remote namespace response body",
+      what: "Failed to read remote profile response body",
     });
     const parsed = yield* parseJson({
       bodyText,
       requestSummary,
       code: "REGISTRY_REMOTE_INVALID_RESPONSE",
-      what: "Remote namespace endpoint returned invalid JSON",
+      what: "Remote profile endpoint returned invalid JSON",
     });
     const payload = yield* decodeUnknown(ExtensionCollectionResponseSchema, parsed, {
       requestSummary,
       code: "REGISTRY_REMOTE_INVALID_RESPONSE",
-      what: "Remote namespace endpoint response does not match expected schema",
+      what: "Remote profile endpoint response does not match expected schema",
     });
 
-    return { exists: payload.extensions.length > 0 } satisfies NamespaceExistsResponse;
+    return { exists: payload.extensions.length > 0 } satisfies ProfileExistsResponse;
   });
 
 const getExtensionPackage = (
@@ -780,7 +780,7 @@ const getExtensionPackage = (
   Effect.gen(function* () {
     const indexUrl = buildDiscoveryUrl({
       baseUrl,
-      namespace: args.namespace,
+      profile: args.handle,
       type: args.type,
       name: args.name,
     });
@@ -914,8 +914,8 @@ const getExtensionPackage = (
 const getExtensionsByScope = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
-  args: GetExtensionsByNamespaceArgs,
-): Effect.Effect<GetExtensionsByNamespaceResponse, AppError> =>
+  args: GetExtensionsByProfileArgs,
+): Effect.Effect<GetExtensionsByProfileResponse, AppError> =>
   Effect.gen(function* () {
     const allExtensions =
       args.names.length === 0
@@ -933,7 +933,7 @@ const getExtensionsByScope = (
                     getExtensionIndex({
                       baseUrl,
                       httpClient,
-                      namespace: args.namespace,
+                      profile: args.handle,
                       type,
                       name,
                     }),
@@ -960,11 +960,11 @@ const getExtensionsByScope = (
     return {
       extensions,
       total,
-    } satisfies GetExtensionsByNamespaceResponse;
+    } satisfies GetExtensionsByProfileResponse;
   });
 
 const buildExtensionExistsUrl = (baseUrl: string, args: ExtensionExistsArgs): string =>
-  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${pluralizeType(args.type)}/${args.name}`;
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.handle}/${pluralizeType(args.type)}/${args.name}`;
 
 const extensionExists = (
   baseUrl: string,
@@ -1066,7 +1066,7 @@ const buildNetworkDiagnosis = (baseUrl: string): Option.Option<string> => {
 };
 
 const buildPublishUrl = (baseUrl: string, args: PublishExtensionArgs): string =>
-  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${pluralizeType(args.type)}/${args.name}/${args.version}`;
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.handle}/${pluralizeType(args.type)}/${args.name}/${args.version}`;
 
 /**
  * Publish an extension version to the remote registry via multipart PUT.
@@ -1204,7 +1204,7 @@ export const createRemoteRegistryClient = (
   httpClient: HttpClient.HttpClient,
 ): RegistryClient => ({
   getExtensionsByScope: (args) => getExtensionsByScope(baseUrl, httpClient, args),
-  namespaceExists: (namespace) => namespaceExists(baseUrl, httpClient, namespace),
+  profileExists: (handle) => profileExists(baseUrl, httpClient, handle),
   getExtensionPackage: (args) => getExtensionPackage(baseUrl, httpClient, args),
   publishExtension: (args) => publishExtension(baseUrl, httpClient, args),
   extensionExists: (args) => extensionExists(baseUrl, httpClient, args),

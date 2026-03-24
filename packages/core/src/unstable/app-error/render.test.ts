@@ -28,7 +28,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @namespace/name"],
+      details: ["Package: @handle/name"],
       howToFix: Option.none(),
       cause: undefined,
     });
@@ -36,7 +36,7 @@ describe("renderAppError", () => {
     const result = renderAppError(error);
 
     expect(result).toBe(
-      ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @namespace/name"].join("\n"),
+      ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @handle/name"].join("\n"),
     );
   });
 

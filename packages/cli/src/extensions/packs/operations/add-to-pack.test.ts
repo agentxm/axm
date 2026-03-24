@@ -25,12 +25,12 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
-    configuredNamespace?: string;
+    configuredProfile?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredPacks?: Record<string, any>;
   } = {},
 ): WorkspaceContextService => {
-  const configuredNamespace = opts.configuredNamespace ?? "@myorg";
+  const configuredProfile = opts.configuredProfile ?? "@myorg";
 
   return {
     ...taxonomyStubs,
@@ -42,8 +42,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed(configuredNamespace),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed(configuredProfile),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -108,11 +108,11 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 };
 
 /** Creates a pack manifest on disk and returns its content hash. */
-const createPackManifest = (base: string, namespace: string, packName: string) => {
-  const packDir = path.join(base, ".axm", "extensions", namespace, "packs", packName);
+const createPackManifest = (base: string, profile: string, packName: string) => {
+  const packDir = path.join(base, ".axm", "extensions", profile, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
-    namespace,
+    profile,
     type: "pack",
     name: packName,
     version: "0.0.1",
@@ -132,7 +132,7 @@ const makeOp = (
   name: "add-to-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
-    packNamespace: overrides.packNamespace ?? "@myorg",
+    packProfile: overrides.packProfile ?? "@myorg",
     additions: overrides.additions ?? { "@acme/skills/my-skill": "^1.0.0" },
     manifestHash: overrides.manifestHash,
   },

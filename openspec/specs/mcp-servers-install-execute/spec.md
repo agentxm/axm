@@ -7,7 +7,7 @@ The `installMcpServer` operation handler SHALL implement `OperationHandler<Insta
 The handler SHALL:
 
 1. Fetch the MCP server archive from the registry
-2. Extract to the canonical location (`.axm/extensions/@<namespace>/mcp-servers/<name>/`)
+2. Extract to the canonical location (`.axm/extensions/@<profile>/mcp-servers/<name>/`)
 3. Update the lockfile MCP server entry
 4. Update the settings MCP server entry (unless `skipSettings` is true)
 5. Synchronize configured agents through `CodingAgent` MCP add delegation with policy-aware outcome handling
@@ -19,7 +19,7 @@ For registry-sourced MCP servers, any `resolvedVersion` written to lockfile MUST
 
 - **WHEN** executing an install-mcp-server operation with a registry ref
 - **THEN** the MCP server archive SHALL be fetched from the registry
-- **AND** extracted to `.axm/extensions/@<namespace>/mcp-servers/<name>/`
+- **AND** extracted to `.axm/extensions/@<profile>/mcp-servers/<name>/`
 - **AND** an MCP server lock entry SHALL be written to the lockfile `mcpServers` section
 - **AND** an MCP server entry SHALL be written to `settings.json` `mcp-servers` section
 
@@ -77,11 +77,11 @@ For registry-sourced MCP servers, any `resolvedVersion` written to lockfile MUST
 
 ### Requirement: MCP server canonical path
 
-MCP server extensions SHALL be stored at `.axm/extensions/@<namespace>/mcp-servers/<name>/`.
+MCP server extensions SHALL be stored at `.axm/extensions/@<profile>/mcp-servers/<name>/`.
 
 #### Scenario: Canonical path structure
 
-- **WHEN** installing MCP server `db-connector` from namespace `@acme`
+- **WHEN** installing MCP server `db-connector` from profile `@acme`
 - **THEN** the canonical path SHALL be `.axm/extensions/@acme/mcp-servers/db-connector/`
 
 ### Requirement: Empty integrity skips validation

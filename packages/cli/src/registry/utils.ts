@@ -61,11 +61,11 @@ export const pluralizeType = (type: ExtensionType): string => {
 /** Build the path to an extension's directory within a registry. */
 export const extensionDir = (
   registryRoot: string,
-  namespace: string,
+  profile: string,
   type: ExtensionType,
   name: string,
   join: (...parts: readonly string[]) => string,
-): string => join(registryRoot, "extensions", namespace, pluralizeType(type), name);
+): string => join(registryRoot, "extensions", profile, pluralizeType(type), name);
 
 // -----------------------------------------------------------------------------
 // Zip Extraction

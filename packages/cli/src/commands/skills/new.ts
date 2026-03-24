@@ -10,10 +10,10 @@ export const newCommand = Command.make(
   "new",
   {
     name: Argument.string("name").pipe(
-      Argument.withDescription("Name of the skill (without namespace)"),
+      Argument.withDescription("Name of the skill (without profile)"),
     ),
-    namespace: Flag.string("namespace").pipe(
-      Flag.withDescription("Override the workspace namespace (e.g., @acme)"),
+    profile: Flag.string("profile").pipe(
+      Flag.withDescription("Override the workspace profile (e.g., @acme)"),
       Flag.optional,
     ),
     agent: Flag.string("agent").pipe(
@@ -25,11 +25,11 @@ export const newCommand = Command.make(
     force: forceFlag,
     preview: previewFlag,
   },
-  ({ name, namespace, agent, yes, force, preview }) =>
+  ({ name, profile, agent, yes, force, preview }) =>
     withCommandRuntime(
       handleSkillsNew({
         name,
-        namespace,
+        profile,
         agents: Option.map(agent, (value) => [...value]),
       }),
       {
@@ -43,8 +43,8 @@ export const newCommand = Command.make(
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Create a new skill" },
     {
-      command: "axm skills new my-skill --namespace @acme",
-      description: "Create with custom namespace",
+      command: "axm skills new my-skill --profile @acme",
+      description: "Create with custom profile",
     },
   ]),
 );

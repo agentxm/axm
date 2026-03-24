@@ -23,7 +23,7 @@ import {
 } from "./command-actions.js";
 
 const mockWorkspace = {
-  getConfiguredNamespace: () => Effect.succeed("@test-ns"),
+  getConfiguredProfile: () => Effect.succeed("@test-ns"),
   getRegistrySourceHosts: () => Effect.succeed([]),
   getLockedMcpServer: () => Effect.succeed(Option.none()),
   getLockedSkills: () => Effect.succeed({}),
@@ -81,39 +81,39 @@ const runWithActions = <A, E>(
   }).pipe(Effect.provide(actionsLayer), Effect.runPromise);
 
 describe("parseMcpServerInstallArgs", () => {
-  it("parses @namespace/mcp-servers/name registry pattern", async () => {
+  it("parses @profile/mcp-servers/name registry pattern", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.serverName).toBe("my-server");
     expect(Option.isNone(result.versionConstraint)).toBe(true);
     expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
   });
 
-  it("parses @namespace/mcp-servers/name@version with constraint", async () => {
+  it("parses @profile/mcp-servers/name@version with constraint", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "@acme/mcp-servers/my-server@^2.0.0",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.serverName).toBe("my-server");
     expect(Option.getOrNull(result.versionConstraint)).toBe("^2.0.0");
   });
 
-  it("resolves bare name using configured namespace", async () => {
+  it("resolves bare name using configured profile", async () => {
     const result = await runWithActions((actions) =>
       actions.parseArgs({
         source: "my-server",
         scope: "project",
       }),
     );
-    expect(result.namespace).toBe("@test-ns");
+    expect(result.profile).toBe("@test-ns");
     expect(result.serverName).toBe("my-server");
     expect(result.resolvedInput).toBe("@test-ns/mcp-servers/my-server");
   });

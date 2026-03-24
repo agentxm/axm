@@ -37,7 +37,7 @@ import { parseFqn } from "../../index.js";
  * computes the SRI integrity hash, and publishes to the target registry.
  */
 export type PublishSkillOperationArgs = {
-  /** Extension identity in `@namespace/name` format. */
+  /** Extension identity in `@profile/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;
@@ -76,13 +76,7 @@ export const publishSkill: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed extension directory
-    const extensionDir = path.join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.namespace,
-      "skills",
-      fqn.name,
-    );
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.handle, "skills", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -173,7 +167,7 @@ export const publishSkill: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        namespace: fqn.namespace,
+        handle: fqn.handle,
         type: "skill",
         name: fqn.name,
         version: manifest.version,

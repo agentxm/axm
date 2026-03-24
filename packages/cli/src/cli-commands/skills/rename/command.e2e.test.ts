@@ -82,7 +82,7 @@ describe("axm skills rename", () => {
   it("errors when old name is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], {
+      await runCli(["init", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 
@@ -100,7 +100,7 @@ describe("axm skills rename", () => {
   it("errors when new name conflicts with existing skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], {
+      await runCli(["init", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
 

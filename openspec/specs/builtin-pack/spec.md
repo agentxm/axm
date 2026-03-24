@@ -18,7 +18,7 @@ The system SHALL recognize `@axm/cli` as the builtin extension pack. This pack i
 #### Scenario: Builtin pack recorded in lockfile
 
 - **WHEN** the builtin pack is installed during init
-- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `namespace: "@axm"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
+- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `profile: "@axm"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
 
 ### Requirement: Builtin pack lock entry schema
 
@@ -27,7 +27,7 @@ The lockfile SHALL support a `"builtin"` source type for pack lock entries, dist
 #### Scenario: Builtin pack lock entry fields
 
 - **WHEN** a builtin pack is recorded in the lockfile
-- **THEN** the entry SHALL have fields: `type` ("builtin"), `namespace`, `name`, `resolvedVersion`, `installedAt`, `updatedAt`, `resolvedSkills`, `resolvedCommands`, `resolvedMcpServers`
+- **THEN** the entry SHALL have fields: `type` ("builtin"), `profile`, `name`, `resolvedVersion`, `installedAt`, `updatedAt`, `resolvedSkills`, `resolvedCommands`, `resolvedMcpServers`
 - **AND** SHALL NOT have `integrity` or `sourceName` fields
 
 #### Scenario: Lockfile parses builtin pack entries
@@ -43,7 +43,7 @@ The lockfile SHALL support a `"builtin"` source type for skill lock entries, dis
 
 - **WHEN** a skill from the builtin pack is recorded in the lockfile
 - **THEN** the entry SHALL have fields: `type` ("builtin"), `agents`, `installedAt`, `updatedAt`
-- **AND** SHALL NOT have source-specific fields like `namespace`, `owner`, `repo`, `path`, `url`, `integrity`, or `sourceName`
+- **AND** SHALL NOT have source-specific fields like `profile`, `owner`, `repo`, `path`, `url`, `integrity`, or `sourceName`
 
 #### Scenario: Lockfile parses builtin skill entries
 

@@ -9,18 +9,22 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JSONSchema from "effect/JSONSchema";
-import { LockfileSchema } from "../src/lockfile/schema.js";
-import { SettingsSchema } from "../src/settings/schema.js";
-import { SkillManifestSchema } from "../src/extensions/skills/manifest-schema.js";
-import { CommandManifestSchema } from "../src/extensions/commands/manifest-schema.js";
-import { McpServerManifestSchema } from "../src/extensions/mcp-servers/manifest-schema.js";
-import { PackManifestSchema } from "../src/extensions/packs/manifest-schema.js";
+import * as Schema from "effect/Schema";
+import {
+  CommandManifestSchema,
+  McpServerManifestSchema,
+  PackManifestSchema,
+  SkillManifestSchema,
+} from "@axm.sh/core/unstable/extensions";
+import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
+import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 
 const CLI_SRC = path.join(import.meta.dirname, "../src");
+const CORE_SRC = path.join(import.meta.dirname, "../../core/src/unstable");
 
 interface SchemaConfig {
   name: string;
-  schema: Parameters<typeof JSONSchema.make>[0];
+  schema: Schema.Top;
   outputDir: string;
 }
 
@@ -28,12 +32,12 @@ const schemas: SchemaConfig[] = [
   {
     name: "axm-lock.schema.json",
     schema: LockfileSchema,
-    outputDir: path.join(CLI_SRC, "lockfile/__generated__"),
+    outputDir: path.join(CORE_SRC, "lockfile/__generated__"),
   },
   {
     name: "settings.schema.json",
     schema: SettingsSchema,
-    outputDir: path.join(CLI_SRC, "settings/__generated__"),
+    outputDir: path.join(CORE_SRC, "settings/__generated__"),
   },
   {
     name: "axm-skill.schema.json",
@@ -59,10 +63,20 @@ const schemas: SchemaConfig[] = [
 
 let count = 0;
 
+const toDraft07SchemaFile = (schema: Schema.Top) => {
+  const document = JSONSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
+
+  return {
+    $schema: "http://json-schema.org/draft-07/schema#",
+    ...document.schema,
+    ...(Object.keys(document.definitions).length > 0 ? { definitions: document.definitions } : {}),
+  };
+};
+
 for (const { name, schema, outputDir } of schemas) {
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const jsonSchema = JSONSchema.make(schema);
+  const jsonSchema = toDraft07SchemaFile(schema);
   const outputPath = path.join(outputDir, name);
   fs.writeFileSync(outputPath, `${JSON.stringify(jsonSchema, null, 2)}\n`);
   console.log(`Generated: ${path.relative(CLI_SRC, outputPath)}`);

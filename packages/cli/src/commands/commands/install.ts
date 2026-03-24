@@ -14,9 +14,7 @@ export const installCommand = Command.make(
   "install",
   {
     source: Argument.string("source").pipe(
-      Argument.withDescription(
-        "Registry command reference (@namespace/commands/name or bare name)",
-      ),
+      Argument.withDescription("Registry command reference (@profile/commands/name or bare name)"),
     ),
     scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
       Flag.withDescription("Configuration scope: project (default) or user"),
@@ -41,7 +39,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm commands install my-cmd",
-      description: "Install using the default namespace",
+      description: "Install using the default profile",
     },
   ]),
 );

@@ -53,8 +53,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -70,7 +70,7 @@ const makeWorkspaceMock = (
           base,
           ".axm",
           "extensions",
-          source.namespace,
+          source.profile,
           "skills",
           sanitized,
         );
@@ -204,7 +204,7 @@ const makeOp = (
     force?: boolean;
     skillName?: string;
     sourcePath?: string;
-    namespace?: string;
+    profile?: string;
     location?: string;
     version?: Option.Option<string>;
     versionConstraint?: Option.Option<string>;
@@ -243,7 +243,7 @@ const makeOp = (
           ...base,
           refType: "registry" as const,
           source: source as never,
-          namespace: overrides.namespace ?? "@community",
+          profile: overrides.profile ?? "@community",
           name: skill.name,
           version: Option.getOrElse(version, () => ""),
           integrity: "",
@@ -318,8 +318,8 @@ describe("installSkill", () => {
    * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
    * so the handler reuses existing canonical files instead of fetching.
    */
-  const setupRegistryCanonical = (base: string, namespace: string, name = "my-skill") => {
-    const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", name);
+  const setupRegistryCanonical = (base: string, profile: string, name = "my-skill") => {
+    const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", name);
     const srcDir = path.join(canonicalPath, "src");
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(
@@ -659,7 +659,7 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    it.effect("uses .axm/extensions/@namespace/skills/<name>/src/ for registry sources", () =>
+    it.effect("uses .axm/extensions/@profile/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -669,9 +669,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@community",
+            profile: "@community",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -702,7 +702,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("uses namespace from source, not location path", () =>
+    it.effect("uses profile from source, not location path", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@myorg");
@@ -712,15 +712,15 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@myorg",
+            profile: "@myorg",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
-        // Should use source.namespace for canonical path
+        // Should use source.profile for canonical path
         const registryCanonical = path.join(
           base,
           ".axm",
@@ -747,9 +747,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@community",
+            profile: "@community",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
           }),
@@ -763,7 +763,7 @@ describe("installSkill", () => {
         const entry = lockfile.skills["my-skill"];
         expect(entry).toBeDefined();
         expect(entry.type).toBe("registry");
-        expect(entry.namespace).toBe("@community");
+        expect(entry.profile).toBe("@community");
         expect(entry.name).toBe("my-skill");
         expect(entry.resolvedVersion).toBe("1.2.3");
         expect(entry.sourceName).toBe("default");
@@ -780,9 +780,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@community",
+            profile: "@community",
             version: Option.some("^1.0.0"),
             versionConstraint: Option.some("^1.0.0"),
           }),
@@ -826,9 +826,9 @@ describe("installSkill", () => {
               source: {
                 type: "registry",
                 location: new URL("file:///tmp/reg"),
-                namespace: Option.none(),
+                profile: Option.none(),
               },
-              namespace: "@community",
+              profile: "@community",
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -895,9 +895,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@acme",
+            profile: "@acme",
             skillName: "tool",
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
@@ -922,9 +922,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@acme",
+            profile: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
@@ -951,9 +951,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
-            namespace: "@acme",
+            profile: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("1.2.3"),

@@ -1,5 +1,5 @@
 /**
- * Skills new handler — validates input, resolves namespace and agents,
+ * Skills new handler — validates input, resolves profile and agents,
  * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -29,7 +29,7 @@ const MAX_NAME_LENGTH = 64;
 
 export interface SkillsNewHandlerArgs {
   readonly name: string;
-  readonly namespace: Option.Option<string>;
+  readonly profile: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
 }
 
@@ -37,7 +37,7 @@ export interface SkillsNewHandlerArgs {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -53,18 +53,18 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   yield* output.info("axm skills new");
 
-  // 1. Resolve namespace
-  const namespace = Option.isSome(args.namespace)
-    ? normalizeNamespace(args.namespace.value)
-    : yield* ws.getConfiguredNamespace().pipe(
+  // 1. Resolve profile
+  const profile = Option.isSome(args.profile)
+    ? normalizeProfile(args.profile.value)
+    : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
-                  what: "No namespace configured for skill creation",
+                  what: "No profile configured for skill creation",
                   howToFix:
-                    "Configure a namespace in settings.json with `axm init`, or use --namespace",
+                    "Configure a profile in settings.json with `axm init`, or use --profile",
                 }),
               )
             : Effect.succeed(s),
@@ -104,11 +104,11 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 5. Build operation
   const op = {
     name: "new-skill",
-    args: { name: args.name, namespace, agents: [...agents] },
+    args: { name: args.name, profile, agents: [...agents] },
   } satisfies NewSkillOperation;
 
   // 6. Build and resolve single-step plan
-  const fqn = `${namespace}/skills/${args.name}`;
+  const fqn = `${profile}/skills/${args.name}`;
   const plan = buildSingleStepPlan({
     operation: op,
     name: "New skill",

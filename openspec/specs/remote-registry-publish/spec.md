@@ -8,11 +8,11 @@ Defines remote extension publishing behavior over HTTPS, including request forma
 
 ### Requirement: Remote publish via HTTPS
 
-The `RemoteRegistryClient.publishExtension` SHALL send a `PUT` request to `{baseUrl}/v1/extensions/{namespace}/{type}/{name}/{version}` with the archive and integrity as multipart/form-data.
+The `RemoteRegistryClient.publishExtension` SHALL send a `PUT` request to `{baseUrl}/v1/extensions/{profile}/{type}/{name}/{version}` with the archive and integrity as multipart/form-data.
 
 #### Scenario: Successful first publish
 
-- **WHEN** `publishExtension` is called with namespace `@acme`, type `skill`, name `code-review`, version `1.0.0`, archive bytes, and metadata
+- **WHEN** `publishExtension` is called with profile `@acme`, type `skill`, name `code-review`, version `1.0.0`, archive bytes, and metadata
 - **THEN** a `PUT` request is sent to `{baseUrl}/v1/extensions/@acme/skill/code-review/1.0.0`
 - **AND** the request body is multipart/form-data with an `archive` file part (application/zip) and an `integrity` text field
 - **AND** the response status is 201

@@ -106,7 +106,7 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
 
     const packLockEntry = {
       type: "builtin" as const,
-      namespace: BUILTIN_PACK_SCOPE,
+      profile: BUILTIN_PACK_SCOPE,
       name: BUILTIN_PACK_NAME,
       resolvedVersion: builtinPack.version,
       installedAt: now,

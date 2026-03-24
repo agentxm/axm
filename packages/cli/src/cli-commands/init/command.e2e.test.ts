@@ -9,11 +9,11 @@ import YAML from "yaml";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
 describe("axm init", () => {
-  describe("with --yes flag", () => {
+  describe("with --yes and --non-interactive", () => {
     it("creates settings file in .axm directory", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Should exit successfully
         expect(result.exitCode).toBe(0);
@@ -38,7 +38,7 @@ describe("axm init", () => {
     it("creates settings.json with detected agents", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -57,7 +57,7 @@ describe("axm init", () => {
     it("creates lockfile", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -72,7 +72,7 @@ describe("axm init", () => {
     it("outputs initialization message", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
         // Should indicate initialization occurred
@@ -88,10 +88,10 @@ describe("axm init", () => {
       const temp = createTempDir();
       try {
         // First init
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Second init should succeed
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
       } finally {
@@ -103,7 +103,7 @@ describe("axm init", () => {
       const temp = createTempDir();
       try {
         // First init
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Get original settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -114,7 +114,7 @@ describe("axm init", () => {
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         // Second init
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Settings should not be modified
         const newContent = fs.readFileSync(settingsPath, "utf-8");
@@ -179,7 +179,7 @@ describe("axm init", () => {
     it("creates builtin pack lock entry and skill files on init", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
         expect(result.exitCode).toBe(0);
 
         // Verify lockfile has builtin pack entry
@@ -190,7 +190,7 @@ describe("axm init", () => {
         expect(lockfile.packs).toBeDefined();
         expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
         expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-        expect(lockfile.packs["@axm/packs/cli"].namespace).toBe("@axm");
+        expect(lockfile.packs["@axm/packs/cli"].profile).toBe("@axm");
         expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
         expect(lockfile.packs["@axm/packs/cli"].resolvedVersion).toBeDefined();
 
@@ -233,7 +233,7 @@ describe("axm init", () => {
       const temp = createTempDir();
       try {
         // First init
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Capture lockfile state
         const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -241,7 +241,7 @@ describe("axm init", () => {
         const firstLockfile = YAML.parse(firstContent);
 
         // Second init
-        const result = await runCli(["init", "--yes"], { cwd: temp.path });
+        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
         expect(result.exitCode).toBe(0);
 
         // Read lockfile again — should not have duplicate entries
@@ -264,7 +264,7 @@ describe("axm init", () => {
       const temp = createTempDir();
       try {
         // Init workspace
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Run skills update — builtin skills should be skipped (not in settings)
         const result = await runCli(["skills", "update", "--yes"], { cwd: temp.path });

@@ -19,7 +19,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace without explicit registry source
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Install a skill first (so fork has something to work with)
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
@@ -44,7 +44,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace without registry source
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Create an extension so publish has something to find
         const extensionDir = path.join(
@@ -64,7 +64,7 @@ describe("registry guard", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              namespace: "@test",
+              profile: "@test",
               type: "skill",
               name: "my-skill",
               version: "1.0.0",
@@ -75,10 +75,10 @@ describe("registry guard", () => {
           ) + "\n",
         );
 
-        // Set namespace but no sources
+        // Set profile but no sources
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.namespace = "@test";
+        settings.profile = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Attempt to publish with --non-interactive (no registry configured)
@@ -101,7 +101,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes"], { cwd: temp.path });
+        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
         // Configure registry source
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -109,7 +109,7 @@ describe("registry guard", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.namespace = "@test";
+        settings.profile = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill

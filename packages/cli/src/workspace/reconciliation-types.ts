@@ -15,7 +15,7 @@ export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 
 export interface ReconciliationDeclaration {
   readonly extensionType: ReconcileExtensionType;
-  readonly namespace: string;
+  readonly profile: string;
   readonly name: string;
   readonly declarationSourceOrConstraint: string;
   readonly source: string;
@@ -26,7 +26,7 @@ export interface ReconciliationDeclaration {
 export interface ReconciliationContext {
   readonly baseDir: string;
   readonly now: Date;
-  readonly defaultNamespace: string;
+  readonly defaultProfile: string;
   readonly agents: ReadonlyArray<string>;
   readonly settings: Settings;
 }

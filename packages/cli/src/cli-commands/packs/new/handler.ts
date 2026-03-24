@@ -1,5 +1,5 @@
 /**
- * Packs new handler — validates input, resolves namespace,
+ * Packs new handler — validates input, resolves profile,
  * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -25,10 +25,10 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksNewHandlerArgs {
-  /** Name of the pack (without namespace). */
+  /** Name of the pack (without profile). */
   readonly name: string;
-  /** Optional namespace override. */
-  readonly namespace: Option.Option<string>;
+  /** Optional profile override. */
+  readonly profile: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -45,30 +45,30 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   yield* output.info("axm packs new");
 
-  // Resolve namespace
-  const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
-  const namespace = Option.isSome(args.namespace)
-    ? normalizeNamespace(args.namespace.value)
-    : yield* ws.getConfiguredNamespace().pipe(
+  // Resolve profile
+  const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+  const profile = Option.isSome(args.profile)
+    ? normalizeProfile(args.profile.value)
+    : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
-                  what: "No namespace configured for pack creation",
+                  what: "No profile configured for pack creation",
                   howToFix:
-                    "Configure a namespace in settings.json with `axm init`, or use --namespace",
+                    "Configure a profile in settings.json with `axm init`, or use --profile",
                 }),
               )
             : Effect.succeed(s),
         ),
       );
 
-  const fqn = formatFqn({ namespace, type: "packs", name: args.name });
+  const fqn = formatFqn({ handle: profile, type: "packs", name: args.name });
   const base = ws.baseDir;
 
   // Check if pack already exists
-  const packDir = computePackPaths(path.join, base, namespace, args.name);
+  const packDir = computePackPaths(path.join, base, profile, args.name);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const exists = yield* fs.exists(manifestPath).pipe(
@@ -92,7 +92,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   // Build operation
   const op = {
     name: "new-pack",
-    args: { name: args.name, namespace },
+    args: { name: args.name, profile },
   } satisfies NewPackOperation;
 
   // Build and resolve single-step plan

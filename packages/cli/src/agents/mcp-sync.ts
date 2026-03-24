@@ -342,7 +342,7 @@ const replaceTemplate = (value: string, args: AddMcpServerArgs | RemoveMcpServer
     .replaceAll("{workspaceRoot}", args.workspaceRoot)
     .replaceAll("{serverName}", args.serverName)
     .replaceAll("{canonicalPath}", "canonicalPath" in args ? args.canonicalPath : "")
-    .replaceAll("{namespace}", "namespace" in args ? args.namespace : "")
+    .replaceAll("{profile}", "profile" in args ? args.profile : "")
     .replaceAll("{resolvedVersion}", "resolvedVersion" in args ? args.resolvedVersion : "");
 
 export interface MixedStrategyConfig {
@@ -361,7 +361,7 @@ const REMOVE_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/not installed/i, /no
 const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   managedBy: "axm",
   name: args.serverName,
-  namespace: args.namespace,
+  profile: args.profile,
   version: args.resolvedVersion,
   canonicalPath: args.canonicalPath,
 });

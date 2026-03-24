@@ -24,7 +24,7 @@ import type { BuiltinPackRef, RegistryPackRef, RegistrySource } from "../../sour
 const registrySource: RegistrySource = {
   type: "registry",
   location: new URL("https://registry.example.com"),
-  namespace: Option.none(),
+  profile: Option.none(),
 };
 
 const makeRegistryPackRef = (name: string): RegistryPackRef => ({
@@ -32,7 +32,7 @@ const makeRegistryPackRef = (name: string): RegistryPackRef => ({
   refType: "registry",
   source: registrySource,
   pack: { name, skills: {}, commands: {}, mcpServers: {} },
-  namespace: "@test",
+  profile: "@test",
   name,
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -43,7 +43,7 @@ const makeBuiltinPackRef = (name: string): BuiltinPackRef => ({
   refType: "builtin",
   source: { type: "builtin" },
   pack: { name, skills: {}, commands: {}, mcpServers: {} },
-  namespace: "@axm",
+  profile: "@axm",
 });
 
 const makeWsMock = (overrides?: {
@@ -120,7 +120,7 @@ describe("PackManager", () => {
     return Effect.gen(function* () {
       const manager = yield* PackManager;
       yield* manager.removeSettingsEntry({
-        target: { type: "pack", name: "my-pack", namespace: "@test" },
+        target: { type: "pack", name: "my-pack", profile: "@test" },
       });
       expect(removeFn).toHaveBeenCalledWith("my-pack");
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ removePackSettings: removeFn }))));
@@ -131,7 +131,7 @@ describe("PackManager", () => {
     return Effect.gen(function* () {
       const manager = yield* PackManager;
       yield* manager.removeLockfileEntry({
-        target: { type: "pack", name: "my-pack", namespace: "@test" },
+        target: { type: "pack", name: "my-pack", profile: "@test" },
       });
       expect(removeFn).toHaveBeenCalledWith("my-pack");
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ removePackLock: removeFn }))));

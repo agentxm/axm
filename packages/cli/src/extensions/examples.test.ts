@@ -45,7 +45,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CORE_SRC, "settings/settings.example.json"));
     const result = Schema.decodeUnknownSync(SettingsSchema)(example);
     expect(result).toBeDefined();
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.agents).toContain("claude-code");
   });
 
@@ -53,7 +53,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CLI_SRC, "extensions/skills/axm-skill.example.json"));
     const result = Schema.decodeUnknownSync(SkillManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.type).toBe("skill");
     expect(result.name).toBe("code-review");
     expect(result.version).toBe("1.0.0");
@@ -65,7 +65,7 @@ describe("example files", () => {
     );
     const result = Schema.decodeUnknownSync(CommandManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.type).toBe("command");
     expect(result.name).toBe("deploy");
     expect(result.version).toBe("1.0.0");
@@ -77,7 +77,7 @@ describe("example files", () => {
     );
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.type).toBe("mcp-server");
     expect(result.name).toBe("database-mcp");
     expect(result.version).toBe("1.0.0");
@@ -87,7 +87,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CLI_SRC, "extensions/packs/axm-pack.example.json"));
     const result = Schema.decodeUnknownSync(PackManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.namespace).toBe("@acme");
+    expect(result.profile).toBe("@acme");
     expect(result.type).toBe("pack");
     expect(result.name).toBe("fullstack-pack");
     expect(result.skills?.["@acme/skills/code-review"]).toBe("^1.0.0");

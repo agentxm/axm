@@ -22,14 +22,14 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredAgents?: ReadonlyArray<string>;
-    configuredNamespace?: string;
+    configuredProfile?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredSkills?: Record<string, any>;
     setSkillEntryFn?: ReturnType<typeof vi.fn>;
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
-  const configuredNamespace = opts.configuredNamespace ?? "@myorg";
+  const configuredProfile = opts.configuredProfile ?? "@myorg";
   const configuredSkills = opts.configuredSkills ?? {};
 
   return {
@@ -42,8 +42,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed(configuredNamespace),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed(configuredProfile),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(
@@ -116,7 +116,7 @@ const makeOp = (overrides: Partial<NewSkillOperation["args"]> = {}): NewSkillOpe
   name: "new-skill",
   args: {
     name: overrides.name ?? "my-skill",
-    namespace: overrides.namespace ?? "@myorg",
+    profile: overrides.profile ?? "@myorg",
     agents: overrides.agents ?? ["claude-code"],
   },
 });
@@ -214,7 +214,7 @@ describe("newSkill", () => {
           "axm-skill.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.namespace).toBe("@myorg");
+        expect(manifest.profile).toBe("@myorg");
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.0.1");

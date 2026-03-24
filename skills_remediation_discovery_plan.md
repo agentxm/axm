@@ -2,6 +2,18 @@
 
 Phased plan to smoke test each `axm skills` sub-command using a local registry, identify errors, determine root causes, and produce a cohesive remediation plan.
 
+## Progress
+
+| Phase            | Status | Deliverable                  | Key Findings                                                                                                                                                                                                                    |
+| ---------------- | ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Baseline      | DONE   | `phase1_baseline.md`         | Clean build, 0 unit failures, 37 E2E failures                                                                                                                                                                                   |
+| 2. Lifecycle     | DONE   | `phase2_lifecycle.md`        | 1 systemic blocker (install/uninstall service wiring), 1 major (update overwrites installedAt), 1 major UX (--yes doesn't bypass agent selection)                                                                               |
+| 3. State         | DONE   | `phase3_state.md`            | All 4 state commands work correctly. 13 E2E failures trace to 2 upstream issues only                                                                                                                                            |
+| 4. Registry      | DONE   | `phase4_registry.md`         | `new` works. `fork` has 3 major issues (integrity, sourceName, silent failure). `publish` has 1 minor auth guard issue                                                                                                          |
+| 5. Cross-cutting | DONE   | `phase5_crosscutting.md`     | 4 new issues: settings-only skills are second-class (list/disable/rename gaps), exit code 0 on failed operations (6/10 commands). 13 total issues across all phases (2 blocker, 8 major, 3 minor). 12 skipped E2E tests (not 8) |
+| 6. RCA           | DONE   | `phase6_rca.md`              | 8 errors across 6 unique root causes. Blocker affects ALL 8 install/uninstall commands (4 extension types). AUTOINIT-1 traced to `initialization.ts:73`. FORK-3 generalized to systemic exit-code issue                         |
+| 7. Remediation   | DONE   | `skills_remediation_plan.md` | 9 remediation items covering all 13 errors. 1 deferred (holdback warnings). Critical path: Item 1 (service wiring) unblocks everything                                                                                          |
+
 ## Overview
 
 **10 sub-commands** to test:

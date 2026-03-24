@@ -1,0 +1,24 @@
+// ---------------------------------------------------------------------------
+// EffectCliExit — controlled process termination signal
+//
+// Used to exit with a specific code (e.g., 1 after showing help) without
+// triggering error formatting. Not a real error — just a control flow signal.
+// ---------------------------------------------------------------------------
+
+export interface EffectCliExit {
+  readonly _tag: "EffectCliExit";
+  readonly exitCode: number;
+}
+
+export const effectCliExit = (exitCode: number): EffectCliExit => ({
+  _tag: "EffectCliExit",
+  exitCode,
+});
+
+export const isEffectCliExit = (error: unknown): error is EffectCliExit =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "EffectCliExit" &&
+  "exitCode" in error &&
+  typeof error.exitCode === "number";

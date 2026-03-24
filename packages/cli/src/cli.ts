@@ -7,17 +7,19 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import { CliError, Command } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
 
-import type { OutputFormat } from "./output.js";
+import {
+  handleError,
+  resolveFormatFromArgv,
+  withGracefulShutdown,
+} from "@axm.sh/core/unstable/cli-runtime";
 
 import {
   axmGlobalFlags,
   baseLayer,
   cliCommandRef,
   effectCliExit,
-  isEffectCliExit,
   showHelpFor,
 } from "./command-runtime.js";
 import { loadVersion } from "./version.js";
@@ -81,98 +83,6 @@ const cliCommand = Command.make(ROOT_COMMAND, {}, () =>
 );
 
 cliCommandRef.current = cliCommand;
-
-// ---------------------------------------------------------------------------
-// Pre-Effect format detection
-//
-// Resolve --output-format from raw argv BEFORE Effect runs. If CLI parsing
-// itself fails (e.g. unknown flag), Effect never executes — but we still
-// need to know which channel to route the error to.
-// ---------------------------------------------------------------------------
-
-const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
-  const idx = args.indexOf("--output-format");
-  if (idx !== -1 && idx + 1 < args.length) {
-    const value = args[idx + 1];
-    if (value === "json" || value === "stream-json" || value === "text") return value;
-  }
-  return process.stdout.isTTY ? "text" : "json";
-};
-
-// ---------------------------------------------------------------------------
-// Three-channel error handling
-//
-// Errors route to three channels simultaneously:
-//   stdout    → typed error JSON (for programmatic consumers in json/stream-json)
-//   stderr    → human-readable message (always, for pipe debugging and humans)
-//   exit code → machine-readable status (2 = usage, 1 = runtime, 4 = cancelled)
-// ---------------------------------------------------------------------------
-
-const handleError = (error: unknown, format: OutputFormat): never => {
-  if (isEffectCliExit(error)) {
-    process.exit(error.exitCode);
-  }
-
-  if (CliError.isCliError(error)) {
-    if (format !== "text") {
-      // Extract human-readable messages from structured CliError errors
-      const message =
-        "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
-          ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
-          : error.message;
-      const errorObj = { type: "error", code: "USAGE_ERROR", message };
-      process.stdout.write(JSON.stringify(errorObj) + "\n");
-    }
-    process.exit(2);
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  const code = error instanceof Error && "code" in error ? String(error.code) : "UNKNOWN_ERROR";
-
-  if (format === "text") {
-    console.error(`✗ ${message}`);
-  } else {
-    const errorObj = { type: "error", code, message };
-    process.stdout.write(JSON.stringify(errorObj) + "\n");
-    console.error(`✗ ${message}`);
-  }
-
-  process.exit(1);
-};
-
-// ---------------------------------------------------------------------------
-// Graceful shutdown
-//
-// SIGTERM/SIGINT → interrupt the running Effect fiber with a 5s timeout.
-// Exit code 130 is POSIX convention for "terminated by signal" (128 + 2).
-// Uses Effect.forkChild (supervised) so the fiber dies with parent.
-// ---------------------------------------------------------------------------
-
-const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-  Effect.gen(function* () {
-    const fiber = yield* Effect.forkChild(program);
-
-    const interruptAndExit = (exitCode: number) => {
-      Effect.runFork(
-        Fiber.interrupt(fiber).pipe(
-          Effect.timeout("5 seconds"),
-          Effect.ensuring(Effect.sync(() => process.exit(exitCode))),
-        ),
-      );
-    };
-
-    const onSigterm = () => interruptAndExit(130);
-    const onSigint = () => interruptAndExit(130);
-    process.on("SIGTERM", onSigterm);
-    process.on("SIGINT", onSigint);
-
-    const result = yield* Fiber.join(fiber);
-
-    process.off("SIGTERM", onSigterm);
-    process.off("SIGINT", onSigint);
-
-    return result;
-  });
 
 // ---------------------------------------------------------------------------
 // Run

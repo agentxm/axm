@@ -22,12 +22,17 @@ import type { AppError } from "./app-error/index.js";
 import type { OutputFormat } from "./output.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
+import {
+  type EffectCliExit,
+  effectCliExit,
+  isEffectCliExit,
+  makeUiLayer,
+} from "@axm.sh/core/unstable/cli-runtime";
+import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClientLive } from "./auth/auth-client.js";
 import { AuthMiddlewareLive, RegistryUrl } from "./auth/auth-middleware.js";
 import { CredentialStoreLive } from "./auth/credential-store.js";
-import { makeCliFlagsLayer, nonInteractiveFlag } from "./cli-flags/index.js";
-import { OutputLive, OutputStructured } from "./output/index.js";
-import { ActivityLive, ActivityStructured } from "./activity/index.js";
+import { makeCliFlagsLayer } from "./cli-flags/index.js";
 import { InputLive, InputStructured } from "./input/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "./config/index.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
@@ -37,27 +42,8 @@ import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspa
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
 
-// ---------------------------------------------------------------------------
-// Exit signal
-// ---------------------------------------------------------------------------
-
-export interface EffectCliExit {
-  readonly _tag: "EffectCliExit";
-  readonly exitCode: number;
-}
-
-export const effectCliExit = (exitCode: number): EffectCliExit => ({
-  _tag: "EffectCliExit",
-  exitCode,
-});
-
-export const isEffectCliExit = (error: unknown): error is EffectCliExit =>
-  typeof error === "object" &&
-  error !== null &&
-  "_tag" in error &&
-  error._tag === "EffectCliExit" &&
-  "exitCode" in error &&
-  typeof error.exitCode === "number";
+// Re-export for consumers that import from command-runtime
+export { type EffectCliExit, effectCliExit, isEffectCliExit, outputFormatFlag };
 
 // ---------------------------------------------------------------------------
 // Global flags
@@ -73,13 +59,6 @@ export const verboseFlag = GlobalFlag.setting("axm-verbose")({
 export const debugFlag = GlobalFlag.setting("axm-debug")({
   flag: Flag.boolean("debug").pipe(
     Flag.withDescription("Show full debug details for errors (implies --verbose)"),
-  ),
-});
-
-export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
-  flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
-    Flag.withDescription("Output format (default: auto-detect from TTY)"),
-    Flag.optional,
   ),
 });
 
@@ -209,14 +188,12 @@ export const withCommandRuntime = (
       ? (explicitFormat.value as Exclude<OutputFormat, "text">)
       : undefined;
 
-    // New Output/Activity/Input service layers
-    const uiLayer = structuredMode
-      ? Layer.mergeAll(
-          OutputStructured(structuredMode),
-          ActivityStructured(structuredMode),
-          InputStructured,
-        )
-      : Layer.mergeAll(OutputLive("text"), ActivityLive, Layer.provide(InputLive, cliFlagsLayer));
+    // Output/Activity from core, Input added separately (depends on CliFlags)
+    const baseUiLayer = makeUiLayer(structuredMode ?? "text");
+    const inputLayer = structuredMode
+      ? InputStructured
+      : Layer.provide(InputLive, cliFlagsLayer);
+    const uiLayer = Layer.mergeAll(baseUiLayer, inputLayer);
 
     // Per-command layer: CliFlags + Output/Activity/Input + Telemetry + debug logging
     const commandLayer = Layer.mergeAll(cliFlagsLayer, uiLayer, telemetryLayer, debugLoggerLayer);

@@ -172,17 +172,46 @@ import { AppError } from "@/app-error";
 import { WorkspaceContextService } from "@/types";
 ```
 
-### Minimize Type Assertions
+### No Type Assertions
 
-Avoid `as` type assertions. Prefer type-safe alternatives:
+**Rule: Do not use `as` type assertions or non-null assertions (`!`).** They bypass the type checker and hide bugs. The compiler should prove correctness, not be overridden.
 
-| Pattern                  | Solution                                       |
-| ------------------------ | ---------------------------------------------- |
-| `"literal" as UnionType` | Use `satisfies` on the object                  |
-| Mutable optional props   | Spread conditionals `...(x && { x })`          |
-| Mock objects             | Assert once at boundary with `as unknown as T` |
-| Caught errors            | Use type guards or Effect's Cause utilities    |
-| Discriminated unions     | Check `_tag` first, then TS narrows for you    |
+**Permitted:**
+
+- `as const` and `as const satisfies T` — these narrow inference, they don't lie to the compiler
+- `as unknown as T` at test boundaries for mocks (one assertion per mock, with comment)
+- `as unknown as T` with an `// Assertion needed:` comment when TypeScript genuinely cannot express the constraint (rare — exhaust other options first)
+
+**Enforced by ESLint:** `@typescript-eslint/consistent-type-assertions` (`assertionStyle: "never"`) and `@typescript-eslint/no-non-null-assertion`. Currently set to `warn` while existing violations are migrated — will escalate to `error`. All new code must be violation-free.
+
+#### Quick Reference
+
+| Pattern                       | Solution                                              |
+| ----------------------------- | ----------------------------------------------------- |
+| `{...} as T`                  | Type annotation: `const x: T = {...}`                 |
+| `"literal" as UnionType`      | `satisfies` on the object                             |
+| `value as T` after null check | Assertion function (`asserts value is T`)             |
+| `value!` (non-null assertion) | `?? fallback`, `Option.fromNullable`, or assert fn    |
+| Mutable optional props        | Spread conditionals `...(x && { x })`                 |
+| Mock objects                  | Assert once at boundary: `as unknown as T`            |
+| Caught errors                 | Use type guards or Effect's Cause utilities           |
+| Discriminated unions          | `Match.exhaustive` or check `_tag` (TS narrows)       |
+| `JSON.parse(x) as T`          | `Schema.decodeUnknownEffect` — always validate        |
+| `Effect.succeed(x as T)`      | Explicit type parameter: `Effect.succeed<T>(x)`       |
+| Nominal type confusion        | `Brand.nominal` / `Brand.refined` / `Schema.brand`    |
+| Exhaustive switch/case        | `Match.type().pipe(Match.tag(...), Match.exhaustive)` |
+
+#### Patterns and Alternatives
+
+**Type annotations over assertions for object literals:**
+
+```typescript
+// Bad: assertion — missing properties compile silently
+const customer = { name: "Sarah" } as Customer;
+
+// Good: annotation — TypeScript reports missing properties
+const customer: Customer = { name: "Sarah" };
+```
 
 **`satisfies` over type assertions:**
 
@@ -190,8 +219,42 @@ Avoid `as` type assertions. Prefer type-safe alternatives:
 // Bad: type assertion
 return { type: "local" as SourceType, ... };
 
-// Good: satisfies validates the shape
+// Good: satisfies validates the shape while preserving literal types
 return { type: "local", ... } satisfies ParsedSource;
+
+// Good: as const satisfies for immutable validated objects
+const defaults = { timeout: 5000, retries: 3 } as const satisfies Config;
+```
+
+**Non-null assertions — always replace `!` with a safe alternative:**
+
+```typescript
+// Bad: non-null assertion — crashes if assumption is wrong
+const url = process.env.API_URL!;
+const el = document.getElementById("root")!;
+
+// Good: nullish coalescing
+const url = process.env.API_URL ?? "http://localhost:3000";
+
+// Good: assertion function for invariants
+function assertDefined<T>(value: T | null | undefined, msg: string): asserts value is T {
+  if (value == null) throw new Error(msg);
+}
+assertDefined(el, "Missing #root element");
+```
+
+**Assertion functions — bridge gaps where TypeScript can't narrow:**
+
+```typescript
+// Good: assertion function for library types that don't narrow (e.g., @clack/prompts)
+function assertNotCancel<T>(result: T | symbol): asserts result is T {
+  if (typeof result === "symbol") throw new Error("Unexpected cancel");
+}
+if (p.isCancel(result)) {
+  process.exit(0);
+}
+assertNotCancel(result);
+const value = result; // TS knows it's string
 ```
 
 **Conditional optional properties:**
@@ -211,30 +274,6 @@ const obj: T = { required, ...(optional && { optional }) };
 // Acceptable: type assertion once at boundary, not throughout
 const mock = { method: vi.fn().mockReturnThis() };
 builder(mock as unknown as ComplexInterface);
-```
-
-**Library types that don't narrow (e.g., @clack/prompts):**
-
-```typescript
-// Bad: type assertion after cancel check (TS doesn't narrow)
-if (p.isCancel(result)) {
-  process.exit(0);
-}
-const value = result as string;
-
-// Good: assertion function bridges the gap
-function assertNotCancel<T>(result: T | symbol): asserts result is T {
-  if (typeof result === "symbol") throw new Error("Unexpected cancel");
-}
-if (p.isCancel(result)) {
-  process.exit(0);
-}
-assertNotCancel(result);
-const value = result; // TS knows it's string
-
-// Acceptable: type assertion with comment when library loses type info (e.g., dynamic config)
-// Assertion needed: multiselect config loses generic type info due to dynamic construction
-const indices = result as number[];
 ```
 
 **Discriminated unions** — comparing two values of same union type:
@@ -267,6 +306,66 @@ const compare = (a: Source, b: Source): boolean => {
 };
 ```
 
+**Exhaustive pattern matching with `Match`:**
+
+```typescript
+// Good: Match.exhaustive enforces all cases at compile time
+import { Match } from "effect";
+
+type Event =
+  | { readonly _tag: "fetch" }
+  | { readonly _tag: "success"; readonly data: string }
+  | { readonly _tag: "error"; readonly error: Error };
+
+const describe = Match.type<Event>().pipe(
+  Match.tag("fetch", () => "Fetching..."),
+  Match.tag("success", (e) => `Got: ${e.data}`),
+  Match.tag("error", (e) => `Failed: ${e.error.message}`),
+  Match.exhaustive, // compile error if a _tag case is missing
+);
+```
+
+**Branded types — prevent mixing structurally identical types:**
+
+```typescript
+import { Brand, Schema } from "effect";
+
+// Brand.nominal — lightweight distinction, no validation
+type UserId = string & Brand.Brand<"UserId">;
+const UserId = Brand.nominal<UserId>();
+
+type PostId = string & Brand.Brand<"PostId">;
+const PostId = Brand.nominal<PostId>();
+
+const getPost = (id: PostId) => {
+  /* ... */
+};
+getPost(UserId("abc")); // Compile error: UserId is not assignable to PostId
+
+// Brand.refined — distinction + runtime validation
+type Positive = number & Brand.Brand<"Positive">;
+const Positive = Brand.refined<Positive>(
+  (n) => n > 0,
+  (n) => Brand.error(`Expected positive, got ${n}`),
+);
+
+// Schema.brand — combine Schema validation with branding
+const UserId = Schema.String.pipe(Schema.brand("UserId"));
+type UserId = typeof UserId.Type; // string & Brand<"UserId">
+```
+
+**Predicate module — composable type guards without manual `is` predicates:**
+
+```typescript
+import { Predicate } from "effect";
+
+// Built-in refinements that narrow types
+Predicate.isString(x); // narrows to string
+Predicate.isNotNullable(x); // narrows to exclude null | undefined
+Predicate.isTagged(x, "Foo"); // narrows to { _tag: "Foo" }
+Predicate.hasProperty(x, "name"); // narrows to { name: unknown }
+```
+
 **Effect type widening:**
 
 ```typescript
@@ -279,7 +378,7 @@ Effect.succeed<Settings | undefined>(undefined);
 Effect.succeed<string[]>([]);
 ```
 
-**JSON parsing - always validate:**
+**JSON parsing — always validate:**
 
 ```typescript
 // Bad: type assertion without validation

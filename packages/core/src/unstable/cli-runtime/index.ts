@@ -10,6 +10,9 @@ export {
   type WithCliRuntimeOptions,
   withCliRuntime,
   type ExpectedCliError,
+  makeFoundationLayer,
+  resolveCliFormat,
+  withCliErrorHandling,
 } from "./runtime-envelope.js";
 export {
   trackCliCommand,

@@ -27,6 +27,10 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      // Ban type assertions (as T) — use type-safe alternatives (warn until existing violations are fixed)
+      "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
+      // Ban non-null assertions (value!) — use ?? or assertion functions (warn until existing violations are fixed)
+      "@typescript-eslint/no-non-null-assertion": "warn",
     },
   },
 );

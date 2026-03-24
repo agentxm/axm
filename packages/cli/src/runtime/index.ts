@@ -21,7 +21,11 @@ import { type AuthClient, AuthClientLive } from "../auth/auth-client.js";
 import { AuthMiddlewareLive, RegistryUrl } from "../auth/auth-middleware.js";
 import { type CredentialStore, CredentialStoreLive } from "../auth/credential-store.js";
 import type { CliError } from "../cli-error/index.js";
-import { type CliFlags, type CliFlagsInput, layer as cliFlagsLayer } from "../cli-flags/index.js";
+import {
+  type CliFlags,
+  CliFlags as CliFlagsTag,
+  type CliFlagsService,
+} from "../cli-flags/index.js";
 import {
   ClackLive,
   type ClackLog,
@@ -90,19 +94,17 @@ export type AppLayer =
  */
 const CliEnvConfigOrDie: Layer.Layer<CliEnvConfig> = Layer.orDie(CliEnvConfigLive);
 
+const defaultFlags: CliFlagsService = {
+  nonInteractive: true,
+  yes: false,
+  force: false,
+  preview: false,
+};
+
 /**
- * Default CliFlags layer using auto-detection for nonInteractive.
- * Overridden per-invocation in run() when flags are provided.
+ * Default CliFlags layer for legacy runtime.
  */
-const DefaultCliFlagsLayer = Layer.provide(
-  cliFlagsLayer({
-    nonInteractive: Option.none(),
-    yes: false,
-    force: false,
-    preview: false,
-  }),
-  CliEnvConfigOrDie,
-);
+const DefaultCliFlagsLayer: Layer.Layer<CliFlags> = Layer.succeed(CliFlagsTag, defaultFlags);
 
 /**
  * Default telemetry layer for ManagedRuntime (mode "all", command "unknown").
@@ -176,7 +178,7 @@ export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
 export const Runtime = ManagedRuntime.make(AppLayer);
 
 export interface RunOptions {
-  readonly flags?: CliFlagsInput;
+  readonly flags?: Partial<CliFlagsService>;
   readonly workspace?: WorkspaceContextOptions;
   readonly command?: string;
 }
@@ -194,12 +196,7 @@ interface CliExit {
   readonly exitCode: number;
 }
 
-const defaultFlagsInput: CliFlagsInput = {
-  nonInteractive: Option.none(),
-  yes: false,
-  force: false,
-  preview: false,
-};
+const defaultFlagsOverrides: Partial<CliFlagsService> = {};
 
 const resolveConfigValues: Effect.Effect<ResolvedConfigValues> = Effect.provide(
   Effect.gen(function* () {
@@ -247,8 +244,10 @@ export function withCliRuntime<A>(
   options?: RunOptions,
 ): Effect.Effect<A, never, AppLayer> {
   return Effect.gen(function* () {
-    const flagsInput = options?.flags ?? defaultFlagsInput;
-    const flagsLayer = Layer.provide(cliFlagsLayer(flagsInput), CliEnvConfigOrDie);
+    const flagsLayer: Layer.Layer<CliFlags> = Layer.succeed(CliFlagsTag, {
+      ...defaultFlags,
+      ...(options?.flags ?? defaultFlagsOverrides),
+    });
     const configValues = yield* resolveConfigValues;
 
     if (configValues.registryUrl !== DEFAULT_REGISTRY_URL) {

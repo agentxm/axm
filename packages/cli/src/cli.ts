@@ -115,7 +115,12 @@ const handleError = (error: unknown, format: OutputFormat): never => {
 
   if (EffectCliError.isCliError(error)) {
     if (format !== "text") {
-      const errorObj = { type: "error", code: "USAGE_ERROR", message: String(error) };
+      // Extract human-readable messages from structured CliError errors
+      const message =
+        "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
+          ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
+          : error.message;
+      const errorObj = { type: "error", code: "USAGE_ERROR", message };
       process.stdout.write(JSON.stringify(errorObj) + "\n");
     }
     process.exit(2);

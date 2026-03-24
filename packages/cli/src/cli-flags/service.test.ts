@@ -3,9 +3,28 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
-import { CliFlags, CliFlagsTest, extractFlags, layer, type CliFlagsInput } from "./service.js";
+import {
+  CliFlags,
+  CliFlagsLive,
+  CliFlagsTest,
+  forceFlag,
+  nonInteractiveFlag,
+  previewFlag,
+  yesFlag,
+} from "./service.js";
 
-const getFlags = (input: CliFlagsInput, configOverrides?: Partial<CliEnvConfigService>) => {
+/**
+ * Provide CliFlagsLive with the given global flag values and optional env config overrides.
+ */
+const getFlags = (
+  flags: {
+    nonInteractive: Option.Option<boolean>;
+    yes: boolean;
+    force: boolean;
+    preview: boolean;
+  },
+  configOverrides?: Partial<CliEnvConfigService>,
+) => {
   const configLayer = configOverrides
     ? Layer.succeed(CliEnvConfig, {
         registryUrl: "https://registry.agentxm.ai",
@@ -28,10 +47,20 @@ const getFlags = (input: CliFlagsInput, configOverrides?: Partial<CliEnvConfigSe
         ...configOverrides,
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;
-  return CliFlags.asEffect().pipe(Effect.provide(Layer.provide(layer(input), configLayer)));
+
+  const globalFlagsLayer = Layer.mergeAll(
+    Layer.succeed(nonInteractiveFlag, flags.nonInteractive),
+    Layer.succeed(yesFlag, flags.yes),
+    Layer.succeed(forceFlag, flags.force),
+    Layer.succeed(previewFlag, flags.preview),
+  );
+
+  return CliFlags.asEffect().pipe(
+    Effect.provide(Layer.provide(CliFlagsLive, Layer.mergeAll(globalFlagsLayer, configLayer))),
+  );
 };
 
-describe("CliFlags service", () => {
+describe("CliFlagsLive", () => {
   describe("nonInteractive resolution chain", () => {
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {
@@ -166,29 +195,4 @@ describe("CliFlagsTest helper", () => {
       expect(flags.preview).toBe(false);
     }),
   );
-});
-
-describe("extractFlags", () => {
-  it("reads explicit global flag values from argv-shaped input", () => {
-    const flags = extractFlags({
-      "non-interactive": true,
-      yes: true,
-      force: true,
-      preview: true,
-    });
-
-    expect(Option.getOrUndefined(flags.nonInteractive)).toBe(true);
-    expect(flags.yes).toBe(true);
-    expect(flags.force).toBe(true);
-    expect(flags.preview).toBe(true);
-  });
-
-  it("defaults omitted booleans to false and nonInteractive to Option.none", () => {
-    const flags = extractFlags({});
-
-    expect(Option.isNone(flags.nonInteractive)).toBe(true);
-    expect(flags.yes).toBe(false);
-    expect(flags.force).toBe(false);
-    expect(flags.preview).toBe(false);
-  });
 });

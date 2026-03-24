@@ -24,13 +24,18 @@ import type { PromptCancelled } from "./prompt-cancelled.js";
 import { AuthClientLive } from "./auth/auth-client.js";
 import { AuthMiddlewareLive, RegistryUrl } from "./auth/auth-middleware.js";
 import { CredentialStoreLive } from "./auth/credential-store.js";
-import { CliFlags, type CliFlagsService } from "./cli-flags/index.js";
+import {
+  CliFlagsLive,
+  forceFlag,
+  nonInteractiveFlag,
+  previewFlag,
+  yesFlag,
+} from "./cli-flags/index.js";
 import { ClackLive, ClackStructuredLive } from "./clack-effect/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "./config/index.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
 import { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
 import { classifyError, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
-import { isInteractive } from "./utils/tty.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
@@ -60,31 +65,6 @@ export const isEffectCliExit = (error: unknown): error is EffectCliExit =>
 // ---------------------------------------------------------------------------
 // Global flags
 // ---------------------------------------------------------------------------
-
-export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
-  flag: Flag.boolean("non-interactive").pipe(
-    Flag.optional,
-    Flag.withDescription("Disable all interactive prompts"),
-  ),
-});
-
-export const yesFlag = GlobalFlag.setting("axm-yes")({
-  flag: Flag.boolean("yes").pipe(
-    Flag.withAlias("y"),
-    Flag.withDescription("Auto-accept confirmation prompts"),
-  ),
-});
-
-export const forceFlag = GlobalFlag.setting("axm-force")({
-  flag: Flag.boolean("force").pipe(
-    Flag.withAlias("f"),
-    Flag.withDescription("Override constraints that would cause failure"),
-  ),
-});
-
-export const previewFlag = GlobalFlag.setting("axm-preview")({
-  flag: Flag.boolean("preview").pipe(Flag.withDescription("Display plan without applying")),
-});
 
 export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
@@ -192,23 +172,8 @@ export const withCommandRuntime = (
   options?: CommandRuntimeOptions,
 ): Effect.Effect<void, unknown, unknown> =>
   Effect.gen(function* () {
-    // Resolve CliFlags from global flags
-    const nonInteractiveOpt = yield* nonInteractiveFlag;
-    const yes = yield* yesFlag;
-    const force = yield* forceFlag;
-    const preview = yield* previewFlag;
+    const cliFlagsLayer = CliFlagsLive;
     const envConfig = yield* CliEnvConfig;
-
-    const flagsValue: CliFlagsService = {
-      nonInteractive: Option.getOrElse(
-        nonInteractiveOpt,
-        () => envConfig.ci === "true" || !isInteractive(),
-      ),
-      yes,
-      force,
-      preview,
-    };
-    const cliFlagsLayer = Layer.succeed(CliFlags, flagsValue);
 
     // Resolve telemetry
     const mode = resolveTelemetryMode(
@@ -264,6 +229,8 @@ export const withCommandRuntime = (
                   console.error(result.message);
                 });
 
+          // Provide telemetryLayer directly so it's available even when the
+          // workspace layer (or any other inner layer) fails during construction.
           const report =
             error._tag === "CliError"
               ? Effect.gen(function* () {
@@ -279,7 +246,10 @@ export const withCommandRuntime = (
                       command,
                     })
                     .pipe(Effect.catchCause(() => Effect.void));
-                })
+                }).pipe(
+                  Effect.provide(telemetryLayer),
+                  Effect.catchCause(() => Effect.void),
+                )
               : Effect.void;
 
           return writeError.pipe(
@@ -295,7 +265,7 @@ export const withCommandRuntime = (
           ...options.workspace,
           builtInSources: getBuiltInSources(envConfig.registryUrl),
         }),
-        Layer.mergeAll(cliFlagsLayer, CliEnvConfigOrDie),
+        Layer.provideMerge(cliFlagsLayer, CliEnvConfigOrDie),
       );
       const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
       // commandLayer provides ClackLog/ClackPrompt that wsLayer may depend on,

@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import { CliFlags } from "../cli-flags/index.js";
 import { makeCliError } from "../cli-error/index.js";
+import { ClackLog } from "../clack-effect/log/service.js";
 import { ClackPrompt } from "../clack-effect/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
@@ -45,10 +46,18 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
 
     // If explicit agents are provided, use those (no detection needed)
     if (Option.isSome(options.agents) && options.agents.value.length > 0) {
-      selectedAgents = [...options.agents.value].flatMap((id) => {
+      const log = yield* ClackLog;
+      const requestedIds = [...options.agents.value];
+      selectedAgents = requestedIds.flatMap((id) => {
         const agent = getAgentById(id);
         return Option.isSome(agent) ? [agent.value] : [];
       });
+      const unrecognized = requestedIds.filter((id) => Option.isNone(getAgentById(id)));
+      if (unrecognized.length > 0) {
+        yield* log.warn(
+          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm init --help' to see available agents.`,
+        );
+      }
     } else {
       // Detect installed agents
       const detectedAgents = yield* detectAgents(process.cwd()).pipe(

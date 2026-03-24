@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { withAuthGuard } from "../../../auth/index.js";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -106,7 +106,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     : ws.getConfiguredNamespace().pipe(
         Effect.map((namespace) => formatFqn({ namespace, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
             what: `Failed to resolve namespace: ${e._tag}`,
             howToFix: "Configure a namespace in your settings with `axm init`.",
@@ -128,7 +128,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
         if (!packDirExists) {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "EXTENSION_NOT_FOUND",
               what: `Managed pack not found: ${packName}`,
               details: [`Expected at: ${packDir}`],
@@ -146,7 +146,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
         if (!manifestExists) {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "MISSING_MANIFEST",
               what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
               details: [`Expected at: ${manifestPath}`],
@@ -163,7 +163,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   // Step 3: Determine target registry
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_SOURCES_FAILED",
         what: `Failed to get registry sources: ${e._tag}`,
         cause: e,
@@ -173,7 +173,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   if (registrySources.length === 0) {
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
         what: "No registry sources configured",
         howToFix: "Run the registry guard first.",
@@ -192,7 +192,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   if (args.includeDependencies) {
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_MANIFEST_READ_FAILED",
           what: `Failed to read pack manifest: ${manifestPath}`,
           cause: e,
@@ -203,7 +203,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     const json = yield* Effect.try({
       try: () => JSON.parse(manifestContent) as unknown,
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
           what: `Invalid JSON in pack manifest: ${manifestPath}`,
           cause: e,
@@ -212,7 +212,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
     const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_MANIFEST_INVALID",
           what: `Invalid pack manifest: ${manifestPath}`,
           cause: e,
@@ -305,7 +305,7 @@ const makeDependencyStep = (
   parsed: Fqn,
   depFqn: string,
   registryName: string,
-): Effect.Effect<LegacyPlannedStep<PackPublishOp>, CliError> => {
+): Effect.Effect<LegacyPlannedStep<PackPublishOp>, AppError> => {
   const base = {
     _tag: "PlannedJobStep" as const,
     readiness: { status: "ready" as const, message: Option.none() },
@@ -339,7 +339,7 @@ const makeDependencyStep = (
       });
     case "packs":
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
           what: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
         }),

@@ -36,7 +36,7 @@ Depends on: Phase 1.
 Depends on: Phase 2.
 
 - [x] 3.1 Write tests for `RemoteRegistryClient` in `registry/client.test.ts` — all methods fail with "remote registry not yet supported"
-- [x] 3.2 Implement `createRemoteRegistryClient(): RegistryClient` — stub all methods with `CliError`
+- [x] 3.2 Implement `createRemoteRegistryClient(): RegistryClient` — stub all methods with `AppError`
 - [x] 3.3 Write tests for `createRegistryClient` factory — local path / `file://` → local, `https://` → remote
 - [x] 3.4 Implement `createRegistryClient(location: string): RegistryClient` factory
 - [x] 3.5 Update `registry/index.ts` barrel to export: `RegistryClient`, `RegistrySearchOptions`, `RegistryExtensionEntry`, `createRegistryClient`, `createLocalRegistryClient`, `createRemoteRegistryClient`, plus existing schema exports and shared utils

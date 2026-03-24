@@ -330,16 +330,16 @@ With `normalizeMcpServerEntry` (settings form → normalized) and `collapseMcpSe
 
 ```typescript
 // Reading
-readonly getConfiguredMcpServers: () => Effect<Record.ReadonlyRecord<string, NormalizedMcpServerEntry>, CliError>;
-readonly getLockedMcpServers: () => Effect<McpServersLockMap, CliError>;
-readonly getLockedMcpServer: (name: string) => Effect<Option<McpServerLockEntry>, CliError>;
+readonly getConfiguredMcpServers: () => Effect<Record.ReadonlyRecord<string, NormalizedMcpServerEntry>, AppError>;
+readonly getLockedMcpServers: () => Effect<McpServersLockMap, AppError>;
+readonly getLockedMcpServer: (name: string) => Effect<Option<McpServerLockEntry>, AppError>;
 
 // Writing (all semaphore-protected)
-readonly setMcpServer: (args: SetMcpServerArgs) => Effect<void, CliError>;
-readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect<void, CliError>;
-readonly removeMcpServer: (name: string) => Effect<void, CliError>;
-readonly updateMcpServerEntry: (name: string, updater: (entry: NormalizedMcpServerEntry) => NormalizedMcpServerEntry) => Effect<void, CliError>;
-readonly setMcpServerEntry: (name: string, entry: NormalizedMcpServerEntry) => Effect<void, CliError>;
+readonly setMcpServer: (args: SetMcpServerArgs) => Effect<void, AppError>;
+readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect<void, AppError>;
+readonly removeMcpServer: (name: string) => Effect<void, AppError>;
+readonly updateMcpServerEntry: (name: string, updater: (entry: NormalizedMcpServerEntry) => NormalizedMcpServerEntry) => Effect<void, AppError>;
+readonly setMcpServerEntry: (name: string, entry: NormalizedMcpServerEntry) => Effect<void, AppError>;
 ```
 
 `setMcpServer` and `setMcpServerLock` already exist in the workspace service. New additions: `getConfiguredMcpServers`, `getLockedMcpServers`, `getLockedMcpServer`, `updateMcpServerEntry`, and `setMcpServerEntry`. `updateMcpServerEntry` is the key method for enable/disable — it normalizes, applies the updater, and collapses back to settings form.
@@ -627,7 +627,7 @@ Supports variadic names for batch updates.
 
 ### 9. Handler pseudo-code
 
-Pseudo-code for all new handlers, grouped by command. Uses Effect patterns consistent with the codebase (`Effect.gen`, `yield*`, services via `Workspace`/`Log`/`Spinner`, `CliError` for failures, `Effect.forEach` with `concurrency: "unbounded"` for parallelism).
+Pseudo-code for all new handlers, grouped by command. Uses Effect patterns consistent with the codebase (`Effect.gen`, `yield*`, services via `Workspace`/`Log`/`Spinner`, `AppError` for failures, `Effect.forEach` with `concurrency: "unbounded"` for parallelism).
 
 #### Agent config writer module (`agent-mcp-config`)
 
@@ -781,7 +781,7 @@ const handleInstall = Effect.fn("McpInstall.handle")(function* (args: InstallHan
   yield* handle.stop(`Found ${mcpServerRefs.length} server(s)`)
 
   if (mcpServerRefs.length === 0) {
-    return yield* makeCliError({ code: "NO_MCP_SERVERS_FOUND", what: "No MCP servers found" })
+    return yield* makeAppError({ code: "NO_MCP_SERVERS_FOUND", what: "No MCP servers found" })
   }
   const ref = mcpServerRefs[0]
 
@@ -821,7 +821,7 @@ const resolveEnvValues = (envDeclarations, cliEnvFlags, nonInteractive) =>
         resolved[decl.name] = decl.default
       } else if (decl.required) {
         if (Option.isSome(nonInteractive) && nonInteractive.value) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "MCP_ENV_REQUIRED",
             what: `Required env var ${decl.name} not provided`,
             howToFix: `Use --env ${decl.name}=VALUE`,
@@ -905,7 +905,7 @@ const handleUninstall = Effect.fn("McpUninstall.handle")(function* (args: Uninst
   // Step 1: Validate server exists
   const lockEntry = yield* ws.getLockedMcpServer(args.name);
   if (Option.isNone(lockEntry)) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
       what: `MCP server '${args.name}' is not installed`,
       howToFix: "Run `axm mcp list` to see installed servers",
@@ -1024,7 +1024,7 @@ const handleEnable = Effect.fn("McpEnable.handle")(function* (args: EnableHandle
   const configuredServers = yield* ws.getConfiguredMcpServers();
   const entry = configuredServers[args.name];
   if (entry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
       what: `MCP server '${args.name}' not found`,
       howToFix: "Run `axm mcp list` to see installed servers",
@@ -1041,7 +1041,7 @@ const handleEnable = Effect.fn("McpEnable.handle")(function* (args: EnableHandle
   // Step 3: Validate lockfile entry exists (server files on disk)
   const lockEntry = yield* ws.getLockedMcpServer(args.name);
   if (Option.isNone(lockEntry)) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_NOT_INSTALLED",
       what: `MCP server '${args.name}' has no lockfile entry`,
       howToFix: "Try reinstalling with `axm mcp install`",
@@ -1145,7 +1145,7 @@ const handleDisable = Effect.fn("McpDisable.handle")(function* (args: DisableHan
   const configuredServers = yield* ws.getConfiguredMcpServers();
   const entry = configuredServers[args.name];
   if (entry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_NOT_FOUND",
       what: `MCP server '${args.name}' not found`,
       howToFix: "Run `axm mcp list` to see installed servers",
@@ -1255,7 +1255,7 @@ const handleUpdate = Effect.fn("McpUpdate.handle")(function* (args: UpdateHandle
     Effect.gen(function* () {
       const entry = configuredServers[name]
       if (entry === undefined) {
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "MCP_SERVER_NOT_FOUND",
           what: `MCP server '${name}' not found`,
         })
@@ -1390,7 +1390,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
         .pipe(Effect.catchAll(() => Effect.succeed(false)));
       if (!exists) {
         yield* handle.stop("Failed");
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "EXTENSION_NOT_FOUND",
           what: `Managed MCP server not found: ${extName}`,
           details: [`Expected manifest at: ${manifestPath}`],
@@ -1463,7 +1463,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "NAMESPACE_REQUIRED",
                   what: "No namespace configured for MCP server creation",
                   howToFix: "Use --namespace or configure via `axm init`",
@@ -1475,7 +1475,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
 
   // 2. Validate name
   if (!NAME_PATTERN.test(args.name) || args.name.length > MAX_NAME_LENGTH) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_NAME_INVALID",
       what: `Invalid MCP server name: "${args.name}"`,
       howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
@@ -1488,7 +1488,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   // 3. Check existence
   const configuredServers = yield* ws.getConfiguredMcpServers();
   if (args.name in configuredServers) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "MCP_SERVER_ALREADY_EXISTS",
       what: `MCP server '${args.name}' already exists in settings`,
     });

@@ -6,7 +6,7 @@
 
 - [x] 1.1 Install `semver` and `@types/semver` as dependencies in `packages/cli`
 - [x] 1.2 Write tests for version constraint utilities: `parseVersionConstraint` (extracts constraint from source string suffix), `isValidConstraint` (validates via `semver.validRange`), `satisfiesConstraint` (wraps `semver.satisfies`), and `resolveVersionWithConstraint` (iterate versions newest-first, return first satisfying constraint + agent filter)
-- [x] 1.3 Implement `packages/cli/src/version-constraints/version-constraints.ts` with the utilities above, wrapping semver calls with Effect conventions (CliError for invalid range, Option for no-match)
+- [x] 1.3 Implement `packages/cli/src/version-constraints/version-constraints.ts` with the utilities above, wrapping semver calls with Effect conventions (AppError for invalid range, Option for no-match)
 - [x] 1.4 Implement `packages/cli/src/version-constraints/index.ts` barrel export
 - [x] 1.5 Verify typecheck passes (`pnpm typecheck`), fix any errors
 - [x] 1.6 Verify linting passes (`pnpm lint`), fix any errors
@@ -36,7 +36,7 @@ Depends on: Phase 1.
 
 Depends on: Phase 1, Phase 2.
 
-- [x] 3.1 Write tests for updated `selectVersion` in `packages/cli/src/sources/providers/registry.ts`: version constraint passed in → filter via `semver.satisfies()` in addition to agent filter; no constraint → pick newest (existing behavior); no satisfying version → return `Option.none()`; invalid constraint → fail with CliError
+- [x] 3.1 Write tests for updated `selectVersion` in `packages/cli/src/sources/providers/registry.ts`: version constraint passed in → filter via `semver.satisfies()` in addition to agent filter; no constraint → pick newest (existing behavior); no satisfying version → return `Option.none()`; invalid constraint → fail with AppError
 - [x] 3.2 Update `selectVersion` to accept an optional version constraint parameter and filter using `satisfiesConstraint` from the version-constraints module
 - [x] 3.3 Update callers of `selectVersion` (registry provider discovery flow) to pass the version constraint from the resolved source
 - [x] 3.4 Verify typecheck passes (`pnpm typecheck`), fix any errors
@@ -99,7 +99,7 @@ Depends on: Phase 1.
 Depends on: Phase 2, Phase 3, Phase 5.
 
 - [x] 7.1 Write tests for constraint collection: handler reads version constraint from settings source string; handler reads pack manifest constraints from installed pack manifests on disk; user explicit constraint (not `*`) wins over pack constraint; pack constraints apply when user has `*`
-- [x] 7.2 Write tests for multi-constraint resolution: compatible pack constraints intersected (newest satisfying all); incompatible pack constraints use newest with warning; user constraint unsatisfiable fails with CliError
+- [x] 7.2 Write tests for multi-constraint resolution: compatible pack constraints intersected (newest satisfying all); incompatible pack constraints use newest with warning; user constraint unsatisfiable fails with AppError
 - [x] 7.3 Write tests for update warnings: warn when pack holds back user's latest-intent skill; no warning for pack-only skills; no warning for user explicit constraint
 - [x] 7.4 Write tests for pack update: packs re-resolved within their constraint; pack update cascades — new deps installed, removed deps orphan-checked, changed constraints re-resolved; pack deps re-resolved even when pack version unchanged
 - [x] 7.5 Implement constraint collection logic in the update handler: extract version constraint from settings source string, read pack manifests from disk to collect pack constraints per skill

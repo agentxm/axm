@@ -16,7 +16,7 @@ This is a manifest edit only — it SHALL NOT uninstall any extensions from the 
 
 - **WHEN** user runs `axm packs remove frontend-tools @acme/nonexistent`
 - **AND** `@acme/nonexistent` is not in the pack manifest
-- **THEN** the command fails with a `CliError` indicating the extension is not in the pack
+- **THEN** the command fails with an `AppError` indicating the extension is not in the pack
 
 ### Requirement: Glob pattern expansion for remove
 
@@ -32,7 +32,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs remove my-pack "nonexistent-*"`
 - **AND** no extensions in the pack manifest match the pattern
-- **THEN** the command fails with a `CliError` indicating no extensions matched
+- **THEN** the command fails with an `AppError` indicating no extensions matched
 
 ### Requirement: Pack must exist
 
@@ -42,4 +42,4 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs remove nonexistent-pack @acme/code-review`
 - **AND** no pack named `nonexistent-pack` exists
-- **THEN** the command fails with a `CliError` indicating the pack was not found
+- **THEN** the command fails with an `AppError` indicating the pack was not found

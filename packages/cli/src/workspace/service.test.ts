@@ -22,7 +22,7 @@ import {
   type MockClackPromptService,
 } from "../clack-effect/index.js";
 import YAML from "yaml";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { CliFlagsTest, type CliFlagsService } from "../cli-flags/index.js";
 import { CliEnvConfig } from "../config/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
@@ -357,10 +357,10 @@ describe("WorkspaceContextService", () => {
         );
         const result = yield* effect.pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
-        expect((result as CliError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        expect(result).toBeInstanceOf(AppError);
+        expect((result as AppError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // howToFix suggests --force
-        expect(Option.getOrNull((result as CliError).howToFix)).toMatch(/--force/);
+        expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
         // Plan should have been displayed
         expect(logMessages(mockLog, "info")).toContain("Test Plan");
       }),
@@ -381,10 +381,10 @@ describe("WorkspaceContextService", () => {
         );
         const result = yield* effect.pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
-        expect((result as CliError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        expect(result).toBeInstanceOf(AppError);
+        expect((result as AppError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // howToFix suggests --force
-        expect(Option.getOrNull((result as CliError).howToFix)).toMatch(/--force/);
+        expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
         // Plan should have been displayed even in default mode
         expect(logMessages(mockLog, "info")).toContain("Test Plan");
       }),
@@ -1539,14 +1539,14 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("fails with CliError for invalid agent ID", () =>
+    it.effect("fails with AppError for invalid agent ID", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.addConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
+        expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("SETTINGS_PARSE_FAILED");
 
         // Verify settings were not changed
@@ -1757,7 +1757,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getSkillDir("nonexistent").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
+        expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("SKILL_NOT_LOCKED");
       }),
     );
@@ -1969,7 +1969,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("fails with CliError for missing skill name", () =>
+    it.effect("fails with AppError for missing skill name", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"], skills: {} });
 
@@ -1978,7 +1978,7 @@ describe("WorkspaceContextService", () => {
           .updateSkillEntry("nonexistent", (entry) => entry)
           .pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
+        expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("SKILL_NOT_FOUND");
       }),
     );
@@ -2023,7 +2023,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("fails with CliError when old name does not exist", () =>
+    it.effect("fails with AppError when old name does not exist", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"], skills: {} });
         writeLockfileTo(projectDir, {});
@@ -2031,7 +2031,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.renameSkill("nonexistent", "new-name").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
+        expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("SKILL_NOT_FOUND");
       }),
     );
@@ -2093,7 +2093,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("fails with CliError when lock entry does not exist", () =>
+    it.effect("fails with AppError when lock entry does not exist", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
@@ -2103,7 +2103,7 @@ describe("WorkspaceContextService", () => {
           .updateLockEntryAgents("nonexistent", ["claude-code"])
           .pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(CliError);
+        expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("LOCK_ENTRY_NOT_FOUND");
       }),
     );

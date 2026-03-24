@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import {
   SourceHostProviders,
   parseInputPattern,
@@ -69,16 +69,16 @@ export interface SkillSourceRequest {
 // Helpers (pure, no service dependencies)
 // -----------------------------------------------------------------------------
 
-const isCliErrorCheck = (error: unknown): error is CliError =>
+const isAppErrorCheck = (error: unknown): error is AppError =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
-  error._tag === "CliError" &&
+  error._tag === "AppError" &&
   "what" in error &&
   "code" in error;
 
 const summarizeDiscoverError = (error: unknown): string => {
-  if (isCliErrorCheck(error)) {
+  if (isAppErrorCheck(error)) {
     return `${error.what} (${error.code})`;
   }
   if (error instanceof Error) {
@@ -88,7 +88,7 @@ const summarizeDiscoverError = (error: unknown): string => {
 };
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
-  isCliErrorCheck(error) &&
+  isAppErrorCheck(error) &&
   (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
     (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
 
@@ -207,14 +207,14 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     );
 
     // Provide all captured services, bridging R to never and allowing
-    // PromptCancelled to narrow to CliError for the interface contract.
+    // PromptCancelled to narrow to AppError for the interface contract.
     // PromptCancelled propagates at runtime to the command runner level.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service context
-    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, AppError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, AppError, never>;
 
     // PromptCancelled from prompts propagates through the workflow
-    // to the run() handler. The provide() helper narrows E to CliError for the interface.
+    // to the run() handler. The provide() helper narrows E to AppError for the interface.
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
@@ -227,7 +227,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               Effect.gen(function* () {
                 const parsedSourceOption = parseInputPattern(args.source.trim());
                 if (Option.isNone(parsedSourceOption)) {
-                  return yield* makeCliError({
+                  return yield* makeAppError({
                     code: "INVALID_SOURCE",
                     what: "Invalid source: Unable to parse source",
                     details: [`Provided: ${args.source || "(empty)"}`],
@@ -305,7 +305,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         Effect.gen(function* () {
           const req = reqs[0];
           if (req === undefined) {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "DISCOVER_FAILED",
               what: "No source request to discover from",
             });
@@ -325,7 +325,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
                   Effect.mapError((error) => {
                     const reason = summarizeDiscoverError(error);
-                    return makeCliError({
+                    return makeAppError({
                       code: "DISCOVER_FAILED",
                       what: "Failed to discover skills from source",
                       details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
@@ -337,7 +337,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                     !Array.isReadonlyArrayEmpty(discoveredSkills)
                       ? Effect.succeed(discoveredSkills)
                       : Effect.fail(
-                          makeCliError({
+                          makeAppError({
                             code: "NO_SKILLS_FOUND",
                             what: "No skills found in source",
                             details: [`Source: ${sources.origin(req.source)}`],

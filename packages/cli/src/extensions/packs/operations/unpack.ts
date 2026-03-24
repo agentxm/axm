@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type {
   SkillLockEntry,
   CommandLockEntry,
@@ -60,7 +60,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
     const lockedPack = yield* ws.getLockedPack(op.args.name);
 
     if (Option.isNone(lockedPack)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PACK_NOT_INSTALLED",
         what: `Pack "${op.args.name}" is not installed`,
         howToFix: "Install the pack first with `axm packs install`.",
@@ -70,7 +70,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
     const entry = lockedPack.value;
 
     if (entry.type !== "registry") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PACK_UNPACK_UNSUPPORTED",
         what: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
       });

@@ -13,7 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { formatFqn } from "../../../extensions/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
@@ -71,7 +71,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "PACK_NOT_FOUND",
       what: `Pack '${args.pack}' not found`,
       howToFix: "Run `axm packs new <name>` to create a pack first",
@@ -92,7 +92,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_NOT_FOUND",
         what: `Pack manifest not found at ${manifestPath}`,
         howToFix: "Ensure the pack exists on disk",
@@ -106,7 +106,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const json = yield* Effect.try({
     try: () => JSON.parse(manifestContent) as unknown,
     catch: (e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
         what: `Failed to parse pack manifest: ${manifestPath}`,
         cause: e,
@@ -115,7 +115,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_MANIFEST_INVALID",
         what: `Invalid pack manifest: ${manifestPath}`,
         cause: e,
@@ -140,7 +140,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   if (matchedNames.length === 0) {
     if (isGlob) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
         what: `No managed, registry-sourced extensions match '${args.extension}'`,
         howToFix: "Check installed extensions with `axm skills list`",
@@ -149,14 +149,14 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     // Check if extension exists but is not registry-sourced
     if (args.extension in lockedSkills) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "EXTENSION_NOT_REGISTRY",
         what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
         howToFix: "Only managed, registry-sourced extensions can be added to packs",
       });
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "EXTENSION_NOT_FOUND",
       what: `Extension '${args.extension}' not found in workspace`,
       howToFix: "Install the extension first with `axm skills install`",

@@ -11,7 +11,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -82,7 +82,7 @@ export const copySkill: OperationHandler<
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;
     if (ref.refType !== "git-hosted" && ref.refType !== "local") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "COPY_SKILL_UNSUPPORTED_SOURCE",
         what: `copy-skill does not support ${ref.source.type} sources`,
       });
@@ -92,7 +92,7 @@ export const copySkill: OperationHandler<
     // Copy source files to src/ subdirectory (manifest stays at extension root)
     yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "COPY_SKILL_FAILED",
           what: `Failed to copy skill files to ${targetDir}`,
           cause: e,
@@ -111,7 +111,7 @@ export const copySkill: OperationHandler<
     const manifestPath = path.join(targetDir, MANIFEST_FILENAME);
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "COPY_SKILL_MANIFEST_WRITE_FAILED",
           what: `Failed to write manifest: ${manifestPath}`,
           cause: e,

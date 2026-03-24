@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { AzureReposSourceParams } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";
@@ -12,7 +12,7 @@ const AZUREREPOS_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
     return Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid Azure Repos URL format",
         details: [url.href],
@@ -22,7 +22,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   const match = url.pathname.match(AZUREREPOS_PATH_PATTERN);
   if (!match || !match[1] || !match[2] || !match[3]) {
     return Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Invalid Azure Repos URL format",
         details: [url.href],

@@ -80,7 +80,7 @@ describe("auth whoami handler", () => {
     return provide(
       Effect.gen(function* () {
         const result = yield* handleWhoami({ json: false }).pipe(
-          Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+          Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
       }),

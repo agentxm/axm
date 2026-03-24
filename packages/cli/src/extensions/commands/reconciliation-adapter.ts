@@ -2,7 +2,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "./manifest-schema.js";
 import type {
   DeclarationResolution,
@@ -91,7 +91,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
 
       const exists = yield* env.fs.exists(canonicalPath).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
             what: `Failed to check command path: ${canonicalPath}`,
             cause: error,

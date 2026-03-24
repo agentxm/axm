@@ -1,7 +1,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
 import {
   classifyExtensions,
@@ -14,8 +14,8 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const run = <A>(effect: Effect.Effect<A, CliError>) => Effect.runSync(effect);
-const runFail = <A>(effect: Effect.Effect<A, CliError>) => Effect.runSync(Effect.flip(effect));
+const run = <A>(effect: Effect.Effect<A, AppError>) => Effect.runSync(effect);
+const runFail = <A>(effect: Effect.Effect<A, AppError>) => Effect.runSync(Effect.flip(effect));
 
 const byLifecycle = (rows: ReadonlyArray<ClassifiedExtension>, lc: string) =>
   rows.filter((r) => r.lifecycle === lc);
@@ -124,7 +124,7 @@ describe("classifyExtensions", () => {
       };
 
       const error = runFail(classifyExtensions(input));
-      expect(error).toBeInstanceOf(CliError);
+      expect(error).toBeInstanceOf(AppError);
       expect(error.code).toBe("WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY");
     });
   });

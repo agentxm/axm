@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { CliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
 import type { Plan } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 
@@ -27,9 +27,9 @@ import { Workspace } from "../../workspace/service.js";
  * @typeParam Intent - Command-specific uninstall intent
  */
 export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
-  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, CliError>;
-  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, AppError>;
+  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, AppError>;
+  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
 }
 
 // -----------------------------------------------------------------------------

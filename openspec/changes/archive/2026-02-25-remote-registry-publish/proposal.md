@@ -7,7 +7,7 @@ The remote registry publish endpoint (`PUT /v1/extensions/{namespace}/{type}/{na
 - Implement `publishExtension` on `RemoteRegistryClient` to upload archives via multipart/form-data to `PUT /v1/extensions/{namespace}/{type}/{name}/{version}`
 - All other remote client methods (`getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, `extensionExists`) remain stubs
 - Handle the full error surface: 400 validation, 409 conflicts, 413 size limits, 429 throttling (with retry-after), 403 quota, 503 disabled
-- Map RFC 7807 problem detail responses to `CliError` with actionable `howToFix` guidance
+- Map RFC 7807 problem detail responses to `AppError` with actionable `howToFix` guidance
 - Support SRI integrity assertion via the `integrity` field in the multipart request
 
 ## Capabilities

@@ -4,7 +4,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [x] 1.1 Add `getDefaultNamespace` to workspace service interface and implementation returning `Effect<Option<string>, CliError>` with precedence: project settings > user settings > `Option.none()`. Include a TODO comment for logged-in identity handle (auth not implemented yet). Add tests for all three precedence cases (project wins, user fallback, none).
+- [x] 1.1 Add `getDefaultNamespace` to workspace service interface and implementation returning `Effect<Option<string>, AppError>` with precedence: project settings > user settings > `Option.none()`. Include a TODO comment for logged-in identity handle (auth not implemented yet). Add tests for all three precedence cases (project wins, user fallback, none).
 - [x] 1.2 Rename `getConfiguredRegistrySources` to `getRegistrySourceHosts` in workspace service interface, implementation, and all callers across the codebase. Update any related tests.
 - [x] 1.3 Run `pnpm typecheck` for all packages, fix any errors
 - [x] 1.4 Run `pnpm lint` for all packages, fix any errors
@@ -33,7 +33,7 @@ Depends on: Phase 1.
 Depends on: Phase 2.
 
 - [x] 3.1 Write tests in `handler.test.ts` for: resolver `REGISTRY_SKILL_NOT_FOUND` error is surfaced (not remapped to `INVALID_SOURCE`), true parse failure still returns `INVALID_SOURCE`.
-- [x] 3.2 Update `handler.ts` to stop coercing all resolver failures into `INVALID_SOURCE`. Preserve `CliError` from resolver (including `REGISTRY_SKILL_NOT_FOUND`); map only true parse failures to `INVALID_SOURCE`. Ensure all tests from 3.1 pass.
+- [x] 3.2 Update `handler.ts` to stop coercing all resolver failures into `INVALID_SOURCE`. Preserve `AppError` from resolver (including `REGISTRY_SKILL_NOT_FOUND`); map only true parse failures to `INVALID_SOURCE`. Ensure all tests from 3.1 pass.
 - [x] 3.3 Run `pnpm typecheck` for all packages, fix any errors
 - [x] 3.4 Run `pnpm lint` for all packages, fix any errors
 - [x] 3.5 Run `pnpm test` for all packages, fix any failures

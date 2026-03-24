@@ -84,7 +84,7 @@ describe("auth token handler", () => {
     return provide(
       Effect.gen(function* () {
         const result = yield* handleToken().pipe(
-          Effect.catchTag("CliError", (e) =>
+          Effect.catchTag("AppError", (e) =>
             Effect.succeed({ error: true, code: e.code, howToFix: e.howToFix }),
           ),
         );

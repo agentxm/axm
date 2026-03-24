@@ -17,7 +17,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CliEnvConfig } from "../../../config/index.js";
-import { type CliError, makeCliError } from "../../../cli-error/index.js";
+import { type AppError, makeAppError } from "../../../app-error/index.js";
 
 /**
  * A discovered skill — intermediate result from directory scanning.
@@ -243,7 +243,7 @@ export const discoverSkillsInDir = (
   options: DiscoveryOptions,
 ): Effect.Effect<
   ReadonlyArray<DiscoveredSkill>,
-  CliError,
+  AppError,
   FileSystem.FileSystem | Path.Path | CliEnvConfig
 > =>
   Effect.gen(function* () {
@@ -261,7 +261,7 @@ export const discoverSkillsInDir = (
     // Verify the search root exists and is a directory
     const stat = yield* fs.stat(searchRoot).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SKILLS_DISCOVERY_FAILED",
           what: `Directory does not exist or is not accessible: ${searchRoot}`,
           cause: error,
@@ -270,7 +270,7 @@ export const discoverSkillsInDir = (
     );
 
     if (stat.type !== "Directory") {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SKILLS_DISCOVERY_FAILED",
         what: `Path is not a directory: ${searchRoot}`,
       });

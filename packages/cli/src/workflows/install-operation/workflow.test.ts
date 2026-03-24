@@ -5,7 +5,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type {
   PackExtensionRef,
   RegistrySource,
@@ -236,7 +236,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
         materializeInstall: () =>
-          Effect.fail(makeCliError({ code: "MATERIALIZE_FAILED", what: "disk error" })),
+          Effect.fail(makeAppError({ code: "MATERIALIZE_FAILED", what: "disk error" })),
         materializeUninstall: () => Effect.void,
         upsertSettingsEntry: () => Effect.void,
         removeSettingsEntry: () => Effect.void,
@@ -251,7 +251,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
       });
 
       if (step.readiness !== "ready") throw new Error("Expected ready step");
-      // The run effect will fail with CliError — the caller (applyPlan) catches it
+      // The run effect will fail with AppError — the caller (applyPlan) catches it
       const exit = yield* step.run.pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }),

@@ -2,7 +2,7 @@
 
 ### Requirement: Select prompt collects single selection from a list
 
-The select capability SHALL be provided by `Input.select` from `src/input/`. It SHALL accept `message` and `options: ReadonlyArray<InputOption<V>>`, and return `Effect<V, CliError | PromptCancelled>`.
+The select capability SHALL be provided by `Input.select` from `src/input/`. It SHALL accept `message` and `options: ReadonlyArray<InputOption<V>>`, and return `Effect<V, AppError | PromptCancelled>`.
 
 #### Scenario: Basic select
 

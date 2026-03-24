@@ -44,7 +44,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs add my-pack "nonexistent-*"`
 - **AND** no installed extensions match the pattern
-- **THEN** the command fails with a `CliError` indicating no extensions matched
+- **THEN** the command fails with an `AppError` indicating no extensions matched
 
 #### Scenario: Glob excludes non-registry extensions
 
@@ -71,7 +71,7 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add my-pack some-local-skill`
 - **AND** `some-local-skill` is installed from a local path
-- **THEN** the command fails with a `CliError` indicating only managed, registry-sourced extensions can be added to packs
+- **THEN** the command fails with an `AppError` indicating only managed, registry-sourced extensions can be added to packs
 
 ### Requirement: Pack must exist
 
@@ -81,4 +81,4 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add nonexistent-pack @acme/code-review`
 - **AND** no pack named `nonexistent-pack` exists
-- **THEN** the command fails with a `CliError` indicating the pack was not found
+- **THEN** the command fails with an `AppError` indicating the pack was not found

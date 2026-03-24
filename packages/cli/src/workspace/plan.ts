@@ -11,7 +11,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Legacy types (used by non-migrated operation handlers)
@@ -33,7 +33,7 @@ export type OperationResult =
   | {
       readonly result: "error";
       readonly message: string;
-      readonly error: CliError;
+      readonly error: AppError;
     };
 
 /** @deprecated Use Readiness string literals instead. Will be removed in a future phase. */
@@ -55,7 +55,7 @@ export type JobStepResult =
   | {
       readonly result: "error";
       readonly message: string;
-      readonly error: CliError;
+      readonly error: AppError;
     };
 
 // -----------------------------------------------------------------------------
@@ -65,14 +65,14 @@ export type JobStepResult =
 export interface ReadyJobStep {
   readonly readiness: "ready";
   readonly label: string;
-  readonly run: Effect.Effect<JobStepResult, CliError, never>;
+  readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
 export interface WarnJobStep {
   readonly readiness: "warn";
   readonly warnMessage: string;
   readonly label: string;
-  readonly run: Effect.Effect<JobStepResult, CliError, never>;
+  readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
 export interface ErrorJobStep {

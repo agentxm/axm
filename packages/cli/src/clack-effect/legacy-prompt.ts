@@ -3,10 +3,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { PromptCancelled } from "../prompt-cancelled.js";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import { ClackPrompt } from "./prompt/service.js";
 
-type PromptError = CliError | PromptCancelled;
+type PromptError = AppError | PromptCancelled;
 
 export interface ConfirmConfig {
   readonly message: string;

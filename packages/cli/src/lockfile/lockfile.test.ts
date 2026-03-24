@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { readLockfile, writeLockfile } from "./lockfile.js";
 
 describe("lockfile", () => {
@@ -84,7 +84,7 @@ describe("lockfile", () => {
       ),
     );
 
-    it.effect("returns CliError for invalid YAML", () =>
+    it.effect("returns AppError for invalid YAML", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -92,14 +92,14 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(CliError);
-          expect(error._tag).toBe("CliError");
+          expect(error).toBeInstanceOf(AppError);
+          expect(error._tag).toBe("AppError");
           expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),
     );
 
-    it.effect("returns CliError for null content", () =>
+    it.effect("returns AppError for null content", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -107,14 +107,14 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(CliError);
-          expect(error._tag).toBe("CliError");
+          expect(error).toBeInstanceOf(AppError);
+          expect(error._tag).toBe("AppError");
           expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),
     );
 
-    it.effect("returns CliError when lockfileVersion is missing", () =>
+    it.effect("returns AppError when lockfileVersion is missing", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -122,8 +122,8 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(CliError);
-          expect(error._tag).toBe("CliError");
+          expect(error).toBeInstanceOf(AppError);
+          expect(error._tag).toBe("AppError");
           expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),

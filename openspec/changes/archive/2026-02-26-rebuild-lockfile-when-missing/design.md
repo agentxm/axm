@@ -157,7 +157,7 @@ After reconciliation + requested install execution, lockfile is written atomical
 2. write to temp path in same directory
 3. replace target lockfile path in one move
 
-If atomic write fails, command fails with a typed `CliError` and does not leave a partially written lockfile.
+If atomic write fails, command fails with a typed `AppError` and does not leave a partially written lockfile.
 
 Backup/atomic details:
 
@@ -251,7 +251,7 @@ interface OperationMetadata {
 
 interface OperationSpec<Op extends { readonly name: string }> {
   readonly metadata: OperationMetadata;
-  readonly handler: (op: Op) => Effect.Effect<OperationResult, CliError>;
+  readonly handler: (op: Op) => Effect.Effect<OperationResult, AppError>;
 }
 ```
 
@@ -343,7 +343,7 @@ Lockfile read/parse failure handling:
 
 Lockfile state probe ownership:
 
-- Add `Workspace.getLockfileState(): Effect<"ok" | "missing" | "invalid", CliError>`.
+- Add `Workspace.getLockfileState(): Effect<"ok" | "missing" | "invalid", AppError>`.
 - `augmentPlan` MUST use `getLockfileState()` for policy decisions and not infer state from parsed lockfile content.
 
 Policy x lockfile-state decision table:

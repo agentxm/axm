@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { CliError } from "../../cli-error/index.js";
+import type { AppError } from "../../app-error/index.js";
 import type { PromptCancelled } from "../../prompt-cancelled.js";
 import type { Plan } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
@@ -30,16 +30,16 @@ import { Workspace } from "../../workspace/service.js";
  * @typeParam Intent - Command-specific install intent
  */
 export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent> {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, AppError>;
   readonly resolveSourceRequests: (
     parsed: Parsed,
-  ) => Effect.Effect<ReadonlyArray<Req>, CliError | PromptCancelled>;
-  readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, CliError>;
+  ) => Effect.Effect<ReadonlyArray<Req>, AppError | PromptCancelled>;
+  readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, AppError>;
   readonly finalizeIntent: (
     parsed: Parsed,
     refs: ReadonlyArray<Ref>,
-  ) => Effect.Effect<Intent, CliError>;
-  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
+  ) => Effect.Effect<Intent, AppError>;
+  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
 }
 
 // -----------------------------------------------------------------------------

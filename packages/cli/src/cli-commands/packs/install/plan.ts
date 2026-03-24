@@ -167,7 +167,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
     const makeRunClosure = (
       op: PackInstallOp,
-    ): Effect.Effect<JobStepResult, import("../../../cli-error/index.js").CliError, never> => {
+    ): Effect.Effect<JobStepResult, import("../../../app-error/index.js").AppError, never> => {
       const handler =
         op.name === "install-pack"
           ? installPack
@@ -185,7 +185,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
             op: PackInstallOp,
           ) => Effect.Effect<
             import("../../../workspace/plan.js").OperationResult,
-            import("../../../cli-error/index.js").CliError,
+            import("../../../app-error/index.js").AppError,
             never
           >
         )(op),

@@ -45,12 +45,12 @@ Accepted version constraints at input boundaries (CLI source strings, settings e
 
 - **WHEN** an extension source specifies `@acme/tool@not-a-version`
 - **AND** `semver.validRange()` returns null
-- **THEN** the system SHALL fail with a CliError indicating the version constraint is invalid
+- **THEN** the system SHALL fail with a AppError indicating the version constraint is invalid
 
 #### Scenario: Lockfile resolved values reject ranges
 
 - **WHEN** a resolved lockfile field would be written as `^1.2.0`
-- **THEN** the operation SHALL fail with a `CliError` indicating resolved lockfile versions must be exact
+- **THEN** the operation SHALL fail with a `AppError` indicating resolved lockfile versions must be exact
 
 ### Requirement: Constraint priority
 
@@ -97,7 +97,7 @@ When multiple packs constrain the same extension and the user has no explicit co
 
 - **WHEN** the user's settings specify `@acme/tool@^5.0.0`
 - **AND** no available version satisfies `^5.0.0`
-- **THEN** the system SHALL fail with a CliError indicating no matching version exists
+- **THEN** the system SHALL fail with a AppError indicating no matching version exists
 
 ### Requirement: Update warnings
 

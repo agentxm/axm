@@ -7,7 +7,7 @@ CLI behavior flags (`--yes`, `--non-interactive`, `--force`, `--preview`) are de
 - **BREAKING**: Introduce a `CliFlags` Effect service that resolves `--yes`, `--non-interactive`, `--force`, and `--preview` once at the `run()` boundary. All handlers and services read from `CliFlags` instead of receiving raw flag values.
 - **BREAKING**: Define `--yes`, `--force`, and `--preview` as global flags in `main.ts` (alongside the existing `--non-interactive`). Remove per-command definitions of these flags.
 - **BREAKING**: Remove behavior flags (`yes`, `nonInteractive`, `preview`, `force`) from `WorkspaceContextOptions`. Workspace service depends on `CliFlags` instead.
-- **BREAKING**: `ClackPromptService` depends on `CliFlags` and fails fast with a `CliError` (`PROMPT_IN_NON_INTERACTIVE`) if any prompt method is called when `nonInteractive` is true. This catches missed guards at development time rather than hanging in CI.
+- **BREAKING**: `ClackPromptService` depends on `CliFlags` and fails fast with an `AppError` (`PROMPT_IN_NON_INTERACTIVE`) if any prompt method is called when `nonInteractive` is true. This catches missed guards at development time rather than hanging in CI.
 - Remove duplicated `nonInteractive` resolution logic from `command-actions.ts` files. Single resolution lives in the `CliFlags` layer constructor.
 - Handler arg types that currently carry `nonInteractive: Option<boolean>` switch to reading the resolved `boolean` from `CliFlags`.
 

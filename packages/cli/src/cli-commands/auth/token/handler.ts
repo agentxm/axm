@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -27,7 +27,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const maybeToken = yield* resolveToken(registryUrl);
 
   if (Option.isNone(maybeToken)) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
       what: "No token available",
       howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",

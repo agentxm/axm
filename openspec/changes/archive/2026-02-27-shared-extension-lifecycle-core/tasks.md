@@ -6,12 +6,12 @@
 
 Foundational breaking change: evolve `PlannedJobStep`, `Plan`, `resolvePlan`, and `applyPlan` to the new readiness-aware model with `run` closures. Adapt all existing handlers to compile with new types. **No dependencies — start here.**
 
-- [x] 1.1 Write tests for new plan type readiness model: ready steps execute, warn steps prompt (and respect `--force`), error steps block entire plan with `CliError` (code: `PLAN_BLOCKED_BY_ERRORS`), warn decline returns `PromptCancelled`
+- [x] 1.1 Write tests for new plan type readiness model: ready steps execute, warn steps prompt (and respect `--force`), error steps block entire plan with `AppError` (code: `PLAN_BLOCKED_BY_ERRORS`), warn decline returns `PromptCancelled`
 - [x] 1.2 Write tests for inter-job blocking (step error in job N blocks job N+1) and intra-job continuation (sibling steps in same job continue)
-- [x] 1.3 Evolve `PlannedJobStep` from generic `PlannedJobStep<TOperation>` to discriminated union `ReadyJobStep | WarnJobStep | ErrorJobStep` with `run` closures (`Effect<JobStepResult, CliError, never>`). Remove `operation` payload and `_tag`. Add `CompletedJobStep`, `ExecutedPlan`, and update `JobStepResult` (remove `no-op`, keep `success`/`error`). Update `Plan` and `Job` to non-generic. All in `workspace/plan.ts`.
+- [x] 1.3 Evolve `PlannedJobStep` from generic `PlannedJobStep<TOperation>` to discriminated union `ReadyJobStep | WarnJobStep | ErrorJobStep` with `run` closures (`Effect<JobStepResult, AppError, never>`). Remove `operation` payload and `_tag`. Add `CompletedJobStep`, `ExecutedPlan`, and update `JobStepResult` (remove `no-op`, keep `success`/`error`). Update `Plan` and `Job` to non-generic. All in `workspace/plan.ts`.
 - [x] 1.4 Typecheck `packages/cli` — identify and list all compilation errors from type changes
 - [x] 1.5 Evolve `applyPlan` in `workspace/apply-plan.ts`: remove handler-map dispatch; iterate steps and execute `step.run()` directly for `ready`/`warn` steps; promote `error` steps to error results without execution. Preserve inter-job blocking and intra-job continuation. Return `ExecutedPlan`.
-- [x] 1.6 Evolve `resolvePlan` in `workspace/service.ts`: remove handler-map parameter; remove `augmentPlan` call; add readiness gating (fail with `CliError` code `PLAN_BLOCKED_BY_ERRORS` when any step has `readiness === "error"`); add warn prompting (prompt user unless `--force`; fail with `PromptCancelled` on decline); execute via new `applyPlan`. Signature: `resolvePlan(plan: Plan) => Effect<ExecutedPlan, PromptCancelled | CliError>`.
+- [x] 1.6 Evolve `resolvePlan` in `workspace/service.ts`: remove handler-map parameter; remove `augmentPlan` call; add readiness gating (fail with `AppError` code `PLAN_BLOCKED_BY_ERRORS` when any step has `readiness === "error"`); add warn prompting (prompt user unless `--force`; fail with `PromptCancelled` on decline); execute via new `applyPlan`. Signature: `resolvePlan(plan: Plan) => Effect<ExecutedPlan, PromptCancelled | AppError>`.
 - [x] 1.7 Typecheck `packages/cli`
 - [x] 1.8 Adapt skills install plan builder (`cli-commands/skills/install/`) to use new `PlannedJobStep` with inline `run` closures that capture workspace service + materialization dependencies. Remove operation-based step construction. Update handler to call `ws.resolvePlan(plan)` without handler map.
 - [x] 1.9 Adapt skills uninstall plan builder and handler similarly — inline `run` closures capture workspace service for removal + pack-ownership checks.
@@ -126,7 +126,7 @@ Add `namespace` field to `PackExtensionRefBase` and implement pack install/unins
 - [x] 6.6 Implement `expandPackInstallRefs` helper
 - [x] 6.7 Write tests for `expandPackUninstallTargets` — computes removable targets: pack deps minus remaining-pack-refs minus directly-configured extensions; pack target first then orphaned deps
 - [x] 6.8 Implement `expandPackUninstallTargets` helper
-- [x] 6.9 Write tests for `resolveSkillUninstallTargetsFromLockfile` — resolves skill names to `SkillExtensionTarget` via lockfile; fails with `CliError` if name not found
+- [x] 6.9 Write tests for `resolveSkillUninstallTargetsFromLockfile` — resolves skill names to `SkillExtensionTarget` via lockfile; fails with `AppError` if name not found
 - [x] 6.10 Implement `resolveSkillUninstallTargetsFromLockfile` helper
 - [x] 6.11 Typecheck
 - [x] 6.12 Run `pnpm typecheck` for all packages, fix any errors

@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { makeCliError } from "../cli-error/cli-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore, type CredentialStoreService } from "./credential-store.js";
 import {
@@ -59,7 +59,7 @@ const refreshTokenRequest = (
     });
     const response = yield* baseClient.execute(request).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_REFRESH_FAILED",
           what: "Token refresh request failed",
           howToFix: "Run `axm login` to re-authenticate.",
@@ -70,7 +70,7 @@ const refreshTokenRequest = (
 
     if (response.status !== 200) {
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "AUTH_REFRESH_FAILED",
           what: `Token refresh returned status ${String(response.status)}`,
           howToFix: "Run `axm login` to re-authenticate.",
@@ -80,7 +80,7 @@ const refreshTokenRequest = (
 
     const bodyText = yield* response.text.pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_REFRESH_FAILED",
           what: "Failed to read refresh response body",
           cause: error,
@@ -91,7 +91,7 @@ const refreshTokenRequest = (
     const json = yield* Effect.try({
       try: () => JSON.parse(bodyText) as unknown,
       catch: (error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_REFRESH_FAILED",
           what: "Failed to parse refresh response",
           cause: error,

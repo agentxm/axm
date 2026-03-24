@@ -32,7 +32,7 @@ Depends on: Phase 1
 - [x] 2.8 Run `pnpm typecheck` immediately after task 2.7 and fix any errors
 - [x] 2.9 Implement `RemoveFromPackOperation` handler to apply precomputed manifest-remove delta
 - [x] 2.10 Run `pnpm typecheck` immediately after task 2.9 and fix any errors
-- [x] 2.11 Add optimistic manifest precondition validation in pack add/remove operations and return `CliError` conflict on stale state
+- [x] 2.11 Add optimistic manifest precondition validation in pack add/remove operations and return `AppError` conflict on stale state
 - [x] 2.12 Run `pnpm typecheck` immediately after task 2.11 and fix any errors
 - [x] 2.13 Run `pnpm typecheck` and fix any errors
 - [x] 2.14 Run `pnpm lint` and fix any errors
@@ -79,7 +79,7 @@ Depends on: Phase 2 (can proceed in parallel with Phase 3 after operation scaffo
 - [x] 4.7 Run `pnpm typecheck` immediately after task 4.6 and fix any errors
 - [x] 4.8 Extend `disableSkill` operation to support configured/no-lock settings-only disable and implicit->configured disabled promotion
 - [x] 4.9 Run `pnpm typecheck` immediately after task 4.8 and fix any errors
-- [x] 4.10 Implement deterministic source fallback order for implicit promotion and fail with `CliError` when source cannot be derived
+- [x] 4.10 Implement deterministic source fallback order for implicit promotion and fail with `AppError` when source cannot be derived
 - [x] 4.11 Run `pnpm typecheck` immediately after task 4.10 and fix any errors
 - [x] 4.12 Run `pnpm typecheck` and fix any errors
 - [x] 4.13 Run `pnpm lint` and fix any errors
@@ -118,5 +118,5 @@ Depends on: Phase 5
 - [x] 6.6 Run `pnpm test:e2e` and fix any failures
 - [x] 6.7 Kill any vitest worker processes
 - [x] 6.8 Acceptance criteria: all six targeted handlers (`skills new`, `packs new`, `packs add`, `packs remove`, `skills enable`, `skills disable`) execute state-changing paths through `ws.resolvePlan()`
-- [x] 6.9 Acceptance criteria: pack add/remove apply path rejects stale manifest preconditions with a typed `CliError` conflict and no partial writes
+- [x] 6.9 Acceptance criteria: pack add/remove apply path rejects stale manifest preconditions with a typed `AppError` conflict and no partial writes
 - [x] 6.10 Acceptance criteria: `openspec status --change handler-side-effect-audit --json` reports `isComplete: true`

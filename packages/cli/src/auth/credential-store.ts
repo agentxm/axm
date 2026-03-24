@@ -17,8 +17,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { CliError } from "../cli-error/cli-error.js";
-import { makeCliError } from "../cli-error/cli-error.js";
+import type { AppError } from "../app-error/app-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 import { CliEnvConfig } from "../config/index.js";
 import { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
@@ -37,9 +37,9 @@ export interface CredentialStoreService {
       readonly refresh_token: string;
       readonly expires_at: string;
     },
-  ) => Effect.Effect<void, CliError>;
-  readonly load: (registryUrl: string) => Effect.Effect<Option.Option<StoredCredentials>, CliError>;
-  readonly clear: (registryUrl: string) => Effect.Effect<void, CliError>;
+  ) => Effect.Effect<void, AppError>;
+  readonly load: (registryUrl: string) => Effect.Effect<Option.Option<StoredCredentials>, AppError>;
+  readonly clear: (registryUrl: string) => Effect.Effect<void, AppError>;
   readonly tier: StorageTier;
 }
 
@@ -87,7 +87,7 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
     if (!exists) {
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "AUTH_CREDENTIAL_STORE_FAILED",
             what: `Failed to create credentials directory: ${dir}`,
             details: [String(error)],
@@ -124,7 +124,7 @@ const readCredentialFile = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   homeDir: string,
-): Effect.Effect<Option.Option<CredentialFile>, CliError> =>
+): Effect.Effect<Option.Option<CredentialFile>, AppError> =>
   Effect.gen(function* () {
     const filePath = getCredentialsPath(path, homeDir);
     const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
@@ -137,7 +137,7 @@ const readCredentialFile = (
 
     const content = yield* fs.readFileString(filePath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to read credential file",
           details: [String(error)],
@@ -149,7 +149,7 @@ const readCredentialFile = (
     const json = yield* Effect.try({
       try: () => JSON.parse(content) as unknown,
       catch: (error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to parse credential file",
           details: [String(error)],
@@ -174,13 +174,13 @@ const writeCredentialFile = (
   path: Path.Path,
   homeDir: string,
   data: CredentialFile,
-): Effect.Effect<void, CliError> =>
+): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
     yield* ensureCredentialsDir(fs, path, homeDir);
     const filePath = getCredentialsPath(path, homeDir);
     const encoded = yield* Schema.encodeEffect(CredentialFileSchema)(data).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to encode credential file",
           details: [String(error)],
@@ -191,7 +191,7 @@ const writeCredentialFile = (
     const content = JSON.stringify(encoded, null, 2);
     yield* fs.writeFileString(filePath, content).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to write credential file",
           details: [String(error)],

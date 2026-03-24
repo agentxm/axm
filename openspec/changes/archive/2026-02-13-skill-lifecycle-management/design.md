@@ -92,10 +92,10 @@ All handler code works with `NormalizedSkillEntry`. The workspace service handle
 
 **New methods:**
 
-- `getConfiguredSkills(): Effect<ReadonlyRecord<string, NormalizedSkillEntry>, CliError>` — returns all skill entries from settings (managed and unmanaged), normalized. This is the complete view of user-declared desired state. Callers filter by `managed`, `enabled`, etc. as needed. A future `getActualSkills()` will inspect disk state for comparison.
-- `updateSkillEntry(name: string, updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry): Effect<void, CliError>` — reads the current entry, applies the updater, collapses, and writes back. Fails with `CliError` if the skill doesn't exist in settings. Mutex-protected like `setSkill`. Used by enable/disable.
-- `updateLockEntryAgents(name: string, agents: ReadonlyArray<string>): Effect<void, CliError>` — updates the `agents` field on the lock entry for the given skill. Fails with `CliError` if the lock entry doesn't exist. Mutex-protected. Used by enable/disable to keep lock entry agents in sync with actual symlink state.
-- `renameSkill(oldName: string, newName: string): Effect<void, CliError>` — atomically renames the key in both settings and lockfile. Reads old entry + lock entry, writes new key, removes old key. Mutex-protected.
+- `getConfiguredSkills(): Effect<ReadonlyRecord<string, NormalizedSkillEntry>, AppError>` — returns all skill entries from settings (managed and unmanaged), normalized. This is the complete view of user-declared desired state. Callers filter by `managed`, `enabled`, etc. as needed. A future `getActualSkills()` will inspect disk state for comparison.
+- `updateSkillEntry(name: string, updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry): Effect<void, AppError>` — reads the current entry, applies the updater, collapses, and writes back. Fails with `AppError` if the skill doesn't exist in settings. Mutex-protected like `setSkill`. Used by enable/disable.
+- `updateLockEntryAgents(name: string, agents: ReadonlyArray<string>): Effect<void, AppError>` — updates the `agents` field on the lock entry for the given skill. Fails with `AppError` if the lock entry doesn't exist. Mutex-protected. Used by enable/disable to keep lock entry agents in sync with actual symlink state.
+- `renameSkill(oldName: string, newName: string): Effect<void, AppError>` — atomically renames the key in both settings and lockfile. Reads old entry + lock entry, writes new key, removes old key. Mutex-protected.
 
 ### 4. New operations and operation handlers
 

@@ -17,7 +17,7 @@ This change closes remote/local parity gaps for source resolution and package re
 **Goals:**
 
 - Implement all `RegistryClient` remote read methods needed for install/discovery flows.
-- Preserve typed `CliError` behavior with stable error codes and request context in `details`.
+- Preserve typed `AppError` behavior with stable error codes and request context in `details`.
 - Keep remote client response decoding schema-validated before mapping to registry-domain types.
 - Ensure tests cover happy-path + failure-path behavior for each new remote method.
 - Keep linting green as a merge gate for this change.
@@ -38,7 +38,7 @@ This change closes remote/local parity gaps for source resolution and package re
 - If response is `200` and `extensions.length > 0`, return `{ exists: true }`.
 - If response is `200` and `extensions.length === 0`, return `{ exists: false }`.
 - If response is `404`, return `{ exists: false }`.
-- Any other non-2xx status maps to `CliError` (`REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED`).
+- Any other non-2xx status maps to `AppError` (`REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED`).
 
 Rationale: There is no dedicated namespace-existence endpoint with strong semantics today. Listing is available and stable. Defining "exists" as "has at least one published extension" matches observable registry behavior and keeps callers deterministic.
 

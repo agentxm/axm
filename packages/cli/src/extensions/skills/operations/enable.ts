@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -83,7 +83,7 @@ export const enableSkill: OperationHandler<
 
     const exists = yield* fs.exists(skillSrcPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "ENABLE_SKILL_MISSING_FILES",
         what: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
         howToFix: "Try reinstalling the skill with `axm skills install`",

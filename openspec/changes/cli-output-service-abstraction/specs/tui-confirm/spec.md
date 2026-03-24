@@ -2,7 +2,7 @@
 
 ### Requirement: Confirm prompt collects yes/no boolean
 
-The confirm capability SHALL be provided by `Input.confirm` from `src/input/`. It SHALL accept a config with `message` (required) and optional `initialValue` and return `Effect<boolean, CliError | PromptCancelled>`.
+The confirm capability SHALL be provided by `Input.confirm` from `src/input/`. It SHALL accept a config with `message` (required) and optional `initialValue` and return `Effect<boolean, AppError | PromptCancelled>`.
 
 #### Scenario: Confirm defaults to yes
 

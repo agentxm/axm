@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -61,7 +61,7 @@ export const uninstallCommand: OperationHandler<
 
     const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "UNINSTALL_COMMAND_LOCKFILE_READ_FAILED",
           what: `Failed to read lockfile: ${e.what}`,
           cause: e,

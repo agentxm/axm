@@ -24,7 +24,7 @@ The previous `skip` readiness state is removed. Operations are idempotent; re-ru
 #### Scenario: Error step prevents entire plan from executing
 
 - **WHEN** a plan contains any step with readiness `error`
-- **THEN** `resolvePlan` SHALL fail with a `CliError` (code: `PLAN_BLOCKED_BY_ERRORS`)
+- **THEN** `resolvePlan` SHALL fail with a `AppError` (code: `PLAN_BLOCKED_BY_ERRORS`)
 - **AND** no step `run` effects SHALL be executed
 
 ### Requirement: Force flag bypasses warn prompts
@@ -59,7 +59,7 @@ Each executed step SHALL produce a `CompletedJobStep` with a `label` and a `JobS
 
 #### Scenario: Failed step produces error result
 
-- **WHEN** a ready step's `run` effect fails with a `CliError`
+- **WHEN** a ready step's `run` effect fails with a `AppError`
 - **THEN** the completed step SHALL have `result: "error"` with the error details
 
 ### Requirement: Inter-job blocking on step failure
@@ -218,7 +218,7 @@ Uninstall operations SHALL use typed extension targets for identifying extension
 
 ### Requirement: Plan step run effects are self-contained
 
-Each planned job step's `run` effect SHALL be `Effect<JobStepResult, CliError, never>`. All dependencies required for step execution SHALL be resolved before plan construction and captured in the step's closure.
+Each planned job step's `run` effect SHALL be `Effect<JobStepResult, AppError, never>`. All dependencies required for step execution SHALL be resolved before plan construction and captured in the step's closure.
 
 #### Scenario: Step execution requires no runtime service resolution
 

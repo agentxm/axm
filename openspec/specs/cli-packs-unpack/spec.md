@@ -64,4 +64,4 @@ After unpacking, the pack lock entry SHALL be removed from the lockfile `packs` 
 
 - **WHEN** user runs `axm packs unpack @acme/nonexistent`
 - **AND** no pack named `@acme/nonexistent` is installed
-- **THEN** the command fails with a `CliError` indicating the pack is not installed
+- **THEN** the command fails with a `AppError` indicating the pack is not installed

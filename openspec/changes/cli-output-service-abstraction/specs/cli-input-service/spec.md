@@ -2,7 +2,7 @@
 
 ### Requirement: Input service provides interactive prompts
 
-The `Input` service SHALL be defined at `src/input/input.ts` as an Effect service. It SHALL provide methods `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, and `path`. All methods SHALL return `Effect<T, CliError | PromptCancelled>`. These methods SHALL have 1:1 behavioral parity with the former `ClackPrompt` methods they replace.
+The `Input` service SHALL be defined at `src/input/input.ts` as an Effect service. It SHALL provide methods `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, and `path`. All methods SHALL return `Effect<T, AppError | PromptCancelled>`. These methods SHALL have 1:1 behavioral parity with the former `ClackPrompt` methods they replace.
 
 #### Scenario: Text input
 
@@ -67,7 +67,7 @@ The `Input` service SHALL be defined at `src/input/input.ts` as an Effect servic
 
 ### Requirement: Input prompts support cancellation
 
-All `Input` methods SHALL fail with `PromptCancelled` when the user presses Escape or Ctrl+C. `PromptCancelled` SHALL remain a distinct control-flow signal (exit 0), not a `CliError`.
+All `Input` methods SHALL fail with `PromptCancelled` when the user presses Escape or Ctrl+C. `PromptCancelled` SHALL remain a distinct control-flow signal (exit 0), not an `AppError`.
 
 #### Scenario: Any prompt cancelled
 
@@ -91,23 +91,23 @@ The `text`, `password`, `autocomplete`, `autocompleteMultiselect`, and `path` me
 
 ### Requirement: Input service guards against non-interactive mode
 
-The `InputLive` layer SHALL depend on `CliFlags`. When `nonInteractive` is true, all prompt methods SHALL fail with a `CliError` (code `PROMPT_IN_NON_INTERACTIVE`) instead of rendering UI. The error message SHALL indicate that the handler should bypass the prompt when `--non-interactive` is set.
+The `InputLive` layer SHALL depend on `CliFlags`. When `nonInteractive` is true, all prompt methods SHALL fail with an `AppError` (code `PROMPT_IN_NON_INTERACTIVE`) instead of rendering UI. The error message SHALL indicate that the handler should bypass the prompt when `--non-interactive` is set.
 
 #### Scenario: Prompt in non-interactive mode
 
 - **WHEN** `CliFlags.nonInteractive` is true
 - **AND** a handler calls any `Input` method
-- **THEN** the effect SHALL fail with `CliError` code `PROMPT_IN_NON_INTERACTIVE`
+- **THEN** the effect SHALL fail with `AppError` code `PROMPT_IN_NON_INTERACTIVE`
 
 ### Requirement: Input service has structured output layer
 
-The `Input` service SHALL have a structured layer `InputStructured`. In structured output modes (`json` or `stream-json`), all prompt methods SHALL fail with `CliError` code `PROMPT_IN_STRUCTURED_OUTPUT`. The error message SHALL suggest passing the equivalent flag to provide the value non-interactively.
+The `Input` service SHALL have a structured layer `InputStructured`. In structured output modes (`json` or `stream-json`), all prompt methods SHALL fail with `AppError` code `PROMPT_IN_STRUCTURED_OUTPUT`. The error message SHALL suggest passing the equivalent flag to provide the value non-interactively.
 
 #### Scenario: Prompt in structured output mode
 
 - **WHEN** output format is `json` or `stream-json`
 - **AND** a handler calls `input.confirm({ message: "Continue?" })`
-- **THEN** the effect SHALL fail with `CliError` code `PROMPT_IN_STRUCTURED_OUTPUT`
+- **THEN** the effect SHALL fail with `AppError` code `PROMPT_IN_STRUCTURED_OUTPUT`
 - **AND** the error `howToFix` SHALL suggest the equivalent flag alternative
 
 ### Requirement: Input config types are owned, not Clack types

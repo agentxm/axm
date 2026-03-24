@@ -33,7 +33,7 @@ import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
-import { CliError } from "../../../cli-error/index.js";
+import { AppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -181,8 +181,8 @@ describe("skills install handler — error propagation", () => {
           // "nonexistent-skill" is a bare name — it will go through resolveSkillRegistrySourceByName
           // which will fail with REGISTRY_SKILL_NOT_FOUND when no registry has it
           const error = yield* handleInstall(defaultArgs("nonexistent-skill")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("REGISTRY_SKILL_NOT_FOUND");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("REGISTRY_SKILL_NOT_FOUND");
         }),
       );
     },
@@ -196,8 +196,8 @@ describe("skills install handler — error propagation", () => {
       Effect.gen(function* () {
         // Empty string cannot be parsed — parseInputPattern returns Option.none()
         const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
-        expect(error._tag).toBe("CliError");
-        expect((error as CliError).code).toBe("INVALID_SOURCE");
+        expect(error._tag).toBe("AppError");
+        expect((error as AppError).code).toBe("INVALID_SOURCE");
         expect(spinnerMock.starts).toContain("Parsing source...");
         expect(spinnerMock.stops).toContain("Failed");
       }),
@@ -262,9 +262,9 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs("/path/does/not/exist")).pipe(Effect.flip);
-        expect(error._tag).toBe("CliError");
-        expect((error as CliError).code).toBe("DISCOVER_FAILED");
-        const details = (error as CliError).details;
+        expect(error._tag).toBe("AppError");
+        expect((error as AppError).code).toBe("DISCOVER_FAILED");
+        const details = (error as AppError).details;
         const reason = details.find((d) => d.startsWith("Reason:"));
         expect(reason).toBeDefined();
         expect(reason).not.toBe("Reason:");

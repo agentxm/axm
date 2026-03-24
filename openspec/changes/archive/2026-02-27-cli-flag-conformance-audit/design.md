@@ -35,7 +35,7 @@ The core of the issue is in `workspace/service.ts` `resolvePlan()`, which owns t
 
 | Readiness | Without `--force`                         | With `--force`                       |
 | --------- | ----------------------------------------- | ------------------------------------ |
-| `error`   | Fail with `CliError` suggesting `--force` | Downgrade to warning (show, proceed) |
+| `error`   | Fail with `AppError` suggesting `--force` | Downgrade to warning (show, proceed) |
 | `warn`    | Show warning, proceed (never blocks)      | Show warning, proceed                |
 | `ok`      | Proceed                                   | Proceed                              |
 

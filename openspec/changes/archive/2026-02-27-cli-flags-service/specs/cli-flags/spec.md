@@ -92,13 +92,13 @@ The `run()` function SHALL construct and provide the `CliFlags` layer. All progr
 
 ### Requirement: Prompt Service Non-Interactive Guard
 
-The `ClackPromptService` SHALL depend on `CliFlags` and fail fast with a `CliError` when any prompt method is called in non-interactive mode.
+The `ClackPromptService` SHALL depend on `CliFlags` and fail fast with an `AppError` when any prompt method is called in non-interactive mode.
 
 #### Scenario: Prompt called in non-interactive mode fails
 
 - **WHEN** `flags.nonInteractive` is `true`
 - **AND** any prompt method is called (text, confirm, select, multiselect, etc.)
-- **THEN** the prompt SHALL fail with a `CliError` with code `PROMPT_IN_NON_INTERACTIVE`
+- **THEN** the prompt SHALL fail with an `AppError` with code `PROMPT_IN_NON_INTERACTIVE`
 - **AND** the error SHALL indicate this is a bug in the handler
 
 #### Scenario: Prompt called in interactive mode proceeds normally

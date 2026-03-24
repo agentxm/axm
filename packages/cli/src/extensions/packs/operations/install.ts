@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
@@ -109,7 +109,7 @@ export const installPack: OperationHandler<
       Effect.gen(function* () {
         const fetched = yield* sources.fetch(op.args.ref).pipe(
           Effect.mapError((error) =>
-            makeCliError({
+            makeAppError({
               code: "PACK_FETCH_FAILED",
               what: `Failed to fetch pack archive: ${error.message}`,
               cause: error,
@@ -119,7 +119,7 @@ export const installPack: OperationHandler<
 
         yield* copySkillDirectory(fetched.directory, packDir).pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "PACK_EXTRACT_FAILED",
               what: `Failed to extract pack to ${packDir}`,
               cause: e,

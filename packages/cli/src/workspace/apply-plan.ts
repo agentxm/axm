@@ -10,7 +10,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type {
   CompletedJobStep,
   ExecutedPlan,
@@ -27,7 +27,7 @@ import type {
 /** @deprecated Will be removed in a future phase. */
 export type OperationHandler<Op, R = never> = (
   op: Op,
-) => Effect.Effect<OperationResult, CliError, R>;
+) => Effect.Effect<OperationResult, AppError, R>;
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -41,7 +41,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
         result: {
           result: "error",
           message: step.errorMessage,
-          error: makeCliError({
+          error: makeAppError({
             code: "PLAN_STEP_ERROR",
             what: step.errorMessage,
           }),
@@ -77,7 +77,7 @@ const blockStep = (step: PlannedJobStep): CompletedJobStep => ({
   result: {
     result: "error",
     message: "blocked by earlier job failure",
-    error: makeCliError({
+    error: makeAppError({
       code: "PLAN_STEP_BLOCKED",
       what: "blocked by earlier job failure",
     }),
@@ -92,7 +92,7 @@ const blockStep = (step: PlannedJobStep): CompletedJobStep => ({
  * produces an error result, subsequent jobs are blocked. Intra-job
  * continuation: sibling steps in the same job continue executing.
  *
- * Never fails — catches CliError and converts to error results.
+ * Never fails — catches AppError and converts to error results.
  */
 export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never> =>
   Effect.gen(function* () {

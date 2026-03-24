@@ -25,11 +25,11 @@ import type {
   InstalledExtensionRef,
   ClassifiedExtensionRef,
 } from "./service.js";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type * as Record from "effect/Record";
 
-type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, CliError>;
-type RA = Effect.Effect<ReadonlyArray<string>, CliError>;
+type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
+type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 
 const empty = <T>(): R<T> => Effect.succeed({}) as R<T>;
 const emptyArr = (): RA => Effect.succeed([]);

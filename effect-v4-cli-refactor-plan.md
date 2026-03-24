@@ -139,7 +139,7 @@ commands. No command behavior changes in this phase.
   | stderr    | Human-readable message | Brief human message                   |
   | Exit code | 2 (usage), 1 (runtime) | 2 (usage), 1 (runtime), 4 (cancelled) |
 
-  Map `CliError` fields (`code`, `what`, `details`, `howToFix`) to the
+  Map `AppError` fields (`code`, `what`, `details`, `howToFix`) to the
   structured error JSON shape. Map `PromptCancelled` to exit code 4.
 
 - [x] **1.5 Add graceful shutdown** — Add `withGracefulShutdown()` wrapper (from
@@ -418,7 +418,7 @@ Migrate by command group, simplest first:
       handle that runs the inner effect without visual feedback.
 
 - [x] **5.4 Implement mode-aware `ClackPrompt`** — `ClackPromptStructured` in
-      `clack-effect/prompt/structured.ts`. All prompt methods fail with `CliError`
+      `clack-effect/prompt/structured.ts`. All prompt methods fail with `AppError`
       code `PROMPT_IN_STRUCTURED_OUTPUT`, suggesting the equivalent flag. Also
       implemented structured variants for `ClackProgress`, `ClackTaskLog`, and
       `ClackStream`.

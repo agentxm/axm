@@ -2,7 +2,7 @@
 
 ### Requirement: Password input collects masked text
 
-The password-input capability SHALL be provided by `ClackPrompt.password` from `src/clack-effect/prompt/`. It SHALL accept `message` with optional `mask` and optional `validate`, and return `Effect<string, CliError | PromptCancelled>`.
+The password-input capability SHALL be provided by `ClackPrompt.password` from `src/clack-effect/prompt/`. It SHALL accept `message` with optional `mask` and optional `validate`, and return `Effect<string, AppError | PromptCancelled>`.
 
 #### Scenario: Basic password input
 

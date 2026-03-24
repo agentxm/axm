@@ -556,7 +556,7 @@ describe("resolveSkillUninstallTargetsFromLockfile", () => {
     expect(result[1]).toEqual({ type: "skill", name: "skill-b" });
   });
 
-  it("fails with CliError when skill name not found in lockfile", () => {
+  it("fails with AppError when skill name not found in lockfile", () => {
     const lockfile: Lockfile = {
       lockfileVersion: 1,
       skills: {},

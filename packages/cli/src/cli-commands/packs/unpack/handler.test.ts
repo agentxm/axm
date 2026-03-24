@@ -343,7 +343,7 @@ describe("packs unpack.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleUnpack(defaultArgs("nonexistent-pack")).pipe(
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
                 what: e.what,

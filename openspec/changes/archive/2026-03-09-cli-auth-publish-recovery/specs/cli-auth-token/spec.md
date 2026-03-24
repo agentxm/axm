@@ -32,7 +32,7 @@ The `axm token` command SHALL output the current resolved token to stdout with n
 #### Scenario: No token available
 
 - **WHEN** the user runs `axm token` and no token is resolvable from any source
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_REQUIRED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_REQUIRED`
 - **AND** `howToFix` SHALL read "Run `axm login` to sign in, or set the AXM_TOKEN environment variable."
 
 ### Requirement: Token command is non-interactive

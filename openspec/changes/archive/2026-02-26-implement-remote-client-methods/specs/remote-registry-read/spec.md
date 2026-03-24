@@ -22,7 +22,7 @@ The `RemoteRegistryClient.namespaceExists` method SHALL determine namespace exis
 #### Scenario: Namespace check network failure
 
 - **WHEN** the namespace existence request fails due to transport error
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR`
 
 ### Requirement: Remote package retrieval
 
@@ -46,12 +46,12 @@ The `RemoteRegistryClient.getExtensionPackage` method SHALL fetch extension arch
 #### Scenario: Requested version missing from index
 
 - **WHEN** an explicit requested version is not present in the remote index response
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_VERSION_NOT_FOUND`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_VERSION_NOT_FOUND`
 
 #### Scenario: Archive endpoint returns not found
 
 - **WHEN** index resolution succeeds but archive download returns `404`
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_PACKAGE_NOT_FOUND`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_PACKAGE_NOT_FOUND`
 
 ### Requirement: Remote namespace list discovery
 
@@ -80,4 +80,4 @@ The `RemoteRegistryClient.getExtensionsByScope` method SHALL support list-mode d
 #### Scenario: List response schema mismatch
 
 - **WHEN** remote list or index response JSON does not match expected schema
-- **THEN** the method SHALL fail with `CliError` code `REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE`
+- **THEN** the method SHALL fail with `AppError` code `REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE`

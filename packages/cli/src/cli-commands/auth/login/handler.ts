@@ -23,7 +23,7 @@ import { ClackLog } from "../../../clack-effect/log/service.js";
 import { ClackSpinner } from "../../../clack-effect/spinner/service.js";
 import { ClackPrompt } from "../../../clack-effect/prompt/service.js";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -40,7 +40,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
 
   // Step 1: Reject non-interactive mode
   if (flags.nonInteractive) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
       what: "Login requires an interactive terminal",
       howToFix:

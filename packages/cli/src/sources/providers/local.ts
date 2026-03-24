@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { CliEnvConfig } from "../../config/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import type { LocalSource, ExtensionRef } from "../types.js";
@@ -43,7 +43,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         includeInternal: false,
       }).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "SOURCE_FETCH_FAILED",
             what: `Failed to discover skills`,
             details: [error.message],
@@ -73,7 +73,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
   fetch: (_source, ref) => {
     if (ref.refType !== "local") {
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "SOURCE_FETCH_FAILED",
           what: "Expected ref with location for local source, but none was provided",
         }),

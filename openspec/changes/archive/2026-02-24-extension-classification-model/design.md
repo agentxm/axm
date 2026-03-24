@@ -20,12 +20,12 @@ Observed gaps versus the proposal taxonomy:
 
 ### Current Workspace Getter Return Shapes (Today)
 
-- `getConfiguredSkills(): Effect.Effect<Record.ReadonlyRecord<string, NormalizedSkillEntry>, CliError>`
-- `getInstalledSkills(): Effect.Effect<Record.ReadonlyRecord<string, NormalizedSkillEntry>, CliError>`
-- `getConfiguredCommands(): Effect.Effect<NonSkillExtensionsMap, CliError>`
-- `getConfiguredMcpServers(): Effect.Effect<NonSkillExtensionsMap, CliError>`
-- `getConfiguredPacks(): Effect.Effect<Record.ReadonlyRecord<string, PackEntry>, CliError>`
-- `getInstalledPacks(): Effect.Effect<Record.ReadonlyRecord<string, PackEntry>, CliError>`
+- `getConfiguredSkills(): Effect.Effect<Record.ReadonlyRecord<string, NormalizedSkillEntry>, AppError>`
+- `getInstalledSkills(): Effect.Effect<Record.ReadonlyRecord<string, NormalizedSkillEntry>, AppError>`
+- `getConfiguredCommands(): Effect.Effect<NonSkillExtensionsMap, AppError>`
+- `getConfiguredMcpServers(): Effect.Effect<NonSkillExtensionsMap, AppError>`
+- `getConfiguredPacks(): Effect.Effect<Record.ReadonlyRecord<string, PackEntry>, AppError>`
+- `getInstalledPacks(): Effect.Effect<Record.ReadonlyRecord<string, PackEntry>, AppError>`
 
 ## Goals / Non-Goals
 
@@ -154,7 +154,7 @@ Pack native-only enforcement:
 
 ### Error Code Contract
 
-Introduce explicit `CliError` codes for taxonomy validation/classification paths:
+Introduce explicit `AppError` codes for taxonomy validation/classification paths:
 
 - `SETTINGS_IGNORED_PATTERN_INVALID` — ignored pattern is empty/invalid after normalization.
 - `SETTINGS_IGNORED_CONFIG_CONFLICT` — configured entry matches an ignored pattern.
@@ -169,8 +169,8 @@ All failures include actionable `howToFix` guidance.
 ```ts
 import { Array, Effect, Option } from "effect";
 import type { ExtensionType } from "../extensions/common.js";
-import { makeCliError } from "@/cli-error";
-import type { CliError } from "@/cli-error";
+import { makeAppError } from "@/app-error";
+import type { AppError } from "@/app-error";
 import { expandGlob } from "@/skills";
 
 type ClassifierExtensionType = ExtensionType;
@@ -214,7 +214,7 @@ const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =
 
 const classifyExtensions = (
   input: ClassifierInput,
-): Effect.Effect<ReadonlyArray<ClassifiedExtension>, CliError> =>
+): Effect.Effect<ReadonlyArray<ClassifiedExtension>, AppError> =>
   Effect.gen(function* () {
     const sourceMetaFor = (name: string) =>
       input.sourceMetaByName[name] ??
@@ -231,7 +231,7 @@ const classifyExtensions = (
         sourceMetaFor(name).packagingKind !== "native",
     );
     if (invalidLockfileOnlyNonNative.length > 0) {
-      yield* makeCliError({
+      yield* makeAppError({
         code: "WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY",
         what: "Lockfile-only non-native entries are invalid classifier input",
         details: invalidLockfileOnlyNonNative,
@@ -608,33 +608,33 @@ type ClassifiedSkill =
 interface WorkspaceContextService {
   readonly getConfiguredSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSkill>,
-    CliError
+    AppError
   >;
   readonly getImplicitSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitSkill>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedSkill>,
-    CliError
+    AppError
   >;
   readonly getInstalledSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledSkill>,
-    CliError
+    AppError
   >;
   readonly getClassifiedSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedSkill>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSkill>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedExternalSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedSkill>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
 }
 ```
 
@@ -752,93 +752,93 @@ interface WorkspaceContextService {
   // --- Commands (with enabled) ---
   readonly getConfiguredCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredCommand>,
-    CliError
+    AppError
   >;
   readonly getImplicitCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitCommand>,
-    CliError
+    AppError
   >;
   readonly getInstalledCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledCommand>,
-    CliError
+    AppError
   >;
   readonly getClassifiedCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedCommand>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredCommand>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedCommand>,
-    CliError
+    AppError
   >; // empty in phase 1
   readonly getUnmanagedExternalCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedCommand>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
 
   readonly getConfiguredMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getImplicitMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getInstalledMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getClassifiedMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >; // empty in phase 1
   readonly getUnmanagedExternalMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
 
   readonly getConfiguredPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getImplicitPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getInstalledPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getClassifiedPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >; // expected empty by invariant
   readonly getUnmanagedPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >; // empty in phase 1
   readonly getUnmanagedExternalPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >; // expected empty by invariant
-  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
 }
 ```
 

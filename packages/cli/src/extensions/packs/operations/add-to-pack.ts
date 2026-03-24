@@ -10,7 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -84,7 +84,7 @@ export const addToPack: OperationHandler<
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_NOT_FOUND",
           what: `Pack manifest not found at ${manifestPath}`,
           howToFix: "Ensure the pack exists on disk",
@@ -96,7 +96,7 @@ export const addToPack: OperationHandler<
     // 3. Stale-check: compare content hash
     const currentHash = hashContent(manifestContent);
     if (currentHash !== manifestHash) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PACK_MANIFEST_STALE",
         what: `Pack manifest is stale — it was modified since the plan was created`,
         howToFix: "Re-run the command to create a fresh plan",
@@ -107,7 +107,7 @@ export const addToPack: OperationHandler<
     const json = yield* Effect.try({
       try: () => JSON.parse(manifestContent) as unknown,
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
           what: `Failed to parse pack manifest: ${manifestPath}`,
           cause: e,
@@ -117,7 +117,7 @@ export const addToPack: OperationHandler<
     // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
     const manifest = (yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_MANIFEST_INVALID",
           what: `Invalid pack manifest: ${manifestPath}`,
           cause: e,
@@ -154,7 +154,7 @@ export const addToPack: OperationHandler<
     // 5. Write updated manifest
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_WRITE_FAILED",
           what: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,

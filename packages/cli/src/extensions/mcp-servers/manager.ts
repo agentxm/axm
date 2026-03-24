@@ -13,7 +13,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import { isPathSafe } from "../../utils/path-safety.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../sources/types.js";
 import type { McpServerLockEntry } from "../../lockfile/schema.js";
@@ -74,7 +74,7 @@ export const McpServerManagerLive = Layer.effect(
     }) =>
       Effect.gen(function* () {
         if (ref.refType !== "registry") {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_UNSUPPORTED_REF_TYPE",
             what: `Unsupported ref type for MCP server install: ${ref.refType}`,
           });
@@ -90,7 +90,7 @@ export const McpServerManagerLive = Layer.effect(
         );
 
         if (!isPathSafe(baseDir, canonicalPath)) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
             what: `Path traversal detected: ${canonicalPath}`,
           });
@@ -98,7 +98,7 @@ export const McpServerManagerLive = Layer.effect(
 
         const canonicalExists = yield* fs.exists(canonicalPath).pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "INSTALL_MCP_SERVER_PATH_CHECK_FAILED",
               what: `Failed to check if canonical path exists: ${canonicalPath}`,
               cause: e,
@@ -123,7 +123,7 @@ export const McpServerManagerLive = Layer.effect(
           if (registryRef.integrity !== "") {
             const actualIntegrity = yield* computeIntegrity(archive);
             if (actualIntegrity !== registryRef.integrity) {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
                 what: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
                 details: [`Expected ${registryRef.integrity}, got ${actualIntegrity}`],
@@ -133,7 +133,7 @@ export const McpServerManagerLive = Layer.effect(
 
           const tmpDir = yield* fs.makeTempDirectory().pipe(
             Effect.mapError((e) =>
-              makeCliError({
+              makeAppError({
                 code: "INSTALL_MCP_SERVER_TEMP_DIR_FAILED",
                 what: `Failed to create temporary directory for registry install`,
                 cause: e,
@@ -146,7 +146,7 @@ export const McpServerManagerLive = Layer.effect(
               yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
               yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
                 Effect.mapError((e) =>
-                  makeCliError({
+                  makeAppError({
                     code: "INSTALL_MCP_SERVER_COPY_FAILED",
                     what: `Failed to create canonical directory: ${canonicalPath}`,
                     cause: e,
@@ -155,7 +155,7 @@ export const McpServerManagerLive = Layer.effect(
               );
               const entries = yield* fs.readDirectory(tmpDir).pipe(
                 Effect.mapError((e) =>
-                  makeCliError({
+                  makeAppError({
                     code: "INSTALL_MCP_SERVER_COPY_FAILED",
                     what: `Failed to read extracted directory`,
                     cause: e,

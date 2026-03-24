@@ -9,7 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { formatFqn } from "../../index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -71,7 +71,7 @@ export const newPack: OperationHandler<
     // 2. Check if pack manifest already exists
     const exists = yield* fs.exists(manifestPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_CHECK_FAILED",
           what: `Failed to check if pack exists: ${manifestPath}`,
           cause: e,
@@ -80,7 +80,7 @@ export const newPack: OperationHandler<
     );
 
     if (exists) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "PACK_ALREADY_EXISTS",
         what: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
         howToFix: "Choose a different name or remove the existing pack first",
@@ -90,7 +90,7 @@ export const newPack: OperationHandler<
     // 3. Create pack directory
     yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_CREATE_FAILED",
           what: `Failed to create pack directory: ${packDir.canonicalPath}`,
           cause: e,
@@ -111,7 +111,7 @@ export const newPack: OperationHandler<
 
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "PACK_CREATE_FAILED",
           what: `Failed to write pack manifest: ${manifestPath}`,
           cause: e,

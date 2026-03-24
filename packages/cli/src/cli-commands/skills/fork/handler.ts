@@ -16,7 +16,7 @@ import { resolveSourcePattern, SourceHostProviders, type Source } from "../../..
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -60,7 +60,7 @@ const filterBySkillGlobs = (
     const matched = expandGlobs(skillPatterns, allNames);
     if (matched.length === 0) {
       return yield* Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "NO_SKILLS_MATCHED",
           what: "No skills matched the given patterns",
           details: [`Patterns: ${skillPatterns.join(", ")}`, `Available: ${allNames.join(", ")}`],
@@ -71,16 +71,16 @@ const filterBySkillGlobs = (
     return Array.filter(discoveredSkills, (s) => matched.includes(s.skill.name));
   });
 
-const isCliError = (error: unknown): error is CliError =>
+const isAppError = (error: unknown): error is AppError =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
-  error._tag === "CliError" &&
+  error._tag === "AppError" &&
   "what" in error &&
   "code" in error;
 
 const summarizeError = (error: unknown): string => {
-  if (isCliError(error)) {
+  if (isAppError(error)) {
     return `${error.what} (${error.code})`;
   }
   if (error instanceof Error) {
@@ -90,7 +90,7 @@ const summarizeError = (error: unknown): string => {
 };
 
 const isRemoteReadNotImplemented = (error: unknown): boolean =>
-  isCliError(error) &&
+  isAppError(error) &&
   (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
     (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
 
@@ -134,7 +134,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   // Step 1: Resolve namespace
   const namespace = yield* ws.getConfiguredNamespace().pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "NAMESPACE_RESOLUTION_FAILED",
         what: `Failed to resolve namespace: ${e._tag}`,
         howToFix: "Configure a namespace in your settings with `axm init`.",
@@ -149,12 +149,12 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     () =>
       Effect.gen(function* () {
         const resolvedSources = yield* resolveSourcePattern(args.source).pipe(
-          Effect.catchTag("CliError", (error) =>
+          Effect.catchTag("AppError", (error) =>
             error.code === "SOURCE_PARSE_FAILED"
               ? (() => {
                   const reason = summarizeError(error);
                   return Effect.fail(
-                    makeCliError({
+                    makeAppError({
                       code: "INVALID_SOURCE",
                       what: "Invalid source",
                       details: [`Provided: ${args.source}`, `Reason: ${reason}`],
@@ -187,7 +187,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             const howToFix = firstResolved
               ? discoverHowToFix(firstResolved, error)
               : noSkillsFoundHowToFix(args.source);
-            return makeCliError({
+            return makeAppError({
               code: "DISCOVER_FAILED",
               what: "Failed to discover skills from source",
               details: [`Source: ${sourceLabel}`, `Reason: ${reason}`],
@@ -204,7 +204,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
         if (discoveredSkills.length === 0) {
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "NO_SKILLS_FOUND",
               what: "No skills found in source",
               details: [`Source: ${args.source}`],
@@ -225,7 +225,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   // Step 4: Determine first registry source name for publishing
   const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "REGISTRY_SOURCES_FAILED",
         what: `Failed to get registry sources: ${e._tag}`,
         cause: e,
@@ -234,7 +234,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   );
   if (registrySources.length === 0) {
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "NO_REGISTRY_CONFIGURED",
         what: "No registry sources configured",
         howToFix: "Run the registry guard first.",

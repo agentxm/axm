@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { makeClackLogTestLayer, makeClackPromptTestLayer } from "../../clack-effect/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { CliFlagsTest } from "../../cli-flags/index.js";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
 import {
@@ -172,7 +172,7 @@ describe("runUninstallCommandWorkflow", () => {
   it.effect("propagates parseArgs failure", () =>
     Effect.gen(function* () {
       const actions: UninstallExtensionCommandWorkflowActions<TestArgs, TestParsed, TestIntent> = {
-        parseArgs: () => Effect.fail(makeCliError({ code: "PARSE_FAILED", what: "bad args" })),
+        parseArgs: () => Effect.fail(makeAppError({ code: "PARSE_FAILED", what: "bad args" })),
         finalizeIntent: () => Effect.succeed({ targets: [] }),
         buildUninstallPlan: () =>
           Effect.succeed({
@@ -194,7 +194,7 @@ describe("runUninstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedNames: ["x"] }),
         finalizeIntent: () => Effect.succeed({ targets: ["x"] }),
         buildUninstallPlan: () =>
-          Effect.fail(makeCliError({ code: "PLAN_FAILED", what: "plan error" })),
+          Effect.fail(makeAppError({ code: "PLAN_FAILED", what: "plan error" })),
       };
 
       const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions).pipe(Effect.exit);
@@ -210,7 +210,7 @@ describe("runUninstallCommandWorkflow", () => {
         parseArgs: () => Effect.succeed({ parsedNames: ["x"] }),
         finalizeIntent: () => {
           callOrder.push("finalizeIntent");
-          return Effect.fail(makeCliError({ code: "INTENT_FAILED", what: "intent error" }));
+          return Effect.fail(makeAppError({ code: "INTENT_FAILED", what: "intent error" }));
         },
         buildUninstallPlan: () => {
           callOrder.push("buildUninstallPlan");

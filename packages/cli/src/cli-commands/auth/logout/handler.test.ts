@@ -40,7 +40,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
     revokeToken: opts?.revokeFails
       ? () =>
           Effect.fail({
-            _tag: "CliError" as const,
+            _tag: "AppError" as const,
             code: "AUTH_REVOKE_FAILED",
             what: "Revoke failed",
           } as never)

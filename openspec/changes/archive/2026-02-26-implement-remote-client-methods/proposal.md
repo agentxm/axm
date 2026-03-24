@@ -7,7 +7,7 @@ The remote registry backend now exposes read endpoints, but `RemoteRegistryClien
 - Implement `RemoteRegistryClient.namespaceExists` against the remote namespace endpoint instead of returning a not-implemented error.
 - Implement `RemoteRegistryClient.getExtensionPackage` to fetch extension archives from the remote package endpoint, including latest-version resolution when version is omitted.
 - Complete `RemoteRegistryClient.getExtensionsByScope` list mode (`names: []`) using remote listing/search endpoints so namespace scans work without caller-provided names.
-- Align remote read error mapping with existing CLI error conventions (`CliError` codes, request context, actionable `howToFix`) for transport failures, not found cases, and invalid upstream responses.
+- Align remote read error mapping with existing CLI error conventions (`AppError` codes, request context, actionable `howToFix`) for transport failures, not found cases, and invalid upstream responses.
 - Add/expand tests to lock in behavior parity between local and remote registry clients for discovery, existence checks, and package retrieval.
 
 ## Capabilities

@@ -108,7 +108,7 @@ The registry client SHALL select a version from `index.json` by matching against
 #### Scenario: Invalid version constraint rejected
 
 - **WHEN** resolving with a version constraint that `semver.validRange()` returns null for
-- **THEN** resolution SHALL fail with a CliError indicating the version constraint is invalid
+- **THEN** resolution SHALL fail with a AppError indicating the version constraint is invalid
 
 #### Scenario: Version constraint passed to selectVersion
 
@@ -146,7 +146,7 @@ The registry client SHALL verify archive integrity using SHA-512 in SRI format.
 #### Scenario: Integrity mismatch
 
 - **WHEN** fetching an archive whose SHA-512 hash does not match the `integrity` field
-- **THEN** the operation fails with `CliError` indicating integrity verification failure
+- **THEN** the operation fails with `AppError` indicating integrity verification failure
 
 #### Scenario: Integrity format
 
@@ -185,7 +185,7 @@ The system SHALL implement `LocalRegistryClient` that performs all `RegistryClie
 #### Scenario: publishExtension fails on version conflict
 
 - **WHEN** `publishExtension` is called for a version that already exists with a different integrity
-- **THEN** the operation fails with a `CliError`
+- **THEN** the operation fails with a `AppError`
 
 ### Requirement: RemoteRegistryClient stub
 
@@ -230,10 +230,10 @@ Supported operations:
 - **THEN** it SHALL call the remote extension HEAD endpoint
 - **AND** return `{ exists: true }` for `200` and `{ exists: false }` for `404`
 
-#### Scenario: Read operations map remote failures to CliError
+#### Scenario: Read operations map remote failures to AppError
 
 - **WHEN** `getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, or `extensionExists` encounters network, schema, or non-success HTTP failure
-- **THEN** the operation SHALL fail with a descriptive `CliError` that includes request context in `details`
+- **THEN** the operation SHALL fail with a descriptive `AppError` that includes request context in `details`
 
 ### Requirement: RegistryClient factory
 

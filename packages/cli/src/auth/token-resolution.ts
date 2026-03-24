@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 
-import type { CliError } from "../cli-error/cli-error.js";
+import type { AppError } from "../app-error/app-error.js";
 import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore } from "./credential-store.js";
 import {
@@ -56,7 +56,7 @@ export const resetEnvVarMessageFlag = () => {
  */
 export const resolveStoredToken = (
   origin: string,
-): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore> =>
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore> =>
   Effect.gen(function* () {
     const store = yield* CredentialStore;
     const stored = yield* store.load(origin);
@@ -110,7 +110,7 @@ export const resolveAmbientToken = (
 export const resolveToken = (
   registryUrl: string,
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, CliError, CredentialStore | CliEnvConfig> =>
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | CliEnvConfig> =>
   Effect.gen(function* () {
     const ambient = yield* resolveAmbientToken(flagToken);
     if (Option.isSome(ambient)) return ambient;

@@ -44,7 +44,7 @@ The canonical regex pattern SHALL be: `/^@[\w-]+\/(skills|packs|mcp-servers)\/[\
 
 The system SHALL provide `parseFqn` and `parseFqnOrThrow` functions that decompose an FQN string into its constituent parts.
 
-`parseFqn` SHALL return `Effect<Fqn, CliError>`. `parseFqnOrThrow` SHALL return `Fqn` or throw.
+`parseFqn` SHALL return `Effect<Fqn, AppError>`. `parseFqnOrThrow` SHALL return `Fqn` or throw.
 
 The `Fqn` type SHALL have fields:
 
@@ -57,10 +57,10 @@ The `Fqn` type SHALL have fields:
 - **WHEN** calling `parseFqn("@acme/skills/code-review")`
 - **THEN** the result is `{ namespace: "@acme", type: "skills", name: "code-review" }`
 
-#### Scenario: Parse invalid FQN returns CliError
+#### Scenario: Parse invalid FQN returns AppError
 
 - **WHEN** calling `parseFqn("@acme/code-review")`
-- **THEN** the result is a `CliError` with code `INVALID_FQN`
+- **THEN** the result is a `AppError` with code `INVALID_FQN`
 
 #### Scenario: parseFqnOrThrow throws on invalid input
 

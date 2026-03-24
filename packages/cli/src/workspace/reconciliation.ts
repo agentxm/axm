@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type {
   CommandLockEntry,
   Lockfile,
@@ -141,7 +141,7 @@ export const dedupeDeclarations = (
 
 export const buildReconciliationSnapshot = (
   context: ReconciliationContext,
-): Effect.Effect<ReconciliationSnapshot, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReconciliationSnapshot, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -165,7 +165,7 @@ export const buildReconciliationSnapshot = (
         );
         if (adapter === undefined) {
           return Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
               what: `No reconciliation adapter for ${declaration.extensionType}`,
             }),
@@ -196,7 +196,7 @@ const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<strin
 
 export const runReadRecoverOperation = (
   context: ReconciliationContext,
-): Effect.Effect<OperationResult, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<OperationResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const snapshot = yield* buildReconciliationSnapshot(context);
     const unresolvedCount = snapshot.unresolved.length;
@@ -217,7 +217,7 @@ export const runReadRecoverOperation = (
 
 const backupInvalidLockfile = (
   lockfilePath: string,
-): Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -229,7 +229,7 @@ const backupInvalidLockfile = (
 
     yield* fs.rename(lockfilePath, backupPath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "LOCKFILE_BACKUP_FAILED",
           what: `Failed to back up invalid lockfile to ${backupPath}`,
           cause: error,
@@ -245,7 +245,7 @@ export const runReconcileMaterializeOperation = (
   options?: {
     readonly allowMissingDeclarations?: boolean;
   },
-): Effect.Effect<OperationResult, CliError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<OperationResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -259,7 +259,7 @@ export const runReconcileMaterializeOperation = (
       return {
         result: "error",
         message: "Reconciliation requires unresolved source resolution",
-        error: makeCliError({
+        error: makeAppError({
           code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
           what: "Required declaration sources are unreachable during reconciliation",
           details: formatUnresolved(snapshot),
@@ -271,7 +271,7 @@ export const runReconcileMaterializeOperation = (
     if (lockfileState === "invalid") {
       const exists = yield* fs.exists(lockfilePath).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "LOCKFILE_BACKUP_FAILED",
             what: `Failed to check invalid lockfile at ${lockfilePath}`,
             cause: error,

@@ -12,7 +12,7 @@ The axm CLI currently has no authentication. All registry operations (publish, r
 **Key constraints:**
 
 - All I/O uses `@effect/platform` (FileSystem, Path, HttpClient) — no raw `node:fs` or `node:path`.
-- Single error type `CliError` for all expected failures.
+- Single error type `AppError` for all expected failures.
 - Effect services with layers provided at the `run()` boundary.
 - Credential file at `~/.config/axm/credentials.json` (separate from workspace `.axm/settings.json`).
 
@@ -71,7 +71,7 @@ AuthMiddleware   — HttpClient wrapper: resolve token → inject Bearer → aut
 4. Interactive login prompt → TTY only, non-interactive mode errors
 ```
 
-**Decision:** Resolution is a pure function `resolveToken(registryUrl)` that returns `Effect<TokenSource, CliError>` where `TokenSource` carries the token value and its origin (for diagnostics). Steps 1-2 are checked first (no I/O); step 3 reads from CredentialStore; step 4 triggers device flow if TTY is available.
+**Decision:** Resolution is a pure function `resolveToken(registryUrl)` that returns `Effect<TokenSource, AppError>` where `TokenSource` carries the token value and its origin (for diagnostics). Steps 1-2 are checked first (no I/O); step 3 reads from CredentialStore; step 4 triggers device flow if TTY is available.
 
 Step 4 (interactive login) is only used during publish-time recovery, not during general token resolution. For non-publish commands, missing credentials after step 3 result in an error with guidance to run `axm login`.
 
@@ -186,12 +186,12 @@ When `axm skills publish` (or `axm packs publish`) encounters a missing-auth sta
 2. If no token and TTY available: prompt "You need to sign in to publish. Sign in now?" (respects `--yes` and `--non-interactive`).
 3. If user accepts: run device code login flow inline.
 4. On login success: retry the publish operation once.
-5. On login failure or decline: fail with `CliError` code `AUTH_LOGIN_REQUIRED` and guidance to run `axm login`.
+5. On login failure or decline: fail with `AppError` code `AUTH_LOGIN_REQUIRED` and guidance to run `axm login`.
 
 This is implemented as a reusable `withAuthGuard` combinator that wraps any Effect requiring auth:
 
 ```typescript
-const withAuthGuard = <A>(effect: Effect<A, CliError, ...>) => Effect<A, CliError, ...>
+const withAuthGuard = <A>(effect: Effect<A, AppError, ...>) => Effect<A, AppError, ...>
 ```
 
 ### D10: New file organization
@@ -261,7 +261,7 @@ New error code family:
 | `AUTH_UNAUTHORIZED`            | 403 from registry — insufficient role/scope         |
 | `AUTH_UNAUTHENTICATED`         | 401 from registry after refresh attempt             |
 
-All follow the existing `CliError` pattern with `what`, `details`, `howToFix`, and `cause`.
+All follow the existing `AppError` pattern with `what`, `details`, `howToFix`, and `cause`.
 
 ## Risks / Trade-offs
 

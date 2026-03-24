@@ -1,6 +1,6 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type {
   CommandLockEntry,
   McpServerLockEntry,
@@ -79,10 +79,10 @@ export interface ReconciliationAdapter {
   readonly scanDeclarations: (
     context: ReconciliationContext,
     env: AdapterEnvironment,
-  ) => import("effect/Effect").Effect<DeclarationScanResult, CliError>;
+  ) => import("effect/Effect").Effect<DeclarationScanResult, AppError>;
   readonly checkDiskCompatibility: (
     declaration: ReconciliationDeclaration,
     context: ReconciliationContext,
     env: AdapterEnvironment,
-  ) => import("effect/Effect").Effect<DeclarationResolution, CliError>;
+  ) => import("effect/Effect").Effect<DeclarationResolution, AppError>;
 }

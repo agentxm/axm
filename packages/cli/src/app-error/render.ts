@@ -1,32 +1,32 @@
 import * as Option from "effect/Option";
-import type { CliError } from "./cli-error.js";
+import type { AppError } from "./app-error.js";
 
-export interface RenderCliErrorOptions {
+export interface RenderAppErrorOptions {
   readonly verbose: boolean;
   readonly debug: boolean;
 }
 
-const defaultRenderCliErrorOptions: RenderCliErrorOptions = {
+const defaultRenderAppErrorOptions: RenderAppErrorOptions = {
   verbose: false,
   debug: false,
 };
 
-const isCliError = (cause: unknown): cause is CliError =>
+const isAppError = (cause: unknown): cause is AppError =>
   typeof cause === "object" &&
   cause !== null &&
   "_tag" in cause &&
-  cause._tag === "CliError" &&
+  cause._tag === "AppError" &&
   "what" in cause &&
   "code" in cause;
 
 const formatCause = (
   cause: unknown,
-  options: RenderCliErrorOptions,
+  options: RenderAppErrorOptions,
   parentDetails: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   if (cause === undefined || cause === null) return [];
 
-  if (isCliError(cause)) {
+  if (isAppError(cause)) {
     const causeHeadline = `${cause.what} (${cause.code})`;
     const parentDetailSet = new Set(parentDetails);
     const hasEquivalentParentSummary = Array.from(parentDetailSet).some(
@@ -68,9 +68,9 @@ const formatCause = (
   }
 };
 
-export const renderCliError = (
-  error: CliError,
-  options: RenderCliErrorOptions = defaultRenderCliErrorOptions,
+export const renderAppError = (
+  error: AppError,
+  options: RenderAppErrorOptions = defaultRenderAppErrorOptions,
 ): string => {
   const lines: Array<string> = [];
 

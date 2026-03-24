@@ -31,7 +31,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handleRename, type RenameHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -150,8 +150,8 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("nonexistent", "new-name")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not found");
         }),
       );
     });
@@ -165,8 +165,8 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("nonexistent", "new-name")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not found");
         }),
       );
     });
@@ -195,8 +195,8 @@ describe("rename.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleRename(defaultArgs("my-skill", "new-name")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not found");
         }),
       );
     });
@@ -214,8 +214,8 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("my-skill", "other-skill")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("already exists");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("already exists");
         }),
       );
     });

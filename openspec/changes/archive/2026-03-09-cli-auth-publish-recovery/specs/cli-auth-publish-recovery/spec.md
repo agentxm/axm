@@ -30,13 +30,13 @@ Before attempting a publish operation, the CLI SHALL verify that the user is aut
 #### Scenario: Unauthenticated user declines login
 
 - **WHEN** the user declines the login prompt
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_REQUIRED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_REQUIRED`
 - **AND** `howToFix` SHALL read "Run `axm login` to sign in."
 
 #### Scenario: Unauthenticated user non-interactive
 
 - **WHEN** the user runs a publish command in non-interactive mode and no token is resolvable
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_REQUIRED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_REQUIRED`
 - **AND** `howToFix` SHALL read "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal."
 
 ### Requirement: Post-publish auth error recovery
@@ -46,13 +46,13 @@ When a publish attempt fails with a 401 or 403, the CLI SHALL provide actionable
 #### Scenario: 401 after refresh exhaustion
 
 - **WHEN** a publish request returns 401 and the auth middleware's refresh cycle has been exhausted
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_UNAUTHENTICATED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_UNAUTHENTICATED`
 - **AND** `howToFix` SHALL read "Session expired. Run `axm login` to re-authenticate."
 
 #### Scenario: 403 insufficient permissions
 
 - **WHEN** a publish request returns 403
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_UNAUTHORIZED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_UNAUTHORIZED`
 - **AND** `details` SHALL include the server's `required_scope` and `required_role` if provided
 - **AND** `howToFix` SHALL describe the missing permission
 

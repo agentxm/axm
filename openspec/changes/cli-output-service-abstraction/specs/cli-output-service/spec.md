@@ -66,7 +66,7 @@ The `Output` service SHALL be defined at `src/output/output.ts` as an Effect ser
 
 ### Requirement: Output service provides streaming text output
 
-The `Output` service SHALL provide a `stream` method accepting a `StreamLevel` and a `Stream<string, E, R>`, returning `Effect<void, CliError | E, R>`. `StreamLevel` SHALL be a union of `"message" | "info" | "success" | "step" | "warn" | "error"`. The text-mode layer SHALL render the collected stream content with the visual formatting corresponding to the specified level.
+The `Output` service SHALL provide a `stream` method accepting a `StreamLevel` and a `Stream<string, E, R>`, returning `Effect<void, AppError | E, R>`. `StreamLevel` SHALL be a union of `"message" | "info" | "success" | "step" | "warn" | "error"`. The text-mode layer SHALL render the collected stream content with the visual formatting corresponding to the specified level.
 
 #### Scenario: Stream info-level text
 

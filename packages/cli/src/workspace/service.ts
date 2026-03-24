@@ -51,7 +51,7 @@ import { computePackPaths, type PackDirPath } from "../extensions/packs/paths.js
 import { sanitizeName } from "../extensions/skills/utils.js";
 import { AgentIdSchema } from "../extensions/common.js";
 import { formatFqn } from "../extensions/fqn.js";
-import { type CliError, makeCliError } from "../cli-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseSkillEntry,
   createDefaultSettings,
@@ -203,13 +203,13 @@ import type {
  */
 const augmentPlanWithReconciliation = (
   plan: Plan,
-  getLockfileState: () => Effect.Effect<LockfileState, CliError>,
+  getLockfileState: () => Effect.Effect<LockfileState, AppError>,
   log: ServiceMap.Service.Shape<typeof ClackLog>,
   baseDir: string,
   workspaceDir: string,
-  readSettingsSafe: (dir: string) => Effect.Effect<Settings, CliError>,
+  readSettingsSafe: (dir: string) => Effect.Effect<Settings, AppError>,
   fsLayer: Layer.Layer<FileSystem.FileSystem | Path.Path>,
-): Effect.Effect<Plan, CliError> =>
+): Effect.Effect<Plan, AppError> =>
   Effect.gen(function* () {
     const lockfileState = yield* getLockfileState();
 
@@ -285,7 +285,7 @@ export class Workspace extends ServiceMap.Service<Workspace, WorkspaceContextSer
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type WorkspaceContextError = CliError | PromptCancelled;
+export type WorkspaceContextError = AppError | PromptCancelled;
 
 /**
  * Options for creating workspace context.
@@ -374,12 +374,12 @@ const make = (options: WorkspaceContextOptions) =>
     /**
      * Probe lockfile state without mutating disk.
      */
-    const getLockfileState = (): Effect.Effect<LockfileState, CliError> =>
+    const getLockfileState = (): Effect.Effect<LockfileState, AppError> =>
       Effect.gen(function* () {
         const lockfilePath = path.join(workspaceDir, LOCKFILE_NAME);
         const exists = yield* fs.exists(lockfilePath).pipe(
           Effect.mapError((error) =>
-            makeCliError({
+            makeAppError({
               code: "LOCKFILE_PARSE_FAILED",
               what: `Failed to check if lockfile exists at ${lockfilePath}`,
               cause: error,
@@ -576,7 +576,7 @@ const make = (options: WorkspaceContextOptions) =>
      * Three-layer merge: project sources -> user-scope sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
-    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError> =>
+    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError> =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
@@ -634,7 +634,7 @@ const make = (options: WorkspaceContextOptions) =>
           const hasErrors = allSteps.some((s) => s.readiness === "error");
           const hasWarns = allSteps.some((s) => s.readiness === "warn");
 
-          // Aggregate error messages for the CliError detail
+          // Aggregate error messages for the AppError detail
           const errorMessages = allSteps
             .filter((s) => s.readiness === "error")
             .map((s) => `${s.label}: ${s.errorMessage}`);
@@ -646,7 +646,7 @@ const make = (options: WorkspaceContextOptions) =>
               yield* Effect.forEach(errorMessages, (msg) => log.warn(msg));
             } else {
               yield* showPlan(augmentedPlan);
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "PLAN_BLOCKED_BY_ERRORS",
                 what: "Plan has errors that prevent execution",
                 details: errorMessages,
@@ -801,7 +801,7 @@ const make = (options: WorkspaceContextOptions) =>
           );
 
           if (Option.isNone(lockEntry)) {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "SKILL_NOT_LOCKED",
               what: `Skill "${name}" not found in lockfile`,
               howToFix: "Install the skill first with `axm skills install`",
@@ -929,7 +929,7 @@ const make = (options: WorkspaceContextOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             if (!(name in currentSkills)) {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "SKILL_NOT_FOUND",
                 what: `Skill "${name}" not found in settings`,
               });
@@ -966,7 +966,7 @@ const make = (options: WorkspaceContextOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             if (!(oldName in currentSkills)) {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "SKILL_NOT_FOUND",
                 what: `Skill "${oldName}" not found in settings`,
               });
@@ -1002,7 +1002,7 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             if (!(name in currentLockfile.skills)) {
-              return yield* makeCliError({
+              return yield* makeAppError({
                 code: "LOCK_ENTRY_NOT_FOUND",
                 what: `Lock entry "${name}" not found in lockfile`,
               });
@@ -1024,7 +1024,7 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.gen(function* () {
             const validId = yield* Schema.decodeUnknownEffect(AgentIdSchema)(agentId).pipe(
               Effect.mapError((error) =>
-                makeCliError({
+                makeAppError({
                   code: "SETTINGS_PARSE_FAILED",
                   what: `Invalid agent ID: ${agentId}`,
                   cause: error,
@@ -1616,249 +1616,249 @@ export interface WorkspaceContextService {
   /** Project root directory (parent of .axm) */
   readonly baseDir: string;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
-  readonly getLockfileState: () => Effect.Effect<LockfileState, CliError>;
+  readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags from CliFlags. */
   readonly resolvePlan: (
     plan: Plan,
-  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, CliFlags | CliEnvConfig>;
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | AppError, CliFlags | CliEnvConfig>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceHostConfig>, CliError>;
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
   /** Filter merged sources to registry sources. */
   readonly getRegistrySourceHosts: () => Effect.Effect<
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
-    CliError
+    AppError
   >;
   /** Resolve namespace: project settings -> user-scope settings -> DEFAULT_NAMESPACE. */
-  readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
+  readonly getConfiguredNamespace: () => Effect.Effect<string, AppError>;
   /** Resolve namespace without fallback: project settings -> user-scope settings -> Option.none(). */
-  readonly getDefaultNamespace: () => Effect.Effect<Option.Option<string>, CliError>;
+  readonly getDefaultNamespace: () => Effect.Effect<Option.Option<string>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
-  readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;
+  readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Configured skills from settings with source metadata. */
   readonly getConfiguredSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSkill>,
-    CliError
+    AppError
   >;
   /** Implicit skills (lockfile-only native entries). */
   readonly getImplicitSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitSkill>,
-    CliError
+    AppError
   >;
   /** Unmanaged skills (on-disk only, not configured or implicit). */
   readonly getUnmanagedSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedSkill>,
-    CliError
+    AppError
   >;
   /** Installed skills (configured ∪ implicit). */
   readonly getInstalledSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledSkill>,
-    CliError
+    AppError
   >;
   /** All classified skills. */
   readonly getClassifiedSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedSkill>,
-    CliError
+    AppError
   >;
   /** Configured skills with non-native packaging. */
   readonly getConfiguredExternalSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSkill>,
-    CliError
+    AppError
   >;
   /** Unmanaged skills with non-native packaging. */
   readonly getUnmanagedExternalSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedSkill>,
-    CliError
+    AppError
   >;
   /** Ignored skill patterns from settings. */
-  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
-  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read lockfile and return the skills lock map. */
-  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, CliError>;
+  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */
-  readonly getLockedSkill: (name: string) => Effect.Effect<Option.Option<SkillLockEntry>, CliError>;
+  readonly getLockedSkill: (name: string) => Effect.Effect<Option.Option<SkillLockEntry>, AppError>;
   /** Compute skill directory paths. If source is omitted, looks up the lock entry to determine source type. */
   readonly getSkillDir: (
     name: string,
     source?: SkillPathSource,
-  ) => Effect.Effect<SkillDirPaths, CliError>;
+  ) => Effect.Effect<SkillDirPaths, AppError>;
   /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, CliError>;
+  readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
   /** Add or update a skill in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setSkillLock: (args: SetSkillArgs) => Effect.Effect<void, CliError>;
+  readonly setSkillLock: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeSkill: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeSkill: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a skill from settings only (keep lockfile entry). Used when a pack still references the skill. Serialized by semaphore. */
-  readonly removeSkillFromSettings: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeSkillFromSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSkillEntry: (
     name: string,
     updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry,
-  ) => Effect.Effect<void, CliError>;
+  ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a skill entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setSkillEntry: (
     name: string,
     entry: NormalizedSkillEntry,
-  ) => Effect.Effect<void, CliError>;
+  ) => Effect.Effect<void, AppError>;
   /** Atomically rename a skill in both settings and lockfile. Serialized by semaphore. */
-  readonly renameSkill: (oldName: string, newName: string) => Effect.Effect<void, CliError>;
+  readonly renameSkill: (oldName: string, newName: string) => Effect.Effect<void, AppError>;
   /** Update the agents field on a lock entry. Serialized by semaphore. */
   readonly updateLockEntryAgents: (
     name: string,
     agents: ReadonlyArray<string>,
-  ) => Effect.Effect<void, CliError>;
-  /** Append an agent ID if not already present and write to disk. Fails with CliError if invalid. Serialized by semaphore. */
-  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, CliError>;
+  ) => Effect.Effect<void, AppError>;
+  /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
+  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
   // --- Command taxonomy ---
   readonly getConfiguredCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredCommand>,
-    CliError
+    AppError
   >;
   readonly getImplicitCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitCommand>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedCommand>,
-    CliError
+    AppError
   >;
   readonly getInstalledCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledCommand>,
-    CliError
+    AppError
   >;
   readonly getClassifiedCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedCommand>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredCommand>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedExternalCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedCommand>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   // --- MCP Server taxonomy ---
   readonly getConfiguredMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getImplicitMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getInstalledMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getClassifiedMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedExternalMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   // --- Pack taxonomy ---
   readonly getConfiguredPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getImplicitPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ImplicitExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getInstalledPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getClassifiedPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getConfiguredExternalPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    CliError
+    AppError
   >;
   readonly getUnmanagedExternalPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    CliError
+    AppError
   >;
-  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read lockfile and return the packs lock map. */
-  readonly getLockedPacks: () => Effect.Effect<PacksLockMap, CliError>;
+  readonly getLockedPacks: () => Effect.Effect<PacksLockMap, AppError>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
-  readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, CliError>;
+  readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, CliError>;
+  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removePack: (name: string) => Effect.Effect<void, CliError>;
+  readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, namespace: string) => Effect.Effect<PackDirPath, CliError>;
+  readonly getPackDir: (name: string, namespace: string) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
-  readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, CliError>;
+  readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific command, or Option.none(). */
   readonly getLockedCommand: (
     name: string,
-  ) => Effect.Effect<Option.Option<CommandLockEntry>, CliError>;
+  ) => Effect.Effect<Option.Option<CommandLockEntry>, AppError>;
   /** Add or update a command in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setCommand: (args: SetCommandArgs) => Effect.Effect<void, CliError>;
+  readonly setCommand: (args: SetCommandArgs) => Effect.Effect<void, AppError>;
   /** Add or update a command in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setCommandLock: (args: SetCommandArgs) => Effect.Effect<void, CliError>;
+  readonly setCommandLock: (args: SetCommandArgs) => Effect.Effect<void, AppError>;
   /** Remove a command from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeCommand: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeCommand: (name: string) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the MCP servers lock map. */
-  readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, CliError>;
+  readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, AppError>;
   /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */
   readonly getLockedMcpServer: (
     name: string,
-  ) => Effect.Effect<Option.Option<McpServerLockEntry>, CliError>;
+  ) => Effect.Effect<Option.Option<McpServerLockEntry>, AppError>;
   /** Add or update an MCP server in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, CliError>;
+  readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   /** Add or update an MCP server in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, CliError>;
+  readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeMcpServer: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeMcpServer: (name: string) => Effect.Effect<void, AppError>;
   // --- Granular removal methods (settings-only or lockfile-only) ---
   /** Remove a skill from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeSkillLock: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeSkillLock: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a command from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeCommandSettings: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeCommandSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a command from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeCommandLock: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeCommandLock: (name: string) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeMcpServerSettings: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeMcpServerSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeMcpServerLock: (name: string) => Effect.Effect<void, CliError>;
+  readonly removeMcpServerLock: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removePackSettings: (name: string) => Effect.Effect<void, CliError>;
+  readonly removePackSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removePackLock: (name: string) => Effect.Effect<void, CliError>;
+  readonly removePackLock: (name: string) => Effect.Effect<void, AppError>;
   // --- Pack dependency queries ---
   /** Check if an extension target is referenced by any installed pack's dependency maps. */
   readonly isExtensionRequiredByInstalledPack: (
     target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
-  ) => Effect.Effect<boolean, CliError>;
+  ) => Effect.Effect<boolean, AppError>;
   /** Update lockfile entry for a target to indicate it is retained as a pack dependency. No-op if not found. Serialized by semaphore. */
   readonly markDependencyRetainedInLockfile: (
     target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
-  ) => Effect.Effect<void, CliError>;
+  ) => Effect.Effect<void, AppError>;
 }

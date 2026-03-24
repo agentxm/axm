@@ -14,8 +14,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import type { CliError } from "../cli-error/cli-error.js";
-import { makeCliError } from "../cli-error/cli-error.js";
+import type { AppError } from "../app-error/app-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 import {
   decodeTokenResponse,
   setOAuthFormBody,
@@ -115,18 +115,18 @@ export type PollResult =
 // -----------------------------------------------------------------------------
 
 export interface AuthClientService {
-  readonly initiateDeviceFlow: (registryUrl: string) => Effect.Effect<DeviceFlowResponse, CliError>;
+  readonly initiateDeviceFlow: (registryUrl: string) => Effect.Effect<DeviceFlowResponse, AppError>;
   readonly pollDeviceToken: (
     registryUrl: string,
     deviceCode: string,
     interval: number,
-  ) => Effect.Effect<TokenResponse, CliError>;
+  ) => Effect.Effect<TokenResponse, AppError>;
   readonly refreshToken: (
     registryUrl: string,
     refreshTokenValue: string,
-  ) => Effect.Effect<TokenResponse, CliError>;
-  readonly revokeToken: (registryUrl: string, accessToken: string) => Effect.Effect<void, CliError>;
-  readonly getMe: (registryUrl: string, accessToken: string) => Effect.Effect<MeResponse, CliError>;
+  ) => Effect.Effect<TokenResponse, AppError>;
+  readonly revokeToken: (registryUrl: string, accessToken: string) => Effect.Effect<void, AppError>;
+  readonly getMe: (registryUrl: string, accessToken: string) => Effect.Effect<MeResponse, AppError>;
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
@@ -146,14 +146,14 @@ const readResponseBody = (
 ) =>
   response.text.pipe(
     Effect.mapError((error) =>
-      makeCliError({ code, what: `Failed to read response body: ${what}`, cause: error }),
+      makeAppError({ code, what: `Failed to read response body: ${what}`, cause: error }),
     ),
   );
 
 const parseJsonBody = (bodyText: string, code: string, what: string) =>
   Effect.try({
     try: () => JSON.parse(bodyText) as unknown,
-    catch: (error) => makeCliError({ code, what: `Failed to parse JSON: ${what}`, cause: error }),
+    catch: (error) => makeAppError({ code, what: `Failed to parse JSON: ${what}`, cause: error }),
   });
 
 const decodeResponse = <S extends Schema.Top>(
@@ -161,10 +161,10 @@ const decodeResponse = <S extends Schema.Top>(
   parsed: unknown,
   code: string,
   what: string,
-): Effect.Effect<S["Type"], CliError, S["DecodingServices"]> =>
+): Effect.Effect<S["Type"], AppError, S["DecodingServices"]> =>
   Schema.decodeUnknownEffect(schema)(parsed).pipe(
     Effect.mapError((error) =>
-      makeCliError({ code, what: `Invalid response schema: ${what}`, cause: error }),
+      makeAppError({ code, what: `Invalid response schema: ${what}`, cause: error }),
     ),
   );
 
@@ -176,7 +176,7 @@ export const pollOnce = (
   httpClient: HttpClient.HttpClient,
   registryUrl: string,
   deviceCode: string,
-): Effect.Effect<PollResult, CliError> =>
+): Effect.Effect<PollResult, AppError> =>
   Effect.gen(function* () {
     const url = `${normalizeUrl(registryUrl)}/v1/auth/device/token`;
     const request = setOAuthFormBody(HttpClientRequest.post(url), {
@@ -187,7 +187,7 @@ export const pollOnce = (
 
     const response = yield* httpClient.execute(request).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "AUTH_LOGIN_FAILED",
           what: "Device token poll request failed",
           howToFix: "Check network connectivity and try again.",
@@ -230,7 +230,7 @@ export const pollOnce = (
 
     // Unknown error
     return yield* Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "AUTH_LOGIN_FAILED",
         what: `Device token poll returned unexpected status ${String(response.status)}`,
         howToFix: "Try running `axm login` again.",
@@ -258,7 +258,7 @@ export const AuthClientLive = Layer.effect(
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "AUTH_LOGIN_FAILED",
                 what: "Device code request failed",
                 howToFix: "Check network connectivity and try again.",
@@ -270,7 +270,7 @@ export const AuthClientLive = Layer.effect(
           if (response.status !== 200) {
             const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
             return yield* Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "AUTH_LOGIN_FAILED",
                 what: `Device code request failed with status ${String(response.status)}`,
                 details: bodyText.length > 0 ? [bodyText] : [],
@@ -318,7 +318,7 @@ export const AuthClientLive = Layer.effect(
                 continue;
               case "AccessDenied":
                 return yield* Effect.fail(
-                  makeCliError({
+                  makeAppError({
                     code: "AUTH_LOGIN_CANCELLED",
                     what: "Login was denied or cancelled",
                     howToFix: "Run `axm login` to try again.",
@@ -326,7 +326,7 @@ export const AuthClientLive = Layer.effect(
                 );
               case "ExpiredToken":
                 return yield* Effect.fail(
-                  makeCliError({
+                  makeAppError({
                     code: "AUTH_LOGIN_FAILED",
                     what: "Login code expired",
                     howToFix: "Run `axm login` to try again.",
@@ -346,7 +346,7 @@ export const AuthClientLive = Layer.effect(
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "AUTH_REFRESH_FAILED",
                 what: "Token refresh request failed",
                 howToFix: "Run `axm login` to re-authenticate.",
@@ -358,7 +358,7 @@ export const AuthClientLive = Layer.effect(
           if (response.status !== 200) {
             const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
             return yield* Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "AUTH_REFRESH_FAILED",
                 what: `Token refresh failed with status ${String(response.status)}`,
                 details: bodyText.length > 0 ? [bodyText] : [],
@@ -409,7 +409,7 @@ export const AuthClientLive = Layer.effect(
 
           const response = yield* httpClient.execute(request).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "AUTH_UNAUTHENTICATED",
                 what: "Identity request failed",
                 howToFix: "Run `axm login` to authenticate.",
@@ -420,7 +420,7 @@ export const AuthClientLive = Layer.effect(
 
           if (response.status === 401 || response.status === 403) {
             return yield* Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "AUTH_UNAUTHENTICATED",
                 what: "Not authenticated or token is invalid",
                 howToFix: "Run `axm login` to re-authenticate.",
@@ -430,7 +430,7 @@ export const AuthClientLive = Layer.effect(
 
           if (response.status !== 200) {
             return yield* Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "AUTH_UNAUTHENTICATED",
                 what: `Identity request failed with status ${String(response.status)}`,
                 howToFix: "Run `axm login` to re-authenticate.",
@@ -470,13 +470,13 @@ export const AuthClientLive = Layer.effect(
 export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
   Layer.succeed(AuthClient, {
     initiateDeviceFlow: () =>
-      Effect.fail(makeCliError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
+      Effect.fail(makeAppError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
     pollDeviceToken: () =>
-      Effect.fail(makeCliError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
+      Effect.fail(makeAppError({ code: "AUTH_LOGIN_FAILED", what: "Not implemented in test" })),
     refreshToken: () =>
-      Effect.fail(makeCliError({ code: "AUTH_REFRESH_FAILED", what: "Not implemented in test" })),
+      Effect.fail(makeAppError({ code: "AUTH_REFRESH_FAILED", what: "Not implemented in test" })),
     revokeToken: () => Effect.void,
     getMe: () =>
-      Effect.fail(makeCliError({ code: "AUTH_UNAUTHENTICATED", what: "Not implemented in test" })),
+      Effect.fail(makeAppError({ code: "AUTH_UNAUTHENTICATED", what: "Not implemented in test" })),
     ...overrides,
   } satisfies AuthClientService);

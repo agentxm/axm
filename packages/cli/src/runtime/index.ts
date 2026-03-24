@@ -20,7 +20,7 @@ import * as Option from "effect/Option";
 import { type AuthClient, AuthClientLive } from "../auth/auth-client.js";
 import { AuthMiddlewareLive, RegistryUrl } from "../auth/auth-middleware.js";
 import { type CredentialStore, CredentialStoreLive } from "../auth/credential-store.js";
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import {
   type CliFlags,
   CliFlags as CliFlagsTag,
@@ -221,16 +221,16 @@ const isCliExit = (value: unknown): value is CliExit =>
   typeof value.exitCode === "number";
 
 export function withCliRuntime<A>(
-  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  program: Effect.Effect<A, AppError | PromptCancelled, AppLayer>,
 ): Effect.Effect<A, never, AppLayer>;
 export function withCliRuntime<A>(
-  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  program: Effect.Effect<A, AppError | PromptCancelled, AppLayer>,
   options: RunOptions,
 ): Effect.Effect<A, never, AppLayer>;
 export function withCliRuntime<A>(
   program: Effect.Effect<
     A,
-    CliError | PromptCancelled,
+    AppError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options: RunOptions & { readonly workspace: WorkspaceContextOptions },
@@ -238,7 +238,7 @@ export function withCliRuntime<A>(
 export function withCliRuntime<A>(
   program: Effect.Effect<
     A,
-    CliError | PromptCancelled,
+    AppError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options?: RunOptions,
@@ -274,7 +274,7 @@ export function withCliRuntime<A>(
       ? Logger.layer([Logger.consolePretty()], { mergeWithExisting: false })
       : Layer.empty;
 
-    const provided: Effect.Effect<A, CliError | PromptCancelled, AppLayer> = options?.workspace
+    const provided: Effect.Effect<A, AppError | PromptCancelled, AppLayer> = options?.workspace
       ? (() => {
           const wsLayer = Layer.provide(
             workspaceLayer({
@@ -295,14 +295,14 @@ export function withCliRuntime<A>(
               ),
             ),
             Effect.scoped,
-          ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>;
+          ) as Effect.Effect<A, AppError | PromptCancelled, AppLayer>;
         })()
       : (program.pipe(
           Effect.provide(Layer.mergeAll(flagsLayer, telemetryLayer, debugLoggerLayer)),
-        ) as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
+        ) as Effect.Effect<A, AppError | PromptCancelled, AppLayer>);
 
     return yield* provided.pipe(
-      Effect.catch((error: CliError | PromptCancelled) => {
+      Effect.catch((error: AppError | PromptCancelled) => {
         const result = classifyError(error, diagnosticVerbosity);
         const writeError =
           result.exitCode === 0
@@ -312,7 +312,7 @@ export function withCliRuntime<A>(
               });
 
         const report =
-          error._tag === "CliError"
+          error._tag === "AppError"
             ? Effect.gen(function* () {
                 const tc = yield* TelemetryClient;
                 yield* tc.reportError({
@@ -348,15 +348,15 @@ export function withCliRuntime<A>(
  * composed into the runtime so handlers can yield WorkspaceContextTag
  * directly.
  */
-export function run<A>(program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>): Promise<A>;
+export function run<A>(program: Effect.Effect<A, AppError | PromptCancelled, AppLayer>): Promise<A>;
 export function run<A>(
-  program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>,
+  program: Effect.Effect<A, AppError | PromptCancelled, AppLayer>,
   options: RunOptions,
 ): Promise<A>;
 export function run<A>(
   program: Effect.Effect<
     A,
-    CliError | PromptCancelled,
+    AppError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options: RunOptions & { readonly workspace: WorkspaceContextOptions },
@@ -364,16 +364,16 @@ export function run<A>(
 export async function run<A>(
   program: Effect.Effect<
     A,
-    CliError | PromptCancelled,
+    AppError | PromptCancelled,
     AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options?: RunOptions,
 ): Promise<A> {
   const prepared =
     options === undefined
-      ? withCliRuntime(program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>)
+      ? withCliRuntime(program as Effect.Effect<A, AppError | PromptCancelled, AppLayer>)
       : options.workspace === undefined
-        ? withCliRuntime(program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>, options)
+        ? withCliRuntime(program as Effect.Effect<A, AppError | PromptCancelled, AppLayer>, options)
         : withCliRuntime(
             program,
             options as RunOptions & { readonly workspace: WorkspaceContextOptions },

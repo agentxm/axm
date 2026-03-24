@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { CliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import { CliEnvConfig } from "../config/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
@@ -48,9 +48,9 @@ export interface SourceHostProvidersService {
   readonly find: (
     source: Source,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */
@@ -243,7 +243,7 @@ export const SourceHostProvidersLive: Layer.Layer<
                 .fetch(source as never, ref)
                 .pipe(Effect.provide(depLayer)) as Effect.Effect<
                 ExtensionFiles,
-                CliError,
+                AppError,
                 Scope.Scope
               >;
             case "builtin":

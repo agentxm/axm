@@ -22,7 +22,7 @@ When uninstalling a skill, the system SHALL resolve the uninstall target from th
 #### Scenario: Name resolves to unmanaged only
 
 - **WHEN** user runs `axm skills uninstall <name>` and `<name>` is not found in the lockfile
-- **THEN** uninstall SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** uninstall SHALL fail with an `AppError` indicating the skill is not installed
 
 #### Scenario: Ignored name is treated as not installed
 
@@ -48,7 +48,7 @@ When uninstalling a skill, the system SHALL resolve the uninstall target from th
 
 ### Requirement: Uninstall target resolution from lockfile
 
-Skill uninstall targets SHALL be resolved from the lockfile. If a skill name is not found in the lockfile, the uninstall SHALL fail with a `CliError`.
+Skill uninstall targets SHALL be resolved from the lockfile. If a skill name is not found in the lockfile, the uninstall SHALL fail with an `AppError`.
 
 #### Scenario: Skill name resolved from lockfile
 
@@ -60,4 +60,4 @@ Skill uninstall targets SHALL be resolved from the lockfile. If a skill name is 
 
 - **WHEN** user runs `axm skills uninstall unknown-skill`
 - **AND** `unknown-skill` is not in the lockfile
-- **THEN** uninstall SHALL fail with a `CliError` indicating the skill is not installed
+- **THEN** uninstall SHALL fail with an `AppError` indicating the skill is not installed

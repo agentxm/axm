@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillsLockMap } from "../lockfile/index.js";
@@ -331,9 +331,9 @@ describe("resolveSource", () => {
     it.effect("git SCP address for unknown host passes through as git source", () =>
       Effect.gen(function* () {
         // git@example.com:owner/repo.git fails in resolveSource
-        // since example.com is not a configured host. This should fail with CliError.
+        // since example.com is not a configured host. This should fail with AppError.
         const error = yield* Effect.flip(resolve("git@example.com:owner/repo.git"));
-        expect(error).toBeInstanceOf(CliError);
+        expect(error).toBeInstanceOf(AppError);
       }),
     );
   });
@@ -365,7 +365,7 @@ describe("resolveSource", () => {
         const error = yield* Effect.flip(
           resolveSource("github:owner/repo").pipe(Effect.provide(makeWorkspaceLayer(sources))),
         );
-        expect(error).toBeInstanceOf(CliError);
+        expect(error).toBeInstanceOf(AppError);
         expect(error.what).toContain("No source config");
       }),
     );
@@ -443,7 +443,7 @@ describe("resolveSource", () => {
             Effect.provide(makeWorkspaceLayer(sources)),
           ),
         );
-        expect(error).toBeInstanceOf(CliError);
+        expect(error).toBeInstanceOf(AppError);
       }),
     );
 
@@ -492,7 +492,7 @@ describe("resolveSource", () => {
             Effect.provide(makeWorkspaceLayer(BUILT_IN_SOURCES)),
           ),
         );
-        expect(error).toBeInstanceOf(CliError);
+        expect(error).toBeInstanceOf(AppError);
       }),
     );
 
@@ -573,7 +573,7 @@ describe("resolveSource", () => {
     it.effect("unknown prefix fails", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(resolve("unknown:owner/repo"));
-        expect(error).toBeInstanceOf(CliError);
+        expect(error).toBeInstanceOf(AppError);
       }),
     );
 

@@ -30,12 +30,12 @@ The `tui/` module has one service per prompt type (Confirm, Select, etc.). For `
 
 | Service         | Wraps                                                                                                                                      | Error type                         |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| `ClackPrompt`   | `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path` | `CliError \| PromptCancelled`      |
+| `ClackPrompt`   | `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path` | `AppError \| PromptCancelled`      |
 | `ClackLog`      | `log.*` methods, `intro`, `outro`, `cancel` (session framing), `note`, `box`                                                               | _(none)_                           |
 | `ClackSpinner`  | `spinner` (raw handle + scoped `withSpinner`)                                                                                              | _(none — handle methods are sync)_ |
 | `ClackProgress` | `progress` (extends spinner with `advance` + scoped `withProgress`)                                                                        | _(none — handle methods are sync)_ |
 | `ClackTaskLog`  | `taskLog` (live subprocess-style output with groups)                                                                                       | _(none — handle methods are sync)_ |
-| `ClackStream`   | `stream.*` methods                                                                                                                         | `CliError \| E`                    |
+| `ClackStream`   | `stream.*` methods                                                                                                                         | `AppError \| E`                    |
 
 Note on `ClackLog.cancel`: This is a session-framing message (like `intro`/`outro`) — it displays a styled cancellation message. It is not an action. Distinct from `ClackSpinnerHandle.cancel` which stops a spinner with cancel styling.
 
@@ -54,7 +54,7 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   Effect.tryPromise({
     try: () => thunk(),
     catch: (error) =>
-      makeCliError({ code: "PROMPT_RENDER_FAILED", what: "Prompt failed", cause: error }),
+      makeAppError({ code: "PROMPT_RENDER_FAILED", what: "Prompt failed", cause: error }),
   }).pipe(
     Effect.flatMap((result) =>
       isCancel(result)
@@ -134,7 +134,7 @@ No error channel needed — these never fail in practice.
 `stream.*` methods accept `Iterable | AsyncIterable` and return `Promise<void>`. The Effect wrapper accepts only `Stream<string, E, R>` — no raw iterables:
 
 ```typescript
-readonly info: <E, R>(stream: Stream.Stream<string, E, R>) => Effect.Effect<void, CliError | E, R>
+readonly info: <E, R>(stream: Stream.Stream<string, E, R>) => Effect.Effect<void, AppError | E, R>
 ```
 
 The wrapper converts the Stream to an `AsyncIterable` via `Stream.toReadableStream` before forwarding to Clack. Callers use `Stream.make("a", "b")` for literals or `Stream.fromAsyncIterable(iter, identity)` for external async sources. This keeps the API uniform with consistent error typing and no runtime type dispatch.
@@ -235,7 +235,7 @@ interface ClackSelectConfig<V> {
 }
 
 // Service method — generic flows from config to return type
-readonly select: <V>(config: ClackSelectConfig<V>) => Effect.Effect<V, CliError | PromptCancelled>
+readonly select: <V>(config: ClackSelectConfig<V>) => Effect.Effect<V, AppError | PromptCancelled>
 ```
 
 Same pattern for `multiselect` (returns `ReadonlyArray<V>`), `groupMultiselect`, `selectKey`, `autocomplete`, and `autocompleteMultiselect`.

@@ -18,7 +18,7 @@
 
 Depends on: Phase 1
 
-- [x] 2.1 Write handler tests: pack with skill dependencies produces combined plan with pack + skill ops; already-installed skills marked no-op; dependency fetch failure produces CliError
+- [x] 2.1 Write handler tests: pack with skill dependencies produces combined plan with pack + skill ops; already-installed skills marked no-op; dependency fetch failure produces AppError
 - [x] 2.2 After reading the pack manifest (line 239), resolve each FQN in `manifest.skills` via `resolveSource`, then discover via `sources.resolveExtension` and fetch via `sources.fetch` concurrently with `Effect.forEach`
 - [x] 2.3 Build `InstallSkillOperation` for each fetched skill using `ws.getConfiguredAgents()` for agent IDs, the fetched archive location, and resolved version
 - [x] 2.4 Build combined plan with pack op first, then skill ops, and provide both `installPack` and `installSkill` handlers to `ws.resolvePlan`

@@ -91,7 +91,7 @@ The workspace service SHALL provide methods for reading and updating skill entri
 #### Scenario: updateSkillEntry fails for missing skill
 
 - **WHEN** `updateSkillEntry(name, updater)` is called with a name not in settings
-- **THEN** it SHALL fail with a `CliError`
+- **THEN** it SHALL fail with an `AppError`
 
 #### Scenario: renameSkill atomically renames keys
 
@@ -102,7 +102,7 @@ The workspace service SHALL provide methods for reading and updating skill entri
 #### Scenario: renameSkill fails for missing skill
 
 - **WHEN** `renameSkill(oldName, newName)` is called with an old name not in settings
-- **THEN** it SHALL fail with a `CliError`
+- **THEN** it SHALL fail with an `AppError`
 
 #### Scenario: updateLockEntryAgents updates lock agents
 
@@ -112,4 +112,4 @@ The workspace service SHALL provide methods for reading and updating skill entri
 #### Scenario: updateLockEntryAgents fails for missing lock entry
 
 - **WHEN** `updateLockEntryAgents(name, agents)` is called with a name not in the lockfile
-- **THEN** it SHALL fail with a `CliError`
+- **THEN** it SHALL fail with an `AppError`

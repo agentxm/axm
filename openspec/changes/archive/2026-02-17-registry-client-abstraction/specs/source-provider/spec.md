@@ -26,7 +26,7 @@ The system SHALL implement `RemoteRegistrySourceHostProvider` as a `PublishableS
 #### Scenario: Any operation on remote host provider
 
 - **WHEN** `find`, `fetch`, or `publishExtension` is called on `RemoteRegistrySourceHostProvider`
-- **THEN** it fails with `CliError` containing "remote registry not yet supported" (from the underlying `RemoteRegistryClient`)
+- **THEN** it fails with `AppError` containing "remote registry not yet supported" (from the underlying `RemoteRegistryClient`)
 
 ### Requirement: Registry host provider factory
 

@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
@@ -70,16 +70,16 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (
       args: UninstallCommandHandlerArgs,
-    ): Effect.Effect<ParsedCommandUninstallArgs, CliError> =>
+    ): Effect.Effect<ParsedCommandUninstallArgs, AppError> =>
       Effect.succeed({ commandName: args.commandName.trim() });
 
     const finalizeIntent = (
       parsed: ParsedCommandUninstallArgs,
-    ): Effect.Effect<UninstallCommandCommandIntent, CliError> =>
+    ): Effect.Effect<UninstallCommandCommandIntent, AppError> =>
       Effect.gen(function* () {
         const lockEntry = yield* ws.getLockedCommand(parsed.commandName);
         if (Option.isNone(lockEntry)) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "COMMAND_NOT_INSTALLED",
             what: `Command "${parsed.commandName}" is not installed`,
             howToFix: "Check installed commands and verify the name.",
@@ -96,7 +96,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallCommandCommandIntent,
-    ): Effect.Effect<Plan, CliError> => {
+    ): Effect.Effect<Plan, AppError> => {
       const retentionPolicy = {
         isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
           ws.isExtensionRequiredByInstalledPack(args.target),

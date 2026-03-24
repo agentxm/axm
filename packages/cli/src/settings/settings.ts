@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ export const readSettings = (axmDir: string) =>
     // Check if file exists
     const exists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
@@ -102,7 +102,7 @@ export const readSettings = (axmDir: string) =>
     // Read file contents
     const content = yield* fs.readFileString(settingsPath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Failed to read settings file: ${settingsPath}`,
           cause: error,
@@ -114,7 +114,7 @@ export const readSettings = (axmDir: string) =>
     const json = yield* Effect.try({
       try: () => JSON.parse(content) as unknown,
       catch: (error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Failed to parse settings JSON: ${String(error)}`,
           cause: error,
@@ -124,7 +124,7 @@ export const readSettings = (axmDir: string) =>
     // Validate schema
     const parsed = yield* Schema.decodeUnknownEffect(SettingsSchema)(json).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Invalid settings format: ${error.message}`,
           cause: error,
@@ -154,7 +154,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Ensure directory exists
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_WRITE_FAILED",
           what: `Failed to create directory: ${axmDir}`,
           cause: error,
@@ -165,7 +165,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Encode through schema (converts Option -> nullable, URL -> string, etc.)
     const encoded = yield* Schema.encodeEffect(SettingsSchema)(settings).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_WRITE_FAILED",
           what: `Failed to encode settings: ${error.message}`,
           cause: error,
@@ -183,7 +183,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_WRITE_FAILED",
           what: `Failed to write settings file: ${settingsPath}`,
           cause: error,

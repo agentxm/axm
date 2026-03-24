@@ -92,7 +92,7 @@ The system SHALL implement `LocalRegistryClient` that performs all `RegistryClie
 #### Scenario: publishExtension fails on version conflict
 
 - **WHEN** `publishExtension` is called for a version that already exists with a different checksum
-- **THEN** the operation fails with a `CliError`
+- **THEN** the operation fails with an `AppError`
 
 ### Requirement: RemoteRegistryClient stub
 
@@ -101,7 +101,7 @@ The system SHALL implement `RemoteRegistryClient` that fails all operations with
 #### Scenario: Any operation on remote client
 
 - **WHEN** any method is called on `RemoteRegistryClient`
-- **THEN** it fails with `CliError` containing "remote registry not yet supported"
+- **THEN** it fails with `AppError` containing "remote registry not yet supported"
 
 ### Requirement: RegistryClient factory
 
@@ -145,7 +145,7 @@ The system SHALL implement a `RemoteRegistryClient` that fails all operations wi
 #### Scenario: Any operation on remote registry
 
 - **WHEN** any method is called on `RemoteRegistryClient`
-- **THEN** it fails with `CliError` containing "remote registry not yet supported"
+- **THEN** it fails with `AppError` containing "remote registry not yet supported"
 
 ### Requirement: Registry provider factory
 

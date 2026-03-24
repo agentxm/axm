@@ -119,7 +119,7 @@ This solves the problem of error reporting in `run()`'s `catchAll` — the comma
 
 ### 7. Error reporting happens in `run()` error handler
 
-The `run()` function's `catchAll` block already classifies errors. After classification, before `Effect.die`, it calls `TelemetryClient.reportError()` (fire-and-forget). This captures both `CliError` (expected, exit code 1) and defects (exit code 2). The command name from `RunOptions` is included in the error context.
+The `run()` function's `catchAll` block already classifies errors. After classification, before `Effect.die`, it calls `TelemetryClient.reportError()` (fire-and-forget). This captures both `AppError` (expected, exit code 1) and defects (exit code 2). The command name from `RunOptions` is included in the error context.
 
 **Why:** Centralized — every error passes through `run()`. No risk of missing error reports from individual handlers.
 
@@ -177,8 +177,8 @@ The telemetry API is defined by the OpenAPI spec in `api-1.json`. The client sen
 ```json
 {
   "errors": [{
-    "message": "<CliError.what or defect message>",
-    "name": "<CliError code or 'Defect'>"
+    "message": "<AppError.what or defect message>",
+    "name": "<AppError code or 'Defect'>"
   }],
   "level": "error",
   "handled": true,
@@ -199,7 +199,7 @@ The telemetry API is defined by the OpenAPI spec in `api-1.json`. The client sen
 
 ### 12. Error payload allowlist
 
-All `CliError` fields are safe to send: `code`, `what`, `details`, `howToFix`. These are developer-authored strings that describe the error condition — they do not contain user file paths, environment variables, or PII. The `cause` field (underlying exception) is NOT sent as it may contain uncontrolled data.
+All `AppError` fields are safe to send: `code`, `what`, `details`, `howToFix`. These are developer-authored strings that describe the error condition — they do not contain user file paths, environment variables, or PII. The `cause` field (underlying exception) is NOT sent as it may contain uncontrolled data.
 
 For defects (unhandled exceptions), only the error `name` and `message` are sent. Stack traces are NOT sent as they may contain absolute file paths.
 

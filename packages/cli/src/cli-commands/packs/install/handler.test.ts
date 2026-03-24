@@ -43,7 +43,7 @@ import { PackManagerLive } from "../../../extensions/packs/manager.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { CommandManagerLive } from "../../../extensions/commands/manager.js";
 import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
-import { CliError, makeCliError } from "../../../cli-error/index.js";
+import { AppError, makeAppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -54,7 +54,7 @@ const serviceStubs = {
   find: (() => Effect.succeed([])) as SourceHostProvidersService["find"],
   fetch: (() =>
     Effect.fail(
-      makeCliError({ code: "FETCH_FAILED", what: "stub" }),
+      makeAppError({ code: "FETCH_FAILED", what: "stub" }),
     )) as SourceHostProvidersService["fetch"],
   cloneUrl: () => Option.none() as Option.Option<string>,
   origin: () => "unknown",
@@ -305,8 +305,8 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const error = yield* actions.parseArgs(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -319,8 +319,8 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const error = yield* actions.parseArgs(defaultArgs("./local-path")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -335,8 +335,8 @@ describe("packs install handler", () => {
           const error = yield* actions
             .parseArgs(defaultArgs("github:owner/repo"))
             .pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -354,8 +354,8 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleInstallPack(defaultArgs("./local-path")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("registry");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("registry");
         }),
       );
     });
@@ -369,8 +369,8 @@ describe("packs install handler", () => {
           const error = yield* handleInstallPack(defaultArgs("github:owner/repo")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("registry");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("registry");
         }),
       );
     });
@@ -384,8 +384,8 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleInstallPack(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -484,8 +484,8 @@ describe("packs install handler", () => {
           const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("INVALID_SOURCE");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("INVALID_SOURCE");
           expect(mockSpinner.starts).toContain("Parsing source...");
           expect(mockSpinner.stops).toContain("Failed");
         }),
@@ -593,7 +593,7 @@ describe("packs install handler", () => {
           if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+          return Effect.fail(makeAppError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
         },
       };
 
@@ -681,8 +681,8 @@ describe("packs install handler", () => {
           const error = yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_NOT_FOUND");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).code).toBe("PACK_NOT_FOUND");
         }),
       );
     });
@@ -702,7 +702,7 @@ describe("packs install handler", () => {
           if (source.type === "registry" && source.location.protocol !== "file:") {
             attemptedRemote = true;
             return Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "REGISTRY_REMOTE_NOT_SUPPORTED",
                 what: "remote registry not yet supported",
               }),
@@ -749,7 +749,7 @@ describe("packs install handler", () => {
 
           if (source.type === "registry" && source.location.protocol !== "file:") {
             return Effect.fail(
-              makeCliError({
+              makeAppError({
                 code: "REGISTRY_REMOTE_NOT_SUPPORTED",
                 what: "remote registry not yet supported",
               }),

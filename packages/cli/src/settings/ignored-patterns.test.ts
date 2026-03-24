@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { CliError } from "../cli-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { SettingsSchema } from "./schema.js";
 import { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
 
@@ -95,14 +95,14 @@ describe("normalizeIgnoredPatterns", () => {
   it("rejects empty patterns after trimming", () => {
     const error = Effect.runSync(normalizeIgnoredPatterns(["  "]).pipe(Effect.flip));
 
-    expect(error).toBeInstanceOf(CliError);
+    expect(error).toBeInstanceOf(AppError);
     expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
   });
 
   it("rejects empty string pattern", () => {
     const error = Effect.runSync(normalizeIgnoredPatterns([""]).pipe(Effect.flip));
 
-    expect(error).toBeInstanceOf(CliError);
+    expect(error).toBeInstanceOf(AppError);
     expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
   });
 
@@ -125,7 +125,7 @@ describe("validateIgnoredConfigConflicts", () => {
       validateIgnoredConfigConflicts(["openspec-core"], ["openspec-*"]).pipe(Effect.flip),
     );
 
-    expect(error).toBeInstanceOf(CliError);
+    expect(error).toBeInstanceOf(AppError);
     expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
   });
 
@@ -134,7 +134,7 @@ describe("validateIgnoredConfigConflicts", () => {
       validateIgnoredConfigConflicts(["my-skill"], ["my-skill"]).pipe(Effect.flip),
     );
 
-    expect(error).toBeInstanceOf(CliError);
+    expect(error).toBeInstanceOf(AppError);
     expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
   });
 

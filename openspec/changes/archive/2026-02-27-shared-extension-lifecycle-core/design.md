@@ -72,10 +72,10 @@ Command-family flow (composed by command-family workflows):
 - execute `run` effects for ready and accepted-warn steps in job order
 - promote error steps to error results without execution
 - return `ExecutedPlan` with `CompletedJobStep` per step
-- `resolvePlan` returns `Effect<ExecutedPlan, PromptCancelled | CliError>` since it may prompt the user for confirmation (preserving current behavior)
+- `resolvePlan` returns `Effect<ExecutedPlan, PromptCancelled | AppError>` since it may prompt the user for confirmation (preserving current behavior)
 - `resolvePlan` retains its existing UI service requirements (`Log`, `Confirm`, or equivalent) for plan display and confirmation, even though step `run` effects are `R = never`
 - when warn confirmation is declined, `resolvePlan` fails with `PromptCancelled` and `applyPlan` is not executed
-- when apply is blocked by readiness errors, `resolvePlan` fails with `CliError` (code: `PLAN_BLOCKED_BY_ERRORS`) containing the error diagnostics from blocked steps
+- when apply is blocked by readiness errors, `resolvePlan` fails with `AppError` (code: `PLAN_BLOCKED_BY_ERRORS`) containing the error diagnostics from blocked steps
 
 Inter-job blocking semantics (preserved from current behavior):
 
@@ -90,7 +90,7 @@ Warn-step creation policy:
 
 Step dependency model:
 
-- `PlannedJobStep.run` must be `Effect.Effect<JobStepResult, CliError, never>`
+- `PlannedJobStep.run` must be `Effect.Effect<JobStepResult, AppError, never>`
 - all step dependencies are resolved before plan construction and captured in closures
 - `applyPlan` performs no per-step service lookup beyond invoking `step.run()`
 
@@ -202,7 +202,7 @@ Uninstall targets must be derived with lockfile-backed context during `finalizeI
 - `ExtensionTarget`: normalized execution target used by uninstall/runtime policy checks.
 - Install operations are `ExtensionRef`-driven.
 - Uninstall operations are lockfile-backed `ExtensionTarget`-driven.
-- `PlannedJobStep`: existing plan type, evolved to `ReadyJobStep | WarnJobStep | ErrorJobStep` (no `operation` payload on steps). The existing `skip` readiness state is removed; operations are assumed idempotent (re-running an already-applied operation is a safe no-op). `warn` readiness is retained for steps that can execute but require user attention (user is prompted unless `--force` is passed). `error` readiness means the planned step has a known problem that prevents execution — the entire plan is blocked from applying (fails with `CliError`).
+- `PlannedJobStep`: existing plan type, evolved to `ReadyJobStep | WarnJobStep | ErrorJobStep` (no `operation` payload on steps). The existing `skip` readiness state is removed; operations are assumed idempotent (re-running an already-applied operation is a safe no-op). `warn` readiness is retained for steps that can execute but require user attention (user is prompted unless `--force` is passed). `error` readiness means the planned step has a known problem that prevents execution — the entire plan is blocked from applying (fails with `AppError`).
 - `CompletedJobStep`: post-execution step with `label` and `JobStepResult`.
 - `ExecutedPlan`: post-execution plan containing `CompletedJobStep` entries. Returned by `resolvePlan`.
 
@@ -228,7 +228,7 @@ Default CLI output renders operation outcomes directly.
 Render rules:
 
 1. Preserve plan step order for operation outcome rendering.
-2. Readiness errors cause `resolvePlan` to fail with `CliError` (plan blocked); error details are in the `CliError`.
+2. Readiness errors cause `resolvePlan` to fail with `AppError` (plan blocked); error details are in the `AppError`.
 3. Render readiness warnings with attention indicator (prompted unless `--force`).
 4. Render one `CompletedJobStep` per ready/warn planned job step `run` effect.
 
@@ -268,14 +268,14 @@ This keeps pack orchestration composable while preserving shared operation execu
 
 ```ts
 export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent> {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
-  readonly resolveSourceRequests: (parsed: Parsed) => Effect.Effect<ReadonlyArray<Req>, CliError>;
-  readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, CliError>;
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, AppError>;
+  readonly resolveSourceRequests: (parsed: Parsed) => Effect.Effect<ReadonlyArray<Req>, AppError>;
+  readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, AppError>;
   readonly finalizeIntent: (
     parsed: Parsed,
     refs: ReadonlyArray<Ref>,
-  ) => Effect.Effect<Intent, CliError>;
-  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
+  ) => Effect.Effect<Intent, AppError>;
+  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
 }
 
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
@@ -297,9 +297,9 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
 
 ```ts
 export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
-  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, CliError>;
-  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, AppError>;
+  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, AppError>;
+  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
 }
 
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
@@ -330,14 +330,14 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
 type ReadyJobStep = {
   readonly label: string;
   readonly readiness: "ready";
-  readonly run: () => Effect.Effect<JobStepResult, CliError, never>;
+  readonly run: () => Effect.Effect<JobStepResult, AppError, never>;
 };
 
 type WarnJobStep = {
   readonly label: string;
   readonly readiness: "warn";
   readonly message: string;
-  readonly run: () => Effect.Effect<JobStepResult, CliError, never>;
+  readonly run: () => Effect.Effect<JobStepResult, AppError, never>;
 };
 
 type ErrorJobStep = {
@@ -351,7 +351,7 @@ type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
 // Replaces the existing OperationResult. Discriminated union for step outcomes.
 type JobStepResult =
   | { readonly result: "success"; readonly message: string }
-  | { readonly result: "error"; readonly message: string; readonly error: CliError };
+  | { readonly result: "error"; readonly message: string; readonly error: AppError };
 
 // Post-execution step (result of invoking a planned step's `run` effect).
 type CompletedJobStep = {
@@ -436,23 +436,23 @@ type InstallOperationArgs<TRef extends ExtensionRef> = {
 
 interface ExtensionManager<TRef extends ExtensionRef> {
   readonly extensionType: TRef["type"];
-  readonly materializeInstall: (args: { readonly ref: TRef }) => Effect.Effect<void, CliError>;
+  readonly materializeInstall: (args: { readonly ref: TRef }) => Effect.Effect<void, AppError>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError>;
+  }) => Effect.Effect<void, AppError>;
   readonly upsertSettingsEntry: (args: {
     readonly ref: TRef;
     readonly versionConstraint: Option.Option<string>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly removeSettingsEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly upsertLockfileEntry: (args: {
     readonly ref: TRef;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
 }
 
 // Cross-cutting uninstall dependency-retention policy.
@@ -460,10 +460,10 @@ interface ExtensionManager<TRef extends ExtensionRef> {
 interface UninstallRetentionPolicy {
   readonly isRequiredByInstalledPack: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, CliError, never>;
+  }) => Effect.Effect<boolean, AppError, never>;
   readonly markDependencyRetainedInLockfile: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<void, CliError, never>;
+  }) => Effect.Effect<void, AppError, never>;
 }
 
 // Step `run` methods receive a fully-resolved manager so operation execution
@@ -501,7 +501,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
   });
 ```
 
-**Failure semantics:** If a step's `run` effect fails (returns a `CliError`), the step is marked as errored in the plan results. Remaining steps in the same job continue executing (no early abort within a job). If any step in a job produces an error result, subsequent jobs are blocked and their steps are promoted to error results. Partial state (e.g. materialized on disk but not locked) is acceptable; idempotent re-runs and lockfile reconciliation handle recovery.
+**Failure semantics:** If a step's `run` effect fails (returns an `AppError`), the step is marked as errored in the plan results. Remaining steps in the same job continue executing (no early abort within a job). If any step in a job produces an error result, subsequent jobs are blocked and their steps are promoted to error results. Partial state (e.g. materialized on disk but not locked) is acceptable; idempotent re-runs and lockfile reconciliation handle recovery.
 
 ### `packages/cli/src/workflows/uninstall-operation/workflow.ts`
 
@@ -683,7 +683,7 @@ export const handlePacksInstall = (args: PacksInstallHandlerArgs) =>
 // build-plan.ts
 export const buildPackInstallPlan = (
   intent: InstallPackCommandIntent,
-): Effect.Effect<Plan, CliError> =>
+): Effect.Effect<Plan, AppError> =>
   Effect.gen(function* () {
     const packManager = yield* PackManager;
     const skillManager = yield* SkillManager;
@@ -855,7 +855,7 @@ export const finalizePackUninstallIntent = (parsed: ParsedPackUninstallArgs) =>
 // build-uninstall-plan.ts
 export const buildPackUninstallPlan = (
   intent: UninstallPackCommandIntent,
-): Effect.Effect<Plan, CliError> =>
+): Effect.Effect<Plan, AppError> =>
   Effect.gen(function* () {
     const packManager = yield* PackManager;
     const skillManager = yield* SkillManager;
@@ -1064,7 +1064,7 @@ export const McpServerManagerLive = Layer.effect(
 const expandPackInstallRefs: (args: {
   readonly pack: PackExtensionRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
-}) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError>;
+}) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError>;
 
 // Computes removable targets for pack uninstall:
 //   pack dependency candidates − remaining-pack-refs − directly-configured extensions.
@@ -1072,13 +1072,13 @@ const expandPackInstallRefs: (args: {
 const expandPackUninstallTargets: (args: {
   readonly pack: PackExtensionTarget;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
-}) => Effect.Effect<ReadonlyArray<ExtensionTarget>, CliError>;
+}) => Effect.Effect<ReadonlyArray<ExtensionTarget>, AppError>;
 
 // Resolves skill names to lockfile-backed uninstall targets.
-// Fails with CliError if any skill name is not found in the lockfile.
+// Fails with AppError if any skill name is not found in the lockfile.
 const resolveSkillUninstallTargetsFromLockfile: (
   skills: ReadonlyArray<{ readonly skillName: string }>,
-) => Effect.Effect<ReadonlyArray<SkillExtensionTarget>, CliError>;
+) => Effect.Effect<ReadonlyArray<SkillExtensionTarget>, AppError>;
 ```
 
 Command and mcp-server install/uninstall command-actions services follow the same structural pattern as skill install/uninstall. Pseudocode is omitted for brevity; implementations mirror the skill patterns with type-appropriate parsing, discovery, and intent types.
@@ -1138,7 +1138,7 @@ Command and mcp-server install/uninstall command-actions services follow the sam
 
 | Area                                 | Path                                    | Status   | Impact                                                                                                                                                                                                                          |
 | ------------------------------------ | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolvePlan` signature              | `packages/cli/src/workspace/service.ts` | existing | Evolves from `resolvePlan(plan, handlers)` to `resolvePlan(plan)`: returns `Effect<ExecutedPlan, CliError \| PromptCancelled>`. Steps carry `run` closures directly. Fails with `CliError` when plan has error-readiness steps. |
+| `resolvePlan` signature              | `packages/cli/src/workspace/service.ts` | existing | Evolves from `resolvePlan(plan, handlers)` to `resolvePlan(plan)`: returns `Effect<ExecutedPlan, AppError \| PromptCancelled>`. Steps carry `run` closures directly. Fails with `AppError` when plan has error-readiness steps. |
 | `removeSkillSetting`                 | `packages/cli/src/workspace/service.ts` | new      | Removes only settings entry for a skill target (used by `removeSettingsEntry`).                                                                                                                                                 |
 | `removeSkillLock`                    | `packages/cli/src/workspace/service.ts` | new      | Removes only lockfile entry for a skill target (used by `removeLockfileEntry`).                                                                                                                                                 |
 | `isExtensionRequiredByInstalledPack` | `packages/cli/src/workspace/service.ts` | new      | Returns whether a given `ExtensionTarget` is referenced by any installed pack's dependency list.                                                                                                                                |
@@ -1205,7 +1205,7 @@ Expected simplification outcomes:
   - repeated expanded targets remain safe via idempotent operation semantics
   - `warn` readiness behavior: prompts before apply; `--force` bypasses prompt
   - warn confirmation decline returns `PromptCancelled` and does not execute `applyPlan`
-  - `error` readiness causes `resolvePlan` to fail with `CliError` (code: `PLAN_BLOCKED_BY_ERRORS`)
+  - `error` readiness causes `resolvePlan` to fail with `AppError` (code: `PLAN_BLOCKED_BY_ERRORS`)
   - inter-job blocking: step error in job N blocks all subsequent jobs
 - Type-specific tests:
   - skill native vs non-native branches

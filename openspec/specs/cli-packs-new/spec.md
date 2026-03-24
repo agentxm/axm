@@ -30,13 +30,13 @@ The pack name SHALL be scoped using the workspace's configured namespace (from s
 - **WHEN** user runs `axm packs new frontend-tools`
 - **AND** no namespace is configured in settings.json
 - **AND** `--namespace` is not provided
-- **THEN** the command fails with a `CliError` indicating a namespace is required
+- **THEN** the command fails with a `AppError` indicating a namespace is required
 
 #### Scenario: Pack already exists
 
 - **WHEN** user runs `axm packs new frontend-tools`
 - **AND** `.axm/extensions/@acme/packs/frontend-tools/axm-pack.json` already exists
-- **THEN** the command fails with a `CliError` indicating the pack already exists
+- **THEN** the command fails with a `AppError` indicating the pack already exists
 
 ### Requirement: New pack registered in settings
 

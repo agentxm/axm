@@ -20,7 +20,7 @@ import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type CliError } from "../../../cli-error/index.js";
+import { type AppError } from "../../../app-error/index.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -280,8 +280,8 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No managed");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("No managed");
         }),
       );
     });
@@ -304,8 +304,8 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("my-pack", "local-skill")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not a managed");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not a managed");
         }),
       );
     });
@@ -321,8 +321,8 @@ describe("packs-add.handler", () => {
           const error = yield* handlePacksAdd(defaultArgs("nonexistent-pack", "some-ext")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("not found");
         }),
       );
     });

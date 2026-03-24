@@ -23,17 +23,17 @@ The rename handler SHALL validate skill state, build a `RenameSkillOperation`, a
 #### Scenario: Old name does not exist
 
 - **WHEN** the old name is not in settings
-- **THEN** the handler SHALL fail with a `CliError` indicating the skill was not found
+- **THEN** the handler SHALL fail with an `AppError` indicating the skill was not found
 
 #### Scenario: Old name is unmanaged
 
 - **WHEN** the old name refers to an unmanaged skill
-- **THEN** the handler SHALL fail with a `CliError` indicating unmanaged skills cannot be renamed
+- **THEN** the handler SHALL fail with an `AppError` indicating unmanaged skills cannot be renamed
 
 #### Scenario: New name conflicts with existing skill
 
 - **WHEN** the new name already exists in settings
-- **THEN** the handler SHALL fail with a `CliError` indicating the name conflicts with an existing skill
+- **THEN** the handler SHALL fail with an `AppError` indicating the name conflicts with an existing skill
 
 ### Requirement: RenameSkillOperation handler
 

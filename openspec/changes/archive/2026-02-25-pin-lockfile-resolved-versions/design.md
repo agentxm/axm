@@ -55,7 +55,7 @@ Alternatives considered:
 
 ### 3) Handle range values with explicit failure only
 
-Decision: When operations encounter range strings in lockfile resolved fields, fail with a clear `CliError` including remediation guidance. No automatic repair or normalization is attempted.
+Decision: When operations encounter range strings in lockfile resolved fields, fail with a clear `AppError` including remediation guidance. No automatic repair or normalization is attempted.
 
 Rationale:
 

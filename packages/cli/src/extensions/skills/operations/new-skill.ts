@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -86,7 +86,7 @@ export const newSkill: OperationHandler<
     // 1. Check if skill already exists in settings
     const configuredSkills = yield* ws.getConfiguredSkills();
     if (name in configuredSkills) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SKILL_ALREADY_EXISTS",
         what: `Skill '${name}' already exists in settings`,
         howToFix: "Choose a different name or remove the existing skill first",
@@ -104,7 +104,7 @@ export const newSkill: OperationHandler<
     // 3. Create skill directory (src/ implies canonicalPath is also created)
     yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SKILL_CREATE_FAILED",
           what: `Failed to create skill directory: ${skillSrcPath}`,
           cause: e,
@@ -127,7 +127,7 @@ export const newSkill: OperationHandler<
       )
       .pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "SKILL_CREATE_FAILED",
             what: `Failed to write skill manifest`,
             cause: e,
@@ -138,7 +138,7 @@ export const newSkill: OperationHandler<
     // 5. Write starter SKILL.md
     yield* fs.writeFileString(path.join(skillSrcPath, "SKILL.md"), makeSkillMd(name)).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SKILL_CREATE_FAILED",
           what: `Failed to write SKILL.md`,
           cause: e,

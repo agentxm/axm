@@ -9,7 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { formatFqn } from "../../../extensions/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
@@ -54,7 +54,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "NAMESPACE_REQUIRED",
                   what: "No namespace configured for pack creation",
                   howToFix:
@@ -74,7 +74,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   const exists = yield* fs.exists(manifestPath).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "PACK_CHECK_FAILED",
         what: `Failed to check if pack exists: ${manifestPath}`,
         cause: e,
@@ -83,7 +83,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   );
 
   if (exists) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "PACK_ALREADY_EXISTS",
       what: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
       howToFix: "Choose a different name or remove the existing pack first",

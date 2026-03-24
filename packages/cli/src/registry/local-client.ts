@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import { resolveVersionWithConstraint } from "../version-constraints/version-constraints.js";
 import type {
   RegistryClient,
@@ -43,7 +43,7 @@ const processNameDir = (
   path: Path.Path,
   typeDir: string,
   nameDir: string,
-): Effect.Effect<Option.Option<RegistryExtensionManifest>, CliError> =>
+): Effect.Effect<Option.Option<RegistryExtensionManifest>, AppError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -52,7 +52,7 @@ const processNameDir = (
 
     const content = yield* fs.readFileString(idxPath).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_FETCH_FAILED",
           what: `Failed to read index: ${idxPath}`,
           cause: e,
@@ -62,7 +62,7 @@ const processNameDir = (
     const json = yield* Effect.try({
       try: () => JSON.parse(content) as unknown,
       catch: (e) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_FETCH_FAILED",
           what: `Invalid JSON in index: ${idxPath}`,
           cause: e,
@@ -70,7 +70,7 @@ const processNameDir = (
     });
     const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "REGISTRY_FETCH_FAILED",
           what: `Invalid index schema: ${idxPath}`,
           cause: e,
@@ -192,7 +192,7 @@ export const createLocalRegistryClient = (
             const idxPath = path.join(dir, "index.json");
             const content = yield* fs.readFileString(idxPath).pipe(
               Effect.mapError((e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Failed to read index: ${idxPath}`,
                   cause: e,
@@ -202,7 +202,7 @@ export const createLocalRegistryClient = (
             const json = yield* Effect.try({
               try: () => JSON.parse(content) as unknown,
               catch: (e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Invalid JSON in index: ${idxPath}`,
                   cause: e,
@@ -210,7 +210,7 @@ export const createLocalRegistryClient = (
             });
             const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
               Effect.mapError((e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Invalid index schema: ${idxPath}`,
                   cause: e,
@@ -221,7 +221,7 @@ export const createLocalRegistryClient = (
             const selected = selectVersion(index.versions);
             if (Option.isNone(selected)) {
               return yield* Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `No versions found for ${args.namespace}/${args.type}/${args.name}`,
                 }),
@@ -245,7 +245,7 @@ export const createLocalRegistryClient = (
             const idxPath = path.join(dir, "index.json");
             const content = yield* fs.readFileString(idxPath).pipe(
               Effect.mapError((e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Failed to read index: ${idxPath}`,
                   cause: e,
@@ -255,7 +255,7 @@ export const createLocalRegistryClient = (
             const json = yield* Effect.try({
               try: () => JSON.parse(content) as unknown,
               catch: (e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Invalid JSON in index: ${idxPath}`,
                   cause: e,
@@ -263,7 +263,7 @@ export const createLocalRegistryClient = (
             });
             const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
               Effect.mapError((e) =>
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `Invalid index schema: ${idxPath}`,
                   cause: e,
@@ -277,7 +277,7 @@ export const createLocalRegistryClient = (
             );
             if (Option.isNone(selected)) {
               return yield* Effect.fail(
-                makeCliError({
+                makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
                   what: `No version matched constraint "${requestedVersion}" for ${args.namespace}/${args.type}/${args.name}`,
                 }),
@@ -292,7 +292,7 @@ export const createLocalRegistryClient = (
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
         return yield* Effect.fail(
-          makeCliError({
+          makeAppError({
             code: "REGISTRY_FETCH_FAILED",
             what: `Archive not found: ${archivePath}`,
           }),
@@ -301,7 +301,7 @@ export const createLocalRegistryClient = (
 
       const archive = yield* fs.readFile(archivePath).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "REGISTRY_FETCH_FAILED",
             what: `Failed to read archive: ${archivePath}`,
             cause: e,
@@ -318,7 +318,7 @@ export const createLocalRegistryClient = (
       // Ensure directory exists
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
             what: `Failed to create directory: ${dir}`,
             cause: e,
@@ -336,7 +336,7 @@ export const createLocalRegistryClient = (
         // Read existing index
         const content = yield* fs.readFileString(indexPath).pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to read index: ${indexPath}`,
               cause: e,
@@ -346,7 +346,7 @@ export const createLocalRegistryClient = (
         const json = yield* Effect.try({
           try: () => JSON.parse(content) as unknown,
           catch: (e) =>
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Invalid JSON in index`,
               cause: e,
@@ -354,7 +354,7 @@ export const createLocalRegistryClient = (
         });
         const existingIndex = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Invalid index schema`,
               cause: e,
@@ -369,7 +369,7 @@ export const createLocalRegistryClient = (
             return { published: true } as const; // Idempotent: same version, same integrity -> no-op
           }
           return yield* Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Version ${args.version} already exists with different integrity`,
               details: [`Expected ${existingVersion.integrity}, got ${args.metadata.integrity}`],
@@ -384,7 +384,7 @@ export const createLocalRegistryClient = (
         };
         yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
@@ -401,7 +401,7 @@ export const createLocalRegistryClient = (
         };
         yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
@@ -413,7 +413,7 @@ export const createLocalRegistryClient = (
       // Write archive
       yield* fs.writeFile(archivePath, args.archive).pipe(
         Effect.mapError((e) =>
-          makeCliError({
+          makeAppError({
             code: "REGISTRY_PUBLISH_FAILED",
             what: `Failed to write archive: ${archivePath}`,
             cause: e,

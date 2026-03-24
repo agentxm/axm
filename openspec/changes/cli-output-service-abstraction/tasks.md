@@ -46,7 +46,7 @@ Can run in parallel with Phase 2.
 - [ ] 3.2 Create `src/input/input-test.ts` with `makeInputTestLayer(overrides)` returning `[Layer, MockInputService]` — preconfigurable return values per method, records calls
 - [ ] 3.3 Write unit tests for `makeInputTestLayer` verifying configured responses and call recording
 - [ ] 3.4 Create `src/input/input-live.ts` with `InputLive` layer that imports `@clack/prompts` directly, depends on `CliFlags`. Inline current `guardedPrompt` non-interactive guard and `wrapPrompt` cancel detection. Delegate all 10 prompt methods to `@clack/prompts` with `asClack` type bridge
-- [ ] 3.5 Create `src/input/input-structured.ts` with `InputStructured` layer — all methods fail with `PROMPT_IN_STRUCTURED_OUTPUT` CliError
+- [ ] 3.5 Create `src/input/input-structured.ts` with `InputStructured` layer — all methods fail with `PROMPT_IN_STRUCTURED_OUTPUT` AppError
 - [ ] 3.6 Write unit tests for `InputLive` verifying non-interactive guard (fails with `PROMPT_IN_NON_INTERACTIVE`)
 - [ ] 3.7 Write unit tests for `InputStructured` verifying all methods fail with `PROMPT_IN_STRUCTURED_OUTPUT`
 - [ ] 3.8 Create `src/input/index.ts` barrel exporting `Input`, `InputLive`, `InputStructured`, `makeInputTestLayer`, and all types

@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { CliError as EffectCliError, Command } from "effect/unstable/cli";
+import { CliError, Command } from "effect/unstable/cli";
 
 import type { OutputFormat } from "./output.js";
 
@@ -113,7 +113,7 @@ const handleError = (error: unknown, format: OutputFormat): never => {
     process.exit(error.exitCode);
   }
 
-  if (EffectCliError.isCliError(error)) {
+  if (CliError.isCliError(error)) {
     if (format !== "text") {
       // Extract human-readable messages from structured CliError errors
       const message =

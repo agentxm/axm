@@ -49,10 +49,10 @@ Supported operations:
 - **THEN** it SHALL call the remote extension HEAD endpoint
 - **AND** return `{ exists: true }` for `200` and `{ exists: false }` for `404`
 
-#### Scenario: Read operations map remote failures to CliError
+#### Scenario: Read operations map remote failures to AppError
 
 - **WHEN** `getExtensionsByScope`, `getExtensionPackage`, `namespaceExists`, or `extensionExists` encounters network, schema, or non-success HTTP failure
-- **THEN** the operation SHALL fail with a descriptive `CliError` that includes request context in `details`
+- **THEN** the operation SHALL fail with a descriptive `AppError` that includes request context in `details`
 
 ### Requirement: RegistryClient factory
 

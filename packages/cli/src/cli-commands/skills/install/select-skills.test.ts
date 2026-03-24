@@ -17,7 +17,7 @@ import {
 } from "../../../clack-effect/index.js";
 import { type CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
-import { CliError } from "../../../cli-error/index.js";
+import { AppError } from "../../../app-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -89,8 +89,8 @@ describe("determineSkillsToInstall", () => {
             all: false,
           }).pipe(Effect.flip);
 
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No skills matched");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).what).toContain("No skills matched");
         }),
       ),
     );
@@ -159,9 +159,9 @@ describe("determineSkillsToInstall", () => {
             all: false,
           }).pipe(Effect.flip);
 
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).details.join(", ")).toContain("commit");
-          expect((error as CliError).details.join(", ")).toContain("review-pr");
+          expect(error._tag).toBe("AppError");
+          expect((error as AppError).details.join(", ")).toContain("commit");
+          expect((error as AppError).details.join(", ")).toContain("review-pr");
         }),
       ),
     );

@@ -9,8 +9,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { CliError } from "../cli-error/index.js";
-import { makeCliError } from "../cli-error/index.js";
+import type { AppError } from "../app-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import {
   type CodingAgent,
@@ -71,11 +71,11 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, never> => {
   }
 };
 
-const get = (id: AgentId): Effect.Effect<CodingAgent, CliError> =>
+const get = (id: AgentId): Effect.Effect<CodingAgent, AppError> =>
   Option.match(getAgentById(id), {
     onNone: () =>
       Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "CODING_AGENT_NOT_SUPPORTED",
           what: `Unsupported coding agent: ${id}`,
         }),
@@ -88,7 +88,7 @@ const all = Effect.forEach(getAgentIds(), (id) => fromId(id));
 const getConfiguredAgentIds = () =>
   Workspace.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
 
-const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, CliError, Workspace> =>
+const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, AppError, Workspace> =>
   getConfiguredAgentIds().pipe(
     Effect.flatMap((ids) =>
       Effect.forEach(ids, (id) =>
@@ -116,7 +116,7 @@ const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, CliErr
 
 const getUnknownConfiguredAgentIds = (): Effect.Effect<
   ReadonlyArray<string>,
-  CliError,
+  AppError,
   Workspace
 > =>
   getConfiguredAgentIds().pipe(

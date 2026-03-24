@@ -1,11 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ClackPrompt, type ClackPromptService } from "./service.js";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 
 const fail = (promptType: string) =>
   Effect.fail(
-    makeCliError({
+    makeAppError({
       code: "PROMPT_IN_STRUCTURED_OUTPUT",
       what: `Interactive ${promptType} prompt cannot be used with structured output`,
       howToFix:

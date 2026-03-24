@@ -19,14 +19,14 @@ The `axm login` command SHALL initiate an RFC 8628 device authorization grant fl
 #### Scenario: Device code request failure
 
 - **WHEN** `POST /v1/auth/device/code` returns a non-2xx response
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_FAILED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_FAILED`
 - **AND** `details` SHALL include the server error message
 - **AND** `howToFix` SHALL suggest checking network connectivity and trying again
 
 #### Scenario: Unknown client_id rejection
 
 - **WHEN** `POST /v1/auth/device/code` returns 400 with an unknown client_id error
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_FAILED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_FAILED`
 - **AND** `howToFix` SHALL suggest updating the CLI to the latest version
 
 ### Requirement: Browser launch and manual fallback
@@ -80,7 +80,7 @@ The CLI SHALL poll `POST /v1/auth/device/token` at the server-provided interval 
 
 - **WHEN** the poll response contains `error: "expired_token"`
 - **THEN** the CLI SHALL stop polling
-- **AND** fail with `CliError` code `AUTH_LOGIN_FAILED`
+- **AND** fail with `AppError` code `AUTH_LOGIN_FAILED`
 - **AND** `howToFix` SHALL read "Login code expired. Run `axm login` to try again."
 
 #### Scenario: Successful token issuance
@@ -127,5 +127,5 @@ The CLI SHALL reject interactive login when non-interactive mode is active.
 #### Scenario: Non-interactive mode
 
 - **WHEN** the user runs `axm login` in non-interactive mode (explicit flag, CI, or non-TTY)
-- **THEN** the CLI SHALL fail with `CliError` code `AUTH_LOGIN_REQUIRED`
+- **THEN** the CLI SHALL fail with `AppError` code `AUTH_LOGIN_REQUIRED`
 - **AND** `howToFix` SHALL read "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal."

@@ -18,7 +18,7 @@ Add the `@clack/prompts` dependency and move `PromptCancelled` to a shared locat
 Implement the `ClackPrompt` service wrapping all interactive prompts (`text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path`). **Depends on: Phase 1.**
 
 - [x]2.1 Define config types in `clack-effect/prompt/types.ts` — non-generic (`ClackTextConfig`, `ClackPasswordConfig`, `ClackConfirmConfig`, `ClackPathConfig`) and generic (`ClackSelectConfig<V>`, `ClackMultiselectConfig<V>`, `ClackGroupMultiselectConfig<V>`, `ClackSelectKeyConfig<V>`, `ClackAutocompleteConfig<V>`, `ClackAutocompleteMultiselectConfig<V>`). Omit `CommonOptions` fields.
-- [x]2.2 Write tests for `ClackPrompt` service: text returns string value, confirm returns boolean, select returns typed `V`, multiselect returns `ReadonlyArray<V>`, cancellation maps to `PromptCancelled`, render failure maps to `CliError` with code `PROMPT_RENDER_FAILED`
+- [x]2.2 Write tests for `ClackPrompt` service: text returns string value, confirm returns boolean, select returns typed `V`, multiselect returns `ReadonlyArray<V>`, cancellation maps to `PromptCancelled`, render failure maps to `AppError` with code `PROMPT_RENDER_FAILED`
 - [x]2.3 Implement `wrapPrompt` (private thunk-based utility) and `ClackPrompt` service tag, interface, and `ClackPromptLive` layer in `clack-effect/prompt/service.ts`
 - [x]2.4 Write `makeClackPromptTestLayer` in `clack-effect/prompt/test.ts` — call-recording mock with configurable behaviors (return value or cancel), following `tui/confirm/test.ts` pattern
 - [x]2.5 Create `clack-effect/prompt/index.ts` barrel
@@ -61,7 +61,7 @@ Implement handle-based task log and Stream-only streaming services. **Depends on
 - [x]4.3 Implement `ClackTaskLog` service tag, interface, and `ClackTaskLogLive` layer in `clack-effect/task-log/service.ts`
 - [x]4.4 Write `makeClackTaskLogTestLayer` in `clack-effect/task-log/test.ts`
 - [x]4.5 Create `clack-effect/task-log/index.ts` barrel
-- [x]4.6 Write tests for `ClackStream` — Stream-only API, `Stream.make` literals work, Stream errors propagate as `CliError | E`, verify all `stream.*` method variants (`info`, `warn`, `error`, `success`, `step`, `message`)
+- [x]4.6 Write tests for `ClackStream` — Stream-only API, `Stream.make` literals work, Stream errors propagate as `AppError | E`, verify all `stream.*` method variants (`info`, `warn`, `error`, `success`, `step`, `message`)
 - [x]4.7 Implement `ClackStream` service tag, interface, and `ClackStreamLive` layer in `clack-effect/stream/service.ts` — convert `Stream<string, E, R>` to `AsyncIterable` via `Stream.toReadableStream` before forwarding to Clack
 - [x]4.8 Write `makeClackStreamTestLayer` in `clack-effect/stream/test.ts`
 - [x]4.9 Create `clack-effect/stream/index.ts` barrel

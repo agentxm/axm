@@ -294,7 +294,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/skills/no-manifest"])).pipe(
-            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Missing manifest");
@@ -313,7 +313,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs(["@test/skills/nonexistent"])).pipe(
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true,
                 what: e.what,
@@ -597,7 +597,7 @@ describe("publish.handler", () => {
             }),
           ).pipe(
             Effect.as({ error: false as const }),
-            Effect.catchTag("CliError", (e) =>
+            Effect.catchTag("AppError", (e) =>
               Effect.succeed({
                 error: true as const,
                 code: e.code,

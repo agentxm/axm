@@ -69,7 +69,7 @@ Remove support for `@scope/pack-name` (ambiguous — could be a skill). The `/pa
 
 ## Risks / Trade-offs
 
-**Registry schema encoding** — Using `@scope/<type-plural>/<name>` keys in `VersionEntry.dependencies` is a convention, not schema-enforced. → Validate at decode time in `toExtensionRef`; malformed keys produce a `CliError`.
+**Registry schema encoding** — Using `@scope/<type-plural>/<name>` keys in `VersionEntry.dependencies` is a convention, not schema-enforced. → Validate at decode time in `toExtensionRef`; malformed keys produce an `AppError`.
 
 **Existing published packs lack dependencies** — Packs published before this change won't have dependencies in the registry index. → The install-pack operation falls back to reading the manifest from the extracted archive if `pack.dependencies` is empty. This provides a migration path without requiring republishing.
 

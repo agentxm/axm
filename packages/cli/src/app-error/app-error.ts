@@ -1,7 +1,7 @@
 import * as Data from "effect/Data";
 import * as Option from "effect/Option";
 
-export class CliError extends Data.TaggedError("CliError")<{
+export class AppError extends Data.TaggedError("AppError")<{
   readonly code: string;
   readonly what: string;
   readonly details: ReadonlyArray<string>;
@@ -9,14 +9,14 @@ export class CliError extends Data.TaggedError("CliError")<{
   readonly cause: unknown;
 }> {}
 
-export const makeCliError = (args: {
+export const makeAppError = (args: {
   readonly code: string;
   readonly what: string;
   readonly details?: ReadonlyArray<string>;
   readonly howToFix?: string;
   readonly cause?: unknown;
-}): CliError =>
-  new CliError({
+}): AppError =>
+  new AppError({
     code: args.code,
     what: args.what,
     details: args.details ?? [],

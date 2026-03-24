@@ -23,7 +23,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { CommandExtensionRef, RegistrySource } from "../../../sources/types.js";
@@ -122,7 +122,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (
       args: InstallCommandHandlerArgs,
-    ): Effect.Effect<ParsedCommandInstallArgs, CliError> =>
+    ): Effect.Effect<ParsedCommandInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
         const parsed = parseInputPattern(trimmed);
@@ -131,7 +131,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
           const pat = parsed.value.pattern;
           if (Option.isSome(pat.type) && pat.type.value !== "commands") {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "COMMAND_SOURCE_INVALID_FORMAT",
               what: "Command source must include /commands/ segment",
               details: [`Provided: ${trimmed}`],
@@ -139,7 +139,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             });
           }
           if (Option.isNone(pat.name)) {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "COMMAND_SOURCE_MISSING_NAME",
               what: "Command source must include a command name",
               details: [`Provided: ${trimmed}`],
@@ -167,7 +167,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           };
         }
 
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "COMMAND_SOURCE_NOT_REGISTRY",
           what: "Commands can only be installed from a registry",
           details: [`Provided: ${trimmed}`],
@@ -177,12 +177,12 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const resolveSourceRequests = (
       parsed: ParsedCommandInstallArgs,
-    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, CliError | PromptCancelled> =>
+    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, AppError | PromptCancelled> =>
       provide(
         Effect.gen(function* () {
           const source = yield* resolveSource(parsed.resolvedInput).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
                 details: [`Provided: ${parsed.resolvedInput}`],
@@ -193,7 +193,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           );
 
           if (source.type !== "registry") {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "COMMAND_SOURCE_NOT_REGISTRY",
               what: "Commands can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
@@ -214,7 +214,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const discoverRefs = (
       reqs: ReadonlyArray<CommandInstallSourceRequest>,
-    ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, CliError> =>
+    ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
       Effect.scoped(
         Effect.gen(function* () {
           const allRefs = yield* Effect.forEach(
@@ -229,7 +229,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 })
                 .pipe(
                   Effect.mapError((error) =>
-                    makeCliError({
+                    makeAppError({
                       code: "COMMAND_FETCH_FAILED",
                       what: "Failed to fetch command from registry",
                       details: [`Command: ${req.namespace}/commands/${req.commandName}`],
@@ -247,10 +247,10 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const finalizeIntent = (
       parsed: ParsedCommandInstallArgs,
       refs: ReadonlyArray<CommandExtensionRef>,
-    ): Effect.Effect<InstallCommandCommandIntent, CliError> =>
+    ): Effect.Effect<InstallCommandCommandIntent, AppError> =>
       Effect.gen(function* () {
         if (refs.length === 0) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "COMMAND_NOT_FOUND",
             what: `Command "${parsed.commandName}" not found in registry`,
             howToFix: "Verify the command name and check available commands.",
@@ -263,7 +263,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         };
       });
 
-    const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, CliError> =>
+    const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
         name: "Install command",

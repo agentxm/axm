@@ -12,8 +12,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { CliError } from "../cli-error/cli-error.js";
-import { makeCliError } from "../cli-error/cli-error.js";
+import type { AppError } from "../app-error/app-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 import { ClackLog } from "../clack-effect/log/service.js";
 import { ClackPrompt } from "../clack-effect/prompt/service.js";
 import { ClackSpinner } from "../clack-effect/spinner/service.js";
@@ -29,13 +29,13 @@ import { resolveToken } from "./token-resolution.js";
 // Constants
 // -----------------------------------------------------------------------------
 
-const AUTH_LOGIN_REQUIRED_NON_INTERACTIVE = makeCliError({
+const AUTH_LOGIN_REQUIRED_NON_INTERACTIVE = makeAppError({
   code: "AUTH_LOGIN_REQUIRED",
   what: "Authentication required",
   howToFix: "Set the AXM_TOKEN environment variable or run `axm login` in an interactive terminal.",
 });
 
-const AUTH_LOGIN_REQUIRED_DECLINED = makeCliError({
+const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
   code: "AUTH_LOGIN_REQUIRED",
   what: "Authentication required",
   howToFix: "Run `axm login` to sign in.",
@@ -55,10 +55,10 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeCliError({
  * - On decline: fails with `AUTH_LOGIN_REQUIRED`.
  */
 export const withAuthGuard = <A, E, R>(
-  effect: Effect.Effect<A, E | CliError, R>,
+  effect: Effect.Effect<A, E | AppError, R>,
 ): Effect.Effect<
   A,
-  E | CliError | PromptCancelled,
+  E | AppError | PromptCancelled,
   | R
   | CredentialStore
   | AuthClient

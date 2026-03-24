@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 
 import * as azurerepos from "./azurerepos/index.js";
 import * as bitbucket from "./bitbucket/index.js";
-import { makeCliError, type CliError } from "../cli-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
@@ -59,13 +59,13 @@ const firstSuccess = <A, E, R>(
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Get configured sources from workspace, mapping errors to CliError. */
+/** Get configured sources from workspace, mapping errors to AppError. */
 const getConfiguredSources = (input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     return yield* ws.getConfiguredSources().pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to get configured sources: ${e._tag}`,
           details: [input],
@@ -85,7 +85,7 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 /** Parse shorthand input using the provider for the given source type. */
 const parseShorthandForSource = (
   shorthand: ShorthandInput,
-): Effect.Effect<SourceParams, CliError> => {
+): Effect.Effect<SourceParams, AppError> => {
   const input = `${shorthand.prefix}:${shorthand.remainingInput}`;
   switch (shorthand.prefix) {
     case "github":
@@ -96,7 +96,7 @@ const parseShorthandForSource = (
       return bitbucket.parseShorthand(input);
     default:
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
           details: [input],
@@ -113,10 +113,10 @@ const configToSource = (
   config: SourceHostConfig,
   params: SourceParams,
   input: string,
-): Effect.Effect<Source, CliError> => {
+): Effect.Effect<Source, AppError> => {
   const mismatch = () =>
     Effect.fail(
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Source params type "${params.type}" does not match config type "${config.type}"`,
         details: [input],
@@ -157,7 +157,7 @@ export const routeUrlInput = (url: URL, input: string) =>
     }
 
     const sources = yield* getConfiguredSources(input);
-    const noMatch = makeCliError({
+    const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches URL "${url.href}"`,
       details: [input],
@@ -166,7 +166,7 @@ export const routeUrlInput = (url: URL, input: string) =>
     const tryParseUrl = (
       configUrl: URL,
       config: SourceHostConfig,
-      parse: (url: URL, hostname: string) => Effect.Effect<SourceParams, CliError>,
+      parse: (url: URL, hostname: string) => Effect.Effect<SourceParams, AppError>,
     ) =>
       configUrl.hostname !== url.hostname
         ? Effect.fail(noMatch)
@@ -189,7 +189,7 @@ export const routeUrlInput = (url: URL, input: string) =>
     }
 
     return yield* firstSuccess(attempts, () =>
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No configured source matches URL "${url.href}"`,
         details: [input],
@@ -205,7 +205,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
   Effect.gen(function* () {
     const colonIndex = input.indexOf(":");
     if (colonIndex <= 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
         details: [input],
@@ -228,7 +228,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     }
 
     // Not a config name — fail
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches URL "${url.href}"`,
       details: [input],
@@ -250,7 +250,7 @@ export const routeScpInput = (
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
     const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
-    const noMatch = makeCliError({
+    const noMatch = makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `No configured source matches SCP address "${scpInput}"`,
       details: [input],
@@ -259,7 +259,7 @@ export const routeScpInput = (
     const tryParseScp = (
       scpHostname: string,
       config: SourceHostConfig,
-      parse: (input: string, hostname: string) => Effect.Effect<SourceParams, CliError>,
+      parse: (input: string, hostname: string) => Effect.Effect<SourceParams, AppError>,
     ) =>
       scp.host !== scpHostname
         ? Effect.fail(noMatch)
@@ -284,7 +284,7 @@ export const routeScpInput = (
     }
 
     return yield* firstSuccess(attempts, () =>
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No configured source matches SCP address "${scpInput}"`,
         details: [input],
@@ -315,7 +315,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
       const params = yield* parseShorthandForSource(parseResult.pattern);
       const config = sources.find((s) => s.type === prefix);
       if (!config) {
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `No source config found for source type "${prefix}". Add a source config via settings.`,
           details: [input],
@@ -327,7 +327,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
     // Config-name prefix → find config, parse with its source type parser
     const matchedConfig = sources.find((s) => s.name === prefix);
     if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Unknown shorthand prefix: "${prefix}"`,
         details: [input],
@@ -350,14 +350,14 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 export const routeNameInput = (
   name: string,
   input: string,
-): Effect.Effect<Source, CliError, FileSystem.FileSystem | Path.Path | Workspace> =>
+): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | Workspace> =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
 
     // Tier 1: lockfile entry
     const skills = yield* ws.getLockedSkills().pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to read lockfile: ${e._tag}`,
           details: [input],
@@ -371,7 +371,7 @@ export const routeNameInput = (
     // Tier 2: configured skill with a source string
     const configured = yield* ws.getConfiguredSkills().pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to read settings: ${e._tag}`,
           details: [input],
@@ -383,7 +383,7 @@ export const routeNameInput = (
       return yield* resolveSource(entry.source);
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SOURCE_PARSE_FAILED",
       what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
       details: [input],
@@ -405,7 +405,7 @@ export const routeRegistryInput = (
 
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to get registry sources: ${e._tag}`,
           details: [input],
@@ -414,7 +414,7 @@ export const routeRegistryInput = (
     );
 
     if (registrySources.length === 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `No registry source configured for namespace "${pattern.namespace}"`,
         details: [input],
@@ -467,7 +467,7 @@ export const resolveSlashInputSource = (
         const extensionName = pattern.third.value;
         const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
-            makeCliError({
+            makeAppError({
               code: "SOURCE_PARSE_FAILED",
               what: `Failed to get registry sources: ${e._tag}`,
               details: [input],
@@ -510,7 +510,7 @@ export const resolveSlashInputSource = (
     });
 
     if (Array.isReadonlyArrayEmpty(attempts)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
         details: [input],
@@ -518,7 +518,7 @@ export const resolveSlashInputSource = (
     }
 
     return yield* firstSuccess(attempts, () =>
-      makeCliError({
+      makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
         details: [input],
@@ -540,15 +540,15 @@ export const resolveSlashInputSource = (
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to resolve
- * @returns Effect containing a resolved `Source` or `CliError`
+ * @returns Effect containing a resolved `Source` or `AppError`
  */
 export const resolveSource = (
   input: string,
-): Effect.Effect<Source, CliError, FileSystem.FileSystem | Path.Path | Workspace> =>
+): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Source string cannot be empty",
         details: [input],
@@ -557,7 +557,7 @@ export const resolveSource = (
 
     const parseResultOpt = parseInputPattern(trimmed);
     if (Option.isNone(parseResultOpt)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
         details: [input],
@@ -585,7 +585,7 @@ export const resolveSource = (
       case "slash-pattern":
         return yield* resolveSlashInputSource(pattern, parsed.originalInput);
       case "glob-input":
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "SOURCE_PARSE_FAILED",
           what: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
           details: [input],

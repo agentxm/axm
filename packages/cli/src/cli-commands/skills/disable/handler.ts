@@ -9,7 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Log } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -45,7 +45,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   // Validate: skill is installed (ignored names are excluded from installed)
   if (installedEntry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SKILL_NOT_FOUND",
       what: `Skill '${args.name}' is not installed`,
       howToFix: "Run `axm skills list` to see available skills",

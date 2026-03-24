@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import type { CliEnvConfig } from "../../config/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SourceHostProvider } from "../provider.js";
@@ -70,7 +70,7 @@ export const createGitHostingSourceHostProvider = <
       const tempDir = yield* Effect.acquireRelease(
         fs.makeTempDirectory().pipe(
           Effect.mapError((error) =>
-            makeCliError({
+            makeAppError({
               code: "SOURCE_FETCH_FAILED",
               what: "Failed to create temp directory",
               details: [error.message],
@@ -91,7 +91,7 @@ export const createGitHostingSourceHostProvider = <
         includeInternal: false,
       }).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "SOURCE_FETCH_FAILED",
             what: "Failed to discover skills",
             details: [error.message],
@@ -135,7 +135,7 @@ export const createGitHostingSourceHostProvider = <
   fetch: (_source, _ref) => {
     if (_ref.refType !== "git-hosted") {
       return Effect.fail(
-        makeCliError({
+        makeAppError({
           code: "SOURCE_FETCH_FAILED",
           what: `Expected ref with location for ${host.type} source, but none was provided`,
         }),

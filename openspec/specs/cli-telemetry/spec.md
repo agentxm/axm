@@ -101,9 +101,9 @@ The system SHALL track CLI command invocations as usage events.
 
 The system SHALL report unhandled errors and defects to the telemetry API.
 
-#### Scenario: CliError reported
+#### Scenario: AppError reported
 
-- **WHEN** a `CliError` reaches the runtime boundary and telemetry mode is `"all"` or `"errors"`
+- **WHEN** a `AppError` reaches the runtime boundary and telemetry mode is `"all"` or `"errors"`
 - **THEN** the system SHALL send a `POST /errors` request with the error details
 
 #### Scenario: Defect reported
@@ -116,15 +116,15 @@ The system SHALL report unhandled errors and defects to the telemetry API.
 - **WHEN** telemetry mode is `"off"`
 - **THEN** the system SHALL NOT send any error reports
 
-#### Scenario: CliError payload contents
+#### Scenario: AppError payload contents
 
-- **WHEN** a `CliError` is reported
+- **WHEN** a `AppError` is reported
 - **THEN** the error object SHALL include `name` (the error code, e.g., `"SETTINGS_PARSE_FAILED"`), `message` (the `what` field), and the `level` SHALL be `"error"`
 - **AND** `handled` SHALL be `true`
 - **AND** `tags` SHALL include the `errorCode`
 - **AND** `fingerprint` SHALL include the error code for grouping
 - **AND** the `context` SHALL include the `command` that triggered the error
-- **AND** the `details` and `howToFix` fields from `CliError` MAY be included
+- **AND** the `details` and `howToFix` fields from `AppError` MAY be included
 
 #### Scenario: Defect payload contents
 
@@ -137,7 +137,7 @@ The system SHALL report unhandled errors and defects to the telemetry API.
 #### Scenario: Cause field excluded
 
 - **WHEN** any error is reported
-- **THEN** the `cause` field from `CliError` SHALL NOT be sent as it may contain uncontrolled data from third-party libraries
+- **THEN** the `cause` field from `AppError` SHALL NOT be sent as it may contain uncontrolled data from third-party libraries
 
 ### Requirement: Fire-and-Forget Delivery
 

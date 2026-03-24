@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
-import { CliError, makeCliError } from "../../../cli-error/index.js";
+import { AppError, makeAppError } from "../../../app-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
@@ -27,9 +27,9 @@ const makeWorkspaceMock = (
   overrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
     removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
-    lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
     lockedPacks?: Record<string, any>;
   },
@@ -73,11 +73,11 @@ const makeWorkspaceMock = (
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () =>
       overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, AppError>)
         : Effect.succeed(skills),
     getLockedSkill: (name: string) =>
       overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, AppError>)
         : Effect.succeed(Option.fromUndefinedOr(skills[name] as SkillLockEntry | undefined)),
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: overrides?.setSkillErrorOverride
@@ -166,9 +166,9 @@ const withServices = (
   wsOverrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
     removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
-    lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
     lockedPacks?: Record<string, any>;
   },
@@ -392,7 +392,7 @@ describe("uninstallSkill", () => {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
         const removeSkillFn = vi.fn(() =>
           Effect.fail(
-            makeCliError({
+            makeAppError({
               code: "SETTINGS_WRITE_FAILED",
               what: "write failed",
               cause: new Error("write failed"),
@@ -604,7 +604,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile read error handling", () => {
-    it.effect("propagates CliError from lockfile read failure", () =>
+    it.effect("propagates AppError from lockfile read failure", () =>
       Effect.gen(function* () {
         const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
@@ -616,7 +616,7 @@ describe("uninstallSkill", () => {
               {
                 lockfileErrorOverride: () =>
                   Effect.fail(
-                    makeCliError({
+                    makeAppError({
                       code: "LOCKFILE_PARSE_FAILED",
                       what: "corrupt lockfile",
                     }),
@@ -627,9 +627,9 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("CliError");
-        expect((result as CliError).code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
-        expect((result as CliError).cause).toBeInstanceOf(CliError);
+        expect(result._tag).toBe("AppError");
+        expect((result as AppError).code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
+        expect((result as AppError).cause).toBeInstanceOf(AppError);
         // Canonical dir should still exist (error propagated before removal)
         expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
@@ -645,7 +645,7 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code", "cursor"]),
         };
-        const writeError = makeCliError({
+        const writeError = makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
           what: "write failed",
         });
@@ -659,8 +659,8 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("CliError");
-        expect((result as CliError).what).toContain("Failed to update lockfile");
+        expect(result._tag).toBe("AppError");
+        expect((result as AppError).what).toContain("Failed to update lockfile");
       }),
     );
 
@@ -672,7 +672,7 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code"]),
         };
-        const writeError = makeCliError({
+        const writeError = makeAppError({
           code: "LOCKFILE_WRITE_FAILED",
           what: "write failed",
         });

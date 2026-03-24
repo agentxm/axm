@@ -12,7 +12,7 @@ import {
   ClackLogTestLayer,
   type ClackLogRecord,
 } from "../clack-effect/log/ClackLogTest.js";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
 
@@ -335,7 +335,7 @@ describe("displayPlan", () => {
                   result: {
                     result: "error",
                     message: "failed to apply",
-                    error: makeCliError({ code: "TEST_STEP_FAILED", what: "failed to apply" }),
+                    error: makeAppError({ code: "TEST_STEP_FAILED", what: "failed to apply" }),
                   },
                 },
               ],
@@ -369,7 +369,7 @@ describe("displayPlan", () => {
                   result: {
                     result: "error",
                     message: "failed to publish",
-                    error: makeCliError({
+                    error: makeAppError({
                       code: "PUBLISH_FAILED",
                       what: "Failed to publish",
                       details: ["Registry URL: https://registry.example.com"],
@@ -413,7 +413,7 @@ describe("displayPlan", () => {
                   result: {
                     result: "error",
                     message: "failed",
-                    error: makeCliError({ code: "TEST_FAILED", what: "failed" }),
+                    error: makeAppError({ code: "TEST_FAILED", what: "failed" }),
                   },
                 },
               ],

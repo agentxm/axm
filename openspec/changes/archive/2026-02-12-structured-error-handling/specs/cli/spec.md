@@ -2,12 +2,12 @@
 
 ### Requirement: Error Message Format
 
-The CLI SHALL provide actionable error messages with recovery guidance. All errors reaching the runtime boundary SHALL be either `CliError` (expected errors) or `PromptCancelled` (user cancellation). Any other error reaching the boundary SHALL be treated as a defect.
+The CLI SHALL provide actionable error messages with recovery guidance. All errors reaching the runtime boundary SHALL be either `AppError` (expected errors) or `PromptCancelled` (user cancellation). Any other error reaching the boundary SHALL be treated as a defect.
 
 #### Scenario: Expected error exits with code 1
 
-- **WHEN** a `CliError` reaches the runtime boundary
-- **THEN** the CLI SHALL render it using `renderCliError`
+- **WHEN** an `AppError` reaches the runtime boundary
+- **THEN** the CLI SHALL render it using `renderAppError`
 - **AND** exit with code 1
 
 #### Scenario: User cancellation exits cleanly
@@ -18,7 +18,7 @@ The CLI SHALL provide actionable error messages with recovery guidance. All erro
 
 #### Scenario: Defect exits with code 2
 
-- **WHEN** an unhandled error (not `CliError` or `PromptCancelled`) reaches the runtime boundary
+- **WHEN** an unhandled error (not `AppError` or `PromptCancelled`) reaches the runtime boundary
 - **THEN** the CLI SHALL render it using `renderDefect`
 - **AND** exit with code 2
 

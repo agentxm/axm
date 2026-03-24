@@ -601,7 +601,7 @@ describe("init.handler", () => {
 
         const error = yield* handleInit().pipe(Effect.flip);
 
-        expect(error._tag).toBe("CliError");
+        expect(error._tag).toBe("AppError");
       }).pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
     });
   });

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../cli-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import { SkillManifestSchema, MANIFEST_FILENAME } from "./manifest-schema.js";
 import { computeSkillPaths } from "./paths.js";
 import type {
@@ -97,7 +97,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
 
       const exists = yield* env.fs.exists(canonicalPath).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
             what: `Failed to check skill path: ${canonicalPath}`,
             cause: error,
@@ -129,7 +129,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       const manifestJson = yield* Effect.try({
         try: () => JSON.parse(manifestRaw) as unknown,
         catch: () =>
-          makeCliError({
+          makeAppError({
             code: "LOCKFILE_RECONCILE_MANIFEST_INVALID",
             what: `Invalid skill manifest JSON at ${manifestPath}`,
           }),

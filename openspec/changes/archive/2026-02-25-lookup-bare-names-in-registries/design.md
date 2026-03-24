@@ -31,7 +31,7 @@ This change keeps default-namespace lookup behavior, but makes lookup attempts e
 
 ### 1) Introduce a first-class not-found error for bare-name registry lookup
 
-Decision: replace generic `SOURCE_PARSE_FAILED` for bare-name miss with a specific `CliError` code that captures lookup context, for example `REGISTRY_SKILL_NOT_FOUND`.
+Decision: replace generic `SOURCE_PARSE_FAILED` for bare-name miss with a specific `AppError` code that captures lookup context, for example `REGISTRY_SKILL_NOT_FOUND`.
 
 Why:
 
@@ -50,7 +50,7 @@ Decision: update the bare-name resolver path to collect checked registry endpoin
 Primary code paths:
 
 - `packages/cli/src/workspace/service.ts`
-  - Add `getDefaultNamespace` returning `Effect<Option<string>, CliError>` with precedence: project settings > user settings > logged-in identity handle (TODO: auth not implemented) > `Option.none()`.
+  - Add `getDefaultNamespace` returning `Effect<Option<string>, AppError>` with precedence: project settings > user settings > logged-in identity handle (TODO: auth not implemented) > `Option.none()`.
   - Rename `getConfiguredRegistrySources` to `getRegistrySourceHosts` (aligns to ontology `Registry Source Hosts` set term).
 - `packages/cli/src/cli-commands/skills/install/resolve-skill-install-source.ts`
   - Update `resolveSkillRegistrySourceByName` to use `getDefaultNamespace` and `getRegistrySourceHosts`.
@@ -73,7 +73,7 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
 
     // No namespace available — can't perform bare-name lookup
     if (Option.isNone(maybeNamespace)) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${name}" could not be looked up (no default namespace)`,
         details: [
@@ -91,7 +91,7 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
-      return yield* makeCliError({
+      return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
         what: `Skill "${namespace}/${name}" could not be looked up (no registry sources)`,
         details: [
@@ -121,7 +121,7 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
       }
     }
 
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
       what: `Skill "${namespace}/${name}" was not found in configured registries`,
       details: [
@@ -138,11 +138,11 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
 // handler.ts
 const parsed = parseInputPattern(args.source.trim());
 if (Option.isNone(parsed)) {
-  return yield* makeCliError({ code: "INVALID_SOURCE", ... });
+  return yield* makeAppError({ code: "INVALID_SOURCE", ... });
 }
 
 const source = yield* resolveSkillInstallSource(parsed.value).pipe(
-  // Preserve CliError from resolver (including REGISTRY_SKILL_NOT_FOUND)
+  // Preserve AppError from resolver (including REGISTRY_SKILL_NOT_FOUND)
   Effect.mapError((error) => error),
 );
 ```

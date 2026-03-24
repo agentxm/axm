@@ -39,13 +39,13 @@ readonly baseDir: string  // path.dirname(this.path) — project root
 
 ### 2. `validatePathSafety` helper
 
-Wraps `isPathSafe` check + `CliError` fail into a single call used by all per-refType functions.
+Wraps `isPathSafe` check + `AppError` fail into a single call used by all per-refType functions.
 
 ```typescript
 const validatePathSafety = (baseDir: string, targetPath: string) =>
   isPathSafe(baseDir, targetPath)
     ? Effect.void
-    : makeCliError({
+    : makeAppError({
         code: "INSTALL_SKILL_PATH_TRAVERSAL",
         what: `Path traversal detected: ${targetPath}`,
       });
@@ -170,7 +170,7 @@ const installFromRegistry = (
 
       const actualIntegrity = yield* computeIntegrity(archive);
       if (actualIntegrity !== ref.integrity) {
-        yield* makeCliError({
+        yield* makeAppError({
           code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
           what: `Integrity mismatch for ${ref.name}@${ref.version}`,
           details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
@@ -239,7 +239,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, sanitizedName, path);
     yield* copySkillDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
-        makeCliError({
+        makeAppError({
           code: "INSTALL_SKILL_COPY_FAILED",
           what: `Failed to copy skill files to ${copyTarget}`,
           cause: e,

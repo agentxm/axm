@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -89,7 +89,7 @@ const makeWorkspaceMock = (
       const lockEntry = lockfileSkills[name] as SkillLockEntry | undefined;
       if (lockEntry === undefined) {
         return Effect.fail(
-          makeCliError({
+          makeAppError({
             code: "SKILL_NOT_LOCKED",
             what: `Skill "${name}" not found in lockfile`,
           }),

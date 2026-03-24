@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { PackManifestSchema } from "../extensions/packs/manifest-schema.js";
 import type { PackManifest } from "../extensions/packs/manifest-schema.js";
 
@@ -50,7 +50,7 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
   // Read and parse manifest
   const content = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "BUILTIN_PACK_READ_FAILED",
         what: "Failed to read builtin pack manifest",
         cause: e,
@@ -61,7 +61,7 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
   const json = yield* Effect.try({
     try: () => JSON.parse(content) as unknown,
     catch: (e) =>
-      makeCliError({
+      makeAppError({
         code: "BUILTIN_PACK_PARSE_FAILED",
         what: "Failed to parse builtin pack manifest",
         cause: e,
@@ -70,7 +70,7 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
 
   const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
-      makeCliError({
+      makeAppError({
         code: "BUILTIN_PACK_PARSE_FAILED",
         what: "Failed to validate builtin pack manifest",
         cause: e,

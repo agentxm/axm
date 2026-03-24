@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 
 import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import { CliFlags } from "../cli-flags/index.js";
-import { makeCliError } from "../cli-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { ClackLog } from "../clack-effect/log/service.js";
 import { ClackPrompt } from "../clack-effect/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
@@ -62,7 +62,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       // Detect installed agents
       const detectedAgents = yield* detectAgents(process.cwd()).pipe(
         Effect.mapError((error) =>
-          makeCliError({
+          makeAppError({
             code: "WORKSPACE_INITIALIZATION_FAILED",
             what: `Failed to detect agents: ${error.message}`,
             cause: error,
@@ -129,7 +129,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "SETTINGS_PARSE_FAILED",
           what: `Failed to check if settings file exists: ${settingsPath}`,
           cause: error,
@@ -138,7 +138,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
     );
     const lockfileExists = yield* fs.exists(lockfilePath).pipe(
       Effect.mapError((error) =>
-        makeCliError({
+        makeAppError({
           code: "LOCKFILE_PARSE_FAILED",
           what: `Failed to check if lockfile exists: ${lockfilePath}`,
           cause: error,

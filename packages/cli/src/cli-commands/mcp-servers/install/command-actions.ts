@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import type { McpServerExtensionRef, RegistrySource } from "../../../sources/types.js";
@@ -116,7 +116,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (
       args: InstallMcpServerHandlerArgs,
-    ): Effect.Effect<ParsedMcpServerInstallArgs, CliError> =>
+    ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
         const parsed = parseInputPattern(trimmed);
@@ -125,7 +125,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
           const pat = parsed.value.pattern;
           if (Option.isSome(pat.type) && pat.type.value !== "mcp-servers") {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
               what: "MCP server source must include /mcp-servers/ segment",
               details: [`Provided: ${trimmed}`],
@@ -133,7 +133,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             });
           }
           if (Option.isNone(pat.name)) {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_MISSING_NAME",
               what: "MCP server source must include a server name",
               details: [`Provided: ${trimmed}`],
@@ -161,7 +161,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           };
         }
 
-        return yield* makeCliError({
+        return yield* makeAppError({
           code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
           what: "MCP servers can only be installed from a registry",
           details: [`Provided: ${trimmed}`],
@@ -171,12 +171,12 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const resolveSourceRequests = (
       parsed: ParsedMcpServerInstallArgs,
-    ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, CliError | PromptCancelled> =>
+    ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError | PromptCancelled> =>
       provide(
         Effect.gen(function* () {
           const source = yield* resolveSource(parsed.resolvedInput).pipe(
             Effect.mapError((error) =>
-              makeCliError({
+              makeAppError({
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
                 details: [`Provided: ${parsed.resolvedInput}`],
@@ -187,7 +187,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           );
 
           if (source.type !== "registry") {
-            return yield* makeCliError({
+            return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
               what: "MCP servers can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
@@ -208,7 +208,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const discoverRefs = (
       reqs: ReadonlyArray<McpServerInstallSourceRequest>,
-    ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, CliError> =>
+    ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
       Effect.scoped(
         Effect.gen(function* () {
           const allRefs = yield* Effect.forEach(
@@ -223,7 +223,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 })
                 .pipe(
                   Effect.mapError((error) =>
-                    makeCliError({
+                    makeAppError({
                       code: "MCP_SERVER_FETCH_FAILED",
                       what: "Failed to fetch MCP server from registry",
                       details: [`Server: ${req.namespace}/mcp-servers/${req.serverName}`],
@@ -243,10 +243,10 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const finalizeIntent = (
       parsed: ParsedMcpServerInstallArgs,
       refs: ReadonlyArray<McpServerExtensionRef>,
-    ): Effect.Effect<InstallMcpServerCommandIntent, CliError> =>
+    ): Effect.Effect<InstallMcpServerCommandIntent, AppError> =>
       Effect.gen(function* () {
         if (refs.length === 0) {
-          return yield* makeCliError({
+          return yield* makeAppError({
             code: "MCP_SERVER_NOT_FOUND",
             what: `MCP server "${parsed.serverName}" not found in registry`,
             howToFix: "Verify the server name and check available MCP servers.",
@@ -259,7 +259,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         };
       });
 
-    const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, CliError> =>
+    const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
         name: "Install MCP server",

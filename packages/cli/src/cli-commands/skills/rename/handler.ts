@@ -7,7 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 import { Log } from "../../../clack-effect/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -45,7 +45,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
 
   // Validate: old name exists
   if (entry === undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SKILL_NOT_FOUND",
       what: `Skill '${args.oldName}' not found`,
       howToFix: "Run `axm skills list` to see available skills",
@@ -54,7 +54,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
 
   // Validate: new name doesn't conflict
   if (configuredSkills[args.newName] !== undefined) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "SKILL_NAME_CONFLICT",
       what: `Skill '${args.newName}' already exists`,
       howToFix: "Choose a different name or uninstall the existing skill first",

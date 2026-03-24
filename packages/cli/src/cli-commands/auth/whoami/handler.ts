@@ -17,7 +17,7 @@ import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
 import { ClackLog } from "../../../clack-effect/log/service.js";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeAppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -40,7 +40,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
   const maybeToken = yield* resolveToken(registryUrl);
 
   if (Option.isNone(maybeToken)) {
-    return yield* makeCliError({
+    return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
       what: "Not authenticated",
       howToFix: "Run `axm login` to sign in.",

@@ -38,14 +38,24 @@ If the input is ambiguous, ask what to review using AskUserQuestion.
 
 For folders, focus on `.ts` and `.tsx` files. Skip generated files, `node_modules`, `dist`, `__generated__`.
 
-### 2. Load applicable guidance
+### 2. Run static analysis
+
+Run tooling against files in scope and capture warnings:
+
+**ESLint** — run `pnpm lint` scoped to affected files. Capture all warnings and errors. Include each as a finding (errors → Critical, warnings → Warning).
+
+**TypeScript** — run `pnpm typecheck` (or `tsc --noEmit`) and filter to affected files. Include type errors as Critical findings and any diagnostic warnings as Warning findings.
+
+If either tool fails to run (not installed, config issue), note it in the summary and proceed.
+
+### 3. Load applicable guidance
 
 Read ALL relevant guidance sources — do not skip any:
 
 **Always load:**
 
 - Root `CLAUDE.md` — project-wide conventions
-- Co-located `CLAUDE.md` files in affected directories
+- Co-located `CLAUDE.md` and `AGENTS.md` files in affected directories (walk up to project root)
 
 **Load based on code content:**
 
@@ -70,18 +80,20 @@ Read ALL relevant guidance sources — do not skip any:
 - `contributing/guides/cli-design.md` — if CLI commands
 - `contributing/guides/spec-driven-development.md` — if spec/design files
 
-### 3. Analyze code
+### 4. Analyze code
 
-For each file in scope, check against loaded guidance. Focus areas in priority order:
+For each file in scope, check against loaded guidance and static analysis output. Focus areas in priority order:
 
 1. **Correctness** — Logic errors, missed error paths, race conditions
 2. **Safety** — Type assertions, unvalidated casts, thrown errors in Effect code
-3. **Idiomatic Effect** — v4 API usage, proper service patterns, typed errors, inference
-4. **Idiomatic TypeScript** — Type safety, minimal assertions, proper narrowing
-5. **Project conventions** — Code organization, naming, export patterns, error handling
-6. **Style** — Formatting, naming consistency, unnecessary complexity
+3. **Static analysis** — ESLint warnings/errors, TypeScript diagnostics from step 2
+4. **Idiomatic Effect** — v4 API usage, proper service patterns, typed errors, inference
+5. **Idiomatic TypeScript** — Type safety, minimal assertions, proper narrowing
+6. **Project conventions** — Code organization, naming, export patterns, error handling
+7. **AGENTS.md / CLAUDE.md guidance** — Violations of directory-specific instructions
+8. **Style** — Formatting, naming consistency, unnecessary complexity
 
-### 4. Produce findings
+### 5. Produce findings
 
 Use the **Findings Presentation** format from CLAUDE.md. Each finding is numbered with lettered remediation options and a recommendation.
 

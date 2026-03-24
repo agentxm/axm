@@ -1,8 +1,10 @@
 export {
   CliFlags,
+  CliFlagsLive,
   CliFlagsTest,
-  extractFlags,
-  layer,
-  type CliFlagsInput,
+  forceFlag,
+  nonInteractiveFlag,
+  previewFlag,
+  yesFlag,
   type CliFlagsService,
 } from "./service.js";

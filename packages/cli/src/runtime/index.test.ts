@@ -6,7 +6,6 @@ import nodePath from "node:path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CliFlags } from "../cli-flags/index.js";
@@ -98,7 +97,7 @@ describe("withCliRuntime", () => {
     const flags = await Runtime.runPromise(
       withCliRuntime(CliFlags.asEffect(), {
         flags: {
-          nonInteractive: Option.some(false),
+          nonInteractive: false,
           yes: true,
           force: true,
           preview: true,

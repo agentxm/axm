@@ -8,13 +8,13 @@
  */
 
 import * as Option from "effect/Option";
-import { parseFqnOrThrow } from "./fqn.js";
+import { parseFqnOrThrow } from "./index.js";
 import type {
   RegistryCommandRef,
   RegistryMcpServerRef,
   RegistrySkillRef,
   RegistrySource,
-} from "../sources/types.js";
+} from "../sources/index.js";
 
 /**
  * Build a RegistrySkillRef from a pack's resolved skill FQN and version.

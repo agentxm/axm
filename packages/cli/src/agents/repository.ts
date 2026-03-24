@@ -23,8 +23,8 @@ import { cursorCodingAgent } from "./cursor/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
 import { githubCopilotCodingAgent } from "./github-copilot/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
-import { getAgentById, getAgentIds } from "./registry.js";
-import type { AgentDescriptor, AgentId } from "./types.js";
+import { getAgentById, getAgentIds } from "@axm.sh/core/unstable/agents";
+import type { AgentDescriptor, AgentId } from "@axm.sh/core/unstable/agents";
 
 const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => ({
   id: descriptor.id,

@@ -14,14 +14,14 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../../app-error/index.js";
-import { formatFqn } from "../../../extensions/index.js";
+import {
+  formatFqn,
+  PACK_MANIFEST_FILENAME,
+  RawPackManifestSchema,
+} from "../../../extensions/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
 import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
-import {
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-} from "../../../extensions/packs/manifest-schema.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { Output } from "../../../output/index.js";

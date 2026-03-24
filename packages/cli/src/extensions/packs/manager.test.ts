@@ -15,7 +15,7 @@ import { PackManager, PackManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { SourceHostProviders, type SourceHostProvidersService } from "../../sources/index.js";
-import type { BuiltinPackRef, RegistryPackRef, RegistrySource } from "../../sources/types.js";
+import type { BuiltinPackRef, RegistryPackRef, RegistrySource } from "../../sources/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

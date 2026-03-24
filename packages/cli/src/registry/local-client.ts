@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { resolveVersionWithConstraint } from "../version-constraints/version-constraints.js";
+import { resolveVersionWithConstraint } from "../version-constraints/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -25,7 +25,7 @@ import type {
   ExtensionExistsArgs,
   GetExtensionsByNamespaceResponse,
 } from "./client.js";
-import { toAuthor, type Author, type ExtensionType } from "../extensions/common.js";
+import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 

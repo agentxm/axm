@@ -18,7 +18,7 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
   RegistrySource,
-} from "../../sources/types.js";
+} from "../../sources/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

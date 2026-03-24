@@ -14,7 +14,7 @@ import { vi } from "vitest";
 import { CommandManager, CommandManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
-import type { RegistryCommandRef, RegistrySource } from "../../sources/types.js";
+import type { RegistryCommandRef, RegistrySource } from "../../sources/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

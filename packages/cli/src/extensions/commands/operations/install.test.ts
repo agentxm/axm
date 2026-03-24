@@ -20,7 +20,7 @@ import { Workspace, type WorkspaceContextService } from "../../../workspace/serv
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { InstallCommandOperation } from "./install.js";
 import { installCommand } from "./install.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/types.js";
+import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

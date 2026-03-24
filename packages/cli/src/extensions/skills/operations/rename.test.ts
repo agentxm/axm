@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
+import type { SkillLockEntry } from "../../../lockfile/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";

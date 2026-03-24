@@ -83,6 +83,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@axm.sh/core": "workspace:*",
     "@clack/prompts": "^1.0.1",
     "@effect/platform-node": "4.0.0-beta.37",
     "effect": "catalog:",

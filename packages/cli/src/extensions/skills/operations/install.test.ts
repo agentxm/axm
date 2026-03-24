@@ -20,7 +20,7 @@ import { Workspace, type WorkspaceContextService } from "../../../workspace/serv
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
-import type { SkillExtensionRef } from "../../../sources/types.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 import { installSkill } from "./install.js";
 import { sanitizeName } from "../utils.js";
 

@@ -20,9 +20,9 @@ import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/types.js";
-import type { CommandLockEntry } from "../../../lockfile/schema.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
+import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/index.js";
+import type { CommandLockEntry } from "../../../lockfile/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

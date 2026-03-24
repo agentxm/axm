@@ -5,5 +5,4 @@
  * @packageDocumentation
  */
 
-export { descriptor } from "./descriptor.js";
 export { geminiCliCodingAgent } from "./service.js";

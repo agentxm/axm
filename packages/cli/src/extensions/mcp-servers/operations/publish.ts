@@ -17,7 +17,7 @@ import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
   type McpServerManifest,
-} from "../manifest-schema.js";
+} from "../../index.js";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -26,8 +26,8 @@ import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
-import { parseFqn } from "../../fqn.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
+import { parseFqn } from "../../index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

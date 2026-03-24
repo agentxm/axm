@@ -1,10 +1,10 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
 import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "./manifest-schema.js";
+import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "../index.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,

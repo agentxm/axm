@@ -23,7 +23,7 @@ import {
   type SkillExtensionRef,
   type Source,
 } from "../../../sources/index.js";
-import type { InputParseResult } from "../../../sources/parser.js";
+import type { InputParseResult } from "../../../sources/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
 import { Input } from "../../../input/index.js";

@@ -8,9 +8,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { RegistryPackRef, BuiltinPackRef } from "../../sources/types.js";
+import type { RegistryPackRef, BuiltinPackRef } from "../../sources/index.js";
 import type { PackExtensionTarget } from "../../workflows/install-operation/workflow.js";
-import type { Lockfile } from "../../lockfile/schema.js";
+import type { Lockfile } from "../../lockfile/index.js";
 import {
   expandPackInstallRefs,
   expandPackUninstallTargets,

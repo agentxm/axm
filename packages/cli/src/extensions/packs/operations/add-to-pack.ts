@@ -18,8 +18,8 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
   type RawPackManifest,
-} from "../manifest-schema.js";
-import { parseFqnOrThrow } from "../../fqn.js";
+} from "../../index.js";
+import { parseFqnOrThrow } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 

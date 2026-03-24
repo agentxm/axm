@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
-import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
+import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
@@ -35,7 +35,7 @@ import type {
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "../../../sources/types.js";
+} from "../../../sources/index.js";
 import type { WorkspaceScope } from "../../../workspace/scope.js";
 import type { InstallPackCommandIntent } from "./intent.js";
 

@@ -17,7 +17,7 @@ import {
   validateExactResolvedVersionMap,
 } from "../../../lockfile/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
-import type { PackExtensionRef } from "../../../sources/types.js";
+import type { PackExtensionRef } from "../../../sources/index.js";
 import { Output } from "../../../output/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";

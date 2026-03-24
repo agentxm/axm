@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as os from "node:os";
 import * as path from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
@@ -17,12 +18,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AppError } from "../app-error/index.js";
-import { getHome } from "./constants.js";
 import { detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
 
 /** Resolve home dir for use in test path construction. */
-const home = Effect.runSync(getHome);
+const home = os.homedir();
 
 // =============================================================================
 // Test Helpers

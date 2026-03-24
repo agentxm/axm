@@ -1,99 +1,7 @@
-/**
- * Source parsing and identification module.
- *
- * Provides functionality to parse various source formats (GitHub shorthand, URLs, etc.)
- * into normalized SourceParams structures.
- *
- * @experimental All exports from this module are unstable and may change without notice.
- * @packageDocumentation
- */
+// Re-export data layer from core
+export * from "@axm.sh/core/unstable/sources";
 
-// Types — Core
-export type { RefType, SourceType } from "./types.js";
-export { RefTypeSchema, SourceTypeSchema } from "./types.js";
-
-// Types — Source domain model (source-host-domain-modeling)
-export type {
-  // SourceHost
-  AzureReposSourceHost,
-  BitbucketSourceHost,
-  BuiltinSourceHost,
-  ConfiguredSourceHost,
-  GitHostingSourceHost,
-  GitHubSourceHost,
-  GitLabSourceHost,
-  GitSourceHost,
-  LocalSourceHost,
-  RegistrySourceHost,
-  SelfDescribingSourceHost,
-  SourceHost,
-  // SourceParams
-  AzureReposSourceParams,
-  BitbucketSourceParams,
-  BuiltinSourceParams,
-  GitHubSourceParams,
-  GitHostingSourceParams,
-  GitLabSourceParams,
-  GitSourceParams,
-  LocalSourceParams,
-  RegistrySourceParams,
-  SourceParams,
-  // Source (flat intersection)
-  BuiltinSource,
-  GitBasedSource,
-  GitHostingSource,
-  AzureReposSource,
-  BitbucketSource,
-  GitHubSource,
-  GitLabSource,
-  GitSource,
-  LocalSource,
-  RegistrySource,
-  Source,
-  // Ref details
-  BuiltinRefDetails,
-  GitHostedRefDetails,
-  LocalRefDetails,
-  RegistryRefDetails,
-  // Extension ref base types
-  ExtensionRefBase,
-  SkillExtensionRefBase,
-  CommandExtensionRefBase,
-  McpServerExtensionRefBase,
-  PackExtensionRefBase,
-  // Skill extension refs
-  GitHostedSkillRef,
-  BuiltinSkillRef,
-  LocalSkillRef,
-  RegistrySkillRef,
-  SkillExtensionRef,
-  // Command extension refs
-  GitHostedCommandRef,
-  BuiltinCommandRef,
-  LocalCommandRef,
-  RegistryCommandRef,
-  CommandExtensionRef,
-  // MCP server extension refs
-  GitHostedMcpServerRef,
-  BuiltinMcpServerRef,
-  LocalMcpServerRef,
-  McpServerExtensionRef,
-  RegistryMcpServerRef,
-  // Pack extension refs
-  BuiltinPackRef,
-  PackExtensionRef,
-  RegistryPackRef,
-  // Union
-  ExtensionRef,
-} from "./types.js";
-
-// Type guards and utilities
-export { fileUrlToPath } from "./utils.js";
-
-// Provider types
-export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";
-
-// Provider implementations
+// Provider implementations (CLI-specific)
 export {
   createAzureReposSourceHostProvider,
   createBitbucketSourceHostProvider,
@@ -108,7 +16,7 @@ export {
   createRemoteRegistrySourceHostProvider,
 } from "./providers/index.js";
 
-// SourceHostProviders service
+// SourceHostProviders service (CLI-specific)
 export type { SourceHostProvidersService } from "./service.js";
 export {
   SourceHostProviders,
@@ -116,13 +24,6 @@ export {
   createRegistryMetaProvider,
 } from "./service.js";
 
-// Input pattern classifier
-export { parseInputPattern } from "./parser.js";
-export type { InputPattern } from "./parser.js";
-
-// Source resolver
+// Source resolver (CLI-specific)
 export { resolveSource } from "./resolve-source.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";
-
-// Printer
-export { lockEntryToSourceParams, printSourceParams } from "./printer.js";

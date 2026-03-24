@@ -1,9 +1,9 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "./manifest-schema.js";
+import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "../index.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,

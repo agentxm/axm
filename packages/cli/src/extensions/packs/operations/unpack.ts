@@ -15,7 +15,7 @@ import type {
   SkillLockEntry,
   CommandLockEntry,
   McpServerLockEntry,
-} from "../../../lockfile/schema.js";
+} from "../../../lockfile/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/index.js";

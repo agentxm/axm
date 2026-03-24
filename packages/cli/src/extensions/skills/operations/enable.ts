@@ -12,7 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../../agents/registry.js";
+import { getAgentById } from "../../../agents/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";

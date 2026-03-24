@@ -8,11 +8,9 @@ export {
   type TaskLogHandle,
   type TaskLogGroupHandle,
   type Task,
-} from "./activity.js";
-export { ActivityLive } from "./activity-live.js";
-export { ActivityStructured } from "./activity-structured.js";
-export {
+  ActivityLive,
+  ActivityStructured,
   makeActivityTestLayer,
   type MockActivityService,
   type ActivityCall,
-} from "./activity-test.js";
+} from "@axm.sh/core/unstable/activity";

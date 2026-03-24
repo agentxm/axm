@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
+import type { Lockfile, PackLockEntry } from "../../../lockfile/index.js";
 import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { makeOutputTestLayer } from "../../../output/index.js";

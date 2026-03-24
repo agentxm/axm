@@ -23,7 +23,7 @@ import type {
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallCommandCommandIntent } from "./intent.js";
-import type { CommandExtensionRef } from "../../../sources/types.js";
+import type { CommandExtensionRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args

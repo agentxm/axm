@@ -24,8 +24,8 @@ import {
 import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { Source } from "./types.js";
-import { fileUrlToPath } from "./utils.js";
+import type { Source } from "./index.js";
+import { fileUrlToPath } from "./index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

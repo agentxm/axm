@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackExtensionRef } from "../../../sources/types.js";
+import type { PackExtensionRef } from "../../../sources/index.js";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackExtensionRef;

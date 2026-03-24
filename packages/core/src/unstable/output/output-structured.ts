@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { emitEvent, type OutputFormat } from "../output.js";
+import { emitEvent, type OutputFormat } from "../output-format.js";
 import { Output, type StreamLevel } from "./output.js";
 
 type StructuredMode = Exclude<OutputFormat, "text">;
@@ -47,11 +47,7 @@ export const OutputStructured = (mode: StructuredMode): Layer.Layer<Output> => {
 
     stream: (level, stream) => collectAndLog(levelToLogLevel(level))(stream),
 
-    result: <A, I>(
-      schema: Schema.Codec<A, I>,
-      data: A,
-      _textRenderer: (data: A) => string,
-    ) =>
+    result: <A, I>(schema: Schema.Codec<A, I>, data: A, _textRenderer: (data: A) => string) =>
       Effect.gen(function* () {
         switch (mode) {
           case "json": {

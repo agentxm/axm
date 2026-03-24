@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import type { PackExtensionRef, RegistryPackRef } from "../../sources/types.js";
+import type { PackExtensionRef, RegistryPackRef } from "../../sources/index.js";
 import { SourceHostProviders } from "../../sources/index.js";
 import type {
   ExtensionManager,

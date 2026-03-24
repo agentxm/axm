@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
+import type { Lockfile, SkillLockEntry } from "../../../lockfile/index.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import type { SkillExtensionRef } from "../../../sources/types.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 import type { LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { buildUpdatePlan } from "./plan.js";
 

@@ -2,7 +2,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 import { AppError } from "../app-error/index.js";
-import type { ExtensionType } from "../extensions/common.js";
+import type { ExtensionType } from "../extensions/index.js";
 import {
   classifyExtensions,
   isIgnoredName,

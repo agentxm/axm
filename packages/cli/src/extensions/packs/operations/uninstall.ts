@@ -16,7 +16,7 @@ import { Output } from "../../../output/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 import { removeIfExists } from "../../../utils/fs-helpers.js";
 import { sanitizeName } from "../../skills/utils.js";

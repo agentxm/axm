@@ -16,7 +16,7 @@ import type {
   UninstallRetentionPolicy,
 } from "../install-operation/workflow.js";
 import { buildUninstallOperation } from "./workflow.js";
-import type { SkillExtensionRef, PackExtensionRef } from "../../sources/types.js";
+import type { SkillExtensionRef, PackExtensionRef } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

@@ -16,9 +16,9 @@ import * as Option from "effect/Option";
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { CliEnvConfig } from "../../config/index.js";
-import type { SourceHostProvider } from "../provider.js";
-import type { LocalSource, ExtensionRef } from "../types.js";
-import { fileUrlToPath } from "../utils.js";
+import type { SourceHostProvider } from "../index.js";
+import type { LocalSource, ExtensionRef } from "../index.js";
+import { fileUrlToPath } from "../index.js";
 
 /**
  * Source host provider for local filesystem paths.

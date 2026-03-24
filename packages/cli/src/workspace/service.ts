@@ -49,8 +49,7 @@ import {
 } from "../extensions/skills/paths.js";
 import { computePackPaths, type PackDirPath } from "../extensions/packs/paths.js";
 import { sanitizeName } from "../extensions/skills/utils.js";
-import { AgentIdSchema } from "../extensions/common.js";
-import { formatFqn } from "../extensions/fqn.js";
+import { AgentIdSchema, formatFqn } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseSkillEntry,
@@ -442,7 +441,7 @@ const make = (options: WorkspaceContextOptions) =>
     /**
      * Classify extensions by type using the shared classifier.
      */
-    const getClassifiedExtensions = (type: import("../extensions/common.js").ExtensionType) =>
+    const getClassifiedExtensions = (type: import("../extensions/index.js").ExtensionType) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
         const lockfile = yield* readLockfileSafe(workspaceDir);

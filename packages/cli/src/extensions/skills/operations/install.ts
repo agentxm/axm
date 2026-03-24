@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AgentId } from "../../../agents/types.js";
+import type { AgentId } from "../../../agents/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
@@ -28,7 +28,7 @@ import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "./copy-directory.js";
 import { removeFromAllCanonicalLocations, stripFileProtocol } from "../../../utils/fs-helpers.js";
-import { sourceToLockEntry } from "../../../sources/source-to-lock-entry.js";
+import { sourceToLockEntry } from "../../../sources/index.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "../utils.js";
 import type {
@@ -37,7 +37,7 @@ import type {
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-} from "../../../sources/types.js";
+} from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

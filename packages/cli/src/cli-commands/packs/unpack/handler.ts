@@ -32,7 +32,7 @@ import {
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
-import type { RegistrySource } from "../../../sources/types.js";
+import type { RegistrySource } from "../../../sources/index.js";
 import { buildUnpackPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------

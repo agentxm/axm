@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
-import type { VersionEntry } from "../registry/index.js";
+import type { VersionEntryLike } from "./version-constraints.js";
 import {
   isValidConstraint,
   parseVersionConstraint,
@@ -13,10 +13,8 @@ import {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeVersionEntry = (version: string): VersionEntry => ({
+const makeVersionEntryLike = (version: string): VersionEntryLike => ({
   version,
-  published: "2025-01-01T00:00:00Z",
-  integrity: "sha512-AAAA==",
 });
 
 // -----------------------------------------------------------------------------
@@ -112,11 +110,11 @@ describe("satisfiesConstraint", () => {
 // -----------------------------------------------------------------------------
 
 describe("resolveVersionWithConstraint", () => {
-  const versions: ReadonlyArray<VersionEntry> = [
-    makeVersionEntry("2.0.0"),
-    makeVersionEntry("1.3.0"),
-    makeVersionEntry("1.2.0"),
-    makeVersionEntry("1.0.0"),
+  const versions: ReadonlyArray<VersionEntryLike> = [
+    makeVersionEntryLike("2.0.0"),
+    makeVersionEntryLike("1.3.0"),
+    makeVersionEntryLike("1.2.0"),
+    makeVersionEntryLike("1.0.0"),
   ];
 
   it("returns highest matching version for caret constraint", () => {

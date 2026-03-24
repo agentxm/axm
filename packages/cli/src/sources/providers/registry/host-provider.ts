@@ -23,10 +23,9 @@ import type {
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
-import type { ExtensionType } from "../../../extensions/common.js";
-import type { Author } from "../../../extensions/common.js";
-import type { ExtensionFiles, FindOptions, SourceHostProvider } from "../../provider.js";
-import type { RegistrySource, RegistrySourceHost, ExtensionRef } from "../../types.js";
+import type { Author, ExtensionType } from "../../../extensions/index.js";
+import type { ExtensionFiles, FindOptions, SourceHostProvider } from "../../index.js";
+import type { RegistrySource, RegistrySourceHost, ExtensionRef } from "../../index.js";
 import type { VersionEntry } from "../../../registry/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {

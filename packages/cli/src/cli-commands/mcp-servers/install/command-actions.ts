@@ -20,7 +20,7 @@ import { CliFlags } from "../../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { PromptCancelled } from "../../../prompt-cancelled.js";
 import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
-import type { McpServerExtensionRef, RegistrySource } from "../../../sources/types.js";
+import type { McpServerExtensionRef, RegistrySource } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import type { Plan } from "../../../workspace/plan.js";

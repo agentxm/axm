@@ -23,7 +23,15 @@ import { Activity } from "../../../activity/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
-import { formatFqn, parseFqn, parseFqnOrThrow, type Fqn } from "../../../extensions/index.js";
+import {
+  formatFqn,
+  parseFqn,
+  parseFqnOrThrow,
+  type Fqn,
+  PACK_MANIFEST_FILENAME,
+  RawPackManifestSchema,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../../extensions/index.js";
 import {
   publishPack,
   type PublishPackOperation,
@@ -41,11 +49,6 @@ import {
   type PublishMcpServerOperation,
 } from "../../../extensions/mcp-servers/operations/publish.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
-import {
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-} from "../../../extensions/packs/manifest-schema.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 
 // -----------------------------------------------------------------------------
 // Types

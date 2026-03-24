@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { CommandExtensionRef } from "../../../sources/types.js";
+import type { CommandExtensionRef } from "../../../sources/index.js";
 
 /**
  * Intent for installing a command extension.

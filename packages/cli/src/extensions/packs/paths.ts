@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
 
 /**
  * Computed path for an installed pack directory.

@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { McpServerExtensionRef } from "../../../sources/types.js";
+import type { McpServerExtensionRef } from "../../../sources/index.js";
 
 /**
  * Intent for installing an MCP server extension.

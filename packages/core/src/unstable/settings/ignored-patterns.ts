@@ -8,7 +8,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
-import { expandGlob } from "../skills/glob.js";
+import { expandGlob } from "../utils/glob.js";
 
 /**
  * Normalize ignored patterns: trim whitespace, reject empty patterns, deduplicate.

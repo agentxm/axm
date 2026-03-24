@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AgentId } from "../../../agents/types.js";
+import type { AgentId } from "../../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { Output } from "../../../output/index.js";
@@ -24,9 +24,9 @@ import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../../sources/types.js";
-import type { McpServerLockEntry } from "../../../lockfile/schema.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "../../../sources/index.js";
+import type { McpServerLockEntry } from "../../../lockfile/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

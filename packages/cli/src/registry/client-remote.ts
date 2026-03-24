@@ -30,7 +30,7 @@ import type {
   GetExtensionPackageResponse,
   NamespaceExistsResponse,
 } from "./client.js";
-import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/common.js";
+import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/index.js";
 import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType } from "./utils.js";
 

@@ -1,5 +1,7 @@
-export type { ExtensionTypePlural, Fqn } from "./fqn.js";
-export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
+// Re-export data layer from core
+export * from "@axm.sh/core/unstable/extensions";
+
+// Keep CLI-specific exports
 export {
   buildRegistrySkillRef,
   buildRegistryCommandRef,

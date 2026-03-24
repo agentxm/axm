@@ -8,7 +8,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
+import { AuthorSchema, ExtensionTypeSchema } from "../extensions/index.js";
 
 // =============================================================================
 // Version Entry

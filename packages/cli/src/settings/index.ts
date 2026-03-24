@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-// Schema types and schemas
+// Re-export everything from core
 export type {
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
@@ -23,37 +23,30 @@ export type {
   SkillEntry,
   SkillsMap,
   SourceHostConfig,
-} from "./schema.js";
+} from "@axm.sh/core/unstable/settings";
 export {
+  collapseSkillEntry,
+  createDefaultSettings,
+  DEFAULT_NAMESPACE,
+  getSkillEntrySource,
   IgnoredSettingsSchema,
   NonSkillExtensionsMapSchema,
+  normalizeIgnoredPatterns,
+  normalizeSkillEntry,
+  orderSettingsKeys,
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
+  readSettings,
+  SETTINGS_FILENAME,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
   SkillEntryObjectSchema,
   SkillEntrySchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
-} from "./schema.js";
-
-// Skill entry normalization
-export type { NormalizedSkillEntry } from "./skill-entry.js";
-export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./skill-entry.js";
-
-// Ignored patterns
-export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
-
-// Settings I/O
-export {
-  createDefaultSettings,
-  DEFAULT_NAMESPACE,
-  orderSettingsKeys,
-  readSettings,
-  SETTINGS_FILENAME,
+  validateIgnoredConfigConflicts,
   writeSettings,
-} from "./settings.js";
-
-// Format-preserving JSON
-export type { JsonModification } from "./format-preserving-json.js";
+} from "@axm.sh/core/unstable/settings";
+export type { NormalizedSkillEntry } from "@axm.sh/core/unstable/settings";
+export type { JsonModification } from "@axm.sh/core/unstable/settings";

@@ -15,7 +15,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

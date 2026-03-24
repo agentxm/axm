@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-// Schema types and schemas
+// Re-export everything from core
 export type {
   CommandLockEntry,
   CommandsLockMap,
@@ -20,27 +20,23 @@ export type {
   RegistryPackLockEntry,
   SkillLockEntry,
   SkillsLockMap,
-} from "./schema.js";
+} from "@axm.sh/core/unstable/lockfile";
 export {
   BuiltinPackLockEntrySchema,
   CommandLockEntrySchema,
   CommandsLockMapSchema,
   DateFromString,
+  LOCKFILE_NAME,
   LockfileSchema,
   McpServerLockEntrySchema,
   McpServersLockMapSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
+  readLockfile,
   RegistryPackLockEntrySchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
-} from "./schema.js";
-
-// Lockfile I/O
-export { LOCKFILE_NAME } from "./lockfile.js";
-
-export { readLockfile, writeLockfile } from "./lockfile.js";
-export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
-} from "./resolved-version.js";
+  writeLockfile,
+} from "@axm.sh/core/unstable/lockfile";

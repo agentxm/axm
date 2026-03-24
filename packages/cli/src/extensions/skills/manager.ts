@@ -18,8 +18,8 @@ import * as Option from "effect/Option";
 import type { AppError } from "../../app-error/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { CliEnvConfig } from "../../config/index.js";
-import { sourceToLockEntry } from "../../sources/source-to-lock-entry.js";
-import type { SkillExtensionRef } from "../../sources/types.js";
+import { sourceToLockEntry } from "../../sources/index.js";
+import type { SkillExtensionRef } from "../../sources/index.js";
 import type { SourceHostProvidersService } from "../../sources/index.js";
 import { SourceHostProviders } from "../../sources/index.js";
 import type {

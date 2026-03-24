@@ -286,39 +286,48 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   yield* Effect.forEach(holdbackWarnings, (w) => output.warn(w), { discard: true });
 
   // Step 8: Build operations
-  const ops = Array.flatMap(resolved, (item) =>
-    item.type === "match"
-      ? [
-          {
-            name: "install-skill",
-            args: {
-              ref: item.ref,
-              force: flags.force,
-              versionConstraint: Option.none(),
-              skipSettings: Option.none(),
-            },
-          } satisfies InstallSkillOperation,
-        ]
-      : [
-          // Rename: install new name + uninstall old name
-          {
-            name: "install-skill",
-            args: {
-              ref: item.newRef,
-              force: flags.force,
-              versionConstraint: Option.none(),
-              skipSettings: Option.none(),
-            },
-          } satisfies InstallSkillOperation,
-          {
-            name: "uninstall-skill",
-            args: {
-              skillName: item.oldName,
-              agents: [],
-            },
-          } satisfies UninstallSkillOperation,
-        ],
-  );
+  const ops = Array.flatMap(resolved, (item) => {
+    if (item.type === "match") {
+      const existingLock = lockedSkills[item.ref.skill.name];
+      const existingInstalledAt = Option.fromUndefinedOr(existingLock?.installedAt);
+      return [
+        {
+          name: "install-skill",
+          args: {
+            ref: item.ref,
+            force: flags.force,
+            versionConstraint: Option.none(),
+            skipSettings: Option.none(),
+            existingInstalledAt,
+            sourceName: Option.none(),
+          },
+        } satisfies InstallSkillOperation,
+      ];
+    }
+    // Rename: install new name + uninstall old name — preserve original installedAt
+    const existingLock = lockedSkills[item.oldName];
+    const existingInstalledAt = Option.fromUndefinedOr(existingLock?.installedAt);
+    return [
+      {
+        name: "install-skill",
+        args: {
+          ref: item.newRef,
+          force: flags.force,
+          versionConstraint: Option.none(),
+          skipSettings: Option.none(),
+          existingInstalledAt,
+          sourceName: Option.none(),
+        },
+      } satisfies InstallSkillOperation,
+      {
+        name: "uninstall-skill",
+        args: {
+          skillName: item.oldName,
+          agents: [],
+        },
+      } satisfies UninstallSkillOperation,
+    ];
+  });
 
   // Step 9: Build plan
   const lockfile = { lockfileVersion: 1, skills: lockedSkills };

@@ -66,6 +66,7 @@ const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<strin
     agents,
     now: new Date(),
     sourceName: Option.none(),
+    existingInstalledAt: Option.none(),
   });
 
 // -----------------------------------------------------------------------------

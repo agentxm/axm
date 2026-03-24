@@ -17,7 +17,8 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
@@ -125,11 +126,11 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "skills fork" });
   const ws = yield* Workspace;
-  const log = yield* Log;
-  const spinnerSvc = yield* Spinner;
+  const output = yield* Output;
+  const activity = yield* Activity;
   const sources = yield* SourceHostProviders;
 
-  yield* log.info("axm skills fork");
+  yield* output.info("axm skills fork");
 
   // Step 1: Resolve namespace
   const namespace = yield* ws.getConfiguredNamespace().pipe(
@@ -144,7 +145,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   );
 
   // Step 2: Parse source and discover skills
-  const filtered = yield* spinnerSvc.withSpinner(
+  const filtered = yield* activity.withSpinner(
     "Resolving skills...",
     () =>
       Effect.gen(function* () {
@@ -324,5 +325,5 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     }),
   );
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

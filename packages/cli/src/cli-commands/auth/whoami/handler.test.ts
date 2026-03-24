@@ -11,7 +11,7 @@ import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
-import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { handleWhoami } from "./handler.js";
@@ -28,7 +28,7 @@ const defaultMe = {
 };
 
 const makeLayers = (opts?: { hasCredentials?: boolean }) => {
-  const [logLayer, mockLog] = makeClackLogTestLayer();
+  const [outputLayer, mockLog] = makeOutputTestLayer();
 
   const credStoreLayer = opts?.hasCredentials
     ? CredentialStoreTest("encrypted-file", {
@@ -55,7 +55,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    logLayer,
+    outputLayer,
     CliFlagsTest(),
     credStoreLayer,
     authClientLayer,

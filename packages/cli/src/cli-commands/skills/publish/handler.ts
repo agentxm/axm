@@ -16,7 +16,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError } from "../../../app-error/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
@@ -48,7 +49,7 @@ export interface PublishHandlerArgs {
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
     const literalInputs = extensions.filter((e) => !isGlobPattern(e));
@@ -60,8 +61,8 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     const globMatches = expandGlobs(globPatterns, installedNames);
 
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      yield* log.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
-      yield* log.success("Nothing to publish.");
+      yield* output.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
+      yield* output.success("Nothing to publish.");
       return [] as ReadonlyArray<string>;
     }
 
@@ -94,11 +95,11 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
-  const log = yield* Log;
-  const spinnerSvc = yield* Spinner;
+  const output = yield* Output;
+  const activity = yield* Activity;
   const base = ws.baseDir;
 
-  yield* log.info("axm skills publish");
+  yield* output.info("axm skills publish");
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
@@ -122,7 +123,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   );
 
   // Step 3: Validate each extension
-  yield* spinnerSvc.withSpinner(
+  yield* activity.withSpinner(
     "Validating extensions...",
     () =>
       Effect.gen(function* () {
@@ -246,5 +247,5 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     });
   }
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

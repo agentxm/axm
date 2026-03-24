@@ -17,7 +17,7 @@ import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/
 import type { RegistryPackRef } from "../../../sources/types.js";
 import { SourceHostProviders, type SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { buildInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -195,8 +195,9 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
 });
 
 // Mock services needed for plan construction
+const [OutputTestLayer] = makeOutputTestLayer();
 const testLayer = Layer.mergeAll(
-  ClackLogTestLayer,
+  OutputTestLayer,
   Layer.succeed(Workspace, {} as WorkspaceContextService),
   Layer.succeed(SourceHostProviders, {} as SourceHostProvidersService),
   Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),

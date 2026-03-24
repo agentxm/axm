@@ -9,7 +9,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { ClackLog } from "../clack-effect/index.js";
+import { Output } from "../output/index.js";
 import { renderAppError, type RenderAppErrorOptions } from "../app-error/index.js";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
@@ -31,7 +31,7 @@ export interface DisplayPlanOptions {
  */
 export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptions = {}) =>
   Effect.gen(function* () {
-    const log = yield* ClackLog;
+    const output = yield* Output;
     const verbosity = options.verbosity ?? defaultVerbosity;
 
     // Heading
@@ -39,7 +39,7 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
       onNone: () => plan.name,
       onSome: (desc) => `${plan.name}\n${desc}`,
     });
-    yield* log.info(heading);
+    yield* output.info(heading);
 
     // Determine if this is an executed plan using _tag discriminant
     const firstJob = plan.jobs[0];
@@ -54,43 +54,43 @@ export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptio
       const executedPlan = plan as ExecutedPlan;
       const allSteps = executedPlan.jobs.flatMap((job) => [...job.steps]);
       for (const step of allSteps) {
-        yield* renderCompletedStep(step, log, verbosity);
+        yield* renderCompletedStep(step, output, verbosity);
       }
-      yield* renderCompletedSummary(allSteps, log);
+      yield* renderCompletedSummary(allSteps, output);
     } else {
       // Assertion safe: _tag === "Plan" (only alternative in union)
       const plannedPlan = plan as Plan;
       const allSteps = plannedPlan.jobs.flatMap((job) => [...job.steps]);
       for (const step of allSteps) {
-        yield* renderPlannedStep(step, log);
+        yield* renderPlannedStep(step, output);
       }
-      yield* renderPlannedSummary(allSteps, log);
+      yield* renderPlannedSummary(allSteps, output);
     }
   });
 
 const renderPlannedStep = (
   step: PlannedJobStep,
-  log: ServiceMap.Service.Shape<typeof ClackLog>,
+  output: ServiceMap.Service.Shape<typeof Output>,
 ) => {
   switch (step.readiness) {
     case "ready":
-      return log.success(`  + ${step.label}`);
+      return output.success(`  + ${step.label}`);
     case "warn":
-      return log.warn(`  \u26A0 ${step.label} (${step.warnMessage})`);
+      return output.warn(`  \u26A0 ${step.label} (${step.warnMessage})`);
     case "error":
-      return log.error(`  \u2717 ${step.label} (${step.errorMessage})`);
+      return output.error(`  \u2717 ${step.label} (${step.errorMessage})`);
   }
 };
 
 const renderCompletedStep = (
   step: CompletedJobStep,
-  log: ServiceMap.Service.Shape<typeof ClackLog>,
+  output: ServiceMap.Service.Shape<typeof Output>,
   verbosity: RenderAppErrorOptions,
 ) => {
   switch (step.result.result) {
     case "success": {
       const suffix = step.result.message.length > 0 ? ` (${step.result.message})` : "";
-      return log.success(`  \u2713 ${step.label}${suffix}`);
+      return output.success(`  \u2713 ${step.label}${suffix}`);
     }
     case "error": {
       const renderedLines = renderAppError(step.result.error, verbosity).split("\n");
@@ -99,9 +99,9 @@ const renderCompletedStep = (
       const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;
 
       return Effect.gen(function* () {
-        yield* log.error(`  \u2717 ${step.label}: ${headline}`);
+        yield* output.error(`  \u2717 ${step.label}: ${headline}`);
         for (const line of rest) {
-          yield* log.error(`    ${line.trimStart()}`);
+          yield* output.error(`    ${line.trimStart()}`);
         }
       });
     }
@@ -110,7 +110,7 @@ const renderCompletedStep = (
 
 const renderPlannedSummary = (
   allSteps: ReadonlyArray<PlannedJobStep>,
-  log: ServiceMap.Service.Shape<typeof ClackLog>,
+  output: ServiceMap.Service.Shape<typeof Output>,
 ) =>
   Effect.gen(function* () {
     const readyCount = allSteps.filter((s) => s.readiness === "ready").length;
@@ -123,13 +123,13 @@ const renderPlannedSummary = (
     if (warnCount > 0) parts.push(`${warnCount} warning${warnCount > 1 ? "s" : ""}`);
 
     if (parts.length > 0) {
-      yield* log.message(parts.join(", "));
+      yield* output.message(parts.join(", "));
     }
   });
 
 const renderCompletedSummary = (
   allSteps: ReadonlyArray<CompletedJobStep>,
-  log: ServiceMap.Service.Shape<typeof ClackLog>,
+  output: ServiceMap.Service.Shape<typeof Output>,
 ) =>
   Effect.gen(function* () {
     const successCount = allSteps.filter((s) => s.result.result === "success").length;
@@ -140,6 +140,6 @@ const renderCompletedSummary = (
     if (failCount > 0) parts.push(`${failCount} failed`);
 
     if (parts.length > 0) {
-      yield* log.message(parts.join(", "));
+      yield* output.message(parts.join(", "));
     }
   });

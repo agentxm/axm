@@ -15,14 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  type Confirm,
-  type Log,
-  type Multiselect,
-  type Select,
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer, type Output } from "../../../output/index.js";
+import { makeInputTestLayer, type Input } from "../../../input/index.js";
 import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClient, TelemetryClientTest } from "../../../telemetry/index.js";
@@ -79,16 +73,12 @@ describe("list.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
+    const [outputLayer, mockLog] = makeOutputTestLayer();
+    const [inputLayer] = makeInputTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      outputLayer,
+      inputLayer,
       CliFlagsTest(),
       TelemetryClientTest,
       CliEnvConfig.testDefaults,
@@ -107,10 +97,8 @@ describe("list.handler", () => {
         E,
         | FileSystem.FileSystem
         | Path.Path
-        | Log
-        | Confirm
-        | Select
-        | Multiselect
+        | Output
+        | Input
         | Workspace
         | TelemetryClient
         | CliFlags

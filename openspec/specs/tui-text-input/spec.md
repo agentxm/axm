@@ -2,14 +2,14 @@
 
 ### Requirement: Text input prompt collects free-form text
 
-The text-input capability SHALL be provided by `ClackPrompt.text` from `src/clack-effect/prompt/`. It SHALL accept `message` with optional `placeholder`, `defaultValue`/`initialValue`, and `validate`, and return `Effect<string, AppError | PromptCancelled>`.
+The text-input capability SHALL be provided by `Input.text` from `src/input/`. It SHALL accept `message` with optional `placeholder`, `defaultValue`/`initialValue`, and `validate`, and return `Effect<string, AppError | PromptCancelled>`.
 
 #### Scenario: Basic text input
 
-- **WHEN** a handler calls `prompt.text({ message: "Project name?" })`
+- **WHEN** a handler calls `input.text({ message: "Project name?" })`
 - **THEN** the prompt SHALL render and wait for input
 - **WHEN** the user types `my-project` and submits
-- **THEN** the effect SHALL succeed with `my-project`
+- **THEN** the effect SHALL succeed with `"my-project"`
 
 #### Scenario: Text input with placeholder and default
 
@@ -30,23 +30,23 @@ The text-input capability SHALL be provided by `ClackPrompt.text` from `src/clac
 
 ### Requirement: Text input has a test layer
 
-Text-input tests SHALL use `makeClackPromptTestLayer()` and assert `text` calls and configured outcomes.
+Text-input tests SHALL use `makeInputTestLayer()` and assert `text` calls and configured outcomes.
 
 #### Scenario: Mock returns configured value
 
-- **WHEN** a test configures the clack prompt mock to return `my-project`
-- **AND** code calls `prompt.text(...)`
-- **THEN** the effect SHALL succeed with `my-project`
+- **WHEN** a test configures the input mock to return `"my-project"` for text
+- **AND** code calls `input.text(...)`
+- **THEN** the effect SHALL succeed with `"my-project"`
 
 #### Scenario: Mock simulates cancellation
 
-- **WHEN** a test configures the clack prompt mock to cancel
-- **AND** code calls `prompt.text(...)`
+- **WHEN** a test configures the input mock to cancel
+- **AND** code calls `input.text(...)`
 - **THEN** the effect SHALL fail with `PromptCancelled`
 
 ### Requirement: Dev demo for text input
 
-The dev command at `src/dev-cli-commands/tui/text-input/command.ts` SHALL provide a text-input demo backed by `ClackPrompt` and `ClackLive`.
+The dev command at `src/dev-cli-commands/tui/text-input/command.ts` SHALL provide a text-input demo backed by `Input` and `InputLive`.
 
 #### Scenario: Run text-input demo
 

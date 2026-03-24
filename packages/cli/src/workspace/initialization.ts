@@ -17,8 +17,8 @@ import * as Option from "effect/Option";
 import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import { CliFlags } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
-import { ClackLog } from "../clack-effect/log/service.js";
-import { ClackPrompt } from "../clack-effect/index.js";
+import { Output } from "../output/index.js";
+import { Input } from "../input/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
@@ -46,7 +46,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
 
     // If explicit agents are provided, use those (no detection needed)
     if (Option.isSome(options.agents) && options.agents.value.length > 0) {
-      const log = yield* ClackLog;
+      const output = yield* Output;
       const requestedIds = [...options.agents.value];
       selectedAgents = requestedIds.flatMap((id) => {
         const agent = getAgentById(id);
@@ -54,7 +54,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       });
       const unrecognized = requestedIds.filter((id) => Option.isNone(getAgentById(id)));
       if (unrecognized.length > 0) {
-        yield* log.warn(
+        yield* output.warn(
           `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm init --help' to see available agents.`,
         );
       }
@@ -75,11 +75,11 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
         selectedAgents = detectedAgents;
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
-        const prompt = yield* ClackPrompt;
+        const input = yield* Input;
         const allAgents = getAllAgents();
         const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
-        const selectedIds = yield* prompt.multiselect<string>({
+        const selectedIds = yield* input.multiselect<string>({
           message: "Select agents to configure",
           options: allAgents.map((agent) => ({
             value: agent.id,

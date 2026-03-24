@@ -10,11 +10,9 @@ import { CliEnvConfig } from "../config/index.js";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
-import {
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-  makeClackPromptTestLayer,
-} from "../clack-effect/index.js";
+import { makeOutputTestLayer } from "../output/index.js";
+import { makeActivityTestLayer } from "../activity/index.js";
+import { makeInputTestLayer } from "../input/index.js";
 import { CliFlagsTest } from "../cli-flags/index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/app-error.js";
@@ -31,9 +29,9 @@ const makeLayers = (opts?: {
   hasToken?: boolean;
   confirmValue?: boolean;
 }) => {
-  const [logLayer, mockLog] = makeClackLogTestLayer();
-  const [spinnerLayer] = makeClackSpinnerTestLayer();
-  const [promptLayer, mockPrompt] = makeClackPromptTestLayer({
+  const [outputLayer, mockLog] = makeOutputTestLayer();
+  const [activityLayer] = makeActivityTestLayer();
+  const [inputLayer, mockPrompt] = makeInputTestLayer({
     defaultBehavior: { type: "return", value: "" },
     methodBehaviors: {
       confirm: { type: "return", value: opts?.confirmValue ?? true },
@@ -91,9 +89,9 @@ const makeLayers = (opts?: {
   });
 
   const FullLayer = Layer.mergeAll(
-    logLayer,
-    spinnerLayer,
-    promptLayer,
+    outputLayer,
+    activityLayer,
+    inputLayer,
     flagsLayer,
     credStoreLayer,
     authClientLayer,

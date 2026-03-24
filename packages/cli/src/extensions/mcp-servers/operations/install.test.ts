@@ -11,7 +11,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import {
   SourceHostProviders,
@@ -176,7 +176,7 @@ const withServices = (
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(mockWs),
-    ClackLogTestLayer,
+    makeOutputTestLayer()[0],
     Layer.succeed(SourceHostProviders, sourceProviders),
   );
 };

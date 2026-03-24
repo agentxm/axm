@@ -19,7 +19,7 @@ import {
   type Source,
 } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 
@@ -48,7 +48,7 @@ export const buildSkillInstallPlan = ({
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const log = yield* Log;
+    const output = yield* Output;
     const envConfig = yield* CliEnvConfig;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
       Effect.catch((error) => {
@@ -99,7 +99,7 @@ export const buildSkillInstallPlan = ({
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-        Effect.provideService(Log, log),
+        Effect.provideService(Output, output),
         Effect.provideService(CliEnvConfig, envConfig),
       );
 

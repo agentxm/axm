@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
-import { ClackLog } from "../../../clack-effect/log/service.js";
+import { Output } from "../../../output/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 
 // -----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ export interface WhoamiHandlerArgs {
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: WhoamiHandlerArgs) {
   const authClient = yield* AuthClient;
-  const log = yield* ClackLog;
+  const output = yield* Output;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
@@ -69,8 +69,8 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
       ),
     );
   } else {
-    yield* log.info(`Handle:     ${me.userHandle}`);
-    yield* log.info(`Email:      ${me.email}`);
-    yield* log.info(`Token type: ${me.tokenType}`);
+    yield* output.info(`Handle:     ${me.userHandle}`);
+    yield* output.info(`Email:      ${me.email}`);
+    yield* output.info(`Token type: ${me.tokenType}`);
   }
 }, Effect.asVoid);

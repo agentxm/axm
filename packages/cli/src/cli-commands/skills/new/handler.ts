@@ -11,7 +11,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -49,9 +49,9 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "skills new" });
   const ws = yield* Workspace;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm skills new");
+  yield* output.info("axm skills new");
 
   // 1. Resolve namespace
   const namespace = Option.isSome(args.namespace)
@@ -118,5 +118,5 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }));
 
-  yield* log.success(`Created skill ${fqn}`);
+  yield* output.success(`Created skill ${fqn}`);
 });

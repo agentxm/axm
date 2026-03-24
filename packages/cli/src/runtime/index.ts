@@ -26,20 +26,9 @@ import {
   CliFlags as CliFlagsTag,
   type CliFlagsService,
 } from "../cli-flags/index.js";
-import {
-  ClackLive,
-  type ClackLog,
-  type ClackProgress,
-  type ClackPrompt,
-  type ClackSpinner,
-  type ClackStream,
-  type ClackTaskLog,
-  type Confirm,
-  type Multiselect,
-  type PasswordInput,
-  type Select,
-  type TextInput,
-} from "../clack-effect/index.js";
+import { Output, OutputLive } from "../output/index.js";
+import { Activity, ActivityLive } from "../activity/index.js";
+import { Input, InputLive } from "../input/index.js";
 import { CliEnvConfig, CliEnvConfigLive } from "../config/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
@@ -64,8 +53,7 @@ const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
  * - HttpClient (auth-wrapped for network requests)
  * - CredentialStore (credential storage)
  * - AuthClient (auth API client)
- * - Clack services (prompts, logging, spinner, stream, progress, task log)
- * - Legacy prompt adapter tags (Confirm/Select/Multiselect/TextInput/PasswordInput)
+ * - Output, Activity, Input services (UI abstraction)
  */
 export type AppLayer =
   | NodeServices.NodeServices
@@ -76,17 +64,9 @@ export type AppLayer =
   | CliFlags
   | CliEnvConfig
   | TelemetryClient
-  | ClackLog
-  | ClackSpinner
-  | ClackPrompt
-  | ClackProgress
-  | ClackTaskLog
-  | ClackStream
-  | TextInput
-  | PasswordInput
-  | Confirm
-  | Select
-  | Multiselect;
+  | Output
+  | Activity
+  | Input;
 
 /**
  * CliEnvConfigLive with ConfigError converted to defect — config failures at
@@ -157,14 +137,15 @@ const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMidd
 
 /**
  * Layer providing all standard CLI dependencies.
- * ClackLive depends on CliFlags (for prompt non-interactive guard).
  *
  * Auth services (CredentialStore, AuthClient) are available to all commands.
  * HttpClient is auth-wrapped — downstream consumers get Bearer headers automatically.
  */
 export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   AuthLayer,
-  Layer.provide(ClackLive, DefaultCliFlagsLayer),
+  OutputLive("text"),
+  ActivityLive,
+  Layer.provide(InputLive, DefaultCliFlagsLayer),
   DefaultCliFlagsLayer,
   DefaultTelemetryLayer,
   CliEnvConfigOrDie,

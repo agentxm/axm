@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import { makeAppError } from "../../../app-error/index.js";
@@ -222,7 +222,7 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly resolvedVersion: string;
 }) =>
   Effect.gen(function* () {
-    const log = yield* Log;
+    const output = yield* Output;
     const ws = yield* Workspace;
 
     const unknownConfiguredAgentIds =
@@ -239,7 +239,7 @@ const syncConfiguredAgentsOnInstall = (args: {
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* log.warn(
+      yield* output.warn(
         `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
       );
     }
@@ -314,7 +314,7 @@ const syncConfiguredAgentsOnInstall = (args: {
           outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
         )
         .join(", ");
-      yield* log.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+      yield* output.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
     }
 
     return summarizeAgentSync(outcomes);
@@ -332,11 +332,11 @@ const syncConfiguredAgentsOnInstall = (args: {
  */
 export const installMcpServer: OperationHandler<
   InstallMcpServerOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Output
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const log = yield* Log;
+    const output = yield* Output;
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
@@ -360,7 +360,7 @@ export const installMcpServer: OperationHandler<
       ? ws.setMcpServerLock({ name: ref.server.name, lockEntry })
       : ws.setMcpServer({ name: ref.server.name, lockEntry });
     yield* writeEffect.pipe(
-      Effect.catch((e) => log.warn(`MCP server update failed: ${String(e)}`)),
+      Effect.catch((e) => output.warn(`MCP server update failed: ${String(e)}`)),
     );
 
     const agentSync = yield* syncConfiguredAgentsOnInstall({

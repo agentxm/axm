@@ -9,7 +9,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeClackLogTestLayer, makeClackPromptTestLayer } from "../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../output/index.js";
+import { makeInputTestLayer } from "../../input/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { CliFlagsTest } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
@@ -51,16 +52,16 @@ const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceConte
   }) as unknown as WorkspaceContextService;
 
 const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
-  const [logLayer] = makeClackLogTestLayer();
-  const [promptLayer] = makeClackPromptTestLayer({
+  const [outputLayer] = makeOutputTestLayer();
+  const [inputLayer] = makeInputTestLayer({
     methodBehaviors: {
       confirm: { type: "return", value: true },
       multiselect: { type: "return", value: [] },
     },
   });
   return Layer.mergeAll(
-    logLayer,
-    promptLayer,
+    outputLayer,
+    inputLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
     CliFlagsTest(),
     CliEnvConfig.testDefaults,

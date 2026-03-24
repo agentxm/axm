@@ -24,7 +24,7 @@ import {
 } from "../../../extensions/packs/manifest-schema.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -62,9 +62,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm packs add");
+  yield* output.info("axm packs add");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.getConfiguredPacks();
@@ -178,16 +178,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     // Check if already in pack (by FQN)
     if (fqn in currentSkills) {
-      yield* log.info(`Extension '${fqn}' already in pack`);
+      yield* output.info(`Extension '${fqn}' already in pack`);
       continue;
     }
 
     additions[fqn] = version;
-    yield* log.info(`Adding ${fqn}@${version}`);
+    yield* output.info(`Adding ${fqn}@${version}`);
   }
 
   if (Object.keys(additions).length === 0) {
-    yield* log.success("Nothing to do.");
+    yield* output.success("Nothing to do.");
     return;
   }
 
@@ -212,5 +212,5 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }));
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

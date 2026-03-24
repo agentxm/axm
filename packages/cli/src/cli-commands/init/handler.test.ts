@@ -22,22 +22,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import {
-  type Confirm,
-  type Log,
-  makeConfirmTestLayer,
-  makeLogTestLayer,
-  makeMultiselectTestLayer,
-  makeSelectTestLayer,
-  type Multiselect,
-  type Select,
-} from "../../clack-effect/index.js";
-import {
-  ClackLog,
-  ClackPrompt,
-  makeClackLogTestLayer,
-  makeClackPromptTestLayer,
-} from "../../clack-effect/index.js";
+import { Output, makeOutputTestLayer } from "../../output/index.js";
+import { Input, makeInputTestLayer } from "../../input/index.js";
 import { CliFlags, CliFlagsTest } from "../../cli-flags/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { TelemetryClient, TelemetryClientTest } from "../../telemetry/index.js";
@@ -65,12 +51,8 @@ describe("init.handler", () => {
   });
 
   // Create individual TUI test layers
-  const [logLayer] = makeLogTestLayer();
-  const [confirmLayer] = makeConfirmTestLayer();
-  const [selectLayer] = makeSelectTestLayer();
-  const [multiselectLayer] = makeMultiselectTestLayer();
-  const [clackLogLayer] = makeClackLogTestLayer();
-  const [clackPromptLayer] = makeClackPromptTestLayer({
+  const [outputLayer] = makeOutputTestLayer();
+  const [inputLayer] = makeInputTestLayer({
     methodBehaviors: {
       confirm: { type: "return", value: true },
       select: { type: "select", index: 0 },
@@ -80,12 +62,8 @@ describe("init.handler", () => {
 
   const TestLayer = Layer.mergeAll(
     NodeServices.layer,
-    logLayer,
-    confirmLayer,
-    selectLayer,
-    multiselectLayer,
-    clackLogLayer,
-    clackPromptLayer,
+    outputLayer,
+    inputLayer,
     CliFlagsTest(),
     TelemetryClientTest,
     CliEnvConfig.testDefaults,
@@ -102,12 +80,8 @@ describe("init.handler", () => {
         E,
         | FileSystem.FileSystem
         | Path.Path
-        | Log
-        | Confirm
-        | Select
-        | Multiselect
-        | ClackLog
-        | ClackPrompt
+        | Output
+        | Input
         | Workspace
         | CliFlags
         | CliEnvConfig
@@ -349,7 +323,7 @@ describe("init.handler", () => {
       );
       return Effect.gen(function* () {
         // --yes alone triggers the interactive prompt (multiselect).
-        // The ClackPrompt test layer returns indices [] for multiselect,
+        // The Input test layer returns indices [] for multiselect,
         // so the result has no agents — proving the prompt was shown.
         yield* handleInit();
 
@@ -372,49 +346,41 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       tuiConfig: {
-        selectBehavior?: import("../../clack-effect/index.js").SelectBehavior;
-        multiselectBehavior?: import("../../clack-effect/index.js").MultiselectBehavior;
+        selectBehavior?: import("../../input/index.js").InputPromptBehavior;
+        multiselectBehavior?: import("../../input/index.js").InputPromptBehavior;
       },
       wsOptions: WorkspaceContextOptions = {
         scope: "project",
         agents: Option.none(),
       },
     ) => {
-      const [iLogLayer] = makeLogTestLayer();
-      const [iConfirmLayer] = makeConfirmTestLayer();
-      const [iSelectLayer] = makeSelectTestLayer(
-        tuiConfig.selectBehavior ?? { type: "return", index: 0 },
-      );
-      const [iMultiselectLayer] = makeMultiselectTestLayer(
-        tuiConfig.multiselectBehavior ?? { type: "return", indices: [] },
-      );
-      const [iClackLogLayer] = makeClackLogTestLayer();
-      const selectBehavior = tuiConfig.selectBehavior ?? { type: "return", index: 0 };
+      const selectBehavior = tuiConfig.selectBehavior ?? { type: "select", index: 0 };
       const multiselectBehavior = tuiConfig.multiselectBehavior ?? {
-        type: "return",
+        type: "multiselect",
         indices: [] as ReadonlyArray<number>,
       };
-      const [iClackPromptLayer] = makeClackPromptTestLayer({
+      const [iOutputLayer] = makeOutputTestLayer();
+      const [iInputLayer] = makeInputTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: true },
           select:
             selectBehavior.type === "cancel"
               ? { type: "cancel" }
-              : { type: "select", index: selectBehavior.index },
+              : selectBehavior.type === "select"
+                ? { type: "select", index: selectBehavior.index }
+                : { type: "select", index: 0 },
           multiselect:
             multiselectBehavior.type === "cancel"
               ? { type: "cancel" }
-              : { type: "multiselect", indices: multiselectBehavior.indices },
+              : multiselectBehavior.type === "multiselect"
+                ? { type: "multiselect", indices: multiselectBehavior.indices }
+                : { type: "multiselect", indices: [] },
         },
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iLogLayer,
-        iConfirmLayer,
-        iSelectLayer,
-        iMultiselectLayer,
-        iClackLogLayer,
-        iClackPromptLayer,
+        iOutputLayer,
+        iInputLayer,
         CliFlagsTest({ nonInteractive: false }),
         TelemetryClientTest,
         CliEnvConfig.testDefaults,
@@ -426,12 +392,8 @@ describe("init.handler", () => {
           E,
           | FileSystem.FileSystem
           | Path.Path
-          | Log
-          | Confirm
-          | Select
-          | Multiselect
-          | ClackLog
-          | ClackPrompt
+          | Output
+          | Input
           | Workspace
           | CliFlags
           | CliEnvConfig
@@ -443,7 +405,7 @@ describe("init.handler", () => {
     it.effect("accepts auto-detected agents when user selects first option", () =>
       withInteractiveLayers({
         // index 0 = "Setup with auto-detected agents (Recommended)"
-        selectBehavior: { type: "return", index: 0 },
+        selectBehavior: { type: "select", index: 0 },
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -457,9 +419,9 @@ describe("init.handler", () => {
     it.effect("shows all-agent multiselect when user selects 'Let me choose'", () =>
       withInteractiveLayers({
         // index 1 = "Let me choose"
-        selectBehavior: { type: "return", index: 1 },
+        selectBehavior: { type: "select", index: 1 },
         // Select first agent in the full list
-        multiselectBehavior: { type: "return", indices: [0] },
+        multiselectBehavior: { type: "multiselect", indices: [0] },
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -478,9 +440,9 @@ describe("init.handler", () => {
     it.effect("allows selecting no agents via multiselect", () =>
       withInteractiveLayers({
         // index 1 = "Let me choose"
-        selectBehavior: { type: "return", index: 1 },
+        selectBehavior: { type: "select", index: 1 },
         // Select no agents
-        multiselectBehavior: { type: "return", indices: [] },
+        multiselectBehavior: { type: "multiselect", indices: [] },
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -501,11 +463,8 @@ describe("init.handler", () => {
 
   describe("telemetry notice", () => {
     it.effect("displays telemetry notice after successful init", () => {
-      const [iClackLogLayer, mockLog] = makeClackLogTestLayer();
-      const [iConfirmLayer] = makeConfirmTestLayer();
-      const [iSelectLayer] = makeSelectTestLayer();
-      const [iMultiselectLayer] = makeMultiselectTestLayer();
-      const [iClackPromptLayer] = makeClackPromptTestLayer({
+      const [iOutputLayer, mockOutput] = makeOutputTestLayer();
+      const [iInputLayer] = makeInputTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: true },
           select: { type: "select", index: 0 },
@@ -514,11 +473,8 @@ describe("init.handler", () => {
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iClackLogLayer,
-        iConfirmLayer,
-        iSelectLayer,
-        iMultiselectLayer,
-        iClackPromptLayer,
+        iOutputLayer,
+        iInputLayer,
         CliFlagsTest(),
         TelemetryClientTest,
         CliEnvConfig.testDefaults,
@@ -527,17 +483,14 @@ describe("init.handler", () => {
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = mockLog.logs.info;
+        const infoMessages = mockOutput.logs.info;
         expect(infoMessages).toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });
 
     it.effect("does not display telemetry notice when AXM_TELEMETRY=0", () => {
-      const [iClackLogLayer, mockLog] = makeClackLogTestLayer();
-      const [iConfirmLayer] = makeConfirmTestLayer();
-      const [iSelectLayer] = makeSelectTestLayer();
-      const [iMultiselectLayer] = makeMultiselectTestLayer();
-      const [iClackPromptLayer] = makeClackPromptTestLayer({
+      const [iOutputLayer, mockOutput] = makeOutputTestLayer();
+      const [iInputLayer] = makeInputTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: true },
           select: { type: "select", index: 0 },
@@ -566,11 +519,8 @@ describe("init.handler", () => {
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iClackLogLayer,
-        iConfirmLayer,
-        iSelectLayer,
-        iMultiselectLayer,
-        iClackPromptLayer,
+        iOutputLayer,
+        iInputLayer,
         CliFlagsTest(),
         TelemetryClientTest,
         telemetryOffConfig,
@@ -579,7 +529,7 @@ describe("init.handler", () => {
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = mockLog.logs.info;
+        const infoMessages = mockOutput.logs.info;
         expect(infoMessages).not.toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });

@@ -15,7 +15,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../../app-error/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
@@ -59,13 +60,13 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "packs unpack" });
   const ws = yield* Workspace;
-  const log = yield* Log;
-  const spinnerSvc = yield* Spinner;
+  const output = yield* Output;
+  const activity = yield* Activity;
 
-  yield* log.info("axm packs unpack");
+  yield* output.info("axm packs unpack");
 
   // Validate pack exists in lockfile
-  const entry = yield* spinnerSvc.withSpinner(
+  const entry = yield* activity.withSpinner(
     "Checking pack...",
     () =>
       Effect.gen(function* () {
@@ -177,5 +178,5 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     }),
   );
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

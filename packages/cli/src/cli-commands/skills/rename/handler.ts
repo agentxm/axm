@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../../app-error/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RenameSkillOperation } from "../../../extensions/skills/operations/rename.js";
@@ -35,9 +35,9 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "skills rename" });
   const ws = yield* Workspace;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm skills rename");
+  yield* output.info("axm skills rename");
 
   // Load configured skills
   const configuredSkills = yield* ws.getConfiguredSkills();
@@ -77,5 +77,5 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }));
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });

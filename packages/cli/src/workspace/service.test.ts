@@ -14,13 +14,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import {
-  ClackLog,
-  makeClackLogTestLayer,
-  makeClackPromptTestLayer,
-  type MockClackLogService,
-  type MockClackPromptService,
-} from "../clack-effect/index.js";
+import { Output, makeOutputTestLayer, type MockOutputService } from "../output/index.js";
+import { makeInputTestLayer, type MockInputService } from "../input/index.js";
 import YAML from "yaml";
 import { AppError } from "../app-error/index.js";
 import { CliFlagsTest, type CliFlagsService } from "../cli-flags/index.js";
@@ -80,8 +75,8 @@ describe("WorkspaceContextService", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const [testLogLayer] = makeClackLogTestLayer();
-  const [testPromptLayer] = makeClackPromptTestLayer({
+  const [testLogLayer] = makeOutputTestLayer();
+  const [testPromptLayer] = makeInputTestLayer({
     methodBehaviors: {
       confirm: { type: "return", value: true },
       multiselect: { type: "return", value: [] },
@@ -102,7 +97,7 @@ describe("WorkspaceContextService", () => {
     Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
 
   const logMessages = (
-    mockLog: MockClackLogService,
+    mockLog: MockOutputService,
     method: "message" | "info" | "success" | "warn" | "error",
   ): ReadonlyArray<string> =>
     mockLog.calls
@@ -110,7 +105,7 @@ describe("WorkspaceContextService", () => {
       .map((call) => String(call.args[0] ?? ""));
 
   const promptConfigs = (
-    mockPrompt: MockClackPromptService,
+    mockPrompt: MockInputService,
     method: "confirm" | "multiselect",
   ): ReadonlyArray<unknown> =>
     mockPrompt.calls.filter((call) => call.method === method).map((call) => call.config);
@@ -175,12 +170,12 @@ describe("WorkspaceContextService", () => {
 
     const runResolvePlan = (
       flags: Partial<CliFlagsService>,
-      mockLog: MockClackLogService,
+      mockLog: MockOutputService,
       confirmValue = true,
       plan: LegacyPlan<TestOp> = testPlan,
     ) => {
-      const logLayer = Layer.succeed(ClackLog, mockLog);
-      const [promptLayer, promptMock] = makeClackPromptTestLayer({
+      const logLayer = Layer.succeed(Output, mockLog);
+      const [promptLayer, promptMock] = makeInputTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: confirmValue },
           multiselect: { type: "return", value: [] },
@@ -207,7 +202,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("default mode (preview=false) applies without apply confirmation", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect, promptMock } = runResolvePlan(
           { yes: false, nonInteractive: false, preview: false },
           mockLog,
@@ -228,7 +223,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview prompts then applies when confirmed", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect } = runResolvePlan(
           { yes: false, nonInteractive: false, preview: true },
           mockLog,
@@ -249,7 +244,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview mode requires apply confirmation", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect, promptMock } = runResolvePlan(
           { yes: false, nonInteractive: false, preview: true },
           mockLog,
@@ -267,7 +262,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview with --yes applies without prompt", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect } = runResolvePlan(
           { yes: true, nonInteractive: false, preview: true },
           mockLog,
@@ -285,7 +280,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview with nonInteractive is a dry-run (returns empty plan)", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect } = runResolvePlan(
           { yes: false, nonInteractive: true, preview: true },
           mockLog,
@@ -303,7 +298,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("nonInteractive implies yes: preview applies without prompt", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         // nonInteractive=true, yes=false, preview=false
         // Since nonInteractive implies yes, the apply confirmation should be skipped.
         const { effect, promptMock } = runResolvePlan(
@@ -323,7 +318,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("nonInteractive implies yes: preview with explicit yes applies", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const { effect, promptMock } = runResolvePlan(
           { yes: true, nonInteractive: true, preview: true },
           mockLog,
@@ -344,7 +339,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness blocks execution in preview mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
@@ -368,7 +363,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness blocks execution in default mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
@@ -392,7 +387,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness is overridden by --force in default mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
@@ -420,7 +415,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness is overridden by --force in preview mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
@@ -449,7 +444,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in preview displays warnings and prompts only for apply", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
@@ -477,7 +472,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in default mode displays warnings and proceeds", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
@@ -504,7 +499,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness proceeds regardless of --force", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
@@ -532,7 +527,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in non-interactive preview displays warnings and is no-op", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
@@ -559,7 +554,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in non-interactive default mode proceeds", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
@@ -586,7 +581,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness without --force in default mode proceeds normally", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeClackLogTestLayer();
+        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Version mismatch",
@@ -1578,8 +1573,8 @@ describe("WorkspaceContextService", () => {
       flags: Partial<CliFlagsService>,
       multiselectBehavior?: { type: "return"; indices: readonly number[] } | { type: "cancel" },
     ) => {
-      const [logLayer] = makeClackLogTestLayer();
-      const [promptLayer, promptMock] = makeClackPromptTestLayer({
+      const [logLayer] = makeOutputTestLayer();
+      const [promptLayer, promptMock] = makeInputTestLayer({
         methodBehaviors: {
           confirm: { type: "return", value: true },
           multiselect: multiselectBehavior

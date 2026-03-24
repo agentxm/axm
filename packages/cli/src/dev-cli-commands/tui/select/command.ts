@@ -1,25 +1,31 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { ClackLive, ClackLog, ClackPrompt } from "../../../clack-effect/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { Input, InputLive } from "../../../input/index.js";
+import { Output, OutputLive } from "../../../output/index.js";
 
 export const selectCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
-      const prompt = yield* ClackPrompt;
-      const log = yield* ClackLog;
-      const choice = yield* prompt.select({
+      const input = yield* Input;
+      const output = yield* Output;
+      const choice = yield* input.select({
         message: "Pick a color:",
         options: ["Red", "Green", "Blue"].map((item) => ({
           value: item,
           label: item,
         })),
       });
-      yield* log.success(`You picked: ${choice}`);
+      yield* output.success(`You picked: ${choice}`);
     });
     return Effect.runPromise(
       program.pipe(
-        Effect.provide(Layer.provide(ClackLive, CliFlagsTest({ nonInteractive: false }))),
+        Effect.provide(
+          Layer.mergeAll(
+            OutputLive("text"),
+            Layer.provide(InputLive, CliFlagsTest({ nonInteractive: false })),
+          ),
+        ),
       ),
     );
   },

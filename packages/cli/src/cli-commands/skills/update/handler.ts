@@ -23,7 +23,8 @@ import { makeAppError } from "../../../app-error/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { TelemetryClient } from "../../../telemetry/index.js";
 import { expandGlobs } from "../../../skills/index.js";
-import { Log, Spinner } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
@@ -90,11 +91,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;
-  const log = yield* Log;
-  const spinnerSvc = yield* Spinner;
+  const output = yield* Output;
+  const activity = yield* Activity;
   const flags = yield* CliFlags;
 
-  yield* log.info(`axm skills update (${scopeLabel})`);
+  yield* output.info(`axm skills update (${scopeLabel})`);
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.getConfiguredSkills();
@@ -103,7 +104,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>
     Effect.gen(function* () {
       if (!entry.enabled) {
-        yield* log.info(`Skipping ${name} (disabled)`);
+        yield* output.info(`Skipping ${name} (disabled)`);
         return Option.none<readonly [string, string]>();
       }
       return Option.some([name, entry.source] as const);
@@ -111,7 +112,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ).pipe(Effect.map(Array.getSomes));
 
   if (skillEntries.length === 0) {
-    yield* log.info("No skills installed. Nothing to update.");
+    yield* output.info("No skills installed. Nothing to update.");
     return;
   }
 
@@ -158,7 +159,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   })();
   if (args.skills.length > 0) {
     if (filteredEntries.length === 0) {
-      yield* log.warn("No installed skills match the --skill filter. Nothing to update.");
+      yield* output.warn("No installed skills match the --skill filter. Nothing to update.");
       return;
     }
   }
@@ -171,7 +172,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     | { type: "match"; ref: SkillExtensionRef }
     | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
 
-  const results = yield* spinnerSvc.withSpinner(
+  const results = yield* activity.withSpinner(
     "Resolving sources...",
     () =>
       Effect.forEach(
@@ -216,17 +217,17 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             } else if (allSkillRefs.length > 1) {
               // Multi-skill source: ambiguous rename
               const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
-              yield* log.warn(
+              yield* output.warn(
                 `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
               );
               return Option.none<ResolveResult>();
             } else {
-              yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
+              yield* output.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
               return Option.none<ResolveResult>();
             }
           }).pipe(
             Effect.catch((error) => {
-              return log
+              return output
                 .warn(`Failed to resolve "${name}": ${String(error)}`)
                 .pipe(Effect.map(() => Option.none<ResolveResult>()));
             }),
@@ -282,7 +283,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       );
     },
   );
-  yield* Effect.forEach(holdbackWarnings, (w) => log.warn(w), { discard: true });
+  yield* Effect.forEach(holdbackWarnings, (w) => output.warn(w), { discard: true });
 
   // Step 8: Build operations
   const ops = Array.flatMap(resolved, (item) =>
@@ -336,7 +337,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     }),
   );
 
-  yield* log.success("Done");
+  yield* output.success("Done");
 });
 
 // -----------------------------------------------------------------------------

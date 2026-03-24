@@ -10,7 +10,7 @@
 import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Log } from "../../clack-effect/index.js";
+import { Output } from "../../output/index.js";
 import { CliEnvConfig } from "../../config/index.js";
 import { TelemetryClient, resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
@@ -32,12 +32,12 @@ import { isUserScope } from "../../workspace/scope.js";
 export const handleInit = Effect.fn("Init.handle")(function* () {
   const tc = yield* TelemetryClient;
   yield* tc.trackEvent("command_invoked", { command: "init" });
-  const log = yield* Log;
+  const output = yield* Output;
   const context = yield* Workspace;
   const scopeLabel = isUserScope(context.scope) ? "user" : "project";
 
   // Show intro
-  yield* log.info(`axm init (${scopeLabel})`);
+  yield* output.info(`axm init (${scopeLabel})`);
 
   // Display result
   const agentIds = yield* context.getConfiguredAgents();
@@ -51,10 +51,10 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     .join(", ");
 
   if (agentIds.length > 0) {
-    yield* log.info(`Agents: ${agentNames}`);
+    yield* output.info(`Agents: ${agentNames}`);
   }
-  yield* log.info(`Settings: ${context.path}/settings.json`);
-  yield* log.success(
+  yield* output.info(`Settings: ${context.path}/settings.json`);
+  yield* output.success(
     agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
   );
 
@@ -68,8 +68,8 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     {},
   );
   if (telemetryMode !== "off") {
-    yield* log.info("");
-    yield* log.info("Telemetry is enabled to help improve axm. To disable:");
-    yield* log.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
+    yield* output.info("");
+    yield* output.info("Telemetry is enabled to help improve axm. To disable:");
+    yield* output.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
   }
 }, Effect.asVoid);

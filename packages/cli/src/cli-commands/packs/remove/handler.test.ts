@@ -15,7 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
@@ -104,16 +105,12 @@ describe("packs-remove.handler", () => {
   const makeLayers = (
     flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const [logLayer, mockLog] = makeClackLogTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer();
-    const [selectLayer] = makeClackPromptTestLayer();
-    const [multiselectLayer] = makeClackPromptTestLayer();
+    const [outputLayer, mockLog] = makeOutputTestLayer();
+    const [inputLayer] = makeInputTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
+      outputLayer,
+      inputLayer,
       CliFlagsTest(flagsOverrides),
       TelemetryClientTest,
       CliEnvConfig.testDefaults,

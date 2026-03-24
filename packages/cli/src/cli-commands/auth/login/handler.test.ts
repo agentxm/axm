@@ -9,11 +9,9 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, type MeResponse } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-store.js";
-import {
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-  makeClackPromptTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeActivityTestLayer } from "../../../activity/index.js";
+import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import { handleLogin } from "./handler.js";
@@ -27,9 +25,9 @@ const makeLayers = (opts?: {
   meResponse?: MeResponse;
   confirmValue?: boolean;
 }) => {
-  const [logLayer, mockLog] = makeClackLogTestLayer();
-  const [spinnerLayer, mockSpinner] = makeClackSpinnerTestLayer();
-  const [promptLayer, mockPrompt] = makeClackPromptTestLayer({
+  const [outputLayer, mockLog] = makeOutputTestLayer();
+  const [activityLayer, mockSpinner] = makeActivityTestLayer();
+  const [inputLayer, mockPrompt] = makeInputTestLayer({
     defaultBehavior: { type: "return", value: "" },
     methodBehaviors: {
       confirm: { type: "return", value: opts?.confirmValue ?? true },
@@ -92,9 +90,9 @@ const makeLayers = (opts?: {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    logLayer,
-    spinnerLayer,
-    promptLayer,
+    outputLayer,
+    activityLayer,
+    inputLayer,
     flagsLayer,
     credStoreLayer,
     authClientLayer,
@@ -214,9 +212,9 @@ describe("auth login handler", () => {
         ),
     });
 
-    const [logLayer2, mockLog2] = makeClackLogTestLayer();
-    const [spinnerLayer2] = makeClackSpinnerTestLayer();
-    const [promptLayer2] = makeClackPromptTestLayer({
+    const [outputLayer2, mockLog2] = makeOutputTestLayer();
+    const [activityLayer2] = makeActivityTestLayer();
+    const [inputLayer2] = makeInputTestLayer({
       defaultBehavior: { type: "return", value: "" },
       methodBehaviors: {
         confirm: { type: "return", value: true },
@@ -224,9 +222,9 @@ describe("auth login handler", () => {
     });
 
     const layer = Layer.mergeAll(
-      logLayer2,
-      spinnerLayer2,
-      promptLayer2,
+      outputLayer2,
+      activityLayer2,
+      inputLayer2,
       CliFlagsTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,

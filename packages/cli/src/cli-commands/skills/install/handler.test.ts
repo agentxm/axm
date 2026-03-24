@@ -16,11 +16,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer,
-  makeClackSpinnerTestLayer,
-} from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeActivityTestLayer } from "../../../activity/index.js";
+import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
 import { TelemetryClientTest } from "../../../telemetry/index.js";
@@ -120,23 +118,20 @@ describe("skills install handler — error propagation", () => {
   const makeLayers = (
     flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
   ) => {
-    const [logLayer, logMock] = makeClackLogTestLayer();
-    const [spinnerLayer, spinnerMock] = makeClackSpinnerTestLayer();
-    const [confirmLayer] = makeClackPromptTestLayer({ type: "return", value: true });
-    const [selectLayer] = makeClackPromptTestLayer({ type: "select", index: 0 });
-    const [multiselectLayer, multiselectMock] = makeClackPromptTestLayer({
-      type: "multiselect",
-      indices: [],
+    const [outputLayer, logMock] = makeOutputTestLayer();
+    const [activityLayer, spinnerMock] = makeActivityTestLayer();
+    const [inputLayer, multiselectMock] = makeInputTestLayer({
+      methodBehaviors: {
+        confirm: { type: "return", value: true },
+        select: { type: "select", index: 0 },
+        multiselect: { type: "multiselect", indices: [] },
+      },
     });
-    const [textInputLayer] = makeClackPromptTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      logLayer,
-      spinnerLayer,
-      confirmLayer,
-      selectLayer,
-      multiselectLayer,
-      textInputLayer,
+      outputLayer,
+      activityLayer,
+      inputLayer,
       CliFlagsTest(flagsOverrides),
       TelemetryClientTest,
       CliEnvConfig.testDefaults,
@@ -249,7 +244,7 @@ describe("skills install handler — error propagation", () => {
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("effect-basics"));
 
-        expect(multiselectMock.calls).toHaveLength(0);
+        expect(multiselectMock.calls.filter((c) => c.method === "multiselect")).toHaveLength(0);
         expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
       }),
     );

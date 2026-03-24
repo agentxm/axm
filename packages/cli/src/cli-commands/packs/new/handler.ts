@@ -16,7 +16,7 @@ import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schem
 import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
 import { newPack } from "../../../extensions/packs/operations/new-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -42,9 +42,9 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const log = yield* Log;
+  const output = yield* Output;
 
-  yield* log.info("axm packs new");
+  yield* output.info("axm packs new");
 
   // Resolve namespace
   const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
@@ -106,5 +106,5 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }));
 
-  yield* log.success(`Created pack ${fqn}`);
+  yield* output.success(`Created pack ${fqn}`);
 });

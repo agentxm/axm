@@ -9,14 +9,14 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
-import { makeClackLogTestLayer } from "../../../clack-effect/index.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { handleLogout } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
 const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolean }) => {
-  const [logLayer, mockLog] = makeClackLogTestLayer();
+  const [outputLayer, mockLog] = makeOutputTestLayer();
 
   const credStoreLayer = opts?.existingCredentials
     ? CredentialStoreTest("encrypted-file", {
@@ -50,7 +50,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    logLayer,
+    outputLayer,
     CliFlagsTest(),
     credStoreLayer,
     authClientLayer,

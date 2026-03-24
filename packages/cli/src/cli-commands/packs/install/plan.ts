@@ -25,7 +25,7 @@ import { installMcpServer } from "../../../extensions/mcp-servers/operations/ins
 import { installPack } from "../../../extensions/packs/operations/install.js";
 import { Workspace } from "../../../workspace/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { Log } from "../../../clack-effect/index.js";
+import { Output } from "../../../output/index.js";
 
 /**
  * Union of operation types produced by the pack install plan builder.
@@ -80,13 +80,13 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const log = yield* Log;
+    const output = yield* Output;
 
     const provideServices = <A, E>(
       effect: Effect.Effect<
         A,
         E,
-        Workspace | SourceHostProviders | FileSystem.FileSystem | Path.Path | Log
+        Workspace | SourceHostProviders | FileSystem.FileSystem | Path.Path | Output
       >,
     ): Effect.Effect<A, E, never> =>
       effect.pipe(
@@ -94,7 +94,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-        Effect.provideService(Log, log),
+        Effect.provideService(Output, output),
       );
 
     const resolvedSkills = Object.fromEntries(

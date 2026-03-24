@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { ClackLogTestLayer } from "../../../clack-effect/log/ClackLogTest.js";
+import { makeOutputTestLayer } from "../../../output/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 import {
   SourceHostProviders,
@@ -174,7 +174,7 @@ const withServices = (
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(mockWs),
-    ClackLogTestLayer,
+    makeOutputTestLayer()[0],
     Layer.succeed(SourceHostProviders, sourceProviders),
   );
 };

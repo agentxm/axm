@@ -19,9 +19,9 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
-import { ClackLog } from "../../../clack-effect/log/service.js";
-import { ClackSpinner } from "../../../clack-effect/spinner/service.js";
-import { ClackPrompt } from "../../../clack-effect/prompt/service.js";
+import { Output } from "../../../output/index.js";
+import { Activity } from "../../../activity/index.js";
+import { Input } from "../../../input/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
 import { makeAppError } from "../../../app-error/index.js";
 
@@ -33,9 +33,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
   const flags = yield* CliFlags;
-  const log = yield* ClackLog;
-  const spinnerSvc = yield* ClackSpinner;
-  const prompt = yield* ClackPrompt;
+  const output = yield* Output;
+  const activity = yield* Activity;
+  const input = yield* Input;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Reject non-interactive mode
@@ -51,9 +51,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
   // Step 2: Check existing auth
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
-    yield* log.info(`Already logged in as ${existing.value.handle}.`);
+    yield* output.info(`Already logged in as ${existing.value.handle}.`);
     if (!flags.yes) {
-      const shouldContinue = yield* prompt.confirm({
+      const shouldContinue = yield* input.confirm({
         message: "Log in with a different account?",
       });
       if (!shouldContinue) {
@@ -67,11 +67,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
   const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
   // Step 4: Display URL and code
-  yield* log.step(`Open this URL in your browser: ${verificationUrl}`);
-  yield* log.step(`Enter code: ${deviceFlow.user_code}`);
+  yield* output.step(`Open this URL in your browser: ${verificationUrl}`);
+  yield* output.step(`Enter code: ${deviceFlow.user_code}`);
 
   // Step 5: Poll with spinner
-  const token = yield* spinnerSvc.withSpinner(
+  const token = yield* activity.withSpinner(
     "Waiting for approval in browser...",
     () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
     { successMessage: "Login successful." },
@@ -87,5 +87,5 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
   });
 
   // Step 7: Display result
-  yield* log.success(`Logged in as ${me.userHandle}`);
+  yield* output.success(`Logged in as ${me.userHandle}`);
 }, Effect.asVoid);

@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInit } from "../../cli-commands/init/handler.js";
 import {
@@ -26,14 +26,16 @@ export const initCommand = Command.make(
     preview: previewFlag,
   },
   ({ scope, agent, yes, force, preview }) =>
-    withRuntime(handleInit(), {
-      command: "init",
-      workspace: {
-        scope: resolveWorkspaceScope(scope),
-        agents: agent.length > 0 ? Option.some(agent) : Option.none(),
-      },
-      flags: { yes, force, preview },
-    }),
+    withRuntime(
+      withWorkspace(
+        {
+          scope: resolveWorkspaceScope(scope),
+          agents: agent.length > 0 ? Option.some(agent) : Option.none(),
+        },
+        handleInit(),
+      ),
+      { command: "init", flags: { yes, force, preview } },
+    ),
 ).pipe(
   Command.withDescription("Set up axm in the current project"),
   Command.withExamples([

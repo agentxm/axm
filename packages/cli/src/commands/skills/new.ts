@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleSkillsNew } from "../../cli-commands/skills/new/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -27,16 +27,15 @@ export const newCommand = Command.make(
   },
   ({ name, profile, agent, yes, force, preview }) =>
     withRuntime(
-      handleSkillsNew({
-        name,
-        profile,
-        agents: Option.map(agent, (value) => [...value]),
-      }),
-      {
-        command: "skills new",
-        workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-        flags: { yes, force, preview },
-      },
+      withWorkspace(
+        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+        handleSkillsNew({
+          name,
+          profile,
+          agents: Option.map(agent, (value) => [...value]),
+        }),
+      ),
+      { command: "skills new", flags: { yes, force, preview } },
     ),
 ).pipe(
   Command.withDescription("Create a new skill"),

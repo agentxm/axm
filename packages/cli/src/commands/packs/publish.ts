@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handlePublishPack } from "../../cli-commands/packs/publish/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -25,11 +25,13 @@ export const publishCommand = Command.make(
     preview: previewFlag,
   },
   ({ pack, registry, includeDependencies, yes, force, preview }) =>
-    withRuntime(handlePublishPack({ pack, registry, includeDependencies }), {
-      command: "packs publish",
-      workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-      flags: { yes, force, preview },
-    }),
+    withRuntime(
+      withWorkspace(
+        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+        handlePublishPack({ pack, registry, includeDependencies }),
+      ),
+      { command: "packs publish", flags: { yes, force, preview } },
+    ),
 ).pipe(
   Command.withDescription("Publish a pack to a registry"),
   Command.withExamples([

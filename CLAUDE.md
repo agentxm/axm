@@ -95,6 +95,9 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 
 ```
 packages/
+  core/             # @axm.sh/core - Shared domain types and schemas
+    src/
+      unstable/     # All code lives here — package is highly unstable
   cli/              # @axm.sh/cli - CLI and domain logic
     src/
       e2e/          # E2E test utilities and fixtures
@@ -133,6 +136,8 @@ openspec/           # Spec-driven development
 ```
 
 Each feature folder is self-contained: logic, constants, errors, schemas, and tests co-located. Only `utils/` holds truly cross-cutting utilities.
+
+**`@axm.sh/core` unstable namespace** — All code in the core package lives under `src/unstable/` and is exported via `@axm.sh/core/unstable/*`. This signals that the package API is highly unstable and subject to breaking changes. Never place code directly under `src/` in core — always use the `unstable/` namespace.
 
 ### Command Arg Type Naming
 

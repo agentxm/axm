@@ -107,6 +107,9 @@ importers:
 
   packages/cli-spike:
     dependencies:
+      "@axm.sh/core":
+        specifier: workspace:*
+        version: link:../core
       "@effect/platform-node":
         specifier: 4.0.0-beta.37
         version: 4.0.0-beta.37(effect@4.0.0-beta.37)(ioredis@5.10.1)

@@ -1,6 +1,8 @@
 import * as Console from "effect/Console";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+
 export const renameCommand = Command.make(
   "rename",
   {
@@ -12,10 +14,12 @@ export const renameCommand = Command.make(
       Flag.withDescription("Configuration scope"),
       Flag.withDefault("project" as const),
     ),
+    yes: yesFlag,
+    preview: previewFlag,
   },
   (config) =>
     Console.log(
-      `[stub] skills rename ${config.oldName} -> ${config.newName} scope=${config.scope}`,
+      `[stub] skills rename ${config.oldName} -> ${config.newName} scope=${config.scope} yes=${config.yes} preview=${config.preview}`,
     ),
 ).pipe(
   Command.withDescription("Rename a skill"),
@@ -24,6 +28,10 @@ export const renameCommand = Command.make(
     {
       command: "axm-spike skills rename old-name new-name --preview",
       description: "Preview the rename",
+    },
+    {
+      command: "axm-spike skills rename old-name new-name --yes",
+      description: "Rename without confirmation",
     },
   ]),
 );

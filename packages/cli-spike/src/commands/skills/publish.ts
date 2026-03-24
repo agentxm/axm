@@ -1,6 +1,8 @@
 import * as Console from "effect/Console";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
+
 export const publishCommand = Command.make(
   "publish",
   {
@@ -12,8 +14,12 @@ export const publishCommand = Command.make(
       Flag.withDescription("Named registry source to publish to"),
       Flag.optional,
     ),
+    yes: yesFlag,
   },
-  (config) => Console.log(`[stub] skills publish extensions=${config.extensions.join(", ")}`),
+  (config) =>
+    Console.log(
+      `[stub] skills publish extensions=${config.extensions.join(", ")} yes=${config.yes}`,
+    ),
 ).pipe(
   Command.withDescription("Publish extensions to a registry"),
   Command.withExamples([
@@ -24,6 +30,10 @@ export const publishCommand = Command.make(
     {
       command: "axm-spike skills publish effect-* commit",
       description: "Publish matching patterns",
+    },
+    {
+      command: "axm-spike skills publish @acme/skills/code-review --yes",
+      description: "Publish without confirmation",
     },
   ]),
 );

@@ -10,11 +10,15 @@
 // know or care about the output format. Output.result() handles text/json/
 // stream-json routing transparently based on which layer was provided.
 // ==========================================================================
-import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { Output } from "@axm.sh/core/unstable/output";
+import {
+  FakeSkillInfoSchema,
+  FakeSkillsManager,
+} from "../../fake-skills-manager.js";
 import { withRuntime } from "../../main.js";
 
 // ---------------------------------------------------------------------------
@@ -31,42 +35,8 @@ import { withRuntime } from "../../main.js";
 // consumers to check `"version" in obj` before accessing it.
 // ---------------------------------------------------------------------------
 
-export const SkillInfoSchema = Schema.Struct({
-  _version: Schema.Literal(1),
-  name: Schema.String,
-  source: Schema.String,
-  version: Schema.NullOr(Schema.String),
-  enabled: Schema.Boolean,
-  scope: Schema.Literals(["project", "user"] as const),
-});
-export type SkillInfo = typeof SkillInfoSchema.Type;
-
-export const SkillListOutputSchema = Schema.Array(SkillInfoSchema);
+export const SkillListOutputSchema = Schema.Array(FakeSkillInfoSchema);
 export type SkillListOutput = typeof SkillListOutputSchema.Type;
-
-// ---------------------------------------------------------------------------
-// Mock data — demonstrates consistent JSON shape with _version and null fields
-// ---------------------------------------------------------------------------
-
-const MOCK_SKILLS: ReadonlyArray<SkillInfo> = [
-  {
-    _version: 1,
-    name: "pr-review",
-    source: "acme/tools",
-    version: "1.2.0",
-    enabled: true,
-    scope: "project",
-  },
-  {
-    _version: 1,
-    name: "test-gen",
-    source: "acme/tools",
-    version: "1.0.3",
-    enabled: true,
-    scope: "project",
-  },
-  { _version: 1, name: "my-custom", source: "local", version: null, enabled: false, scope: "user" },
-];
 
 // ---------------------------------------------------------------------------
 // Text renderer — human-friendly table for TTY output
@@ -114,8 +84,9 @@ export const listCommand = Command.make(
     withRuntime(
       Effect.gen(function* () {
         const output = yield* Output;
-        const filtered = MOCK_SKILLS.filter((s) => s.scope === config.scope);
-        yield* output.result(SkillListOutputSchema, filtered, renderText);
+        const fakeSkillsManager = yield* FakeSkillsManager;
+        const skills = yield* fakeSkillsManager.listSkills(config.scope);
+        yield* output.result(SkillListOutputSchema, skills, renderText);
       }),
       { command: "skills list" },
     ),

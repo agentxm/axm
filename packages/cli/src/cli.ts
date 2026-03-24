@@ -95,7 +95,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
       withGracefulShutdown(
         Command.runWith(cliCommand, { version })(args).pipe(
           Effect.provide(baseLayer),
-        ) as Effect.Effect<void>,
+        ),
       ),
     );
   } catch (error) {

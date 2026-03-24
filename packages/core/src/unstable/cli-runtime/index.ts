@@ -4,6 +4,23 @@ export { handleError } from "./handle-error.js";
 export { withGracefulShutdown } from "./graceful-shutdown.js";
 export { makeUiLayer } from "./ui-layer.js";
 export {
+  makeCliTelemetryLayer,
+  type CliTelemetryConfigService,
+} from "./telemetry-layer.js";
+export {
+  type CliRuntimeFoundation,
+  type CliRuntimeContext,
+  type MakeCliRuntimeContextOptions,
+  makeCliRuntimeContext,
+  type RunCliRuntimeOptions,
+  runCliRuntime,
+  type WithCliRuntimeOptions,
+  withCliRuntime,
+  type ExpectedCliError,
+  withCliRuntimeEnvelope,
+  type WithCliRuntimeEnvelopeOptions,
+} from "./runtime-envelope.js";
+export {
   trackCliCommand,
   reportCliDefect,
   reportCliError,

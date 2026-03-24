@@ -11,7 +11,6 @@
 //   5. Graceful shutdown with fiber interruption
 // ==========================================================================
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
@@ -19,24 +18,17 @@ import { Command } from "effect/unstable/cli";
 
 import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
 import {
-  effectCliExit,
   handleError,
-  isEffectCliExit,
-  makeUiLayer,
-  reportCliDefect,
-  reportCliError,
-  resolveFormat,
   resolveFormatFromArgv,
-  trackCliCommand,
+  type CliTelemetryConfigService,
+  withCliRuntime,
   withGracefulShutdown,
 } from "@axm.sh/core/unstable/cli-runtime";
-import {
-  TelemetryClientLive,
-  resolveTelemetryMode,
-} from "@axm.sh/core/unstable/telemetry";
-import { renderAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
+import { FakeSkillsManagerLive } from "./fake-skills-manager.js";
 import { skillsCommand } from "./commands/skills/command.js";
 import { telemetryCommand } from "./commands/telemetry/command.js";
 
@@ -55,30 +47,8 @@ const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
 
 const telemetryEnabledInTest = () => process.env["AXM_TELEMETRY_ENABLE_IN_TEST"] === "true";
 
-const writeExpectedError = (
-  error: AppError | PromptCancelled,
-  format: ReturnType<typeof resolveFormat>,
-): Effect.Effect<void> => {
-  if (error._tag === "PromptCancelled") {
-    return Effect.void;
-  }
-
-  return Effect.sync(() => {
-    if (format === "text") {
-      console.error(renderAppError(error));
-      return;
-    }
-
-    process.stdout.write(
-      JSON.stringify({
-        type: "error",
-        code: error.code,
-        message: error.what,
-      }) + "\n",
-    );
-    console.error(`\u2717 ${error.what}`);
-  });
-};
+const ROOT_COMMAND = "axm-spike";
+const VERSION = "0.0.1";
 
 // ---------------------------------------------------------------------------
 // Runtime layer helper — resolves format and provides Output + Activity
@@ -93,75 +63,43 @@ const writeExpectedError = (
 // and the services handle format differences transparently.
 // ---------------------------------------------------------------------------
 
-export const withRuntime = <A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  options?: {
-    readonly command?: string;
-    readonly isLongRunning?: boolean;
-  },
+const telemetryBaseUrl = process.env["AXM_TELEMETRY_BASE_URL"];
+
+const spikeCliTelemetryConfig = {
+  mode: resolveTelemetryMode(
+    {
+      doNotTrack: process.env["DO_NOT_TRACK"],
+      telemetry: process.env["AXM_TELEMETRY"],
+    },
+    {},
+  ),
+  client: { name: ROOT_COMMAND, version: VERSION },
+  runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
+  ci: process.env["CI"] === "true",
+  test: process.env["VITEST"] === "true" && !telemetryEnabledInTest(),
+  ...(telemetryBaseUrl !== undefined && { baseUrl: telemetryBaseUrl }),
+} satisfies CliTelemetryConfigService;
+
+type WithRuntimeOptions = {
+  readonly command?: string;
+  readonly isLongRunning?: boolean;
+};
+
+export const withRuntime = <A, R>(
+  program: Effect.Effect<A, AppError | PromptCancelled, R>,
+  options?: WithRuntimeOptions,
 ) =>
-  Effect.gen(function* () {
-    const explicit = yield* outputFormatFlag;
-    const format = resolveFormat(explicit, options);
-    const command = options?.command ?? "unknown";
-    const telemetryBaseUrl = process.env["AXM_TELEMETRY_BASE_URL"];
-    const telemetryLayer = Layer.provide(
-      TelemetryClientLive({
-        mode: resolveTelemetryMode(
-          {
-            doNotTrack: process.env["DO_NOT_TRACK"],
-            telemetry: process.env["AXM_TELEMETRY"],
-          },
-          {},
-        ),
-        command,
-        client: { name: ROOT_COMMAND, version: VERSION },
-        runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-        ci: process.env["CI"] === "true",
-        test: process.env["VITEST"] === "true" && !telemetryEnabledInTest(),
-        ...(telemetryBaseUrl !== undefined && { baseUrl: telemetryBaseUrl }),
-      }),
-      FetchHttpClient.layer,
-    );
-    const commandLayer = Layer.mergeAll(makeUiLayer(format), telemetryLayer);
-    const provided = trackCliCommand({ command }).pipe(
-      Effect.andThen(program as Effect.Effect<A, AppError | PromptCancelled, R>),
-      Effect.provide(commandLayer),
-    );
-
-    return yield* provided.pipe(
-      Effect.catch((error: AppError | PromptCancelled) => {
-        const exitCode = error._tag === "PromptCancelled" ? 0 : 1;
-        return writeExpectedError(error, format).pipe(
-          Effect.andThen(
-            reportCliError(error, command).pipe(
-              Effect.provide(telemetryLayer),
-              Effect.catchCause(() => Effect.void),
-            ),
-          ),
-          Effect.flatMap(() => Effect.die(effectCliExit(exitCode))),
-        );
-      }),
-      Effect.catchCause((cause) => {
-        const defect = Cause.squash(cause);
-        if (isEffectCliExit(defect)) {
-          return Effect.failCause(cause);
-        }
-
-        return reportCliDefect(cause, command).pipe(
-          Effect.provide(telemetryLayer),
-          Effect.andThen(Effect.failCause(cause)),
-        );
-      }),
-    );
+  withCliRuntime(program, {
+    command: options?.command,
+    isLongRunning: options?.isLongRunning,
+    ci: spikeCliTelemetryConfig.ci,
+    telemetryConfig: spikeCliTelemetryConfig,
+    programLayer: FakeSkillsManagerLive,
   });
 
 // ---------------------------------------------------------------------------
 // Root command
 // ---------------------------------------------------------------------------
-
-const ROOT_COMMAND = "axm-spike";
-const VERSION = "0.0.1";
 
 const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Effect v4 CLI spike — proving out idiomatic command/flag patterns."),
@@ -188,7 +126,7 @@ const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise
       withGracefulShutdown(
         Command.runWith(rootCommand, { version: VERSION })(args).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),
-        ) as Effect.Effect<void>,
+        ),
       ),
     );
   } catch (error) {

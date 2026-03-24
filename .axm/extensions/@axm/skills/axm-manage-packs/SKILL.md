@@ -10,9 +10,9 @@ Instructions for managing extension packs using the `axm` CLI.
 ## Install a Pack
 
 ```bash
-axm packs install @namespace/pack-name
-axm packs install @namespace/pack-name@^2.0.0
-axm packs install @namespace/pack-name --preview
+axm packs install @profile/pack-name
+axm packs install @profile/pack-name@^2.0.0
+axm packs install @profile/pack-name --preview
 ```
 
 **Options:** `--scope <project|user>`, `--yes`, `--force`, `--preview`
@@ -20,7 +20,7 @@ axm packs install @namespace/pack-name --preview
 ## Uninstall a Pack
 
 ```bash
-axm packs uninstall @namespace/pack-name
+axm packs uninstall @profile/pack-name
 ```
 
 **Options:** `--yes`, `--preview`
@@ -29,15 +29,15 @@ axm packs uninstall @namespace/pack-name
 
 ```bash
 axm packs new my-pack
-axm packs new my-pack --namespace @acme
+axm packs new my-pack --profile @acme
 ```
 
-**Options:** `--namespace <namespace>`, `--yes`
+**Options:** `--profile <profile>`, `--yes`
 
 ## Add Extension to Pack
 
 ```bash
-axm packs add my-pack @namespace/skill-name
+axm packs add my-pack @profile/skill-name
 ```
 
 **Options:** `--yes`
@@ -45,7 +45,7 @@ axm packs add my-pack @namespace/skill-name
 ## Remove Extension from Pack
 
 ```bash
-axm packs remove my-pack @namespace/skill-name
+axm packs remove my-pack @profile/skill-name
 ```
 
 **Options:** `--yes`
@@ -62,7 +62,7 @@ axm packs publish my-pack --registry my-registry
 ## Unpack a Pack
 
 ```bash
-axm packs unpack @namespace/pack-name
+axm packs unpack @profile/pack-name
 ```
 
 **Options:** `--yes`, `--preview`

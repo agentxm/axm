@@ -13,7 +13,7 @@ import type {
 const parseRegistrySkillSource = (
   source: string,
 ): Option.Option<{
-  readonly namespace: string;
+  readonly profile: string;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -27,7 +27,7 @@ const parseRegistrySkillSource = (
   }
 
   return Option.some({
-    namespace: match[1]!,
+    profile: match[1]!,
     name: match[2]!,
     constraint: match[3] ?? "*",
   });
@@ -49,9 +49,9 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
 
       declarations.push({
         extensionType: "skills",
-        namespace: Option.match(parsed, {
-          onNone: () => context.defaultNamespace,
-          onSome: (value) => value.namespace,
+        profile: Option.match(parsed, {
+          onNone: () => context.defaultProfile,
+          onSome: (value) => value.profile,
         }),
         name,
         source,
@@ -79,9 +79,9 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const namespace = Option.match(parsed, {
-        onNone: () => declaration.namespace,
-        onSome: (value) => value.namespace,
+      const profile = Option.match(parsed, {
+        onNone: () => declaration.profile,
+        onSome: (value) => value.profile,
       });
       const diskName = Option.match(parsed, {
         onNone: () => declaration.name,
@@ -91,7 +91,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       const canonicalPath = computeSkillPaths(
         env.path.join,
         context.baseDir,
-        { refType: "registry", namespace },
+        { refType: "registry", profile },
         diskName,
       ).canonicalPath;
 
@@ -155,7 +155,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      if (manifest.namespace !== namespace || manifest.name !== diskName) {
+      if (manifest.profile !== profile || manifest.name !== diskName) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -171,7 +171,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
           name: declaration.name,
           entry: {
             type: "registry",
-            namespace,
+            profile,
             name: diskName,
             resolvedVersion: manifest.version,
             integrity: "",

@@ -43,7 +43,7 @@ import { buildUnpackPlan } from "./plan.js";
  * Arguments for the packs unpack command.
  */
 export interface UnpackHandlerArgs {
-  /** Pack name (FQN like @namespace/name). */
+  /** Pack name (FQN like @profile/name). */
   readonly name: string;
   /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
   readonly strictAgentSync?: boolean;
@@ -105,12 +105,12 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       ? {
           type: "registry",
           location: sourceOpt.value.location,
-          namespace: Option.none(),
+          profile: Option.none(),
         }
       : {
           type: "registry",
           location: new URL("file:///unknown"),
-          namespace: Option.none(),
+          profile: Option.none(),
         };
 
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)

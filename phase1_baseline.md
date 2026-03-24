@@ -112,7 +112,7 @@ These tests hang waiting for interactive prompts despite passing `--yes` or `--n
 
 | Sub-command                       | Test                                | Error       |
 | --------------------------------- | ----------------------------------- | ----------- |
-| `skills new`                      | `--namespace override`              | Timeout 30s |
+| `skills new`                      | `--profile override`                | Timeout 30s |
 | `skills new`                      | `fails if skill already exists`     | Timeout 30s |
 | `skills enable`                   | `shows already enabled message`     | Timeout 30s |
 | `skills enable`                   | `errors when skill is not found`    | Timeout 30s |
@@ -128,7 +128,7 @@ These tests hang waiting for interactive prompts despite passing `--yes` or `--n
 | `skills install/rebuild-lockfile` | All 3 tests                         | Timeout 30s |
 | `skills install/registry-install` | `fork publishes to registry`        | Timeout 30s |
 
-**Likely root cause:** Commands hang waiting for interactive input (prompt for namespace, confirmation, etc.) that is not bypassed by `--yes` or `--non-interactive` flags.
+**Likely root cause:** Commands hang waiting for interactive input (prompt for profile, confirmation, etc.) that is not bypassed by `--yes` or `--non-interactive` flags.
 
 #### Assertion failures (non-timeout, ~15 tests)
 
@@ -198,7 +198,7 @@ The handler and operations layers are well-tested and stable. No regressions at 
 
 ### 5.4 Failure patterns
 
-1. **Timeout pattern (dominant):** Many sub-commands (new, enable, disable, rename, fork, install preview/rebuild/registry-guard) appear to hang waiting for prompts. This suggests a systematic issue with `--non-interactive` or `--yes` flag propagation in certain code paths, possibly related to namespace prompts or confirmation prompts that don't respect global flags.
+1. **Timeout pattern (dominant):** Many sub-commands (new, enable, disable, rename, fork, install preview/rebuild/registry-guard) appear to hang waiting for prompts. This suggests a systematic issue with `--non-interactive` or `--yes` flag propagation in certain code paths, possibly related to profile prompts or confirmation prompts that don't respect global flags.
 
 2. **Registry-dependent failures:** All registry-install and registry-uninstall tests fail. The `fork` command (which involves registry publish) also fails. This points to registry workflow issues.
 

@@ -10,27 +10,27 @@ The `axm packs new` command scaffolds a new empty pack with a manifest and regis
 
 `axm packs new <name>` SHALL create a new empty pack with an `axm-pack.json` manifest in the managed extensions directory.
 
-The pack name SHALL be scoped using the workspace's configured namespace (from settings.json) unless overridden with `--namespace`.
+The pack name SHALL be scoped using the workspace's configured profile (from settings.json) unless overridden with `--profile`.
 
-#### Scenario: Create pack with workspace namespace
+#### Scenario: Create pack with workspace profile
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** workspace namespace is `@acme`
+- **AND** workspace profile is `@acme`
 - **THEN** `axm-pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/axm-pack.json`
 - **AND** manifest contains `name: "@acme/frontend-tools"`, `version: "0.0.1"`, empty `skills`, `commands`, `mcp-servers`
 
-#### Scenario: Create pack with namespace override
+#### Scenario: Create pack with profile override
 
-- **WHEN** user runs `axm packs new frontend-tools --namespace @corp`
+- **WHEN** user runs `axm packs new frontend-tools --profile @corp`
 - **THEN** `axm-pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/axm-pack.json`
 - **AND** manifest contains `name: "@corp/frontend-tools"`
 
-#### Scenario: No workspace namespace and no override
+#### Scenario: No workspace profile and no override
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** no namespace is configured in settings.json
-- **AND** `--namespace` is not provided
-- **THEN** the command fails with a `AppError` indicating a namespace is required
+- **AND** no profile is configured in settings.json
+- **AND** `--profile` is not provided
+- **THEN** the command fails with a `AppError` indicating a profile is required
 
 #### Scenario: Pack already exists
 

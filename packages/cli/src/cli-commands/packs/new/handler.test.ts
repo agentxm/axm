@@ -1,7 +1,7 @@
 /**
  * Unit tests for the packs new handler.
  *
- * Tests namespace resolution, manifest creation, settings registration, and error paths.
+ * Tests profile resolution, manifest creation, settings registration, and error paths.
  */
 
 import * as fs from "node:fs";
@@ -30,7 +30,7 @@ import { handlePacksNew, type PacksNewHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    namespace?: string;
+    profile?: string;
     packs?: Record<string, unknown>;
     agents?: string[];
   } = {},
@@ -38,7 +38,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: opts.agents ?? ["claude-code"],
-    ...(opts.namespace && { namespace: opts.namespace }),
+    ...(opts.profile && { profile: opts.profile }),
     ...(opts.packs && { packs: opts.packs }),
   };
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -53,7 +53,7 @@ const defaultArgs = (
   overrides: Partial<PacksNewHandlerArgs> = {},
 ): PacksNewHandlerArgs => ({
   name,
-  namespace: Option.none(),
+  profile: Option.none(),
   ...overrides,
 });
 
@@ -106,7 +106,7 @@ describe("packs-new.handler", () => {
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
       const { provide, mockLog } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -125,7 +125,7 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.namespace).toBe("@acme");
+          expect(manifest.profile).toBe("@acme");
           expect(manifest.type).toBe("pack");
           expect(manifest.name).toBe("frontend-tools");
           expect(manifest.version).toBe("0.0.1");
@@ -150,7 +150,7 @@ describe("packs-new.handler", () => {
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, mockLog } = makeLayers({ preview: true, yes: false });
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -180,14 +180,14 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("namespace override", () => {
-    it.effect("uses --namespace override instead of workspace namespace", () => {
+  describe("profile override", () => {
+    it.effect("uses --profile override instead of workspace profile", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("frontend-tools", { namespace: Option.some("@corp") }));
+          yield* handlePacksNew(defaultArgs("frontend-tools", { profile: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -201,20 +201,20 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.profile).toBe("@corp");
           expect(manifest.type).toBe("pack");
           expect(manifest.name).toBe("frontend-tools");
         }),
       );
     });
 
-    it.effect("normalizes namespace without @ prefix", () => {
+    it.effect("normalizes profile without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("my-pack", { namespace: Option.some("corp") }));
+          yield* handlePacksNew(defaultArgs("my-pack", { profile: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -228,7 +228,7 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.profile).toBe("@corp");
           expect(manifest.type).toBe("pack");
           expect(manifest.name).toBe("my-pack");
         }),
@@ -236,17 +236,17 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("no namespace configured", () => {
-    it.effect("fails when no namespace is configured and no --namespace override", () => {
+  describe("no profile configured", () => {
+    it.effect("fails when no profile is configured and no --profile override", () => {
       const { provide } = makeLayers();
-      // No namespace in settings — DEFAULT_NAMESPACE is "@axm"
+      // No profile in settings — DEFAULT_PROFILE is "@axm"
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksNew(defaultArgs("frontend-tools")).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("No namespace configured");
+          expect((error as AppError).what).toContain("No profile configured");
         }),
       );
     });
@@ -255,7 +255,7 @@ describe("packs-new.handler", () => {
   describe("pack already exists", () => {
     it.effect("fails when pack manifest already exists", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       // Pre-create the manifest
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");

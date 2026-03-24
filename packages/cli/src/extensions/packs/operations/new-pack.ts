@@ -25,10 +25,10 @@ import { computePackPaths } from "../paths.js";
  * Args for the new-pack operation.
  */
 export interface NewPackOperationArgs {
-  /** Pack name (without namespace). */
+  /** Pack name (without profile). */
   readonly name: string;
-  /** Namespace (e.g., "@myorg"). */
-  readonly namespace: string;
+  /** Profile (e.g., "@myorg"). */
+  readonly profile: string;
 }
 
 /**
@@ -61,11 +61,11 @@ export const newPack: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { name, namespace } = op.args;
-    const fqn = formatFqn({ namespace, type: "packs", name });
+    const { name, profile } = op.args;
+    const fqn = formatFqn({ handle: profile, type: "packs", name });
 
     // 1. Compute pack directory path
-    const packDir = computePackPaths(path.join, base, namespace, name);
+    const packDir = computePackPaths(path.join, base, profile, name);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
     // 2. Check if pack manifest already exists
@@ -100,7 +100,7 @@ export const newPack: OperationHandler<
 
     // 4. Write manifest
     const manifest = {
-      namespace,
+      profile,
       type: "pack",
       name,
       version: "0.0.1",
@@ -123,7 +123,7 @@ export const newPack: OperationHandler<
     const now = new Date();
     yield* ws
       .setPack({
-        namespace,
+        profile,
         name,
         resolvedVersion: "0.0.1",
         integrity: "",

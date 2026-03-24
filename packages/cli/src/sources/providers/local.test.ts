@@ -72,7 +72,7 @@ describe("createLocalSourceHostProvider", () => {
           {
             skillNames: [],
             type: "skill",
-            namespace: Option.none(),
+            profile: Option.none(),
             versionConstraint: Option.none(),
           },
         );
@@ -112,7 +112,7 @@ describe("createLocalSourceHostProvider", () => {
           {
             skillNames: ["skill-a"],
             type: "skill",
-            namespace: Option.none(),
+            profile: Option.none(),
             versionConstraint: Option.none(),
           },
         );

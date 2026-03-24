@@ -14,7 +14,7 @@ import type {
 const parseRegistryPackSource = (
   source: string,
 ): Option.Option<{
-  readonly namespace: string;
+  readonly profile: string;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -28,7 +28,7 @@ const parseRegistryPackSource = (
   }
 
   return Option.some({
-    namespace: match[1]!,
+    profile: match[1]!,
     name: match[2]!,
     constraint: match[3] ?? "*",
   });
@@ -51,7 +51,7 @@ const parsePackDependency = (
 
   return Option.some({
     extensionType,
-    namespace: match[1]!,
+    profile: match[1]!,
     name: match[2]!,
     source: fqn,
     declarationSourceOrConstraint: constraint,
@@ -91,9 +91,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       for (const [name, entry] of Object.entries(packs)) {
         const source = toPackSource(entry);
         const parsed = parseRegistryPackSource(source);
-        const namespace = Option.match(parsed, {
-          onNone: () => context.defaultNamespace,
-          onSome: (value) => value.namespace,
+        const profile = Option.match(parsed, {
+          onNone: () => context.defaultProfile,
+          onSome: (value) => value.profile,
         });
         const diskName = Option.match(parsed, {
           onNone: () => name,
@@ -102,7 +102,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
 
         declarations.push({
           extensionType: "packs",
-          namespace,
+          profile,
           name,
           source,
           declarationSourceOrConstraint: Option.match(parsed, {
@@ -116,7 +116,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         const packDir = computePackPaths(
           env.path.join,
           context.baseDir,
-          namespace,
+          profile,
           diskName,
         ).canonicalPath;
         const manifestPath = env.path.join(packDir, PACK_MANIFEST_FILENAME);
@@ -166,9 +166,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const namespace = Option.match(parsed, {
-        onNone: () => declaration.namespace,
-        onSome: (value) => value.namespace,
+      const profile = Option.match(parsed, {
+        onNone: () => declaration.profile,
+        onSome: (value) => value.profile,
       });
       const diskName = Option.match(parsed, {
         onNone: () => declaration.name,
@@ -178,7 +178,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       const canonicalPath = env.path.join(
         context.baseDir,
         REGISTRY_EXTENSIONS_DIR,
-        namespace,
+        profile,
         "packs",
         diskName,
       );
@@ -242,7 +242,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      if (manifest.namespace !== namespace || manifest.name !== diskName) {
+      if (manifest.profile !== profile || manifest.name !== diskName) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -257,7 +257,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           name: declaration.name,
           entry: {
             type: "registry",
-            namespace,
+            profile,
             name: diskName,
             resolvedVersion: manifest.version,
             integrity: "",

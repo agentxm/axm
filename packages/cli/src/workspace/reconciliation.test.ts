@@ -32,7 +32,7 @@ describe("reconciliation", () => {
     const result = dedupeDeclarations([
       {
         extensionType: "skills",
-        namespace: "@acme",
+        profile: "@acme",
         name: "tool",
         source: "@acme/skills/tool@^1",
         declarationSourceOrConstraint: "^1",
@@ -41,7 +41,7 @@ describe("reconciliation", () => {
       },
       {
         extensionType: "skills",
-        namespace: "@acme",
+        profile: "@acme",
         name: "tool",
         source: "@acme/skills/tool@~2",
         declarationSourceOrConstraint: "~2",
@@ -50,7 +50,7 @@ describe("reconciliation", () => {
       },
       {
         extensionType: "skills",
-        namespace: "@acme",
+        profile: "@acme",
         name: "tool",
         source: "@acme/skills/tool@^1",
         declarationSourceOrConstraint: "^1",
@@ -68,7 +68,7 @@ describe("reconciliation", () => {
     const result = dedupeDeclarations([
       {
         extensionType: "commands",
-        namespace: "@acme",
+        profile: "@acme",
         name: "zeta",
         source: "@acme/commands/zeta@^1",
         declarationSourceOrConstraint: "^1",
@@ -77,7 +77,7 @@ describe("reconciliation", () => {
       },
       {
         extensionType: "skills",
-        namespace: "@acme",
+        profile: "@acme",
         name: "beta",
         source: "@acme/skills/beta@^1",
         declarationSourceOrConstraint: "^1",
@@ -86,7 +86,7 @@ describe("reconciliation", () => {
       },
       {
         extensionType: "skills",
-        namespace: "@acme",
+        profile: "@acme",
         name: "alpha",
         source: "@acme/skills/alpha@^1",
         declarationSourceOrConstraint: "^1",
@@ -109,7 +109,7 @@ describe("reconciliation", () => {
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(
           path.join(canonical, "axm-skill.json"),
-          JSON.stringify({ namespace: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
+          JSON.stringify({ profile: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
         );
 
         const settings: Settings = {
@@ -121,7 +121,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           now: new Date("2026-02-25T10:00:00.000Z"),
-          defaultNamespace: "@community",
+          defaultProfile: "@community",
           agents: ["claude-code"],
           settings,
         });
@@ -143,7 +143,7 @@ describe("reconciliation", () => {
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(
           path.join(canonical, "axm-skill.json"),
-          JSON.stringify({ namespace: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
+          JSON.stringify({ profile: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
         );
 
         const settings: Settings = {
@@ -156,7 +156,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultNamespace: "@community",
+            defaultProfile: "@community",
             agents: ["claude-code"],
             settings,
           },
@@ -191,7 +191,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultNamespace: "@community",
+            defaultProfile: "@community",
             agents: ["claude-code"],
             settings,
           },
@@ -223,7 +223,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultNamespace: "@community",
+            defaultProfile: "@community",
             agents: ["claude-code"],
             settings,
           },

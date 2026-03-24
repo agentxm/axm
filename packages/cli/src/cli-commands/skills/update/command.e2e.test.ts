@@ -15,7 +15,7 @@ describe("axm skills update", () => {
     it("exits 0 with no-skills message when nothing is installed", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -36,7 +36,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -89,7 +89,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -132,7 +132,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -179,7 +179,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install both skills
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 

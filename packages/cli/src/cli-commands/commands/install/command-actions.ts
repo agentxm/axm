@@ -49,7 +49,7 @@ export interface InstallCommandHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export interface ParsedCommandInstallArgs {
-  readonly namespace: string;
+  readonly profile: string;
   readonly commandName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -62,7 +62,7 @@ export interface ParsedCommandInstallArgs {
 
 export interface CommandInstallSourceRequest {
   readonly source: RegistrySource;
-  readonly namespace: string;
+  readonly profile: string;
   readonly commandName: string;
   readonly versionConstraint: Option.Option<string>;
 }
@@ -127,7 +127,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         const trimmed = args.source.trim();
         const parsed = parseInputPattern(trimmed);
 
-        // Handle @namespace/commands/name[@version]
+        // Handle @profile/commands/name[@version]
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
           const pat = parsed.value.pattern;
           if (Option.isSome(pat.type) && pat.type.value !== "commands") {
@@ -135,7 +135,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               code: "COMMAND_SOURCE_INVALID_FORMAT",
               what: "Command source must include /commands/ segment",
               details: [`Provided: ${trimmed}`],
-              howToFix: "Use @namespace/commands/command-name format.",
+              howToFix: "Use @profile/commands/command-name format.",
             });
           }
           if (Option.isNone(pat.name)) {
@@ -143,11 +143,11 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               code: "COMMAND_SOURCE_MISSING_NAME",
               what: "Command source must include a command name",
               details: [`Provided: ${trimmed}`],
-              howToFix: "Use @namespace/commands/command-name format.",
+              howToFix: "Use @profile/commands/command-name format.",
             });
           }
           return {
-            namespace: pat.namespace,
+            profile: pat.profile,
             commandName: pat.name.value,
             versionConstraint: pat.versionConstraint,
             resolvedInput: trimmed,
@@ -157,12 +157,12 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
         // Handle bare name (e.g., "my-cmd")
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
-          const namespace = yield* ws.getConfiguredNamespace();
+          const profile = yield* ws.getConfiguredProfile();
           return {
-            namespace,
+            profile,
             commandName: parsed.value.pattern.name,
             versionConstraint: Option.none<string>(),
-            resolvedInput: `${namespace}/commands/${parsed.value.pattern.name}`,
+            resolvedInput: `${profile}/commands/${parsed.value.pattern.name}`,
             force: flags.force,
           };
         }
@@ -171,7 +171,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           code: "COMMAND_SOURCE_NOT_REGISTRY",
           what: "Commands can only be installed from a registry",
           details: [`Provided: ${trimmed}`],
-          howToFix: "Use @namespace/commands/command-name or just command-name.",
+          howToFix: "Use @profile/commands/command-name or just command-name.",
         });
       });
 
@@ -186,7 +186,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
                 details: [`Provided: ${parsed.resolvedInput}`],
-                howToFix: "Use @namespace/commands/command-name or just command-name.",
+                howToFix: "Use @profile/commands/command-name or just command-name.",
                 cause: error,
               }),
             ),
@@ -197,14 +197,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               code: "COMMAND_SOURCE_NOT_REGISTRY",
               what: "Commands can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
-              howToFix: "Use a registry source: @namespace/commands/command-name",
+              howToFix: "Use a registry source: @profile/commands/command-name",
             });
           }
 
           return [
             {
               source,
-              namespace: parsed.namespace,
+              profile: parsed.profile,
               commandName: parsed.commandName,
               versionConstraint: parsed.versionConstraint,
             },
@@ -224,7 +224,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 .find(req.source, {
                   skillNames: [req.commandName],
                   type: "command",
-                  namespace: Option.some(req.namespace),
+                  profile: Option.some(req.profile),
                   versionConstraint: req.versionConstraint,
                 })
                 .pipe(
@@ -232,7 +232,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                     makeAppError({
                       code: "COMMAND_FETCH_FAILED",
                       what: "Failed to fetch command from registry",
-                      details: [`Command: ${req.namespace}/commands/${req.commandName}`],
+                      details: [`Command: ${req.profile}/commands/${req.commandName}`],
                       howToFix: "Verify the command name and registry configuration.",
                       cause: error,
                     }),

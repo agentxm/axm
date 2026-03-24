@@ -1,204 +1,483 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": [],
   "properties": {
-    "namespace": {
-      "type": "string"
-    },
-    "sources": {
-      "type": "object",
-      "required": [],
-      "properties": {
-        "github": {
-          "type": "object",
-          "required": ["url"],
-          "properties": {
-            "url": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "gitlab": {
-          "type": "object",
-          "required": ["url"],
-          "properties": {
-            "url": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "bitbucket": {
-          "type": "object",
-          "required": ["url"],
-          "properties": {
-            "url": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "azurerepos": {
-          "type": "object",
-          "required": ["url"],
-          "properties": {
-            "url": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "git": {
-          "$id": "/schemas/%7B%7D",
+    "telemetry": {
+      "anyOf": [
+        {
           "anyOf": [
             {
-              "type": "object"
+              "type": "boolean"
             },
             {
-              "type": "array"
+              "type": "string",
+              "enum": ["errors"]
             }
           ]
         },
-        "registry": {
-          "anyOf": [
-            {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "url": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["url"],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "path": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["path"],
-                  "additionalProperties": false
-                }
-              ],
-              "description": "Registry source with either url or path (but not both)"
-            },
-            {
-              "type": "array",
-              "items": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "url": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["url"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "path": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["path"],
-                    "additionalProperties": false
-                  }
-                ],
-                "description": "Registry source with either url or path (but not both)"
-              }
-            }
-          ]
+        {
+          "type": "null"
         }
-      },
-      "additionalProperties": false
+      ]
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "agents": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": [
-          "adal",
-          "amp",
-          "antigravity",
-          "augment",
-          "claude-code",
-          "cline",
-          "codebuddy",
-          "codex",
-          "command-code",
-          "continue",
-          "crush",
-          "cursor",
-          "droid",
-          "gemini-cli",
-          "github-copilot",
-          "goose",
-          "iflow-cli",
-          "junie",
-          "kilo",
-          "kimi-cli",
-          "kiro-cli",
-          "kode",
-          "mcpjam",
-          "mistral-vibe",
-          "mux",
-          "neovate",
-          "openclaw",
-          "opencode",
-          "openhands",
-          "pi",
-          "pochi",
-          "qoder",
-          "qwen-code",
-          "replit",
-          "roo",
-          "trae",
-          "trae-cn",
-          "windsurf",
-          "zencoder"
-        ]
-      }
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["adal"]
+              },
+              {
+                "type": "string",
+                "enum": ["amp"]
+              },
+              {
+                "type": "string",
+                "enum": ["antigravity"]
+              },
+              {
+                "type": "string",
+                "enum": ["augment"]
+              },
+              {
+                "type": "string",
+                "enum": ["claude-code"]
+              },
+              {
+                "type": "string",
+                "enum": ["cline"]
+              },
+              {
+                "type": "string",
+                "enum": ["codebuddy"]
+              },
+              {
+                "type": "string",
+                "enum": ["codex"]
+              },
+              {
+                "type": "string",
+                "enum": ["command-code"]
+              },
+              {
+                "type": "string",
+                "enum": ["continue"]
+              },
+              {
+                "type": "string",
+                "enum": ["crush"]
+              },
+              {
+                "type": "string",
+                "enum": ["cursor"]
+              },
+              {
+                "type": "string",
+                "enum": ["droid"]
+              },
+              {
+                "type": "string",
+                "enum": ["gemini-cli"]
+              },
+              {
+                "type": "string",
+                "enum": ["github-copilot"]
+              },
+              {
+                "type": "string",
+                "enum": ["goose"]
+              },
+              {
+                "type": "string",
+                "enum": ["iflow-cli"]
+              },
+              {
+                "type": "string",
+                "enum": ["junie"]
+              },
+              {
+                "type": "string",
+                "enum": ["kilo"]
+              },
+              {
+                "type": "string",
+                "enum": ["kimi-cli"]
+              },
+              {
+                "type": "string",
+                "enum": ["kiro-cli"]
+              },
+              {
+                "type": "string",
+                "enum": ["kode"]
+              },
+              {
+                "type": "string",
+                "enum": ["mcpjam"]
+              },
+              {
+                "type": "string",
+                "enum": ["mistral-vibe"]
+              },
+              {
+                "type": "string",
+                "enum": ["mux"]
+              },
+              {
+                "type": "string",
+                "enum": ["neovate"]
+              },
+              {
+                "type": "string",
+                "enum": ["openclaw"]
+              },
+              {
+                "type": "string",
+                "enum": ["opencode"]
+              },
+              {
+                "type": "string",
+                "enum": ["openhands"]
+              },
+              {
+                "type": "string",
+                "enum": ["pi"]
+              },
+              {
+                "type": "string",
+                "enum": ["pochi"]
+              },
+              {
+                "type": "string",
+                "enum": ["qoder"]
+              },
+              {
+                "type": "string",
+                "enum": ["qwen-code"]
+              },
+              {
+                "type": "string",
+                "enum": ["replit"]
+              },
+              {
+                "type": "string",
+                "enum": ["roo"]
+              },
+              {
+                "type": "string",
+                "enum": ["trae"]
+              },
+              {
+                "type": "string",
+                "enum": ["trae-cn"]
+              },
+              {
+                "type": "string",
+                "enum": ["windsurf"]
+              },
+              {
+                "type": "string",
+                "enum": ["zencoder"]
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "skills": {
-      "type": "object",
-      "required": [],
-      "properties": {},
-      "additionalProperties": {
-        "type": "string"
-      }
+    "sources": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["github"]
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "type", "url"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["gitlab"]
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "type", "url"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["bitbucket"]
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "type", "url"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["azurerepos"]
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "type", "url"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["registry"]
+                  },
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "type", "location"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "commands": {
-      "type": "object",
-      "required": [],
-      "properties": {},
-      "additionalProperties": {
-        "type": "string"
-      }
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mcpServers": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "packs": {
-      "type": "object",
-      "required": [],
-      "properties": {},
-      "additionalProperties": {
-        "type": "string"
-      }
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "mcp-servers": {
-      "type": "object",
-      "required": [],
-      "properties": {},
-      "additionalProperties": {
-        "type": "string"
-      }
+    "skills": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ignored": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "skills": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "commands": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "mcpServers": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "packs": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false

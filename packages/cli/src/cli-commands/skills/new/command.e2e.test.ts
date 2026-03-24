@@ -1,7 +1,7 @@
 /**
  * E2E tests for the `axm skills new` command.
  *
- * Tests: scaffolding, namespace override, already-exists error, agent narrowing.
+ * Tests: scaffolding, profile override, already-exists error, agent narrowing.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -25,9 +25,9 @@ function setupWorkspace() {
   return { temp, settingsPath, readSettings };
 }
 
-function configureScope(settingsPath: string, namespace = "@test") {
+function configureScope(settingsPath: string, profile = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.namespace = namespace;
+  settings.profile = profile;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -57,7 +57,7 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.namespace).toBe("@test");
+      expect(manifest.profile).toBe("@test");
       expect(manifest.type).toBe("skill");
       expect(manifest.name).toBe("my-skill");
       expect(manifest.version).toBe("0.0.1");
@@ -93,18 +93,15 @@ describe("axm skills new", () => {
     }
   });
 
-  it("respects --namespace override", async () => {
+  it("respects --profile override", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
       configureScope(settingsPath);
 
-      const result = await runCli(
-        ["skills", "new", "my-skill", "--namespace", "@custom", "--yes"],
-        {
-          cwd: temp.path,
-        },
-      );
+      const result = await runCli(["skills", "new", "my-skill", "--profile", "@custom", "--yes"], {
+        cwd: temp.path,
+      });
       expect(result.exitCode).toBe(0);
 
       const manifestPath = path.join(
@@ -118,7 +115,7 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.namespace).toBe("@custom");
+      expect(manifest.profile).toBe("@custom");
       expect(manifest.type).toBe("skill");
       expect(manifest.name).toBe("my-skill");
     } finally {
@@ -129,7 +126,7 @@ describe("axm skills new", () => {
   it("fails if skill already exists", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
       configureScope(settingsPath);
 
       await runCli(["skills", "new", "dup-skill", "--yes"], { cwd: temp.path });

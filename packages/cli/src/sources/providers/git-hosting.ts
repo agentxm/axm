@@ -66,7 +66,7 @@ export const createGitHostingSourceHostProvider = <
 
       const cloneUrl = buildCloneUrlForSource(source);
 
-      // Acquire scoped temp directory (cleaned up when namespace closes)
+      // Acquire scoped temp directory (cleaned up when profile closes)
       const tempDir = yield* Effect.acquireRelease(
         fs.makeTempDirectory().pipe(
           Effect.mapError((error) =>

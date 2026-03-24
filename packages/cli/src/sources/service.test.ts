@@ -1,7 +1,7 @@
 /**
  * Tests for SourceHostProviders service and registry meta-provider.
  *
- * Tests namespace routing, lazy config reads, 404 fallthrough,
+ * Tests profile routing, lazy config reads, 404 fallthrough,
  * and dispatch to correct provider by source type.
  */
 
@@ -42,7 +42,7 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 
 const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   name: "my-skill",
-  namespace: "@test",
+  profile: "@test",
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
@@ -51,7 +51,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 const defaultFindOptions: FindOptions = {
   skillNames: [],
   type: "skill",
-  namespace: Option.none(),
+  profile: Option.none(),
   versionConstraint: Option.none(),
 };
 
@@ -76,7 +76,7 @@ const computeIntegrity = (data: Uint8Array): string => {
 
 /**
  * Create a minimal workspace service for testing.
- * Returns registry sources without namespace filtering.
+ * Returns registry sources without profile filtering.
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   ...taxonomyStubs,
@@ -93,8 +93,8 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
-  getDefaultNamespace: () => Effect.succeed(Option.none()),
+  getConfiguredProfile: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
+  getDefaultProfile: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -161,11 +161,11 @@ const runWithService = <A, E>(
 };
 
 // -----------------------------------------------------------------------------
-// Registry meta-provider: namespace routing
+// Registry meta-provider: profile routing
 // -----------------------------------------------------------------------------
 
-describe("registry meta-provider namespace routing", () => {
-  it("queries catch-all registry when no namespace match", () => {
+describe("registry meta-provider profile routing", () => {
+  it("queries catch-all registry when no profile match", () => {
     const registryRoot = makeRegistryDir();
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
@@ -194,7 +194,7 @@ describe("registry meta-provider namespace routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            namespace: Option.none(),
+            profile: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -216,7 +216,7 @@ describe("registry meta-provider namespace routing", () => {
           {
             type: "registry",
             location: new URL("file:///tmp/registry"),
-            namespace: Option.none(),
+            profile: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -224,7 +224,7 @@ describe("registry meta-provider namespace routing", () => {
       }),
     ));
 
-  it("filters registry discovery to the requested namespace", () => {
+  it("filters registry discovery to the requested profile", () => {
     const registryRoot = makeRegistryDir();
     const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
     const otherScopeSkillDir = nodePath.join(
@@ -254,7 +254,7 @@ describe("registry meta-provider namespace routing", () => {
           nodePath.join(scopedSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              namespace: "@acme",
+              profile: "@acme",
               name: "my-skill",
               versions: [makeVersionEntry({ integrity })],
             }),
@@ -264,7 +264,7 @@ describe("registry meta-provider namespace routing", () => {
           nodePath.join(otherScopeSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              namespace: "@other",
+              profile: "@other",
               name: "my-skill",
               versions: [makeVersionEntry({ integrity, version: "2.0.0" })],
             }),
@@ -276,14 +276,14 @@ describe("registry meta-provider namespace routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            namespace: Option.none(),
+            profile: Option.none(),
           },
-          { ...defaultFindOptions, namespace: Option.some("@acme") },
+          { ...defaultFindOptions, profile: Option.some("@acme") },
         );
         expect(refs).toHaveLength(1);
         const ref = refs[0];
         if (ref?.refType === "registry") {
-          expect(ref.namespace).toBe("@acme");
+          expect(ref.profile).toBe("@acme");
         }
       }).pipe(
         Effect.ensuring(
@@ -315,7 +315,7 @@ describe("registry meta-provider namespace routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            namespace: Option.some("@test"),
+            profile: Option.some("@test"),
           },
           { ...defaultFindOptions, skillNames: ["missing"] },
         );
@@ -411,7 +411,7 @@ describe("SourceHostProviders dispatch", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            namespace: Option.none(),
+            profile: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["nonexistent"] },
         );

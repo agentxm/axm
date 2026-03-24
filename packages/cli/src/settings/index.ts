@@ -27,7 +27,7 @@ export type {
 export {
   collapseSkillEntry,
   createDefaultSettings,
-  DEFAULT_NAMESPACE,
+  DEFAULT_PROFILE,
   getSkillEntrySource,
   IgnoredSettingsSchema,
   NonSkillExtensionsMapSchema,

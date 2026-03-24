@@ -2,7 +2,7 @@
  * Local filesystem-backed registry client.
  *
  * All operations read/write files relative to a registry root using the
- * layout: `<root>/extensions/@<namespace>/<type>/<name>/`.
+ * layout: `<root>/extensions/@<profile>/<type>/<name>/`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -23,7 +23,7 @@ import type {
   GetExtensionPackageArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
-  GetExtensionsByNamespaceResponse,
+  GetExtensionsByProfileResponse,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
@@ -34,7 +34,7 @@ import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Process a single name directory within a registry namespace/type directory.
+ * Process a single name directory within a registry profile/type directory.
  * Reads the index.json, validates it, and selects a matching version.
  * Returns Some(RegistryExtensionManifest) if a matching version is found, None otherwise.
  */
@@ -83,7 +83,7 @@ const processNameDir = (
 
     const ver = selectedVersion.value;
     return Option.some({
-      namespace: index.namespace,
+      profile: index.profile,
       type: index.type,
       name: index.name,
       description: Option.fromUndefinedOr(index.description),
@@ -107,7 +107,7 @@ const processNameDir = (
  * Creates a local filesystem-backed registry client.
  *
  * All operations read/write files relative to `registryRoot` using the
- * registry layout: `<root>/extensions/@<namespace>/<type>/<name>/`.
+ * registry layout: `<root>/extensions/@<profile>/<type>/<name>/`.
  *
  * @param registryRoot - Absolute path to the registry root directory
  *
@@ -131,7 +131,7 @@ export const createLocalRegistryClient = (
             requestedTypes,
             (extType) =>
               Effect.gen(function* () {
-                const typeDir = path.join(extensionsDir, args.namespace, pluralizeType(extType));
+                const typeDir = path.join(extensionsDir, args.handle, pluralizeType(extType));
                 const typeDirExists = yield* fs
                   .exists(typeDir)
                   .pipe(Effect.orElseSucceed(() => false));
@@ -172,19 +172,20 @@ export const createLocalRegistryClient = (
       return {
         extensions,
         total,
-      } satisfies GetExtensionsByNamespaceResponse;
+      } satisfies GetExtensionsByProfileResponse;
     }),
 
-  namespaceExists: (namespace) =>
+  profileExists: (handle) =>
     Effect.gen(function* () {
-      const scopeDir = path.join(registryRoot, "extensions", namespace);
+      const scopeDir = path.join(registryRoot, "extensions", handle);
       const exists = yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
       return { exists };
     }),
 
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
-      const dir = extensionDir(registryRoot, args.namespace, args.type, args.name, path.join);
+      const profile = args.handle;
+      const dir = extensionDir(registryRoot, profile, args.type, args.name, path.join);
 
       const version = yield* Option.match(args.version, {
         onNone: () =>
@@ -223,7 +224,7 @@ export const createLocalRegistryClient = (
               return yield* Effect.fail(
                 makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
-                  what: `No versions found for ${args.namespace}/${args.type}/${args.name}`,
+                  what: `No versions found for ${profile}/${args.type}/${args.name}`,
                 }),
               );
             }
@@ -279,7 +280,7 @@ export const createLocalRegistryClient = (
               return yield* Effect.fail(
                 makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
-                  what: `No version matched constraint "${requestedVersion}" for ${args.namespace}/${args.type}/${args.name}`,
+                  what: `No version matched constraint "${requestedVersion}" for ${profile}/${args.type}/${args.name}`,
                 }),
               );
             }
@@ -313,7 +314,8 @@ export const createLocalRegistryClient = (
 
   publishExtension: (args: PublishExtensionArgs) =>
     Effect.gen(function* () {
-      const dir = extensionDir(registryRoot, args.namespace, args.type, args.name, path.join);
+      const profile = args.handle;
+      const dir = extensionDir(registryRoot, profile, args.type, args.name, path.join);
 
       // Ensure directory exists
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
@@ -395,7 +397,7 @@ export const createLocalRegistryClient = (
         // Create new index
         const newIndex: ExtensionIndex = {
           name: args.name,
-          namespace: args.namespace,
+          profile,
           type: args.type,
           versions: [args.metadata],
         };
@@ -426,7 +428,8 @@ export const createLocalRegistryClient = (
 
   extensionExists: (args: ExtensionExistsArgs) =>
     Effect.gen(function* () {
-      const dir = extensionDir(registryRoot, args.namespace, args.type, args.name, path.join);
+      const profile = args.handle;
+      const dir = extensionDir(registryRoot, profile, args.type, args.name, path.join);
       const indexPath = path.join(dir, "index.json");
       const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
       return { exists };

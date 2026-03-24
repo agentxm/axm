@@ -15,7 +15,7 @@ import {
   ExtensionTypeSchema,
   FullyQualifiedNameSchema,
   ManifestNameSchema,
-  ManifestNamespaceSchema,
+  ManifestHandleSchema,
 } from "./common.js";
 
 describe("common schemas", () => {
@@ -138,13 +138,13 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects name without namespace (just name)", () => {
+    it("rejects name without profile (just name)", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("grappling-hook");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects incomplete pattern (@namespace only)", () => {
+    it("rejects incomplete pattern (@profile only)", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne");
 
       expect(Result.isFailure(result)).toBe(true);
@@ -170,7 +170,7 @@ describe("common schemas", () => {
 
     it("accepts valid full manifest", () => {
       const input = {
-        namespace: "@wayne",
+        profile: "@wayne",
         name: "grappling-hook",
         version: "1.0.0",
         description: "A grappling hook skill",
@@ -189,7 +189,7 @@ describe("common schemas", () => {
 
     it("accepts minimal manifest (name and version only)", () => {
       const input = {
-        namespace: "@wayne",
+        profile: "@wayne",
         name: "hook",
         version: "0.1.0",
       };
@@ -201,7 +201,7 @@ describe("common schemas", () => {
 
     it("rejects manifest with invalid name pattern", () => {
       const input = {
-        namespace: "@wayne",
+        profile: "@wayne",
         name: "invalid/name",
         version: "1.0.0",
       };
@@ -211,7 +211,7 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects manifest missing required namespace", () => {
+    it("rejects manifest missing required profile", () => {
       const input = {
         name: "hook",
         version: "1.0.0",
@@ -224,7 +224,7 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required name", () => {
       const input = {
-        namespace: "@wayne",
+        profile: "@wayne",
         version: "1.0.0",
       };
 
@@ -235,7 +235,7 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required version", () => {
       const input = {
-        namespace: "@wayne",
+        profile: "@wayne",
         name: "hook",
       };
 
@@ -245,14 +245,14 @@ describe("common schemas", () => {
     });
   });
 
-  describe("ManifestNamespace", () => {
-    it("accepts @-prefixed namespace", () => {
-      const result = Schema.decodeUnknownResult(ManifestNamespaceSchema)("@wayne");
+  describe("ManifestHandle", () => {
+    it("accepts @-prefixed profile", () => {
+      const result = Schema.decodeUnknownResult(ManifestHandleSchema)("@wayne");
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("rejects namespace without @", () => {
-      const result = Schema.decodeUnknownResult(ManifestNamespaceSchema)("wayne");
+    it("rejects profile without @", () => {
+      const result = Schema.decodeUnknownResult(ManifestHandleSchema)("wayne");
       expect(Result.isFailure(result)).toBe(true);
     });
   });

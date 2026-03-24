@@ -1,5 +1,5 @@
 {
-  "namespace": "@acme",
+  "profile": "@acme",
   "type": "pack",
   "name": "fullstack-pack",
   "version": "1.0.0",

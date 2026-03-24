@@ -13,11 +13,11 @@ The system SHALL provide a `RegistryClient` interface with 6 methods for operati
 Methods:
 
 - `getExtensions(options: RegistrySearchOptions)` — discover extensions matching search criteria
-- `namespaceExists(namespace)` — check if a namespace directory exists
-- `fetchIndex(namespace, type, name)` — read and validate the extension's `index.json`
-- `getExtension(namespace, type, name, version)` — read raw archive bytes for a version
-- `publishExtension(namespace, type, name, version, archive, metadata)` — write archive and update index
-- `extensionExists(namespace, type, name)` — check if an extension's `index.json` exists
+- `namespaceExists(profile)` — check if a profile directory exists
+- `fetchIndex(profile, type, name)` — read and validate the extension's `index.json`
+- `getExtension(profile, type, name, version)` — read raw archive bytes for a version
+- `publishExtension(profile, type, name, version, archive, metadata)` — write archive and update index
+- `extensionExists(profile, type, name)` — check if an extension's `index.json` exists
 
 #### Scenario: Client scoped to registry root
 
@@ -29,9 +29,9 @@ Methods:
 - **WHEN** `getExtensions({ names: ["@acme/code-review"], agents: [], type: "skill" })` is called
 - **THEN** the client scans the registry layout, reads index files, applies version/agent filtering, and returns matching `RegistryExtensionEntry` results
 
-#### Scenario: namespaceExists checks namespace directory
+#### Scenario: namespaceExists checks profile directory
 
-- **WHEN** `namespaceExists("@acme")` is called and the namespace directory exists
+- **WHEN** `namespaceExists("@acme")` is called and the profile directory exists
 - **THEN** it returns `true`
 
 #### Scenario: fetchIndex reads and validates index.json
@@ -70,7 +70,7 @@ The `RegistryClient` SHALL return `RegistryExtensionEntry` from `getExtensions`.
 
 Fields:
 
-- `namespace`: registry namespace (e.g., `"@acme"`)
+- `profile`: registry profile (e.g., `"@acme"`)
 - `type`: `RegistryExtensionType` (`"skill" | "mcp-server" | "pack"`)
 - `name`: extension name
 - `version`: resolved semver version string
@@ -79,7 +79,7 @@ Fields:
 #### Scenario: Entry contains all fields needed for SourceExtensionRef mapping
 
 - **WHEN** a host provider receives a `RegistryExtensionEntry`
-- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (namespace, version, integrity)
+- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (profile, version, integrity)
 
 ### Requirement: Version resolution by semver range
 
@@ -157,7 +157,7 @@ The registry client SHALL verify archive integrity using SHA-512 in SRI format.
 
 The system SHALL implement `LocalRegistryClient` that performs all `RegistryClient` operations via filesystem I/O against the static-file registry layout.
 
-#### Scenario: getExtensions scans namespace directories
+#### Scenario: getExtensions scans profile directories
 
 - **WHEN** `getExtensions` is called on a local registry at `/registries/main`
 - **THEN** the client scans `@*` directories under `<root>/extensions/`, reads index files, and applies version/agent filtering
@@ -194,9 +194,9 @@ The system SHALL implement `RemoteRegistryClient` with a real `publishExtension`
 Supported operations:
 
 - `publishExtension` SHALL send HTTPS requests to publish extension archives.
-- `getExtensionsByScope` SHALL support both name-targeted discovery and namespace list-mode discovery (`names: []`).
+- `getExtensionsByScope` SHALL support both name-targeted discovery and profile list-mode discovery (`names: []`).
 - `getExtensionPackage` SHALL fetch extension archives via remote index + archive endpoints.
-- `namespaceExists` SHALL perform namespace existence checks via remote namespace listing endpoint semantics.
+- `namespaceExists` SHALL perform profile existence checks via remote profile listing endpoint semantics.
 - `extensionExists` SHALL perform extension existence checks via remote HEAD endpoint.
 
 #### Scenario: publishExtension sends HTTPS request
@@ -209,7 +209,7 @@ Supported operations:
 #### Scenario: getExtensionsByScope supports names list mode
 
 - **WHEN** `getExtensionsByScope` is called with an empty `names` list
-- **THEN** the client SHALL discover extensions from namespace list endpoints
+- **THEN** the client SHALL discover extensions from profile list endpoints
 - **AND** it SHALL return matching `RegistryExtensionManifest` entries instead of failing with a not-implemented error
 
 #### Scenario: getExtensionPackage fetches remote archive
@@ -218,10 +218,10 @@ Supported operations:
 - **THEN** it SHALL resolve a version from remote index data
 - **AND** it SHALL fetch and return archive bytes for the resolved version
 
-#### Scenario: namespaceExists checks remote namespace
+#### Scenario: namespaceExists checks remote profile
 
 - **WHEN** `namespaceExists` is called on a `RemoteRegistryClient`
-- **THEN** it SHALL call the remote namespace listing endpoint
+- **THEN** it SHALL call the remote profile listing endpoint
 - **AND** return `{ exists: boolean }` based on endpoint response semantics
 
 #### Scenario: extensionExists checks remote extension

@@ -4,13 +4,13 @@
 
 Source strings SHALL follow these formats:
 
-| Source   | Format                                                                 | Examples                                              |
-| -------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| registry | `@namespace/type-plural/name` or `@namespace/type-plural/name@version` | `@acme/skills/my-skill`, `@acme/packs/frontend@1.0.0` |
-| github   | `github:owner/repo[/path][#ref]`                                       | `github:acme/skills`, `github:acme/repo/path#v1`      |
-| git      | `git:url[#ref]`                                                        | `git:https://example.com/repo.git#main`               |
-| local    | bare path (no prefix)                                                  | `./skills`, `~/my-skills`, `/absolute/path`           |
-| local    | `file://` URL                                                          | `file:///absolute/path/to/skill`                      |
+| Source   | Format                                                             | Examples                                              |
+| -------- | ------------------------------------------------------------------ | ----------------------------------------------------- |
+| registry | `@profile/type-plural/name` or `@profile/type-plural/name@version` | `@acme/skills/my-skill`, `@acme/packs/frontend@1.0.0` |
+| github   | `github:owner/repo[/path][#ref]`                                   | `github:acme/skills`, `github:acme/repo/path#v1`      |
+| git      | `git:url[#ref]`                                                    | `git:https://example.com/repo.git#main`               |
+| local    | bare path (no prefix)                                              | `./skills`, `~/my-skills`, `/absolute/path`           |
+| local    | `file://` URL                                                      | `file:///absolute/path/to/skill`                      |
 
 Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and stored as-is (not normalized with a prefix).
 
@@ -22,34 +22,34 @@ The registry source string no longer carries location information — `url` and 
 
 HTTPS and SSH URLs (e.g., `https://github.com/owner/repo`, `git@github.com:owner/repo.git`) are classified as URL or SCP patterns by `parseInputPattern` but are NOT resolved to a specific source type at classification time. Source type determination for URLs and SCPs happens in `resolveSource` via config-driven hostname matching.
 
-The `RegistrySourceParams.namespace` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
+The `RegistrySourceParams.profile` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
 
-Registry source strings SHALL always include the type segment (`skills`, `packs`, or `mcp-servers`). The legacy two-segment format `@namespace/name` SHALL NOT be recognized as a registry pattern. Input matching this legacy format SHALL fall through to other pattern matchers (e.g., slash pattern for `owner/repo`).
+Registry source strings SHALL always include the type segment (`skills`, `packs`, or `mcp-servers`). The legacy two-segment format `@profile/name` SHALL NOT be recognized as a registry pattern. Input matching this legacy format SHALL fall through to other pattern matchers (e.g., slash pattern for `owner/repo`).
 
 #### Scenario: Registry source string with type segment
 
 - **WHEN** parsing source string `@acme/skills/my-skill@^1.0.0`
-- **THEN** source type is `registry` with namespace `@acme`, name `my-skill`, type `skills`, versionConstraint `^1.0.0`
+- **THEN** source type is `registry` with profile `@acme`, name `my-skill`, type `skills`, versionConstraint `^1.0.0`
 
-#### Scenario: Registry source namespace is @-prefixed
+#### Scenario: Registry source profile is @-prefixed
 
 - **WHEN** parsing source string `@community/skills/my-skill`
-- **THEN** the `RegistrySourceParams` has `namespace: "@community"` (not `"community"`)
+- **THEN** the `RegistrySourceParams` has `profile: "@community"` (not `"community"`)
 
 #### Scenario: Registry source resolves host from config
 
 - **WHEN** a `RegistrySource` is fully resolved
-- **THEN** it has `url` and `namespaces` from the matched `RegistrySourceHost` config, plus `namespace`, `name`, and `versionConstraint` from parsed params
+- **THEN** it has `url` and `namespaces` from the matched `RegistrySourceHost` config, plus `profile`, `name`, and `versionConstraint` from parsed params
 
-#### Scenario: Registry namespace-only pattern
+#### Scenario: Registry profile-only pattern
 
 - **WHEN** parsing source string `@acme`
-- **THEN** the result is a registry pattern with namespace `@acme`, type `None`, name `None`
+- **THEN** the result is a registry pattern with profile `@acme`, type `None`, name `None`
 
-#### Scenario: Registry namespace+type pattern
+#### Scenario: Registry profile+type pattern
 
 - **WHEN** parsing source string `@acme/skills`
-- **THEN** the result is a registry pattern with namespace `@acme`, type `Some("skills")`, name `None`
+- **THEN** the result is a registry pattern with profile `@acme`, type `Some("skills")`, name `None`
 
 #### Scenario: Two-segment input not recognized as registry
 
@@ -111,7 +111,7 @@ Registry source strings SHALL always include the type segment (`skills`, `packs`
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `<namespace>/<type-plural>/<name>`                      | `@acme/skills/my-skill`           |
+| registry   | `<profile>/<type-plural>/<name>`                        | `@acme/skills/my-skill`           |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 | builtin    | `builtin`                                               | `builtin`                         |
 
@@ -122,7 +122,7 @@ Registry source strings SHALL always include the type segment (`skills`, `packs`
 
 #### Scenario: Origin for registry source
 
-- **WHEN** `origin` is called with a `RegistrySource` with namespace `@acme`, type `skills`, and name `my-skill`
+- **WHEN** `origin` is called with a `RegistrySource` with profile `@acme`, type `skills`, and name `my-skill`
 - **THEN** the result is `@acme/skills/my-skill`
 
 #### Scenario: Origin for builtin source

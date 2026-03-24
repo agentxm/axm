@@ -31,8 +31,8 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([registrySource]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -103,13 +103,13 @@ describe("publishSkill", () => {
 
   /** Sets up a workspace with an installed extension and registry. */
   const setup = (
-    namespace = "@community",
+    profile = "@community",
     name = "my-skill",
     manifest: Record<string, unknown> = {},
   ) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", namespace, "skills", name);
+    const extensionDir = path.join(base, ".axm", "extensions", profile, "skills", name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -118,7 +118,7 @@ describe("publishSkill", () => {
 
     // Write manifest at extension root (not inside src/)
     const defaultManifest = {
-      namespace,
+      profile,
       type: "skill",
       name,
       version: "0.1.0",
@@ -173,7 +173,7 @@ describe("publishSkill", () => {
 
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-skill");
-        expect(index.namespace).toBe("@community");
+        expect(index.profile).toBe("@community");
         expect(index.type).toBe("skill");
         expect(index.versions).toHaveLength(1);
         expect(index.versions[0].version).toBe("0.1.0");

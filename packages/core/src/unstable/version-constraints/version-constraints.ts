@@ -12,17 +12,17 @@ export interface VersionEntryLike {
 /**
  * Extract a version constraint suffix from a source string.
  *
- * Handles both namespaced (`@namespace/name@^1.0.0`) and non-namespaced (`name@^1.0.0`) names.
+ * Handles both namespaced (`@handle/name@^1.0.0`) and non-namespaced (`name@^1.0.0`) names.
  * Returns `Option.none()` when no version suffix is present.
  */
 export const parseVersionConstraint = (sourceString: string): Option.Option<string> => {
-  // For namespaced packages (@namespace/name@constraint), find the @ after the namespace
+  // For namespaced packages (@handle/name@constraint), find the @ after the handle
   if (sourceString.startsWith("@")) {
     const slashIndex = sourceString.indexOf("/");
     if (slashIndex === -1) return Option.none();
-    const afterNamespace = sourceString.indexOf("@", slashIndex + 1);
-    if (afterNamespace === -1) return Option.none();
-    return Option.some(sourceString.slice(afterNamespace + 1));
+    const afterHandle = sourceString.indexOf("@", slashIndex + 1);
+    if (afterHandle === -1) return Option.none();
+    return Option.some(sourceString.slice(afterHandle + 1));
   }
   // For non-namespaced packages (name@constraint)
   const atIndex = sourceString.indexOf("@");

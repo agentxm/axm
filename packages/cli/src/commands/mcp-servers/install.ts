@@ -15,7 +15,7 @@ export const installCommand = Command.make(
   {
     source: Argument.string("source").pipe(
       Argument.withDescription(
-        "Registry MCP server reference (@namespace/mcp-servers/name or bare name)",
+        "Registry MCP server reference (@profile/mcp-servers/name or bare name)",
       ),
     ),
     scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
@@ -41,7 +41,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm mcp-servers install my-server",
-      description: "Install using the default namespace",
+      description: "Install using the default profile",
     },
   ]),
 );

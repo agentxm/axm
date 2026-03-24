@@ -53,7 +53,7 @@ const createPackArchive = (dir: string) => {
   fs.writeFileSync(
     nodePath.join(dir, "axm-pack.json"),
     JSON.stringify({
-      namespace: "@test",
+      profile: "@test",
       type: "pack",
       name: "my-pack",
       version: "1.0.0",
@@ -67,8 +67,8 @@ const makePackRef = (): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
   pack: { name: "my-pack", skills: {}, commands: {}, mcpServers: {} },
-  source: { type: "registry", location: new URL("file:///tmp/reg"), namespace: Option.none() },
-  namespace: "@test",
+  source: { type: "registry", location: new URL("file:///tmp/reg"), profile: Option.none() },
+  profile: "@test",
   name: "my-pack",
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -81,7 +81,7 @@ const makeOperation = (
   name: "install-pack",
   args: {
     packName: ref.pack.name,
-    namespace: ref.refType === "registry" ? ref.namespace : "",
+    profile: ref.refType === "registry" ? ref.profile : "",
     resolvedVersion: ref.refType === "registry" ? ref.version : "",
     integrity: ref.refType === "registry" ? ref.integrity : "",
     sourceName: "default",

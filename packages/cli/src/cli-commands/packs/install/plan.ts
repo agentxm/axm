@@ -102,11 +102,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         op.args.ref.refType === "registry"
           ? [
               [
-                formatFqn({
-                  namespace: op.args.ref.namespace,
-                  type: "skills",
-                  name: op.args.ref.name,
-                }),
+                formatFqn({ handle: op.args.ref.profile, type: "skills", name: op.args.ref.name }),
                 op.args.ref.version,
               ],
             ]
@@ -120,7 +116,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
           ? [
               [
                 formatFqn({
-                  namespace: op.args.ref.namespace,
+                  handle: op.args.ref.profile,
                   type: "commands",
                   name: op.args.ref.name,
                 }),
@@ -137,7 +133,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
           ? [
               [
                 formatFqn({
-                  namespace: op.args.ref.namespace,
+                  handle: op.args.ref.profile,
                   type: "mcp-servers",
                   name: op.args.ref.name,
                 }),
@@ -153,7 +149,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       name: "install-pack",
       args: {
         packName: ref.pack.name,
-        namespace: ref.refType === "registry" ? ref.namespace : "",
+        profile: ref.refType === "registry" ? ref.profile : "",
         resolvedVersion: ref.refType === "registry" ? ref.version : "",
         integrity: ref.refType === "registry" ? ref.integrity : "",
         sourceName: "default",

@@ -41,8 +41,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -115,7 +115,7 @@ const makeLocalLockEntry = (agents: string[]) => ({
 /** Creates a registry source lock entry. */
 const makeRegistryLockEntry = (agents: string[]) => ({
   type: "registry" as const,
-  namespace: "@community",
+  profile: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -441,8 +441,8 @@ describe("disableSkill", () => {
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredNamespace: () => Effect.succeed("@community"),
-          getDefaultNamespace: () => Effect.succeed(Option.none()),
+          getConfiguredProfile: () => Effect.succeed("@community"),
+          getDefaultProfile: () => Effect.succeed(Option.none()),
           addConfiguredSource: () => Effect.void,
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
@@ -542,8 +542,8 @@ describe("disableSkill", () => {
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredNamespace: () => Effect.succeed("@community"),
-          getDefaultNamespace: () => Effect.succeed(Option.none()),
+          getConfiguredProfile: () => Effect.succeed("@community"),
+          getDefaultProfile: () => Effect.succeed(Option.none()),
           addConfiguredSource: () => Effect.void,
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
@@ -631,8 +631,8 @@ describe("disableSkill", () => {
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredNamespace: () => Effect.succeed("@community"),
-          getDefaultNamespace: () => Effect.succeed(Option.none()),
+          getConfiguredProfile: () => Effect.succeed("@community"),
+          getDefaultProfile: () => Effect.succeed(Option.none()),
           addConfiguredSource: () => Effect.void,
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>

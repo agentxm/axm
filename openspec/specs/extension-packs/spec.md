@@ -4,16 +4,16 @@
 
 Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestFields` with additional fields:
 
-- `name`: fully qualified `@namespace/name`
+- `name`: fully qualified `@profile/name`
 - `version`: semver string
 - `description`: optional
 - `license`: optional
 - `authors`: array of `{name, email?, url?}`
-- `skills`: optional record of `@namespace/name` to semver range
-- `commands`: optional record of `@namespace/name` to semver range
-- `mcp-servers`: optional record of `@namespace/name` to semver range
+- `skills`: optional record of `@profile/name` to semver range
+- `commands`: optional record of `@profile/name` to semver range
+- `mcp-servers`: optional record of `@profile/name` to semver range
 
-All extension entries in the manifest SHALL be version-specifier maps (`"@namespace/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
+All extension entries in the manifest SHALL be version-specifier maps (`"@profile/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
 
 #### Scenario: Valid pack manifest with skills and commands
 
@@ -35,7 +35,7 @@ All extension entries in the manifest SHALL be version-specifier maps (`"@namesp
 Packs SHALL be stored in the managed extensions directory with the layout:
 
 ```
-.axm/extensions/@<namespace>/packs/<name>/
+.axm/extensions/@<profile>/packs/<name>/
   axm-pack.json
   <optional additional files>
 ```
@@ -55,7 +55,7 @@ Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
 #### Scenario: Additional files preserved
 
 - **WHEN** a pack archive contains `axm-pack.json` and `README.md`
-- **THEN** both files are extracted to `.axm/extensions/@<namespace>/packs/<name>/`
+- **THEN** both files are extracted to `.axm/extensions/@<profile>/packs/<name>/`
 
 ### Requirement: Packs are registry-only
 
@@ -100,16 +100,16 @@ No unmanaged marker. No enabled flag.
 The lockfile SHALL have a separate top-level `packs` section. Pack lock entries SHALL include:
 
 - `type`: `"registry"`
-- `namespace`: string (with `@` prefix)
-- `name`: string (without namespace)
+- `profile`: string (with `@` prefix)
+- `name`: string (without profile)
 - `resolvedVersion`: string (exact semver)
 - `integrity`: string (SRI format `sha512-<base64>`)
 - `sourceName`: string (registry source name)
 - `installedAt`: ISO 8601 date string
 - `updatedAt`: ISO 8601 date string
-- `resolvedSkills`: record of `@namespace/name` to exact resolved version
-- `resolvedCommands`: record of `@namespace/name` to exact resolved version
-- `resolvedMcpServers`: record of `@namespace/name` to exact resolved version
+- `resolvedSkills`: record of `@profile/name` to exact resolved version
+- `resolvedCommands`: record of `@profile/name` to exact resolved version
+- `resolvedMcpServers`: record of `@profile/name` to exact resolved version
 
 #### Scenario: Pack lock entry with resolved extensions
 

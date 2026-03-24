@@ -44,7 +44,7 @@ The `sourceToLockEntry` function SHALL be a pure function that maps a `Source` d
 #### Scenario: Registry source mapping
 
 - **WHEN** mapping a source with `source: "registry"`
-- **THEN** the lock entry SHALL have `source: "registry"` with `namespace` and `name` fields
+- **THEN** the lock entry SHALL have `source: "registry"` with `profile` and `name` fields
 
 #### Scenario: Option fields converted to plain values
 

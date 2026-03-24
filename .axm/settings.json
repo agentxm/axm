@@ -1,5 +1,5 @@
 {
-  "namespace": "@axm",
+  "profile": "@axm",
   "sources": [
     {
       "name": "local-registry",

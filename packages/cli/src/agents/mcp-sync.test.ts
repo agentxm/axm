@@ -11,7 +11,7 @@ const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
   serverName: "chrome-devtools-mcp",
   canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
-  namespace: "@mcp",
+  profile: "@mcp",
   resolvedVersion: "1.0.0",
 });
 

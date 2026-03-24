@@ -39,7 +39,7 @@ export class McpServerManager extends ServiceMap.Service<
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
   type: "registry",
-  namespace: ref.namespace,
+  profile: ref.profile,
   name: ref.name,
   resolvedVersion: ref.version,
   integrity: ref.integrity,
@@ -84,7 +84,7 @@ export const McpServerManagerLive = Layer.effect(
         const canonicalPath = path.join(
           baseDir,
           REGISTRY_EXTENSIONS_DIR,
-          registryRef.namespace,
+          registryRef.profile,
           "mcp-servers",
           registryRef.name,
         );
@@ -114,7 +114,7 @@ export const McpServerManagerLive = Layer.effect(
               : registryRef.source.location.href;
           const client = yield* provide(createRegistryClient(locationStr));
           const { archive } = yield* client.getExtensionPackage({
-            namespace: registryRef.namespace,
+            handle: registryRef.profile,
             type: "mcp-server",
             name: registryRef.name,
             version: Option.some(registryRef.version),

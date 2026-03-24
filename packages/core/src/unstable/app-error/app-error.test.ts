@@ -24,7 +24,7 @@ describe("AppError", () => {
     const error = new AppError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @namespace/name"],
+      details: ["Package: @handle/name"],
       howToFix: Option.none(),
       cause: undefined,
     });

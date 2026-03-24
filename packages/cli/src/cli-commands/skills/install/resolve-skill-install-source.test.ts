@@ -31,8 +31,8 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
-  getDefaultNamespace: () => Effect.succeed(Option.none()),
+  getConfiguredProfile: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
+  getDefaultProfile: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -79,14 +79,14 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   getConfiguredMcpServers: () => Effect.succeed({}),
 });
 
-const createSkillIndex = (registryRoot: string, namespace: string, name: string) => {
-  const skillDir = path.join(registryRoot, "extensions", namespace, "skills", name);
+const createSkillIndex = (registryRoot: string, profile: string, name: string) => {
+  const skillDir = path.join(registryRoot, "extensions", profile, "skills", name);
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "index.json"),
     JSON.stringify({
       name,
-      namespace,
+      profile,
       type: "skill",
       versions: [
         {
@@ -104,7 +104,7 @@ const makeRegistryCollectionResponse = () =>
   JSON.stringify({
     extensions: [
       {
-        namespace: "@acme",
+        profile: "@acme",
         type: "skill",
         name: "my-skill",
         description: null,
@@ -172,7 +172,7 @@ describe("resolveSkillInstallSource", () => {
     tmpDirs.length = 0;
   });
 
-  it.effect("selects the first registry that contains the requested namespace", () => {
+  it.effect("selects the first registry that contains the requested profile", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -261,7 +261,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("supports namespace-only input and resolves against a matching registry", () => {
+  it.effect("supports profile-only input and resolves against a matching registry", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -285,7 +285,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("resolves bare skill name using configured default namespace", () => {
+  it.effect("resolves bare skill name using configured default profile", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -304,7 +304,7 @@ describe("resolveSkillInstallSource", () => {
             NodeServices.layer,
             Workspace.layer({
               ...makeWorkspace(sources),
-              getDefaultNamespace: () => Effect.succeed(Option.some("@test")),
+              getDefaultProfile: () => Effect.succeed(Option.some("@test")),
             }),
           ),
         ),
@@ -391,15 +391,15 @@ describe("resolveSkillRegistrySourceByName", () => {
     tmpDirs.length = 0;
   });
 
-  const provideLayersWithNamespace = (
+  const provideLayersWithProfile = (
     sources: ReadonlyArray<SourceHostConfig>,
-    namespace: Option.Option<string>,
+    profile: Option.Option<string>,
   ) =>
     Layer.mergeAll(
       NodeServices.layer,
       Workspace.layer({
         ...makeWorkspace(sources),
-        getDefaultNamespace: () => Effect.succeed(namespace),
+        getDefaultProfile: () => Effect.succeed(profile),
       }),
     );
 
@@ -415,7 +415,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
-        Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+        Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
       );
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -439,7 +439,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
-        Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+        Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
       );
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -464,7 +464,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       return Effect.gen(function* () {
         const error = yield* resolveSkillInstallSource(parseInputOrThrow("missing-skill")).pipe(
           Effect.flip,
-          Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+          Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
@@ -478,7 +478,7 @@ describe("resolveSkillRegistrySourceByName", () => {
   );
 
   it.effect(
-    "no default namespace available fails with REGISTRY_SKILL_NOT_FOUND with no default namespace detail",
+    "no default profile available fails with REGISTRY_SKILL_NOT_FOUND with no default profile detail",
     () => {
       const sources: ReadonlyArray<SourceHostConfig> = [
         { name: "first", type: "registry", location: new URL("file:///tmp/reg") },
@@ -487,13 +487,13 @@ describe("resolveSkillRegistrySourceByName", () => {
       return Effect.gen(function* () {
         const error = yield* resolveSkillInstallSource(parseInputOrThrow("some-skill")).pipe(
           Effect.flip,
-          Effect.provide(provideLayersWithNamespace(sources, Option.none())),
+          Effect.provide(provideLayersWithProfile(sources, Option.none())),
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
-        expect(error.what).toContain("no default namespace");
+        expect(error.what).toContain("no default profile");
         const detailsText = error.details.join(" ");
-        expect(detailsText).toContain("No default namespace configured");
+        expect(detailsText).toContain("No default profile configured");
       });
     },
   );
@@ -504,7 +504,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       return Effect.gen(function* () {
         const error = yield* resolveSkillInstallSource(parseInputOrThrow("some-skill")).pipe(
           Effect.flip,
-          Effect.provide(provideLayersWithNamespace([], Option.some("@myns"))),
+          Effect.provide(provideLayersWithProfile([], Option.some("@myns"))),
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");

@@ -52,7 +52,7 @@ const makeVersionEntry = (overrides: Partial<VersionEntry> = {}): VersionEntry =
 });
 
 const makePublishArgs = (overrides: Partial<PublishExtensionArgs> = {}): PublishExtensionArgs => ({
-  namespace: "@acme",
+  handle: "@acme",
   type: "skill",
   name: "code-review",
   version: "1.0.0",
@@ -564,7 +564,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@axm/packs/effect")) {
             return new Response(
               JSON.stringify({
-                namespace: "@axm",
+                profile: "@axm",
                 type: "pack",
                 name: "effect",
                 versions: [
@@ -583,7 +583,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionsByScope({
-          namespace: "@axm",
+          handle: "@axm",
           names: ["effect"],
           types: ["pack"],
           limit: Option.none(),
@@ -592,13 +592,13 @@ describe("createRemoteRegistryClient", () => {
 
         expect(result.total).toBe(1);
         expect(result.extensions).toHaveLength(1);
-        expect(result.extensions[0]?.namespace).toBe("@axm");
+        expect(result.extensions[0]?.profile).toBe("@axm");
         expect(result.extensions[0]?.type).toBe("pack");
         expect(result.extensions[0]?.name).toBe("effect");
       }),
     );
 
-    it.effect("getExtensionsByScope list mode discovers from namespace endpoint", () =>
+    it.effect("getExtensionsByScope list mode discovers from profile endpoint", () =>
       Effect.gen(function* () {
         const requestedUrls: Array<string> = [];
         const httpClient = makeMockHttpClient((request) => {
@@ -608,8 +608,8 @@ describe("createRemoteRegistryClient", () => {
             return new Response(
               JSON.stringify({
                 extensions: [
-                  { namespace: "@acme", type: "skill", name: "alpha" },
-                  { namespace: "@acme", type: "pack", name: "beta" },
+                  { profile: "@acme", type: "skill", name: "alpha" },
+                  { profile: "@acme", type: "pack", name: "beta" },
                 ],
               }),
               { status: 200 },
@@ -619,7 +619,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/skills/alpha")) {
             return new Response(
               JSON.stringify({
-                namespace: "@acme",
+                profile: "@acme",
                 type: "skill",
                 name: "alpha",
                 versions: [
@@ -637,7 +637,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/packs/beta")) {
             return new Response(
               JSON.stringify({
-                namespace: "@acme",
+                profile: "@acme",
                 type: "pack",
                 name: "beta",
                 versions: [
@@ -657,7 +657,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionsByScope({
-          namespace: "@acme",
+          handle: "@acme",
           names: [],
           types: [],
           limit: Option.none(),
@@ -681,7 +681,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/skills")) {
             return new Response(
               JSON.stringify({
-                extensions: [{ namespace: "@acme", type: "skill", name: "alpha" }],
+                extensions: [{ profile: "@acme", type: "skill", name: "alpha" }],
               }),
               { status: 200 },
             );
@@ -690,7 +690,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/packs")) {
             return new Response(
               JSON.stringify({
-                extensions: [{ namespace: "@acme", type: "pack", name: "beta" }],
+                extensions: [{ profile: "@acme", type: "pack", name: "beta" }],
               }),
               { status: 200 },
             );
@@ -699,7 +699,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/skills/alpha")) {
             return new Response(
               JSON.stringify({
-                namespace: "@acme",
+                profile: "@acme",
                 type: "skill",
                 name: "alpha",
                 versions: [
@@ -717,7 +717,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@acme/packs/beta")) {
             return new Response(
               JSON.stringify({
-                namespace: "@acme",
+                profile: "@acme",
                 type: "pack",
                 name: "beta",
                 versions: [
@@ -737,7 +737,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionsByScope({
-          namespace: "@acme",
+          handle: "@acme",
           names: [],
           types: ["skill", "pack"],
           limit: Option.none(),
@@ -761,9 +761,9 @@ describe("createRemoteRegistryClient", () => {
             return new Response(
               JSON.stringify({
                 extensions: [
-                  { namespace: "@acme", type: "skill", name: "a" },
-                  { namespace: "@acme", type: "skill", name: "b" },
-                  { namespace: "@acme", type: "skill", name: "c" },
+                  { profile: "@acme", type: "skill", name: "a" },
+                  { profile: "@acme", type: "skill", name: "b" },
+                  { profile: "@acme", type: "skill", name: "c" },
                 ],
               }),
               { status: 200 },
@@ -773,7 +773,7 @@ describe("createRemoteRegistryClient", () => {
           const name = request.url.split("/").at(-1);
           return new Response(
             JSON.stringify({
-              namespace: "@acme",
+              profile: "@acme",
               type: "skill",
               name,
               versions: [{ version: "1.0.0", published: "2026-01-01T00:00:00Z", integrity: "x" }],
@@ -784,7 +784,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionsByScope({
-          namespace: "@acme",
+          handle: "@acme",
           names: [],
           types: [],
           limit: Option.some(1),
@@ -809,7 +809,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionsByScope({
-            namespace: "@acme",
+            handle: "@acme",
             names: [],
             types: [],
             limit: Option.none(),
@@ -829,7 +829,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
             return new Response(
               JSON.stringify({
-                namespace: "@test",
+                profile: "@test",
                 type: "skill",
                 name: "my-skill",
                 versions: [
@@ -851,7 +851,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionPackage({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "my-skill",
           version: Option.some("1.0.0"),
@@ -868,7 +868,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
             return new Response(
               JSON.stringify({
-                namespace: "@test",
+                profile: "@test",
                 type: "skill",
                 name: "my-skill",
                 versions: [
@@ -895,7 +895,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.getExtensionPackage({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "my-skill",
           version: Option.none(),
@@ -914,7 +914,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
             return new Response(
               JSON.stringify({
-                namespace: "@test",
+                profile: "@test",
                 type: "skill",
                 name: "my-skill",
                 versions: [
@@ -934,7 +934,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionPackage({
-            namespace: "@test",
+            handle: "@test",
             type: "skill",
             name: "my-skill",
             version: Option.some("9.9.9"),
@@ -953,7 +953,7 @@ describe("createRemoteRegistryClient", () => {
           if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
             return new Response(
               JSON.stringify({
-                namespace: "@test",
+                profile: "@test",
                 type: "skill",
                 name: "my-skill",
                 versions: [
@@ -976,7 +976,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionPackage({
-            namespace: "@test",
+            handle: "@test",
             type: "skill",
             name: "my-skill",
             version: Option.some("1.0.0"),
@@ -1000,7 +1000,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionPackage({
-            namespace: "@test",
+            handle: "@test",
             type: "skill",
             name: "my-skill",
             version: Option.some("1.0.0"),
@@ -1013,13 +1013,13 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
-    it.effect("namespaceExists returns true for 200 with entries", () =>
+    it.effect("profileExists returns true for 200 with entries", () =>
       Effect.gen(function* () {
         const httpClient = makeMockHttpClient((request) => {
           if (request.url.endsWith("/v1/extensions/@test")) {
             return new Response(
               JSON.stringify({
-                extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+                extensions: [{ profile: "@test", type: "skill", name: "my-skill" }],
               }),
               { status: 200 },
             );
@@ -1027,12 +1027,12 @@ describe("createRemoteRegistryClient", () => {
           return new Response("", { status: 404 });
         });
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test");
+        const result = yield* client.profileExists("@test");
         expect(result).toEqual({ exists: true });
       }),
     );
 
-    it.effect("namespaceExists returns false for 200 with empty list", () =>
+    it.effect("profileExists returns false for 200 with empty list", () =>
       Effect.gen(function* () {
         const httpClient = makeMockHttpClient((request) => {
           if (request.url.endsWith("/v1/extensions/@test")) {
@@ -1041,27 +1041,27 @@ describe("createRemoteRegistryClient", () => {
           return new Response("", { status: 404 });
         });
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test");
+        const result = yield* client.profileExists("@test");
         expect(result).toEqual({ exists: false });
       }),
     );
 
-    it.effect("namespaceExists returns false for 404", () =>
+    it.effect("profileExists returns false for 404", () =>
       Effect.gen(function* () {
         const httpClient = makeMockHttpClient(() => new Response("", { status: 404 }));
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@missing");
+        const result = yield* client.profileExists("@missing");
         expect(result).toEqual({ exists: false });
       }),
     );
 
-    it.effect("namespaceExists maps network errors", () =>
+    it.effect("profileExists maps network errors", () =>
       Effect.gen(function* () {
         const httpClient = HttpClient.make((request) =>
           Effect.fail(makeTransportError(request, new Error("Connection refused"))),
         );
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        const result = yield* client.profileExists("@test").pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
@@ -1074,7 +1074,7 @@ describe("createRemoteRegistryClient", () => {
         const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.extensionExists({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "my-skill",
         });
@@ -1089,7 +1089,7 @@ describe("createRemoteRegistryClient", () => {
           makeMockHttpClient(() => new Response("", { status: 404 })),
         );
         const result = yield* notFoundClient.extensionExists({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "missing-skill",
         });
@@ -1204,7 +1204,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionsByScope({
-            namespace: "@test",
+            handle: "@test",
             names: ["my-skill"],
             types: ["skill"],
             limit: Option.none(),
@@ -1218,12 +1218,12 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
-    it.effect("namespaceExists maps 401 to AUTH_UNAUTHENTICATED", () =>
+    it.effect("profileExists maps 401 to AUTH_UNAUTHENTICATED", () =>
       Effect.gen(function* () {
         const httpClient = makeMockHttpClient(() => new Response("Unauthorized", { status: 401 }));
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        const result = yield* client.profileExists("@test").pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
@@ -1237,7 +1237,7 @@ describe("createRemoteRegistryClient", () => {
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
-          .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
+          .extensionExists({ handle: "@test", type: "skill", name: "my-skill" })
           .pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
@@ -1253,7 +1253,7 @@ describe("createRemoteRegistryClient", () => {
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionPackage({
-            namespace: "@test",
+            handle: "@test",
             type: "skill",
             name: "my-skill",
             version: Option.some("1.0.0"),
@@ -1266,7 +1266,7 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
-    it.effect("namespaceExists maps 403 to AUTH_UNAUTHORIZED", () =>
+    it.effect("profileExists maps 403 to AUTH_UNAUTHORIZED", () =>
       Effect.gen(function* () {
         const httpClient = makeMockHttpClient(
           () =>
@@ -1280,7 +1280,7 @@ describe("createRemoteRegistryClient", () => {
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-        const result = yield* client.namespaceExists("@test").pipe(Effect.result);
+        const result = yield* client.profileExists("@test").pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("AUTH_UNAUTHORIZED");

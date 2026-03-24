@@ -53,8 +53,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -182,7 +182,7 @@ const withServices = (
 const makeRegistryRef = (
   overrides: {
     name?: string;
-    namespace?: string;
+    profile?: string;
     version?: string;
     integrity?: string;
     location?: string;
@@ -193,10 +193,10 @@ const makeRegistryRef = (
   source: {
     type: "registry",
     location: new URL(overrides.location ?? "file:///tmp/reg"),
-    namespace: Option.none(),
+    profile: Option.none(),
   },
   command: { name: overrides.name ?? "my-command" },
-  namespace: overrides.namespace ?? "@community",
+  profile: overrides.profile ?? "@community",
   name: overrides.name ?? "my-command",
   version: overrides.version ?? "1.0.0",
   integrity: overrides.integrity ?? "",
@@ -241,8 +241,8 @@ describe("installCommand", () => {
     return { base, axmDir };
   };
 
-  const setupRegistryCanonical = (base: string, namespace: string, name = "my-command") => {
-    const canonicalPath = path.join(base, ".axm", "extensions", namespace, "commands", name);
+  const setupRegistryCanonical = (base: string, profile: string, name = "my-command") => {
+    const canonicalPath = path.join(base, ".axm", "extensions", profile, "commands", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "axm-command.json"),
@@ -252,14 +252,12 @@ describe("installCommand", () => {
   };
 
   /** Creates a local registry with index.json and a zip archive for a command. */
-  const setupLocalRegistry = (
-    opts: { namespace?: string; name?: string; version?: string } = {},
-  ) => {
-    const namespace = opts.namespace ?? "@community";
+  const setupLocalRegistry = (opts: { profile?: string; name?: string; version?: string } = {}) => {
+    const profile = opts.profile ?? "@community";
     const name = opts.name ?? "my-command";
     const version = opts.version ?? "1.0.0";
     const registryRoot = path.join(tmpDir, "local-registry");
-    const extDir = path.join(registryRoot, "extensions", namespace, "commands", name);
+    const extDir = path.join(registryRoot, "extensions", profile, "commands", name);
     fs.mkdirSync(extDir, { recursive: true });
 
     // Create index.json
@@ -468,12 +466,12 @@ describe("installCommand", () => {
   });
 
   describe("path safety", () => {
-    it.effect("fails when namespace contains path traversal", () =>
+    it.effect("fails when profile contains path traversal", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
         const ref = makeRegistryRef({
-          namespace: "../../../etc",
+          profile: "../../../etc",
           integrity: "",
         });
 

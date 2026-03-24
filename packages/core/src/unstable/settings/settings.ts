@@ -26,11 +26,11 @@ import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 export const SETTINGS_FILENAME = "settings.json";
 
 /**
- * Default namespace for skill resolution when not specified in settings.
+ * Default profile for skill resolution when not specified in settings.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const DEFAULT_NAMESPACE = "@community";
+export const DEFAULT_PROFILE = "@community";
 
 // -----------------------------------------------------------------------------
 // Default Settings

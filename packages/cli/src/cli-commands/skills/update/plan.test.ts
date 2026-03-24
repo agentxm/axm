@@ -132,9 +132,9 @@ const makeOp = (
         source: {
           type: "registry",
           location: new URL("http://localhost:3000"),
-          namespace: Option.none(),
+          profile: Option.none(),
         },
-        namespace: "@axm",
+        profile: "@axm",
         name,
         version: overrides?.version ?? "0.0.0",
         integrity: "sha512-AAAA==",
@@ -398,7 +398,7 @@ describe("buildUpdatePlan", () => {
     const lf = lockfileWith({
       commit: makeLockEntry({
         type: "registry",
-        namespace: "@axm",
+        profile: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
         integrity: "sha512-AAAA==",
@@ -422,7 +422,7 @@ describe("buildUpdatePlan", () => {
     const lf = lockfileWith({
       commit: makeLockEntry({
         type: "registry",
-        namespace: "@axm",
+        profile: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
         integrity: "sha512-AAAA==",
@@ -524,7 +524,7 @@ describe("buildUpdatePlan", () => {
     const lf = lockfileWith({
       commit: makeLockEntry({
         type: "registry",
-        namespace: "@axm",
+        profile: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
         integrity: "sha512-AAAA==",

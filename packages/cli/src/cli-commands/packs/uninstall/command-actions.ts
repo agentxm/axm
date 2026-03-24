@@ -128,7 +128,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           return {
             type: "pack",
             name,
-            namespace: lockEntry?.namespace ?? "",
+            profile: lockEntry?.profile ?? "",
           };
         });
 

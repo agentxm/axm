@@ -13,9 +13,8 @@ describe("axm token", () => {
       env: { AXM_TOKEN: "test-token-value" },
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("test-token-value");
-    const output = result.stdout + result.stderr;
-    expect(output).toContain("AXM_TOKEN");
+    expect(result.stdout).toBe("test-token-value");
+    expect(result.stderr).toBe("");
   });
 
   it("fails with AUTH_LOGIN_REQUIRED when no credentials available", async () => {

@@ -187,7 +187,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             const namedRefs = yield* sources.find(source, {
               skillNames: [name],
               type: "skill",
-              namespace: Option.none(),
+              profile: Option.none(),
               versionConstraint: Option.none(),
             });
             const namedSkillRefs = Array.filter(
@@ -204,7 +204,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             const allRefs = yield* sources.find(source, {
               skillNames: [],
               type: "skill",
-              namespace: Option.none(),
+              profile: Option.none(),
               versionConstraint: Option.none(),
             });
             const allSkillRefs = Array.filter(
@@ -259,11 +259,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     ),
     (item) => {
       const registryRef = item.ref as {
-        readonly namespace: string;
+        readonly profile: string;
         readonly skill: { readonly name: string };
         readonly version: string;
       };
-      const skillFqn = `${registryRef.namespace}/skills/${registryRef.skill.name}`;
+      const skillFqn = `${registryRef.profile}/skills/${registryRef.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];
       if (packConstraints.length === 0) return [];
 
@@ -382,7 +382,7 @@ const collectPackConstraints = () =>
         const packDir = path.join(
           base,
           REGISTRY_EXTENSIONS_DIR,
-          packEntry.namespace,
+          packEntry.profile,
           "packs",
           packName,
         );

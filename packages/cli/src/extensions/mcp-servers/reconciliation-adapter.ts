@@ -13,7 +13,7 @@ import type {
 const parseRegistryMcpSource = (
   source: string,
 ): Option.Option<{
-  readonly namespace: string;
+  readonly profile: string;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -27,7 +27,7 @@ const parseRegistryMcpSource = (
   }
 
   return Option.some({
-    namespace: match[1]!,
+    profile: match[1]!,
     name: match[2]!,
     constraint: match[3] ?? "*",
   });
@@ -43,9 +43,9 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       const parsed = parseRegistryMcpSource(source);
       declarations.push({
         extensionType: "mcp-servers",
-        namespace: Option.match(parsed, {
-          onNone: () => context.defaultNamespace,
-          onSome: (value) => value.namespace,
+        profile: Option.match(parsed, {
+          onNone: () => context.defaultProfile,
+          onSome: (value) => value.profile,
         }),
         name,
         source,
@@ -72,9 +72,9 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const namespace = Option.match(parsed, {
-        onNone: () => declaration.namespace,
-        onSome: (value) => value.namespace,
+      const profile = Option.match(parsed, {
+        onNone: () => declaration.profile,
+        onSome: (value) => value.profile,
       });
       const diskName = Option.match(parsed, {
         onNone: () => declaration.name,
@@ -84,7 +84,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       const canonicalPath = env.path.join(
         context.baseDir,
         REGISTRY_EXTENSIONS_DIR,
-        namespace,
+        profile,
         "mcp-servers",
         diskName,
       );
@@ -148,7 +148,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      if (manifest.namespace !== namespace || manifest.name !== diskName) {
+      if (manifest.profile !== profile || manifest.name !== diskName) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -163,7 +163,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
           name: declaration.name,
           entry: {
             type: "registry",
-            namespace,
+            profile,
             name: diskName,
             resolvedVersion: manifest.version,
             integrity: "",

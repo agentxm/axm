@@ -5,7 +5,7 @@ const join = (...parts: string[]) => parts.join("/");
 const base = "/workspace";
 
 describe("computePackPaths", () => {
-  it("produces registry extensions path with namespace", () => {
+  it("produces registry extensions path with profile", () => {
     const result = computePackPaths(join, base, "@acme", "my-pack");
 
     expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@acme/packs/my-pack");

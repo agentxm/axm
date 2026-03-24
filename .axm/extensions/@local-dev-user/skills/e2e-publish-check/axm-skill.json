@@ -1,5 +1,5 @@
 {
-  "namespace": "@local-dev-user",
+  "profile": "@local-dev-user",
   "type": "skill",
   "name": "e2e-publish-check",
   "version": "0.0.1"

@@ -34,7 +34,7 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksAddHandlerArgs {
-  /** Pack name (without namespace). */
+  /** Pack name (without profile). */
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
@@ -78,16 +78,14 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     });
   }
 
-  // Resolve pack namespace from the entry (format: "@namespace/packs/name" or { source: "@namespace/packs/name" })
+  // Resolve pack profile from the entry (format: "@profile/packs/name" or { source: "@profile/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const hasNamespace = packSource.startsWith("@") && packSource.includes("/");
-  const packNamespace = hasNamespace
-    ? packSource.split("/")[0]!
-    : yield* ws.getConfiguredNamespace();
+  const hasProfile = packSource.startsWith("@") && packSource.includes("/");
+  const packProfile = hasProfile ? packSource.split("/")[0]! : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
+  const packDir = computePackPaths(path.join, base, packProfile, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -173,7 +171,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;
 
-    const fqn = formatFqn({ namespace: lockEntry.namespace, type: "skills", name: lockEntry.name });
+    const fqn = formatFqn({ handle: lockEntry.profile, type: "skills", name: lockEntry.name });
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)
@@ -196,7 +194,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     name: "add-to-pack",
     args: {
       packName: args.pack,
-      packNamespace,
+      packProfile,
       additions,
       manifestHash,
     },

@@ -30,7 +30,7 @@ const makePackLockEntry = (
   },
 ): PackLockEntry => ({
   type: "registry",
-  namespace: "@acme",
+  profile: "@acme",
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

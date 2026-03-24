@@ -47,7 +47,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
   const settings: Record<string, unknown> = {
-    namespace: "@test",
+    profile: "@test",
     agents: ["claude-code"],
     sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
   };
@@ -305,7 +305,7 @@ describe("fork.handler", () => {
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Manifest should use the configured namespace
+          // Manifest should use the configured profile
           const manifestPath = path.join(
             tempDir,
             ".axm",
@@ -316,7 +316,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.namespace).toBe("@test");
+          expect(manifest.profile).toBe("@test");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),
@@ -639,8 +639,8 @@ describe("fork.handler", () => {
     );
   });
 
-  describe("namespace resolution", () => {
-    it.effect("uses namespace from project settings", () => {
+  describe("profile resolution", () => {
+    it.effect("uses profile from project settings", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -666,7 +666,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("my-skill"));
 
-          // Manifest should use the configured namespace
+          // Manifest should use the configured profile
           const manifestPath = path.join(
             tempDir,
             ".axm",
@@ -677,7 +677,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.namespace).toBe("@test");
+          expect(manifest.profile).toBe("@test");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),

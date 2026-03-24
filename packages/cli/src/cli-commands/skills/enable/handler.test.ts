@@ -191,7 +191,7 @@ describe("enable.handler", () => {
         {
           "code-review": {
             type: "registry",
-            namespace: "@acme",
+            profile: "@acme",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -241,7 +241,7 @@ describe("enable.handler", () => {
           lockfilePacks: {
             "starter-pack": {
               type: "registry",
-              namespace: "@acme",
+              profile: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",

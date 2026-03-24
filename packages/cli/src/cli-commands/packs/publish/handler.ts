@@ -2,7 +2,7 @@
  * Publish command handler -- Effect-based orchestration for `axm packs publish`.
  *
  * Publishes a pack from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> namespace from settings)
+ * 1. Resolve extension name (bare name -> profile from settings)
  * 2. Validate managed pack exists with manifest
  * 3. Discover local dependencies (when --include-dependencies)
  * 4. Build plan (dependency job + pack job, or pack-only)
@@ -58,7 +58,7 @@ import { computePackPaths } from "../../../extensions/packs/paths.js";
  * Arguments for the packs publish command.
  */
 export interface PublishPackHandlerArgs {
-  /** Pack name (@namespace/name or bare name). */
+  /** Pack name (@profile/name or bare name). */
   readonly pack: string;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
@@ -104,22 +104,22 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   yield* output.info("axm packs publish");
 
   // Step 1: Resolve pack name
-  const hasNamespace = args.pack.startsWith("@") && args.pack.includes("/");
-  const packName = yield* hasNamespace
+  const hasProfile = args.pack.startsWith("@") && args.pack.includes("/");
+  const packName = yield* hasProfile
     ? Effect.succeed(args.pack)
-    : ws.getConfiguredNamespace().pipe(
-        Effect.map((namespace) => formatFqn({ namespace, type: "packs", name: args.pack })),
+    : ws.getConfiguredProfile().pipe(
+        Effect.map((profile) => formatFqn({ handle: profile, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
-            what: `Failed to resolve namespace: ${e._tag}`,
-            howToFix: "Configure a namespace in your settings with `axm init`.",
+            what: `Failed to resolve profile: ${e._tag}`,
+            howToFix: "Configure a profile in your settings with `axm init`.",
             cause: e,
           }),
         ),
       );
 
-  // Parse namespace and pack name from the full name
+  // Parse profile and pack name from the full name
   const fqn = yield* parseFqn(packName);
 
   // Step 2: Validate managed pack exists
@@ -127,7 +127,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     "Validating pack...",
     () =>
       Effect.gen(function* () {
-        const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
+        const packDir = computePackPaths(path.join, base, fqn.handle, fqn.name).canonicalPath;
         const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
         if (!packDirExists) {
@@ -240,7 +240,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           const depDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,
-            parsed.namespace,
+            parsed.handle,
             parsed.type,
             parsed.name,
           );

@@ -10,18 +10,18 @@ export const newCommand = Command.make(
   "new",
   {
     name: Argument.string("name").pipe(
-      Argument.withDescription("Name of the pack (without namespace)"),
+      Argument.withDescription("Name of the pack (without profile)"),
     ),
-    namespace: Flag.string("namespace").pipe(
-      Flag.withDescription("Override the workspace namespace (e.g., @acme)"),
+    profile: Flag.string("profile").pipe(
+      Flag.withDescription("Override the workspace profile (e.g., @acme)"),
       Flag.optional,
     ),
     yes: yesFlag,
     force: forceFlag,
     preview: previewFlag,
   },
-  ({ name, namespace, yes, force, preview }) =>
-    withCommandRuntime(handlePacksNew({ name, namespace }), {
+  ({ name, profile, yes, force, preview }) =>
+    withCommandRuntime(handlePacksNew({ name, profile }), {
       command: "packs new",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
       flags: { yes, force, preview },
@@ -31,10 +31,10 @@ export const newCommand = Command.make(
   Command.withExamples([
     {
       command: "axm packs new frontend-tools",
-      description: "Create @<namespace>/frontend-tools",
+      description: "Create @<profile>/frontend-tools",
     },
     {
-      command: "axm packs new frontend-tools --namespace @co",
+      command: "axm packs new frontend-tools --profile @co",
       description: "Create @co/frontend-tools",
     },
   ]),

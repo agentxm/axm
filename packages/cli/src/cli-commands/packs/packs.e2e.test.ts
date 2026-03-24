@@ -18,7 +18,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../e2e/utils.js";
 // ---------------------------------------------------------------------------
 
 /**
- * Initialize a workspace with a registry source and namespace, then install a
+ * Initialize a workspace with a registry source and profile, then install a
  * skill from the local fixture so we have a registry-sourced skill to work with.
  *
  * Returns the temp dir, registry dir, and helpers for reading settings/lockfile.
@@ -42,12 +42,12 @@ function setupWorkspaceWithRegistry() {
 }
 
 /**
- * Set up registry source and namespace in an already-initialized workspace.
+ * Set up registry source and profile in an already-initialized workspace.
  */
-function configureRegistrySource(settingsPath: string, registryUrl: string, namespace = "@test") {
+function configureRegistrySource(settingsPath: string, registryUrl: string, profile = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: registryUrl }];
-  settings.namespace = namespace;
+  settings.profile = profile;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -81,7 +81,7 @@ describe("axm packs new", () => {
       expect(fs.existsSync(manifestPath)).toBe(true);
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.namespace).toBe("@test");
+      expect(manifest.profile).toBe("@test");
       expect(manifest.type).toBe("pack");
       expect(manifest.name).toBe("frontend-tools");
       expect(manifest.version).toBe("0.0.1");
@@ -96,13 +96,13 @@ describe("axm packs new", () => {
     }
   });
 
-  it("respects --namespace override", async () => {
+  it("respects --profile override", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      const result = await runCli(["packs", "new", "my-pack", "--namespace", "@custom", "--yes"], {
+      const result = await runCli(["packs", "new", "my-pack", "--profile", "@custom", "--yes"], {
         cwd: temp.path,
       });
 
@@ -119,7 +119,7 @@ describe("axm packs new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.namespace).toBe("@custom");
+      expect(manifest.profile).toBe("@custom");
       expect(manifest.type).toBe("pack");
       expect(manifest.name).toBe("my-pack");
     } finally {
@@ -258,7 +258,7 @@ describe("axm packs publish", () => {
 
       const index = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
       expect(index.name).toBe("pub-pack");
-      expect(index.namespace).toBe("@test");
+      expect(index.profile).toBe("@test");
       expect(index.type).toBe("pack");
       expect(index.versions).toBeDefined();
       expect(index.versions.length).toBeGreaterThan(0);
@@ -346,7 +346,7 @@ describe("axm packs install", () => {
       );
       fs.rmSync(packDirBefore, { recursive: true, force: true });
 
-      // Install from registry (new format: @namespace/packs/name)
+      // Install from registry (new format: @profile/packs/name)
       const installResult = await runCli(
         ["packs", "install", "@test/packs/installable-pack", "--yes"],
         { cwd: temp.path },
@@ -364,7 +364,7 @@ describe("axm packs install", () => {
       expect(lock.packs["installable-pack"]).toBeDefined();
       const lockEntry = lock.packs["installable-pack"];
       expect(lockEntry.type).toBe("registry");
-      expect(lockEntry.namespace).toBe("@test");
+      expect(lockEntry.profile).toBe("@test");
       expect(lockEntry.name).toBe("installable-pack");
 
       // Verify pack directory exists on disk
@@ -433,7 +433,7 @@ describe("axm packs install", () => {
         path.join(skillDir, "axm-skill.json"),
         JSON.stringify(
           {
-            namespace: "@test",
+            profile: "@test",
             type: "skill",
             name: "dep-skill",
             version: "1.0.0",

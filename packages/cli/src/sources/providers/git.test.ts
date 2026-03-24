@@ -42,7 +42,7 @@ describe("createGitSourceHostProvider", () => {
           {
             skillNames: [],
             type: "skill",
-            namespace: Option.none(),
+            profile: Option.none(),
             versionConstraint: Option.none(),
           },
         )

@@ -7,7 +7,7 @@ The `installCommand` operation handler SHALL implement `OperationHandler<Install
 The handler SHALL:
 
 1. Fetch the command archive from the registry
-2. Extract to the canonical location (`.axm/extensions/@<namespace>/commands/<name>/`)
+2. Extract to the canonical location (`.axm/extensions/@<profile>/commands/<name>/`)
 3. Update the lockfile command entry
 4. Update the settings command entry (unless `skipSettings` is true)
 
@@ -17,7 +17,7 @@ For registry-sourced commands, any `resolvedVersion` written to lockfile MUST be
 
 - **WHEN** executing an install-command operation with a registry ref
 - **THEN** the command archive SHALL be fetched from the registry
-- **AND** extracted to `.axm/extensions/@<namespace>/commands/<name>/`
+- **AND** extracted to `.axm/extensions/@<profile>/commands/<name>/`
 - **AND** a command lock entry SHALL be written to the lockfile `commands` section
 - **AND** a command entry SHALL be written to `settings.json` `commands` section
 
@@ -40,11 +40,11 @@ For registry-sourced commands, any `resolvedVersion` written to lockfile MUST be
 
 ### Requirement: Command canonical path
 
-Command extensions SHALL be stored at `.axm/extensions/@<namespace>/commands/<name>/`.
+Command extensions SHALL be stored at `.axm/extensions/@<profile>/commands/<name>/`.
 
 #### Scenario: Canonical path structure
 
-- **WHEN** installing command `formatter` from namespace `@acme`
+- **WHEN** installing command `formatter` from profile `@acme`
 - **THEN** the canonical path SHALL be `.axm/extensions/@acme/commands/formatter/`
 
 ### Requirement: Empty integrity skips validation

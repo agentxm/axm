@@ -65,16 +65,16 @@ export const sanitizeName = (name: string): string => {
 // -----------------------------------------------------------------------------
 
 /**
- * Derive the FQN (`@namespace/skills/name`) for a skill lock entry, if it's a registry entry.
+ * Derive the FQN (`@profile/skills/name`) for a skill lock entry, if it's a registry entry.
  */
 export const getSkillFqn = (
   skillName: string,
-  lockEntry: { type: string; namespace?: string; name?: string } | undefined,
+  lockEntry: { type: string; profile?: string; name?: string } | undefined,
 ): string | undefined => {
-  if (lockEntry?.type === "registry" && lockEntry.namespace && lockEntry.name) {
-    return `${lockEntry.namespace}/skills/${lockEntry.name}`;
+  if (lockEntry?.type === "registry" && lockEntry.profile && lockEntry.name) {
+    return `${lockEntry.profile}/skills/${lockEntry.name}`;
   }
-  // For non-registry entries, the skill name itself may be a FQN (e.g., "@namespace/skills/name")
+  // For non-registry entries, the skill name itself may be a FQN (e.g., "@profile/skills/name")
   return skillName.startsWith("@") ? skillName : undefined;
 };
 

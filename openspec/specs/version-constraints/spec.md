@@ -154,5 +154,5 @@ Extension ownership SHALL be derived from existing data structures, not stored e
 #### Scenario: FQN correlation
 
 - **WHEN** determining ownership of a registry skill lock entry
-- **THEN** the system SHALL construct the FQN from the lock entry's `namespace` and `name` fields (`@{namespace}/{name}`)
+- **THEN** the system SHALL construct the FQN from the lock entry's `profile` and `name` fields (`@{profile}/{name}`)
 - **AND** match it against pack `resolvedSkills` keys

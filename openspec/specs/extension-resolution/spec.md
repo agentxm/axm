@@ -2,12 +2,12 @@
 
 ### Requirement: Input Syntax - AXM Name
 
-The resolution module SHALL recognize fully qualified AXM names in `@namespace/type-plural/name` format and resolve them to `RegistrySource` values (with host config from settings).
+The resolution module SHALL recognize fully qualified AXM names in `@profile/type-plural/name` format and resolve them to `RegistrySource` values (with host config from settings).
 
 #### Scenario: Fully qualified AXM name
 
 - **WHEN** the input is `@wayne/skills/grappling-hook`
-- **THEN** `resolveSource` produces a `RegistrySource` with `namespace: "@wayne"`, `name: "grappling-hook"`, and host config from matched registry
+- **THEN** `resolveSource` produces a `RegistrySource` with `profile: "@wayne"`, `name: "grappling-hook"`, and host config from matched registry
 
 #### Scenario: AXM name with version
 
@@ -20,27 +20,27 @@ The resolution module SHALL recognize fully qualified AXM names in `@namespace/t
 - **THEN** `resolveSource` does NOT produce a `RegistrySource`
 - **AND** the input falls through to other resolution steps
 
-#### Scenario: Namespace-only input
+#### Scenario: Profile-only input
 
 - **WHEN** the input is `@wayne`
-- **THEN** `resolveSource` produces a `RegistrySource` with namespace `@wayne`, no type, no name (browse mode)
+- **THEN** `resolveSource` produces a `RegistrySource` with profile `@wayne`, no type, no name (browse mode)
 
-#### Scenario: Namespace+type input
+#### Scenario: Profile+type input
 
 - **WHEN** the input is `@wayne/skills`
-- **THEN** `resolveSource` produces a `RegistrySource` with namespace `@wayne`, type `skills`, no name (browse mode)
+- **THEN** `resolveSource` produces a `RegistrySource` with profile `@wayne`, type `skills`, no name (browse mode)
 
 ### Requirement: Input Syntax - Bare Name
 
-The resolution module SHALL recognize bare names (no `/`) and resolve them using the implied namespace from settings. The extension type SHALL be determined by the command context (e.g., `axm skills install` implies `skills`).
+The resolution module SHALL recognize bare names (no `/`) and resolve them using the implied profile from settings. The extension type SHALL be determined by the command context (e.g., `axm skills install` implies `skills`).
 
-#### Scenario: Bare name with implied namespace configured
+#### Scenario: Bare name with implied profile configured
 
-- **WHEN** the input is `grappling-hook` and settings has `namespace: "@wayne"`
+- **WHEN** the input is `grappling-hook` and settings has `profile: "@wayne"`
 - **AND** the command context implies type `skills`
 - **THEN** `resolveSource` resolves `@wayne/skills/grappling-hook` as a `RegistrySource`
 
-#### Scenario: Bare name without implied namespace
+#### Scenario: Bare name without implied profile
 
-- **WHEN** the input is `grappling-hook` and no namespace is configured in settings
+- **WHEN** the input is `grappling-hook` and no profile is configured in settings
 - **THEN** `resolveSource` fails or returns empty (no match)

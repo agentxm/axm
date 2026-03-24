@@ -220,7 +220,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
     }),
   );
 
-  it("pack target label includes namespace", () => {
+  it("pack target label includes profile", () => {
     const callOrder: string[] = [];
     const manager: ExtensionManager<PackExtensionRef> = {
       extensionType: "pack",
@@ -242,7 +242,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
     };
 
     const retentionPolicy = makeRetentionPolicy(false, callOrder);
-    const target: PackExtensionTarget = { type: "pack", name: "effect", namespace: "@axm" };
+    const target: PackExtensionTarget = { type: "pack", name: "effect", profile: "@axm" };
     const step = buildUninstallOperation(manager, retentionPolicy, { target });
 
     expect(step.label).toBe("@axm/effect");

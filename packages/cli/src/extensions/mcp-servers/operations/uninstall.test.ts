@@ -60,8 +60,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -144,7 +144,7 @@ const makeOp = (
 
 const makeRegistryLockEntry = (name = "my-server") => ({
   type: "registry" as const,
-  namespace: "@community",
+  profile: "@community",
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -155,7 +155,7 @@ const makeRegistryLockEntry = (name = "my-server") => ({
 
 const makeRegistryLockEntryYaml = (name = "my-server") => ({
   type: "registry",
-  namespace: "@community",
+  profile: "@community",
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -193,23 +193,16 @@ describe("uninstallMcpServer", () => {
     opts: {
       serverName?: string;
       createCanonical?: boolean;
-      namespace?: string;
+      profile?: string;
     } = {},
   ) => {
     const serverName = opts.serverName ?? "my-server";
-    const namespace = opts.namespace ?? "@community";
+    const profile = opts.profile ?? "@community";
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(
-      base,
-      ".axm",
-      "extensions",
-      namespace,
-      "mcp-servers",
-      serverName,
-    );
+    const canonicalPath = path.join(base, ".axm", "extensions", profile, "mcp-servers", serverName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");

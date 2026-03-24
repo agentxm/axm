@@ -27,7 +27,7 @@ import type {
 const registrySource: RegistrySource = {
   type: "registry",
   location: new URL("https://registry.example.com"),
-  namespace: Option.none(),
+  profile: Option.none(),
 };
 
 const makeRegistryMcpServerRef = (name: string): RegistryMcpServerRef => ({
@@ -35,7 +35,7 @@ const makeRegistryMcpServerRef = (name: string): RegistryMcpServerRef => ({
   refType: "registry",
   source: registrySource,
   server: { name },
-  namespace: "@test",
+  profile: "@test",
   name,
   version: "1.0.0",
   integrity: "sha512-abc",

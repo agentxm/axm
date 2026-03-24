@@ -41,6 +41,18 @@ import { classifyError, resolveDiagnosticVerbosity } from "./runtime/error-handl
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
+import { SkillManagerLive } from "./extensions/skills/manager.js";
+import { PackManagerLive } from "./extensions/packs/manager.js";
+import { CommandManagerLive } from "./extensions/commands/manager.js";
+import { McpServerManagerLive } from "./extensions/mcp-servers/manager.js";
+import { InstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/install/command-actions.js";
+import { UninstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/uninstall/command-actions.js";
+import { InstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/install/command-actions.js";
+import { UninstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/uninstall/command-actions.js";
+import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
+import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
+import { InstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/install/command-actions.js";
+import { UninstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/uninstall/command-actions.js";
 
 // Re-export for consumers that import from command-runtime
 export { type EffectCliExit, effectCliExit, isEffectCliExit, outputFormatFlag };
@@ -124,6 +136,24 @@ export const baseLayer = Layer.mergeAll(
   Logger.layer([], { mergeWithExisting: false }),
 );
 
+const extensionManagersLayer = Layer.mergeAll(
+  SkillManagerLive,
+  PackManagerLive,
+  CommandManagerLive,
+  McpServerManagerLive,
+);
+
+const commandWorkflowActionsLayer = Layer.mergeAll(
+  InstallSkillCommandWorkflowActionsLive,
+  UninstallSkillCommandWorkflowActionsLive,
+  InstallPackCommandWorkflowActionsLive,
+  UninstallPackCommandWorkflowActionsLive,
+  InstallCommandCommandWorkflowActionsLive,
+  UninstallCommandCommandWorkflowActionsLive,
+  InstallMcpServerCommandWorkflowActionsLive,
+  UninstallMcpServerCommandWorkflowActionsLive,
+);
+
 // ---------------------------------------------------------------------------
 // Unified command runtime — resolves global flags and provides per-command
 // services (CliFlags, Output/Activity/Input, Telemetry) within the Effect context.
@@ -190,9 +220,7 @@ export const withCommandRuntime = (
 
     // Output/Activity from core, Input added separately (depends on CliFlags)
     const baseUiLayer = makeUiLayer(structuredMode ?? "text");
-    const inputLayer = structuredMode
-      ? InputStructured
-      : Layer.provide(InputLive, cliFlagsLayer);
+    const inputLayer = structuredMode ? InputStructured : Layer.provide(InputLive, cliFlagsLayer);
     const uiLayer = Layer.mergeAll(baseUiLayer, inputLayer);
 
     // Per-command layer: CliFlags + Output/Activity/Input + Telemetry + debug logging
@@ -249,12 +277,16 @@ export const withCommandRuntime = (
         Layer.provideMerge(cliFlagsLayer, CliEnvConfigOrDie),
       );
       const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-      // commandLayer provides Output/Activity/Input services
-      // that wsLayer may depend on, so use provideMerge to satisfy dependencies in order.
-      const fullLayer = Layer.provideMerge(
+      const workspaceCommandLayer = Layer.provideMerge(
         Layer.mergeAll(wsLayer, sourceProvidersLayer),
         commandLayer,
       );
+      const managersLayer = Layer.provide(extensionManagersLayer, workspaceCommandLayer);
+      const workflowActionsLayer = Layer.provide(
+        commandWorkflowActionsLayer,
+        Layer.merge(workspaceCommandLayer, managersLayer),
+      );
+      const fullLayer = Layer.mergeAll(workspaceCommandLayer, managersLayer, workflowActionsLayer);
       yield* catchErrors(program.pipe(Effect.provide(fullLayer), Effect.scoped));
     } else {
       yield* catchErrors(program.pipe(Effect.provide(commandLayer)));

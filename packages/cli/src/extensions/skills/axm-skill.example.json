@@ -1,5 +1,5 @@
 {
-  "namespace": "@acme",
+  "profile": "@acme",
   "type": "skill",
   "name": "code-review",
   "version": "1.0.0",

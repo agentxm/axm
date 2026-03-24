@@ -12,7 +12,7 @@ describe("axm skills list", () => {
     it("lists builtin skills after init", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -33,7 +33,7 @@ describe("axm skills list", () => {
     it("lists installed skills", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -91,7 +91,7 @@ describe("axm skills list", () => {
     it("works with ls alias", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 

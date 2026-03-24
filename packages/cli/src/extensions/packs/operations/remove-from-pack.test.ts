@@ -25,10 +25,10 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
-    configuredNamespace?: string;
+    configuredProfile?: string;
   } = {},
 ): WorkspaceContextService => {
-  const configuredNamespace = opts.configuredNamespace ?? "@myorg";
+  const configuredProfile = opts.configuredProfile ?? "@myorg";
 
   return {
     ...taxonomyStubs,
@@ -40,8 +40,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed(configuredNamespace),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed(configuredProfile),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -106,14 +106,14 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 /** Creates a pack manifest with some skills on disk and returns its content hash. */
 const createPackManifestWithSkills = (
   base: string,
-  namespace: string,
+  profile: string,
   packName: string,
   skills: Record<string, string> = {},
 ) => {
-  const packDir = path.join(base, ".axm", "extensions", namespace, "packs", packName);
+  const packDir = path.join(base, ".axm", "extensions", profile, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
-    namespace,
+    profile,
     type: "pack",
     name: packName,
     version: "0.0.1",
@@ -133,7 +133,7 @@ const makeOp = (
   name: "remove-from-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
-    packNamespace: overrides.packNamespace ?? "@myorg",
+    packProfile: overrides.packProfile ?? "@myorg",
     removals: overrides.removals ?? ["@acme/skills/my-skill"],
     manifestHash: overrides.manifestHash,
   },

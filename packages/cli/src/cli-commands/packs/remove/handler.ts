@@ -30,7 +30,7 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksRemoveHandlerArgs {
-  /** Pack name (without namespace). */
+  /** Pack name (without profile). */
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
@@ -70,16 +70,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     });
   }
 
-  // Resolve pack namespace
+  // Resolve pack profile
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const hasNamespace = packSource.startsWith("@") && packSource.includes("/");
-  const packNamespace = hasNamespace
-    ? packSource.split("/")[0]!
-    : yield* ws.getConfiguredNamespace();
+  const hasProfile = packSource.startsWith("@") && packSource.includes("/");
+  const packProfile = hasProfile ? packSource.split("/")[0]! : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
+  const packDir = computePackPaths(path.join, base, packProfile, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -156,7 +154,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     name: "remove-from-pack",
     args: {
       packName: args.pack,
-      packNamespace,
+      packProfile,
       removals: matchedNames,
       manifestHash,
     },

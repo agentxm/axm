@@ -210,7 +210,7 @@ export const uninstallMcpServer: OperationHandler<
     );
     const lockEntry = Option.getOrUndefined(lockEntryOption);
 
-    // Check if server exists on disk (scan registry extensions dir for any namespace)
+    // Check if server exists on disk (scan registry extensions dir for any profile)
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.serverName);
 
     if (!lockEntry && !installedOnDisk) {
@@ -222,7 +222,7 @@ export const uninstallMcpServer: OperationHandler<
       const canonicalPath = path.join(
         base,
         REGISTRY_EXTENSIONS_DIR,
-        lockEntry.namespace,
+        lockEntry.profile,
         "mcp-servers",
         lockEntry.name,
       );

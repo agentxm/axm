@@ -2,12 +2,12 @@
 
 ### Requirement: Registry directory structure
 
-The registry SHALL use a static-file layout organized by namespace, extension type, and name:
+The registry SHALL use a static-file layout organized by profile, extension type, and name:
 
 ```
 <registry-root>/
   extensions/
-    @<namespace>/
+    @<profile>/
       <skills|mcp-servers|packs>/
         <name>/
           index.json
@@ -36,7 +36,7 @@ The registry SHALL use a static-file layout organized by namespace, extension ty
 
 ### Requirement: Extension type as directory segment
 
-The registry layout SHALL include the extension type (`skills`, `mcp-servers`, or `packs`) as a directory segment between namespace and name. Extension identity remains `@namespace/name` (type is not part of identity).
+The registry layout SHALL include the extension type (`skills`, `mcp-servers`, or `packs`) as a directory segment between profile and name. Extension identity remains `@profile/name` (type is not part of identity).
 
 #### Scenario: Same name, different types coexist
 
@@ -57,8 +57,8 @@ The registry layout SHALL include the extension type (`skills`, `mcp-servers`, o
 
 Each extension SHALL have an `index.json` conforming to the `ExtensionIndex` schema:
 
-- `name`: string (extension name without namespace)
-- `namespace`: string (including `@` prefix)
+- `name`: string (extension name without profile)
+- `profile`: string (including `@` prefix)
 - `type`: `"skill" | "mcp-server" | "pack"`
 - `description`: optional string
 - `repository`: optional string
@@ -71,18 +71,18 @@ Each `VersionEntry` SHALL contain:
 - `version`: semver version string
 - `published`: ISO 8601 timestamp
 - `agents`: array of agent identifier strings
-- `dependencies`: optional map of `@namespace/name` to semver range
+- `dependencies`: optional map of `@profile/name` to semver range
 - `engines`: optional map of engine constraints
 - `integrity`: archive integrity in SRI format (`sha512-<base64>`)
 
 #### Scenario: Valid index with multiple versions
 
-- **WHEN** `index.json` contains `name: "code-review"`, `namespace: "@acme"`, `type: "skill"`, and two version entries
+- **WHEN** `index.json` contains `name: "code-review"`, `profile: "@acme"`, `type: "skill"`, and two version entries
 - **THEN** schema validation succeeds and versions are ordered newest first
 
 #### Scenario: Valid pack index
 
-- **WHEN** `index.json` contains `name: "frontend-tools"`, `namespace: "@acme"`, `type: "pack"`, and one version entry
+- **WHEN** `index.json` contains `name: "frontend-tools"`, `profile: "@acme"`, `type: "pack"`, and one version entry
 - **THEN** schema validation succeeds
 
 #### Scenario: Missing required field

@@ -1,7 +1,7 @@
 /**
  * Tests for LocalRegistryClient.
  *
- * Tests all 5 client methods: getExtensionsByScope, namespaceExists,
+ * Tests all 5 client methods: getExtensionsByScope, profileExists,
  * getExtensionPackage, publishExtension, extensionExists.
  */
 
@@ -21,7 +21,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { computeIntegrity } from "../utils/integrity.js";
 import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
-import type { GetExtensionsByNamespaceArgs } from "./client.js";
+import type { GetExtensionsByProfileArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";
@@ -47,14 +47,14 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 
 const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   name: "my-skill",
-  namespace: "@test",
+  profile: "@test",
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
 });
 
-const defaultSearchOptions: GetExtensionsByNamespaceArgs = {
-  namespace: "@test",
+const defaultSearchOptions: GetExtensionsByProfileArgs = {
+  handle: "@test",
   names: [],
   types: ["skill"],
   limit: Option.none(),
@@ -121,7 +121,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       expect(result.extensions[0]!.type).toBe("skill");
       expect(result.extensions[0]!.name).toBe("my-skill");
       expect(result.extensions[0]!.version).toBe("1.0.0");
-      expect(result.extensions[0]!.namespace).toBe("@test");
+      expect(result.extensions[0]!.profile).toBe("@test");
       expect(result.total).toBe(1);
     }).pipe(
       Effect.ensuring(
@@ -213,7 +213,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
     );
   });
 
-  it.effect("filters by namespace when namespace is provided", () => {
+  it.effect("filters by profile when profile is provided", () => {
     const registryRoot = makeRegistryDir();
     const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "skill-a");
     const otherSkillDir = nodePath.join(registryRoot, "extensions", "@other", "skills", "skill-a");
@@ -223,23 +223,23 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       yield* fs.makeDirectory(scopedSkillDir, { recursive: true });
       yield* fs.writeFileString(
         nodePath.join(scopedSkillDir, "index.json"),
-        JSON.stringify(makeIndex({ namespace: "@test", name: "skill-a" })),
+        JSON.stringify(makeIndex({ profile: "@test", name: "skill-a" })),
       );
       yield* fs.makeDirectory(otherSkillDir, { recursive: true });
       yield* fs.writeFileString(
         nodePath.join(otherSkillDir, "index.json"),
-        JSON.stringify(makeIndex({ namespace: "@other", name: "skill-a" })),
+        JSON.stringify(makeIndex({ profile: "@other", name: "skill-a" })),
       );
 
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
-        namespace: "@test",
+        handle: "@test",
         names: ["skill-a"],
       });
 
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.namespace).toBe("@test");
+      expect(result.extensions[0]!.profile).toBe("@test");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -341,11 +341,11 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistryClient.namespaceExists
+// LocalRegistryClient.profileExists
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistryClient.namespaceExists", () => {
-  it.effect("returns true when namespace directory exists", () => {
+describe("LocalRegistryClient.profileExists", () => {
+  it.effect("returns true when profile directory exists", () => {
     const registryRoot = makeRegistryDir();
     const scopeDir = nodePath.join(registryRoot, "extensions", "@test", "skills");
 
@@ -354,7 +354,7 @@ describe("LocalRegistryClient.namespaceExists", () => {
       yield* fs.makeDirectory(scopeDir, { recursive: true });
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.namespaceExists("@test");
+      const result = yield* client.profileExists("@test");
       expect(result.exists).toBe(true);
     }).pipe(
       Effect.ensuring(
@@ -364,12 +364,12 @@ describe("LocalRegistryClient.namespaceExists", () => {
     );
   });
 
-  it.effect("returns false when namespace directory does not exist", () => {
+  it.effect("returns false when profile directory does not exist", () => {
     const registryRoot = makeRegistryDir();
 
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.namespaceExists("@missing");
+      const result = yield* client.profileExists("@missing");
       expect(result.exists).toBe(false);
     }).pipe(
       Effect.ensuring(
@@ -397,7 +397,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("1.0.0"),
@@ -428,7 +428,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.none(),
@@ -468,7 +468,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("^0.1.0"),
@@ -490,7 +490,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client
         .getExtensionPackage({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "missing",
           version: Option.some("1.0.0"),
@@ -523,7 +523,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client
         .getExtensionPackage({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "my-skill",
           version: Option.none(),
@@ -557,7 +557,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -569,7 +569,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
       const index = JSON.parse(indexContent) as ExtensionIndex;
       expect(index.name).toBe("my-skill");
-      expect(index.namespace).toBe("@test");
+      expect(index.profile).toBe("@test");
       expect(index.versions).toHaveLength(1);
       expect(index.versions[0]!.version).toBe("1.0.0");
 
@@ -605,7 +605,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: "2.0.0",
@@ -636,7 +636,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       const publishArgs = {
-        namespace: "@test" as const,
+        handle: "@test" as const,
         type: "skill" as const,
         name: "my-skill",
         version: "1.0.0",
@@ -671,7 +671,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -681,7 +681,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const result = yield* client
         .publishExtension({
-          namespace: "@test",
+          handle: "@test",
           type: "skill",
           name: "my-skill",
           version: "1.0.0",
@@ -719,7 +719,7 @@ describe("LocalRegistryClient.extensionExists", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.extensionExists({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
       });
@@ -738,7 +738,7 @@ describe("LocalRegistryClient.extensionExists", () => {
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.extensionExists({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "nonexistent",
       });
@@ -764,7 +764,7 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+              extensions: [{ profile: "@test", type: "skill", name: "my-skill" }],
             }),
             { status: 200 },
           ),
@@ -776,7 +776,7 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+              extensions: [{ profile: "@test", type: "skill", name: "my-skill" }],
             }),
             { status: 200 },
           ),
@@ -788,7 +788,7 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              namespace: "@test",
+              profile: "@test",
               type: "skill",
               name: "my-skill",
               versions: [
@@ -824,9 +824,9 @@ describe("RemoteRegistryClient", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("namespaceExists succeeds via remote list semantics", () =>
+  it.effect("profileExists succeeds via remote list semantics", () =>
     Effect.gen(function* () {
-      const result = yield* client.namespaceExists("@test");
+      const result = yield* client.profileExists("@test");
       expect(result).toEqual({ exists: true });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -834,7 +834,7 @@ describe("RemoteRegistryClient", () => {
   it.effect("getExtensionPackage succeeds via index + archive", () =>
     Effect.gen(function* () {
       const result = yield* client.getExtensionPackage({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("1.0.0"),
@@ -858,7 +858,7 @@ describe("RemoteRegistryClient", () => {
         publishHttpClient,
       );
       const result = yield* publishClient.publishExtension({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -872,7 +872,7 @@ describe("RemoteRegistryClient", () => {
   it.effect("extensionExists succeeds for remote client", () =>
     Effect.gen(function* () {
       const result = yield* client.extensionExists({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
       });
@@ -938,7 +938,7 @@ describe("createRegistryClient", () => {
     Effect.gen(function* () {
       const client = yield* createRegistryClient("https://registry.example.com");
       expect(typeof client.getExtensionsByScope).toBe("function");
-      expect(typeof client.namespaceExists).toBe("function");
+      expect(typeof client.profileExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );
@@ -966,7 +966,7 @@ describe("createRegistryClient", () => {
       const integrity = yield* computeIntegrity(archive);
 
       yield* client.publishExtension({
-        namespace: "@test",
+        handle: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -986,7 +986,7 @@ describe("createRegistryClient", () => {
     Effect.gen(function* () {
       const client = yield* createRegistryClient("http://registry.example.com");
       expect(typeof client.getExtensionsByScope).toBe("function");
-      expect(typeof client.namespaceExists).toBe("function");
+      expect(typeof client.profileExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );

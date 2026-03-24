@@ -10,19 +10,19 @@ The `axm skills new` command scaffolds a new managed skill with manifest, starte
 
 The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
-#### Scenario: Create a skill with default namespace
+#### Scenario: Create a skill with default profile
 
 - **WHEN** the user runs `axm skills new my-skill`
-- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-namespace>/skills/my-skill/`
-- **AND** writes an `axm-skill.json` manifest with `name` set to `@<configured-namespace>/my-skill` and `version` set to `0.0.1`
+- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-profile>/skills/my-skill/`
+- **AND** writes an `axm-skill.json` manifest with `name` set to `@<configured-profile>/my-skill` and `version` set to `0.0.1`
 - **AND** creates `src/SKILL.md` with a starter template
 - **AND** registers the skill in `settings.json` as a managed entry
 - **AND** creates symlinks in all configured agent skill directories pointing to the `src/` subdirectory
 
-#### Scenario: Create a skill with explicit namespace
+#### Scenario: Create a skill with explicit profile
 
-- **WHEN** the user runs `axm skills new my-skill --namespace @acme`
-- **THEN** the CLI uses `@acme` as the namespace instead of the workspace-configured namespace
+- **WHEN** the user runs `axm skills new my-skill --profile @acme`
+- **THEN** the CLI uses `@acme` as the profile instead of the workspace-configured profile
 - **AND** the skill directory is `.axm/extensions/@acme/skills/my-skill/`
 - **AND** the manifest `name` is `@acme/my-skill`
 
@@ -38,11 +38,11 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 - **THEN** the CLI fails with an error indicating the skill already exists
 - **AND** no files are created or modified
 
-#### Scenario: No namespace configured and no --namespace flag
+#### Scenario: No profile configured and no --profile flag
 
-- **WHEN** the user runs `axm skills new my-skill` and no namespace is configured (or namespace is `@community`)
-- **THEN** the CLI fails with an error indicating a namespace is required
-- **AND** suggests using `--namespace` or configuring a namespace via `axm init`
+- **WHEN** the user runs `axm skills new my-skill` and no profile is configured (or profile is `@community`)
+- **THEN** the CLI fails with an error indicating a profile is required
+- **AND** suggests using `--profile` or configuring a profile via `axm init`
 
 ### Requirement: Starter SKILL.md template
 

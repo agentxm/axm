@@ -24,7 +24,7 @@ import {
 const makeRegistryPackRef = (
   name: string,
   opts?: {
-    namespace?: string;
+    profile?: string;
     skills?: Readonly<Record<string, string>>;
     commands?: Readonly<Record<string, string>>;
     mcpServers?: Readonly<Record<string, string>>;
@@ -32,14 +32,14 @@ const makeRegistryPackRef = (
 ): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
-  namespace: opts?.namespace ?? "@acme",
+  profile: opts?.profile ?? "@acme",
   pack: {
     name,
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
-  source: { type: "registry", location: new URL("file:///tmp/reg"), namespace: Option.none() },
+  source: { type: "registry", location: new URL("file:///tmp/reg"), profile: Option.none() },
   name,
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -48,13 +48,13 @@ const makeRegistryPackRef = (
 const makeBuiltinPackRef = (
   name: string,
   opts?: {
-    namespace?: string;
+    profile?: string;
     skills?: Readonly<Record<string, string>>;
   },
 ): BuiltinPackRef => ({
   type: "pack",
   refType: "builtin",
-  namespace: opts?.namespace ?? "@axm",
+  profile: opts?.profile ?? "@axm",
   pack: {
     name,
     skills: opts?.skills ?? {},
@@ -64,10 +64,10 @@ const makeBuiltinPackRef = (
   source: { type: "builtin" },
 });
 
-const makePackTarget = (name: string, namespace = "@acme"): PackExtensionTarget => ({
+const makePackTarget = (name: string, profile = "@acme"): PackExtensionTarget => ({
   type: "pack",
   name,
-  namespace,
+  profile,
 });
 
 const emptyLockfile: Lockfile = {
@@ -239,7 +239,7 @@ describe("expandPackInstallRefs", () => {
 
   it("works with builtin pack refs", () => {
     const ref = makeBuiltinPackRef("cli", {
-      namespace: "@axm",
+      profile: "@axm",
       skills: { "@axm/skills/manage-skills": "0.0.1" },
     });
     const result = Effect.runSync(
@@ -266,7 +266,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
@@ -299,7 +299,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
@@ -333,7 +333,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
@@ -346,7 +346,7 @@ describe("expandPackUninstallTargets", () => {
         },
         "other-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "other-pack",
           resolvedVersion: "2.0.0",
           integrity: "sha512-def",
@@ -380,7 +380,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
@@ -418,7 +418,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
@@ -468,7 +468,7 @@ describe("expandPackUninstallTargets", () => {
       packs: {
         "my-pack": {
           type: "registry",
-          namespace: "@acme",
+          profile: "@acme",
           name: "my-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",

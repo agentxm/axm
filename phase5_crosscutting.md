@@ -12,15 +12,15 @@ Full flow (init -> install -> list -> disable -> update -> enable -> rename -> u
 
 ### Adapted flow: init -> new -> list -> disable -> enable -> rename -> update
 
-| #   | Step    | Command                                                  | Exit | Result                                                                    |
-| --- | ------- | -------------------------------------------------------- | ---- | ------------------------------------------------------------------------- |
-| 1   | Init    | `axm init --yes --agent claude-code`                     | 0    | PASS -- workspace created                                                 |
-| 2   | New     | `axm skills new lifecycle-skill --namespace @test --yes` | 0    | PASS -- skill created with symlink, settings entry, manifest              |
-| 3   | List    | `axm skills list`                                        | 0    | ISSUE -- skill NOT shown (only lockfile-backed skills listed)             |
-| 4   | Disable | `axm skills disable lifecycle-skill --yes`               | 0    | ISSUE -- settings toggled to `enabled: false`, but symlink NOT removed    |
-| 5   | Enable  | `axm skills enable lifecycle-skill --yes`                | 0    | PARTIAL -- settings collapsed to string, symlink was never removed        |
-| 6   | Rename  | `axm skills rename lifecycle-skill renamed-skill --yes`  | 0    | FAIL -- "Lock entry not found" (settings-only skills cannot be renamed)   |
-| 7   | Update  | `axm skills update --yes`                                | 1    | FAIL -- "All source re-resolutions failed" (no lockfile entry to resolve) |
+| #   | Step    | Command                                                 | Exit | Result                                                                    |
+| --- | ------- | ------------------------------------------------------- | ---- | ------------------------------------------------------------------------- |
+| 1   | Init    | `axm init --yes --agent claude-code`                    | 0    | PASS -- workspace created                                                 |
+| 2   | New     | `axm skills new lifecycle-skill --profile @test --yes`  | 0    | PASS -- skill created with symlink, settings entry, manifest              |
+| 3   | List    | `axm skills list`                                       | 0    | ISSUE -- skill NOT shown (only lockfile-backed skills listed)             |
+| 4   | Disable | `axm skills disable lifecycle-skill --yes`              | 0    | ISSUE -- settings toggled to `enabled: false`, but symlink NOT removed    |
+| 5   | Enable  | `axm skills enable lifecycle-skill --yes`               | 0    | PARTIAL -- settings collapsed to string, symlink was never removed        |
+| 6   | Rename  | `axm skills rename lifecycle-skill renamed-skill --yes` | 0    | FAIL -- "Lock entry not found" (settings-only skills cannot be renamed)   |
+| 7   | Update  | `axm skills update --yes`                               | 1    | FAIL -- "All source re-resolutions failed" (no lockfile entry to resolve) |
 
 ### Blocked steps
 
@@ -78,7 +78,7 @@ Full flow (init -> install -> list -> disable -> update -> enable -> rename -> u
 | #   | Step                  | Command                                                                                  | Exit | Result                                          |
 | --- | --------------------- | ---------------------------------------------------------------------------------------- | ---- | ----------------------------------------------- |
 | 1   | Init                  | `axm init --yes --agent claude-code`                                                     | 0    | PASS                                            |
-| 2   | New                   | `axm skills new registry-skill --namespace @test --yes`                                  | 0    | PASS                                            |
+| 2   | New                   | `axm skills new registry-skill --profile @test --yes`                                    | 0    | PASS                                            |
 | 3   | Configure registry    | Manual: add `sources` array with `file://` registry                                      | --   | OK                                              |
 | 4   | Publish               | `axm skills publish @test/skills/registry-skill --registry local --yes` (with AXM_TOKEN) | 0    | PASS -- index.json and .zip created in registry |
 | 5   | Install from registry | `axm skills install @test/skills/registry-skill --yes`                                   | 1    | BLOCKED -- INSTALL-1                            |
@@ -100,7 +100,7 @@ Fork pipeline works end-to-end but lockfile fidelity issues persist (FORK-1, FOR
 
 - **Publish requires `--registry <name>`** where `<name>` matches a source in the settings `sources` array with `type: "registry"`. A plain `registry` key in settings (e.g., `"registry": "file://..."`) is NOT used by publish.
 - **Fork uses the first configured registry** source automatically; no `--registry` flag needed.
-- **Fork does not have `--namespace` or `--registry` flags**; it uses `@community` as the default namespace.
+- **Fork does not have `--profile` or `--registry` flags**; it uses `@community` as the default profile.
 
 ---
 
@@ -128,11 +128,11 @@ All 10 subcommands listed: install, uninstall, list (alias: ls), new, fork, publ
 
 ### Multi-agent symlinks
 
-| Test               | Command                                                    | Result                                        |
-| ------------------ | ---------------------------------------------------------- | --------------------------------------------- |
-| Init with 2 agents | `axm init --yes --agent claude-code --agent cursor`        | PASS                                          |
-| Create skill       | `axm skills new multi-agent-skill --namespace @test --yes` | PASS                                          |
-| Verify symlinks    | Check `.claude/skills/` and `.cursor/skills/`              | PASS -- both have `multi-agent-skill` symlink |
+| Test               | Command                                                  | Result                                        |
+| ------------------ | -------------------------------------------------------- | --------------------------------------------- |
+| Init with 2 agents | `axm init --yes --agent claude-code --agent cursor`      | PASS                                          |
+| Create skill       | `axm skills new multi-agent-skill --profile @test --yes` | PASS                                          |
+| Verify symlinks    | Check `.claude/skills/` and `.cursor/skills/`            | PASS -- both have `multi-agent-skill` symlink |
 
 Multi-agent symlink creation works correctly across both configured agents.
 

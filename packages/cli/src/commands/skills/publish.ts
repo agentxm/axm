@@ -11,7 +11,7 @@ export const publishCommand = Command.make(
   {
     extensions: Argument.string("extensions").pipe(
       Argument.withDescription(
-        "Extension names or glob patterns (@namespace/skills/name, bare name, or glob)",
+        "Extension names or glob patterns (@profile/skills/name, bare name, or glob)",
       ),
       Argument.atLeast(1),
     ),
@@ -42,7 +42,7 @@ export const publishCommand = Command.make(
     },
     {
       command: "axm skills publish code-review --registry local",
-      description: "Publish with namespace from settings to the local registry",
+      description: "Publish with profile from settings to the local registry",
     },
   ]),
 );

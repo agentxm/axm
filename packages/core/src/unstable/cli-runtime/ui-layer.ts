@@ -16,9 +16,7 @@ import { ActivityStructured } from "../activity/activity-structured.js";
  * Does NOT include Input — callers add InputLive/InputStructured separately
  * since InputLive depends on CliFlags.
  */
-export const makeUiLayer = (
-  format: OutputFormat,
-): Layer.Layer<Output | Activity> =>
+export const makeUiLayer = (format: OutputFormat): Layer.Layer<Output | Activity> =>
   format === "text"
     ? Layer.mergeAll(OutputLive("text"), ActivityLive)
     : Layer.mergeAll(

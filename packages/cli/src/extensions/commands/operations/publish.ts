@@ -37,7 +37,7 @@ import { parseFqn } from "../../index.js";
  * Args for the publish-command operation.
  */
 export type PublishCommandOperationArgs = {
-  /** Extension identity in `@namespace/commands/name` FQN format. */
+  /** Extension identity in `@profile/commands/name` FQN format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;
@@ -76,13 +76,7 @@ export const publishCommand: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the extension directory
-    const extensionDir = path.join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.namespace,
-      "commands",
-      fqn.name,
-    );
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.handle, "commands", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -163,7 +157,7 @@ export const publishCommand: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        namespace: fqn.namespace,
+        handle: fqn.handle,
         type: "command",
         name: fqn.name,
         version: manifest.version,

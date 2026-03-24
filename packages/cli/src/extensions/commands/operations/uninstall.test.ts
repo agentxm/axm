@@ -57,8 +57,8 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredNamespace: () => Effect.succeed("@community"),
-    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    getConfiguredProfile: () => Effect.succeed("@community"),
+    getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -137,7 +137,7 @@ const makeOp = (overrides: { commandName?: string } = {}): UninstallCommandOpera
 
 const makeRegistryLockEntry = () => ({
   type: "registry" as const,
-  namespace: "@community",
+  profile: "@community",
   name: "my-command",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -148,7 +148,7 @@ const makeRegistryLockEntry = () => ({
 
 const makeRegistryLockEntryYaml = () => ({
   type: "registry",
-  namespace: "@community",
+  profile: "@community",
   name: "my-command",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -185,16 +185,16 @@ describe("uninstallCommand", () => {
     opts: {
       commandName?: string;
       createCanonical?: boolean;
-      namespace?: string;
+      profile?: string;
     } = {},
   ) => {
     const commandName = opts.commandName ?? "my-command";
-    const namespace = opts.namespace ?? "@community";
+    const profile = opts.profile ?? "@community";
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, ".axm", "extensions", namespace, "commands", commandName);
+    const canonicalPath = path.join(base, ".axm", "extensions", profile, "commands", commandName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "run.sh"), "#!/bin/bash");

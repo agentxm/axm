@@ -1,7 +1,7 @@
 /**
  * Unit tests for the publish command handler.
  *
- * Tests the registry guard -> namespace resolution -> validation -> plan build -> apply flow.
+ * Tests the registry guard -> profile resolution -> validation -> plan build -> apply flow.
  */
 
 import * as fs from "node:fs";
@@ -48,7 +48,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      namespace: "@test",
+      profile: "@test",
       agents: ["claude-code"],
       sources: sources ?? [
         { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },
@@ -65,16 +65,16 @@ const initWorkspace = (
 /** Create an extension in .axm/extensions/ with a manifest at root and content in src/. */
 const createManagedExtension = (
   tempDir: string,
-  namespace: string,
+  profile: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const extDir = path.join(tempDir, ".axm", "extensions", namespace, "skills", name);
+  const extDir = path.join(tempDir, ".axm", "extensions", profile, "skills", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
-    namespace,
+    profile,
     type: "skill",
     name,
     version: manifest["version"] ?? "0.0.1",
@@ -235,12 +235,12 @@ describe("publish.handler", () => {
     });
   });
 
-  describe("bare name namespace resolution", () => {
-    it.effect("resolves bare name using namespace from settings", () => {
+  describe("bare name profile resolution", () => {
+    it.effect("resolves bare name using profile from settings", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create extension under @test namespace
+      // Create extension under @test profile
       createManagedExtension(tempDir, "@test", "code-review", {
         name: "@test/skills/code-review",
         version: "0.1.0",
@@ -251,12 +251,12 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Pass bare name without namespace
+          // Pass bare name without profile
           yield* handlePublish(defaultArgs(["code-review"]));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Should have published under @test namespace
+          // Should have published under @test profile
           const registryIndexPath = path.join(
             registryRoot,
             "extensions",

@@ -24,13 +24,13 @@ describe("axm skills install from local registry (via fork)", () => {
       // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-      // Set up registry source and namespace in settings
+      // Set up registry source and profile in settings
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.namespace = "@test";
+      settings.profile = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install a skill from local source first
@@ -82,7 +82,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const entry = lock.skills["my-skill"];
       expect(entry.type).toBe("registry");
-      expect(entry.namespace).toBe("@test");
+      expect(entry.profile).toBe("@test");
       expect(entry.name).toBe("my-skill");
       expect(entry.resolvedVersion).toBeDefined();
       expect(entry.agents).toContain("claude-code");
@@ -99,7 +99,7 @@ describe("axm skills install from local registry (via fork)", () => {
     const registryDir = createTempDir("axm-registry-");
     try {
       // Initialize workspace
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
       // Set up registry source
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -107,7 +107,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.namespace = "@test";
+      settings.profile = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install and fork
@@ -131,7 +131,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const index = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
       expect(index.name).toBe("my-skill");
-      expect(index.namespace).toBe("@test");
+      expect(index.profile).toBe("@test");
       expect(index.type).toBe("skill");
       expect(index.versions).toBeDefined();
       expect(index.versions.length).toBeGreaterThan(0);
@@ -163,13 +163,13 @@ describe("axm skills install from local registry (via fork)", () => {
       // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-      // Set up registry source and namespace in settings
+      // Set up registry source and profile in settings
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.namespace = "@test";
+      settings.profile = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install a skill from local source, then fork to publish to registry
@@ -196,7 +196,7 @@ describe("axm skills install from local registry (via fork)", () => {
       );
       expect(fs.existsSync(extensionDir)).toBe(false);
 
-      // Fresh install from registry using @namespace/name syntax
+      // Fresh install from registry using @profile/name syntax
       const registryInstallResult = await runCli(
         ["skills", "install", "@test/skills/my-skill", "--yes"],
         { cwd: temp.path },
@@ -240,7 +240,7 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.sources = [
         { name: "local", type: "registry", location: `file://${registryDir.path}` },
       ];
-      settings.namespace = "@test";
+      settings.profile = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {

@@ -2,7 +2,7 @@ lockfileVersion: 1
 skills:
   effect-basics:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-basics
     resolvedVersion: 0.1.0
     integrity: sha512-2Ao4ooCniNx1CBYkjfBItiHgh3mreKEf5J5MHb9ZoEAm3o8uO6/Vg4KnpNeVs58y9kxflBu7FpPFJ8cGy+xdLw==
@@ -20,7 +20,7 @@ skills:
     updatedAt: 2026-02-26T00:26:50.019Z
   effect-testing:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-testing
     resolvedVersion: 0.1.0
     integrity: sha512-LflY6DVMMaR5R6hA4YXQM+LL+1yBLAsKCgYiA3bTmblMXMiQ3Ay9tx4igLLAkiwQ8s9NWsa3dwQ9a5hd1Ic2Fg==
@@ -38,7 +38,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.658Z
   effect-wrapping:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-wrapping
     resolvedVersion: 0.1.0
     integrity: sha512-CqBy9dmp88jeX04Ozmvn6dMSxBhYEfddpCrV9Ayr0eHOQxbR0dtV4EjOQmBSgKeZdWNdjd4GTo6DHDUMFfbj9g==
@@ -56,7 +56,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.673Z
   effect-schema:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-schema
     resolvedVersion: 0.1.0
     integrity: sha512-K1KV/YywK5DDxAIywxiNZjX/BGg4TmyIy5uQuJhp+pX9bIBRDBZSk6Bzre2rrerIBNxEwqIOoGRKvyKaPBUCQQ==
@@ -74,7 +74,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.687Z
   effect-service:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-service
     resolvedVersion: 0.1.0
     integrity: sha512-qlxyxxYEATcEQqJnFPpxAcANaxVHNve8Fvc+PuiLfocq6224VUJd+MK9UfRoLR6Zi/12AO+hQR5MV+fyG3GAeA==
@@ -92,7 +92,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.699Z
   effect-collections:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-collections
     resolvedVersion: 0.1.0
     integrity: sha512-L5M1Sx0c7b2LKw+VhJgxNQzlnXmmJOWDSG2HuA3oPlPHYwtK3kY1vzdMYzJ3vUHa3qvRSkZ9KC0s7xRxl78eAg==
@@ -110,7 +110,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.714Z
   effect-iteration:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-iteration
     resolvedVersion: 0.1.0
     integrity: sha512-OTTWgR4j0pxFi33F6d7ax6pEOyDdBA7XDOhHPN82PGsz99zVza0f3nuVZ8cyOA1rI8qV3g49xaehYD4DH4NdfQ==
@@ -128,7 +128,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.727Z
   effect-option:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-option
     resolvedVersion: 0.1.0
     integrity: sha512-sAXv1qv3RPvIzqmXK0f/UT8zN9kUOrdWxw9i9V13KLhmH+XZ5kdVzW3ZbGgXFUSLolqGiBVeb264bJosyvbDAw==
@@ -146,7 +146,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.740Z
   effect-filesystem:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-filesystem
     resolvedVersion: 0.1.0
     integrity: sha512-qhx5+hVSwvRM68GBM7MIlYJLTrosBdi9KkmQecg6p+IazKZm6TPVjP4d3dc9iQYXlq/27RALO1kNX73DRqlf+A==
@@ -164,7 +164,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.756Z
   effect-concurrency:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-concurrency
     resolvedVersion: 0.1.0
     integrity: sha512-L11hzC/bVVJAdHtUtUEhwlT3MIC9s1rNTWdAACSAn4GNgRvq33Q37pawR9Kg5+yoOD0E1s/zHnMld/H0UT385w==
@@ -182,7 +182,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.771Z
   effect-stream:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect-stream
     resolvedVersion: 0.1.0
     integrity: sha512-NBWxUjDQUm3DwTgptWkYwdyOmAw/JK4ZocOVTvxDkJ8LBJJnX5HUCExZG0hbRwX5exRcAidgOd3Jeajr/W/shg==
@@ -200,7 +200,7 @@ skills:
     updatedAt: 2026-02-26T00:41:57.786Z
   code-review:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: code-review
     resolvedVersion: 0.1.0
     integrity: ""
@@ -221,7 +221,7 @@ mcpServers: {}
 packs:
   effect:
     type: registry
-    namespace: "@axm"
+    profile: "@axm"
     name: effect
     resolvedVersion: 0.0.1
     integrity: sha512-hzLOcG7SubPJqyL9Y0F8pV2g0MC/8K3wYhXgKzvSn7miYyYJ8mbHYMJneyMiOGd6ahxMQZOlgcmeYO38y6tsWQ==

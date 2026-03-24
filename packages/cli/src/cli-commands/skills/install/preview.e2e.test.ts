@@ -21,7 +21,7 @@ describe("axm skills install --preview integration", () => {
       const temp = createTempDir();
       try {
         // Initialize first
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -59,7 +59,7 @@ describe("axm skills install --preview integration", () => {
     it("running preview multiple times produces consistent results", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 

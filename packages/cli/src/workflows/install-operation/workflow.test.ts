@@ -28,7 +28,7 @@ import {
 const registrySource: RegistrySource = {
   type: "registry",
   location: new URL("https://registry.example.com"),
-  namespace: Option.none(),
+  profile: Option.none(),
 };
 
 const makeSkillRef = (name: string): SkillExtensionRef => ({
@@ -36,7 +36,7 @@ const makeSkillRef = (name: string): SkillExtensionRef => ({
   refType: "registry",
   source: registrySource,
   skill: { name, description: Option.none(), metadata: Option.none() },
-  namespace: "test",
+  profile: "test",
   name: "test-skill",
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -47,7 +47,7 @@ const makeCommandRef = (name: string): CommandExtensionRef => ({
   refType: "registry",
   source: registrySource,
   command: { name },
-  namespace: "test",
+  profile: "test",
   name: "test-command",
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -58,18 +58,18 @@ const makeMcpServerRef = (name: string): McpServerExtensionRef => ({
   refType: "registry",
   source: registrySource,
   server: { name },
-  namespace: "test",
+  profile: "test",
   name: "test-server",
   version: "1.0.0",
   integrity: "sha512-abc",
 });
 
-const makePackRef = (name: string, namespace: string): PackExtensionRef => ({
+const makePackRef = (name: string, profile: string): PackExtensionRef => ({
   type: "pack",
   refType: "registry",
   source: registrySource,
   pack: { name, skills: {}, commands: {}, mcpServers: {} },
-  namespace,
+  profile,
   name: "test-pack",
   version: "1.0.0",
   integrity: "sha512-abc",
@@ -98,10 +98,10 @@ describe("targetFromRef", () => {
     expect(target).toEqual({ type: "mcp-server", name: "db-connector" });
   });
 
-  it("creates a pack target (with namespace) from a pack ref", () => {
+  it("creates a pack target (with profile) from a pack ref", () => {
     const ref = makePackRef("effect", "@axm");
     const target = targetFromRef(ref);
-    expect(target).toEqual({ type: "pack", name: "effect", namespace: "@axm" });
+    expect(target).toEqual({ type: "pack", name: "effect", profile: "@axm" });
   });
 });
 
@@ -121,8 +121,8 @@ describe("toLabel", () => {
     expect(toLabel(target)).toBe("db-connector");
   });
 
-  it("returns namespace/name for pack target", () => {
-    const target: ExtensionTarget = { type: "pack", name: "effect", namespace: "@axm" };
+  it("returns profile/name for pack target", () => {
+    const target: ExtensionTarget = { type: "pack", name: "effect", profile: "@axm" };
     expect(toLabel(target)).toBe("@axm/effect");
   });
 });
@@ -257,7 +257,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
     }),
   );
 
-  it.effect("works with pack refs (label includes namespace)", () =>
+  it.effect("works with pack refs (label includes profile)", () =>
     Effect.gen(function* () {
       const callOrder: string[] = [];
       const manager: ExtensionManager<PackExtensionRef> = {

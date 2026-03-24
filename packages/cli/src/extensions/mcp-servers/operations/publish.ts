@@ -37,7 +37,7 @@ import { parseFqn } from "../../index.js";
  * Args for the publish-mcp-server operation.
  */
 export type PublishMcpServerOperationArgs = {
-  /** Extension identity in `@namespace/mcp-servers/name` FQN format. */
+  /** Extension identity in `@profile/mcp-servers/name` FQN format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;
@@ -82,7 +82,7 @@ export const publishMcpServer: OperationHandler<
     const extensionDir = path.join(
       base,
       REGISTRY_EXTENSIONS_DIR,
-      fqn.namespace,
+      fqn.handle,
       "mcp-servers",
       fqn.name,
     );
@@ -166,7 +166,7 @@ export const publishMcpServer: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        namespace: fqn.namespace,
+        handle: fqn.handle,
         type: "mcp-server",
         name: fqn.name,
         version: manifest.version,

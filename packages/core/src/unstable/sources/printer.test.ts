@@ -81,7 +81,7 @@ describe("printSourceParams", () => {
   it("prints registry source", () => {
     const source = makeSourceParams({
       type: "registry",
-      namespace: Option.none(),
+      profile: Option.none(),
     });
     expect(printSourceParams(source)).toBe("registry");
   });
@@ -290,7 +290,7 @@ describe("lockEntryToSourceParams", () => {
     const source = lockEntryToSourceParams(
       makeLockEntry({
         type: "registry",
-        namespace: "@acme",
+        profile: "@acme",
         name: "widgets",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc",
@@ -300,7 +300,7 @@ describe("lockEntryToSourceParams", () => {
     );
     expect(source).toEqual({
       type: "registry",
-      namespace: Option.none(),
+      profile: Option.none(),
     });
   });
 

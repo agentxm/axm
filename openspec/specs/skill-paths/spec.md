@@ -7,7 +7,7 @@ The Workspace service SHALL provide a `getSkillDir` method that resolves the can
 `getSkillDir` SHALL accept a skill display name and an optional source discriminant:
 
 - **Name-only** `getSkillDir(name)` — looks up the lock entry to determine source type. SHALL fail with `AppError` if the skill is not in the lockfile.
-- **Explicit source** `getSkillDir(name, source)` — uses the provided source discriminant, skipping lockfile lookup. The source discriminant requires `type`; when `type` is `"registry"`, it also requires `namespace`.
+- **Explicit source** `getSkillDir(name, source)` — uses the provided source discriminant, skipping lockfile lookup. The source discriminant requires `type`; when `type` is `"registry"`, it also requires `profile`.
 
 `getSkillDir` SHALL sanitize the name internally via `sanitizeName`.
 
@@ -18,7 +18,7 @@ The Workspace service SHALL provide a `getSkillDir` method that resolves the can
 
 For non-registry sources, `canonicalPath` and `skillSrcPath` SHALL be equal (`<base>/.axm/extensions/external/skills/<sanitized-name>`).
 
-For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<namespace>/skills/<sanitized-name>` and `skillSrcPath` SHALL be `<canonicalPath>/src`.
+For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<profile>/skills/<sanitized-name>` and `skillSrcPath` SHALL be `<canonicalPath>/src`.
 
 #### Scenario: Non-registry skill resolved by name
 
@@ -28,13 +28,13 @@ For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<namespac
 
 #### Scenario: Registry skill resolved by name
 
-- **WHEN** calling `getSkillDir("my-skill")` and the lockfile entry has `type: "registry"` with `namespace: "@acme"`
+- **WHEN** calling `getSkillDir("my-skill")` and the lockfile entry has `type: "registry"` with `profile: "@acme"`
 - **THEN** `canonicalPath` is `<base>/.axm/extensions/@acme/skills/my-skill`
 - **AND** `skillSrcPath` is `<base>/.axm/extensions/@acme/skills/my-skill/src`
 
 #### Scenario: Explicit source for install (no lock entry)
 
-- **WHEN** calling `getSkillDir("my-skill", { type: "registry", namespace: "@acme" })`
+- **WHEN** calling `getSkillDir("my-skill", { type: "registry", profile: "@acme" })`
 - **THEN** the lockfile is NOT consulted
 - **AND** `canonicalPath` is `<base>/.axm/extensions/@acme/skills/my-skill`
 - **AND** `skillSrcPath` is `<base>/.axm/extensions/@acme/skills/my-skill/src`

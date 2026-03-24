@@ -48,7 +48,7 @@ export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./igno
 // Settings I/O
 export {
   createDefaultSettings,
-  DEFAULT_NAMESPACE,
+  DEFAULT_PROFILE,
   orderSettingsKeys,
   readSettings,
   SETTINGS_FILENAME,

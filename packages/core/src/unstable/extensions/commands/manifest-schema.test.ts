@@ -7,7 +7,7 @@ describe("CommandManifestSchema", () => {
 
   it("accepts valid minimal manifest", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "command",
       name: "batcomputer-sync",
       version: "1.0.0",
@@ -18,13 +18,13 @@ describe("CommandManifestSchema", () => {
   });
 
   it("rejects manifest missing version", () => {
-    const input = { namespace: "@wayne", type: "command", name: "batcomputer-sync" };
+    const input = { profile: "@wayne", type: "command", name: "batcomputer-sync" };
     expect(() => decode(input)).toThrow();
   });
 
   it("rejects manifest with invalid name format", () => {
     const input = {
-      namespace: "wayne",
+      profile: "wayne",
       type: "command",
       name: "batcomputer-sync",
       version: "1.0.0",

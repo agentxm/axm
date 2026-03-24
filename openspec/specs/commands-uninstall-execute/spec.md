@@ -25,11 +25,11 @@ The handler SHALL:
 
 ### Requirement: Canonical directory lookup
 
-When a lockfile entry exists, the canonical directory SHALL be computed from the lock entry's namespace and name. When no lockfile entry exists, the handler SHALL scan `.axm/extensions/@*/commands/<name>/` for matching directories.
+When a lockfile entry exists, the canonical directory SHALL be computed from the lock entry's profile and name. When no lockfile entry exists, the handler SHALL scan `.axm/extensions/@*/commands/<name>/` for matching directories.
 
-#### Scenario: Lockfile entry provides namespace
+#### Scenario: Lockfile entry provides profile
 
-- **WHEN** the lockfile contains a command entry with namespace `@acme` and name `formatter`
+- **WHEN** the lockfile contains a command entry with profile `@acme` and name `formatter`
 - **THEN** the canonical directory SHALL be `.axm/extensions/@acme/commands/formatter/`
 
 #### Scenario: No lockfile entry — scan for orphaned directories

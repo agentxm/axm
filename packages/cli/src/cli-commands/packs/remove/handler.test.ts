@@ -31,14 +31,14 @@ import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    namespace?: string;
+    profile?: string;
     packs?: Record<string, unknown>;
   } = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: ["claude-code"],
-    ...(opts.namespace && { namespace: opts.namespace }),
+    ...(opts.profile && { profile: opts.profile }),
     ...(opts.packs && { packs: opts.packs }),
   };
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -50,15 +50,15 @@ const initWorkspace = (
 
 const createPackManifest = (
   tempDir: string,
-  namespace: string,
+  profile: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", profile, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
-    namespace,
+    profile,
     type: "pack",
     name,
     version: manifest["version"] ?? "0.0.1",
@@ -133,7 +133,7 @@ describe("packs-remove.handler", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools", {
@@ -170,7 +170,7 @@ describe("packs-remove.handler", () => {
     it.effect("performs no writes when preview mode is active", () => {
       const { provide, mockLog } = makeLayers({ preview: true, yes: false });
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools", {
@@ -210,7 +210,7 @@ describe("packs-remove.handler", () => {
     it.effect("removes extensions matching glob from pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -249,7 +249,7 @@ describe("packs-remove.handler", () => {
     it.effect("fails when glob matches no extensions in pack", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -276,7 +276,7 @@ describe("packs-remove.handler", () => {
     it.effect("sequential removes each see updated manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools", {
@@ -321,7 +321,7 @@ describe("packs-remove.handler", () => {
     it.effect("fails when extension is not in the pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        namespace: "@acme",
+        profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -347,7 +347,7 @@ describe("packs-remove.handler", () => {
   describe("pack not found", () => {
     it.effect("fails when pack does not exist in settings", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
         Effect.gen(function* () {

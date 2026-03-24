@@ -22,7 +22,7 @@ The prior art research covers 6 target agents. Key findings:
 - **Verb set**: `add`, `list`, `get`, `remove`, `update`, `search`, `publish` — similar to our proposed commands
 - **`--config <json>`** on `add` — pass server config inline to skip interactive prompts
 - **`publish --config-schema`** — JSON Schema for server configuration parameters (analogous to our `env` array in the manifest)
-- **Namespace scoping** — `--namespace` flag for org-level management
+- **Profile scoping** — `--profile` flag for org-level management
 
 Key differences: Smithery is cloud-hosted (servers proxied via `server.smithery.ai`); axm is local-first (archives + manifests). Smithery tracks connections in its own backend; axm uses lockfile/settings. But the agent config writing pattern is the same problem we're solving.
 
@@ -572,14 +572,14 @@ Scaffold a new MCP server extension with a manifest template (`axm-mcp-server.js
 | Arg/Flag            | Type       | Required | Description                                            |
 | ------------------- | ---------- | -------- | ------------------------------------------------------ |
 | `<name>`            | positional | yes      | Server name (kebab-case)                               |
-| `--namespace`       | string     | no       | Override the workspace namespace (e.g., `@acme`)       |
+| `--profile`         | string     | no       | Override the workspace profile (e.g., `@acme`)         |
 | `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)             |
 | `--preview`         | boolean    | no       | Display plan without applying (default: false)         |
 | `--non-interactive` | boolean    | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
 axm mcp new my-devtools-wrapper                     # scaffold new MCP server
-axm mcp new my-devtools-wrapper --namespace @acme   # with custom namespace
+axm mcp new my-devtools-wrapper --profile @acme   # with custom profile
 # Creates: mcp-servers/my-devtools-wrapper/axm-mcp-server.json
 ```
 
@@ -773,7 +773,7 @@ const handleInstall = Effect.fn("McpInstall.handle")(function* (args: InstallHan
   const handle = yield* spinnerSvc.start("Resolving...")
   const discoveredRefs = yield* sources.find(resolvedSource, {
     type: "mcp-server",
-    namespace: requestedNamespace,
+    profile: requestedNamespace,
     versionConstraint,
     skillNames: requestedNames,
   })
@@ -1282,7 +1282,7 @@ const handleUpdate = Effect.fn("McpUpdate.handle")(function* (args: UpdateHandle
         const versionConstraint = Option.fromNullable(target.entry.source)
         const newRefs = yield* sources.find(/* registry source */, {
           type: "mcp-server",
-          namespace: Option.some(target.locked.namespace),
+          profile: Option.some(target.locked.profile),
           versionConstraint,
           skillNames: [target.name],
         })
@@ -1366,9 +1366,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
     name.startsWith("@") && name.includes("/")
       ? Effect.succeed(name)
-      : ws
-          .getConfiguredNamespace()
-          .pipe(Effect.map((namespace) => `${namespace}/mcp-servers/${name}`)),
+      : ws.getConfiguredProfile().pipe(Effect.map((profile) => `${profile}/mcp-servers/${name}`)),
   );
 
   // Step 4: Validate each extension exists on disk with manifest
@@ -1379,7 +1377,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
       const extensionDir = path.join(
         base,
         REGISTRY_EXTENSIONS_DIR,
-        fqn.namespace,
+        fqn.handle,
         "mcp-servers",
         fqn.name,
       );
@@ -1439,7 +1437,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
 
 interface McpNewHandlerArgs {
   readonly name: string;
-  readonly namespace: Option<string>;
+  readonly profile: Option<string>;
   readonly yes: boolean;
   readonly preview: boolean;
   readonly nonInteractive: Option<boolean>;
@@ -1456,17 +1454,17 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
 
   yield* log.info("axm mcp new");
 
-  // 1. Resolve namespace
-  const namespace = Option.isSome(args.namespace)
-    ? normalizeNamespace(args.namespace.value)
-    : yield* ws.getConfiguredNamespace().pipe(
+  // 1. Resolve profile
+  const profile = Option.isSome(args.profile)
+    ? normalizeHandle(args.profile.value)
+    : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
-                  what: "No namespace configured for MCP server creation",
-                  howToFix: "Use --namespace or configure via `axm init`",
+                  what: "No profile configured for MCP server creation",
+                  howToFix: "Use --profile or configure via `axm init`",
                 }),
               )
             : Effect.succeed(s),
@@ -1482,7 +1480,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
     });
   }
 
-  const fqn = `${namespace}/mcp-servers/${args.name}`;
+  const fqn = `${profile}/mcp-servers/${args.name}`;
   const base = ws.baseDir;
 
   // 3. Check existence
@@ -1495,13 +1493,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   }
 
   // 4. Compute paths
-  const canonicalPath = path.join(
-    base,
-    REGISTRY_EXTENSIONS_DIR,
-    namespace,
-    "mcp-servers",
-    args.name,
-  );
+  const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, profile, "mcp-servers", args.name);
 
   // 5. Create directory
   yield* fs.makeDirectory(canonicalPath, { recursive: true });

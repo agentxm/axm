@@ -13,7 +13,7 @@ export const PACK_MANIFEST_FILENAME = "axm-pack.json";
  * Raw pack manifest JSON shape (no schema validation on read to allow editing).
  */
 export interface RawPackManifest {
-  namespace: string;
+  profile: string;
   type: string;
   name: string;
   version: string;
@@ -29,7 +29,7 @@ export interface RawPackManifest {
  * Used for read-then-edit workflows where the full PackManifestSchema is too strict.
  */
 export const RawPackManifestSchema = Schema.Struct({
-  namespace: Schema.String,
+  profile: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
@@ -49,7 +49,7 @@ const VersionSpecifierMapSchema = Schema.Record(Schema.String, Schema.String).pi
     Schema.makeFilter<Record<string, string>>((record) => {
       const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
       if (invalidKeys.length > 0) {
-        return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @namespace/type/name format (e.g. @namespace/skills/my-skill).`;
+        return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @handle/type/name format (e.g. @acme/skills/my-skill).`;
       }
       return undefined;
     }),

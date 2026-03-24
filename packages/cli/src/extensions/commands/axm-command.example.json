@@ -1,5 +1,5 @@
 {
-  "namespace": "@acme",
+  "profile": "@acme",
   "type": "command",
   "name": "deploy",
   "version": "1.0.0",

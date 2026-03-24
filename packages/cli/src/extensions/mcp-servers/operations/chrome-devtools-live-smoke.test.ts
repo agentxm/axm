@@ -86,7 +86,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
 
       const liveRegistryUrl = requiredLiveEnv(LIVE_REGISTRY_URL_ENV);
       const liveVersion = requiredLiveEnv(LIVE_VERSION_ENV);
-      const liveNamespace = process.env[LIVE_NAMESPACE_ENV] ?? "@community";
+      const liveProfile = process.env[LIVE_NAMESPACE_ENV] ?? "@community";
       const liveIntegrity = process.env[LIVE_INTEGRITY_ENV] ?? "";
 
       const installResult = yield* installMcpServer({
@@ -98,10 +98,10 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             source: {
               type: "registry",
               location: new URL(liveRegistryUrl),
-              namespace: Option.none(),
+              profile: Option.none(),
             },
             server: { name: "chrome-devtools-mcp" },
-            namespace: liveNamespace,
+            profile: liveProfile,
             name: "chrome-devtools-mcp",
             version: liveVersion,
             integrity: liveIntegrity,

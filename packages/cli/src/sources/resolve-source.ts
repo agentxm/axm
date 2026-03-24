@@ -77,7 +77,7 @@ const getConfiguredSources = (input: string) =>
 /** Get the relative path of an installed skill from its lockfile entry. */
 const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
   if (entry.type === "registry") {
-    return `${REGISTRY_EXTENSIONS_DIR}/${entry.namespace}/skills/${name}`;
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.profile}/skills/${name}`;
   }
   return `${EXTERNAL_EXTENSIONS_DIR}/skills/${name}`;
 };
@@ -394,7 +394,7 @@ export const routeNameInput = (
 export const routeRegistryInput = (
   pattern: {
     readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
-    readonly namespace: string;
+    readonly profile: string;
     readonly name: Option.Option<string>;
   },
   input: string,
@@ -416,7 +416,7 @@ export const routeRegistryInput = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for namespace "${pattern.namespace}"`,
+        what: `No registry source configured for profile "${pattern.profile}"`,
         details: [input],
       });
     }
@@ -425,7 +425,7 @@ export const routeRegistryInput = (
     return {
       type: "registry" as const,
       location: regConfig.location,
-      namespace: Option.none(),
+      profile: Option.none(),
     } satisfies RegistrySource;
   });
 
@@ -463,7 +463,7 @@ export const resolveSlashInputSource = (
       const extensionType = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(extensionType)) {
         const ws = yield* Workspace;
-        const namespace = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
+        const profile = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
         const extensionName = pattern.third.value;
         const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
@@ -478,13 +478,13 @@ export const resolveSlashInputSource = (
         for (const regSource of registrySources) {
           const client = yield* createRegistryClient(regSource.location.href);
           const exists = yield* client
-            .extensionExists({ namespace, type: extensionType.value, name: extensionName })
+            .extensionExists({ handle: profile, type: extensionType.value, name: extensionName })
             .pipe(Effect.orElseSucceed(() => false));
           if (exists) {
             return {
               type: "registry" as const,
               location: regSource.location,
-              namespace: Option.none(),
+              profile: Option.none(),
             } satisfies RegistrySource;
           }
         }

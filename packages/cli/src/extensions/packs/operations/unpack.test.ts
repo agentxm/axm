@@ -31,8 +31,8 @@ const makeWorkspaceMock = (
   getConfiguredSources: () => Effect.succeed([]),
   getConfiguredSourceByName: () => Effect.succeed(Option.none()),
   getRegistrySourceHosts: () => Effect.succeed([]),
-  getConfiguredNamespace: () => Effect.succeed("@test"),
-  getDefaultNamespace: () => Effect.succeed(Option.none()),
+  getConfiguredProfile: () => Effect.succeed("@test"),
+  getDefaultProfile: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -95,7 +95,7 @@ describe("unpackPack", () => {
         Effect.succeed(
           Option.some({
             type: "registry" as const,
-            namespace: "@acme",
+            profile: "@acme",
             name: "full-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -131,7 +131,7 @@ describe("unpackPack", () => {
         Effect.succeed(
           Option.some({
             type: "registry" as const,
-            namespace: "@acme",
+            profile: "@acme",
             name: "pack",
             resolvedVersion: "1.0.0",
             integrity: "",

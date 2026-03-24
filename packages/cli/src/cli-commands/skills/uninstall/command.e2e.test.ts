@@ -16,7 +16,7 @@ describe("axm skills uninstall", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -97,7 +97,7 @@ describe("axm skills uninstall", () => {
     it("shows no-op for literal name not in lockfile", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -116,7 +116,7 @@ describe("axm skills uninstall", () => {
     it("exits successfully with no-op for nonexistent skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -176,7 +176,7 @@ describe("axm skills uninstall", () => {
     it("does not modify lockfile or settings", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -206,7 +206,7 @@ describe("axm skills uninstall", () => {
     it("shows uninstall plan with skill and agents", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -232,7 +232,7 @@ describe("axm skills uninstall", () => {
     it("shows summary with count", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -260,7 +260,7 @@ describe("axm skills uninstall", () => {
     it("skips confirmation prompt", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -293,7 +293,7 @@ describe("axm skills uninstall", () => {
     it("proceeds directly to uninstall", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -349,7 +349,7 @@ describe("axm skills uninstall", () => {
     it("removes only the specified skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -400,7 +400,7 @@ describe("axm skills uninstall", () => {
     it("cleans up empty skills directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes"], {
+        await runCli(["init", "--yes", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -430,13 +430,16 @@ describe("axm skills uninstall", () => {
     it("auto-initializes and shows no-op when workspace is not initialized", async () => {
       const temp = createTempDir();
       try {
-        // Do not initialize — --yes triggers auto-init with defaults
+        // Do not initialize — --non-interactive allows auto-init without prompts
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
-          cwd: temp.path,
-        });
+        const result = await runCli(
+          ["skills", "uninstall", "my-skill", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
-        // --yes auto-initializes workspace, then skill not found → no-op
+        // Auto-init runs first, then the missing skill resolves to a no-op
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("not installed");
       } finally {

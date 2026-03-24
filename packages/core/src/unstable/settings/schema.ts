@@ -293,7 +293,7 @@ export type IgnoredSettings = Schema.Schema.Type<typeof IgnoredSettingsSchema>;
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "telemetry",
-  "namespace",
+  "profile",
   "sources",
   "agents",
   "skills",
@@ -307,7 +307,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * AXM settings configuration schema.
  *
  * Settings define workspace configuration for AXM including:
- * - namespace: Default namespace for resolving/publishing extensions
+ * - profile: Default profile for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string
@@ -317,7 +317,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-const NamespaceSchema = Schema.String.pipe(
+const ProfileSchema = Schema.String.pipe(
   Schema.decode({
     decode: SchemaGetter.transform((s: string) => (s.startsWith("@") ? s : `@${s}`)),
     encode: SchemaGetter.transform((s: string) => s),
@@ -326,7 +326,7 @@ const NamespaceSchema = Schema.String.pipe(
 
 export const SettingsSchema = Schema.Struct({
   telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),
-  namespace: Schema.optional(NamespaceSchema),
+  profile: Schema.optional(ProfileSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(NonSkillExtensionsMapSchema),

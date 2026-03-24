@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines named source configuration, three-layer merge resolution, and namespace routing.
+Defines named source configuration, three-layer merge resolution, and profile routing.
 
 ## Requirements
 
@@ -14,17 +14,17 @@ Source configurations SHALL be an array of named entries in settings, discrimina
 - `source`: discriminator (`"github"`, `"gitlab"`, `"bitbucket"`, `"azurerepos"`, `"registry"`)
 - `url`: base URL for git hosting providers
 - `location`: registry path or URL (registry sources only)
-- `namespaces`: optional namespace filter (registry sources only)
+- `namespaces`: optional profile filter (registry sources only)
 
-#### Scenario: Registry source with namespace filter
+#### Scenario: Registry source with profile filter
 
 - **WHEN** settings contains `{ "name": "corp", "source": "registry", "location": "/registries/corp", "namespaces": ["@corp"] }`
-- **THEN** the source is only consulted when resolving extensions in the `@corp` namespace
+- **THEN** the source is only consulted when resolving extensions in the `@corp` profile
 
-#### Scenario: Registry source without namespace filter
+#### Scenario: Registry source without profile filter
 
 - **WHEN** settings contains `{ "name": "local", "source": "registry", "location": "~/my-registry" }`
-- **THEN** the source is a catch-all registry consulted for any namespace (when no namespace-matched source exists)
+- **THEN** the source is a catch-all registry consulted for any profile (when no profile-matched source exists)
 
 #### Scenario: GitHub source with custom URL
 
@@ -119,29 +119,29 @@ Registry source locations SHALL be normalized at parse time:
 - **WHEN** location is `file:///registries/main`
 - **THEN** it is normalized to `/registries/main`
 
-### Requirement: Namespace routing for registry sources
+### Requirement: Profile routing for registry sources
 
-Within registry resolution, sources SHALL be selected by namespace routing with mutually exclusive sets.
+Within registry resolution, sources SHALL be selected by profile routing with mutually exclusive sets.
 
-#### Scenario: Namespace-matched sources used exclusively
+#### Scenario: Profile-matched sources used exclusively
 
 - **WHEN** resolving `@corp/tool` and a registry source has `namespaces: ["@corp"]`
-- **THEN** only namespace-matched sources are queried (catch-all sources are not tried)
+- **THEN** only profile-matched sources are queried (catch-all sources are not tried)
 
-#### Scenario: Catch-all sources used when no namespace match
+#### Scenario: Catch-all sources used when no profile match
 
 - **WHEN** resolving `@community/tool` and no registry source has `namespaces` including `@community`
 - **THEN** registry sources with no `namespaces` field are queried
 
-#### Scenario: Namespace-matched source 404 does not fall through to catch-all
+#### Scenario: Profile-matched source 404 does not fall through to catch-all
 
-- **WHEN** resolving `@corp/tool`, the namespace-matched source returns 404, and a catch-all source has the extension
-- **THEN** resolution fails (catch-all is not tried when namespace-matched sources exist)
+- **WHEN** resolving `@corp/tool`, the profile-matched source returns 404, and a catch-all source has the extension
+- **THEN** resolution fails (catch-all is not tried when profile-matched sources exist)
 
-#### Scenario: Multiple namespace-matched sources fall through on 404
+#### Scenario: Multiple profile-matched sources fall through on 404
 
-- **WHEN** resolving `@corp/tool` and two sources match the `@corp` namespace
-- **THEN** the first source is queried; if 404, the second namespace-matched source is queried
+- **WHEN** resolving `@corp/tool` and two sources match the `@corp` profile
+- **THEN** the first source is queried; if 404, the second profile-matched source is queried
 
 ### Requirement: Ambiguous input resolution uses merged sources
 

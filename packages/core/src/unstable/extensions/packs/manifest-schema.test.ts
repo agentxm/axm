@@ -7,7 +7,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid minimal manifest", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -19,7 +19,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid manifest with extension version maps", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -34,7 +34,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid manifest with all extension types", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -48,7 +48,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts manifest with common optional fields", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -65,7 +65,7 @@ describe("PackManifestSchema", () => {
 
   it("rejects manifest with invalid FQN key in skills", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -76,13 +76,13 @@ describe("PackManifestSchema", () => {
 
   it("rejects 2-segment FQN keys", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
       skills: { "@wayne/grappling-hook": "^1.0.0" },
     };
-    expect(() => decode(input)).toThrow(/Names must match @namespace\/type\/name format/);
+    expect(() => decode(input)).toThrow(/Names must match @handle\/type\/name format/);
   });
 
   it("rejects manifest missing required fields", () => {
@@ -92,7 +92,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts empty extension maps", () => {
     const input = {
-      namespace: "@wayne",
+      profile: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",

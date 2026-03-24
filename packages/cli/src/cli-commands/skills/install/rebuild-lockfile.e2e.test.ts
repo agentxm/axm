@@ -15,7 +15,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
   const settingsPath = path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-  settings.namespace = TEST_NAMESPACE;
+  settings.profile = TEST_NAMESPACE;
   settings.skills = {
     ...(settings.skills ?? {}),
     "managed-skill": `${TEST_NAMESPACE}/skills/managed-skill@^1.0.0`,
@@ -46,7 +46,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-skill.json",
     ),
     {
-      namespace: TEST_NAMESPACE,
+      profile: TEST_NAMESPACE,
       type: "skill",
       name: "managed-skill",
       version: "1.0.0",
@@ -65,7 +65,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-command.json",
     ),
     {
-      namespace: TEST_NAMESPACE,
+      profile: TEST_NAMESPACE,
       type: "command",
       name: "managed-command",
       version: "1.0.0",
@@ -83,7 +83,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-mcp-server.json",
     ),
     {
-      namespace: TEST_NAMESPACE,
+      profile: TEST_NAMESPACE,
       type: "mcp-server",
       name: "managed-mcp",
       version: "1.0.0",
@@ -101,7 +101,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-pack.json",
     ),
     {
-      namespace: TEST_NAMESPACE,
+      profile: TEST_NAMESPACE,
       type: "pack",
       name: "managed-pack",
       version: "1.0.0",
@@ -116,7 +116,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
   it("regenerates full active-scope snapshot across extension types when lockfile is deleted", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
       setupCrossTypeManagedState(temp.path);
 
       const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -143,7 +143,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
   it("backs up invalid lockfile before regeneration", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
       setupCrossTypeManagedState(temp.path);
 
       const axmDir = path.join(temp.path, ".axm");
@@ -177,7 +177,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
   it("keeps --preview strict dry-run even with invalid lockfile", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes"], { cwd: temp.path });
+      await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
       setupCrossTypeManagedState(temp.path);
 
       const axmDir = path.join(temp.path, ".axm");

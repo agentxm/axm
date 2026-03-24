@@ -117,6 +117,7 @@ export const listCommand = Command.make(
         const filtered = MOCK_SKILLS.filter((s) => s.scope === config.scope);
         yield* output.result(SkillListOutputSchema, filtered, renderText);
       }),
+      { command: "skills list" },
     ),
 ).pipe(
   Command.withAlias("ls"),

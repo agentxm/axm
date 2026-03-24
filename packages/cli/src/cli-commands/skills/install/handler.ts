@@ -8,7 +8,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { runInstallCommandWorkflow } from "../../../workflows/install-command/workflow.js";
 import type { WorkspaceScope } from "../../../workspace/scope.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
@@ -45,8 +44,6 @@ export interface InstallHandlerArgs {
  */
 export const handleInstall = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
-    const tc = yield* TelemetryClient;
-    yield* tc.trackEvent("command_invoked", { command: "skills install" });
     const actions = yield* InstallSkillCommandWorkflowActions;
     yield* runInstallCommandWorkflow(args, actions);
   });

@@ -1,6 +1,7 @@
 import * as Console from "effect/Console";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { withRuntime } from "../../main.js";
 
 export const newCommand = Command.make(
   "new",
@@ -25,7 +26,10 @@ export const newCommand = Command.make(
       onSome: (agentIds) => agentIds.join(", "),
     });
 
-    return Console.log(`[stub] skills new name=${config.name} namespace=${namespace} agents=${agents}`);
+    return withRuntime(
+      Console.log(`[stub] skills new name=${config.name} namespace=${namespace} agents=${agents}`),
+      { command: "skills new" },
+    );
   },
 ).pipe(
   Command.withDescription("Create a new skill"),

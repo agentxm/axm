@@ -16,6 +16,7 @@ import * as Console from "effect/Console";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withRuntime } from "../../main.js";
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -28,8 +29,11 @@ export const uninstallCommand = Command.make(
     preview: previewFlag,
   },
   (config) =>
-    Console.log(
-      `[stub] skills uninstall skill=${config.skill} yes=${config.yes} force=${config.force} preview=${config.preview}`,
+    withRuntime(
+      Console.log(
+        `[stub] skills uninstall skill=${config.skill} yes=${config.yes} force=${config.force} preview=${config.preview}`,
+      ),
+      { command: "skills uninstall" },
     ),
 ).pipe(
   Command.withDescription("Uninstall a skill from agents"),

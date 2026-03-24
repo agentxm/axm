@@ -26,7 +26,6 @@ import { Output, makeOutputTestLayer } from "../../output/index.js";
 import { Input, makeInputTestLayer } from "../../input/index.js";
 import { CliFlags, CliFlagsTest } from "../../cli-flags/index.js";
 import { CliEnvConfig } from "../../config/index.js";
-import { TelemetryClient, TelemetryClientTest } from "../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -65,7 +64,6 @@ describe("init.handler", () => {
     outputLayer,
     inputLayer,
     CliFlagsTest(),
-    TelemetryClientTest,
     CliEnvConfig.testDefaults,
   );
 
@@ -85,7 +83,6 @@ describe("init.handler", () => {
         | Workspace
         | CliFlags
         | CliEnvConfig
-        | TelemetryClient
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -314,7 +311,6 @@ describe("init.handler", () => {
       const InteractiveTestLayer = Layer.mergeAll(
         TestLayer,
         CliFlagsTest({ nonInteractive: false, yes: true }),
-        TelemetryClientTest,
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(
@@ -382,7 +378,6 @@ describe("init.handler", () => {
         iOutputLayer,
         iInputLayer,
         CliFlagsTest({ nonInteractive: false }),
-        TelemetryClientTest,
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
@@ -397,7 +392,6 @@ describe("init.handler", () => {
           | Workspace
           | CliFlags
           | CliEnvConfig
-          | TelemetryClient
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
@@ -476,7 +470,6 @@ describe("init.handler", () => {
         iOutputLayer,
         iInputLayer,
         CliFlagsTest(),
-        TelemetryClientTest,
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
@@ -522,7 +515,6 @@ describe("init.handler", () => {
         iOutputLayer,
         iInputLayer,
         CliFlagsTest(),
-        TelemetryClientTest,
         telemetryOffConfig,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);

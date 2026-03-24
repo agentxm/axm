@@ -20,7 +20,6 @@ import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import {
@@ -85,8 +84,6 @@ export type PackPublishOp =
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "packs publish" });
 
   yield* withAuthGuard(publishPackEffect(args));
 });

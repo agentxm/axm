@@ -21,7 +21,6 @@ import { makeActivityTestLayer } from "../../../activity/index.js";
 import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -133,7 +132,6 @@ describe("skills install handler — error propagation", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest(flagsOverrides),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

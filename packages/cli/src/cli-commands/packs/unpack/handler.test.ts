@@ -20,7 +20,6 @@ import { makeActivityTestLayer } from "../../../activity/index.js";
 import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
@@ -145,7 +144,6 @@ describe("packs unpack.handler", () => {
       activityLayer,
       inputLayer,
       CliFlagsTest(),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

@@ -7,7 +7,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { runInstallCommandWorkflow } from "../../../workflows/install-command/workflow.js";
 import {
   InstallCommandCommandWorkflowActions,
@@ -23,8 +22,6 @@ export type { InstallCommandHandlerArgs } from "./command-actions.js";
  */
 export const handleInstallCommand = (args: InstallCommandHandlerArgs) =>
   Effect.gen(function* () {
-    const tc = yield* TelemetryClient;
-    yield* tc.trackEvent("command_invoked", { command: "commands install" });
     const actions = yield* InstallCommandCommandWorkflowActions;
     yield* runInstallCommandWorkflow(args, actions);
   });

@@ -17,7 +17,6 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../../app-error/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
@@ -57,8 +56,6 @@ export interface UnpackHandlerArgs {
  * Handles the `axm packs unpack` command.
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "packs unpack" });
   const ws = yield* Workspace;
   const output = yield* Output;
   const activity = yield* Activity;

@@ -22,7 +22,6 @@ import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
@@ -140,8 +139,6 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
  * Handles the `axm skills fork` command.
  */
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills fork" });
   const ws = yield* Workspace;
   const output = yield* Output;
   const activity = yield* Activity;

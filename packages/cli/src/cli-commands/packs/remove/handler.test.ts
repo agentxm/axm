@@ -19,7 +19,6 @@ import { makeOutputTestLayer } from "../../../output/index.js";
 import { makeInputTestLayer } from "../../../input/index.js";
 import { CliFlagsTest } from "../../../cli-flags/index.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { TelemetryClientTest } from "../../../telemetry/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "../../../app-error/index.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
@@ -112,7 +111,6 @@ describe("packs-remove.handler", () => {
       outputLayer,
       inputLayer,
       CliFlagsTest(flagsOverrides),
-      TelemetryClientTest,
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

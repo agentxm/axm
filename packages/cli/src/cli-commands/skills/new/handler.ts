@@ -8,7 +8,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../../app-error/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
 import { Output } from "../../../output/index.js";
@@ -46,8 +45,6 @@ const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
 export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
 ) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills new" });
   const ws = yield* Workspace;
   const output = yield* Output;
 

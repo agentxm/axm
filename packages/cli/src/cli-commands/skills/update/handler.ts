@@ -21,7 +21,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../../app-error/index.js";
 import { CliFlags } from "../../../cli-flags/index.js";
-import { TelemetryClient } from "../../../telemetry/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
@@ -87,8 +86,6 @@ export interface UpdateHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const tc = yield* TelemetryClient;
-  yield* tc.trackEvent("command_invoked", { command: "skills update" });
   const scopeLabel = isUserScope(args.scope) ? "user" : "project";
 
   const ws = yield* Workspace;

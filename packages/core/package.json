@@ -85,6 +85,10 @@
     "./unstable/cli-flags": {
       "types": "./src/unstable/cli-flags/index.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"
+    },
+    "./unstable/cli-runtime": {
+      "types": "./src/unstable/cli-runtime/index.ts",
+      "default": "./dist/src/unstable/cli-runtime/index.js"
     }
   },
   "files": [

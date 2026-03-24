@@ -13,6 +13,13 @@ export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
   ),
 });
 
+export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
+  flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
+    Flag.withDescription("Output format (default: auto-detect from TTY)"),
+    Flag.optional,
+  ),
+});
+
 // ---------------------------------------------------------------------------
 // Per-command flag definitions — import and include in Command.make() flags
 // for commands that need them. Not global — they only appear in --help for

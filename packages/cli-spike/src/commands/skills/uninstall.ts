@@ -16,7 +16,7 @@ import * as Console from "effect/Console";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 export const uninstallCommand = Command.make(
   "uninstall",

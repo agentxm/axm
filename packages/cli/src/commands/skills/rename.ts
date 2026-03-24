@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleRename } from "../../cli-commands/skills/rename/handler.js";
 import {
@@ -26,7 +26,7 @@ export const renameCommand = Command.make(
     preview: previewFlag,
   },
   ({ oldName, newName, scope, yes, force, preview }) =>
-    withCommandRuntime(handleRename({ oldName, newName }), {
+    withRuntime(handleRename({ oldName, newName }), {
       command: "skills rename",
       workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
       flags: { yes, force, preview },

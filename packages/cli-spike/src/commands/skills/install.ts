@@ -16,7 +16,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Activity } from "@axm.sh/core/unstable/activity";
 import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — the JSON contract for `skills install`

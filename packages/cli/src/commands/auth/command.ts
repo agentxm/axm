@@ -1,6 +1,6 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../command-runtime.js";
+import { showHelpFor } from "../../help.js";
 import { loginCommand } from "./login.js";
 import { logoutCommand } from "./logout.js";
 import { whoamiCommand } from "./whoami.js";

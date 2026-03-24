@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstall } from "../../cli-commands/skills/install/handler.js";
 import {
@@ -30,7 +30,7 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, skill, all, yes, force, preview }) =>
-    withCommandRuntime(
+    withRuntime(
       handleInstall({ source, scope: resolveWorkspaceScope(scope), skills: skill, all }),
       {
         command: "skills install",

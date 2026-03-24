@@ -1,6 +1,6 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../command-runtime.js";
+import { showHelpFor } from "../../help.js";
 import { addCommand } from "./add.js";
 import { installCommand } from "./install.js";
 import { newCommand } from "./new.js";

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 export const defectCommand = Command.make("defect", {}, () =>
   withRuntime(Effect.die(new Error("Simulated defect telemetry failure")), {

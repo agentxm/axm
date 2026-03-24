@@ -19,7 +19,7 @@ import {
   FakeSkillInfoSchema,
   FakeSkillsManager,
 } from "../../fake-skills-manager.js";
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — the JSON contract for `skills list`

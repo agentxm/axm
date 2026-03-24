@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUnpack } from "../../cli-commands/packs/unpack/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -18,7 +18,7 @@ export const unpackCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, strictAgentSync, yes, force, preview }) =>
-    withCommandRuntime(handleUnpack({ name, strictAgentSync }), {
+    withRuntime(handleUnpack({ name, strictAgentSync }), {
       command: "packs unpack",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
       flags: { yes, force, preview },

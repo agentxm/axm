@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 export const handledCommand = Command.make("handled", {}, () =>
   withRuntime(

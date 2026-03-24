@@ -1,7 +1,7 @@
 import * as Console from "effect/Console";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { withRuntime } from "../../main.js";
+import { withRuntime } from "../../runtime.js";
 
 export const newCommand = Command.make(
   "new",

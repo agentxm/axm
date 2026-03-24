@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleDisable } from "../../cli-commands/skills/disable/handler.js";
 import {
@@ -23,7 +23,7 @@ export const disableCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, scope, yes, force, preview }) =>
-    withCommandRuntime(handleDisable({ name }), {
+    withRuntime(handleDisable({ name }), {
       command: "skills disable",
       workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
       flags: { yes, force, preview },

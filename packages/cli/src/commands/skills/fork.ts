@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleFork } from "../../cli-commands/skills/fork/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -23,7 +23,7 @@ export const forkCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, skill, yes, force, preview }) =>
-    withCommandRuntime(handleFork({ source, skills: [...skill] }), {
+    withRuntime(handleFork({ source, skills: [...skill] }), {
       command: "skills fork",
       workspace: { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
       flags: { yes, force, preview },

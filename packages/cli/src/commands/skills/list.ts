@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { handleList } from "../../cli-commands/skills/list/handler.js";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -19,7 +19,7 @@ export const listCommand = Command.make(
     agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
   },
   ({ scope, agent }) =>
-    withCommandRuntime(handleList({ agents: agent }), {
+    withRuntime(handleList({ agents: agent }), {
       command: "skills list",
       workspace: { scope: resolveWorkspaceScope(scope), agents: Option.none() },
     }),

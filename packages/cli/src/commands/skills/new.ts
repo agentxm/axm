@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withCommandRuntime } from "../../command-runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleSkillsNew } from "../../cli-commands/skills/new/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
@@ -26,7 +26,7 @@ export const newCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, profile, agent, yes, force, preview }) =>
-    withCommandRuntime(
+    withRuntime(
       handleSkillsNew({
         name,
         profile,

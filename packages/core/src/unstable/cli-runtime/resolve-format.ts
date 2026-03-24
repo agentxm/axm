@@ -23,7 +23,7 @@ export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat
  */
 export const resolveFormat = (
   explicit: Option.Option<OutputFormat>,
-  options?: { readonly isLongRunning?: boolean },
+  options?: { readonly isLongRunning?: boolean | undefined },
 ): OutputFormat =>
   Option.getOrElse(explicit, () =>
     process.stdout.isTTY ? "text" : options?.isLongRunning ? "stream-json" : "json",

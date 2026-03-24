@@ -28,10 +28,12 @@ export const withGracefulShutdown = <A, E, R>(
     process.on("SIGTERM", onSigterm);
     process.on("SIGINT", onSigint);
 
-    const result = yield* Fiber.join(fiber);
-
-    process.off("SIGTERM", onSigterm);
-    process.off("SIGINT", onSigint);
-
-    return result;
+    return yield* Fiber.join(fiber).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          process.off("SIGTERM", onSigterm);
+          process.off("SIGINT", onSigint);
+        }),
+      ),
+    );
   });

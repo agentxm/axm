@@ -96,6 +96,16 @@ describe("cli telemetry helpers", () => {
     }),
   );
 
+  it.effect("skips interrupt-only causes", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+
+      yield* reportCliDefect(Cause.interrupt(), "test").pipe(Effect.provide(layer));
+
+      expect(capture.errors).toHaveLength(0);
+    }),
+  );
+
   it.effect("reports defects as fatal errors", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();

@@ -85,10 +85,7 @@ export const makeFoundationLayer = (
 export const resolveCliFormat = (options?: { readonly isLongRunning?: boolean | undefined }) =>
   Effect.gen(function* () {
     const explicit = yield* outputFormatFlag;
-    return resolveFormat(
-      explicit,
-      options?.isLongRunning === undefined ? undefined : { isLongRunning: options.isLongRunning },
-    );
+    return resolveFormat(explicit, options);
   });
 
 /**

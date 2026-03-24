@@ -10,16 +10,9 @@ export {
 } from "./telemetry-layer.js";
 export {
   type CliRuntimeFoundation,
-  type CliRuntimeContext,
-  type MakeCliRuntimeContextOptions,
-  makeCliRuntimeContext,
-  type RunCliRuntimeOptions,
-  runCliRuntime,
   type WithCliRuntimeOptions,
   withCliRuntime,
   type ExpectedCliError,
-  withCliRuntimeEnvelope,
-  type WithCliRuntimeEnvelopeOptions,
 } from "./runtime-envelope.js";
 export {
   trackCliCommand,

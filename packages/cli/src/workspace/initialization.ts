@@ -45,9 +45,10 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
     let selectedAgents: ReadonlyArray<AgentDescriptor>;
 
     // If explicit agents are provided, use those (no detection needed)
-    if (Option.isSome(options.agents) && options.agents.value.length > 0) {
+    const agents = options.agents ?? Option.none();
+    if (Option.isSome(agents) && agents.value.length > 0) {
       const output = yield* Output;
-      const requestedIds = [...options.agents.value];
+      const requestedIds = [...agents.value];
       selectedAgents = requestedIds.flatMap((id) => {
         const agent = getAgentById(id);
         return Option.isSome(agent) ? [agent.value] : [];

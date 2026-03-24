@@ -1,10 +1,9 @@
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleUnpack } from "../../cli-commands/packs/unpack/handler.js";
-import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 export const unpackCommand = Command.make(
   "unpack",
@@ -18,13 +17,10 @@ export const unpackCommand = Command.make(
     preview: previewFlag,
   },
   ({ name, strictAgentSync, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
-        handleUnpack({ name, strictAgentSync }),
-      ),
-      { command: "packs unpack", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUnpack({ name, strictAgentSync })), {
+      command: "packs unpack",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Eject pack into individual entries"),
   Command.withExamples([

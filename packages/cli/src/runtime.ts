@@ -31,7 +31,11 @@ import { SourceHostProvidersLive } from "./sources/index.js";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import { type DiagnosticVerbosity, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
 import { baseLayer, CliEnvConfigOrDie } from "./runtime/base-layer.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
+import {
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+  type WorkspaceScope,
+} from "./workspace/index.js";
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
 
@@ -138,12 +142,13 @@ const resolveRuntimeConfig = () =>
   });
 
 export const withWorkspace = <A, E, R>(
-  options: Omit<WorkspaceContextOptions, "builtInSources">,
+  options: WorkspaceScope | Omit<WorkspaceContextOptions, "builtInSources">,
   program: Effect.Effect<A, E, R>,
 ) =>
   Effect.gen(function* () {
     const envConfig = yield* CliEnvConfig;
-    const wsLayer = makeWorkspaceProgramLayer(envConfig, options);
+    const resolved = typeof options === "string" ? { scope: options } : options;
+    const wsLayer = makeWorkspaceProgramLayer(envConfig, resolved);
     return yield* Effect.provide(program, wsLayer);
   });
 

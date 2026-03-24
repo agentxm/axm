@@ -1,31 +1,17 @@
-import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { scopeFlag } from "../../cli-flags/index.js";
 import { handleList } from "../../cli-commands/skills/list/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const listCommand = Command.make(
   "list",
   {
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
   },
   ({ scope, agent }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        handleList({ agents: agent }),
-      ),
-      { command: "skills list" },
-    ),
+    withRuntime(withWorkspace(scope, handleList({ agents: agent })), { command: "skills list" }),
 ).pipe(
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),

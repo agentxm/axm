@@ -1,14 +1,8 @@
-import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstallPack } from "../../cli-commands/packs/install/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const installCommand = Command.make(
   "install",
@@ -18,22 +12,16 @@ export const installCommand = Command.make(
         "Registry pack reference (@profile/packs/name, @profile/packs/name@version, or bare pack-name)",
       ),
     ),
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     yes: yesFlag,
     force: forceFlag,
     preview: previewFlag,
   },
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        handleInstallPack({ source, scope: resolveWorkspaceScope(scope) }),
-      ),
-      { command: "packs install", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(scope, handleInstallPack({ source, scope })), {
+      command: "packs install",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Install a pack and its extensions from a registry"),
   Command.withExamples([

@@ -47,7 +47,6 @@ export {
   WORKSPACE_SCOPES,
   DEFAULT_WORKSPACE_SCOPE,
   isUserScope,
-  resolveWorkspaceScope,
   type WorkspaceScope,
 } from "./scope.js";
 

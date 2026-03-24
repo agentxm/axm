@@ -1,10 +1,9 @@
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { handlePublishPack } from "../../cli-commands/packs/publish/handler.js";
-import { DEFAULT_WORKSPACE_SCOPE, resolveWorkspaceScope } from "../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 export const publishCommand = Command.make(
   "publish",
@@ -27,7 +26,7 @@ export const publishCommand = Command.make(
   ({ pack, registry, includeDependencies, yes, force, preview }) =>
     withRuntime(
       withWorkspace(
-        { scope: resolveWorkspaceScope(DEFAULT_WORKSPACE_SCOPE), agents: Option.none() },
+        DEFAULT_WORKSPACE_SCOPE,
         handlePublishPack({ pack, registry, includeDependencies }),
       ),
       { command: "packs publish", flags: { yes, force, preview } },

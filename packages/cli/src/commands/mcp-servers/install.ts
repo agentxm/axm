@@ -1,14 +1,8 @@
-import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
 import { handleInstallMcpServer } from "../../cli-commands/mcp-servers/install/handler.js";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WORKSPACE_SCOPES,
-  resolveWorkspaceScope,
-} from "../../workspace/scope.js";
 
 export const installCommand = Command.make(
   "install",
@@ -18,22 +12,16 @@ export const installCommand = Command.make(
         "Registry MCP server reference (@profile/mcp-servers/name or bare name)",
       ),
     ),
-    scope: Flag.choice("scope", WORKSPACE_SCOPES).pipe(
-      Flag.withDescription("Configuration scope: project (default) or user"),
-      Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
-    ),
+    scope: scopeFlag,
     yes: yesFlag,
     force: forceFlag,
     preview: previewFlag,
   },
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        { scope: resolveWorkspaceScope(scope), agents: Option.none() },
-        handleInstallMcpServer({ source, scope: resolveWorkspaceScope(scope) }),
-      ),
-      { command: "mcp-servers install", flags: { yes, force, preview } },
-    ),
+    withRuntime(withWorkspace(scope, handleInstallMcpServer({ source, scope })), {
+      command: "mcp-servers install",
+      flags: { yes, force, preview },
+    }),
 ).pipe(
   Command.withDescription("Install an MCP server from a registry"),
   Command.withExamples([

@@ -89,7 +89,6 @@ const defaultArgs = (
   overrides: Partial<InstallHandlerArgs> = {},
 ): InstallHandlerArgs => ({
   source,
-  scope: "project",
   skills: [],
   all: false,
   ...overrides,

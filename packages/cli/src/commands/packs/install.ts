@@ -18,7 +18,7 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleInstallPack({ source, scope })), {
+    withRuntime(withWorkspace(scope, handleInstallPack({ source })), {
       command: "packs install",
       flags: { yes, force, preview },
     }),

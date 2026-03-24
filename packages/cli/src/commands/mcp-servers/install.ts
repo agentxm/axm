@@ -18,7 +18,7 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleInstallMcpServer({ source, scope })), {
+    withRuntime(withWorkspace(scope, handleInstallMcpServer({ source })), {
       command: "mcp-servers install",
       flags: { yes, force, preview },
     }),

@@ -39,7 +39,7 @@ const makeTestConfig = (overrides: Partial<CliEnvConfigService> = {}): Layer.Lay
   Layer.succeed(CliEnvConfig, {
     registryUrl: "https://registry.agentxm.ai",
     token: Option.none(),
-    ci: "false",
+    ci: false,
     doNotTrack: Option.none(),
     telemetry: Option.none(),
     sshClient: Option.none(),
@@ -142,19 +142,19 @@ describe("Environment detection", () => {
 
   describe("detectCI", () => {
     it("returns true when CI=true", async () => {
-      const layer = makeTestConfig({ ci: "true" });
+      const layer = makeTestConfig({ ci: true });
       const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
       expect(result).toBe(true);
     });
 
     it("returns false when CI is not set", async () => {
-      const layer = makeTestConfig({ ci: "false" });
+      const layer = makeTestConfig({ ci: false });
       const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
       expect(result).toBe(false);
     });
 
     it("returns false when CI is not true", async () => {
-      const layer = makeTestConfig({ ci: "false" });
+      const layer = makeTestConfig({ ci: false });
       const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
       expect(result).toBe(false);
     });

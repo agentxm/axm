@@ -25,7 +25,7 @@ import * as Redacted from "effect/Redacted";
 export interface CliEnvConfigService {
   readonly registryUrl: string;
   readonly token: Option.Option<Redacted.Redacted<string>>;
-  readonly ci: string;
+  readonly ci: boolean;
   readonly doNotTrack: Option.Option<string>;
   readonly telemetry: Option.Option<string>;
   readonly sshClient: Option.Option<string>;
@@ -48,7 +48,7 @@ export class CliEnvConfig extends ServiceMap.Service<CliEnvConfig, CliEnvConfigS
   static readonly testDefaults: Layer.Layer<CliEnvConfig> = Layer.succeed(CliEnvConfig, {
     registryUrl: "https://registry.agentxm.ai",
     token: Option.none(),
-    ci: "false",
+    ci: false,
     doNotTrack: Option.none(),
     telemetry: Option.none(),
     sshClient: Option.none(),
@@ -77,7 +77,7 @@ export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, Config.ConfigError> = L
       Config.withDefault("https://registry.agentxm.ai"),
     );
     const token = yield* Config.redacted("AXM_TOKEN").pipe(Config.option);
-    const ci = yield* Config.string("CI").pipe(Config.withDefault("false"));
+    const ci = (yield* Config.string("CI").pipe(Config.withDefault("false"))) === "true";
     const doNotTrack = yield* Config.string("DO_NOT_TRACK").pipe(Config.option);
     const telemetry = yield* Config.string("AXM_TELEMETRY").pipe(Config.option);
     const sshClient = yield* Config.string("SSH_CLIENT").pipe(Config.option);

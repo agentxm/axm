@@ -21,7 +21,7 @@ export const installCommand = Command.make(
     preview: previewFlag,
   },
   ({ source, scope, skill, all, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleInstall({ source, scope, skills: skill, all })), {
+    withRuntime(withWorkspace(scope, handleInstall({ source, skills: skill, all })), {
       command: "skills install",
       flags: { yes, force, preview },
     }),

@@ -57,7 +57,7 @@ const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
 export const makeTelemetryClient = (
   options: TelemetryClientOptions,
 ): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> => {
-  if (options.mode === "off" || options.test === true) {
+  if (options.mode === "off" || options.test) {
     return Effect.succeed({
       trackEvent: () => Effect.void,
       reportError: () => Effect.void,

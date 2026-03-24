@@ -482,7 +482,7 @@ describe("init.handler", () => {
       const telemetryOffConfig = Layer.succeed(CliEnvConfig, {
         registryUrl: "https://registry.agentxm.ai",
         token: Option.none(),
-        ci: "false",
+        ci: false,
         doNotTrack: Option.none(),
         telemetry: Option.some("0"),
         sshClient: Option.none(),

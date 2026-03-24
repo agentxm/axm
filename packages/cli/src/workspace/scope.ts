@@ -11,5 +11,3 @@ export const WORKSPACE_SCOPES = ["project", "user"] as const;
 export type WorkspaceScope = (typeof WORKSPACE_SCOPES)[number];
 
 export const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = "project";
-
-export const isUserScope = (scope: WorkspaceScope): scope is "user" => scope === "user";

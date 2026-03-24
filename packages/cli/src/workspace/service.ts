@@ -69,7 +69,7 @@ import {
 import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
-import { isUserScope, type WorkspaceScope } from "./scope.js";
+import type { WorkspaceScope } from "./scope.js";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -321,9 +321,9 @@ const make = (options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir("user");
     const localDir = yield* getAxmDir("project");
-    const workspaceDir = isUserScope(options.scope) ? globalDir : localDir;
+    const workspaceDir = options.scope === "user" ? globalDir : localDir;
 
-    if (isUserScope(options.scope)) {
+    if (options.scope === "user") {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
       yield* ensureProjectWorkspaceInitialized(localDir, options);

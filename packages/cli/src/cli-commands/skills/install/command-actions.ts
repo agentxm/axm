@@ -28,7 +28,6 @@ import { Output } from "../../../output/index.js";
 import { Activity } from "../../../activity/index.js";
 import { Input } from "../../../input/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/workflow.js";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
@@ -54,7 +53,6 @@ export interface ParsedSkillInstallArgs {
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedProfile: Option.Option<string>;
   readonly all: boolean;
-  readonly scope: WorkspaceScope;
 }
 
 /**
@@ -218,8 +216,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          const scopeLabel = isUserScope(args.scope) ? "user" : "project";
-          yield* output.info(`axm skills install (${scopeLabel})`);
+          yield* output.info(`axm skills install (${ws.scope})`);
 
           const parsed = yield* activity.withSpinner(
             "Parsing source...",
@@ -280,7 +277,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             requestedSkills,
             requestedProfile,
             all: args.all,
-            scope: args.scope,
           } satisfies ParsedSkillInstallArgs;
         }),
       );

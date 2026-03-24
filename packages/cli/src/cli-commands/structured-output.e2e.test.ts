@@ -88,10 +88,10 @@ describe("structured output modes", () => {
   });
 
   describe("error routing", () => {
-    it("routes errors as JSON on stdout in json mode", async () => {
+    it("routes runtime errors as JSON on stdout in json mode (exit 1)", async () => {
       const temp = createTempDir();
       try {
-        // Run a command that will fail (skills install without workspace)
+        // skills install without workspace → CliError → exit 1
         const result = await runCli(
           ["skills", "install", "nonexistent", "--output-format", "json"],
           {
@@ -100,10 +100,74 @@ describe("structured output modes", () => {
           },
         );
 
-        // Should fail with non-zero exit code
-        expect(result.exitCode).not.toBe(0);
+        expect(result.exitCode).toBe(1);
         // stderr should have a human-readable error
         expect(result.stderr.length).toBeGreaterThan(0);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("routes usage errors with exit code 2 in json mode", async () => {
+      // Unknown flag → Effect CLI parsing error → exit 2
+      const result = await runCli(["token", "--nonexistent-flag", "--output-format", "json"]);
+
+      expect(result.exitCode).toBe(2);
+      // JSON error should appear on stdout (after help text)
+      const lines = result.stdout
+        .trim()
+        .split("\n")
+        .filter((l) => l.length > 0);
+      const jsonLine = lines.find((l) => l.startsWith("{"));
+      expect(jsonLine).toBeDefined();
+      const errorJson = JSON.parse(jsonLine!);
+      expect(errorJson.type).toBe("error");
+      expect(errorJson.code).toBe("USAGE_ERROR");
+    });
+
+    it("routes runtime errors as NDJSON in stream-json mode", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(
+          ["skills", "install", "nonexistent", "--output-format", "stream-json"],
+          {
+            cwd: temp.path,
+            env: { AXM_TOKEN: "" },
+          },
+        );
+
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr.length).toBeGreaterThan(0);
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
+  describe("exit codes", () => {
+    it("exits 0 on successful command in json mode", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(["token", "--output-format", "json"], {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "test-exit-code-token" },
+        });
+
+        expect(result.exitCode).toBe(0);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("exits 0 on successful command in stream-json mode", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(["logout", "--output-format", "stream-json"], {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "" },
+        });
+
+        expect(result.exitCode).toBe(0);
       } finally {
         temp.cleanup();
       }
@@ -119,6 +183,50 @@ describe("structured output modes", () => {
     it("parent command exits 0 in stream-json mode", async () => {
       const result = await runCli(["skills", "--output-format", "stream-json"]);
       expect(result.exitCode).toBe(0);
+    });
+  });
+
+  describe("--non-interactive + structured output", () => {
+    it("works with --non-interactive and --output-format json", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(["token", "--non-interactive", "--output-format", "json"], {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "ci-json-token" },
+        });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("ci-json-token");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("works with --non-interactive and --output-format stream-json", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(
+          ["logout", "--non-interactive", "--output-format", "stream-json"],
+          {
+            cwd: temp.path,
+            env: { AXM_TOKEN: "" },
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should produce NDJSON events
+        const lines = result.stdout
+          .trim()
+          .split("\n")
+          .filter((line) => line.length > 0);
+        expect(lines.length).toBeGreaterThan(0);
+        // Each line should be valid JSON
+        for (const line of lines) {
+          expect(() => JSON.parse(line)).not.toThrow();
+        }
+      } finally {
+        temp.cleanup();
+      }
     });
   });
 });

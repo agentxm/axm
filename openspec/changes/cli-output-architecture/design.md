@@ -19,8 +19,9 @@ The `--output-format text|json|stream-json` flag conflates format selection with
 
 **Non-Goals:**
 
-- Interactive prompt redesign (Input service unchanged)
+- Interactive prompt redesign — CliPrompt stays a separate service with its existing interface; this change codifies its relationship to CliRenderer but does not alter prompt behavior
 - Telemetry/observability output changes
+- Preserving CliEnvironment — this change removes CliEnvironment entirely (its responsibilities are absorbed by Verbosity, nonInteractiveFlag, and per-command flags)
 - Error formatting changes (AppError rendering stays in runtime-envelope)
 - `--jq` or `--template` post-processing flags
 - Third-party table library adoption (custom formatter preferred)
@@ -143,7 +144,7 @@ The handler calls `result()` for batch output or `resultStream()` for streaming 
 **Alternatives considered:**
 
 - (a) Embed verbosity in CliRenderer (renderer checks level before emitting) → couples format and volume; verbose JSON should include more data, not more chrome
-- (b) Embed in CliEnvironment (add level to existing service) → CliEnvironment is about environment detection, not output policy
+- (b) Embed in CliEnvironment (add level to existing service) → CliEnvironment is being removed by this change; even if it weren't, it conflates environment detection with output policy
 - (c) Standalone Verbosity service → chosen
 
 **Rationale:** Verbosity controls _what_ a handler emits. CliRenderer controls _how_ it's formatted. They compose independently: verbose interactive mode shows extra table columns; verbose JSON mode includes extra fields in the result object. The renderer doesn't need to know the verbosity level.
@@ -713,16 +714,179 @@ The default `TestRenderer` returns `false` from `result()` (interactive behavior
 The composition at the `run()` boundary:
 
 ```
-CliEnvironment (nonInteractive, from argv/env)
-  ├── Verbosity (from -q / -v / -vv flags)
-  ├── CliRenderer (from --json + TTY detection)
-  │     ├── InteractiveRenderer (TTY, no --json)
-  │     ├── MachineRenderer (--json or piped stdout)
-  │     └── TestRenderer (test layers)
-  └── Effect LogLevel (derived from verbosity)
+Verbosity (from -q / -v / -vv flags)
+CliRenderer (from --json + TTY detection)
+  ├── InteractiveRenderer (TTY, no --json)
+  ├── MachineRenderer (--json or piped stdout)
+  └── TestRenderer (test layers)
+CliPrompt (from nonInteractiveFlag)
+  ├── InteractivePrompt (TTY, fails fast when nonInteractive)
+  └── TestPrompt (test layers, canned responses)
+Effect LogLevel (derived from verbosity)
 ```
 
-`makeFoundationLayer(format)` becomes `makeFoundationLayer(options)` where options includes the resolved `--json` flag and terminal capabilities. The `--json` flag is per-command in the CLI parser but resolved early via argv scanning (same mechanism as the current `resolveFormatFromArgv`) so it's available at layer construction time. The foundation provides `CliRenderer | Verbosity | Input | CliEnvironment`.
+**CliEnvironment is removed.** Its responsibilities are absorbed:
+
+- **verbose / debug** → `Verbosity` service (Decision 3)
+- **nonInteractive** → `nonInteractiveFlag` GlobalFlag setting, read at the prompt layer boundary
+- **yes** → per-command flag, checked by the handler before calling `prompt.confirm()` (not a service concern)
+
+`makeFoundationLayer(format)` becomes `makeFoundationLayer(options)` where options includes the resolved `--json` flag and terminal capabilities. The `--json` flag is per-command in the CLI parser but resolved early via argv scanning (same mechanism as the current `resolveFormatFromArgv`) so it's available at layer construction time. The foundation provides `CliRenderer | CliPrompt | Verbosity`.
+
+`CliPrompt` replaces the existing `Input` service — same prompt methods, renamed for consistency with `CliRenderer`.
+
+### 13. CliPrompt stays separate, shares channel awareness with CliRenderer
+
+**Decision:** Prompts remain a separate `CliPrompt` service. The service is not merged into `CliRenderer`. Both services share the channel model: prompts render on stderr (interactive chrome) and read from stdin; `CliRenderer` owns stdout for data and stderr for chrome.
+
+**Rationale:** `CliRenderer` is write-only output. `CliPrompt` is read-write input collection. They're separate concerns with different lifecycles — a prompt occupies both stderr and stdin, waiting for user input, while the renderer fires and forgets. Merging them would conflate "display information" with "collect input," making the interface harder to reason about and test.
+
+The core tension is interleaving: a handler does `spinner → stop → table → confirm → spinner → stop → success`. If the renderer writes to stderr and prompts write to stdout, visual ordering breaks. Since both use stderr for chrome, they share the same visual column (Clack's guide-line system) and interleave correctly.
+
+#### Service shape (unchanged)
+
+```typescript
+interface CliPrompt {
+  readonly text: (opts: TextOpts) => Effect.Effect<string, PromptCancelled>;
+  readonly password: (opts: PasswordOpts) => Effect.Effect<string, PromptCancelled>;
+  readonly confirm: (opts: ConfirmOpts) => Effect.Effect<boolean, PromptCancelled>;
+  readonly select: <T>(opts: SelectOpts<T>) => Effect.Effect<T, PromptCancelled>;
+  readonly multiselect: <T>(
+    opts: MultiselectOpts<T>,
+  ) => Effect.Effect<ReadonlyArray<T>, PromptCancelled>;
+  readonly path: (opts: PathOpts) => Effect.Effect<string, PromptCancelled>;
+}
+```
+
+#### Internal non-interactive resolution
+
+The prompt layer is constructed with the resolved `nonInteractive` value (from `nonInteractiveFlag` at the `run()` boundary). Every prompt method checks this internally — if non-interactive and no default, fail fast; if non-interactive with a default, use it silently.
+
+`--yes` is **not** handled inside the prompt service. It's a per-command flag — handlers check it before calling `prompt.confirm()`. This keeps `--yes` semantics explicit at the call site and avoids threading a per-command flag into a shared service.
+
+```typescript
+// InteractivePrompt constructed with nonInteractive at the boundary:
+const makeInteractivePrompt = (nonInteractive: boolean) => ({
+  confirm: (opts) =>
+    Effect.gen(function* () {
+      // --non-interactive with no default → fail fast
+      if (nonInteractive && opts.default === undefined) {
+        yield* makeAppError({
+          code: "PROMPT_REQUIRED",
+          what: `Confirmation required: ${opts.message}`,
+          howToFix: Option.some("Pass --yes to auto-accept"),
+        });
+      }
+
+      // --non-interactive with default → use it silently
+      if (nonInteractive) return opts.default!;
+
+      // Interactive → show Clack prompt
+      return yield* clackConfirm(opts);
+    }),
+  // ...other prompt methods follow the same pattern
+});
+```
+
+#### --json mode and prompts
+
+When `--json` is active, prompts still work — but only on stderr. The principle: `--json` controls stdout (data channel). Prompts are interactive input collection on stderr/stdin. A user running `axm init --json` might want structured output as JSON while still being prompted for the project name. This matches how `gh` works — `gh pr create --json` still prompts for title/body if not provided via flags.
+
+However, `--json` implies `--non-interactive` for commands that don't take input. `axm search foo --json` is a pure data query with nothing to prompt for. The prompt service doesn't need to know about `--json`; the existing `--non-interactive` resolution chain handles this. Commands that support `--json` and have required input document the corresponding flags.
+
+#### fromFlagOrPrompt and autoConfirm helpers
+
+The gather-then-execute pattern — use a flag value if present, otherwise prompt — is formalized as helpers:
+
+```typescript
+const fromFlagOrPrompt = <T>(
+  value: Option.Option<T>,
+  prompt: () => Effect.Effect<T, PromptCancelled>,
+) => Option.match(value, { onNone: prompt, onSome: Effect.succeed });
+
+// --yes handling at the handler level (not inside the prompt service)
+const autoConfirm = (yes: boolean, prompt: () => Effect.Effect<boolean, PromptCancelled>) =>
+  yes ? Effect.succeed(true) : prompt();
+```
+
+This makes the boundary between "input gathering" and "execution with output" visible in handler code. `--yes` is checked explicitly by the handler via `autoConfirm`, not hidden inside the prompt service. Prompts cluster at the top, output flows below:
+
+```typescript
+const handleInit = (args: InitHandlerArgs) =>
+  Effect.gen(function* () {
+    const out = yield* CliRenderer;
+    const prompt = yield* CliPrompt;
+
+    // --- Input gathering (prompts) ---
+    const name = yield* fromFlagOrPrompt(args.name, () =>
+      prompt.text({ message: "Extension name:", validate: validateName }),
+    );
+
+    const agents = yield* fromFlagOrPrompt(args.agents, () =>
+      prompt.multiselect({
+        message: "Which agents?",
+        options: [
+          { value: "claude-code", label: "Claude Code" },
+          { value: "cursor", label: "Cursor" },
+          { value: "github-copilot", label: "GitHub Copilot" },
+        ],
+      }),
+    );
+
+    // --- Execution with output (renderer) ---
+    const spin = yield* out.spinner("Creating workspace...");
+    // ...
+  });
+```
+
+#### TestPrompt implementation
+
+Mirrors the `TestRenderer` pattern. Tests provide canned responses; the `TestPrompt` pops from the queue and fails if the queue is empty (handler asked for unexpected input):
+
+```typescript
+interface TestPromptConfig {
+  readonly textResponses: ReadonlyArray<string>;
+  readonly confirmResponses: ReadonlyArray<boolean>;
+  readonly selectResponses: ReadonlyArray<unknown>;
+  readonly multiselectResponses: ReadonlyArray<ReadonlyArray<unknown>>;
+}
+```
+
+```typescript
+interface TestPromptState {
+  readonly textCalls: Array<TextOpts>;
+  readonly confirmCalls: Array<ConfirmOpts>;
+  readonly selectCalls: Array<SelectOpts<unknown>>;
+  readonly multiselectCalls: Array<MultiselectOpts<unknown>>;
+}
+```
+
+Usage:
+
+```typescript
+const testPrompt = TestPrompt.make({
+  textResponses: ["my-project"],
+  confirmResponses: [true],
+  multiselectResponses: [["claude-code", "cursor"]],
+});
+
+await Effect.runPromise(
+  handleInit({ name: Option.none(), agents: Option.none() }).pipe(
+    Effect.provide(testPrompt.layer),
+    Effect.provide(testRenderer.layer),
+  ),
+);
+
+expect(testPrompt.state.textCalls).toHaveLength(1);
+expect(testPrompt.state.textCalls[0].message).toBe("Extension name:");
+```
+
+#### What stays unchanged
+
+- **Severity model** (`--force` for errors, warnings always shown) — unchanged
+- **PromptCancelled** as a control flow signal (exit 0), separate from `AppError` — unchanged
+- **Resolution chain** for `--non-interactive` (explicit flag → `CI=true` → `!stdin.isTTY`) — unchanged, but resolved at the prompt layer boundary instead of via `CliEnvironment`
+- **Flag independence** (`--yes` ≠ `--non-interactive` ≠ `--force`) — unchanged; `--yes` moves from service-internal to handler-explicit
 
 ## Risks / Trade-offs
 
@@ -1134,28 +1298,161 @@ export const handleInit = () =>
   });
 ```
 
+### G. Scaffold handler — fromFlagOrPrompt, prompt+renderer interplay
+
+A command that gathers input via prompts (or flags), then executes with renderer output. Demonstrates the gather-then-execute pattern where prompts cluster at the top and output flows below.
+
+**Methods exercised:** `CliPrompt.text`, `CliPrompt.multiselect`, `CliPrompt.confirm`, `fromFlagOrPrompt`, `intro`, `outro`, `success`, `withSpinner`, `result`, `tree` (flat)
+
+```typescript
+// commands/new/handler.ts
+import { Effect, Option } from "effect";
+import { CliRenderer } from "@/cli-renderer";
+import { CliPrompt, fromFlagOrPrompt, autoConfirm } from "@/cli-prompt";
+
+interface NewHandlerArgs {
+  readonly name: Option.Option<string>;
+  readonly agents: Option.Option<ReadonlyArray<string>>;
+  readonly yes: boolean;
+}
+
+export const handleNew = (args: NewHandlerArgs) =>
+  Effect.gen(function* () {
+    const out = yield* CliRenderer;
+    const prompt = yield* CliPrompt;
+
+    yield* out.intro("New Extension");
+
+    // --- Input gathering (prompts cluster at the top) ---
+    const name = yield* fromFlagOrPrompt(args.name, () =>
+      prompt.text({
+        message: "Extension name:",
+        validate: (v) => (v.length > 0 ? undefined : "Name is required"),
+      }),
+    );
+
+    const agents = yield* fromFlagOrPrompt(args.agents, () =>
+      prompt.multiselect({
+        message: "Which agents should this extension support?",
+        options: [
+          { value: "claude-code", label: "Claude Code" },
+          { value: "cursor", label: "Cursor" },
+          { value: "github-copilot", label: "GitHub Copilot" },
+        ],
+        required: true,
+      }),
+    );
+
+    // --yes checked explicitly at the handler level
+    const proceed = yield* autoConfirm(args.yes, () =>
+      prompt.confirm({
+        message: `Create extension "${name}" for ${agents.length} agents?`,
+      }),
+    );
+    if (!proceed) {
+      yield* out.outro("Cancelled");
+      return;
+    }
+
+    // --- Execution with output (renderer flows below) ---
+    const files = yield* out.withSpinner("Scaffolding extension…", () =>
+      scaffoldExtension(name, agents),
+    );
+
+    // Machine output
+    if (yield* out.result({ name, agents, files: files.map((f) => f.path) })) return;
+
+    // Interactive summary
+    yield* out.tree(
+      files.map((f) => ({ data: f.path })),
+      { label: (f) => f },
+      "Created files",
+    );
+
+    yield* out.success(`Extension "${name}" created`);
+    yield* out.outro("Done");
+  });
+```
+
+**Test for this handler** — TestPrompt provides canned responses, TestRenderer captures output:
+
+```typescript
+it("scaffolds extension with prompted inputs", async () => {
+  const testPrompt = TestPrompt.make({
+    textResponses: ["my-extension"],
+    multiselectResponses: [["claude-code", "cursor"]],
+    confirmResponses: [true],
+  });
+  const testRenderer = TestRenderer.make();
+
+  await Effect.runPromise(
+    handleNew({ name: Option.none(), agents: Option.none(), yes: false }).pipe(
+      Effect.provide(testPrompt.layer),
+      Effect.provide(testRenderer.layer),
+      // ...other layers
+    ),
+  );
+
+  // Verify prompts were asked
+  expect(testPrompt.state.textCalls).toHaveLength(1);
+  expect(testPrompt.state.textCalls[0].message).toBe("Extension name:");
+  expect(testPrompt.state.multiselectCalls).toHaveLength(1);
+  expect(testPrompt.state.confirmCalls).toHaveLength(1);
+
+  // Verify output
+  expect(testRenderer.state.results[0]).toEqual({
+    name: "my-extension",
+    agents: ["claude-code", "cursor"],
+    files: expect.any(Array),
+  });
+});
+
+it("skips prompts when flags provided", async () => {
+  const testPrompt = TestPrompt.make({ confirmResponses: [true] });
+  const testRenderer = TestRenderer.make();
+
+  await Effect.runPromise(
+    handleNew({
+      name: Option.some("my-extension"),
+      agents: Option.some(["claude-code"]),
+      yes: false,
+    }).pipe(Effect.provide(testPrompt.layer), Effect.provide(testRenderer.layer)),
+  );
+
+  // No text or multiselect prompts — flags provided values
+  expect(testPrompt.state.textCalls).toHaveLength(0);
+  expect(testPrompt.state.multiselectCalls).toHaveLength(0);
+  // Confirm still asked (--yes not passed)
+  expect(testPrompt.state.confirmCalls).toHaveLength(1);
+});
+```
+
 ### Surface coverage matrix
 
-| Method             | A (list) | B (show) | C (install) | D (watch) | E (export) | F (init) |
-| ------------------ | -------- | -------- | ----------- | --------- | ---------- | -------- |
-| `intro`            | ✓        |          | ✓           |           |            | ✓        |
-| `outro`            | ✓        |          | ✓           |           |            | ✓        |
-| `info`             |          |          | ✓           | ✓         |            |          |
-| `success`          |          |          | ✓           |           |            | ✓        |
-| `step`             |          | ✓        | ✓           |           |            | ✓        |
-| `warn`             | ✓        |          | ✓           |           |            |          |
-| `error`            |          |          | ✓           |           |            |          |
-| `note`             |          | ✓        |             |           |            | ✓        |
-| `spinner` (manual) |          |          | ✓           | ✓         |            |          |
-| `withSpinner`      | ✓        | ✓        | ✓           |           |            | ✓        |
-| `withProgress`     |          |          | ✓           |           |            |          |
-| `emitMany`         | ✓        |          |             |           |            |          |
-| `emitOne`          |          | ✓        |             |           |            |          |
-| `result` (direct)  |          |          | ✓           |           |            | ✓        |
-| `tree` (flat)      |          |          | ✓           |           |            |          |
-| `tree` (nested)    |          | ✓        |             |           |            |          |
-| `tree` (grouped)   |          |          |             |           |            | ✓        |
-| `resultStream`     |          |          |             | ✓         |            |          |
-| `json`             |          |          |             |           | ✓          |          |
-| `raw`              |          |          |             |           | ✓          |          |
-| `whenNotQuiet`     |          |          | ✓           |           |            |          |
+| Method               | A (list) | B (show) | C (install) | D (watch) | E (export) | F (init) | G (new) |
+| -------------------- | -------- | -------- | ----------- | --------- | ---------- | -------- | ------- |
+| `intro`              | ✓        |          | ✓           |           |            | ✓        | ✓       |
+| `outro`              | ✓        |          | ✓           |           |            | ✓        | ✓       |
+| `info`               |          |          | ✓           | ✓         |            |          |         |
+| `success`            |          |          | ✓           |           |            | ✓        | ✓       |
+| `step`               |          | ✓        | ✓           |           |            | ✓        |         |
+| `warn`               | ✓        |          | ✓           |           |            |          |         |
+| `error`              |          |          | ✓           |           |            |          |         |
+| `note`               |          | ✓        |             |           |            | ✓        |         |
+| `spinner` (manual)   |          |          | ✓           | ✓         |            |          |         |
+| `withSpinner`        | ✓        | ✓        | ✓           |           |            | ✓        | ✓       |
+| `withProgress`       |          |          | ✓           |           |            |          |         |
+| `emitMany`           | ✓        |          |             |           |            |          |         |
+| `emitOne`            |          | ✓        |             |           |            |          |         |
+| `result` (direct)    |          |          | ✓           |           |            | ✓        | ✓       |
+| `tree` (flat)        |          |          | ✓           |           |            |          | ✓       |
+| `tree` (nested)      |          | ✓        |             |           |            |          |         |
+| `tree` (grouped)     |          |          |             |           |            | ✓        |         |
+| `resultStream`       |          |          |             | ✓         |            |          |         |
+| `json`               |          |          |             |           | ✓          |          |         |
+| `raw`                |          |          |             |           | ✓          |          |         |
+| `whenNotQuiet`       |          |          | ✓           |           |            |          |         |
+| `prompt.text`        |          |          |             |           |            |          | ✓       |
+| `prompt.multiselect` |          |          |             |           |            |          | ✓       |
+| `prompt.confirm`     |          |          |             |           |            |          | ✓       |
+| `fromFlagOrPrompt`   |          |          |             |           |            |          | ✓       |

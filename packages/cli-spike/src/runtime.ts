@@ -19,12 +19,8 @@ import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import { FakeSkillsManagerLive } from "./fake-skills-manager.js";
 
-const telemetryEnabledInTest = () => process.env["AXM_TELEMETRY_ENABLE_IN_TEST"] === "true";
-
 export const ROOT_COMMAND = "axm-spike";
 export const VERSION = "0.0.1";
-
-const telemetryBaseUrl = process.env["AXM_TELEMETRY_BASE_URL"];
 
 const spikeCliTelemetryConfig = {
   mode: resolveTelemetryMode(
@@ -35,10 +31,6 @@ const spikeCliTelemetryConfig = {
     {},
   ),
   client: { name: ROOT_COMMAND, version: VERSION },
-  runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-  ci: process.env["CI"] === "true",
-  test: process.env["VITEST"] === "true" && !telemetryEnabledInTest(),
-  ...(telemetryBaseUrl !== undefined && { baseUrl: telemetryBaseUrl }),
 } satisfies CliTelemetryConfigService;
 
 interface RuntimeOptions {

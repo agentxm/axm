@@ -6,6 +6,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as HttpBody from "effect/unstable/http/HttpBody";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import { isCI } from "../utils/index.js";
 import type { TelemetryMode } from "./mode.js";
 
 export interface TelemetryClientService {
@@ -28,13 +29,6 @@ export interface TelemetryClientOptions {
     readonly name: string;
     readonly version: string;
   };
-  readonly runtime: {
-    readonly name: string;
-    readonly version: string;
-  };
-  readonly ci: boolean;
-  readonly test?: boolean;
-  readonly baseUrl?: string;
 }
 
 export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
@@ -54,10 +48,20 @@ const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(swallowFailure, Effect.forkDetach, Effect.asVoid);
 
+const isTest = (): boolean =>
+  process.env["VITEST"] === "true" && process.env["AXM_TELEMETRY_ENABLE_IN_TEST"] !== "true";
+
+const readBaseUrl = (): string => process.env["AXM_TELEMETRY_BASE_URL"] ?? DEFAULT_BASE_URL;
+
+const readRuntime = (): { readonly name: string; readonly version: string } => ({
+  name: "bun",
+  version: process.versions["bun"] ?? "unknown",
+});
+
 export const makeTelemetryClient = (
   options: TelemetryClientOptions,
 ): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> => {
-  if (options.mode === "off" || options.test) {
+  if (options.mode === "off" || isTest()) {
     return Effect.succeed({
       trackEvent: () => Effect.void,
       reportError: () => Effect.void,
@@ -70,13 +74,13 @@ export const makeTelemetryClient = (
     const context = {
       client: options.client,
       os: { name: process.platform, version: os.release() },
-      runtime: options.runtime,
+      runtime: readRuntime(),
       device: { arch: process.arch },
-      ci: options.ci,
+      ci: isCI(),
     };
 
     const distinctId = createHash("sha256").update(os.hostname()).digest("hex");
-    const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    const baseUrl = readBaseUrl();
 
     const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) => {
       if (options.mode === "errors") return Effect.void;

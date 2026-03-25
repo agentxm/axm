@@ -1,6 +1,6 @@
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { TelemetryClient, TelemetryClientLive } from "./client.js";
@@ -36,16 +36,12 @@ const getTelemetry = (
   mode: "all" | "errors" | "off",
   command: string,
   mock: { client: HttpClient.HttpClient },
-  options?: { readonly test?: boolean },
 ) => {
   const telemetryLayer = Layer.provide(
     TelemetryClientLive({
       mode,
       command,
       client: { name: "cli", version: "1.2.3" },
-      runtime: { name: "bun", version: "1.2.4" },
-      ci: false,
-      ...options,
     }),
     Layer.succeed(HttpClient.HttpClient, mock.client),
   );
@@ -54,6 +50,17 @@ const getTelemetry = (
 };
 
 describe("TelemetryClientLive", () => {
+  // isTest() reads VITEST env var. Override to false so the live path runs.
+  let savedVitest: string | undefined;
+  beforeEach(() => {
+    savedVitest = process.env["VITEST"];
+    process.env["VITEST"] = "false";
+  });
+  afterEach(() => {
+    if (savedVitest === undefined) delete process.env["VITEST"];
+    else process.env["VITEST"] = savedVitest;
+  });
+
   describe("mode 'all'", () => {
     it.effect("trackEvent sends POST to /events with correct payload shape", () =>
       Effect.gen(function* () {
@@ -92,7 +99,8 @@ describe("TelemetryClientLive", () => {
         expect(typeof body.events[0]!.timestamp).toBe("string");
         expect(typeof body.sentAt).toBe("string");
         expect(body.context.client).toEqual({ name: "cli", version: "1.2.3" });
-        expect(body.context.runtime).toEqual({ name: "bun", version: "1.2.4" });
+        expect(body.context.runtime.name).toBe("bun");
+        expect(typeof body.context.runtime.version).toBe("string");
         expect(typeof body.context.os.name).toBe("string");
         expect(typeof body.context.os.version).toBe("string");
         expect(typeof body.context.device.arch).toBe("string");
@@ -194,10 +202,11 @@ describe("TelemetryClientLive", () => {
   });
 
   describe("test mode", () => {
-    it.effect("uses the no-op implementation", () =>
+    it.effect("uses the no-op implementation when VITEST=true", () =>
       Effect.gen(function* () {
+        process.env["VITEST"] = "true";
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "init", mock, { test: true });
+        const telemetry = yield* getTelemetry("all", "init", mock);
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -223,8 +232,6 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "init",
             client: { name: "cli", version: "1.2.3" },
-            runtime: { name: "bun", version: "1.2.4" },
-            ci: false,
           }),
           Layer.succeed(HttpClient.HttpClient, failingClient),
         );

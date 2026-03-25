@@ -58,6 +58,7 @@ class CliRenderer extends ServiceMap.Service<
     readonly cancel: (message?: string) => Effect<void>;
     readonly note: (message: string, title?: string) => Effect<void>;
     readonly box: (message: string, title?: string, opts?: BoxOptions) => Effect<void>;
+    readonly streamLog: <E, R>(level: LogLevel, stream: Stream<string, E, R>) => Effect<void, E, R>;
     readonly spinner: (message: string) => Effect<SpinnerHandle>;
     readonly withSpinner: <A, E, R>(
       message: string,
@@ -99,7 +100,7 @@ class CliRenderer extends ServiceMap.Service<
     readonly result: <T>(data: T, schema: Schema.Schema<T>) => Effect<boolean>;
     readonly resultStream: <T>(stream: Stream<T>, schema: Schema.Schema<T>) => Effect<boolean>;
 
-    // Both modes (stdout)
+    // Both modes (stdout) — mutually exclusive with result()/resultStream()
     readonly json: (data: unknown) => Effect<void>;
     readonly raw: (content: string) => Effect<void>;
   }
@@ -139,6 +140,71 @@ The per-level methods on the service interface (`message`, `info`, `success`, `s
 | `progress` / `withProgress` | `progress`     | Extends spinner with advance/percent                         |
 | `taskLog` / `withTaskLog`   | `taskLog`      | Command output capture (clears on success, retains on error) |
 | `runTasks`                  | `tasks`        | Batch task execution with spinner display                    |
+| `streamLog`                 | `p.stream.*`   | Stream text lines at a log level (replaces `Output.stream`)  |
+
+**`LogLevel`** for `streamLog` reuses the per-level method names:
+
+```typescript
+type LogLevel = "message" | "info" | "success" | "step" | "warn" | "error";
+```
+
+`streamLog` replaces the current `Output.stream(level, stream)` method. The `InteractiveRenderer` pipes stream chunks through the corresponding Clack `p.stream.*` method. The `MachineRenderer` emits each chunk as an NDJSON log event on stderr.
+
+**Handle interfaces:**
+
+```typescript
+interface SpinnerHandle {
+  readonly stop: (message?: string) => Effect<void>;
+  readonly message: (message?: string) => Effect<void>;
+  readonly cancel: (message?: string) => Effect<void>;
+  readonly error: (message?: string) => Effect<void>;
+  readonly clear: () => Effect<void>;
+}
+
+interface SpinnerOptions<A> {
+  readonly successMessage?: string | ((value: A) => string);
+  readonly failureMessage?: string;
+}
+
+interface ProgressConfig {
+  readonly style?: "light" | "heavy" | "block";
+  readonly max?: number;
+  readonly size?: number;
+}
+
+interface ProgressHandle extends SpinnerHandle {
+  readonly advance: (step?: number, message?: string) => Effect<void>;
+}
+
+interface TaskLogConfig {
+  readonly title: string;
+  readonly limit?: number;
+  readonly retainLog?: boolean;
+}
+
+interface TaskLogGroupHandle {
+  readonly message: (msg: string) => Effect<void>;
+  readonly error: (message: string) => Effect<void>;
+  readonly success: (message: string) => Effect<void>;
+}
+
+interface TaskLogHandle {
+  readonly message: (msg: string) => Effect<void>;
+  readonly group: (name: string) => Effect<TaskLogGroupHandle>;
+  readonly error: (message: string) => Effect<void>;
+  readonly success: (message: string) => Effect<void>;
+}
+
+interface Task<E, R> {
+  readonly title: string;
+  readonly task: (message: (msg: string) => Effect<void>) => Effect<string | void, E, R>;
+  readonly enabled?: boolean;
+}
+```
+
+These match the current `Activity` handle shapes. `SpinnerHandle.message` updates the spinner text (named `message` for Clack API alignment). `ProgressHandle` extends `SpinnerHandle` with `advance(step)` for incrementing progress.
+
+**`json()` / `raw()` are mutually exclusive with `result()` / `resultStream()`.** Commands that use `result()` for schema-validated output should not also call `json()` or `raw()`. `json()` and `raw()` exist for export/dump commands that produce raw content in both modes (e.g., `axm workspace export --format yaml`). A handler that calls both `result()` and `json()` would produce two objects on stdout in machine mode — this is a handler bug.
 
 ### 2. Replace --output-format with per-command --json
 
@@ -389,12 +455,14 @@ const DisplayFormat = Symbol.for("axm/output/DisplayFormat");
 const Hidden = Symbol.for("axm/output/Hidden");
 
 // Annotation helper — wraps Schema.annotations for ergonomics
-const column = (opts: {
+// Generic <A> infers field type at call site; stored untyped in annotations
+// but safe because columnsFrom() only calls format with the matching field value
+const column = <A = unknown>(opts: {
   header: string;
   priority?: number; // 0 = always, 1 = verbose. Default 0
   align?: "left" | "right";
   width?: "auto" | "fill" | number;
-  format?: (value: unknown) => string;
+  format?: (value: A) => string;
 }) =>
   Schema.annotations({
     [ColumnHeader]: opts.header,
@@ -419,7 +487,7 @@ export const SkillListItem = Schema.Struct({
   ),
   version: Schema.String.pipe(column({ header: "Version", width: "auto" })),
   enabled: Schema.Boolean.pipe(
-    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+    column<boolean>({ header: "Enabled", format: (v) => (v ? "yes" : "no") }),
   ),
   source: Schema.String.pipe(
     column({ header: "Source", priority: 1 }),
@@ -590,6 +658,8 @@ my-skill
 ```
 
 **Schema annotations drive both layouts:** The same `column()` annotations produce `ColumnDef[]` via `columnsFrom()`. For `table()`, the header becomes a column header. For `detail()`, the header becomes a label. Priority filtering, formatting, and `hidden()` work identically in both views.
+
+**`detail()` uses a subset of `ColumnDef` fields:** `header` (as label), `value` (accessor), `priority` (verbosity filtering), and `format` (display transformation). The `width` and `align` fields are ignored — vertical key-value layout uses fixed label/value alignment, not column distribution.
 
 **`emitOne` uses `detail()`** — single-item output uses vertical layout by default:
 
@@ -843,7 +913,9 @@ Effect LogLevel (derived from verbosity)
 
 The core tension is interleaving: a handler does `spinner → stop → table → confirm → spinner → stop → success`. If the renderer writes to stderr and prompts write to stdout, visual ordering breaks. Since both use stderr for chrome, they share the same visual column (Clack's guide-line system) and interleave correctly.
 
-#### Service shape (unchanged)
+#### Service shape
+
+Carries forward all current `Input` methods, renamed for consistency. Config types are renamed accordingly (`TextConfig` → `TextOpts`, etc.) but shapes are unchanged.
 
 ```typescript
 interface CliPrompt {
@@ -854,13 +926,47 @@ interface CliPrompt {
   readonly multiselect: <T>(
     opts: MultiselectOpts<T>,
   ) => Effect.Effect<ReadonlyArray<T>, PromptCancelled>;
+  readonly groupMultiselect: <T>(
+    opts: GroupMultiselectOpts<T>,
+  ) => Effect.Effect<ReadonlyArray<T>, PromptCancelled>;
+  readonly selectKey: <T extends string>(
+    opts: SelectKeyOpts<T>,
+  ) => Effect.Effect<T, PromptCancelled>;
+  readonly autocomplete: <T>(opts: AutocompleteOpts<T>) => Effect.Effect<T, PromptCancelled>;
+  readonly autocompleteMultiselect: <T>(
+    opts: AutocompleteMultiselectOpts<T>,
+  ) => Effect.Effect<ReadonlyArray<T>, PromptCancelled>;
   readonly path: (opts: PathOpts) => Effect.Effect<string, PromptCancelled>;
 }
 ```
 
 #### Internal non-interactive resolution
 
-The prompt layer is constructed with the resolved `nonInteractive` value (from `nonInteractiveFlag` at the `run()` boundary). Every prompt method checks this internally — if non-interactive and no default, fail fast; if non-interactive with a default, use it silently.
+The prompt layer is constructed with the resolved `nonInteractive` value at the `run()` boundary. The resolution chain (previously in `CliEnvironment`) moves to a standalone resolver that the prompt layer boundary calls:
+
+```typescript
+// cli-prompt/resolve-non-interactive.ts
+import { Flag, GlobalFlag } from "effect/unstable/cli";
+
+export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
+  flag: Flag.boolean("non-interactive").pipe(
+    Flag.optional,
+    Flag.withDescription("Disable all interactive prompts"),
+  ),
+});
+
+const isCI = (): boolean => process.env["CI"] === "true";
+
+// Resolution chain: explicit --non-interactive flag → CI=true → !stdin.isTTY
+export const resolveNonInteractive = Effect.gen(function* () {
+  const flag = yield* nonInteractiveFlag;
+  return Option.getOrElse(flag, () => isCI() || process.stdin.isTTY !== true);
+});
+```
+
+This is the same logic as the current `isNonInteractive` in `utils/environment.ts`, relocated to the prompt module since it's only consumed by the prompt layer. The `run()` boundary resolves it once and passes the boolean to `makeInteractivePrompt`.
+
+Every prompt method checks this internally — if non-interactive and no default, fail fast; if non-interactive with a default, use it silently.
 
 `--yes` is **not** handled inside the prompt service. It's a per-command flag — handlers check it before calling `prompt.confirm()`. This keeps `--yes` semantics explicit at the call site and avoids threading a per-command flag into a shared service.
 
@@ -996,28 +1102,29 @@ Three new core modules replace six existing ones. All follow the `unstable/` nam
 
 Replaces `unstable/output/`, `unstable/activity/`, and `unstable/output-format.ts`.
 
-| File                          | Exports                                                                                                                                |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `cli-renderer.ts`             | `CliRenderer`, `SpinnerHandle`, `SpinnerOptions`, `ProgressHandle`, `ProgressConfig`, `LogMessage`, `ColumnDef`, `TreeNode`, `TreeDef` |
-| `terminal-capabilities.ts`    | `TerminalCapabilities`, `resolveTerminalCapabilities`                                                                                  |
-| `cli-renderer-interactive.ts` | `InteractiveRenderer` layer — Clack chrome, table formatter, tree formatter                                                            |
-| `cli-renderer-machine.ts`     | `MachineRenderer` layer — JSON/NDJSON stdout, chrome no-ops                                                                            |
-| `cli-renderer-test.ts`        | `TestRenderer`, `TestMachineRenderer`, `TestRendererState`                                                                             |
-| `annotations.ts`              | `column()`, `hidden()`, annotation symbols (`ColumnHeader`, `ColumnPriority`, etc.)                                                    |
-| `command-output.ts`           | `columnsFrom()`, `emitMany()`, `emitOne()`, `CommandOutputOpts`                                                                        |
-| `index.ts`                    | Barrel — re-exports all public API                                                                                                     |
+| File                          | Exports                                                                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli-renderer.ts`             | `CliRenderer`, `SpinnerHandle`, `SpinnerOptions`, `ProgressHandle`, `ProgressConfig`, `TaskLogConfig`, `TaskLogHandle`, `TaskLogGroupHandle`, `Task`, `LogLevel`, `LogMessage`, `ColumnDef`, `TreeNode`, `TreeDef`, `BoxOptions` |
+| `terminal-capabilities.ts`    | `TerminalCapabilities`, `resolveTerminalCapabilities`                                                                                                                                                                            |
+| `cli-renderer-interactive.ts` | `InteractiveRenderer` layer — Clack chrome, table formatter, tree formatter                                                                                                                                                      |
+| `cli-renderer-machine.ts`     | `MachineRenderer` layer — JSON/NDJSON stdout, chrome no-ops                                                                                                                                                                      |
+| `cli-renderer-test.ts`        | `TestRenderer`, `TestMachineRenderer`, `TestRendererState`                                                                                                                                                                       |
+| `annotations.ts`              | `column()`, `hidden()`, annotation symbols (`ColumnHeader`, `ColumnPriority`, etc.)                                                                                                                                              |
+| `command-output.ts`           | `columnsFrom()`, `emitMany()`, `emitOne()`, `CommandOutputOpts`                                                                                                                                                                  |
+| `index.ts`                    | Barrel — re-exports all public API                                                                                                                                                                                               |
 
 #### `@axm.sh/core/unstable/cli-prompt` (new)
 
 Replaces `unstable/input/`.
 
-| File                        | Exports                                                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `cli-prompt.ts`             | `CliPrompt`, config types (`TextOpts`, `ConfirmOpts`, `SelectOpts`, `MultiselectOpts`, `PasswordOpts`, `PathOpts`) |
-| `cli-prompt-interactive.ts` | `InteractivePrompt` layer — Clack prompts, non-interactive fail-fast                                               |
-| `cli-prompt-test.ts`        | `TestPrompt`, `TestPromptConfig`, `TestPromptState`                                                                |
-| `helpers.ts`                | `fromFlagOrPrompt()`, `autoConfirm()`                                                                              |
-| `index.ts`                  | Barrel                                                                                                             |
+| File                         | Exports                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli-prompt.ts`              | `CliPrompt`, config types (`TextOpts`, `ConfirmOpts`, `SelectOpts`, `MultiselectOpts`, `GroupMultiselectOpts`, `SelectKeyOpts`, `AutocompleteOpts`, `AutocompleteMultiselectOpts`, `PasswordOpts`, `PathOpts`) |
+| `cli-prompt-interactive.ts`  | `InteractivePrompt` layer — Clack prompts, non-interactive fail-fast                                                                                                                                           |
+| `cli-prompt-test.ts`         | `TestPrompt`, `TestPromptConfig`, `TestPromptState`                                                                                                                                                            |
+| `resolve-non-interactive.ts` | `nonInteractiveFlag`, `resolveNonInteractive`                                                                                                                                                                  |
+| `helpers.ts`                 | `fromFlagOrPrompt()`, `autoConfirm()`                                                                                                                                                                          |
+| `index.ts`                   | Barrel                                                                                                                                                                                                         |
 
 #### `@axm.sh/core/unstable/verbosity` (new)
 
@@ -1084,27 +1191,29 @@ Mitigation: Both formatters are minimal and deliberately scoped. The table forma
 Mitigation: This is explicit and readable — better than implicit filtering. The alternative (renderer checks verbosity internally) would couple format and volume decisions.
 
 **Schema AST traversal** → `columnsFrom` walks Effect Schema's AST to read annotations from property signatures. Property signatures may be wrapped in transformations, optionals, or refinements.
-Mitigation: Effect v4 provides `SchemaAST.resolve(ast)` which handles intermediate AST wrappers, and `SchemaAST.isObjects(ast)` for safe struct detection. These APIs are more robust than raw annotation access. Spike `columnsFrom` against a non-trivial schema (nested optionals, branded types, enums, `Schema.optional`) before building the full infrastructure. If v4 APIs prove insufficient, fall back to a registration pattern where schemas call a `registerColumns()` function alongside the struct definition.
+Mitigation: Effect v4 provides `SchemaAST.resolve(ast)` which handles intermediate AST wrappers, and `SchemaAST.isObjects(ast)` for safe struct detection. These APIs are more robust than raw annotation access. If v4 APIs prove insufficient, fall back to a registration pattern where schemas call a `registerColumns()` function alongside the struct definition.
 
-**Code examples use `as` assertions** → Handler sketches and `columnsFrom` examples use type assertions (`as`) for brevity. Production implementations must use type-safe alternatives per the project's "No Type Assertions" rule (type guards, `satisfies`, generic accessors, `Schema.decodeUnknownEffect`).
+**Prerequisite spike:** Before starting implementation, spike `columnsFrom` against a non-trivial schema (nested optionals, branded types, enums, `Schema.optional`) to validate that the v4 `SchemaAST` APIs work as expected. This spike gates phase 1 — if the APIs are insufficient, the annotation-based approach needs redesign before building the full infrastructure.
+
+**`columnsFrom` uses a type assertion** → The `(item as Record<string, unknown>)[key]` pattern in `columnsFrom` accesses a dynamic key on generic `T`. Production implementation should use a type-safe accessor (e.g., a generic property getter derived from the schema AST) to avoid the assertion.
 
 ## Migration
 
 This is a sweeping change (3 services → 1, CliEnvironment removed, flag changes, test helper changes). Migration proceeds in phases:
 
-1. **Implement new services** — Create `CliRenderer`, `Verbosity`, and `CliPrompt` services with their layer implementations (`InteractiveRenderer`, `MachineRenderer`, `TestRenderer`). These exist alongside the current services.
+0. **Spike Schema AST** — Validate `columnsFrom` against non-trivial schemas (nested optionals, branded types, enums, `Schema.optional`). Gates phase 1.
+
+1. **Implement new services and wire verbosity** — Create `CliRenderer`, `Verbosity`, and `CliPrompt` services with their layer implementations (`InteractiveRenderer`, `MachineRenderer`, `TestRenderer`). Add `resolveVerbosityFromArgv`, `-q`/`-v`/`-vv` flags, `makeVerbosityLayer`, and `whenVerbose`/`whenNotQuiet` helpers at the `run()` boundary. Verbosity lands with the new services so migrated handlers can use it immediately. These exist alongside the current services.
 
 2. **Add adapter layers** — Implement `Output` and `Activity` as thin wrappers over `CliRenderer`, and `Input` as a re-export of `CliPrompt`. Existing handlers continue working unchanged. The adapter layers are temporary scaffolding.
 
-3. **Migrate handlers** — Convert handlers one at a time from `Output`/`Activity`/`Input` to `CliRenderer`/`CliPrompt`. Each handler migration is an independent, reviewable PR. Add output schemas and `--json` support as handlers are touched.
+3. **Migrate handlers** — Convert handlers one at a time from `Output`/`Activity`/`Input` to `CliRenderer`/`CliPrompt`. Each handler migration is an independent, reviewable PR. Add output schemas, `--json` support, and verbosity-conditional output as handlers are touched.
 
 4. **Update test infrastructure** — Replace `makeOutputTestLayer()` + `makeActivityTestLayer()` + `makeInputTestLayer()` with `TestRenderer` + `TestPrompt`. Migrate tests alongside their handlers.
 
 5. **Remove adapters** — Once all handlers are migrated, remove the adapter layers, the old service definitions, `CliEnvironment`, and the `--output-format` flag.
 
-6. **Wire verbosity** — Add `resolveVerbosityFromArgv`, `-q`/`-v`/`-vv` flags, and `makeVerbosityLayer` at the `run()` boundary. Add `whenVerbose`/`whenNotQuiet` helpers. Migrate handlers to use verbosity-conditional output.
-
-Phases 1-2 can land in a single PR. Phase 3 proceeds incrementally. Phase 5 is the breaking change — all handlers must be migrated before adapters are removed.
+Phases 0-2 can land in a single PR (spike first, then services + adapters). Phase 3 proceeds incrementally. Phase 5 is the breaking change — all handlers must be migrated before adapters are removed.
 
 ## Appendix: Handler Sketches
 
@@ -1125,7 +1234,7 @@ export const SkillListItem = Schema.Struct({
   name: Schema.String.pipe(column({ header: "Name", width: "fill" })),
   version: Schema.String.pipe(column({ header: "Version", width: "auto" })),
   enabled: Schema.Boolean.pipe(
-    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+    column<boolean>({ header: "Enabled", format: (v) => (v ? "yes" : "no") }),
   ),
   source: Schema.String.pipe(column({ header: "Source", priority: 1 })),
   installedAt: Schema.String.pipe(column({ header: "Installed", priority: 1 })),
@@ -1188,7 +1297,7 @@ export const SkillInfo = Schema.Struct({
   publisher: Schema.String.pipe(column({ header: "Publisher" })),
   license: Schema.optional(Schema.String).pipe(column({ header: "License" })),
   enabled: Schema.Boolean.pipe(
-    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+    column<boolean>({ header: "Enabled", format: (v) => (v ? "yes" : "no") }),
   ),
   dependencies: Schema.Array(
     Schema.Struct({
@@ -1250,9 +1359,9 @@ export const handleShow = (args: ShowArgs) =>
     }
 
     // Freeform note for deprecation guidance
-    if (Option.isSome(skill.deprecation)) {
+    if (skill.deprecation !== undefined) {
       yield* renderer.note(
-        `This skill is deprecated: ${Option.getOrThrow(skill.deprecation)}\n\nConsider migrating to ${skill.replacement ?? "an alternative"}.`,
+        `This skill is deprecated: ${skill.deprecation}\n\nConsider migrating to ${skill.replacement ?? "an alternative"}.`,
         "Deprecation Notice",
       );
     }
@@ -1312,7 +1421,7 @@ export const handleInstall = (args: InstallArgs) =>
 
     // Download phase — progress bar
     const files = yield* renderer.withProgress(
-      { total: resolved.fileCount },
+      { max: resolved.fileCount },
       `Downloading ${resolved.name}@${resolved.version}`,
       (progress) =>
         Effect.gen(function* () {
@@ -1321,7 +1430,7 @@ export const handleInstall = (args: InstallArgs) =>
             Effect.gen(function* () {
               yield* downloadFile(file);
               downloaded.push(file.path);
-              yield* progress.increment();
+              yield* progress.advance();
             }),
           );
           return downloaded;
@@ -1667,6 +1776,7 @@ it("skips prompts when flags provided", async () => {
 | `cancel`             |          |               |             |           |            |          |         |
 | `note`               |          | ✓             |             |           |            | ✓        |         |
 | `box`                |          |               |             |           |            |          |         |
+| `streamLog`          |          |               |             |           |            |          |         |
 | `spinner` (manual)   |          |               | ✓           | ✓         |            |          |         |
 | `withSpinner`        | ✓        | ✓             | ✓           |           |            | ✓        | ✓       |
 | `withProgress`       |          |               | ✓           |           |            |          |         |

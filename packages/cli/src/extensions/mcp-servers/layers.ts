@@ -5,9 +5,11 @@ import { UninstallMcpServerCommandWorkflowActionsLive } from "../../cli-commands
 
 import { McpServerManagerLive } from "./manager.js";
 
-export const managerLayer = McpServerManagerLive;
+const managerLayer = McpServerManagerLive;
 
-export const workflowActionsLayer = Layer.mergeAll(
+const workflowActionsLayer = Layer.mergeAll(
   InstallMcpServerCommandWorkflowActionsLive,
   UninstallMcpServerCommandWorkflowActionsLive,
 );
+
+export const layer = Layer.provideMerge(workflowActionsLayer, managerLayer);

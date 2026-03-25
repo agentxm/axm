@@ -89,24 +89,13 @@ const makeWorkspaceProgramLayer = (
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(wsLayer, sourceProvidersLayer);
 
-  // -- Extension managers --
-  const managerLayer = Layer.mergeAll(
-    Layer.provide(Commands.managerLayer, wsLayer),
-    Layer.provide(McpServers.managerLayer, wsLayer),
-    Layer.provide(Skills.managerLayer, workspaceServiceLayer),
-    Layer.provide(Packs.managerLayer, workspaceServiceLayer),
-  );
+  // -- Extensions (per-feature self-wired layers) --
+  // Commands, McpServers, Skills are self-contained.
+  // Packs depends on the other features' managers, so it's provided separately.
+  const coreExtensions = Layer.mergeAll(Commands.layer, McpServers.layer, Skills.layer);
+  const extensionsLayer = Layer.provideMerge(Packs.layer, coreExtensions);
 
-  // -- Workflow actions --
-  const supportLayer = Layer.mergeAll(workspaceServiceLayer, managerLayer);
-  const workflowActionsLayer = Layer.mergeAll(
-    Layer.provide(Commands.workflowActionsLayer, supportLayer),
-    Layer.provide(McpServers.workflowActionsLayer, supportLayer),
-    Layer.provide(Skills.workflowActionsLayer, supportLayer),
-    Layer.provide(Packs.workflowActionsLayer, supportLayer),
-  );
-
-  return Layer.mergeAll(supportLayer, workflowActionsLayer);
+  return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
 };
 
 const envToBool = (opt: Option.Option<string>): boolean =>

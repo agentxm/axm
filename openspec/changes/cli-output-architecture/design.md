@@ -601,3 +601,408 @@ Mitigation: Both formatters are minimal and deliberately scoped. The table forma
 
 **Verbosity helpers add boilerplate** → Handlers wrap output calls in `whenVerbose(...)` / `whenNotQuiet(...)`.
 Mitigation: This is explicit and readable — better than implicit filtering. The alternative (renderer checks verbosity internally) would couple format and volume decisions.
+
+## Appendix: Handler Sketches
+
+These sketches demonstrate the full CliRenderer surface area across realistic handler implementations. Each handler is annotated with the methods it exercises.
+
+### A. List handler — table, result, withSpinner, intro/outro, verbosity
+
+A typical CRUD list command: fetch data, show as table interactively or JSON in machine mode.
+
+**Methods exercised:** `intro`, `outro`, `log` (info, warn), `withSpinner`, `result`, `table`
+
+```typescript
+// commands/skills/list/handler.ts
+import { Effect, Option } from "effect";
+import { CliRenderer, Log, whenVerbose, whenNotQuiet } from "@/cli-renderer";
+import { Verbosity } from "@/verbosity";
+
+interface ListArgs {
+  readonly workspace: string;
+  readonly tag: Option.Option<string>;
+}
+
+const columns: ReadonlyArray<ColumnDef<Skill>> = [
+  { header: "Name", value: (s) => s.name, width: "fill" },
+  { header: "Version", value: (s) => s.version, width: "auto" },
+  { header: "Enabled", value: (s) => (s.enabled ? "yes" : "no"), width: "auto" },
+  { header: "Source", value: (s) => s.source, width: "auto", priority: 1 },
+  { header: "Installed", value: (s) => s.installedAt.toISOString(), width: "auto", priority: 1 },
+];
+
+export const handleList = (args: ListArgs) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const v = yield* Verbosity;
+
+    yield* renderer.intro("Skills");
+
+    const skills = yield* renderer.withSpinner("Fetching skills…", () => fetchSkills(args), {
+      stopMessage: (result) => `Found ${result.length} skills`,
+    });
+
+    if (skills.length === 0) {
+      yield* renderer.log(Log.warn("No skills installed"));
+      yield* renderer.outro("Done");
+      return;
+    }
+
+    // Machine output — short-circuit if active
+    const data = v.isAtLeast("verbose")
+      ? skills.map((s) => ({
+          name: s.name,
+          version: s.version,
+          enabled: s.enabled,
+          source: s.source,
+          installedAt: s.installedAt,
+        }))
+      : skills.map((s) => ({ name: s.name, version: s.version, enabled: s.enabled }));
+    if (yield* renderer.result(data)) return;
+
+    // Interactive display
+    yield* renderer.table(skills, columns);
+    yield* whenVerbose(
+      renderer.log(Log.info(`${skills.length} skills across ${countSources(skills)} sources`)),
+    );
+
+    yield* renderer.outro("Done");
+  });
+```
+
+### B. Show handler — tree (key-value + nested), note, json
+
+A detail/inspect command: show structured info about a single entity, with nested dependencies.
+
+**Methods exercised:** `log` (step, error), `withSpinner`, `result`, `tree` (key-value and nested), `note`
+
+```typescript
+// commands/skills/show/handler.ts
+import { Effect, Option } from "effect";
+import { CliRenderer, Log } from "@/cli-renderer";
+
+interface ShowArgs {
+  readonly name: string;
+}
+
+export const handleShow = (args: ShowArgs) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+
+    yield* renderer.log(Log.step(`Looking up ${args.name}`));
+
+    const skill = yield* renderer.withSpinner(`Resolving ${args.name}…`, () =>
+      resolveSkill(args.name),
+    );
+
+    // Machine output
+    if (yield* renderer.result(skill)) return;
+
+    // Key-value display via tree (depth-1, detail as value)
+    yield* renderer.tree(
+      [
+        { data: { key: "Version", value: skill.version } },
+        { data: { key: "Type", value: skill.type } },
+        { data: { key: "Source", value: skill.source } },
+        { data: { key: "Publisher", value: skill.publisher } },
+        { data: { key: "License", value: Option.getOrElse(skill.license, () => "—") } },
+        { data: { key: "Enabled", value: skill.enabled ? "yes" : "no" } },
+      ],
+      { label: (kv) => kv.key, detail: (kv) => kv.value },
+      skill.name,
+    );
+
+    // Dependency tree (nested)
+    if (skill.dependencies.length > 0) {
+      yield* renderer.tree(
+        skill.dependencies.map((dep) => ({
+          data: dep,
+          children: dep.transitive?.map((t) => ({ data: t })),
+        })),
+        {
+          label: (d) => `${d.name}@${d.version}`,
+          detail: (d) => d.type,
+          icon: (d) => (d.type === "pack" ? "📦" : "◆"),
+        },
+        "Dependencies",
+      );
+    }
+
+    // Freeform note for deprecation guidance
+    if (Option.isSome(skill.deprecation)) {
+      yield* renderer.note(
+        `This skill is deprecated: ${Option.getOrThrow(skill.deprecation)}\n\nConsider migrating to ${skill.replacement ?? "an alternative"}.`,
+        "Deprecation Notice",
+      );
+    }
+  });
+```
+
+### C. Install handler — progress, spinner lifecycle, log variants, tree (flat list)
+
+A mutation command: install with progress tracking, multiple log levels, and a file summary.
+
+**Methods exercised:** `intro`, `outro`, `log` (info, success, warn, error, step), `spinner` (manual handle), `withProgress`, `result`, `tree` (flat list)
+
+```typescript
+// commands/skills/install/handler.ts
+import { Effect, Option } from "effect";
+import { CliRenderer, Log, whenNotQuiet } from "@/cli-renderer";
+
+interface InstallArgs {
+  readonly name: string;
+  readonly version: Option.Option<string>;
+  readonly force: boolean;
+}
+
+export const handleInstall = (args: InstallArgs) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+
+    yield* renderer.intro("Install Skill");
+    yield* renderer.log(Log.step(`Installing ${args.name}`));
+
+    // Resolve phase — manual spinner for multi-step control
+    const spin = yield* renderer.spinner("Resolving version…");
+    const resolved = yield* resolveVersion(args.name, args.version);
+    yield* spin.update(`Resolved ${resolved.name}@${resolved.version}`);
+
+    // Check conflicts
+    const conflict = yield* checkConflicts(resolved);
+    if (Option.isSome(conflict) && !args.force) {
+      yield* spin.stop("Conflict detected");
+      yield* renderer.log(
+        Log.error(`Conflicts with ${Option.getOrThrow(conflict).name} — use --force to override`),
+      );
+      yield* renderer.outro("Install cancelled");
+      return;
+    }
+    if (Option.isSome(conflict)) {
+      yield* renderer.log(
+        Log.warn(`Forcing past conflict with ${Option.getOrThrow(conflict).name}`),
+      );
+    }
+    yield* spin.stop("Resolved");
+
+    // Download phase — progress bar
+    const files = yield* renderer.withProgress(
+      { total: resolved.fileCount },
+      `Downloading ${resolved.name}@${resolved.version}`,
+      (progress) =>
+        Effect.gen(function* () {
+          const downloaded: Array<string> = [];
+          yield* Effect.forEach(resolved.files, (file) =>
+            Effect.gen(function* () {
+              yield* downloadFile(file);
+              downloaded.push(file.path);
+              yield* progress.increment();
+            }),
+          );
+          return downloaded;
+        }),
+      "Download complete",
+    );
+
+    // Post-install
+    yield* renderer.withSpinner("Linking…", () => linkSkill(resolved));
+
+    // Machine output
+    const resultData = { name: resolved.name, version: resolved.version, files: files.length };
+    if (yield* renderer.result(resultData)) return;
+
+    // Interactive summary — flat list of created files
+    yield* renderer.tree(
+      files.map((f) => ({ data: f })),
+      { label: (f) => f, icon: () => "+" },
+      "Created files",
+    );
+
+    yield* renderer.log(Log.success(`Installed ${resolved.name}@${resolved.version}`));
+    yield* whenNotQuiet(renderer.log(Log.info(`${files.length} files written`)));
+
+    yield* renderer.outro("Done");
+  });
+```
+
+### D. Watch handler — resultStream, spinner, streaming output
+
+A long-running streaming command: watch for changes and emit events.
+
+**Methods exercised:** `log` (info), `spinner` (long-lived), `resultStream`, `raw`
+
+```typescript
+// commands/skills/watch/handler.ts
+import { Effect, Stream } from "effect";
+import { CliRenderer, Log } from "@/cli-renderer";
+
+interface WatchArgs {
+  readonly workspace: string;
+  readonly filter: Option.Option<string>;
+}
+
+export const handleWatch = (args: WatchArgs) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+
+    yield* renderer.log(Log.info("Watching workspace for skill changes…"));
+
+    const eventStream = watchSkillChanges(args.workspace, args.filter);
+
+    // Machine mode — stream NDJSON events, short-circuit
+    if (yield* renderer.resultStream(eventStream)) return;
+
+    // Interactive mode — live spinner + log each event
+    const spin = yield* renderer.spinner("Watching…");
+
+    yield* Stream.runForEach(eventStream, (event) =>
+      Effect.gen(function* () {
+        yield* spin.update(`Last: ${event.type} ${event.skill} at ${event.timestamp}`);
+        yield* renderer.log(Log.info(`${event.type}: ${event.skill}@${event.version}`));
+      }),
+    );
+  });
+```
+
+### E. Export handler — raw, json, no chrome
+
+A data export command: output raw content or structured JSON with no chrome.
+
+**Methods exercised:** `json`, `raw`
+
+```typescript
+// commands/workspace/export/handler.ts
+import { Effect } from "effect";
+import { CliRenderer } from "@/cli-renderer";
+
+interface ExportArgs {
+  readonly format: "json" | "yaml";
+}
+
+export const handleExport = (args: ExportArgs) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const workspace = yield* loadWorkspace();
+
+    switch (args.format) {
+      case "json":
+        // json() writes formatted JSON to stdout in both modes
+        yield* renderer.json(workspace.toJSON());
+        break;
+      case "yaml":
+        // raw() writes unformatted string to stdout in both modes
+        yield* renderer.raw(workspace.toYAML());
+        break;
+    }
+  });
+```
+
+### F. Init handler — full lifecycle with grouped tree
+
+A scaffold command: create files, show grouped status, guide the user.
+
+**Methods exercised:** `intro`, `outro`, `log` (step, success), `withSpinner`, `result`, `tree` (grouped with union type), `note`
+
+```typescript
+// commands/init/handler.ts
+import { Effect } from "effect";
+import { CliRenderer, Log } from "@/cli-renderer";
+
+type GroupNode = { readonly kind: "group"; readonly name: string; readonly count: number };
+type FileNode = {
+  readonly kind: "file";
+  readonly path: string;
+  readonly status: "created" | "skipped";
+};
+
+export const handleInit = () =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+
+    yield* renderer.intro("Initialize Workspace");
+    yield* renderer.log(Log.step("Setting up workspace"));
+
+    const result = yield* renderer.withSpinner("Creating files…", () => scaffoldWorkspace(), {
+      stopMessage: (r) => `Created ${r.created.length} files`,
+    });
+
+    // Machine output
+    if (
+      yield* renderer.result({
+        created: result.created.map((f) => f.path),
+        skipped: result.skipped.map((f) => f.path),
+      })
+    )
+      return;
+
+    // Grouped tree: created vs skipped files
+    yield* renderer.tree<GroupNode | FileNode>(
+      [
+        ...(result.created.length > 0
+          ? [
+              {
+                data: { kind: "group" as const, name: "Created", count: result.created.length },
+                children: result.created.map((f) => ({
+                  data: { kind: "file" as const, path: f.path, status: "created" as const },
+                })),
+              },
+            ]
+          : []),
+        ...(result.skipped.length > 0
+          ? [
+              {
+                data: {
+                  kind: "group" as const,
+                  name: "Skipped (already exist)",
+                  count: result.skipped.length,
+                },
+                children: result.skipped.map((f) => ({
+                  data: { kind: "file" as const, path: f.path, status: "skipped" as const },
+                })),
+              },
+            ]
+          : []),
+      ],
+      {
+        label: (item) => (item.kind === "group" ? `${item.name} (${item.count})` : item.path),
+        icon: (item) =>
+          item.kind === "file" ? (item.status === "created" ? "+" : "○") : undefined,
+      },
+    );
+
+    yield* renderer.log(Log.success("Workspace initialized"));
+
+    yield* renderer.note(
+      "Next steps:\n  1. Run `axm skills install` to add skills\n  2. Edit settings.json to configure your workspace\n  3. Run `axm skills list` to see installed skills",
+      "Getting Started",
+    );
+
+    yield* renderer.outro("Ready");
+  });
+```
+
+### Surface coverage matrix
+
+| Method             | A (list) | B (show) | C (install) | D (watch) | E (export) | F (init) |
+| ------------------ | -------- | -------- | ----------- | --------- | ---------- | -------- |
+| `intro`            | ✓        |          | ✓           |           |            | ✓        |
+| `outro`            | ✓        | ✓        | ✓           |           |            | ✓        |
+| `log` (info)       | ✓        |          | ✓           | ✓         |            |          |
+| `log` (success)    |          |          | ✓           |           |            | ✓        |
+| `log` (step)       |          | ✓        | ✓           |           |            | ✓        |
+| `log` (warn)       | ✓        |          | ✓           |           |            |          |
+| `log` (error)      |          |          | ✓           |           |            |          |
+| `note`             |          | ✓        |             |           |            | ✓        |
+| `spinner` (manual) |          |          | ✓           | ✓         |            |          |
+| `withSpinner`      | ✓        | ✓        | ✓           |           |            | ✓        |
+| `withProgress`     |          |          | ✓           |           |            |          |
+| `table`            | ✓        |          |             |           |            |          |
+| `tree` (flat)      |          |          | ✓           |           |            |          |
+| `tree` (key-value) |          | ✓        |             |           |            |          |
+| `tree` (nested)    |          | ✓        |             |           |            |          |
+| `tree` (grouped)   |          |          |             |           |            | ✓        |
+| `result`           | ✓        | ✓        | ✓           |           |            | ✓        |
+| `resultStream`     |          |          |             | ✓         |            |          |
+| `json`             |          |          |             |           | ✓          |          |
+| `raw`              |          |          |             |           | ✓          |          |
+| `whenVerbose`      | ✓        |          |             |           |            |          |
+| `whenNotQuiet`     |          |          | ✓           |           |            |          |

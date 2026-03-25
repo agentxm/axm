@@ -28,6 +28,12 @@ export interface PacksNewHandlerArgs {
   readonly name: string;
   /** Optional profile override. */
   readonly profile: Option.Option<string>;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -100,7 +106,11 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     label: fqn,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success(`Created pack ${fqn}`);
 });

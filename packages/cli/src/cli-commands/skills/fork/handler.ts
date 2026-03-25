@@ -47,6 +47,12 @@ export interface ForkHandlerArgs {
   readonly source: string;
   /** Fork only specified skill(s) by name or glob pattern. */
   readonly skills: readonly string[];
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -360,7 +366,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* ws.resolvePlan(plan);
+  yield* ws.resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
   yield* output.success("Done");
 });

@@ -10,7 +10,7 @@ import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleLogout } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -51,7 +51,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 
   const FullLayer = Layer.mergeAll(
     outputLayer,
-    CliFlagsTest(),
+    CliEnvironmentTest(),
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,

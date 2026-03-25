@@ -10,7 +10,7 @@
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
@@ -45,7 +45,7 @@ export const determineSkillsToInstall = (
 ) =>
   Effect.gen(function* () {
     const output = yield* Output;
-    const flags = yield* CliFlags;
+    const flags = yield* CliEnvironment;
 
     // 1. --skill specified -> glob-aware matching
     if (args.requestedSkills.length > 0) {

@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
@@ -89,6 +89,9 @@ const defaultArgs = (
 ): PublishHandlerArgs => ({
   extensions,
   registry: Option.none(),
+  yes: false,
+  force: false,
+  preview: false,
   ...overrides,
 });
 
@@ -141,7 +144,7 @@ describe("publish.handler", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest(),
+      CliEnvironmentTest(),
       AuthClientTest(),
       authCredStoreLayer,
       Layer.succeed(RegistryUrl, "https://registry.agentxm.ai"),

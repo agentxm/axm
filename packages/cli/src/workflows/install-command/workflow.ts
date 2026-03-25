@@ -55,6 +55,7 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
+  flags: { yes: boolean; force: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
@@ -63,5 +64,5 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
     const intent = yield* actions.finalizeIntent(parsed, refs);
     const plan = yield* actions.buildPlan(intent);
     const ws = yield* Workspace;
-    yield* ws.resolvePlan(plan);
+    yield* ws.resolvePlan(plan, flags);
   });

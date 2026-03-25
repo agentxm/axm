@@ -24,7 +24,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Output, makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { Input, makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../config/index.js";
 import {
   Workspace,
@@ -63,7 +63,7 @@ describe("init.handler", () => {
     NodeServices.layer,
     outputLayer,
     inputLayer,
-    CliFlagsTest(),
+    CliEnvironmentTest(),
     CliEnvConfig.testDefaults,
   );
 
@@ -76,7 +76,13 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
+        | FileSystem.FileSystem
+        | Path.Path
+        | Output
+        | Input
+        | Workspace
+        | CliEnvironment
+        | CliEnvConfig
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -304,7 +310,7 @@ describe("init.handler", () => {
     it.effect("--yes still prompts for agent selection (does not auto-select)", () => {
       const InteractiveTestLayer = Layer.mergeAll(
         TestLayer,
-        CliFlagsTest({ nonInteractive: false, yes: true }),
+        CliEnvironmentTest({ nonInteractive: false }),
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(
@@ -371,7 +377,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iOutputLayer,
         iInputLayer,
-        CliFlagsTest({ nonInteractive: false }),
+        CliEnvironmentTest({ nonInteractive: false }),
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
@@ -379,7 +385,13 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
+          | FileSystem.FileSystem
+          | Path.Path
+          | Output
+          | Input
+          | Workspace
+          | CliEnvironment
+          | CliEnvConfig
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
@@ -457,7 +469,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iOutputLayer,
         iInputLayer,
-        CliFlagsTest(),
+        CliEnvironmentTest(),
         CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
@@ -503,7 +515,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iOutputLayer,
         iInputLayer,
-        CliFlagsTest(),
+        CliEnvironmentTest(),
         telemetryOffConfig,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);

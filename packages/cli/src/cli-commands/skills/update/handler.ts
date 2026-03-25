@@ -17,7 +17,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Activity } from "@axm.sh/core/unstable/activity";
@@ -54,6 +53,12 @@ export interface UpdateHandlerArgs {
   readonly agents: readonly string[];
   /** Specific skill(s) to update (by name/glob) */
   readonly skills: readonly string[];
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -84,7 +89,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const sources = yield* SourceHostProviders;
   const output = yield* Output;
   const activity = yield* Activity;
-  const flags = yield* CliFlags;
 
   yield* output.info(`axm skills update (${ws.scope})`);
 
@@ -286,7 +290,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           name: "install-skill",
           args: {
             ref: item.ref,
-            force: flags.force,
+            force: args.force,
             versionConstraint: Option.none(),
             skipSettings: Option.none(),
             existingInstalledAt,
@@ -303,7 +307,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         name: "install-skill",
         args: {
           ref: item.newRef,
-          force: flags.force,
+          force: args.force,
           versionConstraint: Option.none(),
           skipSettings: Option.none(),
           existingInstalledAt,
@@ -335,6 +339,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       "install-skill": installSkill,
       "uninstall-skill": uninstallSkill,
     }),
+    { yes: args.yes, force: args.force, preview: args.preview },
   );
 
   yield* output.success("Done");

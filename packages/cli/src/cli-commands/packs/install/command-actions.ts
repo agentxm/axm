@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type {
@@ -173,7 +173,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const mcpServerMgr = yield* McpServerManager;
-    const cliFlags = yield* CliFlags;
+    const cliEnv = yield* CliEnvironment;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -182,7 +182,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(Output, output),
       Layer.succeed(Activity, activity),
-      Layer.succeed(CliFlags, cliFlags),
+      Layer.succeed(CliEnvironment, cliEnv),
     );
 
     // Assertion needed: strips service requirements (R) from inner effects.

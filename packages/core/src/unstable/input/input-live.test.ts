@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { describe, expect, it } from "vitest";
-import { CliFlagsTest } from "../cli-flags/index.js";
+import { CliEnvironmentTest } from "../cli-flags/index.js";
 import { Input } from "./input.js";
 import { InputLive } from "./input-live.js";
 
@@ -12,7 +12,7 @@ const firstFailure = (exit: Exit.Exit<unknown, unknown>) =>
 
 describe("InputLive non-interactive guard", () => {
   it("fails with PROMPT_IN_NON_INTERACTIVE when nonInteractive is true for text", async () => {
-    const liveLayer = Layer.provide(InputLive, CliFlagsTest({ nonInteractive: true }));
+    const liveLayer = Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: true }));
     const exit = await Effect.gen(function* () {
       const input = yield* Input;
       return yield* input.text({ message: "Enter:" });
@@ -26,7 +26,7 @@ describe("InputLive non-interactive guard", () => {
   });
 
   it("fails with PROMPT_IN_NON_INTERACTIVE for confirm", async () => {
-    const liveLayer = Layer.provide(InputLive, CliFlagsTest({ nonInteractive: true }));
+    const liveLayer = Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: true }));
     const exit = await Effect.gen(function* () {
       const input = yield* Input;
       return yield* input.confirm({ message: "Continue?" });
@@ -40,7 +40,7 @@ describe("InputLive non-interactive guard", () => {
   });
 
   it("fails with PROMPT_IN_NON_INTERACTIVE for select", async () => {
-    const liveLayer = Layer.provide(InputLive, CliFlagsTest({ nonInteractive: true }));
+    const liveLayer = Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: true }));
     const exit = await Effect.gen(function* () {
       const input = yield* Input;
       return yield* input.select({
@@ -57,7 +57,7 @@ describe("InputLive non-interactive guard", () => {
   });
 
   it("fails with PROMPT_IN_NON_INTERACTIVE for password", async () => {
-    const liveLayer = Layer.provide(InputLive, CliFlagsTest({ nonInteractive: true }));
+    const liveLayer = Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: true }));
     const exit = await Effect.gen(function* () {
       const input = yield* Input;
       return yield* input.password({ message: "Secret:" });
@@ -71,7 +71,7 @@ describe("InputLive non-interactive guard", () => {
   });
 
   it("fails with PROMPT_IN_NON_INTERACTIVE for path", async () => {
-    const liveLayer = Layer.provide(InputLive, CliFlagsTest({ nonInteractive: true }));
+    const liveLayer = Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: true }));
     const exit = await Effect.gen(function* () {
       const input = yield* Input;
       return yield* input.path({ message: "Path:" });

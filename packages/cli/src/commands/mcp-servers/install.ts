@@ -18,10 +18,13 @@ const installConfig = {
   preview: previewFlag,
 } as const;
 
-export const installCommand = Command.make("install", installConfig, ({ source, scope }) =>
-  withRuntime(withWorkspace(scope, handleInstallMcpServer({ source })), {
-    command: "mcp-servers install",
-  }),
+export const installCommand = Command.make(
+  "install",
+  installConfig,
+  ({ source, scope, yes, force, preview }) =>
+    withRuntime(withWorkspace(scope, handleInstallMcpServer({ source }, { yes, force, preview })), {
+      command: "mcp-servers install",
+    }),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install an MCP server from a registry"),

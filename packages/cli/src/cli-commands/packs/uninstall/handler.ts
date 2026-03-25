@@ -21,8 +21,11 @@ export type { UninstallPackHandlerArgs } from "./command-actions.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUninstallPack = (args: UninstallPackHandlerArgs) =>
+export const handleUninstallPack = (
+  args: UninstallPackHandlerArgs,
+  flags: { yes: boolean; force: boolean; preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* UninstallPackCommandWorkflowActions;
-    yield* runUninstallCommandWorkflow(args, actions);
+    yield* runUninstallCommandWorkflow(args, actions, flags);
   });

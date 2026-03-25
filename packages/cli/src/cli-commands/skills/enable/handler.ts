@@ -23,6 +23,12 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 export interface EnableHandlerArgs {
   /** Name of the skill to enable */
   readonly name: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -69,7 +75,11 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     label: args.name,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "enable-skill": enableSkill }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "enable-skill": enableSkill }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success("Done");
 });

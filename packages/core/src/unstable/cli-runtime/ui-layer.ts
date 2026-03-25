@@ -14,7 +14,7 @@ import { ActivityStructured } from "../activity/activity-structured.js";
  * - json/stream: OutputStructured + ActivityStructured (NDJSON events)
  *
  * Does NOT include Input — callers add InputLive/InputStructured separately
- * since InputLive depends on CliFlags.
+ * since InputLive depends on CliEnvironment.
  */
 export const makeUiLayer = (format: OutputFormat): Layer.Layer<Output | Activity> =>
   format === "text"

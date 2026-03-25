@@ -26,7 +26,6 @@ export {
   CommandArgv,
   type CommandArgvService,
   withArgvTracking,
-  readBooleanFlag,
   serializeArgv,
   extractParamKinds,
 } from "./command-argv.js";

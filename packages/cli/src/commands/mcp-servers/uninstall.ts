@@ -15,9 +15,15 @@ const uninstallConfig = {
   preview: previewFlag,
 } as const;
 
-export const uninstallCommand = Command.make("uninstall", uninstallConfig, ({ name }) =>
-  withRuntime(
-    withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstallMcpServer({ serverName: name })),
-    { command: "mcp-servers uninstall" },
-  ),
+export const uninstallCommand = Command.make(
+  "uninstall",
+  uninstallConfig,
+  ({ name, yes, force, preview }) =>
+    withRuntime(
+      withWorkspace(
+        DEFAULT_WORKSPACE_SCOPE,
+        handleUninstallMcpServer({ serverName: name }, { yes, force, preview }),
+      ),
+      { command: "mcp-servers uninstall" },
+    ),
 ).pipe(withArgvTracking(uninstallConfig), Command.withDescription("Uninstall an MCP server"));

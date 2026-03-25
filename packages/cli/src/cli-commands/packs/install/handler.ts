@@ -21,8 +21,11 @@ export type { InstallPackHandlerArgs } from "./command-actions.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstallPack = (args: InstallPackHandlerArgs) =>
+export const handleInstallPack = (
+  args: InstallPackHandlerArgs,
+  flags: { yes: boolean; force: boolean; preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* InstallPackCommandWorkflowActions;
-    yield* runInstallCommandWorkflow(args, actions);
+    yield* runInstallCommandWorkflow(args, actions, flags);
   });

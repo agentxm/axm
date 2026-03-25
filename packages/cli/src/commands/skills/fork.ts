@@ -21,10 +21,17 @@ const forkConfig = {
   preview: previewFlag,
 } as const;
 
-export const forkCommand = Command.make("fork", forkConfig, ({ source, skill }) =>
-  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleFork({ source, skills: [...skill] })), {
-    command: "skills fork",
-  }),
+export const forkCommand = Command.make(
+  "fork",
+  forkConfig,
+  ({ source, skill, yes, force, preview }) =>
+    withRuntime(
+      withWorkspace(
+        DEFAULT_WORKSPACE_SCOPE,
+        handleFork({ source, skills: [...skill], yes, force, preview }),
+      ),
+      { command: "skills fork" },
+    ),
 ).pipe(
   withArgvTracking(forkConfig),
   Command.withDescription("Fork a skill for customization"),

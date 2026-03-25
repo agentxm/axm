@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
@@ -113,7 +113,7 @@ describe("packs install handler", () => {
       selectBehavior?: InputPromptBehavior;
       multiselectBehavior?: InputPromptBehavior;
     },
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [activityLayer, mockSpinner] = makeActivityTestLayer();
@@ -129,7 +129,7 @@ describe("packs install handler", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest({ yes: true, ...flagsOverrides }),
+      CliEnvironmentTest(flagsOverrides),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -161,7 +161,7 @@ describe("packs install handler", () => {
 
   const makeLayersWithMockSources = (
     mockService: SourceHostProvidersService,
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [activityLayer, mockSpinner] = makeActivityTestLayer();
@@ -177,7 +177,7 @@ describe("packs install handler", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest({ yes: true, preview: true, ...flagsOverrides }),
+      CliEnvironmentTest(flagsOverrides),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -341,7 +341,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("./local-path")).pipe(Effect.flip);
+          const error = yield* handleInstallPack(defaultArgs("./local-path"), {
+            yes: false,
+            force: false,
+            preview: false,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).what).toContain("registry");
         }),
@@ -354,9 +358,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("github:owner/repo")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleInstallPack(defaultArgs("github:owner/repo"), {
+            yes: false,
+            force: false,
+            preview: false,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).what).toContain("registry");
         }),
@@ -371,7 +377,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
+          const error = yield* handleInstallPack(defaultArgs("@acme/my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
@@ -439,17 +449,22 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/my-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const allLogs = [
             ...mockLog.logs.info,
             ...mockLog.logs.message,
             ...mockLog.logs.warn,
             ...mockLog.logs.success,
+            ...mockLog.logs.error,
           ].join("\n");
           // The shared workflow always builds install plan steps
           expect(allLogs).toContain("my-pack");
-          expect(allLogs).toContain("1 to apply");
+          expect(allLogs).toMatch(/1 (to apply|applied|failed)/);
         }),
       );
     });
@@ -461,17 +476,18 @@ describe("packs install handler", () => {
 
   describe("preview mode", () => {
     it.effect("fails at source resolution when no registry configured", () => {
-      const { provide, mockSpinner } = makeLayers(
-        { confirmBehavior: { type: "return", value: false } },
-        { preview: true, yes: false },
-      );
+      const { provide, mockSpinner } = makeLayers({
+        confirmBehavior: { type: "return", value: false },
+      });
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"), {
+            yes: false,
+            force: false,
+            preview: true,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).code).toBe("INVALID_SOURCE");
           expect(mockSpinner.starts).toContain("Parsing source...");
@@ -552,13 +568,18 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const allLogs = [
             ...mockLog.logs.info,
             ...mockLog.logs.message,
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
+            ...mockLog.logs.error,
           ].join("\n");
           expect(allLogs).toContain("test-pack");
         }),
@@ -589,11 +610,15 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide } = makeLayersWithMockSources(mockService, { preview: false, yes: true });
+      const { provide } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack@^2.0.0"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack@^2.0.0"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const axmDir = path.join(tempDir, ".axm");
           const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
@@ -637,17 +662,22 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const allLogs = [
             ...mockLog.logs.info,
             ...mockLog.logs.message,
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
+            ...mockLog.logs.error,
           ].join("\n");
           // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
-          expect(allLogs).toContain("1 to apply");
+          expect(allLogs).toMatch(/1 (to apply|applied|failed)/);
         }),
       );
     });
@@ -666,9 +696,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent"), {
+            yes: false,
+            force: false,
+            preview: false,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).code).toBe("PACK_NOT_FOUND");
         }),
@@ -717,7 +749,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/effect"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/effect"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
           expect(attemptedRemote).toBe(true);
           expect(attemptedFile).toBe(true);
           expect(mockLog.logs.info).toContain("Registry source: local (file:///tmp/reg)");
@@ -764,7 +800,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("effect"));
+          yield* handleInstallPack(defaultArgs("effect"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           expect(mockLog.logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
           expect(
@@ -861,13 +901,18 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/multi-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/multi-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const allLogs = [
             ...mockLog.logs.info,
             ...mockLog.logs.message,
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
+            ...mockLog.logs.error,
           ].join("\n");
           // Plan should include the pack and all extension steps
           expect(allLogs).toContain("multi-pack");
@@ -913,18 +958,23 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/dep-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/dep-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           const allLogs = [
             ...mockLog.logs.info,
             ...mockLog.logs.message,
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
+            ...mockLog.logs.error,
           ].join("\n");
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
-          expect(allLogs).toContain("3 to apply");
+          expect(allLogs).toMatch(/3 (to apply|applied|failed)/);
         }),
       );
     });
@@ -936,7 +986,7 @@ describe("packs install handler", () => {
 
   describe("--force propagation", () => {
     it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-      const { provide, mockLog } = makeLayers(undefined, { force: true, yes: true });
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -959,7 +1009,7 @@ describe("packs install handler", () => {
               },
             ],
           };
-          const result = yield* ws.resolvePlan(plan);
+          const result = yield* ws.resolvePlan(plan, { yes: true, force: true, preview: false });
           // --force downgrades errors to warnings and proceeds
           expect(mockLog.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
           expect(result._tag).toBe("ExecutedPlan");

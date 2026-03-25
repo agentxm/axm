@@ -9,7 +9,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeOutputTestLayer, type MockOutputService, Output } from "@axm.sh/core/unstable/output";
-import { type CliFlags, type CliFlagsService, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import {
+  type CliEnvironment,
+  type CliEnvironmentService,
+  CliEnvironmentTest,
+} from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
@@ -40,13 +44,15 @@ const messagesByMethod = (
 ): ReadonlyArray<string> =>
   mock.calls.filter((call) => call.method === method).map((call) => String(call.args[0] ?? ""));
 
-/** Creates a fresh output + CliFlags test layer and runs the effect, returning the mock for inspection. */
+/** Creates a fresh output + CliEnvironment test layer and runs the effect, returning the mock for inspection. */
 const withOutput = <A, E>(
-  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output | CliFlags>,
-  flagsOverrides?: Partial<CliFlagsService>,
+  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output | CliEnvironment>,
+  flagsOverrides?: Partial<CliEnvironmentService>,
 ): Effect.Effect<A, E> => {
   const [outputLayer, mock] = makeOutputTestLayer();
-  return fn(mock).pipe(Effect.provide(Layer.mergeAll(outputLayer, CliFlagsTest(flagsOverrides))));
+  return fn(mock).pipe(
+    Effect.provide(Layer.mergeAll(outputLayer, CliEnvironmentTest(flagsOverrides))),
+  );
 };
 
 // -----------------------------------------------------------------------------

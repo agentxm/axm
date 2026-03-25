@@ -17,7 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
-import { CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
@@ -64,6 +64,9 @@ const defaultArgs = (
 ): RenameHandlerArgs => ({
   oldName,
   newName,
+  yes: false,
+  force: false,
+  preview: false,
   ...overrides,
 });
 
@@ -93,7 +96,7 @@ describe("rename.handler", () => {
       NodeServices.layer,
       outputLayer,
       inputLayer,
-      CliFlagsTest(),
+      CliEnvironmentTest(),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -108,7 +111,13 @@ describe("rename.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliFlags | CliEnvConfig
+        | FileSystem.FileSystem
+        | Path.Path
+        | Output
+        | Input
+        | Workspace
+        | CliEnvironment
+        | CliEnvConfig
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

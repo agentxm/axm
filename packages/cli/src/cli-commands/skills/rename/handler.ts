@@ -24,6 +24,12 @@ export interface RenameHandlerArgs {
   readonly oldName: string;
   /** New name for the skill */
   readonly newName: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +78,11 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     label: `${args.oldName} -> ${args.newName}`,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success("Done");
 });

@@ -37,6 +37,12 @@ export interface PacksAddHandlerArgs {
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -205,7 +211,11 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success("Done");
 });

@@ -22,24 +22,24 @@ import { CredentialStore } from "../../../auth/credential-store.js";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Activity } from "@axm.sh/core/unstable/activity";
 import { Input } from "@axm.sh/core/unstable/input";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Handler
 // -----------------------------------------------------------------------------
 
-export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
+export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { yes: boolean }) {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
-  const flags = yield* CliFlags;
+  const env = yield* CliEnvironment;
   const output = yield* Output;
   const activity = yield* Activity;
   const input = yield* Input;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Reject non-interactive mode
-  if (flags.nonInteractive) {
+  if (env.nonInteractive) {
     return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
       what: "Login requires an interactive terminal",
@@ -52,7 +52,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* () {
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
     yield* output.info(`Already logged in as ${existing.value.handle}.`);
-    if (!flags.yes) {
+    if (!options.yes) {
       const shouldContinue = yield* input.confirm({
         message: "Log in with a different account?",
       });

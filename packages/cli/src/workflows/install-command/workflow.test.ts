@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvConfig } from "../../config/index.js";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
@@ -65,7 +65,7 @@ const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
     outputLayer,
     inputLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
-    CliFlagsTest(),
+    CliEnvironmentTest(),
     CliEnvConfig.testDefaults,
   );
 };
@@ -121,7 +121,11 @@ describe("runInstallCommandWorkflow", () => {
             }),
         };
 
-        yield* runInstallCommandWorkflow({ name: "test-skill" }, actions);
+        yield* runInstallCommandWorkflow({ name: "test-skill" }, actions, {
+          yes: false,
+          force: false,
+          preview: false,
+        });
 
         expect(callOrder).toEqual([
           "parseArgs",
@@ -157,7 +161,11 @@ describe("runInstallCommandWorkflow", () => {
     };
 
     return Effect.gen(function* () {
-      yield* runInstallCommandWorkflow({ name: "test" }, actions);
+      yield* runInstallCommandWorkflow({ name: "test" }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      });
       expect(capturedPlan).toBe(testPlan);
     }).pipe(
       Effect.provide(
@@ -214,7 +222,11 @@ describe("runInstallCommandWorkflow", () => {
         },
       };
 
-      yield* runInstallCommandWorkflow({ name: "my-skill" }, actions);
+      yield* runInstallCommandWorkflow({ name: "my-skill" }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      });
 
       expect(capturedParsed).toEqual({ parsedName: "my-skill" });
       expect(capturedReqs).toEqual([{ source: "my-skill" }]);
@@ -246,7 +258,11 @@ describe("runInstallCommandWorkflow", () => {
           }),
       };
 
-      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
   );
@@ -267,7 +283,11 @@ describe("runInstallCommandWorkflow", () => {
         buildPlan: () => Effect.fail(makeAppError({ code: "PLAN_FAILED", what: "plan error" })),
       };
 
-      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
   );
@@ -307,7 +327,11 @@ describe("runInstallCommandWorkflow", () => {
         },
       };
 
-      yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+      yield* runInstallCommandWorkflow({ name: "test" }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
 
       expect(callOrder).toEqual(["resolveSourceRequests"]);
     }).pipe(Effect.provide(makeTestLayer())),

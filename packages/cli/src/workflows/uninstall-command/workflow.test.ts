@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvConfig } from "../../config/index.js";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
@@ -63,7 +63,7 @@ const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
     outputLayer,
     inputLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
-    CliFlagsTest(),
+    CliEnvironmentTest(),
     CliEnvConfig.testDefaults,
   );
 };
@@ -104,7 +104,11 @@ describe("runUninstallCommandWorkflow", () => {
               }),
           };
 
-        yield* runUninstallCommandWorkflow({ names: ["skill-a"] }, actions);
+        yield* runUninstallCommandWorkflow({ names: ["skill-a"] }, actions, {
+          yes: false,
+          force: false,
+          preview: false,
+        });
 
         expect(callOrder).toEqual(["parseArgs", "finalizeIntent", "buildUninstallPlan"]);
       }).pipe(Effect.provide(makeTestLayer())),
@@ -126,7 +130,11 @@ describe("runUninstallCommandWorkflow", () => {
     };
 
     return Effect.gen(function* () {
-      yield* runUninstallCommandWorkflow({ names: ["x"] }, actions);
+      yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      });
       expect(capturedPlan).toBe(testPlan);
     }).pipe(
       Effect.provide(
@@ -163,7 +171,11 @@ describe("runUninstallCommandWorkflow", () => {
         },
       };
 
-      yield* runUninstallCommandWorkflow({ names: ["skill-a", "skill-b"] }, actions);
+      yield* runUninstallCommandWorkflow({ names: ["skill-a", "skill-b"] }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      });
 
       expect(capturedParsed).toEqual({ parsedNames: ["skill-a", "skill-b"] });
       expect(capturedIntent).toEqual({ targets: ["skill-a", "skill-b"] });
@@ -184,7 +196,11 @@ describe("runUninstallCommandWorkflow", () => {
           }),
       };
 
-      const exit = yield* runUninstallCommandWorkflow({ names: [] }, actions).pipe(Effect.exit);
+      const exit = yield* runUninstallCommandWorkflow({ names: [] }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
   );
@@ -198,7 +214,11 @@ describe("runUninstallCommandWorkflow", () => {
           Effect.fail(makeAppError({ code: "PLAN_FAILED", what: "plan error" })),
       };
 
-      const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions).pipe(Effect.exit);
+      const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
   );
@@ -224,7 +244,11 @@ describe("runUninstallCommandWorkflow", () => {
         },
       };
 
-      yield* runUninstallCommandWorkflow({ names: ["x"] }, actions).pipe(Effect.exit);
+      yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
+        yes: false,
+        force: false,
+        preview: false,
+      }).pipe(Effect.exit);
 
       expect(callOrder).toEqual(["finalizeIntent"]);
     }).pipe(Effect.provide(makeTestLayer())),

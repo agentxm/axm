@@ -33,6 +33,12 @@ export interface PacksRemoveHandlerArgs {
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -165,7 +171,11 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success("Done");
 });

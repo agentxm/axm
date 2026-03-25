@@ -47,13 +47,6 @@ export const withArgvTracking = (config: Record<string, unknown>) =>
   }));
 
 // ---------------------------------------------------------------------------
-// Flag access
-// ---------------------------------------------------------------------------
-
-export const readBooleanFlag = (argv: CommandArgvService, name: string): boolean =>
-  argv.paramKinds[name] === "flag" && argv.value[name] === true;
-
-// ---------------------------------------------------------------------------
 // Serialization
 // ---------------------------------------------------------------------------
 

@@ -13,10 +13,14 @@ const uninstallConfig = {
   preview: previewFlag,
 } as const;
 
-export const uninstallCommand = Command.make("uninstall", uninstallConfig, ({ skill }) =>
-  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstall({ skill })), {
-    command: "skills uninstall",
-  }),
+export const uninstallCommand = Command.make(
+  "uninstall",
+  uninstallConfig,
+  ({ skill, yes, force, preview }) =>
+    withRuntime(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstall({ skill }, { yes, force, preview })),
+      { command: "skills uninstall" },
+    ),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a skill from agents"),

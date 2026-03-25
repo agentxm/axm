@@ -20,8 +20,11 @@ export type { InstallMcpServerHandlerArgs } from "./command-actions.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstallMcpServer = (args: InstallMcpServerHandlerArgs) =>
+export const handleInstallMcpServer = (
+  args: InstallMcpServerHandlerArgs,
+  flags: { yes: boolean; force: boolean; preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* InstallMcpServerCommandWorkflowActions;
-    yield* runInstallCommandWorkflow(args, actions);
+    yield* runInstallCommandWorkflow(args, actions, flags);
   });

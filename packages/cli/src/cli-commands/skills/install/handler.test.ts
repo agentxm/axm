@@ -19,7 +19,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
@@ -114,7 +114,7 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const [outputLayer, logMock] = makeOutputTestLayer();
     const [activityLayer, spinnerMock] = makeActivityTestLayer();
@@ -130,7 +130,7 @@ describe("skills install handler — error propagation", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest(flagsOverrides),
+      CliEnvironmentTest(flagsOverrides),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -172,7 +172,11 @@ describe("skills install handler — error propagation", () => {
         Effect.gen(function* () {
           // "nonexistent-skill" is a bare name — it will go through resolveSkillRegistrySourceByName
           // which will fail with REGISTRY_SKILL_NOT_FOUND when no registry has it
-          const error = yield* handleInstall(defaultArgs("nonexistent-skill")).pipe(Effect.flip);
+          const error = yield* handleInstall(defaultArgs("nonexistent-skill"), {
+            yes: false,
+            force: false,
+            preview: false,
+          }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).code).toBe("REGISTRY_SKILL_NOT_FOUND");
         }),
@@ -187,7 +191,11 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         // Empty string cannot be parsed — parseInputPattern returns Option.none()
-        const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
+        const error = yield* handleInstall(defaultArgs(""), {
+          yes: false,
+          force: false,
+          preview: false,
+        }).pipe(Effect.flip);
         expect(error._tag).toBe("AppError");
         expect((error as AppError).code).toBe("INVALID_SOURCE");
         expect(spinnerMock.starts).toContain("Parsing source...");
@@ -216,13 +224,18 @@ describe("skills install handler — error propagation", () => {
         ],
       });
 
-      return provide(handleInstall(defaultArgs("effect-basics", { all: true })));
+      return provide(
+        handleInstall(defaultArgs("effect-basics", { all: true }), {
+          yes: false,
+          force: false,
+          preview: false,
+        }),
+      );
     },
   );
 
   it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
     const { provide, logMock, multiselectMock } = makeLayers({
-      yes: false,
       nonInteractive: false,
     });
 
@@ -239,7 +252,11 @@ describe("skills install handler — error propagation", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleInstall(defaultArgs("effect-basics"));
+        yield* handleInstall(defaultArgs("effect-basics"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
 
         expect(multiselectMock.calls.filter((c) => c.method === "multiselect")).toHaveLength(0);
         expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
@@ -253,7 +270,11 @@ describe("skills install handler — error propagation", () => {
 
     return provide(
       Effect.gen(function* () {
-        const error = yield* handleInstall(defaultArgs("/path/does/not/exist")).pipe(Effect.flip);
+        const error = yield* handleInstall(defaultArgs("/path/does/not/exist"), {
+          yes: false,
+          force: false,
+          preview: false,
+        }).pipe(Effect.flip);
         expect(error._tag).toBe("AppError");
         expect((error as AppError).code).toBe("DISCOVER_FAILED");
         const details = (error as AppError).details;
@@ -269,7 +290,7 @@ describe("skills install handler — error propagation", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-    const { provide, logMock } = makeLayers({ force: true });
+    const { provide, logMock } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -292,7 +313,7 @@ describe("skills install handler — error propagation", () => {
             },
           ],
         };
-        const result = yield* ws.resolvePlan(plan);
+        const result = yield* ws.resolvePlan(plan, { yes: false, force: true, preview: false });
         // --force downgrades errors to warnings and proceeds
         expect(logMock.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");

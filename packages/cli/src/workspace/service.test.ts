@@ -18,7 +18,7 @@ import { Output, makeOutputTestLayer, type MockOutputService } from "@axm.sh/cor
 import { makeInputTestLayer, type MockInputService } from "@axm.sh/core/unstable/input";
 import YAML from "yaml";
 import { AppError } from "@axm.sh/core/unstable/app-error";
-import { CliFlagsTest, type CliFlagsService } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type {
@@ -90,7 +90,7 @@ describe("WorkspaceContextService", () => {
     NodeServices.layer,
     testLogLayer,
     testPromptLayer,
-    CliFlagsTest(),
+    CliEnvironmentTest(),
     CliEnvConfig.testDefaults,
   );
 
@@ -128,7 +128,7 @@ describe("WorkspaceContextService", () => {
   });
 
   // nonInteractive resolution is tested in cli-flags/service.test.ts
-  // preview flag is now in CliFlags, tested there
+  // preview flag is now in CliEnvironment, tested there
 
   describe("resolvePlan", () => {
     type TestOp = Operation<"test-op", Record<string, never>>;
@@ -173,11 +173,12 @@ describe("WorkspaceContextService", () => {
     };
 
     const runResolvePlan = (
-      flags: Partial<CliFlagsService>,
+      flags: Partial<CliEnvironmentService> & { yes?: boolean; force?: boolean; preview?: boolean },
       mockLog: MockOutputService,
       confirmValue = true,
       plan: LegacyPlan<TestOp> = testPlan,
     ) => {
+      const { yes = false, force = false, preview = false, ...envFlags } = flags;
       const logLayer = Layer.succeed(Output, mockLog);
       const [promptLayer, promptMock] = makeInputTestLayer({
         methodBehaviors: {
@@ -185,7 +186,7 @@ describe("WorkspaceContextService", () => {
           multiselect: { type: "return", value: [] },
         },
       });
-      const flagsLayer = CliFlagsTest(flags);
+      const flagsLayer = CliEnvironmentTest(envFlags);
       const base = Layer.mergeAll(
         NodeServices.layer,
         logLayer,
@@ -198,7 +199,11 @@ describe("WorkspaceContextService", () => {
       return {
         effect: Effect.gen(function* () {
           const ws = yield* Workspace;
-          return yield* ws.resolvePlan(bridgeLegacyPlan(plan, testHandlers));
+          return yield* ws.resolvePlan(bridgeLegacyPlan(plan, testHandlers), {
+            yes,
+            force,
+            preview,
+          });
         }).pipe(Effect.provide(Layer.merge(base, wsLayer))),
         promptMock,
       };
@@ -207,10 +212,7 @@ describe("WorkspaceContextService", () => {
     it.effect("default mode (preview=false) applies without apply confirmation", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
-        const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: false },
-          mockLog,
-        );
+        const { effect, promptMock } = runResolvePlan({ nonInteractive: false }, mockLog);
         const applied = yield* effect;
 
         // displayPlan logs plan name as info
@@ -228,11 +230,7 @@ describe("WorkspaceContextService", () => {
     it.effect("preview prompts then applies when confirmed", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
-        const { effect } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: true },
-          mockLog,
-          true,
-        );
+        const { effect } = runResolvePlan({ nonInteractive: false, preview: true }, mockLog, true);
         const applied = yield* effect;
 
         // Should show preview message
@@ -250,7 +248,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: true },
+          { nonInteractive: false, preview: true },
           mockLog,
           false,
         );
@@ -268,7 +266,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
         const { effect } = runResolvePlan(
-          { yes: true, nonInteractive: false, preview: true },
+          { nonInteractive: false, preview: true, yes: true },
           mockLog,
         );
         const applied = yield* effect;
@@ -285,10 +283,7 @@ describe("WorkspaceContextService", () => {
     it.effect("preview with nonInteractive is a dry-run (returns empty plan)", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
-        const { effect } = runResolvePlan(
-          { yes: false, nonInteractive: true, preview: true },
-          mockLog,
-        );
+        const { effect } = runResolvePlan({ nonInteractive: true, preview: true }, mockLog);
         const result = yield* effect;
 
         expect(logMessages(mockLog, "info")).toContainEqual("Previewing changes...");
@@ -305,10 +300,7 @@ describe("WorkspaceContextService", () => {
         const [, mockLog] = makeOutputTestLayer();
         // nonInteractive=true, yes=false, preview=false
         // Since nonInteractive implies yes, the apply confirmation should be skipped.
-        const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: true, preview: false },
-          mockLog,
-        );
+        const { effect, promptMock } = runResolvePlan({ nonInteractive: true }, mockLog);
         const applied = yield* effect;
 
         // nonInteractive implies yes: no confirmation prompt in default mode
@@ -323,10 +315,7 @@ describe("WorkspaceContextService", () => {
     it.effect("nonInteractive implies yes: preview with explicit yes applies", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeOutputTestLayer();
-        const { effect, promptMock } = runResolvePlan(
-          { yes: true, nonInteractive: true, preview: true },
-          mockLog,
-        );
+        const { effect, promptMock } = runResolvePlan({ nonInteractive: true }, mockLog);
         const applied = yield* effect;
 
         // Both nonInteractive and yes: preview applies without prompt
@@ -349,7 +338,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill is required by pack",
         });
         const { effect } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: true },
+          { nonInteractive: false, preview: true },
           mockLog,
           true,
           errorPlan,
@@ -372,12 +361,7 @@ describe("WorkspaceContextService", () => {
           status: "error",
           message: "Skill is required by pack",
         });
-        const { effect } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: false },
-          mockLog,
-          true,
-          errorPlan,
-        );
+        const { effect } = runResolvePlan({ nonInteractive: false }, mockLog, true, errorPlan);
         const result = yield* effect.pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
@@ -397,7 +381,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill is required by pack",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: false, force: true },
+          { nonInteractive: false, force: true },
           mockLog,
           true,
           errorPlan,
@@ -425,7 +409,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill is required by pack",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: true, force: true },
+          { nonInteractive: false, force: true, preview: true },
           mockLog,
           true,
           errorPlan,
@@ -454,7 +438,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill has dependents",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: true },
+          { nonInteractive: false, preview: true },
           mockLog,
           true,
           warnPlan,
@@ -482,7 +466,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill has dependents",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: false, preview: false },
+          { nonInteractive: false },
           mockLog,
           true,
           warnPlan,
@@ -509,7 +493,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill has dependents",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: true, nonInteractive: false, preview: true, force: true },
+          { nonInteractive: false },
           mockLog,
           true,
           warnPlan,
@@ -537,7 +521,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill has dependents",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: false, nonInteractive: true, preview: true },
+          { nonInteractive: true, preview: true },
           mockLog,
           true,
           warnPlan,
@@ -564,7 +548,7 @@ describe("WorkspaceContextService", () => {
           message: "Skill has dependents",
         });
         const { effect, promptMock } = runResolvePlan(
-          { yes: true, nonInteractive: true, preview: false },
+          { nonInteractive: true },
           mockLog,
           true,
           warnPlan,
@@ -592,7 +576,7 @@ describe("WorkspaceContextService", () => {
         });
         const { effect, promptMock } = runResolvePlan(
           // force is deliberately omitted (undefined/false)
-          { yes: true, nonInteractive: false, preview: false },
+          { nonInteractive: false },
           mockLog,
           true,
           warnPlan,
@@ -1574,7 +1558,7 @@ describe("WorkspaceContextService", () => {
      * Uses multiselect behavior to control which agents are "selected".
      */
     const getServiceWithInit = (
-      flags: Partial<CliFlagsService>,
+      flags: Partial<CliEnvironmentService>,
       multiselectBehavior?: { type: "return"; indices: readonly number[] } | { type: "cancel" },
     ) => {
       const [logLayer] = makeOutputTestLayer();
@@ -1588,7 +1572,7 @@ describe("WorkspaceContextService", () => {
             : { type: "return", value: [] },
         },
       });
-      const flagsLayer = CliFlagsTest(flags);
+      const flagsLayer = CliEnvironmentTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const base = Layer.mergeAll(
         NodeServices.layer,
@@ -1608,7 +1592,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         removePreCreatedSettings();
         const { run, promptMock } = getServiceWithInit(
-          { yes: false, nonInteractive: false, preview: false },
+          { nonInteractive: false },
           { type: "return", indices: [] },
         );
 
@@ -1630,9 +1614,7 @@ describe("WorkspaceContextService", () => {
         fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
 
         const { run, promptMock } = getServiceWithInit({
-          yes: false,
           nonInteractive: true,
-          preview: false,
         });
 
         const ws = yield* run;
@@ -1652,9 +1634,7 @@ describe("WorkspaceContextService", () => {
         fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
 
         const { run, promptMock } = getServiceWithInit({
-          yes: true,
           nonInteractive: false,
-          preview: false,
         });
 
         yield* run;

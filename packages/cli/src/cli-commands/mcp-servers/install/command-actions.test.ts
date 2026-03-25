@@ -13,7 +13,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import { SourceHostProviders } from "../../../sources/index.js";
@@ -65,7 +65,7 @@ const testLayer = Layer.mergeAll(
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   promptLayer,
   NodeServices.layer,
-  CliFlagsTest(),
+  CliEnvironmentTest(),
 );
 
 const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);
@@ -135,7 +135,7 @@ describe("parseMcpServerInstallArgs", () => {
     ).rejects.toThrow();
   });
 
-  it("passes force flag through from CliFlags", async () => {
+  it("sets force to false (force is now passed through plan flags, not parsed args)", async () => {
     const forceActionsLayer = Layer.provide(
       InstallMcpServerCommandWorkflowActionsLive,
       Layer.mergeAll(
@@ -144,7 +144,7 @@ describe("parseMcpServerInstallArgs", () => {
         Layer.succeed(SourceHostProviders, mockSourceHostProviders),
         promptLayer,
         NodeServices.layer,
-        CliFlagsTest({ force: true }),
+        CliEnvironmentTest(),
       ),
     );
     const result = await Effect.gen(function* () {
@@ -153,6 +153,6 @@ describe("parseMcpServerInstallArgs", () => {
         source: "my-server",
       });
     }).pipe(Effect.provide(forceActionsLayer), Effect.runPromise);
-    expect(result.force).toBe(true);
+    expect(result.force).toBe(false);
   });
 });

@@ -5,13 +5,12 @@ import * as Option from "effect/Option";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
 import {
-  CliFlags,
-  makeCliFlagsLayer,
+  CliEnvironment,
+  makeCliEnvironmentLayer,
   outputFormatFlag,
   verboseFlag,
   debugFlag,
 } from "../cli-flags/index.js";
-import type { CommandArgvService } from "./command-argv.js";
 import type { OutputFormat } from "../output-format.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
@@ -32,7 +31,7 @@ import {
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
-export type CliRuntimeFoundation = Output | Activity | Input | CliFlags;
+export type CliRuntimeFoundation = Output | Activity | Input | CliEnvironment;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? 0 : 1;
@@ -66,7 +65,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Build the foundation layer: Output + Activity + Input + CliFlags.
+ * Build the foundation layer: Output + Activity + Input + CliEnvironment.
  *
  * The returned layer requires the `nonInteractiveFlag` global flag setting
  * in its context (resolved by the Effect CLI framework at command dispatch).
@@ -75,20 +74,18 @@ export const makeFoundationLayer = (
   format: OutputFormat,
   options?: {
     readonly ci?: boolean | undefined;
-    readonly argv?: CommandArgvService | undefined;
     readonly envVerbose?: boolean | undefined;
     readonly envDebug?: boolean | undefined;
   },
 ) => {
-  const cliFlagsLayer = makeCliFlagsLayer({
+  const cliEnvLayer = makeCliEnvironmentLayer({
     ci: options?.ci,
-    argv: options?.argv,
     envVerbose: options?.envVerbose,
     envDebug: options?.envDebug,
   });
   const uiLayer = makeUiLayer(format);
-  const inputLayer = format === "text" ? Layer.provide(InputLive, cliFlagsLayer) : InputStructured;
-  return Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer);
+  const inputLayer = format === "text" ? Layer.provide(InputLive, cliEnvLayer) : InputStructured;
+  return Layer.mergeAll(uiLayer, cliEnvLayer, inputLayer);
 };
 
 /**
@@ -200,7 +197,6 @@ export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
   readonly isLongRunning?: boolean | undefined;
   readonly ci?: boolean | undefined;
-  readonly argv?: CommandArgvService | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
 }
 
@@ -210,7 +206,7 @@ export const withCliRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
-    const foundationLayer = makeFoundationLayer(format, { ci: options.ci, argv: options.argv });
+    const foundationLayer = makeFoundationLayer(format, { ci: options.ci });
     const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {

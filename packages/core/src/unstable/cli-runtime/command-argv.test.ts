@@ -37,7 +37,11 @@ describe("extractParamKinds", () => {
 describe("serializeArgv", () => {
   it("prefixes arguments with cli.arg and flags with cli.flag", () => {
     const argv = { source: "owner/repo", scope: "project", yes: true };
-    const paramKinds = { source: "argument" as const, scope: "flag" as const, yes: "flag" as const };
+    const paramKinds = {
+      source: "argument" as const,
+      scope: "flag" as const,
+      yes: "flag" as const,
+    };
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
       "cli.arg.source": "owner/repo",

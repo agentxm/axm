@@ -8,9 +8,7 @@ import { handleUpdate } from "../../cli-commands/skills/update/handler.js";
 
 const updateConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription(
-      "Filter to skills from a specific source (owner/repo, path, or URL)",
-    ),
+    Argument.withDescription("Filter to skills from a specific source (owner/repo, path, or URL)"),
     Argument.optional,
   ),
   scope: scopeFlag,

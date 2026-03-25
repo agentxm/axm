@@ -68,43 +68,40 @@ const installConfig = {
   yes: yesFlag,
 } as const;
 
-export const installCommand = Command.make(
-  "install",
-  installConfig,
-  (config) =>
-    withRuntime(
-      Effect.gen(function* () {
-        const activity = yield* Activity;
-        const output = yield* Output;
+export const installCommand = Command.make("install", installConfig, (config) =>
+  withRuntime(
+    Effect.gen(function* () {
+      const activity = yield* Activity;
+      const output = yield* Output;
 
-        // Activity.withSpinner handles format differences:
-        //   text        → shows animated spinner with status messages
-        //   stream-json → emits NDJSON progress events
-        //   json        → runs silently (no output until result)
-        const skills = yield* activity.withSpinner(
-          `Installing from ${config.source}`,
-          (handle) =>
-            Effect.gen(function* () {
-              yield* handle.message("Downloading...");
-              yield* Effect.sleep("200 millis");
-              yield* handle.message("Resolving skills from manifest...");
-              yield* Effect.sleep("100 millis");
-              yield* handle.message("Installing skills...");
-              yield* Effect.sleep("100 millis");
-              return ["pr-review", "test-gen", "doc-writer"] as const;
-            }),
-          "Installation complete",
-        );
+      // Activity.withSpinner handles format differences:
+      //   text        → shows animated spinner with status messages
+      //   stream-json → emits NDJSON progress events
+      //   json        → runs silently (no output until result)
+      const skills = yield* activity.withSpinner(
+        `Installing from ${config.source}`,
+        (handle) =>
+          Effect.gen(function* () {
+            yield* handle.message("Downloading...");
+            yield* Effect.sleep("200 millis");
+            yield* handle.message("Resolving skills from manifest...");
+            yield* Effect.sleep("100 millis");
+            yield* handle.message("Installing skills...");
+            yield* Effect.sleep("100 millis");
+            return ["pr-review", "test-gen", "doc-writer"] as const;
+          }),
+        "Installation complete",
+      );
 
-        const result: InstallResult = {
-          _version: 1,
-          source: config.source,
-          installed: Array.from(skills),
-        };
-        yield* output.result(InstallResultSchema, result, renderText);
-      }),
-      { command: "skills install", isLongRunning: true },
-    ),
+      const result: InstallResult = {
+        _version: 1,
+        source: config.source,
+        installed: Array.from(skills),
+      };
+      yield* output.result(InstallResultSchema, result, renderText);
+    }),
+    { command: "skills install", isLongRunning: true },
+  ),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install skills from GitHub or local path"),

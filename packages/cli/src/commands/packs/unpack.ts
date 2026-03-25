@@ -16,13 +16,10 @@ const unpackConfig = {
   preview: previewFlag,
 } as const;
 
-export const unpackCommand = Command.make(
-  "unpack",
-  unpackConfig,
-  ({ name, strictAgentSync }) =>
-    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUnpack({ name, strictAgentSync })), {
-      command: "packs unpack",
-    }),
+export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, strictAgentSync }) =>
+  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUnpack({ name, strictAgentSync })), {
+    command: "packs unpack",
+  }),
 ).pipe(
   withArgvTracking(unpackConfig),
   Command.withDescription("Eject pack into individual entries"),

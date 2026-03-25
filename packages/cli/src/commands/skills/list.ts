@@ -10,11 +10,8 @@ const listConfig = {
   agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
 } as const;
 
-export const listCommand = Command.make(
-  "list",
-  listConfig,
-  ({ scope, agent }) =>
-    withRuntime(withWorkspace(scope, handleList({ agents: agent })), { command: "skills list" }),
+export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
+  withRuntime(withWorkspace(scope, handleList({ agents: agent })), { command: "skills list" }),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),

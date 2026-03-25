@@ -20,24 +20,19 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
 const uninstallConfig = {
-  skill: Argument.string("skill").pipe(
-    Argument.withDescription("Name of the skill to uninstall"),
-  ),
+  skill: Argument.string("skill").pipe(Argument.withDescription("Name of the skill to uninstall")),
   yes: yesFlag,
   force: forceFlag,
   preview: previewFlag,
 } as const;
 
-export const uninstallCommand = Command.make(
-  "uninstall",
-  uninstallConfig,
-  (config) =>
-    withRuntime(
-      Console.log(
-        `[stub] skills uninstall skill=${config.skill} yes=${config.yes} force=${config.force} preview=${config.preview}`,
-      ),
-      { command: "skills uninstall" },
+export const uninstallCommand = Command.make("uninstall", uninstallConfig, (config) =>
+  withRuntime(
+    Console.log(
+      `[stub] skills uninstall skill=${config.skill} yes=${config.yes} force=${config.force} preview=${config.preview}`,
     ),
+    { command: "skills uninstall" },
+  ),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a skill from agents"),

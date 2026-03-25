@@ -16,13 +16,10 @@ const removeConfig = {
   preview: previewFlag,
 } as const;
 
-export const removeCommand = Command.make(
-  "remove",
-  removeConfig,
-  ({ pack, extension }) =>
-    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksRemove({ pack, extension })), {
-      command: "packs remove",
-    }),
+export const removeCommand = Command.make("remove", removeConfig, ({ pack, extension }) =>
+  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksRemove({ pack, extension })), {
+    command: "packs remove",
+  }),
 ).pipe(
   withArgvTracking(removeConfig),
   Command.withDescription("Remove an extension from a pack manifest"),

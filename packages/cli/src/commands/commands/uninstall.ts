@@ -7,23 +7,15 @@ import { handleUninstallCommand } from "../../cli-commands/commands/uninstall/ha
 import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
 const uninstallConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("Name of the command to uninstall"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Name of the command to uninstall")),
   yes: yesFlag,
   force: forceFlag,
   preview: previewFlag,
 } as const;
 
-export const uninstallCommand = Command.make(
-  "uninstall",
-  uninstallConfig,
-  ({ name }) =>
-    withRuntime(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstallCommand({ commandName: name })),
-      { command: "commands uninstall" },
-    ),
-).pipe(
-  withArgvTracking(uninstallConfig),
-  Command.withDescription("Uninstall a command"),
-);
+export const uninstallCommand = Command.make("uninstall", uninstallConfig, ({ name }) =>
+  withRuntime(
+    withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstallCommand({ commandName: name })),
+    { command: "commands uninstall" },
+  ),
+).pipe(withArgvTracking(uninstallConfig), Command.withDescription("Uninstall a command"));

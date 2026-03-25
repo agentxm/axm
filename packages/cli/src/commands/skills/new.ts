@@ -25,21 +25,18 @@ const newConfig = {
   preview: previewFlag,
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, profile, agent }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handleSkillsNew({
-          name,
-          profile,
-          agents: Option.map(agent, (value) => [...value]),
-        }),
-      ),
-      { command: "skills new" },
+export const newCommand = Command.make("new", newConfig, ({ name, profile, agent }) =>
+  withRuntime(
+    withWorkspace(
+      DEFAULT_WORKSPACE_SCOPE,
+      handleSkillsNew({
+        name,
+        profile,
+        agents: Option.map(agent, (value) => [...value]),
+      }),
     ),
+    { command: "skills new" },
+  ),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new skill"),

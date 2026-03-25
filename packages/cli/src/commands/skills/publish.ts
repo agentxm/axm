@@ -22,17 +22,14 @@ const publishConfig = {
   preview: previewFlag,
 } as const;
 
-export const publishCommand = Command.make(
-  "publish",
-  publishConfig,
-  ({ extensions, registry }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handlePublish({ extensions: [...extensions], registry }),
-      ),
-      { command: "skills publish" },
+export const publishCommand = Command.make("publish", publishConfig, ({ extensions, registry }) =>
+  withRuntime(
+    withWorkspace(
+      DEFAULT_WORKSPACE_SCOPE,
+      handlePublish({ extensions: [...extensions], registry }),
     ),
+    { command: "skills publish" },
+  ),
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish extensions to a registry"),

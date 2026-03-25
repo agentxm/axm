@@ -77,19 +77,16 @@ const listConfig = {
   agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
 } as const;
 
-export const listCommand = Command.make(
-  "list",
-  listConfig,
-  (config) =>
-    withRuntime(
-      Effect.gen(function* () {
-        const output = yield* Output;
-        const fakeSkillsManager = yield* FakeSkillsManager;
-        const skills = yield* fakeSkillsManager.listSkills(config.scope);
-        yield* output.result(SkillListOutputSchema, skills, renderText);
-      }),
-      { command: "skills list" },
-    ),
+export const listCommand = Command.make("list", listConfig, (config) =>
+  withRuntime(
+    Effect.gen(function* () {
+      const output = yield* Output;
+      const fakeSkillsManager = yield* FakeSkillsManager;
+      const skills = yield* fakeSkillsManager.listSkills(config.scope);
+      yield* output.result(SkillListOutputSchema, skills, renderText);
+    }),
+    { command: "skills list" },
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),

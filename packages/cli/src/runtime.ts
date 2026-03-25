@@ -19,19 +19,11 @@ import {
   verboseFlag,
   debugFlag,
 } from "@axm.sh/core/unstable/cli-flags";
-import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
-import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/install/command-actions.js";
-import { UninstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/uninstall/command-actions.js";
-import { InstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/install/command-actions.js";
-import { UninstallPackCommandWorkflowActionsLive } from "./cli-commands/packs/uninstall/command-actions.js";
-import { InstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/install/command-actions.js";
-import { UninstallSkillCommandWorkflowActionsLive } from "./cli-commands/skills/uninstall/command-actions.js";
 import { CliEnvConfig, type CliEnvConfigService } from "./config/index.js";
-import { CommandManagerLive } from "./extensions/commands/manager.js";
-import { McpServerManagerLive } from "./extensions/mcp-servers/manager.js";
-import { PackManagerLive } from "./extensions/packs/manager.js";
-import { SkillManagerLive } from "./extensions/skills/manager.js";
+import * as Commands from "./extensions/commands/layers.js";
+import * as McpServers from "./extensions/mcp-servers/layers.js";
+import * as Packs from "./extensions/packs/layers.js";
+import * as Skills from "./extensions/skills/layers.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import { type DiagnosticVerbosity, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
@@ -83,6 +75,7 @@ const makeWorkspaceProgramLayer = (
   envConfig: CliEnvConfigService,
   workspace: Omit<WorkspaceContextOptions, "builtInSources">,
 ) => {
+  // -- Workspace foundation --
   const wsLayer = Layer.provide(
     workspaceLayer({
       ...workspace,
@@ -92,25 +85,25 @@ const makeWorkspaceProgramLayer = (
   );
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(wsLayer, sourceProvidersLayer);
+
+  // -- Extension managers --
   const managerLayer = Layer.mergeAll(
-    Layer.provide(CommandManagerLive, wsLayer),
-    Layer.provide(McpServerManagerLive, wsLayer),
-    Layer.provide(SkillManagerLive, workspaceServiceLayer),
-    Layer.provide(PackManagerLive, workspaceServiceLayer),
-  );
-  const workspaceCommandSupportLayer = Layer.mergeAll(workspaceServiceLayer, managerLayer);
-  const workflowActionsLayer = Layer.mergeAll(
-    Layer.provide(InstallSkillCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(UninstallSkillCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(InstallCommandCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(UninstallCommandCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(InstallPackCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(UninstallPackCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(InstallMcpServerCommandWorkflowActionsLive, workspaceCommandSupportLayer),
-    Layer.provide(UninstallMcpServerCommandWorkflowActionsLive, workspaceCommandSupportLayer),
+    Layer.provide(Commands.managerLayer, wsLayer),
+    Layer.provide(McpServers.managerLayer, wsLayer),
+    Layer.provide(Skills.managerLayer, workspaceServiceLayer),
+    Layer.provide(Packs.managerLayer, workspaceServiceLayer),
   );
 
-  return Layer.mergeAll(workspaceCommandSupportLayer, workflowActionsLayer);
+  // -- Workflow actions --
+  const supportLayer = Layer.mergeAll(workspaceServiceLayer, managerLayer);
+  const workflowActionsLayer = Layer.mergeAll(
+    Layer.provide(Commands.workflowActionsLayer, supportLayer),
+    Layer.provide(McpServers.workflowActionsLayer, supportLayer),
+    Layer.provide(Skills.workflowActionsLayer, supportLayer),
+    Layer.provide(Packs.workflowActionsLayer, supportLayer),
+  );
+
+  return Layer.mergeAll(supportLayer, workflowActionsLayer);
 };
 
 const resolveRuntimeConfig = () =>

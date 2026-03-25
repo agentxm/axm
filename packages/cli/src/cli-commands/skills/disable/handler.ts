@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import type { DisableSkillOperation } from "../../../extensions/skills/operations/disable.js";
 import { disableSkill } from "../../../extensions/skills/operations/disable.js";
@@ -38,9 +38,9 @@ export interface DisableHandlerArgs {
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
   const ws = yield* Workspace;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm skills disable");
+  yield* renderer.info("axm skills disable");
 
   // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
   const installedSkills = yield* ws.getInstalledSkills();
@@ -57,8 +57,8 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   // Configured skill — check if already disabled (implicit skills are always enabled)
   if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
-    yield* output.info(`Skill '${args.name}' is already disabled`);
-    yield* output.success("Nothing to do.");
+    yield* renderer.info(`Skill '${args.name}' is already disabled`);
+    yield* renderer.success("Nothing to do.");
     return;
   }
 
@@ -82,5 +82,5 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     preview: args.preview,
   });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

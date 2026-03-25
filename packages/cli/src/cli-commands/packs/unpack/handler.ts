@@ -15,8 +15,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
@@ -63,13 +63,13 @@ export interface UnpackHandlerArgs {
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* Workspace;
-  const output = yield* Output;
-  const activity = yield* Activity;
+  const renderer = yield* CliRenderer;
+  
 
-  yield* output.info("axm packs unpack");
+  yield* renderer.info("axm packs unpack");
 
   // Validate pack exists in lockfile
-  const entry = yield* activity.withSpinner(
+  const entry = yield* renderer.withSpinner(
     "Checking pack...",
     () =>
       Effect.gen(function* () {
@@ -183,5 +183,5 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     { yes: args.yes, force: args.force, preview: args.preview },
   );
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

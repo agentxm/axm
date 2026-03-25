@@ -15,7 +15,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Input } from "@axm.sh/core/unstable/input";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
@@ -91,7 +91,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const mcpServerMgr = yield* McpServerManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const input = yield* Input;
+    const prompt = yield* CliPrompt;
     const env = yield* CliEnvironment;
 
     // Build a service layer to provide to inner effects that still require
@@ -101,17 +101,14 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(Input, input),
+      Layer.succeed(CliPrompt, prompt),
       Layer.succeed(CliEnvironment, env),
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
     const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | Input | CliEnvironment
-      >,
-    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
+      effect: Effect.Effect<A, E, any>,
+    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer) as Effect.Effect<A, E, never>;
 
     const parseArgs = (
       args: InstallMcpServerHandlerArgs,

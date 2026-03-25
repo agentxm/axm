@@ -14,19 +14,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import YAML from "yaml";
 import type { Settings } from "@axm.sh/core/unstable/settings";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Output, makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { Input, makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
-  Workspace,
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../workspace/index.js";
@@ -49,19 +48,19 @@ describe("init.handler", () => {
   });
 
   // Create individual TUI test layers
-  const [outputLayer] = makeOutputTestLayer();
-  const [inputLayer] = makeInputTestLayer({
-    methodBehaviors: {
-      confirm: { type: "return", value: true },
-      select: { type: "select", index: 0 },
-      multiselect: { type: "multiselect", indices: [] },
-    },
+  const { layer: rendererLayer } = TestRenderer.make();
+  const [promptLayer] = makeTestPrompt({
+    confirmResponses: [true],
+    selectResponses: [undefined],
+    multiselectResponses: [[]],
   });
 
   const TestLayer = Layer.mergeAll(
     NodeServices.layer,
-    outputLayer,
-    inputLayer,
+    rendererLayer,
+    promptLayer,
+    OutputAdapter.pipe(Layer.provide(rendererLayer)),
+    InputAdapter.pipe(Layer.provide(promptLayer)),
     CliEnvironmentTest(),
   );
 
@@ -70,13 +69,9 @@ describe("init.handler", () => {
    */
   const withLayers = (wsOptions: WorkspaceContextOptions) => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), TestLayer);
-    return <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
-      >,
-    ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    return <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
 
   const defaultWsOptions: WorkspaceContextOptions = {
@@ -333,58 +328,34 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       tuiConfig: {
-        selectBehavior?: import("@axm.sh/core/unstable/input").InputPromptBehavior;
-        multiselectBehavior?: import("@axm.sh/core/unstable/input").InputPromptBehavior;
+        multiselectValues?: ReadonlyArray<string>;
       },
       wsOptions: WorkspaceContextOptions = {
         scope: "project",
         agents: Option.none(),
       },
     ) => {
-      const selectBehavior = tuiConfig.selectBehavior ?? { type: "select", index: 0 };
-      const multiselectBehavior = tuiConfig.multiselectBehavior ?? {
-        type: "multiselect",
-        indices: [] as ReadonlyArray<number>,
-      };
-      const [iOutputLayer] = makeOutputTestLayer();
-      const [iInputLayer] = makeInputTestLayer({
-        methodBehaviors: {
-          confirm: { type: "return", value: true },
-          select:
-            selectBehavior.type === "cancel"
-              ? { type: "cancel" }
-              : selectBehavior.type === "select"
-                ? { type: "select", index: selectBehavior.index }
-                : { type: "select", index: 0 },
-          multiselect:
-            multiselectBehavior.type === "cancel"
-              ? { type: "cancel" }
-              : multiselectBehavior.type === "multiselect"
-                ? { type: "multiselect", indices: multiselectBehavior.indices }
-                : { type: "multiselect", indices: [] },
-        },
+      const { layer: iRendererLayer } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [tuiConfig.multiselectValues ?? []],
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iOutputLayer,
-        iInputLayer,
+        iRendererLayer,
+        iPromptLayer,
+        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
+        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-      return <A, E>(
-        effect: Effect.Effect<
-          A,
-          E,
-          FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
-        >,
-      ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+      return <A, E>(effect: Effect.Effect<A, E, any>) =>
+        effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
 
     it.effect("accepts auto-detected agents when user selects first option", () =>
-      withInteractiveLayers({
-        // index 0 = "Setup with auto-detected agents (Recommended)"
-        selectBehavior: { type: "select", index: 0 },
-      })(
+      withInteractiveLayers({})(
         Effect.gen(function* () {
           yield* handleInit();
 
@@ -394,12 +365,10 @@ describe("init.handler", () => {
       ),
     );
 
-    it.effect("shows all-agent multiselect when user selects 'Let me choose'", () =>
+    it.effect("shows all-agent multiselect when user chooses agents", () =>
       withInteractiveLayers({
-        // index 1 = "Let me choose"
-        selectBehavior: { type: "select", index: 1 },
-        // Select first agent in the full list
-        multiselectBehavior: { type: "multiselect", indices: [0] },
+        // Select first agent in the full list by ID
+        multiselectValues: ["adal"],
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -417,10 +386,8 @@ describe("init.handler", () => {
 
     it.effect("allows selecting no agents via multiselect", () =>
       withInteractiveLayers({
-        // index 1 = "Let me choose"
-        selectBehavior: { type: "select", index: 1 },
         // Select no agents
-        multiselectBehavior: { type: "multiselect", indices: [] },
+        multiselectValues: [],
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -441,25 +408,24 @@ describe("init.handler", () => {
 
   describe("telemetry notice", () => {
     it.effect("displays telemetry notice after successful init", () => {
-      const [iOutputLayer, mockOutput] = makeOutputTestLayer();
-      const [iInputLayer] = makeInputTestLayer({
-        methodBehaviors: {
-          confirm: { type: "return", value: true },
-          select: { type: "select", index: 0 },
-          multiselect: { type: "multiselect", indices: [] },
-        },
+      const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iOutputLayer,
-        iInputLayer,
+        iRendererLayer,
+        iPromptLayer,
+        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
+        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest(),
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = mockOutput.logs.info;
+        const infoMessages = iRendererState.logs.filter((l) => l._tag === "info").map((l) => l.message);
         expect(infoMessages).toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });
@@ -467,25 +433,24 @@ describe("init.handler", () => {
     it.effect("does not display telemetry notice when AXM_TELEMETRY=0", () => {
       const origTelemetry = process.env["AXM_TELEMETRY"];
       process.env["AXM_TELEMETRY"] = "0";
-      const [iOutputLayer, mockOutput] = makeOutputTestLayer();
-      const [iInputLayer] = makeInputTestLayer({
-        methodBehaviors: {
-          confirm: { type: "return", value: true },
-          select: { type: "select", index: 0 },
-          multiselect: { type: "multiselect", indices: [] },
-        },
+      const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
       });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
-        iOutputLayer,
-        iInputLayer,
+        iRendererLayer,
+        iPromptLayer,
+        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
+        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest(),
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = mockOutput.logs.info;
+        const infoMessages = iRendererState.logs.filter((l) => l._tag === "info").map((l) => l.message);
         expect(infoMessages).not.toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(
         Effect.ensuring(

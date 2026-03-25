@@ -31,6 +31,15 @@ export const debugFlag = GlobalFlag.setting("axm-debug")({
   ),
 });
 
+export const quietFlag = GlobalFlag.setting("axm-quiet")({
+  flag: Flag.boolean("quiet").pipe(
+    Flag.withAlias("q"),
+    Flag.withDescription("Suppress non-essential output"),
+  ),
+});
+
+export { resolveVerbosityFromArgv } from "./resolve-verbosity.js";
+
 // ---------------------------------------------------------------------------
 // Per-command flag definitions — import and include in Command.make() flags
 // for commands that need them. Not global — they only appear in --help for
@@ -50,6 +59,8 @@ export const forceFlag = Flag.boolean("force").pipe(
 export const previewFlag = Flag.boolean("preview").pipe(
   Flag.withDescription("Display plan without applying"),
 );
+
+export const jsonFlag = Flag.boolean("json").pipe(Flag.withDescription("Output as JSON"));
 
 // ---------------------------------------------------------------------------
 // Service

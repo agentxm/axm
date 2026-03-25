@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "../../../workspace/service.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -52,7 +52,7 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } as unknown as ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
-const [promptLayer] = makeInputTestLayer({
+const [promptLayer] = makeTestPrompt({
   methodBehaviors: {
     confirm: { type: "return", value: true },
     text: { type: "return", value: "" },

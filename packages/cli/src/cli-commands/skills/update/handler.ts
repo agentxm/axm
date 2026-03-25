@@ -18,8 +18,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
 import { Workspace } from "../../../workspace/index.js";
 import {
   PACK_MANIFEST_FILENAME,
@@ -87,10 +87,10 @@ export interface UpdateHandlerArgs {
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;
-  const output = yield* Output;
-  const activity = yield* Activity;
+  const renderer = yield* CliRenderer;
+  
 
-  yield* output.info(`axm skills update (${ws.scope})`);
+  yield* renderer.info(`axm skills update (${ws.scope})`);
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.getConfiguredSkills();
@@ -99,7 +99,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>
     Effect.gen(function* () {
       if (!entry.enabled) {
-        yield* output.info(`Skipping ${name} (disabled)`);
+        yield* renderer.info(`Skipping ${name} (disabled)`);
         return Option.none<readonly [string, string]>();
       }
       return Option.some([name, entry.source] as const);
@@ -107,7 +107,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ).pipe(Effect.map(Array.getSomes));
 
   if (skillEntries.length === 0) {
-    yield* output.info("No skills installed. Nothing to update.");
+    yield* renderer.info("No skills installed. Nothing to update.");
     return;
   }
 
@@ -154,7 +154,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   })();
   if (args.skills.length > 0) {
     if (filteredEntries.length === 0) {
-      yield* output.warn("No installed skills match the --skill filter. Nothing to update.");
+      yield* renderer.warn("No installed skills match the --skill filter. Nothing to update.");
       return;
     }
   }
@@ -167,7 +167,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     | { type: "match"; ref: SkillExtensionRef }
     | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
 
-  const results = yield* activity.withSpinner(
+  const results = yield* renderer.withSpinner(
     "Resolving sources...",
     () =>
       Effect.forEach(
@@ -212,12 +212,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             } else if (allSkillRefs.length > 1) {
               // Multi-skill source: ambiguous rename
               const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
-              yield* output.warn(
+              yield* renderer.warn(
                 `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
               );
               return Option.none<ResolveResult>();
             } else {
-              yield* output.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
+              yield* renderer.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
               return Option.none<ResolveResult>();
             }
           }).pipe(
@@ -278,7 +278,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       );
     },
   );
-  yield* Effect.forEach(holdbackWarnings, (w) => output.warn(w), { discard: true });
+  yield* Effect.forEach(holdbackWarnings, (w) => renderer.warn(w), { discard: true });
 
   // Step 8: Build operations
   const ops = Array.flatMap(resolved, (item) => {
@@ -342,7 +342,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     { yes: args.yes, force: args.force, preview: args.preview },
   );
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });
 
 // -----------------------------------------------------------------------------

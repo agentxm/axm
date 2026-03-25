@@ -14,6 +14,7 @@ export {
 } from "./input.js";
 export { InputLive } from "./input-live.js";
 export { InputStructured } from "./input-structured.js";
+export { InputAdapter } from "./input-adapter.js";
 export {
   makeInputTestLayer,
   type InputCall,

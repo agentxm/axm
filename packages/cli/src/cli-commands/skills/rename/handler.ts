@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import type { RenameSkillOperation } from "../../../extensions/skills/operations/rename.js";
 import { renameSkill } from "../../../extensions/skills/operations/rename.js";
@@ -38,9 +38,9 @@ export interface RenameHandlerArgs {
 
 export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHandlerArgs) {
   const ws = yield* Workspace;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm skills rename");
+  yield* renderer.info("axm skills rename");
 
   // Load configured skills
   const configuredSkills = yield* ws.getConfiguredSkills();
@@ -84,5 +84,5 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     preview: args.preview,
   });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

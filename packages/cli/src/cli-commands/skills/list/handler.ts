@@ -7,7 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -37,7 +37,7 @@ export interface ListHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
   const ws = yield* Workspace;
   const skills = yield* ws.getLockedSkills();
 
@@ -49,7 +49,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       : entries;
 
   if (filtered.length === 0) {
-    yield* output.info("No skills installed");
+    yield* renderer.info("No skills installed");
     return;
   }
 
@@ -58,7 +58,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     filtered,
     ([name, entry]) => {
       const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-      return output.message(`${name}  (${entry.type})  [${agents}]`);
+      return renderer.message(`${name}  (${entry.type})  [${agents}]`);
     },
     { discard: true },
   );

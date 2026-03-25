@@ -25,8 +25,7 @@ import type {
 } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { PackManager } from "../../../extensions/packs/manager.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -167,8 +166,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const ws = yield* Workspace;
-    const output = yield* Output;
-    const activity = yield* Activity;
+    const renderer = yield* CliRenderer;
     const packMgr = yield* PackManager;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
@@ -180,8 +178,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Workspace, ws),
-      Layer.succeed(Output, output),
-      Layer.succeed(Activity, activity),
+      Layer.succeed(CliRenderer, renderer),
       Layer.succeed(CliEnvironment, cliEnv),
     );
 
@@ -201,7 +198,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           // Handle bare name (e.g., "my-pack")
           if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
             const profile = yield* ws.getConfiguredProfile();
-            yield* output.info(
+            yield* renderer.info(
               `Source resolution: ${trimmed} -> ${profile}/packs/${parsed.value.pattern.name}`,
             );
             return {
@@ -220,7 +217,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             const constraint = trimmed.slice(atIndex + 1);
             if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
               const profile = yield* ws.getConfiguredProfile();
-              yield* output.info(
+              yield* renderer.info(
                 `Source resolution: ${trimmed} -> ${profile}/packs/${name}@${constraint}`,
               );
               return {
@@ -279,7 +276,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedPackInstallArgs) =>
       provide(
         Effect.gen(function* () {
-          const source = yield* activity.withSpinner(
+          const source = yield* renderer.withSpinner(
             "Parsing source...",
             () =>
               resolveSource(parsed.resolvedInput).pipe(
@@ -328,7 +325,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          const discovered = yield* activity.withSpinner(
+          const discovered = yield* renderer.withSpinner(
             "Fetching pack from registry...",
             () =>
               Effect.gen(function* () {
@@ -435,13 +432,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
                 // Log resolution probes for bare-name inputs
                 if (req.packName && probes.length > 0) {
-                  yield* output.info(
+                  yield* renderer.info(
                     `Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`,
                   );
                 }
 
                 const registryHosts = yield* ws.getRegistrySourceHosts();
-                yield* output.info(
+                yield* renderer.info(
                   `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
                 );
 

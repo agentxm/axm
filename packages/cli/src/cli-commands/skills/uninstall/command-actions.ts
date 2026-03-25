@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
 import { SkillManager } from "../../../extensions/skills/manager.js";
@@ -70,14 +70,14 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
   UninstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const skillMgr = yield* SkillManager;
 
     const parseArgs = (
       args: UninstallHandlerArgs,
     ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
       Effect.gen(function* () {
-        yield* output.info("axm skills uninstall");
+        yield* renderer.info("axm skills uninstall");
 
         // Load installed skills for glob expansion
         const taxonomyInstalled = yield* ws.getInstalledSkills();
@@ -88,8 +88,8 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
         // Handle glob matching zero skills
         if (args.skill.includes("*") && skillNames.length === 0) {
-          yield* output.warn(`No skills matched pattern "${args.skill}"`);
-          yield* output.success("Nothing to uninstall.");
+          yield* renderer.warn(`No skills matched pattern "${args.skill}"`);
+          yield* renderer.success("Nothing to uninstall.");
           return { skills: [] } satisfies ParsedSkillUninstallArgs;
         }
 

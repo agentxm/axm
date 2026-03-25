@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
 import { enableSkill } from "../../../extensions/skills/operations/enable.js";
@@ -37,9 +37,9 @@ export interface EnableHandlerArgs {
 
 export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
   const ws = yield* Workspace;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm skills enable");
+  yield* renderer.info("axm skills enable");
 
   // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
   const installedSkills = yield* ws.getInstalledSkills();
@@ -56,8 +56,8 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   // Validate: skill is currently disabled
   if (entry.enabled) {
-    yield* output.info(`Skill '${args.name}' is already enabled`);
-    yield* output.success("Nothing to do.");
+    yield* renderer.info(`Skill '${args.name}' is already enabled`);
+    yield* renderer.success("Nothing to do.");
     return;
   }
 
@@ -81,5 +81,5 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     preview: args.preview,
   });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

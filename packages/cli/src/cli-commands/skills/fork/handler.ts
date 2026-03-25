@@ -21,8 +21,8 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
@@ -146,11 +146,11 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
  */
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const ws = yield* Workspace;
-  const output = yield* Output;
-  const activity = yield* Activity;
+  const renderer = yield* CliRenderer;
+  
   const sources = yield* SourceHostProviders;
 
-  yield* output.info("axm skills fork");
+  yield* renderer.info("axm skills fork");
 
   // Step 1: Resolve profile
   const profile = yield* ws.getConfiguredProfile().pipe(
@@ -165,7 +165,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   );
 
   // Step 2: Parse source and discover skills
-  const filtered = yield* activity.withSpinner(
+  const filtered = yield* renderer.withSpinner(
     "Resolving skills...",
     () =>
       Effect.gen(function* () {
@@ -368,5 +368,5 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   yield* ws.resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

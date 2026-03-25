@@ -19,7 +19,7 @@ import { removeFromPack } from "../../../extensions/packs/operations/remove-from
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/extensions";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -57,9 +57,9 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm packs remove");
+  yield* renderer.info("axm packs remove");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.getConfiguredPacks();
@@ -177,5 +177,5 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     preview: args.preview,
   });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

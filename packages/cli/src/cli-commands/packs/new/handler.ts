@@ -14,7 +14,7 @@ import { formatFqn, PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/extensi
 import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
 import { newPack } from "../../../extensions/packs/operations/new-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -44,9 +44,9 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm packs new");
+  yield* renderer.info("axm packs new");
 
   // Resolve profile
   const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
@@ -112,5 +112,5 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     preview: args.preview,
   });
 
-  yield* output.success(`Created pack ${fqn}`);
+  yield* renderer.success(`Created pack ${fqn}`);
 });

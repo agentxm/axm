@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";

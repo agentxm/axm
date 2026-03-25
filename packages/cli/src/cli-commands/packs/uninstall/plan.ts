@@ -24,7 +24,7 @@ import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.
 import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
 import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { OperationResult } from "../../../workspace/plan.js";
 
 /**
@@ -129,16 +129,16 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
     const workspace = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
 
     const provideServices = <A, E>(
-      effect: Effect.Effect<A, E, Workspace | FileSystem.FileSystem | Path.Path | Output>,
+      effect: Effect.Effect<A, E, Workspace | FileSystem.FileSystem | Path.Path | CliRenderer>,
     ): Effect.Effect<A, E, never> =>
       effect.pipe(
         Effect.provideService(Workspace, workspace),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-        Effect.provideService(Output, output),
+        Effect.provideService(CliRenderer, renderer),
       );
 
     const toJobStepResult = (result: OperationResult): JobStepResult =>

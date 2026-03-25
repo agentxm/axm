@@ -15,7 +15,7 @@ import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/pla
 import type { SkillExtensionRef, Source } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 
@@ -44,7 +44,7 @@ export const buildSkillInstallPlan = ({
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
       Effect.catch((error) => {
         if (
@@ -95,7 +95,7 @@ export const buildSkillInstallPlan = ({
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-        Effect.provideService(Output, output),
+        Effect.provideService(CliRenderer, renderer),
       );
 
       return {

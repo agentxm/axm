@@ -93,6 +93,18 @@
     "./unstable/telemetry": {
       "types": "./src/unstable/telemetry/index.ts",
       "default": "./dist/src/unstable/telemetry/index.js"
+    },
+    "./unstable/verbosity": {
+      "types": "./src/unstable/verbosity/index.ts",
+      "default": "./dist/src/unstable/verbosity/index.js"
+    },
+    "./unstable/cli-prompt": {
+      "types": "./src/unstable/cli-prompt/index.ts",
+      "default": "./dist/src/unstable/cli-prompt/index.js"
+    },
+    "./unstable/cli-renderer": {
+      "types": "./src/unstable/cli-renderer/index.ts",
+      "default": "./dist/src/unstable/cli-renderer/index.js"
     }
   },
   "files": [

@@ -16,7 +16,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
@@ -146,7 +146,7 @@ describe("uninstall.handler", () => {
       NodeServices.layer,
       outputLayer,
       inputLayer,
-      CliFlagsTest(),
+      CliEnvironmentTest(),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -185,7 +185,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("my-skill"));
+          yield* handleUninstall(defaultArgs("my-skill"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Canonical directory should be removed
           expect(
@@ -227,7 +231,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("effect-*"));
+          yield* handleUninstall(defaultArgs("effect-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // effect-* skills should be removed
           expect(
@@ -259,7 +267,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("nonexistent-*"));
+          yield* handleUninstall(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           expect(mockLog.logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
@@ -279,7 +291,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("nonexistent"));
+          yield* handleUninstall(defaultArgs("nonexistent"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Should show the no-op result
           const allLogs = [...mockLog.logs.success, ...mockLog.logs.info, ...mockLog.logs.message];
@@ -307,7 +323,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("my-skill"));
+          yield* handleUninstall(defaultArgs("my-skill"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // claude-code symlink should be removed
           expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(false);
@@ -351,7 +371,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs(skillName));
+          yield* handleUninstall(defaultArgs(skillName), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Canonical directory should still exist (retained because pack requires it)
           expect(
@@ -408,7 +432,11 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("effect-*"));
+          yield* handleUninstall(defaultArgs("effect-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // effect-basics should be removed (matched glob, not ignored)
           expect(

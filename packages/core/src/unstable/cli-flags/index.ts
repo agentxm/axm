@@ -4,7 +4,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
-import { type CommandArgvService, readBooleanFlag } from "../cli-runtime/command-argv.js";
 import { isInteractive } from "../utils/tty.js";
 
 // ---------------------------------------------------------------------------
@@ -62,32 +61,27 @@ export const previewFlag = Flag.boolean("preview").pipe(
 // Service
 // ---------------------------------------------------------------------------
 
-export interface CliFlagsService {
+export interface CliEnvironmentService {
   readonly isCI: boolean;
   readonly nonInteractive: boolean;
-  readonly yes: boolean;
-  readonly force: boolean;
-  readonly preview: boolean;
   readonly verbose: boolean;
   readonly debug: boolean;
 }
 
-export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
-  "@axm.sh/cli/CliFlags",
+export class CliEnvironment extends ServiceMap.Service<CliEnvironment, CliEnvironmentService>()(
+  "@axm.sh/cli/CliEnvironment",
 ) {}
 
-export const makeCliFlagsLayer = (options?: {
+export const makeCliEnvironmentLayer = (options?: {
   readonly ci?: boolean | undefined;
-  readonly argv?: CommandArgvService | undefined;
   readonly envVerbose?: boolean | undefined;
   readonly envDebug?: boolean | undefined;
 }) =>
   Layer.effect(
-    CliFlags,
+    CliEnvironment,
     Effect.gen(function* () {
       const nonInteractiveOpt = yield* nonInteractiveFlag;
       const isCI = options?.ci ?? false;
-      const argv = options?.argv;
 
       const debug = (yield* debugFlag) || (options?.envDebug ?? false);
       const verbose = (yield* verboseFlag) || (options?.envVerbose ?? false) || debug;
@@ -95,12 +89,9 @@ export const makeCliFlagsLayer = (options?: {
       return {
         isCI,
         nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI || !isInteractive()),
-        yes: argv ? readBooleanFlag(argv, "yes") : false,
-        force: argv ? readBooleanFlag(argv, "force") : false,
-        preview: argv ? readBooleanFlag(argv, "preview") : false,
         verbose,
         debug,
-      } satisfies CliFlagsService;
+      } satisfies CliEnvironmentService;
     }),
   );
 
@@ -108,13 +99,12 @@ export const makeCliFlagsLayer = (options?: {
 // Test helper
 // ---------------------------------------------------------------------------
 
-export const CliFlagsTest = (overrides?: Partial<CliFlagsService>): Layer.Layer<CliFlags> =>
-  Layer.succeed(CliFlags, {
+export const CliEnvironmentTest = (
+  overrides?: Partial<CliEnvironmentService>,
+): Layer.Layer<CliEnvironment> =>
+  Layer.succeed(CliEnvironment, {
     isCI: false,
     nonInteractive: true,
-    yes: false,
-    force: false,
-    preview: false,
     verbose: false,
     debug: false,
     ...overrides,

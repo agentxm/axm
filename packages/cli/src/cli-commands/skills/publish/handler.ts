@@ -41,6 +41,12 @@ export interface PublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -86,7 +92,7 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
-  yield* withAuthGuard(publishEffect(args));
+  yield* withAuthGuard(publishEffect(args), { yes: args.yes });
 });
 
 const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: PublishHandlerArgs) {
@@ -227,6 +233,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     bridgeLegacyPlan(plan, {
       "publish-skill": publishSkill,
     }),
+    { yes: args.yes, force: args.force, preview: args.preview },
   );
 
   const failedStepDetails = resolvedPlan.jobs

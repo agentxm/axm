@@ -12,7 +12,7 @@ import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-s
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogin } from "./handler.js";
 
@@ -36,9 +36,8 @@ const makeLayers = (opts?: {
     },
   });
 
-  const flagsLayer = CliFlagsTest({
+  const flagsLayer = CliEnvironmentTest({
     nonInteractive: opts?.nonInteractive ?? false,
-    yes: opts?.yes ?? false,
   });
 
   const credStoreLayer = opts?.existingCredentials
@@ -111,7 +110,7 @@ describe("auth login handler", () => {
     const { provide } = makeLayers({ nonInteractive: true });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin().pipe(
+        const result = yield* handleLogin({ yes: false }).pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
@@ -123,7 +122,7 @@ describe("auth login handler", () => {
     const { provide, mockLog } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin();
+        yield* handleLogin({ yes: false });
         expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
       }),
     );
@@ -133,7 +132,7 @@ describe("auth login handler", () => {
     const { provide, mockLog } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin();
+        yield* handleLogin({ yes: false });
         const steps = mockLog.calls.filter((c) => c.method === "step").map((c) => c.args[0]);
         expect(
           steps.some((m) => String(m).includes("https://auth.agentxm.ai/device?code=ABCD-1234")),
@@ -150,7 +149,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin();
+        yield* handleLogin({ yes: false });
         expect(mockLog.logs.info.some((m) => m.includes("Already logged in"))).toBe(true);
         expect(mockPrompt.calls.some((c) => c.method === "confirm")).toBe(true);
         expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
@@ -165,7 +164,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin();
+        yield* handleLogin({ yes: true });
         expect(mockLog.logs.info.some((m) => m.includes("Already logged in"))).toBe(true);
         expect(mockPrompt.calls.filter((c) => c.method === "confirm")).toHaveLength(0);
         expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
@@ -180,7 +179,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin();
+        yield* handleLogin({ yes: false });
         expect(mockLog.logs.success.filter((m) => m.includes("Logged in"))).toHaveLength(0);
       }),
     );
@@ -225,13 +224,13 @@ describe("auth login handler", () => {
       outputLayer2,
       activityLayer2,
       inputLayer2,
-      CliFlagsTest({ nonInteractive: false }),
+      CliEnvironmentTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
       Layer.succeed(RegistryUrl, REGISTRY_URL),
     );
 
-    return handleLogin().pipe(
+    return handleLogin({ yes: false }).pipe(
       Effect.as("unexpected_success" as const),
       Effect.catchTag("AppError", (error) =>
         Effect.gen(function* () {

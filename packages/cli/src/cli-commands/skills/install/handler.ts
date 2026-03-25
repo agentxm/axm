@@ -39,8 +39,11 @@ export interface InstallHandlerArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstall = (args: InstallHandlerArgs) =>
+export const handleInstall = (
+  args: InstallHandlerArgs,
+  flags: { yes: boolean; force: boolean; preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* InstallSkillCommandWorkflowActions;
-    yield* runInstallCommandWorkflow(args, actions);
+    yield* runInstallCommandWorkflow(args, actions, flags);
   });

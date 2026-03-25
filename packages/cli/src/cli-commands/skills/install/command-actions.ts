@@ -15,7 +15,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef, Source, InputParseResult } from "@axm.sh/core/unstable/sources";
@@ -185,7 +185,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const input = yield* Input;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
-    const flags = yield* CliFlags;
+    const env = yield* CliEnvironment;
 
     // Build a service layer providing all services needed by inner effects
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
@@ -197,7 +197,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Input, input),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
-      Layer.succeed(CliFlags, flags),
+      Layer.succeed(CliEnvironment, env),
     );
 
     // Provide all captured services, bridging R to never and allowing

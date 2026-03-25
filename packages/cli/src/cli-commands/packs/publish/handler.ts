@@ -63,6 +63,12 @@ export interface PublishPackHandlerArgs {
   readonly registry: Option.Option<string>;
   /** Publish locally managed dependency extensions alongside the pack. */
   readonly includeDependencies: boolean;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 /**
@@ -84,7 +90,7 @@ export type PackPublishOp =
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-  yield* withAuthGuard(publishPackEffect(args));
+  yield* withAuthGuard(publishPackEffect(args), { yes: args.yes });
 });
 
 const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
@@ -291,6 +297,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       "publish-command": publishCommand,
       "publish-mcp-server": publishMcpServer,
     }),
+    { yes: args.yes, force: args.force, preview: args.preview },
   );
 
   yield* output.success("Done");

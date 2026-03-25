@@ -16,7 +16,7 @@ import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
 import { Activity } from "@axm.sh/core/unstable/activity";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { AuthClient } from "./auth-client.js";
@@ -55,13 +55,14 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
  */
 export const withAuthGuard = <A, E, R>(
   effect: Effect.Effect<A, E | AppError, R>,
+  options: { yes: boolean },
 ): Effect.Effect<
   A,
   E | AppError | PromptCancelled,
   | R
   | CredentialStore
   | AuthClient
-  | CliFlags
+  | CliEnvironment
   | CliEnvConfig
   | RegistryUrl
   | Input
@@ -78,14 +79,14 @@ export const withAuthGuard = <A, E, R>(
     }
 
     // No token — check flags
-    const flags = yield* CliFlags;
+    const env = yield* CliEnvironment;
 
-    if (flags.nonInteractive) {
+    if (env.nonInteractive) {
       return yield* Effect.fail(AUTH_LOGIN_REQUIRED_NON_INTERACTIVE);
     }
 
     // Interactive: prompt (auto-accept with --yes)
-    if (!flags.yes) {
+    if (!options.yes) {
       const input = yield* Input;
       const shouldLogin = yield* input.confirm({
         message: "You need to sign in to publish. Sign in now?",

@@ -7,14 +7,13 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import {
-  CommandArgv,
   type CliTelemetryConfigService,
   makeFoundationLayer,
   resolveCliFormat,
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
 import {
-  CliFlags,
+  CliEnvironment,
   nonInteractiveFlag,
   outputFormatFlag,
   verboseFlag,
@@ -53,7 +52,7 @@ interface RuntimeOptions {
 }
 
 const debugLoggerLayer = Layer.unwrap(
-  Effect.map(CliFlags.asEffect(), (flags) =>
+  Effect.map(CliEnvironment.asEffect(), (flags) =>
     Logger.layer(flags.debug ? [Logger.consolePretty()] : [], {
       mergeWithExisting: false,
     }),
@@ -135,10 +134,8 @@ export const withRuntime = <A, R>(
   Effect.gen(function* () {
     const config = yield* resolveRuntimeConfig();
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
-    const argvOption = yield* Effect.serviceOption(CommandArgv);
     const foundationLayer = makeFoundationLayer(format, {
       ci: config.ci,
-      argv: Option.getOrUndefined(argvOption),
       envVerbose: config.envVerbose,
       envDebug: config.envDebug,
     });

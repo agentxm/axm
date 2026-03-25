@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { Output } from "@axm.sh/core/unstable/output";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { renderAppError } from "@axm.sh/core/unstable/app-error";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
@@ -21,12 +21,12 @@ import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./pla
 /**
  * Display a plan or executed plan summary via the Log service.
  *
- * Reads verbosity settings from the `CliFlags` service.
+ * Reads verbosity settings from the `CliEnvironment` service.
  */
 export const displayPlan = (plan: Plan | ExecutedPlan) =>
   Effect.gen(function* () {
     const output = yield* Output;
-    const flags = yield* CliFlags;
+    const flags = yield* CliEnvironment;
     const verbosity: { readonly verbose: boolean; readonly debug: boolean } = {
       verbose: flags.verbose,
       debug: flags.debug,

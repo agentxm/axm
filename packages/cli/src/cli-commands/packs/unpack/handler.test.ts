@@ -18,7 +18,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
@@ -106,6 +106,9 @@ const defaultArgs = (
   overrides: Partial<UnpackHandlerArgs> = {},
 ): UnpackHandlerArgs => ({
   name,
+  yes: false,
+  force: false,
+  preview: false,
   ...overrides,
 });
 
@@ -143,7 +146,7 @@ describe("packs unpack.handler", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest(),
+      CliEnvironmentTest(),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {

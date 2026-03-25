@@ -16,10 +16,17 @@ const addConfig = {
   preview: previewFlag,
 } as const;
 
-export const addCommand = Command.make("add", addConfig, ({ pack, extension }) =>
-  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksAdd({ pack, extension })), {
-    command: "packs add",
-  }),
+export const addCommand = Command.make(
+  "add",
+  addConfig,
+  ({ pack, extension, yes, force, preview }) =>
+    withRuntime(
+      withWorkspace(
+        DEFAULT_WORKSPACE_SCOPE,
+        handlePacksAdd({ pack, extension, yes, force, preview }),
+      ),
+      { command: "packs add" },
+    ),
 ).pipe(
   withArgvTracking(addConfig),
   Command.withDescription("Add an extension to a pack manifest"),

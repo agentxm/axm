@@ -22,7 +22,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { getAgentById } from "@axm.sh/core/unstable/agents";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
@@ -609,9 +609,12 @@ const make = (options: WorkspaceContextOptions) =>
       scope: options.scope,
       path: workspaceDir,
       baseDir,
-      resolvePlan: Effect.fn("Workspace.resolvePlan")(function* (plan: Plan) {
-        const flags = yield* CliFlags;
-        const resolvedYes = flags.yes || flags.nonInteractive;
+      resolvePlan: Effect.fn("Workspace.resolvePlan")(function* (
+        plan: Plan,
+        flags: { yes: boolean; force: boolean; preview: boolean },
+      ) {
+        const env = yield* CliEnvironment;
+        const resolvedYes = flags.yes || env.nonInteractive;
         const showPlan = (targetPlan: Plan | ExecutedPlan) =>
           displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(Output, output)));
 
@@ -665,7 +668,7 @@ const make = (options: WorkspaceContextOptions) =>
           yield* showPlan(augmentedPlan);
 
           // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
-          if (flags.nonInteractive && !flags.yes) {
+          if (env.nonInteractive && !flags.yes) {
             return {
               _tag: "ExecutedPlan",
               name: augmentedPlan.name,
@@ -1613,10 +1616,11 @@ export interface WorkspaceContextService {
   readonly baseDir: string;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
-  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags from CliFlags. */
+  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags. */
   readonly resolvePlan: (
     plan: Plan,
-  ) => Effect.Effect<ExecutedPlan, PromptCancelled | AppError, CliFlags | CliEnvConfig>;
+    flags: { yes: boolean; force: boolean; preview: boolean },
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | AppError, CliEnvironment | CliEnvConfig>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */

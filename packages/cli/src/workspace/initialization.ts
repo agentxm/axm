@@ -20,7 +20,7 @@ import {
   getAllAgents,
   getAgentById,
 } from "@axm.sh/core/unstable/agents";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
@@ -44,7 +44,7 @@ import type { WorkspaceContextOptions } from "./service.js";
  */
 export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
-    const flags = yield* CliFlags;
+    const flags = yield* CliEnvironment;
 
     // Select agents based on options
     let selectedAgents: ReadonlyArray<AgentDescriptor>;

@@ -15,10 +15,13 @@ const renameConfig = {
   preview: previewFlag,
 } as const;
 
-export const renameCommand = Command.make("rename", renameConfig, ({ oldName, newName, scope }) =>
-  withRuntime(withWorkspace(scope, handleRename({ oldName, newName })), {
-    command: "skills rename",
-  }),
+export const renameCommand = Command.make(
+  "rename",
+  renameConfig,
+  ({ oldName, newName, scope, yes, force, preview }) =>
+    withRuntime(withWorkspace(scope, handleRename({ oldName, newName, yes, force, preview })), {
+      command: "skills rename",
+    }),
 ).pipe(
   withArgvTracking(renameConfig),
   Command.withDescription("Rename a skill"),

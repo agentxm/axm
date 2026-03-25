@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Input } from "@axm.sh/core/unstable/input";
-import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
@@ -92,7 +92,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const input = yield* Input;
-    const flags = yield* CliFlags;
+    const env = yield* CliEnvironment;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -102,14 +102,14 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Input, input),
-      Layer.succeed(CliFlags, flags),
+      Layer.succeed(CliEnvironment, env),
     );
 
     const provide = <A, E>(
       effect: Effect.Effect<
         A,
         E,
-        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | Input | CliFlags
+        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | Input | CliEnvironment
       >,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
 
@@ -144,7 +144,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             serverName: pat.name.value,
             versionConstraint: pat.versionConstraint,
             resolvedInput: trimmed,
-            force: flags.force,
+            force: false,
           };
         }
 
@@ -156,7 +156,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             serverName: parsed.value.pattern.name,
             versionConstraint: Option.none<string>(),
             resolvedInput: `${profile}/mcp-servers/${parsed.value.pattern.name}`,
-            force: flags.force,
+            force: false,
           };
         }
 

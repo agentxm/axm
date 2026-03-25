@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Input, InputLive } from "@axm.sh/core/unstable/input";
 import { Output, OutputLive } from "@axm.sh/core/unstable/output";
 
@@ -23,7 +23,7 @@ export const selectCommand = {
         Effect.provide(
           Layer.mergeAll(
             OutputLive("text"),
-            Layer.provide(InputLive, CliFlagsTest({ nonInteractive: false })),
+            Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: false })),
           ),
         ),
       ),

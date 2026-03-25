@@ -1,23 +1,19 @@
 ## Purpose
 
-The `CliFlags` service provides centralized resolution and access to CLI behavior flags (`--yes`, `--non-interactive`, `--force`, `--preview`). Flags are resolved once at program startup and consumed as an Effect service by handlers, the workspace service, and the prompt service.
+The `CliEnvironment` service provides centralized resolution and access to environment-level CLI flags (`--non-interactive`, `--verbose`, `--debug`). These flags are resolved once at program startup and consumed as an Effect service by handlers, the workspace service, and the prompt service.
+
+Per-command flags (`--yes`, `--force`, `--preview`) are **not** part of the service. They are defined as reusable `Flag` definitions and threaded explicitly through handler args at the command boundary.
 
 ## Requirements
 
-### Requirement: CliFlags Service Interface
+### Requirement: CliEnvironment Service Interface
 
-The `CliFlags` service SHALL expose six resolved boolean fields: `nonInteractive`, `verbose`, `debug`, `yes`, `force`, and `preview`.
+The `CliEnvironment` service SHALL expose four resolved fields: `isCI`, `nonInteractive`, `verbose`, and `debug`.
 
-#### Scenario: Service provides resolved flag values
+#### Scenario: Service provides resolved environment values
 
-- **WHEN** a handler yields `CliFlags`
-- **THEN** it receives a `CliFlagsService` with `nonInteractive`, `verbose`, `debug`, `yes`, `force`, and `preview` as resolved booleans
-
-#### Scenario: yes stores only the explicit flag value
-
-- **WHEN** `--yes` is not passed and `--non-interactive` is active
-- **THEN** `flags.yes` SHALL be `false`
-- **AND** `flags.nonInteractive` SHALL be `true`
+- **WHEN** a handler yields `CliEnvironment`
+- **THEN** it receives a `CliEnvironmentService` with `isCI`, `nonInteractive`, `verbose`, and `debug` as resolved booleans
 
 ### Requirement: Non-Interactive Resolution Chain
 
@@ -54,26 +50,6 @@ The `nonInteractive` flag SHALL be resolved using a fallback chain: explicit `--
 - **AND** `process.env.CI` is not `"true"`
 - **AND** `process.stdin.isTTY` is `true`
 - **THEN** `flags.nonInteractive` SHALL be `false`
-
-### Requirement: Layer Construction from Raw Argv
-
-The `CliFlags` layer SHALL accept raw argv values and resolve them. The `nonInteractive` input SHALL be `Option<boolean>` to distinguish "not passed" from "explicitly false".
-
-#### Scenario: Option.none triggers auto-detection
-
-- **WHEN** the `nonInteractive` input is `Option.none()`
-- **THEN** the resolution chain (CI -> TTY) SHALL be evaluated
-
-#### Scenario: Option.some bypasses auto-detection
-
-- **WHEN** the `nonInteractive` input is `Option.some(true)` or `Option.some(false)`
-- **THEN** the explicit value SHALL be used
-- **AND** CI and TTY detection SHALL NOT be evaluated
-
-#### Scenario: Boolean inputs pass through directly
-
-- **WHEN** `yes`, `force`, or `preview` inputs are provided
-- **THEN** they SHALL be stored as-is on the resolved service
 
 ### Requirement: Verbose Resolution Chain
 
@@ -124,53 +100,73 @@ The `debug` flag SHALL be resolved by combining the `--debug` CLI flag with the 
 - **AND** `AXM_DEBUG` is not set
 - **THEN** `flags.debug` SHALL be `false`
 
+### Requirement: Layer Construction
+
+The `CliEnvironment` layer SHALL resolve environment flags from CLI globals and optional env var overrides. The `nonInteractive` input SHALL be `Option<boolean>` to distinguish "not passed" from "explicitly false".
+
+#### Scenario: Option.none triggers auto-detection
+
+- **WHEN** the `nonInteractive` input is `Option.none()`
+- **THEN** the resolution chain (CI -> TTY) SHALL be evaluated
+
+#### Scenario: Option.some bypasses auto-detection
+
+- **WHEN** the `nonInteractive` input is `Option.some(true)` or `Option.some(false)`
+- **THEN** the explicit value SHALL be used
+- **AND** CI and TTY detection SHALL NOT be evaluated
+
 ### Requirement: Layer accepts env var overrides for verbosity
 
-The `makeCliFlagsLayer` function SHALL accept optional `envVerbose` and `envDebug` boolean options for environment variable overrides. These allow CLI packages to resolve their own env var names and pass the result to core.
+The `makeCliEnvironmentLayer` function SHALL accept optional `envVerbose` and `envDebug` boolean options for environment variable overrides. These allow CLI packages to resolve their own env var names and pass the result to core.
 
 #### Scenario: envVerbose passed as true
 
-- **WHEN** `makeCliFlagsLayer` is called with `envVerbose: true`
+- **WHEN** `makeCliEnvironmentLayer` is called with `envVerbose: true`
 - **AND** `--verbose` is not passed
 - **THEN** `flags.verbose` SHALL be `true`
 
 #### Scenario: envDebug passed as true
 
-- **WHEN** `makeCliFlagsLayer` is called with `envDebug: true`
+- **WHEN** `makeCliEnvironmentLayer` is called with `envDebug: true`
 - **AND** `--debug` is not passed
 - **THEN** `flags.debug` SHALL be `true`
 - **AND** `flags.verbose` SHALL be `true`
 
 #### Scenario: CLI flag overrides env var
 
-- **WHEN** `makeCliFlagsLayer` is called with `envVerbose: false`
+- **WHEN** `makeCliEnvironmentLayer` is called with `envVerbose: false`
 - **AND** the user passes `--verbose`
 - **THEN** `flags.verbose` SHALL be `true`
 
-### Requirement: CliFlags Provided at Runtime Boundary
+### Requirement: CliEnvironment Provided at Runtime Boundary
 
-The `run()` function SHALL construct and provide the `CliFlags` layer. All programs executed through `run()` SHALL have access to the `CliFlags` service.
+The `run()` function SHALL construct and provide the `CliEnvironment` layer. All programs executed through `run()` SHALL have access to the `CliEnvironment` service.
 
-#### Scenario: run() accepts flag input and provides layer
+#### Scenario: run() provides CliEnvironment layer
 
-- **WHEN** a command handler calls `run()` with flag input
-- **THEN** the `CliFlags` layer SHALL be constructed from the input
-- **AND** the program SHALL be able to yield `CliFlags`
+- **WHEN** a command handler calls `run()`
+- **THEN** the `CliEnvironment` layer SHALL be constructed
+- **AND** the program SHALL be able to yield `CliEnvironment`
 
-#### Scenario: CliFlags is part of AppLayer
+### Requirement: Per-Command Flags Threaded via Handler Args
 
-- **WHEN** `AppLayer` is constructed
-- **THEN** it SHALL include `CliFlags` as a required service
+Per-command flags (`yes`, `force`, `preview`) SHALL NOT be part of the `CliEnvironment` service. They are defined as reusable `Flag` definitions and passed as explicit parameters to handler functions.
+
+#### Scenario: Handler receives per-command flags as function parameters
+
+- **WHEN** a command declares `--yes`, `--force`, or `--preview` flags
+- **THEN** the command boundary SHALL pass their values to the handler as function arguments
+- **AND** the handler SHALL NOT read them from any service
 
 ### Requirement: Prompt Service Non-Interactive Guard
 
-The `ClackPromptService` SHALL depend on `CliFlags` and fail fast with a `AppError` when any prompt method is called in non-interactive mode.
+The `ClackPromptService` SHALL depend on `CliEnvironment` and fail fast with an `AppError` when any prompt method is called in non-interactive mode.
 
 #### Scenario: Prompt called in non-interactive mode fails
 
 - **WHEN** `flags.nonInteractive` is `true`
 - **AND** any prompt method is called (text, confirm, select, multiselect, etc.)
-- **THEN** the prompt SHALL fail with a `AppError` with code `PROMPT_IN_NON_INTERACTIVE`
+- **THEN** the prompt SHALL fail with an `AppError` with code `PROMPT_IN_NON_INTERACTIVE`
 - **AND** the error SHALL indicate this is a bug in the handler
 
 #### Scenario: Prompt called in interactive mode proceeds normally
@@ -181,17 +177,15 @@ The `ClackPromptService` SHALL depend on `CliFlags` and fail fast with a `AppErr
 
 ### Requirement: Test Layer Helper
 
-A test helper SHALL provide a `CliFlags` layer with sensible defaults for test environments.
+A test helper SHALL provide a `CliEnvironment` layer with sensible defaults for test environments.
 
 #### Scenario: Default test flags are non-interactive
 
-- **WHEN** a test uses the `CliFlags` test helper without overrides
+- **WHEN** a test uses the `CliEnvironment` test helper without overrides
 - **THEN** `nonInteractive` SHALL default to `true`
 - **AND** `verbose` SHALL default to `false`
 - **AND** `debug` SHALL default to `false`
-- **AND** `yes` SHALL default to `false`
-- **AND** `force` SHALL default to `false`
-- **AND** `preview` SHALL default to `false`
+- **AND** `isCI` SHALL default to `false`
 
 #### Scenario: Test helper accepts overrides
 

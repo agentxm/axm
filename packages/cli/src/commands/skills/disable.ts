@@ -14,10 +14,13 @@ const disableConfig = {
   preview: previewFlag,
 } as const;
 
-export const disableCommand = Command.make("disable", disableConfig, ({ name, scope }) =>
-  withRuntime(withWorkspace(scope, handleDisable({ name })), {
-    command: "skills disable",
-  }),
+export const disableCommand = Command.make(
+  "disable",
+  disableConfig,
+  ({ name, scope, yes, force, preview }) =>
+    withRuntime(withWorkspace(scope, handleDisable({ name, yes, force, preview })), {
+      command: "skills disable",
+    }),
 ).pipe(
   withArgvTracking(disableConfig),
   Command.withDescription("Disable a skill without uninstalling it"),

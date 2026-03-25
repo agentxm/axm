@@ -11,7 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
-import { type CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { type CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -32,14 +32,14 @@ const [outputLayer] = makeOutputTestLayer();
 const [inputLayer] = makeInputTestLayer({
   methodBehaviors: { multiselect: { type: "multiselect", indices: [0, 1] } },
 });
-const TestLayer = Layer.mergeAll(outputLayer, inputLayer, CliFlagsTest());
+const TestLayer = Layer.mergeAll(outputLayer, inputLayer, CliEnvironmentTest());
 
-const provide = <A, E>(effect: Effect.Effect<A, E, Output | Input | CliFlags>) =>
+const provide = <A, E>(effect: Effect.Effect<A, E, Output | Input | CliEnvironment>) =>
   effect.pipe(Effect.provide(TestLayer));
 
-const provideWithFlags = (overrides: Parameters<typeof CliFlagsTest>[0]) => {
-  const layer = Layer.mergeAll(outputLayer, inputLayer, CliFlagsTest(overrides));
-  return <A, E>(effect: Effect.Effect<A, E, Output | Input | CliFlags>) =>
+const provideWithFlags = (overrides: Parameters<typeof CliEnvironmentTest>[0]) => {
+  const layer = Layer.mergeAll(outputLayer, inputLayer, CliEnvironmentTest(overrides));
+  return <A, E>(effect: Effect.Effect<A, E, Output | Input | CliEnvironment>) =>
     effect.pipe(Effect.provide(layer));
 };
 

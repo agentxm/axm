@@ -13,7 +13,7 @@ import { RegistryUrl } from "./auth-middleware.js";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
@@ -38,9 +38,8 @@ const makeLayers = (opts?: {
     },
   });
 
-  const flagsLayer = CliFlagsTest({
+  const flagsLayer = CliEnvironmentTest({
     nonInteractive: opts?.nonInteractive ?? false,
-    yes: opts?.yes ?? false,
   });
 
   const credStoreLayer = opts?.hasToken
@@ -105,7 +104,7 @@ const makeLayers = (opts?: {
 describe("withAuthGuard", () => {
   it.effect("passes through when token is resolvable", () => {
     const { FullLayer } = makeLayers({ hasToken: true });
-    return withAuthGuard(makeInnerEffect()).pipe(
+    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
@@ -115,7 +114,7 @@ describe("withAuthGuard", () => {
 
   it.effect("fails with AUTH_LOGIN_REQUIRED in non-interactive mode when no token", () => {
     const { FullLayer } = makeLayers({ nonInteractive: true });
-    return withAuthGuard(makeInnerEffect()).pipe(
+    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
@@ -126,7 +125,7 @@ describe("withAuthGuard", () => {
 
   it.effect("prompts and runs login when no token and user accepts", () => {
     const { FullLayer, mockLog } = makeLayers({ confirmValue: true });
-    return withAuthGuard(makeInnerEffect()).pipe(
+    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
@@ -137,7 +136,7 @@ describe("withAuthGuard", () => {
 
   it.effect("fails with AUTH_LOGIN_REQUIRED when user declines login", () => {
     const { FullLayer } = makeLayers({ confirmValue: false });
-    return withAuthGuard(makeInnerEffect()).pipe(
+    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
@@ -148,7 +147,7 @@ describe("withAuthGuard", () => {
 
   it.effect("auto-accepts login with --yes flag", () => {
     const { FullLayer, mockPrompt } = makeLayers({ yes: true });
-    return withAuthGuard(makeInnerEffect()).pipe(
+    return withAuthGuard(makeInnerEffect(), { yes: true }).pipe(
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
@@ -163,7 +162,7 @@ describe("withAuthGuard", () => {
     const failingEffect = Effect.fail(
       makeAppError({ code: "PUBLISH_PLAN_FAILED", what: "Publish failed" }),
     );
-    return withAuthGuard(failingEffect).pipe(
+    return withAuthGuard(failingEffect, { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {

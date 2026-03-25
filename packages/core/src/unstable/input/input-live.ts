@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliFlags } from "../cli-flags/index.js";
+import { CliEnvironment } from "../cli-flags/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { PromptCancelled } from "../prompt-cancelled.js";
 import { Input } from "./input.js";
@@ -42,10 +42,10 @@ const guardedPrompt = <T>(
       )
     : wrapPrompt(thunk);
 
-export const InputLive: Layer.Layer<Input, never, CliFlags> = Layer.effect(
+export const InputLive: Layer.Layer<Input, never, CliEnvironment> = Layer.effect(
   Input,
   Effect.gen(function* () {
-    const flags = yield* CliFlags;
+    const flags = yield* CliEnvironment;
     const ni = flags.nonInteractive;
     return {
       text: (config) => guardedPrompt(ni, () => p.text(asClack(config))),

@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
@@ -128,7 +128,7 @@ describe("packs uninstall handler", () => {
       outputLayer,
       activityLayer,
       inputLayer,
-      CliFlagsTest(),
+      CliEnvironmentTest(),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -175,7 +175,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("my-pack"));
+          yield* handleUninstallPack(defaultArgs("my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Should show completed step for the pack
           expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
@@ -194,7 +198,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("nonexistent-pack"));
+          yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Plan still executes step (no-op since nothing to remove)
           expect(mockLog.logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
@@ -221,7 +229,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("my-pack"));
+          yield* handleUninstallPack(defaultArgs("my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Should show completed steps for pack and orphaned skill
           expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
@@ -249,7 +261,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("pack-a"));
+          yield* handleUninstallPack(defaultArgs("pack-a"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // shared-skill is retained by pack-b, should not appear as a step
           expect(mockLog.logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
@@ -273,7 +289,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("my-pack"));
+          yield* handleUninstallPack(defaultArgs("my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // promoted-skill is directly configured, so excluded from orphan targets
           expect(mockLog.logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
@@ -306,7 +326,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("acme-*"));
+          yield* handleUninstallPack(defaultArgs("acme-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           // Should show completed steps for matched packs
           expect(mockLog.logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
@@ -328,7 +352,11 @@ describe("packs uninstall handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("nonexistent-*"));
+          yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
           expect(mockLog.logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);

@@ -12,7 +12,7 @@ import { vi, beforeEach } from "vitest";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig, type CliEnvConfigService } from "../../../config/index.js";
 import { handleToken } from "./handler.js";
 
@@ -66,7 +66,12 @@ const makeLayers = (opts?: {
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;
 
-  const FullLayer = Layer.mergeAll(CliFlagsTest(), credStoreLayer, registryUrlLayer, configLayer);
+  const FullLayer = Layer.mergeAll(
+    CliEnvironmentTest(),
+    credStoreLayer,
+    registryUrlLayer,
+    configLayer,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

@@ -50,7 +50,7 @@ Truly global — applies to every command:
 
 ### Per-Command Flags
 
-Defined as reusable `Flag` definitions in `cli-flags/service.ts`. Commands that need them import and include them in `Command.make()`. They only appear in `--help` for commands that declare them.
+Defined as reusable `Flag` definitions in `cli-flags/index.ts`. Commands that need them import and include them in `Command.make()`. They only appear in `--help` for commands that declare them. Per-command flag values are passed as explicit function parameters to handler args — they are not read from any service.
 
 - `--yes` (`-y`) — Auto-accept confirmation prompts ("are you sure?"). Does not supply missing input or override errors.
   - Only affects yes/no confirmations, not selection prompts or text input
@@ -66,7 +66,7 @@ Defined as reusable `Flag` definitions in `cli-flags/service.ts`. Commands that 
 
 **Severity model:** If important enough to block, it's an error (overridable with `--force`). If not important enough to block, it's a warning (always shown, never blocks).
 
-**Resolution model:** The `nonInteractive` global flag is resolved once into a `CliFlags` Effect service at the `run()` boundary via `makeCliFlagsLayer()`. Per-command flag values (`yes`, `force`, `preview`) are passed through `withCommandRuntime`'s `flags` option. The `nonInteractive` flag follows a resolution chain: explicit `--non-interactive` flag → `CI=true` env var → `!stdin.isTTY`. Both the `Workspace` service and `Input` service depend on `CliFlags` — neither resolves flags independently. Handlers read resolved values from `CliFlags`, never from raw argv.
+**Resolution model:** Environment-level flags (`nonInteractive`, `verbose`, `debug`) are resolved once into the `CliEnvironment` Effect service at the `run()` boundary via `makeCliEnvironmentLayer()`. The `nonInteractive` flag follows a resolution chain: explicit `--non-interactive` flag → `CI=true` env var → `!stdin.isTTY`. Both the `Workspace` service and `Input` service depend on `CliEnvironment` — neither resolves flags independently. Per-command flags (`yes`, `force`, `preview`) are passed as explicit parameters through handler args at the command boundary — they are not part of any service.
 
 ## Code Organization
 

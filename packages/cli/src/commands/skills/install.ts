@@ -24,10 +24,11 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, skill, all }) =>
-    withRuntime(withWorkspace(scope, handleInstall({ source, skills: skill, all })), {
-      command: "skills install",
-    }),
+  ({ source, scope, skill, all, yes, force, preview }) =>
+    withRuntime(
+      withWorkspace(scope, handleInstall({ source, skills: skill, all }, { yes, force, preview })),
+      { command: "skills install" },
+    ),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install skills from GitHub or local path"),

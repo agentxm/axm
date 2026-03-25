@@ -3,24 +3,21 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
-  CliFlags,
-  CliFlagsTest,
+  CliEnvironment,
+  CliEnvironmentTest,
   debugFlag,
-  makeCliFlagsLayer,
+  makeCliEnvironmentLayer,
   nonInteractiveFlag,
   verboseFlag,
 } from "@axm.sh/core/unstable/cli-flags";
 
 /**
- * Provide makeCliFlagsLayer with the given nonInteractive global flag value,
- * per-command argv, and optional ci/env overrides.
+ * Provide makeCliEnvironmentLayer with the given nonInteractive global flag value
+ * and optional ci/env overrides.
  */
 const getFlags = (flags: {
   nonInteractive: Option.Option<boolean>;
   ci?: boolean;
-  yes?: boolean;
-  force?: boolean;
-  preview?: boolean;
   verbose?: boolean;
   debug?: boolean;
   envVerbose?: boolean;
@@ -32,31 +29,17 @@ const getFlags = (flags: {
     Layer.succeed(debugFlag, flags.debug ?? false),
   );
 
-  const argv = {
-    value: {
-      ...(flags.yes !== undefined && { yes: flags.yes }),
-      ...(flags.force !== undefined && { force: flags.force }),
-      ...(flags.preview !== undefined && { preview: flags.preview }),
-    },
-    paramKinds: {
-      ...(flags.yes !== undefined && { yes: "flag" as const }),
-      ...(flags.force !== undefined && { force: "flag" as const }),
-      ...(flags.preview !== undefined && { preview: "flag" as const }),
-    },
-  };
-
-  const cliFlagsLayer = makeCliFlagsLayer({
+  const cliEnvironmentLayer = makeCliEnvironmentLayer({
     ci: flags.ci,
-    argv,
     envVerbose: flags.envVerbose,
     envDebug: flags.envDebug,
   });
-  const fullLayer = Layer.fresh(Layer.provide(cliFlagsLayer, globalFlagsLayer));
+  const fullLayer = Layer.fresh(Layer.provide(cliEnvironmentLayer, globalFlagsLayer));
 
-  return CliFlags.asEffect().pipe(Effect.provide(fullLayer));
+  return CliEnvironment.asEffect().pipe(Effect.provide(fullLayer));
 };
 
-describe("makeCliFlagsLayer", () => {
+describe("makeCliEnvironmentLayer", () => {
   describe("nonInteractive resolution chain", () => {
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {
@@ -131,71 +114,6 @@ describe("makeCliFlagsLayer", () => {
     );
   });
 
-  describe("per-command flags pass through", () => {
-    it.effect("yes defaults to false when not provided", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(true),
-        });
-        expect(flags.yes).toBe(false);
-      }),
-    );
-
-    it.effect("yes is true when explicitly set", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          yes: true,
-        });
-        expect(flags.yes).toBe(true);
-      }),
-    );
-
-    it.effect("force passes through", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          force: true,
-        });
-        expect(flags.force).toBe(true);
-      }),
-    );
-
-    it.effect("preview passes through", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          preview: true,
-        });
-        expect(flags.preview).toBe(true);
-      }),
-    );
-  });
-
-  describe("defaults", () => {
-    it.effect("all per-command flags default to false", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({ nonInteractive: Option.some(false) });
-        expect(flags.yes).toBe(false);
-        expect(flags.force).toBe(false);
-        expect(flags.preview).toBe(false);
-      }),
-    );
-
-    it.effect("explicit values override defaults", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          yes: true,
-          force: true,
-        });
-        expect(flags.yes).toBe(true);
-        expect(flags.force).toBe(true);
-        expect(flags.preview).toBe(false);
-      }),
-    );
-  });
-
   describe("verbose/debug resolution", () => {
     it.effect("verbose flag resolves to verbose true", () =>
       Effect.gen(function* () {
@@ -264,31 +182,12 @@ describe("makeCliFlagsLayer", () => {
   });
 });
 
-describe("CliFlagsTest helper", () => {
-  it.effect(
-    "defaults to isCI: false, nonInteractive: true, yes/force/preview/verbose/debug: false",
-    () =>
-      Effect.gen(function* () {
-        const flags = yield* CliFlags.asEffect().pipe(Effect.provide(CliFlagsTest()));
-        expect(flags.isCI).toBe(false);
-        expect(flags.nonInteractive).toBe(true);
-        expect(flags.yes).toBe(false);
-        expect(flags.force).toBe(false);
-        expect(flags.preview).toBe(false);
-        expect(flags.verbose).toBe(false);
-        expect(flags.debug).toBe(false);
-      }),
-  );
-
-  it.effect("accepts partial overrides", () =>
+describe("CliEnvironmentTest helper", () => {
+  it.effect("defaults to isCI: false, nonInteractive: true, verbose/debug: false", () =>
     Effect.gen(function* () {
-      const flags = yield* CliFlags.asEffect().pipe(
-        Effect.provide(CliFlagsTest({ yes: true, force: true })),
-      );
+      const flags = yield* CliEnvironment.asEffect().pipe(Effect.provide(CliEnvironmentTest()));
+      expect(flags.isCI).toBe(false);
       expect(flags.nonInteractive).toBe(true);
-      expect(flags.yes).toBe(true);
-      expect(flags.force).toBe(true);
-      expect(flags.preview).toBe(false);
       expect(flags.verbose).toBe(false);
       expect(flags.debug).toBe(false);
     }),
@@ -296,11 +195,20 @@ describe("CliFlagsTest helper", () => {
 
   it.effect("accepts verbose and debug overrides", () =>
     Effect.gen(function* () {
-      const flags = yield* CliFlags.asEffect().pipe(
-        Effect.provide(CliFlagsTest({ verbose: true, debug: true })),
+      const flags = yield* CliEnvironment.asEffect().pipe(
+        Effect.provide(CliEnvironmentTest({ verbose: true, debug: true })),
       );
       expect(flags.verbose).toBe(true);
       expect(flags.debug).toBe(true);
+    }),
+  );
+
+  it.effect("accepts nonInteractive override", () =>
+    Effect.gen(function* () {
+      const flags = yield* CliEnvironment.asEffect().pipe(
+        Effect.provide(CliEnvironmentTest({ nonInteractive: false })),
+      );
+      expect(flags.nonInteractive).toBe(false);
     }),
   );
 });

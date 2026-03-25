@@ -45,11 +45,12 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
   args: Args,
   actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
+  flags: { yes: boolean; force: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent);
     const ws = yield* Workspace;
-    yield* ws.resolvePlan(plan);
+    yield* ws.resolvePlan(plan, flags);
   });

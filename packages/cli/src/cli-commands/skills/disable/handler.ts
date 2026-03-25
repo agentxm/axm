@@ -24,6 +24,12 @@ import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 export interface DisableHandlerArgs {
   /** Name of the skill to disable */
   readonly name: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -70,7 +76,11 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     label: args.name,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "disable-skill": disableSkill }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "disable-skill": disableSkill }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success("Done");
 });

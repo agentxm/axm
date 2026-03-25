@@ -17,7 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
@@ -55,6 +55,9 @@ const defaultArgs = (
   name,
   profile: Option.none(),
   agents: Option.none(),
+  yes: false,
+  force: false,
+  preview: false,
   ...overrides,
 });
 
@@ -78,7 +81,7 @@ describe("skills-new.handler", () => {
   });
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [inputLayer] = makeInputTestLayer();
@@ -86,7 +89,7 @@ describe("skills-new.handler", () => {
       NodeServices.layer,
       outputLayer,
       inputLayer,
-      CliFlagsTest(flagsOverrides),
+      CliEnvironmentTest(flagsOverrides),
       CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -327,12 +330,12 @@ describe("skills-new.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill"));
+          yield* handleSkillsNew(defaultArgs("my-skill", { preview: true }));
 
           // Manifest should NOT be created
           const manifestPath = path.join(

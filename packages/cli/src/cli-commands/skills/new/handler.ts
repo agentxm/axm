@@ -30,6 +30,12 @@ export interface SkillsNewHandlerArgs {
   readonly name: string;
   readonly profile: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -113,7 +119,11 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     label: fqn,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }));
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }), {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   yield* output.success(`Created skill ${fqn}`);
 });

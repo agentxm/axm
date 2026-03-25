@@ -46,6 +46,12 @@ export interface UnpackHandlerArgs {
   readonly name: string;
   /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
   readonly strictAgentSync?: boolean;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -174,6 +180,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       "install-mcp-server": installMcpServer,
       "uninstall-pack": uninstallPack,
     }),
+    { yes: args.yes, force: args.force, preview: args.preview },
   );
 
   yield* output.success("Done");

@@ -48,7 +48,11 @@ class CliRenderer extends ServiceMap.Service<
     // Chrome (stderr in both modes; no-op in machine mode)
     readonly intro: (title: string) => Effect<void>;
     readonly outro: (message: string) => Effect<void>;
-    readonly log: (message: LogMessage) => Effect<void>;
+    readonly info: (message: string) => Effect<void>;
+    readonly success: (message: string) => Effect<void>;
+    readonly step: (message: string) => Effect<void>;
+    readonly warn: (message: string) => Effect<void>;
+    readonly error: (message: string) => Effect<void>;
     readonly note: (message: string, title?: string) => Effect<void>;
     readonly spinner: (message: string) => Effect<SpinnerHandle>;
     readonly withSpinner: <A, E, R>(
@@ -87,7 +91,7 @@ class CliRenderer extends ServiceMap.Service<
 >()("@axm.sh/cli/CliRenderer") {}
 ```
 
-**LogMessage** is a tagged union replacing the current per-level methods:
+**LogMessage** is a tagged union used internally by renderer implementations for structured capture (TestRenderer) and filtering:
 
 ```typescript
 type LogMessage =
@@ -98,7 +102,7 @@ type LogMessage =
   | { readonly _tag: "error"; readonly message: string };
 ```
 
-Convenience constructors (`Log.info("msg")`, `Log.warn("msg")`) reduce verbosity at call sites.
+The per-level methods on the service interface (`info`, `success`, `step`, `warn`, `error`) delegate to `LogMessage` internally. Handlers call `renderer.step("msg")` directly — the tagged union is an implementation detail, not part of the handler-facing API.
 
 ### 2. Replace --output-format with per-command --json
 
@@ -266,7 +270,7 @@ const handleList = (args: ListArgs) =>
 
     // Table columns with priority handle verbose display automatically
     yield* renderer.table(skills, columns);
-    yield* whenVerbose(renderer.log(Log.info(`${skills.length} skills found`)));
+    yield* whenVerbose(renderer.info(`${skills.length} skills found`));
   });
 ```
 
@@ -274,10 +278,10 @@ const handleList = (args: ListArgs) =>
 
 **Decision:** Enforce channel separation unconditionally in both modes.
 
-| Channel    | Methods                                                  |
-| ---------- | -------------------------------------------------------- |
-| **stdout** | `result`, `resultStream`, `table`, `tree`, `json`, `raw` |
-| **stderr** | `intro`, `outro`, `log`, `note`, `spinner`, `progress`   |
+| Channel    | Methods                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| **stdout** | `result`, `resultStream`, `table`, `tree`, `json`, `raw`                                    |
+| **stderr** | `intro`, `outro`, `info`, `success`, `step`, `warn`, `error`, `note`, `spinner`, `progress` |
 
 **Rationale:** This makes `axm skills list --json | jq` work cleanly — chrome goes to stderr, JSON goes to stdout. When piping without `--json`, chrome is still visible on stderr while stdout carries nothing (handler didn't call `result()`). The current implementation already routes structured output chrome to `console.error` — this formalizes and extends that pattern.
 
@@ -311,63 +315,195 @@ if (yield * renderer.result(data)) return;
 
 **Rationale:** This is the _only_ format-aware branch a handler should contain. It exists because interactive mode needs to collect and format data differently (tables, summaries) than machine mode (raw JSON). The renderer handles mode switching — the handler just checks the boolean. Chrome suppression, `table()`/`tree()` no-ops, and clean stdout are all handled by the `MachineRenderer` without handler involvement.
 
-### 7. Schema-per-command for typed output
+### 7. Schema-driven output with annotations
 
-**Decision:** Each command that supports `--json` declares an Effect `Schema` for its output shape. This schema is the single source of truth for:
-
-- JSON field names and types
-- Runtime validation
-- Future: shell tab-completion for field names
-
-```typescript
-// In skills/list/schema.ts
-export const SkillListResult = Schema.Struct({
-  name: Schema.String,
-  version: Schema.String,
-  source: Schema.String,
-  enabled: Schema.Boolean,
-});
-```
-
-Column definitions for `table()` are co-located with the schema but defined separately as `ColumnDef<T>` arrays — they express display concerns (headers, widths, alignment, priority) that don't belong in the data schema. The typed `items` array is the same data passed to both `result()` and `table()` — one data shape, two output paths.
-
-**Rationale:** Schema validates the data contract for machine consumers. Column definitions control the human presentation. Keeping them separate avoids polluting data schemas with display annotations, while co-locating them ensures they stay in sync.
-
-### 8. Typed table API with column definitions
-
-**Decision:** `table()` takes typed data + column definitions, not pre-stringified rows. The renderer owns all formatting decisions.
-
-```typescript
-interface ColumnDef<T> {
-  readonly header: string;
-  readonly value: (item: T) => string;
-  readonly width?: "auto" | "fill" | number;
-  readonly align?: "left" | "right";
-  readonly priority?: number; // 0 = always shown (default), 1 = verbose only
-}
-```
-
-Handler usage:
-
-```typescript
-yield *
-  renderer.table(skills, [
-    { header: "Name", value: (s) => s.name, width: "fill" },
-    { header: "Version", value: (s) => s.version, width: "auto" },
-    { header: "Source", value: (s) => s.source, priority: 1 },
-  ]);
-```
+**Decision:** Each command that supports `--json` declares a single Effect `Schema` for its output shape. The schema is annotated with display metadata (column headers, priority, alignment, formatting). One definition drives five outputs: TypeScript types, JSON serialization, table columns, JSON Schema documentation, and field descriptions.
 
 **Alternatives considered:**
 
-- (a) `TableData` with `ReadonlyArray<ReadonlyArray<string>>` → handler stringifies data before the renderer sees it; renderer can't truncate intelligently, align by type, or adapt to terminal width
-- (b) Typed items + column defs → chosen
+- (a) Separate schema + hand-written `ColumnDef<T>` arrays → two definitions to keep in sync; handlers manually construct column arrays
+- (b) Schema with display annotations → chosen; single source of truth, columns derived automatically
 
-**Rationale:** The renderer needs the raw data and column metadata to make formatting decisions: right-align numbers, truncate long names with ellipsis, adapt columns to terminal width, and filter by `priority` based on available space or verbosity. Pre-stringified rows strip this information.
+#### Output annotations
 
-The `priority` field replaces the pattern of writing separate `whenNotQuiet(table(...))` and `whenVerbose(table(...))` calls with different column sets — one `table()` call with priority annotations handles both.
+Symbol-keyed annotations that Effect Schema carries on fields. The renderer reads them; JSON serialization ignores them.
 
-The `TestRenderer` captures both the raw `items` array and the `columns` definitions. Tests assert on typed data, not formatted strings.
+```typescript
+// output/annotations.ts
+
+const ColumnHeader = Symbol.for("axm/output/ColumnHeader");
+const ColumnPriority = Symbol.for("axm/output/ColumnPriority");
+const ColumnAlign = Symbol.for("axm/output/ColumnAlign");
+const ColumnWidth = Symbol.for("axm/output/ColumnWidth");
+const DisplayFormat = Symbol.for("axm/output/DisplayFormat");
+const Hidden = Symbol.for("axm/output/Hidden");
+
+// Annotation helper — wraps Schema.annotations for ergonomics
+const column = (opts: {
+  header: string;
+  priority?: number; // 0 = always, 1 = verbose. Default 0
+  align?: "left" | "right";
+  width?: "auto" | "fill" | number;
+  format?: (value: unknown) => string;
+}) =>
+  Schema.annotations({
+    [ColumnHeader]: opts.header,
+    [ColumnPriority]: opts.priority ?? 0,
+    [ColumnAlign]: opts.align ?? "left",
+    [ColumnWidth]: opts.width ?? "auto",
+    ...(opts.format && { [DisplayFormat]: opts.format }),
+  });
+
+// Fields that appear in JSON but never in tables
+const hidden = () => Schema.annotations({ [Hidden]: true });
+```
+
+#### Output schema example
+
+```typescript
+// commands/skills/list/output.ts
+export const SkillListItem = Schema.Struct({
+  name: Schema.String.pipe(
+    column({ header: "Name", width: "fill" }),
+    Schema.annotations({ description: "Fully qualified skill name" }),
+  ),
+  version: Schema.String.pipe(column({ header: "Version", width: "auto" })),
+  enabled: Schema.Boolean.pipe(
+    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+  ),
+  source: Schema.String.pipe(
+    column({ header: "Source", priority: 1 }),
+    Schema.annotations({ description: "Installation source" }),
+  ),
+  installedAt: Schema.String.pipe(column({ header: "Installed", priority: 1 })),
+  // Appears in --json but not in tables
+  integrity: Schema.String.pipe(hidden()),
+});
+
+type SkillListItem = typeof SkillListItem.Type;
+```
+
+#### Deriving columns from schema
+
+A utility reads annotations from the schema AST and produces `ColumnDef<T>` arrays:
+
+```typescript
+// output/output-def.ts
+
+interface ColumnDef<T> {
+  readonly key: string;
+  readonly header: string;
+  readonly value: (item: T) => string;
+  readonly priority: number;
+  readonly align: "left" | "right";
+  readonly width: "auto" | "fill" | number;
+}
+
+const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDef<T>> => {
+  const ast = schema.ast;
+  if (ast._tag !== "TypeLiteral") return [];
+
+  return ast.propertySignatures
+    .filter((prop) => !prop.type.annotations?.[Hidden])
+    .filter((prop) => prop.type.annotations?.[ColumnHeader] !== undefined)
+    .map((prop) => {
+      const ann = prop.type.annotations ?? {};
+      const key = String(prop.name);
+      const format = ann[DisplayFormat] as ((v: unknown) => string) | undefined;
+      return {
+        key,
+        header: ann[ColumnHeader] as string,
+        value: (item: T) => {
+          const raw = (item as Record<string, unknown>)[key];
+          if (format) return format(raw);
+          if (raw == null) return "";
+          return String(raw);
+        },
+        priority: (ann[ColumnPriority] as number) ?? 0,
+        align: (ann[ColumnAlign] as "left" | "right") ?? "left",
+        width: (ann[ColumnWidth] as "auto" | "fill" | number) ?? "auto",
+      };
+    });
+};
+```
+
+#### Emit helpers
+
+`emitOne` and `emitMany` tie the schema to the renderer — one function handles the entire result/table output path:
+
+```typescript
+// output/command-output.ts
+
+interface CommandOutputOpts<T> {
+  readonly schema: Schema.Schema<T>;
+  readonly title?: string;
+}
+
+// For array output (list commands)
+const emitMany = <T>(items: ReadonlyArray<T>, opts: CommandOutputOpts<T>) =>
+  Effect.gen(function* () {
+    const out = yield* CliRenderer;
+    if (yield* out.result(items.map(Schema.encodeSync(opts.schema)))) return;
+    yield* out.table(items, columnsFrom(opts.schema), opts.title);
+  });
+
+// For single-item output (detail/info commands)
+const emitOne = <T>(data: T, opts: CommandOutputOpts<T>) =>
+  Effect.gen(function* () {
+    const out = yield* CliRenderer;
+    if (yield* out.result(Schema.encodeSync(opts.schema)(data))) return;
+    yield* out.table([data], columnsFrom(opts.schema), opts.title);
+  });
+```
+
+#### What one definition drives
+
+| Derived artifact   | How                                                               |
+| ------------------ | ----------------------------------------------------------------- |
+| TypeScript types   | `typeof SkillListItem.Type` — inferred by Effect Schema           |
+| JSON serialization | `Schema.encode` — validated, typed                                |
+| Table columns      | `columnsFrom(schema)` — reads annotations, produces `ColumnDef[]` |
+| JSON Schema files  | `JSONSchema.make(schema)` — standard JSON Schema for docs         |
+| Field descriptions | `Schema.annotations({ description })` — carried to JSON Schema    |
+
+**Verbosity is automatic via `priority`.** The renderer filters columns by priority based on the resolved verbosity level. A `priority: 1` column only appears when `--verbose` is active. Handlers define the schema once; the renderer handles the rest.
+
+**The `hidden()` annotation** is for fields that should appear in JSON output but never in tables — internal identifiers, integrity hashes, metadata useful for machines but noise for humans.
+
+**JSON Schema generation** — the same schema produces publishable documentation:
+
+```typescript
+// scripts/generate-output-schemas.ts
+import { JSONSchema } from "effect";
+
+const schemas = {
+  "skills-list": JSONSchema.make(Schema.Array(SkillListItem)),
+  "skills-show": JSONSchema.make(SkillInfo),
+};
+
+for (const [command, schema] of Object.entries(schemas)) {
+  writeFileSync(`docs/schemas/cli-output/${command}.json`, JSON.stringify(schema, null, 2));
+}
+```
+
+**Rationale:** The previous design had schemas and `ColumnDef<T>` arrays as separate definitions co-located in the same file. This works but creates a synchronization problem — adding a field to the schema requires remembering to add a matching column definition. Schema annotations eliminate this: one field definition carries both the data contract and the display metadata. The `column()` helper keeps the annotation ergonomic.
+
+### 8. Typed table API
+
+**Decision:** `table()` takes typed data + `ColumnDef<T>` arrays. The renderer owns all formatting decisions. In practice, handlers rarely construct `ColumnDef` arrays directly — `columnsFrom(schema)` derives them from annotated schemas (Decision 7). The `table()` method accepts raw `ColumnDef` arrays for cases where schema derivation doesn't apply (e.g., inline sub-tables, compatibility matrices).
+
+```typescript
+interface ColumnDef<T> {
+  readonly key: string;
+  readonly header: string;
+  readonly value: (item: T) => string;
+  readonly priority: number;
+  readonly align: "left" | "right";
+  readonly width: "auto" | "fill" | number;
+}
+```
+
+**Rationale:** The renderer needs raw data and column metadata to make formatting decisions: right-align numbers, truncate long names with ellipsis, adapt columns to terminal width, and filter by `priority` based on available space or verbosity.
 
 The `InteractiveRenderer` uses a custom formatter matching Clack's visual language (│ guide line, box-drawing characters). The formatter is minimal — columns, alignment, truncation. If table complexity grows, evaluate extraction or library adoption.
 
@@ -546,7 +682,7 @@ Selection uses `Layer.unwrapEffect` at the `run()` boundary, matching the curren
 
 ```typescript
 interface TestRendererState {
-  readonly logs: Array<LogMessage>;
+  readonly logs: Array<LogMessage>; // captured from per-level methods (info, step, etc.)
   readonly tables: Array<{
     items: Array<unknown>;
     columns: Array<ColumnDef<unknown>>;
@@ -602,39 +738,52 @@ Mitigation: Both formatters are minimal and deliberately scoped. The table forma
 **Verbosity helpers add boilerplate** → Handlers wrap output calls in `whenVerbose(...)` / `whenNotQuiet(...)`.
 Mitigation: This is explicit and readable — better than implicit filtering. The alternative (renderer checks verbosity internally) would couple format and volume decisions.
 
+**Schema AST traversal may be fragile** → `columnsFrom` walks Effect Schema's AST to read annotations from property signatures. The AST is public API but not trivial to traverse — property signatures may be wrapped in transformations, optionals, or refinements, which could hide annotations behind intermediate AST nodes.
+Mitigation: Spike `columnsFrom` against a non-trivial schema (nested optionals, branded types, enums, `Schema.optional`) before building the full infrastructure. If AST traversal proves too fragile, fall back to a registration pattern where schemas call a `registerColumns()` function alongside the struct definition — less elegant but robust.
+
 ## Appendix: Handler Sketches
 
 These sketches demonstrate the full CliRenderer surface area across realistic handler implementations. Each handler is annotated with the methods it exercises.
 
-### A. List handler — table, result, withSpinner, intro/outro, verbosity
+### A. List handler — emitMany, withSpinner, intro/outro
 
-A typical CRUD list command: fetch data, show as table interactively or JSON in machine mode.
+A typical CRUD list command: fetch data, show as table interactively or JSON in machine mode. The output schema (defined in `output.ts`) drives both paths.
 
-**Methods exercised:** `intro`, `outro`, `log` (info, warn), `withSpinner`, `result`, `table`
+**Methods exercised:** `intro`, `outro`, `warn`, `withSpinner`, `emitMany`
+
+```typescript
+// commands/skills/list/output.ts
+import { Schema } from "effect";
+import { column } from "@/output/annotations";
+
+export const SkillListItem = Schema.Struct({
+  name: Schema.String.pipe(column({ header: "Name", width: "fill" })),
+  version: Schema.String.pipe(column({ header: "Version", width: "auto" })),
+  enabled: Schema.Boolean.pipe(
+    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+  ),
+  source: Schema.String.pipe(column({ header: "Source", priority: 1 })),
+  installedAt: Schema.String.pipe(column({ header: "Installed", priority: 1 })),
+});
+
+export type SkillListItem = typeof SkillListItem.Type;
+```
 
 ```typescript
 // commands/skills/list/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer, Log, whenVerbose, whenNotQuiet } from "@/cli-renderer";
-import { Verbosity } from "@/verbosity";
+import { CliRenderer } from "@/cli-renderer";
+import { emitMany } from "@/output/command-output";
+import { SkillListItem } from "./output";
 
 interface ListArgs {
   readonly workspace: string;
   readonly tag: Option.Option<string>;
 }
 
-const columns: ReadonlyArray<ColumnDef<Skill>> = [
-  { header: "Name", value: (s) => s.name, width: "fill" },
-  { header: "Version", value: (s) => s.version, width: "auto" },
-  { header: "Enabled", value: (s) => (s.enabled ? "yes" : "no"), width: "auto" },
-  { header: "Source", value: (s) => s.source, width: "auto", priority: 1 },
-  { header: "Installed", value: (s) => s.installedAt.toISOString(), width: "auto", priority: 1 },
-];
-
 export const handleList = (args: ListArgs) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const v = yield* Verbosity;
 
     yield* renderer.intro("Skills");
 
@@ -643,43 +792,64 @@ export const handleList = (args: ListArgs) =>
     });
 
     if (skills.length === 0) {
-      yield* renderer.log(Log.warn("No skills installed"));
+      yield* renderer.warn("No skills installed");
       yield* renderer.outro("Done");
       return;
     }
 
-    // Machine output — short-circuit if active
-    const data = v.isAtLeast("verbose")
-      ? skills.map((s) => ({
-          name: s.name,
-          version: s.version,
-          enabled: s.enabled,
-          source: s.source,
-          installedAt: s.installedAt,
-        }))
-      : skills.map((s) => ({ name: s.name, version: s.version, enabled: s.enabled }));
-    if (yield* renderer.result(data)) return;
-
-    // Interactive display
-    yield* renderer.table(skills, columns);
-    yield* whenVerbose(
-      renderer.log(Log.info(`${skills.length} skills across ${countSources(skills)} sources`)),
-    );
+    // Schema drives everything — JSON serialization, table columns, priority filtering
+    yield* emitMany(skills, { schema: SkillListItem, title: "Skills" });
 
     yield* renderer.outro("Done");
   });
 ```
 
-### B. Show handler — tree (key-value + nested), note, json
+### B. Show handler — emitOne, tree (nested), note
 
 A detail/inspect command: show structured info about a single entity, with nested dependencies.
 
-**Methods exercised:** `log` (step, error), `withSpinner`, `result`, `tree` (key-value and nested), `note`
+**Methods exercised:** `step`, `withSpinner`, `emitOne`, `tree` (nested), `note`
+
+```typescript
+// commands/skills/show/output.ts
+import { Schema } from "effect";
+import { column } from "@/output/annotations";
+
+export const SkillInfo = Schema.Struct({
+  name: Schema.String.pipe(column({ header: "Name" })),
+  version: Schema.String.pipe(column({ header: "Version" })),
+  type: Schema.String.pipe(column({ header: "Type" })),
+  source: Schema.String.pipe(column({ header: "Source" })),
+  publisher: Schema.String.pipe(column({ header: "Publisher" })),
+  license: Schema.optional(Schema.String).pipe(column({ header: "License" })),
+  enabled: Schema.Boolean.pipe(
+    column({ header: "Enabled", format: (v) => ((v as boolean) ? "yes" : "no") }),
+  ),
+  dependencies: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      version: Schema.String,
+      type: Schema.String,
+      transitive: Schema.optional(
+        Schema.Array(
+          Schema.Struct({ name: Schema.String, version: Schema.String, type: Schema.String }),
+        ),
+      ),
+    }),
+  ),
+  deprecation: Schema.optional(Schema.String),
+  replacement: Schema.optional(Schema.String),
+});
+
+export type SkillInfo = typeof SkillInfo.Type;
+```
 
 ```typescript
 // commands/skills/show/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer, Log } from "@/cli-renderer";
+import { CliRenderer } from "@/cli-renderer";
+import { emitOne } from "@/output/command-output";
+import { SkillInfo } from "./output";
 
 interface ShowArgs {
   readonly name: string;
@@ -689,30 +859,16 @@ export const handleShow = (args: ShowArgs) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
 
-    yield* renderer.log(Log.step(`Looking up ${args.name}`));
+    yield* renderer.step(`Looking up ${args.name}`);
 
     const skill = yield* renderer.withSpinner(`Resolving ${args.name}…`, () =>
       resolveSkill(args.name),
     );
 
-    // Machine output
-    if (yield* renderer.result(skill)) return;
+    // Schema drives JSON + key-value table in interactive mode
+    yield* emitOne(skill, { schema: SkillInfo, title: skill.name });
 
-    // Key-value display via tree (depth-1, detail as value)
-    yield* renderer.tree(
-      [
-        { data: { key: "Version", value: skill.version } },
-        { data: { key: "Type", value: skill.type } },
-        { data: { key: "Source", value: skill.source } },
-        { data: { key: "Publisher", value: skill.publisher } },
-        { data: { key: "License", value: Option.getOrElse(skill.license, () => "—") } },
-        { data: { key: "Enabled", value: skill.enabled ? "yes" : "no" } },
-      ],
-      { label: (kv) => kv.key, detail: (kv) => kv.value },
-      skill.name,
-    );
-
-    // Dependency tree (nested)
+    // Dependency tree (nested) — display-only, not part of the output schema
     if (skill.dependencies.length > 0) {
       yield* renderer.tree(
         skill.dependencies.map((dep) => ({
@@ -740,14 +896,14 @@ export const handleShow = (args: ShowArgs) =>
 
 ### C. Install handler — progress, spinner lifecycle, log variants, tree (flat list)
 
-A mutation command: install with progress tracking, multiple log levels, and a file summary.
+A mutation command: install with progress tracking, multiple log levels, and a file summary. Mutation commands typically use `result()` directly rather than `emitOne`/`emitMany` since their output shape is ad-hoc (not a domain entity with meaningful table columns).
 
-**Methods exercised:** `intro`, `outro`, `log` (info, success, warn, error, step), `spinner` (manual handle), `withProgress`, `result`, `tree` (flat list)
+**Methods exercised:** `intro`, `outro`, `info`, `success`, `warn`, `error`, `step`, `spinner` (manual handle), `withProgress`, `result`, `tree` (flat list)
 
 ```typescript
 // commands/skills/install/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer, Log, whenNotQuiet } from "@/cli-renderer";
+import { CliRenderer, whenNotQuiet } from "@/cli-renderer";
 
 interface InstallArgs {
   readonly name: string;
@@ -760,7 +916,7 @@ export const handleInstall = (args: InstallArgs) =>
     const renderer = yield* CliRenderer;
 
     yield* renderer.intro("Install Skill");
-    yield* renderer.log(Log.step(`Installing ${args.name}`));
+    yield* renderer.step(`Installing ${args.name}`);
 
     // Resolve phase — manual spinner for multi-step control
     const spin = yield* renderer.spinner("Resolving version…");
@@ -771,16 +927,14 @@ export const handleInstall = (args: InstallArgs) =>
     const conflict = yield* checkConflicts(resolved);
     if (Option.isSome(conflict) && !args.force) {
       yield* spin.stop("Conflict detected");
-      yield* renderer.log(
-        Log.error(`Conflicts with ${Option.getOrThrow(conflict).name} — use --force to override`),
+      yield* renderer.error(
+        `Conflicts with ${Option.getOrThrow(conflict).name} — use --force to override`,
       );
       yield* renderer.outro("Install cancelled");
       return;
     }
     if (Option.isSome(conflict)) {
-      yield* renderer.log(
-        Log.warn(`Forcing past conflict with ${Option.getOrThrow(conflict).name}`),
-      );
+      yield* renderer.warn(`Forcing past conflict with ${Option.getOrThrow(conflict).name}`);
     }
     yield* spin.stop("Resolved");
 
@@ -806,7 +960,7 @@ export const handleInstall = (args: InstallArgs) =>
     // Post-install
     yield* renderer.withSpinner("Linking…", () => linkSkill(resolved));
 
-    // Machine output
+    // Machine output — ad-hoc shape, not a domain schema
     const resultData = { name: resolved.name, version: resolved.version, files: files.length };
     if (yield* renderer.result(resultData)) return;
 
@@ -817,8 +971,8 @@ export const handleInstall = (args: InstallArgs) =>
       "Created files",
     );
 
-    yield* renderer.log(Log.success(`Installed ${resolved.name}@${resolved.version}`));
-    yield* whenNotQuiet(renderer.log(Log.info(`${files.length} files written`)));
+    yield* renderer.success(`Installed ${resolved.name}@${resolved.version}`);
+    yield* whenNotQuiet(renderer.info(`${files.length} files written`));
 
     yield* renderer.outro("Done");
   });
@@ -828,12 +982,12 @@ export const handleInstall = (args: InstallArgs) =>
 
 A long-running streaming command: watch for changes and emit events.
 
-**Methods exercised:** `log` (info), `spinner` (long-lived), `resultStream`, `raw`
+**Methods exercised:** `info`, `spinner` (long-lived), `resultStream`, `raw`
 
 ```typescript
 // commands/skills/watch/handler.ts
 import { Effect, Stream } from "effect";
-import { CliRenderer, Log } from "@/cli-renderer";
+import { CliRenderer } from "@/cli-renderer";
 
 interface WatchArgs {
   readonly workspace: string;
@@ -844,7 +998,7 @@ export const handleWatch = (args: WatchArgs) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
 
-    yield* renderer.log(Log.info("Watching workspace for skill changes…"));
+    yield* renderer.info("Watching workspace for skill changes…");
 
     const eventStream = watchSkillChanges(args.workspace, args.filter);
 
@@ -857,7 +1011,7 @@ export const handleWatch = (args: WatchArgs) =>
     yield* Stream.runForEach(eventStream, (event) =>
       Effect.gen(function* () {
         yield* spin.update(`Last: ${event.type} ${event.skill} at ${event.timestamp}`);
-        yield* renderer.log(Log.info(`${event.type}: ${event.skill}@${event.version}`));
+        yield* renderer.info(`${event.type}: ${event.skill}@${event.version}`);
       }),
     );
   });
@@ -898,14 +1052,14 @@ export const handleExport = (args: ExportArgs) =>
 
 ### F. Init handler — full lifecycle with grouped tree
 
-A scaffold command: create files, show grouped status, guide the user.
+A scaffold command: create files, show grouped status, guide the user. Like install, uses `result()` directly since the output shape is ad-hoc.
 
-**Methods exercised:** `intro`, `outro`, `log` (step, success), `withSpinner`, `result`, `tree` (grouped with union type), `note`
+**Methods exercised:** `intro`, `outro`, `step`, `success`, `withSpinner`, `result`, `tree` (grouped with union type), `note`
 
 ```typescript
 // commands/init/handler.ts
 import { Effect } from "effect";
-import { CliRenderer, Log } from "@/cli-renderer";
+import { CliRenderer } from "@/cli-renderer";
 
 type GroupNode = { readonly kind: "group"; readonly name: string; readonly count: number };
 type FileNode = {
@@ -919,13 +1073,13 @@ export const handleInit = () =>
     const renderer = yield* CliRenderer;
 
     yield* renderer.intro("Initialize Workspace");
-    yield* renderer.log(Log.step("Setting up workspace"));
+    yield* renderer.step("Setting up workspace");
 
     const result = yield* renderer.withSpinner("Creating files…", () => scaffoldWorkspace(), {
       stopMessage: (r) => `Created ${r.created.length} files`,
     });
 
-    // Machine output
+    // Machine output — ad-hoc shape
     if (
       yield* renderer.result({
         created: result.created.map((f) => f.path),
@@ -969,7 +1123,7 @@ export const handleInit = () =>
       },
     );
 
-    yield* renderer.log(Log.success("Workspace initialized"));
+    yield* renderer.success("Workspace initialized");
 
     yield* renderer.note(
       "Next steps:\n  1. Run `axm skills install` to add skills\n  2. Edit settings.json to configure your workspace\n  3. Run `axm skills list` to see installed skills",
@@ -985,24 +1139,23 @@ export const handleInit = () =>
 | Method             | A (list) | B (show) | C (install) | D (watch) | E (export) | F (init) |
 | ------------------ | -------- | -------- | ----------- | --------- | ---------- | -------- |
 | `intro`            | ✓        |          | ✓           |           |            | ✓        |
-| `outro`            | ✓        | ✓        | ✓           |           |            | ✓        |
-| `log` (info)       | ✓        |          | ✓           | ✓         |            |          |
-| `log` (success)    |          |          | ✓           |           |            | ✓        |
-| `log` (step)       |          | ✓        | ✓           |           |            | ✓        |
-| `log` (warn)       | ✓        |          | ✓           |           |            |          |
-| `log` (error)      |          |          | ✓           |           |            |          |
+| `outro`            | ✓        |          | ✓           |           |            | ✓        |
+| `info`             |          |          | ✓           | ✓         |            |          |
+| `success`          |          |          | ✓           |           |            | ✓        |
+| `step`             |          | ✓        | ✓           |           |            | ✓        |
+| `warn`             | ✓        |          | ✓           |           |            |          |
+| `error`            |          |          | ✓           |           |            |          |
 | `note`             |          | ✓        |             |           |            | ✓        |
 | `spinner` (manual) |          |          | ✓           | ✓         |            |          |
 | `withSpinner`      | ✓        | ✓        | ✓           |           |            | ✓        |
 | `withProgress`     |          |          | ✓           |           |            |          |
-| `table`            | ✓        |          |             |           |            |          |
+| `emitMany`         | ✓        |          |             |           |            |          |
+| `emitOne`          |          | ✓        |             |           |            |          |
+| `result` (direct)  |          |          | ✓           |           |            | ✓        |
 | `tree` (flat)      |          |          | ✓           |           |            |          |
-| `tree` (key-value) |          | ✓        |             |           |            |          |
 | `tree` (nested)    |          | ✓        |             |           |            |          |
 | `tree` (grouped)   |          |          |             |           |            | ✓        |
-| `result`           | ✓        | ✓        | ✓           |           |            | ✓        |
 | `resultStream`     |          |          |             | ✓         |            |          |
 | `json`             |          |          |             |           | ✓          |          |
 | `raw`              |          |          |             |           | ✓          |          |
-| `whenVerbose`      | ✓        |          |             |           |            |          |
 | `whenNotQuiet`     |          |          | ✓           |           |            |          |

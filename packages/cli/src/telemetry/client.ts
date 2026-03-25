@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import {
   TelemetryClient,
   TelemetryClientTest,
@@ -26,6 +27,10 @@ export const TelemetryClientLive = (mode: TelemetryMode, command: string) =>
         runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
         ci: envConfig.ci,
         test: envConfig.vitest === "true",
+        ...Option.match(envConfig.telemetryBaseUrl, {
+          onNone: () => ({}),
+          onSome: (baseUrl) => ({ baseUrl }),
+        }),
       });
     }),
   );

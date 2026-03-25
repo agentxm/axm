@@ -100,7 +100,7 @@ const startCaptureServer = async (): Promise<CaptureServer> => {
 
 const waitForErrorRequest = async (server: CaptureServer): Promise<CapturedRequest> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const request = server.captured.find((entry) => entry.url === "/errors");
+    const request = server.captured.find((entry) => entry.url === "/v1/errors");
     if (request !== undefined) {
       return request;
     }
@@ -130,7 +130,7 @@ describe("axm-spike telemetry demos", () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated handled telemetry failure");
-      expect(request.url).toBe("/errors");
+      expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({
         name: "SPIKE_HANDLED_ERROR",
         message: "Simulated handled telemetry failure",
@@ -162,7 +162,7 @@ describe("axm-spike telemetry demos", () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated defect telemetry failure");
-      expect(request.url).toBe("/errors");
+      expect(request.url).toBe("/v1/errors");
       expect(body.errors[0]).toEqual({
         name: "Defect",
         message: "Simulated defect telemetry failure",

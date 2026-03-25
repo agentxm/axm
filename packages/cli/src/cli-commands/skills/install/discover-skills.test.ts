@@ -53,6 +53,7 @@ const withInstallInternalSkills = (value: string) => {
         homePath: Option.none(),
         verbose: Option.none(),
         debug: Option.none(),
+        telemetryBaseUrl: Option.none(),
       },
     }),
   );

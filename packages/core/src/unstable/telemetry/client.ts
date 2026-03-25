@@ -98,7 +98,7 @@ export const makeTelemetryClient = (
       return fireAndForget(
         httpClient
           .execute(
-            HttpClientRequest.post(`${baseUrl}/events`).pipe(
+            HttpClientRequest.post(`${baseUrl}/v1/events`).pipe(
               HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
             ),
           )
@@ -122,7 +122,7 @@ export const makeTelemetryClient = (
       return swallowFailure(
         httpClient
           .execute(
-            HttpClientRequest.post(`${baseUrl}/errors`).pipe(
+            HttpClientRequest.post(`${baseUrl}/v1/errors`).pipe(
               HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
             ),
           )

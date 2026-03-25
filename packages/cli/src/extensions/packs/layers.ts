@@ -5,9 +5,11 @@ import { UninstallPackCommandWorkflowActionsLive } from "../../cli-commands/pack
 
 import { PackManagerLive } from "./manager.js";
 
-export const managerLayer = PackManagerLive;
+const managerLayer = PackManagerLive;
 
-export const workflowActionsLayer = Layer.mergeAll(
+const workflowActionsLayer = Layer.mergeAll(
   InstallPackCommandWorkflowActionsLive,
   UninstallPackCommandWorkflowActionsLive,
 );
+
+export const layer = Layer.provideMerge(workflowActionsLayer, managerLayer);

@@ -5,9 +5,11 @@ import { UninstallSkillCommandWorkflowActionsLive } from "../../cli-commands/ski
 
 import { SkillManagerLive } from "./manager.js";
 
-export const managerLayer = SkillManagerLive;
+const managerLayer = SkillManagerLive;
 
-export const workflowActionsLayer = Layer.mergeAll(
+const workflowActionsLayer = Layer.mergeAll(
   InstallSkillCommandWorkflowActionsLive,
   UninstallSkillCommandWorkflowActionsLive,
 );
+
+export const layer = Layer.provideMerge(workflowActionsLayer, managerLayer);

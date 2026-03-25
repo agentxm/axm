@@ -1,7 +1,8 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, scopeFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { scopeFlag } from "../../cli-flags/index.js";
 import { handleUpdate } from "../../cli-commands/skills/update/handler.js";
 
 export const updateCommand = Command.make(

@@ -2,8 +2,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import type { AppError } from "../app-error/app-error.js";
-import { makeAppError } from "../app-error/app-error.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 
 const TokenWireResponseSchema = Schema.Struct({
   access_token: Schema.String,

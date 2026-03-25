@@ -15,8 +15,9 @@ import { CliEnvConfig } from "../../config/index.js";
 import { SkillManager, SkillManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
-import { SourceHostProviders, type SourceHostProvidersService } from "../../sources/index.js";
-import type { SkillExtensionRef } from "../../sources/index.js";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../sources/index.js";
+import type { SourceHostProvidersService } from "../../sources/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

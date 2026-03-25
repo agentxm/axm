@@ -7,12 +7,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillExtensionRef } from "../../../sources/index.js";
-import { Output } from "../../../output/index.js";
-import { Input } from "../../../input/index.js";
-import { CliFlags } from "../../../cli-flags/index.js";
-import { makeAppError } from "../../../app-error/index.js";
-import { expandGlobs } from "../../../skills/index.js";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Input } from "@axm.sh/core/unstable/input";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";

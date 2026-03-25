@@ -16,8 +16,8 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
-import { Output } from "../../../output/index.js";
-import { makeAppError } from "../../../app-error/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Types

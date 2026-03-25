@@ -21,8 +21,8 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { getAgentById } from "../agents/index.js";
-import { CliFlags } from "../cli-flags/index.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
@@ -41,7 +41,7 @@ import {
   type RegistryPackLockEntry,
   type SkillLockEntry,
   type SkillsLockMap,
-} from "../lockfile/index.js";
+} from "@axm.sh/core/unstable/lockfile";
 import {
   computeSkillPaths,
   type SkillDirPaths,
@@ -49,8 +49,8 @@ import {
 } from "../extensions/skills/paths.js";
 import { computePackPaths, type PackDirPath } from "../extensions/packs/paths.js";
 import { sanitizeName } from "../extensions/skills/utils.js";
-import { AgentIdSchema, formatFqn } from "../extensions/index.js";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { AgentIdSchema, formatFqn } from "@axm.sh/core/unstable/extensions";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   collapseSkillEntry,
   createDefaultSettings,
@@ -65,17 +65,21 @@ import {
   type SkillsMap,
   type SourceHostConfig,
   writeSettings,
-} from "../settings/index.js";
-import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
+} from "@axm.sh/core/unstable/settings";
+import {
+  lockEntryToSourceParams,
+  parseInputPattern,
+  printSourceParams,
+} from "@axm.sh/core/unstable/sources";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import type { WorkspaceScope } from "./scope.js";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Output } from "../output/index.js";
-import { Input } from "../input/index.js";
-import { PromptCancelled } from "../prompt-cancelled.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Input } from "@axm.sh/core/unstable/input";
+import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
@@ -441,7 +445,9 @@ const make = (options: WorkspaceContextOptions) =>
     /**
      * Classify extensions by type using the shared classifier.
      */
-    const getClassifiedExtensions = (type: import("../extensions/index.js").ExtensionType) =>
+    const getClassifiedExtensions = (
+      type: import("@axm.sh/core/unstable/extensions").ExtensionType,
+    ) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
         const lockfile = yield* readLockfileSafe(workspaceDir);

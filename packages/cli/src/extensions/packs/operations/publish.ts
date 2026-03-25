@@ -13,16 +13,19 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { PackManifestSchema, type PackManifest, PACK_MANIFEST_FILENAME } from "../../index.js";
+import {
+  PackManifestSchema,
+  type PackManifest,
+  PACK_MANIFEST_FILENAME,
+  parseFqn,
+} from "@axm.sh/core/unstable/extensions";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
-import { computeIntegrity } from "../../../utils/integrity.js";
-import { buildZipArchive } from "../../../utils/build-zip-archive.js";
-import { makeAppError } from "../../../app-error/index.js";
+import { buildZipArchive, computeIntegrity } from "@axm.sh/core/unstable/utils";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { parseFqn } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------

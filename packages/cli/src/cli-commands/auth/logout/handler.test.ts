@@ -9,8 +9,8 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleLogout } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

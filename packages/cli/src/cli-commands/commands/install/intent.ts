@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { CommandExtensionRef } from "../../../sources/index.js";
+import type { CommandExtensionRef } from "@axm.sh/core/unstable/sources";
 
 /**
  * Intent for installing a command extension.

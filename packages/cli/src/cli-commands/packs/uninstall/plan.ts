@@ -13,7 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { Lockfile, PackLockEntry } from "../../../lockfile/index.js";
+import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { UninstallCommandOperation } from "../../../extensions/commands/operations/uninstall.js";
 import type { UninstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/uninstall.js";
@@ -24,7 +24,7 @@ import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.
 import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
 import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import type { OperationResult } from "../../../workspace/plan.js";
 
 /**

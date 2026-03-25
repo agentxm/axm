@@ -15,8 +15,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { AppError } from "../app-error/index.js";
-import type { Author, ExtensionType } from "../extensions/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { Author, ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type { VersionEntry } from "./local-schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";

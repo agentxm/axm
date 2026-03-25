@@ -19,11 +19,11 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
-import { Input } from "../../../input/index.js";
-import { CliFlags } from "../../../cli-flags/index.js";
-import { makeAppError } from "../../../app-error/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
+import { Input } from "@axm.sh/core/unstable/input";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Handler

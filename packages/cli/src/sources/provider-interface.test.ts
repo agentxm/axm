@@ -8,9 +8,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { BuiltinSource, GitHubSource, RegistrySource, ExtensionRef } from "./index.js";
-import type { SourceHostProvider, FindOptions } from "./index.js";
-import type { ExtensionType } from "../extensions/index.js";
+import type {
+  BuiltinSource,
+  GitHubSource,
+  RegistrySource,
+  ExtensionRef,
+  SourceHostProvider,
+  FindOptions,
+} from "@axm.sh/core/unstable/sources";
+import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type { VersionEntry } from "../registry/index.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {

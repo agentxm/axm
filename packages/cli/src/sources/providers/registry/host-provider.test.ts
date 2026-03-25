@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -32,8 +32,8 @@ import type {
   RegistrySkillRef,
   RegistrySource,
   ExtensionRef,
-} from "../../index.js";
-import type { FindOptions } from "../../index.js";
+  FindOptions,
+} from "@axm.sh/core/unstable/sources";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,

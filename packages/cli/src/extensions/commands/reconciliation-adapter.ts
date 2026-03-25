@@ -1,9 +1,12 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  COMMAND_MANIFEST_FILENAME,
+  CommandManifestSchema,
+} from "@axm.sh/core/unstable/extensions";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../../app-error/index.js";
-import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,

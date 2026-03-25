@@ -9,8 +9,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { Output } from "../output/index.js";
-import { renderAppError, type RenderAppErrorOptions } from "../app-error/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { renderAppError, type RenderAppErrorOptions } from "@axm.sh/core/unstable/app-error";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------

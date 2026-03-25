@@ -9,8 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { AppError } from "../app-error/index.js";
-import { makeAppError } from "../app-error/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Workspace } from "../workspace/service.js";
 import {
   type CodingAgent,

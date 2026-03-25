@@ -15,12 +15,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeInputTestLayer } from "../../../input/index.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type AppError } from "../../../app-error/index.js";
+import { type AppError } from "@axm.sh/core/unstable/app-error";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -78,7 +78,7 @@ describe("skills-new.handler", () => {
   });
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [inputLayer] = makeInputTestLayer();

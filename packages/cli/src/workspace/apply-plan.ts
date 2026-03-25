@@ -10,7 +10,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type {
   CompletedJobStep,
   ExecutedPlan,

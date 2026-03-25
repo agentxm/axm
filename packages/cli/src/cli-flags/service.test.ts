@@ -2,7 +2,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliFlags, CliFlagsTest, makeCliFlagsLayer, nonInteractiveFlag } from "./service.js";
+import {
+  CliFlags,
+  CliFlagsTest,
+  makeCliFlagsLayer,
+  nonInteractiveFlag,
+} from "@axm.sh/core/unstable/cli-flags";
 
 /**
  * Provide makeCliFlagsLayer with the given nonInteractive global flag value,

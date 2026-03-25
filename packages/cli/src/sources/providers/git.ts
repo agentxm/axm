@@ -9,9 +9,8 @@
 
 import * as Effect from "effect/Effect";
 
-import { makeAppError } from "../../app-error/index.js";
-import type { SourceHostProvider } from "../index.js";
-import type { GitSource } from "../index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type { SourceHostProvider, GitSource } from "@axm.sh/core/unstable/sources";
 
 /**
  * Source host provider for generic git URLs.

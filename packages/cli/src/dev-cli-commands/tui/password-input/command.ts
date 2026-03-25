@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
-import { Input, InputLive } from "../../../input/index.js";
-import { Output, OutputLive } from "../../../output/index.js";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { Input, InputLive } from "@axm.sh/core/unstable/input";
+import { Output, OutputLive } from "@axm.sh/core/unstable/output";
 
 export const passwordInputCommand = {
   handler: () => {

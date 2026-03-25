@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
@@ -23,7 +23,7 @@ import type {
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
-import type { McpServerExtensionRef } from "../../../sources/index.js";
+import type { McpServerExtensionRef } from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
 // Handler Args

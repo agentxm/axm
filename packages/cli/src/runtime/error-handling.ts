@@ -1,5 +1,5 @@
-import { type AppError, renderAppError } from "../app-error/index.js";
-import type { PromptCancelled } from "../prompt-cancelled.js";
+import { type AppError, renderAppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 export interface DiagnosticVerbosity {
   readonly verbose: boolean;

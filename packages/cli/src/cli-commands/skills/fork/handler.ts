@@ -15,13 +15,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { resolveSourcePattern, SourceHostProviders, type Source } from "../../../sources/index.js";
+import type { Source, SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/sources";
+import { resolveSourcePattern, SourceHostProviders } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
@@ -29,11 +30,10 @@ import type { PublishSkillOperation } from "../../../extensions/skills/operation
 import { copySkill } from "../../../extensions/skills/operations/copy.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
-import { expandGlobs } from "../../../skills/index.js";
+import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { createRegistryClient } from "../../../registry/index.js";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { Plan } from "../../../workspace/plan.js";
-import type { SkillExtensionRef, RegistrySkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Types

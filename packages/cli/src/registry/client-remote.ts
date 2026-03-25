@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
@@ -30,7 +30,11 @@ import type {
   GetExtensionPackageResponse,
   ProfileExistsResponse,
 } from "./client.js";
-import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/index.js";
+import {
+  ExtensionTypeSchema,
+  toAuthor,
+  type ExtensionType,
+} from "@axm.sh/core/unstable/extensions";
 import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType } from "./utils.js";
 

@@ -11,7 +11,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Legacy types (used by non-migrated operation handlers)

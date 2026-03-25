@@ -11,9 +11,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { formatFqn } from "../../../extensions/index.js";
-import type { Lockfile } from "../../../lockfile/index.js";
-import type { PackExtensionRef } from "../../../sources/index.js";
+import { formatFqn } from "@axm.sh/core/unstable/extensions";
+import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
@@ -25,7 +25,7 @@ import { installMcpServer } from "../../../extensions/mcp-servers/operations/ins
 import { installPack } from "../../../extensions/packs/operations/install.js";
 import { Workspace } from "../../../workspace/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 
 /**
  * Union of operation types produced by the pack install plan builder.
@@ -163,7 +163,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
     const makeRunClosure = (
       op: PackInstallOp,
-    ): Effect.Effect<JobStepResult, import("../../../app-error/index.js").AppError, never> => {
+    ): Effect.Effect<JobStepResult, import("@axm.sh/core/unstable/app-error").AppError, never> => {
       const handler =
         op.name === "install-pack"
           ? installPack
@@ -181,7 +181,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
             op: PackInstallOp,
           ) => Effect.Effect<
             import("../../../workspace/plan.js").OperationResult,
-            import("../../../app-error/index.js").AppError,
+            import("@axm.sh/core/unstable/app-error").AppError,
             never
           >
         )(op),

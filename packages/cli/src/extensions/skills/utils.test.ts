@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import type { SkillExtensionRef } from "../../sources/index.js";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { getSkillDisplayName, sanitizeName } from "./utils.js";
 
 // -----------------------------------------------------------------------------

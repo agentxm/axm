@@ -17,10 +17,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 
-import { AppError } from "../app-error/index.js";
+import { AppError } from "@axm.sh/core/unstable/app-error";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
-import type { SourceHostConfig } from "../settings/index.js";
-import type { SkillsLockMap } from "../lockfile/index.js";
+import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
+import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------

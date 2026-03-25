@@ -11,7 +11,7 @@ import * as Result from "effect/Result";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
-import type { Skill } from "../../../extensions/index.js";
+import type { Skill } from "@axm.sh/core/unstable/extensions";
 
 const MetadataSchema = Schema.Record(Schema.String, Schema.Unknown);
 

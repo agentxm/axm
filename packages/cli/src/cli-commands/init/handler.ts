@@ -7,10 +7,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { getAgentById } from "../../agents/index.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Output } from "../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import { CliEnvConfig } from "../../config/index.js";
 import { resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";

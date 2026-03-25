@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -16,7 +16,7 @@ import type {
   UninstallRetentionPolicy,
 } from "../install-operation/workflow.js";
 import { buildUninstallOperation } from "./workflow.js";
-import type { SkillExtensionRef, PackExtensionRef } from "../../sources/index.js";
+import type { SkillExtensionRef, PackExtensionRef } from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
 // Helpers

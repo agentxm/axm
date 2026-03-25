@@ -11,7 +11,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
 

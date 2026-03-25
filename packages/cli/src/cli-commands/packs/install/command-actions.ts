@@ -12,13 +12,21 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliFlags } from "../../../cli-flags/index.js";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { parseInputPattern, resolveSource, SourceHostProviders } from "../../../sources/index.js";
-import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/index.js";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+import type {
+  PackExtensionRef,
+  RegistrySource,
+  ExtensionRef,
+  SkillExtensionRef,
+  CommandExtensionRef,
+  McpServerExtensionRef,
+} from "@axm.sh/core/unstable/sources";
+import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { PackManager } from "../../../extensions/packs/manager.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
@@ -31,11 +39,6 @@ import {
 } from "../../../workflows/install-operation/workflow.js";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
-import type {
-  SkillExtensionRef,
-  CommandExtensionRef,
-  McpServerExtensionRef,
-} from "../../../sources/index.js";
 import type { InstallPackCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------

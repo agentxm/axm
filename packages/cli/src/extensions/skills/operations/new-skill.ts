@@ -9,14 +9,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../../agents/index.js";
-import { makeAppError } from "../../../app-error/index.js";
-import { createSymlink } from "../../../utils/create-symlink.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { createSymlink } from "@axm.sh/core/unstable/utils";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import type { SkillManifest } from "../../index.js";
-import { MANIFEST_FILENAME } from "../../index.js";
+import { MANIFEST_FILENAME, type SkillManifest } from "@axm.sh/core/unstable/extensions";
 import { computeSkillPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------

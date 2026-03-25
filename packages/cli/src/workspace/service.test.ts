@@ -14,14 +14,18 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Output, makeOutputTestLayer, type MockOutputService } from "../output/index.js";
-import { makeInputTestLayer, type MockInputService } from "../input/index.js";
+import { Output, makeOutputTestLayer, type MockOutputService } from "@axm.sh/core/unstable/output";
+import { makeInputTestLayer, type MockInputService } from "@axm.sh/core/unstable/input";
 import YAML from "yaml";
-import { AppError } from "../app-error/index.js";
-import { CliFlagsTest, type CliFlagsService } from "../cli-flags/index.js";
+import { AppError } from "@axm.sh/core/unstable/app-error";
+import { CliFlagsTest, type CliFlagsService } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
-import type { SourceHostConfig } from "../settings/index.js";
-import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
+import type {
+  CommandLockEntry,
+  McpServerLockEntry,
+  SkillLockEntry,
+} from "@axm.sh/core/unstable/lockfile";
 import type { OperationResult, Readiness, Operation } from "./plan.js";
 import type { LegacyPlan, LegacyPlannedStep } from "./plan-bridge.js";
 import { bridgeLegacyPlan } from "./plan-bridge.js";

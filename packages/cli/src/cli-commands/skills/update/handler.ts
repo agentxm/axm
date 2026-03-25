@@ -10,27 +10,24 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import {
-  resolveSource,
-  SourceHostProviders,
-  type SkillExtensionRef,
-} from "../../../sources/index.js";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../../../app-error/index.js";
-import { CliFlags } from "../../../cli-flags/index.js";
-import { expandGlobs } from "../../../skills/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { expandGlobs } from "@axm.sh/core/unstable/utils";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { Workspace } from "../../../workspace/index.js";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
-} from "../../../extensions/index.js";
-import { parseVersionConstraint } from "../../../version-constraints/index.js";
+} from "@axm.sh/core/unstable/extensions";
+import { parseVersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import { buildUpdatePlan } from "./plan.js";

@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
 import type { VersionEntry } from "./local-schema.js";
-import { computeIntegrity } from "../utils/integrity.js";
+import { computeIntegrity } from "@axm.sh/core/unstable/utils";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------

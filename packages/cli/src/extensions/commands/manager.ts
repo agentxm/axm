@@ -17,19 +17,18 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { makeAppError } from "../../app-error/index.js";
-import { isPathSafe } from "../../utils/path-safety.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../sources/index.js";
-import type { CommandLockEntry } from "../../lockfile/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { computeIntegrity, isPathSafe } from "@axm.sh/core/unstable/utils";
+import type { CommandExtensionRef, RegistryCommandRef } from "@axm.sh/core/unstable/sources";
+import type { CommandLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type {
   ExtensionManager,
   CommandExtensionTarget,
 } from "../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
-import { computeIntegrity } from "../../utils/integrity.js";
+import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Service Tag

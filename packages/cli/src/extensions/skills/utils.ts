@@ -7,9 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PacksLockMap } from "../../lockfile/index.js";
-import type { SkillExtensionRef } from "../../sources/index.js";
-import { stripFileProtocol } from "../../utils/fs-helpers.js";
+import type { PacksLockMap } from "@axm.sh/core/unstable/lockfile";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { stripFileProtocol } from "@axm.sh/core/unstable/utils";
 
 // -----------------------------------------------------------------------------
 // Display Name

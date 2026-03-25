@@ -11,18 +11,17 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { Output } from "../../../output/index.js";
-import { computeIntegrity } from "../../../utils/integrity.js";
-import { isPathSafe } from "../../../utils/path-safety.js";
-import { makeAppError } from "../../../app-error/index.js";
-import { validateExactResolvedVersion } from "../../../lockfile/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { computeIntegrity, isPathSafe } from "@axm.sh/core/unstable/utils";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/index.js";
-import type { CommandLockEntry } from "../../../lockfile/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
+import type { CommandExtensionRef, RegistryCommandRef } from "@axm.sh/core/unstable/sources";
+import type { CommandLockEntry } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Operation types

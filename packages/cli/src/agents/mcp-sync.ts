@@ -7,7 +7,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,

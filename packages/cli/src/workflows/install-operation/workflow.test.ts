@@ -5,14 +5,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   PackExtensionRef,
   RegistrySource,
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "../../sources/index.js";
+} from "@axm.sh/core/unstable/sources";
 import {
   type ExtensionManager,
   type ExtensionTarget,

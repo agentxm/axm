@@ -7,10 +7,10 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";

@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import YAML from "yaml";
-import type { Settings } from "../../settings/index.js";
+import type { Settings } from "@axm.sh/core/unstable/settings";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -22,9 +22,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Output, makeOutputTestLayer } from "../../output/index.js";
-import { Input, makeInputTestLayer } from "../../input/index.js";
-import { CliFlags, CliFlagsTest } from "../../cli-flags/index.js";
+import { Output, makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { Input, makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../config/index.js";
 import {
   Workspace,
@@ -336,8 +336,8 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       tuiConfig: {
-        selectBehavior?: import("../../input/index.js").InputPromptBehavior;
-        multiselectBehavior?: import("../../input/index.js").InputPromptBehavior;
+        selectBehavior?: import("@axm.sh/core/unstable/input").InputPromptBehavior;
+        multiselectBehavior?: import("@axm.sh/core/unstable/input").InputPromptBehavior;
       },
       wsOptions: WorkspaceContextOptions = {
         scope: "project",

@@ -8,9 +8,9 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { AppError } from "../../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { JobStepResult, PlannedJobStep } from "../../workspace/plan.js";
-import type { ExtensionRef } from "../../sources/index.js";
+import type { ExtensionRef } from "@axm.sh/core/unstable/sources";
 import {
   type ExtensionManager,
   type ExtensionTargetFor,

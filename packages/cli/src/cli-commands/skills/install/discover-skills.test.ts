@@ -18,7 +18,7 @@ import {
   getPriorityDirectories,
 } from "./discover-skills.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import { getAllAgents } from "../../../agents/index.js";
+import { getAllAgents } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers

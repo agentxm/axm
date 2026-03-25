@@ -8,7 +8,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import type * as Path from "effect/Path";
 import type * as FileSystem from "effect/FileSystem";
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { CliEnvConfig } from "../config/index.js";
 import type { Workspace } from "../workspace/service.js";
 import type { AgentId } from "@axm.sh/core/unstable/agents";

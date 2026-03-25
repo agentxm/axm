@@ -8,8 +8,8 @@
  */
 
 import * as Effect from "effect/Effect";
-import { makeAppError } from "../../../app-error/index.js";
-import { Output } from "../../../output/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
 import { enableSkill } from "../../../extensions/skills/operations/enable.js";

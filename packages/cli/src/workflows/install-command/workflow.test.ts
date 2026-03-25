@@ -9,11 +9,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer } from "../../output/index.js";
-import { makeInputTestLayer } from "../../input/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvConfig } from "../../config/index.js";
-import { CliFlagsTest } from "../../cli-flags/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
 import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
 import {

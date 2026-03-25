@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 
 /**
  * Computed path for an installed pack directory.

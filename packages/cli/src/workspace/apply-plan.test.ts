@@ -9,7 +9,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { applyPlan } from "./apply-plan.js";
 import type { Plan, PlannedJobStep } from "./plan.js";
 

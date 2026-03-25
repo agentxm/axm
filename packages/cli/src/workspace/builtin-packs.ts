@@ -12,7 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { getAgentById } from "../agents/index.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
 import {
   BUILTIN_PACK_FQN,
   BUILTIN_PACK_NAME,
@@ -20,8 +20,8 @@ import {
   resolveBuiltinPack,
 } from "../builtin-pack/index.js";
 import { copySkillDirectory } from "../extensions/skills/operations/copy-directory.js";
-import { readLockfile, writeLockfile } from "../lockfile/index.js";
-import { createSymlink } from "../utils/create-symlink.js";
+import { readLockfile, writeLockfile } from "@axm.sh/core/unstable/lockfile";
+import { createSymlink } from "@axm.sh/core/unstable/utils";
 
 /**
  * Materialize builtin pack skills into the workspace.

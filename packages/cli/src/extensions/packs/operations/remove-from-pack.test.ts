@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";

@@ -14,11 +14,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { CliEnvConfig } from "../../config/index.js";
-import type { SourceHostProvider } from "../index.js";
-import type { LocalSource, ExtensionRef } from "../index.js";
-import { fileUrlToPath } from "../index.js";
+import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
+import type { SourceHostProvider, LocalSource, ExtensionRef } from "@axm.sh/core/unstable/sources";
 
 /**
  * Source host provider for local filesystem paths.

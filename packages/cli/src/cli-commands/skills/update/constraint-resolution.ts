@@ -10,7 +10,7 @@
  */
 
 import * as Option from "effect/Option";
-import { satisfiesConstraint } from "../../../version-constraints/index.js";
+import { satisfiesConstraint } from "@axm.sh/core/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Types

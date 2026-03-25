@@ -18,7 +18,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore, type CredentialStoreService } from "./credential-store.js";
 import {
   decodeTokenResponse,
@@ -150,11 +149,9 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
       const baseClient = yield* HttpClient.HttpClient;
       const store = yield* CredentialStore;
       const registryUrl = yield* RegistryUrl;
-      const envConfig = yield* CliEnvConfig;
 
-      // Provide CredentialStore and CliEnvConfig for resolve calls within the middleware
+      // Provide CredentialStore for resolve calls within the middleware
       const storeLayer = Layer.succeed(CredentialStore, store);
-      const envConfigLayer = Layer.succeed(CliEnvConfig, envConfig);
 
       return HttpClient.make((request) =>
         Effect.gen(function* () {
@@ -170,7 +167,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
           const maybeToken = Option.isSome(storedToken)
             ? storedToken
             : origin === new URL(registryUrl).origin
-              ? yield* resolveAmbientToken(flagToken).pipe(Effect.provide(envConfigLayer))
+              ? yield* resolveAmbientToken(flagToken)
               : Option.none<TokenSource>();
 
           if (Option.isNone(maybeToken)) {

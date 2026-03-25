@@ -11,7 +11,6 @@ import { getAgentById } from "@axm.sh/core/unstable/agents";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Output } from "@axm.sh/core/unstable/output";
-import { CliEnvConfig } from "../../config/index.js";
 import { resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
 
@@ -54,11 +53,10 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   );
 
   // Show telemetry notice (unless telemetry is off)
-  const cfg = yield* CliEnvConfig;
   const telemetryMode = resolveTelemetryMode(
     {
-      doNotTrack: Option.getOrUndefined(cfg.doNotTrack),
-      axmTelemetry: Option.getOrUndefined(cfg.telemetry),
+      doNotTrack: process.env["DO_NOT_TRACK"],
+      axmTelemetry: process.env["AXM_TELEMETRY"],
     },
     {},
   );

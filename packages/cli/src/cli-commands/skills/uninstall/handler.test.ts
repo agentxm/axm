@@ -17,7 +17,6 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
@@ -147,7 +146,6 @@ describe("uninstall.handler", () => {
       outputLayer,
       inputLayer,
       CliEnvironmentTest(),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

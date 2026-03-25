@@ -14,7 +14,6 @@ import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { CliEnvConfig } from "../../../config/index.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -88,7 +87,6 @@ const runBuildPlan = ({
     outputTestLayer,
     Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
     Layer.succeed(Path.Path, {} as Path.Path),
-    CliEnvConfig.testDefaults,
   );
 
   return Effect.runSync(

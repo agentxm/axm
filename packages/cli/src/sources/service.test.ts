@@ -19,7 +19,6 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
-import { CliEnvConfig } from "../config/index.js";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type { WorkspaceContextService } from "../workspace/service.js";
@@ -147,16 +146,15 @@ const runWithService = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope | CliEnvConfig
+    SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
   >,
 ) => {
   const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
     Layer.provide(NodeServices.layer),
-    Layer.provide(CliEnvConfig.testDefaults),
   );
-  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer, CliEnvConfig.testDefaults);
+  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer);
   return Effect.runPromise(effect.pipe(Effect.provide(fullLayer), Effect.scoped));
 };
 

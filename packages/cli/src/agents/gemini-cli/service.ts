@@ -6,8 +6,6 @@
 
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { CliEnvConfig } from "../../config/index.js";
 import type { CodingAgent } from "../coding-agent.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
@@ -25,8 +23,7 @@ export const geminiCliCodingAgent: CodingAgent = {
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
-      const envConfig = yield* CliEnvConfig;
-      const runtimeOverride = Option.getOrUndefined(envConfig.geminiCliSkillsDir);
+      const runtimeOverride = process.env[GEMINI_ENV_OVERRIDE];
       if (runtimeOverride !== undefined && runtimeOverride.trim().length === 0) {
         return {
           _tag: "misconfigured",

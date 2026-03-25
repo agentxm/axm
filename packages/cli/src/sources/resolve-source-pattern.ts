@@ -16,7 +16,6 @@ import * as Option from "effect/Option";
 
 import { getAgentById } from "@axm.sh/core/unstable/agents";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { CliEnvConfig } from "../config/index.js";
 import {
   discoverSkillsInDir,
   type DiscoveredSkill,
@@ -134,11 +133,7 @@ const resolveNameWithFallback = (
  */
 export const resolveSourcePattern = (
   input: string,
-): Effect.Effect<
-  ReadonlyArray<Source>,
-  AppError,
-  Workspace | FileSystem.FileSystem | Path.Path | CliEnvConfig
-> =>
+): Effect.Effect<ReadonlyArray<Source>, AppError, Workspace | FileSystem.FileSystem | Path.Path> =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
         const candidates = yield* buildCandidates;

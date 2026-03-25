@@ -17,7 +17,6 @@ import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
 import { Activity } from "@axm.sh/core/unstable/activity";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../config/index.js";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
@@ -59,15 +58,7 @@ export const withAuthGuard = <A, E, R>(
 ): Effect.Effect<
   A,
   E | AppError | PromptCancelled,
-  | R
-  | CredentialStore
-  | AuthClient
-  | CliEnvironment
-  | CliEnvConfig
-  | RegistryUrl
-  | Input
-  | Output
-  | Activity
+  R | CredentialStore | AuthClient | CliEnvironment | RegistryUrl | Input | Output | Activity
 > =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;

@@ -12,7 +12,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
-import { CliEnvConfig } from "../../../config/index.js";
 import type { SkillExtensionRef, Source } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -46,7 +45,6 @@ export const buildSkillInstallPlan = ({
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const output = yield* Output;
-    const envConfig = yield* CliEnvConfig;
     const lockedSkills = yield* workspace.getLockedSkills().pipe(
       Effect.catch((error) => {
         if (
@@ -98,7 +96,6 @@ export const buildSkillInstallPlan = ({
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(Output, output),
-        Effect.provideService(CliEnvConfig, envConfig),
       );
 
       return {

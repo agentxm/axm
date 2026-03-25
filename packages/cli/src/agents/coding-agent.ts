@@ -9,7 +9,6 @@ import * as Effect from "effect/Effect";
 import type * as Path from "effect/Path";
 import type * as FileSystem from "effect/FileSystem";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { CliEnvConfig } from "../config/index.js";
 import type { Workspace } from "../workspace/service.js";
 import type { AgentId } from "@axm.sh/core/unstable/agents";
 
@@ -56,7 +55,7 @@ export interface CodingAgent {
   readonly id: AgentId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
-  ) => Effect.Effect<ResolveSkillsDirOutcome, AppError, Path.Path | CliEnvConfig>;
+  ) => Effect.Effect<ResolveSkillsDirOutcome, AppError, Path.Path>;
   readonly addMcpServer: (
     args: AddMcpServerArgs,
   ) => Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;

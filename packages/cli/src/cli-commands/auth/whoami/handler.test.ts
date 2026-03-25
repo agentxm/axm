@@ -13,7 +13,6 @@ import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import { handleWhoami } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -60,7 +59,6 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,
-    CliEnvConfig.testDefaults,
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper

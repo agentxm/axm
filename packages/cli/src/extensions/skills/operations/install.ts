@@ -13,7 +13,6 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "@axm.sh/core/unstable/agents";
-import { CliEnvConfig } from "../../../config/index.js";
 import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
 import type {
   BuiltinSkillRef,
@@ -362,7 +361,7 @@ const materializeSkill = (
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Output | SourceHostProviders | CliEnvConfig
+  FileSystem.FileSystem | Path.Path | Workspace | Output | SourceHostProviders
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;

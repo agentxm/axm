@@ -16,7 +16,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvConfig } from "../../config/index.js";
 import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
@@ -81,19 +80,17 @@ export const SkillManagerLive = Layer.effect(
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const envConfig = yield* CliEnvConfig;
     const sources = yield* SourceHostProviders;
     const agents = yield* ws.getConfiguredAgents();
     const baseDir = ws.baseDir;
 
-    // Build a layer to provide FileSystem + Path + CliEnvConfig to inner effects
+    // Build a layer to provide FileSystem + Path to inner effects
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(CliEnvConfig, envConfig),
     );
 
-    // Provide FileSystem + Path + CliEnvConfig to an effect that needs them
+    // Provide FileSystem + Path to an effect that needs them
     const provide: ProvideFS = (effect) => Effect.provide(effect, fsPathLayer);
 
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
@@ -268,7 +265,7 @@ export const SkillManagerLive = Layer.effect(
 
 type ProvideFS = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path | CliEnvConfig>>;
+) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path>>;
 
 const materializeByRefType = (
   ref: SkillExtensionRef,

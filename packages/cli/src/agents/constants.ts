@@ -13,8 +13,6 @@
 import * as os from "node:os";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { CliEnvConfig } from "../config/index.js";
 
 /**
  * Resolve the user's home directory.
@@ -32,8 +30,7 @@ export const getHome = Effect.sync(() => os.homedir());
  */
 export const getConfigHome = Effect.gen(function* () {
   const p = yield* Path.Path;
-  const envConfig = yield* CliEnvConfig;
-  const env = Option.getOrUndefined(envConfig.xdgConfigHome);
+  const env = process.env["XDG_CONFIG_HOME"];
   if (env) return env;
   const home = yield* getHome;
   return p.join(home, ".config");

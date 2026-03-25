@@ -56,21 +56,9 @@ c) Leave as-is
 
 ---
 
-## 4. Env configuration — raw `process.env` vs `CliEnvConfig` service
+## 4. ~~`CliEnvConfig` is a grab bag — dissolve into owning services~~ ✓ Done
 
-The spike reads environment variables directly (`process.env["AXM_TELEMETRY"]`, `process.env["CI"]`, etc.). The main CLI uses the `CliEnvConfig` Effect service which centralizes config resolution with validation and defaults, and is testable via `CliEnvConfig.testDefaults`.
-
-**Direction:** main CLI → spike
-
-a) Add `CliEnvConfig` dependency to the spike
-b) Leave as-is — the spike intentionally minimizes dependencies
-
-**Recommendation:** (a) — Most impactful inconsistency. The spike is the reference implementation and should demonstrate the production config pattern.
-
-**Key files:**
-
-- Spike: `packages/cli-spike/src/runtime.ts` (scattered `process.env` reads)
-- Main CLI: `packages/cli/src/config/service.ts`
+Dissolved `CliEnvConfig` — the 16-field centralized service that read every env var regardless of domain. Each consumer now reads its own env vars directly at its boundary via `process.env`. The `CliEnvConfig` service, `CliEnvConfigLive` layer, `CliEnvConfig.testDefaults`, `CliEnvConfigOrDie`, and the entire `config/` module have been deleted. Layer-based consumers (`RegistryUrlLayer` in `base-layer.ts`) use Effect's `Config` module with `Layer.orDie`. Effect-based consumers read `process.env` directly — no `ConfigError` in the type channel, matching the spike's approach. Tests that need specific env var values set/restore `process.env` directly. All 2264 tests pass.
 
 ---
 
@@ -189,29 +177,58 @@ c) Leave as-is — the wrapper is small and contained
 
 ---
 
+## 11. Extract `verbose`/`debug` from `CliEnvironment` into Output service
+
+`CliEnvironment` currently holds `{ isCI, nonInteractive, verbose, debug }`. The first two are execution context — they answer "what kind of environment am I in?" and affect control flow (prompting, auth tier selection). `verbose` and `debug` are observability knobs — they control what the user sees, not what environment the program runs in. They don't belong together.
+
+Current consumers of `verbose`/`debug` from `CliEnvironment`:
+
+- **`runtime.ts:54-60`** — `debugLoggerLayer` reads `flags.debug` to decide whether to enable `Logger.consolePretty()`. Pure logging configuration.
+- **`display-plan.ts:30-33`** — reads `flags.verbose` and `flags.debug`, passes `{ verbose, debug }` to `renderAppError()` for error rendering detail. Output concern.
+
+**Direction:** main CLI internal fix
+
+a) **Logging**: Resolve `--debug` flag directly at the runtime boundary into Effect log level configuration (`Logger.layer()`). No service field needed — it's layer composition at the edge.
+**Output verbosity**: Add verbosity to the Output service (e.g., `verbosity: "normal" | "verbose" | "debug"`). `renderAppError` and `display-plan` read verbosity from Output instead of CliEnvironment. The Output service already controls what the user sees — verbosity is a natural fit.
+**CliEnvironment**: Shrinks to `{ isCI, nonInteractive }` — pure execution context.
+b) Extract into a standalone `Verbosity` service separate from both CliEnvironment and Output.
+c) Leave as-is.
+
+**Recommendation:** (a) — Logging is layer config, not service state. Output verbosity belongs with Output (the service that controls what the user sees). CliEnvironment becomes a clean execution-context service. Option (b) adds a new service for two booleans consumed in two places — not worth the abstraction.
+
+**Key files:**
+
+- Core: `packages/core/src/unstable/cli-flags/index.ts` (lines 64–96, `CliEnvironmentService` + `makeCliEnvironmentLayer`)
+- Main CLI: `packages/cli/src/runtime.ts` (lines 54–60, `debugLoggerLayer` reads `flags.debug`)
+- Main CLI: `packages/cli/src/workspace/display-plan.ts` (lines 29–33, reads `flags.verbose`/`flags.debug` for error rendering)
+- Core: `packages/core/src/unstable/output/` (Output service — target for verbosity)
+
+---
+
 ## Summary
 
-| #   | Finding                                          | Direction    | Priority | Size   |
-| --- | ------------------------------------------------ | ------------ | -------- | ------ |
-| 9   | Handlers bypass Output with `process.stdout`     | main CLI fix | P1       | Medium |
-| 2   | Scope flag inline vs centralized                 | main → spike | P2       | Small  |
-| 3   | Telemetry resolution interface mismatch          | main → spike | P2       | Small  |
-| 4   | Raw `process.env` vs `CliEnvConfig`              | main → spike | P2       | Medium |
-| 5   | Missing `withRuntime` features in spike          | main → spike | P2       | Medium |
-| 10  | Telemetry wrapper uses `as` type assertions      | main CLI fix | P2       | Small  |
-| 1   | ~~Remove `output.result()` from Output service~~ | ✓ Done       | P3       | Small  |
-| 6   | Install command missing `force`/`preview`        | main → spike | P3       | Small  |
-| 7   | Handler organization difference                  | none         | —        | —      |
-| 8   | Root command no-subcommand behavior              | main → spike | P3       | Small  |
+| #   | Finding                                              | Direction    | Priority | Size   |
+| --- | ---------------------------------------------------- | ------------ | -------- | ------ |
+| 4   | ~~`CliEnvConfig` grab bag — dissolve into features~~ | ✓ Done       | P1       | Medium |
+| 9   | Handlers bypass Output with `process.stdout`         | main CLI fix | P1       | Medium |
+| 11  | Extract `verbose`/`debug` from `CliEnvironment`      | main CLI fix | P1       | Medium |
+| 2   | Scope flag inline vs centralized                     | main → spike | P2       | Small  |
+| 3   | Telemetry resolution interface mismatch              | main → spike | P2       | Small  |
+| 5   | Missing `withRuntime` features in spike              | main → spike | P2       | Medium |
+| 10  | Telemetry wrapper uses `as` type assertions          | main CLI fix | P2       | Small  |
+| 1   | ~~Remove `output.result()` from Output service~~     | ✓ Done       | P3       | Small  |
+| 6   | Install command missing `force`/`preview`            | main → spike | P3       | Small  |
+| 7   | Handler organization difference                      | none         | —        | —      |
+| 8   | Root command no-subcommand behavior                  | main → spike | P3       | Small  |
 
-**P1** — Stop bypassing the Output service with raw `process.stdout.write()`.
+**P1** — Structural fixes: ~~dissolve `CliEnvConfig` grab bag~~ ✓, stop bypassing Output with raw `process.stdout.write()`, extract verbose/debug from `CliEnvironment` into Output service + logging layer.
 **P2** — Bring the spike in line with production patterns so it remains a trustworthy reference. Fix assertion violations.
 **P3** — Small cleanups for completeness and consistent UX.
 
 ### Execution tracks
 
-**Track 1 — Main → Spike (reference integrity):** Findings 2, 3, 4, 5, 6, 8. Brings the spike up to production patterns. Mostly mechanical. Do first — the spike should be trustworthy before using it as a reference for Track 2.
+**Track 1 — Main CLI structural fixes:** Findings ~~4~~ ✓, 9, 10, 11. ~~Dissolve `CliEnvConfig` into owning services.~~ ✓ Stop bypassing Output in `whoami`. Clean up telemetry type assertions. Extract verbose/debug from `CliEnvironment` — logging becomes layer config at the runtime boundary, output verbosity moves to the Output service. Do first — the spike should align to the corrected main CLI patterns, not the current ones.
 
-**Track 2 — Main CLI fixes:** Findings 9, 10. Stop bypassing the Output service in `whoami`. Clean up telemetry type assertions.
+**Track 2 — Main → Spike (reference integrity):** Findings 2, 3, 5, 6, 8. Brings the spike up to production patterns. Mostly mechanical. Finding 3 (telemetry) and the spike's `process.env` reads naturally align once `CliEnvConfig` is dissolved (Track 1). Finding 5 (missing `withRuntime` features) will be simpler after Finding 11 clarifies where verbose/debug live.
 
 **Track 3 — ~~Remove `output.result()`~~:** ✓ Done. Removed from interface, all implementations, spike callers, tests, and spec.

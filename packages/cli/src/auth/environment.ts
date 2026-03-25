@@ -9,16 +9,12 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-
-import { CliEnvConfig } from "../config/index.js";
 
 /**
  * Detects SSH environment via SSH_CLIENT or SSH_TTY env vars.
  */
-export const detectSSH: Effect.Effect<boolean, never, CliEnvConfig> = Effect.gen(function* () {
-  const config = yield* CliEnvConfig;
-  return Option.isSome(config.sshClient) || Option.isSome(config.sshTty);
+export const detectSSH = Effect.sync(() => {
+  return process.env["SSH_CLIENT"] !== undefined || process.env["SSH_TTY"] !== undefined;
 });
 
 /**
@@ -52,10 +48,7 @@ export const detectWSL = Effect.gen(function* () {
 /**
  * Detects CI environment via CI=true env var.
  */
-export const detectCI: Effect.Effect<boolean, never, CliEnvConfig> = Effect.gen(function* () {
-  const config = yield* CliEnvConfig;
-  return config.ci;
-});
+export const detectCI = Effect.sync(() => process.env["CI"] === "true");
 
 /**
  * Detects if running as root (uid 0).

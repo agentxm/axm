@@ -19,7 +19,6 @@ import { makeInputTestLayer, type MockInputService } from "@axm.sh/core/unstable
 import YAML from "yaml";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../config/index.js";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type {
   CommandLockEntry,
@@ -91,7 +90,6 @@ describe("WorkspaceContextService", () => {
     testLogLayer,
     testPromptLayer,
     CliEnvironmentTest(),
-    CliEnvConfig.testDefaults,
   );
 
   const makeWsLayer = (options: WorkspaceContextOptions) =>
@@ -187,13 +185,7 @@ describe("WorkspaceContextService", () => {
         },
       });
       const flagsLayer = CliEnvironmentTest(envFlags);
-      const base = Layer.mergeAll(
-        NodeServices.layer,
-        logLayer,
-        promptLayer,
-        flagsLayer,
-        CliEnvConfig.testDefaults,
-      );
+      const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
@@ -1574,13 +1566,7 @@ describe("WorkspaceContextService", () => {
       });
       const flagsLayer = CliEnvironmentTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
-      const base = Layer.mergeAll(
-        NodeServices.layer,
-        logLayer,
-        promptLayer,
-        flagsLayer,
-        CliEnvConfig.testDefaults,
-      );
+      const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),

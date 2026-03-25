@@ -24,6 +24,19 @@ export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
   ),
 });
 
+export const verboseFlag = GlobalFlag.setting("axm-verbose")({
+  flag: Flag.boolean("verbose").pipe(
+    Flag.withAlias("v"),
+    Flag.withDescription("Show additional diagnostic details for errors"),
+  ),
+});
+
+export const debugFlag = GlobalFlag.setting("axm-debug")({
+  flag: Flag.boolean("debug").pipe(
+    Flag.withDescription("Show full debug details for errors (implies --verbose)"),
+  ),
+});
+
 // ---------------------------------------------------------------------------
 // Per-command flag definitions — import and include in Command.make() flags
 // for commands that need them. Not global — they only appear in --help for

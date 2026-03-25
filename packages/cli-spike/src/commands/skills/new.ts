@@ -1,24 +1,27 @@
 import * as Console from "effect/Console";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
+
+const newConfig = {
+  name: Argument.string("name").pipe(
+    Argument.withDescription("Name of the skill (without namespace)"),
+  ),
+  namespace: Flag.string("namespace").pipe(
+    Flag.withDescription("Override the workspace namespace (e.g., @acme)"),
+    Flag.optional,
+  ),
+  agent: Flag.string("agent").pipe(
+    Flag.withDescription("Agent IDs to target (can be repeated)"),
+    Flag.atLeast(1),
+    Flag.optional,
+  ),
+} as const;
 
 export const newCommand = Command.make(
   "new",
-  {
-    name: Argument.string("name").pipe(
-      Argument.withDescription("Name of the skill (without namespace)"),
-    ),
-    namespace: Flag.string("namespace").pipe(
-      Flag.withDescription("Override the workspace namespace (e.g., @acme)"),
-      Flag.optional,
-    ),
-    agent: Flag.string("agent").pipe(
-      Flag.withDescription("Agent IDs to target (can be repeated)"),
-      Flag.atLeast(1),
-      Flag.optional,
-    ),
-  },
+  newConfig,
   (config) => {
     const namespace = Option.getOrElse(config.namespace, () => "-");
     const agents = Option.match(config.agent, {
@@ -32,6 +35,7 @@ export const newCommand = Command.make(
     );
   },
 ).pipe(
+  withArgvTracking(newConfig),
   Command.withDescription("Create a new skill"),
   Command.withExamples([
     { command: "axm-spike skills new my-skill", description: "Create a new skill" },

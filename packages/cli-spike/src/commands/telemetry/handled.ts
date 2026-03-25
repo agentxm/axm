@@ -2,9 +2,12 @@ import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
-export const handledCommand = Command.make("handled", {}, () =>
+const handledConfig = {} as const;
+
+export const handledCommand = Command.make("handled", handledConfig, () =>
   withRuntime(
     Effect.fail(
       makeAppError({
@@ -17,6 +20,7 @@ export const handledCommand = Command.make("handled", {}, () =>
     { command: "telemetry handled" },
   ),
 ).pipe(
+  withArgvTracking(handledConfig),
   Command.withDescription("Emit a handled AppError and report it to telemetry"),
   Command.withExamples([
     {

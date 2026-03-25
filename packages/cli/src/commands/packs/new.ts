@@ -2,29 +2,33 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { handlePacksNew } from "../../cli-commands/packs/new/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
+const newConfig = {
+  name: Argument.string("name").pipe(
+    Argument.withDescription("Name of the pack (without profile)"),
+  ),
+  profile: Flag.string("profile").pipe(
+    Flag.withDescription("Override the workspace profile (e.g., @acme)"),
+    Flag.optional,
+  ),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+} as const;
+
 export const newCommand = Command.make(
   "new",
-  {
-    name: Argument.string("name").pipe(
-      Argument.withDescription("Name of the pack (without profile)"),
-    ),
-    profile: Flag.string("profile").pipe(
-      Flag.withDescription("Override the workspace profile (e.g., @acme)"),
-      Flag.optional,
-    ),
-    yes: yesFlag,
-    force: forceFlag,
-    preview: previewFlag,
-  },
+  newConfig,
   ({ name, profile, yes, force, preview }) =>
     withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksNew({ name, profile })), {
       command: "packs new",
       flags: { yes, force, preview },
     }),
 ).pipe(
+  withArgvTracking(newConfig),
   Command.withDescription("Create a new empty extension pack"),
   Command.withExamples([
     {

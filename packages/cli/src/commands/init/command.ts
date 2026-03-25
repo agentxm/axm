@@ -3,27 +3,31 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags/index.js";
 import { handleInit } from "../../cli-commands/init/handler.js";
 
+const initConfig = {
+  scope: scopeFlag,
+  agent: Flag.string("agent").pipe(
+    Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
+    Flag.atLeast(0),
+  ),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+} as const;
+
 export const initCommand = Command.make(
   "init",
-  {
-    scope: scopeFlag,
-    agent: Flag.string("agent").pipe(
-      Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
-      Flag.atLeast(0),
-    ),
-    yes: yesFlag,
-    force: forceFlag,
-    preview: previewFlag,
-  },
+  initConfig,
   ({ scope, agent, yes, force, preview }) =>
     withRuntime(
       withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
       { command: "init", flags: { yes, force, preview } },
     ),
 ).pipe(
+  withArgvTracking(initConfig),
   Command.withDescription("Set up axm in the current project"),
   Command.withExamples([
     { command: "axm init", description: "Detect installed agents and create .axm/settings.json" },

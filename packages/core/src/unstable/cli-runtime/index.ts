@@ -16,7 +16,17 @@ export {
 } from "./runtime-envelope.js";
 export {
   trackCliCommand,
+  trackCliCommandCompleted,
+  readGlobalFlagProperties,
   reportCliDefect,
   reportCliError,
   type CliCommandTelemetryOptions,
+  type CliCommandCompletedOptions,
 } from "./telemetry.js";
+export {
+  CommandArgv,
+  type CommandArgvService,
+  withArgvTracking,
+  serializeArgv,
+  extractParamKinds,
+} from "./command-argv.js";

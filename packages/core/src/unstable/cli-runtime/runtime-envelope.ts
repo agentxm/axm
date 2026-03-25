@@ -1,6 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
@@ -20,7 +21,14 @@ import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 import { makeUiLayer } from "./ui-layer.js";
-import { reportCliDefect, reportCliError, trackCliCommand } from "./telemetry.js";
+import {
+  readGlobalFlagProperties,
+  reportCliDefect,
+  reportCliError,
+  trackCliCommand,
+  trackCliCommandCompleted,
+} from "./telemetry.js";
+import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = Output | Activity | Input | CliFlags;
@@ -103,34 +111,82 @@ export const withCliErrorHandling = <A, R>(
     readonly format: OutputFormat;
     readonly telemetryConfig: CliTelemetryConfigService;
     readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
+    readonly globalProperties?: Record<string, string> | undefined;
   },
 ): Effect.Effect<A, unknown, R | HttpClient.HttpClient> => {
   const command = options.command ?? "unknown";
   const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
-  const runtimeProgram = trackCliCommand({ command }).pipe(Effect.andThen(program));
 
-  return runtimeProgram.pipe(
-    Effect.catch((error: ExpectedCliError) => {
-      const exitCode = defaultExitCodeForExpectedError(error);
+  const enrichedProgram = Effect.gen(function* () {
+    // Read optional CommandArgv (won't fail if not provided)
+    const argvOption = yield* Effect.serviceOption(CommandArgv);
+    const argvProperties = Option.match(argvOption, {
+      onNone: () => ({}),
+      onSome: (argv) => serializeArgv(argv.value, argv.paramKinds),
+    });
 
-      return writeExpectedCliError(error, options.format, {
-        appErrorRenderOptions: options.appErrorRenderOptions,
-      }).pipe(
-        Effect.andThen(reportCliError(error, command)),
-        // Control-flow exit: intentionally uses defect channel to signal process termination
-        Effect.andThen(Effect.die(effectCliExit(exitCode))),
-      );
-    }),
-    Effect.catchCause((cause) => {
-      const defect = Cause.squash(cause);
-      if (isEffectCliExit(defect)) {
-        return Effect.failCause(cause);
-      }
+    // Merge all properties for command_invoked
+    const allProperties: Record<string, string> = {
+      ...argvProperties,
+      ...(options.globalProperties ?? {}),
+    };
 
-      return reportCliDefect(cause, command).pipe(Effect.andThen(Effect.failCause(cause)));
-    }),
-    Effect.provide(telemetryLayer),
-  );
+    // Fire command_invoked
+    yield* trackCliCommand({ command, properties: allProperties });
+
+    // Execute program with timing
+    const startTime = Date.now();
+
+    return yield* program.pipe(
+      Effect.tap(() =>
+        trackCliCommandCompleted({
+          command,
+          result: "success",
+          durationMs: Date.now() - startTime,
+        }),
+      ),
+      Effect.catch((error: ExpectedCliError) => {
+        const durationMs = Date.now() - startTime;
+        const exitCode = defaultExitCodeForExpectedError(error);
+        const result = error._tag === "PromptCancelled" ? "cancelled" : "error";
+
+        return writeExpectedCliError(error, options.format, {
+          appErrorRenderOptions: options.appErrorRenderOptions,
+        }).pipe(
+          Effect.andThen(reportCliError(error, command)),
+          Effect.andThen(
+            trackCliCommandCompleted({
+              command,
+              result,
+              durationMs,
+              ...(error._tag === "AppError" && { errorCode: error.code }),
+            }),
+          ),
+          Effect.andThen(Effect.die(effectCliExit(exitCode))),
+        );
+      }),
+      Effect.catchCause((cause) => {
+        const durationMs = Date.now() - startTime;
+        const defect = Cause.squash(cause);
+        if (isEffectCliExit(defect)) {
+          return Effect.failCause(cause);
+        }
+
+        return reportCliDefect(cause, command).pipe(
+          Effect.andThen(
+            trackCliCommandCompleted({
+              command,
+              result: "defect",
+              durationMs,
+            }),
+          ),
+          Effect.andThen(Effect.failCause(cause)),
+        );
+      }),
+    );
+  });
+
+  return enrichedProgram.pipe(Effect.provide(telemetryLayer));
 };
 
 // ---------------------------------------------------------------------------
@@ -152,6 +208,7 @@ export const withCliRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
+    const globalProperties = yield* readGlobalFlagProperties;
     const foundationLayer = makeFoundationLayer(format, { ci: options.ci, flags: options.flags });
     const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 
@@ -160,5 +217,6 @@ export const withCliRuntime = <A, R>(
       format,
       telemetryConfig: options.telemetryConfig,
       appErrorRenderOptions: options.appErrorRenderOptions,
+      globalProperties,
     });
   });

@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { Output } from "@axm.sh/core/unstable/output";
 import { FakeSkillInfoSchema, FakeSkillsManager } from "../../fake-skills-manager.js";
 import { withRuntime } from "../../runtime.js";
@@ -68,15 +69,17 @@ const renderText = (skills: SkillListOutput): string => {
 // No more: yield* writeOutput(format, schema, data, renderText)
 // ---------------------------------------------------------------------------
 
+const listConfig = {
+  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+    Flag.withDescription("Configuration scope"),
+    Flag.withDefault("project" as const),
+  ),
+  agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
+} as const;
+
 export const listCommand = Command.make(
   "list",
-  {
-    scope: Flag.choice("scope", ["project", "user"] as const).pipe(
-      Flag.withDescription("Configuration scope"),
-      Flag.withDefault("project" as const),
-    ),
-    agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
-  },
+  listConfig,
   (config) =>
     withRuntime(
       Effect.gen(function* () {
@@ -88,6 +91,7 @@ export const listCommand = Command.make(
       { command: "skills list" },
     ),
 ).pipe(
+  withArgvTracking(listConfig),
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),
   Command.withExamples([

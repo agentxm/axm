@@ -6,8 +6,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeOutputTestLayer, type MockOutputService, Output } from "@axm.sh/core/unstable/output";
+import { type CliFlags, type CliFlagsService, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
@@ -38,12 +40,13 @@ const messagesByMethod = (
 ): ReadonlyArray<string> =>
   mock.calls.filter((call) => call.method === method).map((call) => String(call.args[0] ?? ""));
 
-/** Creates a fresh output test layer and runs the effect, returning the mock for inspection. */
+/** Creates a fresh output + CliFlags test layer and runs the effect, returning the mock for inspection. */
 const withOutput = <A, E>(
-  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output>,
+  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output | CliFlags>,
+  flagsOverrides?: Partial<CliFlagsService>,
 ): Effect.Effect<A, E> => {
   const [outputLayer, mock] = makeOutputTestLayer();
-  return fn(mock).pipe(Effect.provide(outputLayer));
+  return fn(mock).pipe(Effect.provide(Layer.mergeAll(outputLayer, CliFlagsTest(flagsOverrides))));
 };
 
 // -----------------------------------------------------------------------------
@@ -369,43 +372,44 @@ describe("displayPlan", () => {
   );
 
   it.effect("shows cause lines for step errors in debug mode", () =>
-    withOutput((mock) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "publish",
-                    result: {
-                      result: "error",
-                      message: "failed to publish",
-                      error: makeAppError({
-                        code: "PUBLISH_FAILED",
-                        what: "Failed to publish",
-                        details: ["Registry URL: https://registry.example.com"],
-                        cause: new Error("connection refused"),
-                      }),
+    withOutput(
+      (mock) =>
+        Effect.gen(function* () {
+          yield* displayPlan(
+            makeExecutedPlan({
+              jobs: [
+                {
+                  concurrency: "unbounded",
+                  steps: [
+                    {
+                      label: "publish",
+                      result: {
+                        result: "error",
+                        message: "failed to publish",
+                        error: makeAppError({
+                          code: "PUBLISH_FAILED",
+                          what: "Failed to publish",
+                          details: ["Registry URL: https://registry.example.com"],
+                          cause: new Error("connection refused"),
+                        }),
+                      },
                     },
-                  },
-                ],
-              },
-            ],
-          }),
-          { verbosity: { verbose: true, debug: true } },
-        );
+                  ],
+                },
+              ],
+            }),
+          );
 
-        expect(
-          messagesByMethod(mock, "error").some((m) => m.includes("Cause: connection refused")),
-        ).toBe(true);
-        expect(
-          messagesByMethod(mock, "error").some((m) =>
-            m.includes("Registry URL: https://registry.example.com"),
-          ),
-        ).toBe(true);
-      }),
+          expect(
+            messagesByMethod(mock, "error").some((m) => m.includes("Cause: connection refused")),
+          ).toBe(true);
+          expect(
+            messagesByMethod(mock, "error").some((m) =>
+              m.includes("Registry URL: https://registry.example.com"),
+            ),
+          ).toBe(true);
+        }),
+      { verbose: true, debug: true },
     ),
   );
 

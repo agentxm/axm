@@ -68,6 +68,8 @@ export interface CliFlagsService {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly verbose: boolean;
+  readonly debug: boolean;
 }
 
 export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
@@ -77,6 +79,8 @@ export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
 export const makeCliFlagsLayer = (options?: {
   readonly ci?: boolean | undefined;
   readonly argv?: CommandArgvService | undefined;
+  readonly envVerbose?: boolean | undefined;
+  readonly envDebug?: boolean | undefined;
 }) =>
   Layer.effect(
     CliFlags,
@@ -85,12 +89,17 @@ export const makeCliFlagsLayer = (options?: {
       const isCI = options?.ci ?? false;
       const argv = options?.argv;
 
+      const debug = (yield* debugFlag) || (options?.envDebug ?? false);
+      const verbose = (yield* verboseFlag) || (options?.envVerbose ?? false) || debug;
+
       return {
         isCI,
         nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI || !isInteractive()),
         yes: argv ? readBooleanFlag(argv, "yes") : false,
         force: argv ? readBooleanFlag(argv, "force") : false,
         preview: argv ? readBooleanFlag(argv, "preview") : false,
+        verbose,
+        debug,
       } satisfies CliFlagsService;
     }),
   );
@@ -106,5 +115,7 @@ export const CliFlagsTest = (overrides?: Partial<CliFlagsService>): Layer.Layer<
     yes: false,
     force: false,
     preview: false,
+    verbose: false,
+    debug: false,
     ...overrides,
   });

@@ -1,12 +1,7 @@
 import * as Option from "effect/Option";
 import type { AppError } from "./app-error.js";
 
-export interface RenderAppErrorOptions {
-  readonly verbose: boolean;
-  readonly debug: boolean;
-}
-
-const defaultRenderAppErrorOptions: RenderAppErrorOptions = {
+const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
   debug: false,
 };
@@ -21,7 +16,7 @@ const isAppError = (cause: unknown): cause is AppError =>
 
 const formatCause = (
   cause: unknown,
-  options: RenderAppErrorOptions,
+  options: { readonly verbose: boolean; readonly debug: boolean },
   parentDetails: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   if (cause === undefined || cause === null) return [];
@@ -70,7 +65,7 @@ const formatCause = (
 
 export const renderAppError = (
   error: AppError,
-  options: RenderAppErrorOptions = defaultRenderAppErrorOptions,
+  options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
 ): string => {
   const lines: Array<string> = [];
 

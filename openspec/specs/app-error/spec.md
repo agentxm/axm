@@ -95,10 +95,11 @@ The runtime `run` function SHALL constrain its error channel to `AppError | Prom
 - **WHEN** a handler returns an effect with a domain error type not assignable to `AppError | PromptCancelled`
 - **THEN** TypeScript SHALL produce a compilation error
 
-#### Scenario: classifyError uses typed pattern matching
+#### Scenario: Error rendering reads verbosity from global flag settings
 
-- **WHEN** `classifyError` receives an `AppError | PromptCancelled` value
-- **THEN** it SHALL use `_tag` pattern matching (not duck-typing) to classify the error
+- **WHEN** an `AppError` is caught by the CLI error handler
+- **THEN** the error handler SHALL read `verboseFlag` and `debugFlag` from the Effect CLI global flag settings in the fiber context
+- **AND** SHALL pass them to `renderAppError` to control output detail level
 
 ### Requirement: No domain error types
 

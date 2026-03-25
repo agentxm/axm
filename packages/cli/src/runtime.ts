@@ -14,6 +14,7 @@ import {
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
 import {
+  CliFlags,
   nonInteractiveFlag,
   outputFormatFlag,
   verboseFlag,
@@ -26,7 +27,6 @@ import * as Packs from "./extensions/packs/layers.js";
 import * as Skills from "./extensions/skills/layers.js";
 import { SourceHostProvidersLive } from "./sources/index.js";
 import { resolveTelemetryMode } from "./telemetry/index.js";
-import { type DiagnosticVerbosity, resolveDiagnosticVerbosity } from "./runtime/error-handling.js";
 import { baseLayer, CliEnvConfigOrDie } from "./runtime/base-layer.js";
 import {
   layer as workspaceLayer,
@@ -52,10 +52,13 @@ interface RuntimeOptions {
   readonly isLongRunning?: boolean;
 }
 
-const makeDebugLoggerLayer = (diagnosticVerbosity: DiagnosticVerbosity) =>
-  Logger.layer(diagnosticVerbosity.debug ? [Logger.consolePretty()] : [], {
-    mergeWithExisting: false,
-  });
+const debugLoggerLayer = Layer.unwrap(
+  Effect.map(CliFlags.asEffect(), (flags) =>
+    Logger.layer(flags.debug ? [Logger.consolePretty()] : [], {
+      mergeWithExisting: false,
+    }),
+  ),
+);
 
 const makeCliTelemetryConfig = (envConfig: CliEnvConfigService): CliTelemetryConfigService => ({
   mode: resolveTelemetryMode(
@@ -106,19 +109,21 @@ const makeWorkspaceProgramLayer = (
   return Layer.mergeAll(supportLayer, workflowActionsLayer);
 };
 
+const envToBool = (opt: Option.Option<string>): boolean =>
+  Option.match(opt, {
+    onNone: () => false,
+    onSome: (v) => v === "1" || v === "true",
+  });
+
 const resolveRuntimeConfig = () =>
   Effect.gen(function* () {
     const envConfig = yield* CliEnvConfig;
-    const diagnosticVerbosity = resolveDiagnosticVerbosity(process.argv, {
-      AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
-      AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
-    });
 
     return {
       envConfig,
       ci: envConfig.ci,
-      diagnosticVerbosity,
-      debugLoggerLayer: makeDebugLoggerLayer(diagnosticVerbosity),
+      envVerbose: envToBool(envConfig.verbose),
+      envDebug: envToBool(envConfig.debug),
       telemetryConfig: makeCliTelemetryConfig(envConfig),
     } as const;
   });
@@ -145,14 +150,15 @@ export const withRuntime = <A, R>(
     const foundationLayer = makeFoundationLayer(format, {
       ci: config.ci,
       argv: Option.getOrUndefined(argvOption),
+      envVerbose: config.envVerbose,
+      envDebug: config.envDebug,
     });
-    const appLayer = Layer.provideMerge(config.debugLoggerLayer, foundationLayer);
+    const appLayer = Layer.provideMerge(debugLoggerLayer, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {
       command: options?.command,
       format,
       telemetryConfig: config.telemetryConfig,
-      appErrorRenderOptions: config.diagnosticVerbosity,
     });
   });

@@ -16,8 +16,7 @@ import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
 import { Activity } from "@axm.sh/core/unstable/activity";
-import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
@@ -55,11 +54,7 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
 export const withAuthGuard = <A, E, R>(
   effect: Effect.Effect<A, E | AppError, R>,
   options: { yes: boolean },
-): Effect.Effect<
-  A,
-  E | AppError | PromptCancelled,
-  R | CredentialStore | AuthClient | CliEnvironment | RegistryUrl | Input | Output | Activity
-> =>
+) =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;
     const token = yield* resolveToken(registryUrl);
@@ -70,9 +65,9 @@ export const withAuthGuard = <A, E, R>(
     }
 
     // No token — check flags
-    const env = yield* CliEnvironment;
+    const nonInteractive = yield* isNonInteractive;
 
-    if (env.nonInteractive) {
+    if (nonInteractive) {
       return yield* Effect.fail(AUTH_LOGIN_REQUIRED_NON_INTERACTIVE);
     }
 

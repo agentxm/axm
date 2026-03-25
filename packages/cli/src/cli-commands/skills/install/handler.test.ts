@@ -113,7 +113,9 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService> & {
+      nonInteractive?: boolean;
+    },
   ) => {
     const [outputLayer, logMock] = makeOutputTestLayer();
     const [activityLayer, spinnerMock] = makeActivityTestLayer();

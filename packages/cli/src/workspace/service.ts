@@ -22,7 +22,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { getAgentById } from "@axm.sh/core/unstable/agents";
-import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment, isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -602,6 +602,8 @@ const make = (options: WorkspaceContextOptions) =>
         return merged;
       }).pipe(Effect.withSpan("Workspace.getConfiguredSources"));
 
+    const nonInteractive = yield* isNonInteractive;
+
     return {
       scope: options.scope,
       path: workspaceDir,
@@ -610,8 +612,7 @@ const make = (options: WorkspaceContextOptions) =>
         plan: Plan,
         flags: { yes: boolean; force: boolean; preview: boolean },
       ) {
-        const env = yield* CliEnvironment;
-        const resolvedYes = flags.yes || env.nonInteractive;
+        const resolvedYes = flags.yes || nonInteractive;
         const showPlan = (targetPlan: Plan | ExecutedPlan) =>
           displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(Output, output)));
 
@@ -665,7 +666,7 @@ const make = (options: WorkspaceContextOptions) =>
           yield* showPlan(augmentedPlan);
 
           // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
-          if (env.nonInteractive && !flags.yes) {
+          if (nonInteractive && !flags.yes) {
             return {
               _tag: "ExecutedPlan",
               name: augmentedPlan.name,

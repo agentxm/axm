@@ -4,19 +4,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
-import { isCI } from "../utils/ci.js";
-import { isInteractive } from "../utils/tty.js";
-
 // ---------------------------------------------------------------------------
-// Global flag definition (parsed by Effect CLI at the root command level)
+// Global flag definitions (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
-export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
-  flag: Flag.boolean("non-interactive").pipe(
-    Flag.optional,
-    Flag.withDescription("Disable all interactive prompts"),
-  ),
-});
+export { isNonInteractive, nonInteractiveFlag } from "../utils/environment.js";
+import { nonInteractiveFlag } from "../utils/environment.js";
 
 export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
   flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
@@ -63,7 +56,6 @@ export const previewFlag = Flag.boolean("preview").pipe(
 // ---------------------------------------------------------------------------
 
 export interface CliEnvironmentService {
-  readonly nonInteractive: boolean;
   readonly verbose: boolean;
   readonly debug: boolean;
 }
@@ -79,13 +71,10 @@ export const makeCliEnvironmentLayer = (options?: {
   Layer.effect(
     CliEnvironment,
     Effect.gen(function* () {
-      const nonInteractiveOpt = yield* nonInteractiveFlag;
-
       const debug = (yield* debugFlag) || (options?.envDebug ?? false);
       const verbose = (yield* verboseFlag) || (options?.envVerbose ?? false) || debug;
 
       return {
-        nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI() || !isInteractive()),
         verbose,
         debug,
       } satisfies CliEnvironmentService;
@@ -97,11 +86,17 @@ export const makeCliEnvironmentLayer = (options?: {
 // ---------------------------------------------------------------------------
 
 export const CliEnvironmentTest = (
-  overrides?: Partial<CliEnvironmentService>,
-): Layer.Layer<CliEnvironment> =>
-  Layer.succeed(CliEnvironment, {
-    nonInteractive: true,
-    verbose: false,
-    debug: false,
-    ...overrides,
-  });
+  overrides?: Partial<CliEnvironmentService> & { nonInteractive?: boolean },
+) =>
+  Layer.mergeAll(
+    Layer.succeed(CliEnvironment, {
+      verbose: overrides?.verbose ?? false,
+      debug: overrides?.debug ?? false,
+    }),
+    Layer.succeed(
+      nonInteractiveFlag,
+      overrides?.nonInteractive === undefined
+        ? Option.some(true)
+        : Option.some(overrides.nonInteractive),
+    ),
+  );

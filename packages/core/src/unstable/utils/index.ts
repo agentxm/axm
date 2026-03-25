@@ -8,6 +8,13 @@ export { computeIntegrity } from "./integrity.js";
 export { isPathSafe } from "./path-safety.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export { createSymlink, type SymlinkResult } from "./create-symlink.js";
-export { isInteractive } from "./tty.js";
-export { isCI } from "./ci.js";
+export {
+  isCI,
+  isContainer,
+  isNonInteractive,
+  isRoot,
+  isSSH,
+  isWSL,
+  nonInteractiveFlag,
+} from "./environment.js";
 export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";

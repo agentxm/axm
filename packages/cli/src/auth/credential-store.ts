@@ -18,8 +18,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { isCI } from "@axm.sh/core/unstable/utils";
-import { detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
+import { isCI, isContainer, isRoot, isSSH, isWSL } from "@axm.sh/core/unstable/utils";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 
@@ -219,12 +218,13 @@ export interface EnvironmentInfo {
 }
 
 export const detectEnvironment = Effect.gen(function* () {
-  const isSSH = yield* detectSSH;
-  const isContainer = yield* detectContainer;
-  const isWSL = yield* detectWSL;
-  const ci = isCI();
-  const isRoot = yield* detectRoot;
-  return { isSSH, isContainer, isWSL, isCI: ci, isRoot } satisfies EnvironmentInfo;
+  return {
+    isSSH: isSSH(),
+    isContainer: yield* isContainer,
+    isWSL: yield* isWSL,
+    isCI: isCI(),
+    isRoot: isRoot(),
+  } satisfies EnvironmentInfo;
 });
 
 /**

@@ -613,9 +613,7 @@ const make = (options: WorkspaceContextOptions) =>
         const flags = yield* CliFlags;
         const resolvedYes = flags.yes || flags.nonInteractive;
         const showPlan = (targetPlan: Plan | ExecutedPlan) =>
-          displayPlan(targetPlan).pipe(
-            Effect.provide(Layer.succeed(Output, output)),
-          );
+          displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(Output, output)));
 
         // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
         const augmentedPlan = yield* augmentPlanWithReconciliation(

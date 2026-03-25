@@ -19,10 +19,9 @@ const unpackConfig = {
 export const unpackCommand = Command.make(
   "unpack",
   unpackConfig,
-  ({ name, strictAgentSync, yes, force, preview }) =>
+  ({ name, strictAgentSync }) =>
     withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUnpack({ name, strictAgentSync })), {
       command: "packs unpack",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(unpackConfig),

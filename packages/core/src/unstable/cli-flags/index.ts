@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
+import { type CommandArgvService, readBooleanFlag } from "../cli-runtime/command-argv.js";
 import { isInteractive } from "../utils/tty.js";
 
 // ---------------------------------------------------------------------------
@@ -69,32 +70,27 @@ export interface CliFlagsService {
   readonly preview: boolean;
 }
 
-export interface CliPerCommandFlags {
-  readonly yes?: boolean;
-  readonly force?: boolean;
-  readonly preview?: boolean;
-}
-
 export class CliFlags extends ServiceMap.Service<CliFlags, CliFlagsService>()(
   "@axm.sh/cli/CliFlags",
 ) {}
 
 export const makeCliFlagsLayer = (options?: {
   readonly ci?: boolean | undefined;
-  readonly flags?: CliPerCommandFlags | undefined;
+  readonly argv?: CommandArgvService | undefined;
 }) =>
   Layer.effect(
     CliFlags,
     Effect.gen(function* () {
       const nonInteractiveOpt = yield* nonInteractiveFlag;
       const isCI = options?.ci ?? false;
+      const argv = options?.argv;
 
       return {
         isCI,
         nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI || !isInteractive()),
-        yes: options?.flags?.yes ?? false,
-        force: options?.flags?.force ?? false,
-        preview: options?.flags?.preview ?? false,
+        yes: argv ? readBooleanFlag(argv, "yes") : false,
+        force: argv ? readBooleanFlag(argv, "force") : false,
+        preview: argv ? readBooleanFlag(argv, "preview") : false,
       } satisfies CliFlagsService;
     }),
   );

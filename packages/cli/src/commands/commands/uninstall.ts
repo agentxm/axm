@@ -18,10 +18,10 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, yes, force, preview }) =>
+  ({ name }) =>
     withRuntime(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleUninstallCommand({ commandName: name })),
-      { command: "commands uninstall", flags: { yes, force, preview } },
+      { command: "commands uninstall" },
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),

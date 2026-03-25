@@ -11,7 +11,7 @@ import {
 
 /**
  * Provide makeCliFlagsLayer with the given nonInteractive global flag value,
- * per-command flags, and optional ci override.
+ * per-command argv, and optional ci override.
  */
 const getFlags = (flags: {
   nonInteractive: Option.Option<boolean>;
@@ -22,16 +22,21 @@ const getFlags = (flags: {
 }) => {
   const globalFlagsLayer = Layer.succeed(nonInteractiveFlag, flags.nonInteractive);
 
-  const cliFlagsLayer = makeCliFlagsLayer({
-    ci: flags.ci,
-    flags: {
+  const argv = {
+    value: {
       ...(flags.yes !== undefined && { yes: flags.yes }),
       ...(flags.force !== undefined && { force: flags.force }),
       ...(flags.preview !== undefined && { preview: flags.preview }),
     },
-  });
+    paramKinds: {
+      ...(flags.yes !== undefined && { yes: "flag" as const }),
+      ...(flags.force !== undefined && { force: "flag" as const }),
+      ...(flags.preview !== undefined && { preview: "flag" as const }),
+    },
+  };
 
-  const fullLayer = Layer.provide(cliFlagsLayer, globalFlagsLayer);
+  const cliFlagsLayer = makeCliFlagsLayer({ ci: flags.ci, argv });
+  const fullLayer = Layer.fresh(Layer.provide(cliFlagsLayer, globalFlagsLayer));
 
   return CliFlags.asEffect().pipe(Effect.provide(fullLayer));
 };

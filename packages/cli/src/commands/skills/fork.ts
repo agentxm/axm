@@ -24,10 +24,10 @@ const forkConfig = {
 export const forkCommand = Command.make(
   "fork",
   forkConfig,
-  ({ source, skill, yes, force, preview }) =>
+  ({ source, skill }) =>
     withRuntime(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE, handleFork({ source, skills: [...skill] })),
-      { command: "skills fork", flags: { yes, force, preview } },
+      { command: "skills fork" },
     ),
 ).pipe(
   withArgvTracking(forkConfig),

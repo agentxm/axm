@@ -20,10 +20,9 @@ const renameConfig = {
 export const renameCommand = Command.make(
   "rename",
   renameConfig,
-  ({ oldName, newName, scope, yes, force, preview }) =>
+  ({ oldName, newName, scope }) =>
     withRuntime(withWorkspace(scope, handleRename({ oldName, newName })), {
       command: "skills rename",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(renameConfig),

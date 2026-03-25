@@ -28,7 +28,7 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, profile, agent, yes, force, preview }) =>
+  ({ name, profile, agent }) =>
     withRuntime(
       withWorkspace(
         DEFAULT_WORKSPACE_SCOPE,
@@ -38,7 +38,7 @@ export const newCommand = Command.make(
           agents: Option.map(agent, (value) => [...value]),
         }),
       ),
-      { command: "skills new", flags: { yes, force, preview } },
+      { command: "skills new" },
     ),
 ).pipe(
   withArgvTracking(newConfig),

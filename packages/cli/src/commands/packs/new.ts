@@ -22,10 +22,9 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, profile, yes, force, preview }) =>
+  ({ name, profile }) =>
     withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksNew({ name, profile })), {
       command: "packs new",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(newConfig),

@@ -7,8 +7,8 @@ import { handleLogin } from "../../cli-commands/auth/login/handler.js";
 
 const loginConfig = { yes: yesFlag } as const;
 
-export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
-  withRuntime(handleLogin(), { command: "auth login", flags: { yes } }),
+export const loginCommand = Command.make("login", loginConfig, () =>
+  withRuntime(handleLogin(), { command: "auth login" }),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),

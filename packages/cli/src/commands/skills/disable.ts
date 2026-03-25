@@ -17,10 +17,9 @@ const disableConfig = {
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
+  ({ name, scope }) =>
     withRuntime(withWorkspace(scope, handleDisable({ name })), {
       command: "skills disable",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(disableConfig),

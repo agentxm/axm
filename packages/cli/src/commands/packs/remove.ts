@@ -19,10 +19,9 @@ const removeConfig = {
 export const removeCommand = Command.make(
   "remove",
   removeConfig,
-  ({ pack, extension, yes, force, preview }) =>
+  ({ pack, extension }) =>
     withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksRemove({ pack, extension })), {
       command: "packs remove",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(removeConfig),

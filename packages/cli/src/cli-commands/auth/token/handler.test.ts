@@ -61,6 +61,7 @@ const makeLayers = (opts?: {
         homePath: Option.none(),
         verbose: Option.none(),
         debug: Option.none(),
+        telemetryBaseUrl: Option.none(),
         ...opts.configOverrides,
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;

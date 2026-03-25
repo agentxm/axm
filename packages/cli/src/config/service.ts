@@ -40,6 +40,7 @@ export interface CliEnvConfigService {
   readonly homePath: Option.Option<string>;
   readonly verbose: Option.Option<string>;
   readonly debug: Option.Option<string>;
+  readonly telemetryBaseUrl: Option.Option<string>;
 }
 
 export class CliEnvConfig extends ServiceMap.Service<CliEnvConfig, CliEnvConfigService>()(
@@ -63,6 +64,7 @@ export class CliEnvConfig extends ServiceMap.Service<CliEnvConfig, CliEnvConfigS
     homePath: Option.none(),
     verbose: Option.none(),
     debug: Option.none(),
+    telemetryBaseUrl: Option.none(),
   } satisfies CliEnvConfigService);
 }
 
@@ -96,6 +98,7 @@ export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, Config.ConfigError> = L
     const homePath = yield* Config.string("HOMEPATH").pipe(Config.option);
     const verbose = yield* Config.string("AXM_VERBOSE").pipe(Config.option);
     const debug = yield* Config.string("AXM_DEBUG").pipe(Config.option);
+    const telemetryBaseUrl = yield* Config.string("AXM_TELEMETRY_BASE_URL").pipe(Config.option);
 
     return {
       registryUrl,
@@ -115,6 +118,7 @@ export const CliEnvConfigLive: Layer.Layer<CliEnvConfig, Config.ConfigError> = L
       homePath,
       verbose,
       debug,
+      telemetryBaseUrl,
     } satisfies CliEnvConfigService;
   }),
 );

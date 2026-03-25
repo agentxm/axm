@@ -65,7 +65,7 @@ describe("TelemetryClientLive", () => {
 
         expect(mock.captured).toHaveLength(1);
         const req = mock.captured[0]!;
-        expect(req.url).toBe("https://t.agentxm.ai/events");
+        expect(req.url).toBe("https://t.agentxm.ai/v1/events");
         expect(req.method).toBe("POST");
 
         const body = req.body as {
@@ -118,7 +118,7 @@ describe("TelemetryClientLive", () => {
 
         expect(mock.captured).toHaveLength(1);
         const req = mock.captured[0]!;
-        expect(req.url).toBe("https://t.agentxm.ai/errors");
+        expect(req.url).toBe("https://t.agentxm.ai/v1/errors");
         expect(req.method).toBe("POST");
 
         const body = req.body as {
@@ -188,7 +188,7 @@ describe("TelemetryClientLive", () => {
         yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
-        expect(mock.captured[0]!.url).toBe("https://t.agentxm.ai/errors");
+        expect(mock.captured[0]!.url).toBe("https://t.agentxm.ai/v1/errors");
       }),
     );
   });

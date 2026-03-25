@@ -35,6 +35,7 @@ const makeTestLayer = (configOverrides?: Partial<CliEnvConfigService>) => {
         homePath: Option.none(),
         verbose: Option.none(),
         debug: Option.none(),
+        telemetryBaseUrl: Option.none(),
         ...configOverrides,
       } satisfies CliEnvConfigService)
     : CliEnvConfig.testDefaults;

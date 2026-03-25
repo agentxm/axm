@@ -2,15 +2,19 @@
 
 Comparison of `packages/cli-spike` (reference implementation) against `packages/cli` (production CLI) to identify inconsistencies and recommend alignment direction.
 
+Last verified: 2026-03-25
+
 ---
 
 ## 1. `output.result()` schema-driven output unused in main CLI
 
 The spike demonstrates `output.result(schema, data, renderText)` as the canonical pattern for format-agnostic output — text/json/stream-json routing handled transparently by the Output service. The main CLI uses only `output.info()`, `output.warn()`, `output.success()`, etc. No command in the main CLI calls `output.result()`.
 
+Worse, some main CLI commands bypass the Output service entirely — `whoami` and `token` use raw `process.stdout.write()` for data output (see Finding 9).
+
 **Direction:** spike → main CLI
 
-a) Backport `output.result()` into main CLI commands that emit structured data (e.g., `skills list`, `whoami`, `token`)
+a) Adopt `output.result()` in main CLI commands that emit structured data (e.g., `skills list`, `whoami`, `token`)
 b) Remove `output.result()` from the spike and standardize on info/warn/success methods only
 c) Leave as-is — adopt incrementally
 
@@ -19,7 +23,7 @@ c) Leave as-is — adopt incrementally
 **Key files:**
 
 - Spike reference: `packages/cli-spike/src/commands/skills/list.ts` (schema + renderText + `output.result()`)
-- Main CLI gap: `packages/cli/src/cli-commands/skills/list/handler.ts` (uses `output.info()` only)
+- Main CLI gap: `packages/cli/src/cli-commands/skills/list/handler.ts` (uses `output.info()` / `output.message()` only)
 
 ---
 
@@ -31,7 +35,7 @@ The spike defines scope inline in each command:
 Flag.choice("scope", ["project", "user"] as const).pipe(Flag.withDefault("project" as const));
 ```
 
-The main CLI centralizes this as `scopeFlag` in `cli-flags/service.ts`, importing `WORKSPACE_SCOPES` and `DEFAULT_WORKSPACE_SCOPE` constants.
+The main CLI centralizes this as `scopeFlag` in `cli-flags/service.ts`, importing `WORKSPACE_SCOPES` and `DEFAULT_WORKSPACE_SCOPE` constants from the workspace feature.
 
 **Direction:** main CLI → spike
 
@@ -62,7 +66,7 @@ c) Leave as-is
 **Key files:**
 
 - Spike: `packages/cli-spike/src/runtime.ts` (lines 22–42, raw `process.env`)
-- Main CLI: `packages/cli/src/telemetry/mode.ts`, `packages/cli/src/runtime.ts` (lines 63–75)
+- Main CLI: `packages/cli/src/telemetry/mode.ts`, `packages/cli/src/runtime.ts` (lines 62–74)
 - Core: `packages/core/src/unstable/telemetry/mode.ts`
 
 ---
@@ -92,8 +96,9 @@ The main CLI's `withRuntime` includes features absent from the spike:
 | Feature                                                                | Main CLI | Spike |
 | ---------------------------------------------------------------------- | -------- | ----- |
 | `debugLoggerLayer` (conditional `Logger.consolePretty()` on `--debug`) | Yes      | No    |
-| `CommandArgv` service option (argv in foundation layer)                | Yes      | No    |
 | `envVerbose` / `envDebug` env var resolution                           | Yes      | No    |
+
+Note: Both codebases use `withArgvTracking` at the command level for argv tracking — neither passes `CommandArgv` through `withRuntime`.
 
 **Direction:** main CLI → spike
 
@@ -105,7 +110,7 @@ b) Document the gaps as "production-only" additions
 **Key files:**
 
 - Spike: `packages/cli-spike/src/runtime.ts` (lines 49–66)
-- Main CLI: `packages/cli/src/runtime.ts` (lines 55–61, 131–153)
+- Main CLI: `packages/cli/src/runtime.ts` (lines 54–60, 130–150)
 
 ---
 
@@ -154,24 +159,75 @@ b) Leave as-is
 
 **Key files:**
 
-- Main CLI: `packages/cli/src/app.ts` (line 28–29)
+- Main CLI: `packages/cli/src/app.ts` (lines 28–29)
 - Spike: `packages/cli-spike/src/app.ts` (line 27)
+
+---
+
+## 9. Main CLI handlers bypass Output service with raw `process.stdout.write()`
+
+Several main CLI handlers write directly to `process.stdout` instead of using the Output service:
+
+- **`whoami`** (`cli-commands/auth/whoami/handler.ts`) — has a custom `--json` flag and manually calls `process.stdout.write(JSON.stringify(...))` for JSON output, while using `output.info()` for text mode. This creates two problems: it bypasses the Output service's format routing, and it introduces a per-command `--json` flag that's inconsistent with the global `--output-format` flag.
+- **`token`** (`cli-commands/auth/token/handler.ts`) — uses `process.stdout.write(token + "\n")` directly.
+
+**Direction:** spike → main CLI
+
+a) Refactor `whoami` and `token` to use `output.result()` with an output schema and text renderer, removing the custom `--json` flag in favor of the global `--output-format` flag
+b) Keep `token` as raw stdout (it's a credential pipe) but fix `whoami`
+c) Leave as-is
+
+**Recommendation:** (b) — `token` is intentionally a raw credential pipe (stdout-only, no decoration) for scripting use (`axm token | xargs curl -H "Authorization: Bearer $1"`). The `output.result()` pattern doesn't fit here. But `whoami` should use `output.result()` with a schema and the global `--output-format` flag — the custom `--json` flag is inconsistent UX.
+
+**Key files:**
+
+- `packages/cli/src/cli-commands/auth/whoami/handler.ts` (lines 54–75, manual JSON + `--json` flag)
+- `packages/cli/src/cli-commands/auth/token/handler.ts` (line 38, raw stdout)
+- Spike reference: `packages/cli-spike/src/commands/skills/list.ts` (correct pattern)
+
+---
+
+## 10. Telemetry wrapper uses `as` type assertions
+
+The main CLI's `telemetry/mode.ts` uses `as Record<string, string | undefined>` assertions (lines 21, 25) to handle a dual-interface function signature. This violates the project's "No Type Assertions" rule (CLAUDE.md).
+
+**Direction:** main CLI internal fix
+
+a) Remove the `Record<string, string | undefined>` overload — accept only `TelemetryEnvValues` and convert at the call site
+b) Use a type guard or `"key" in obj` narrowing instead of assertions
+c) Leave as-is — the wrapper is small and contained
+
+**Recommendation:** (a) — The dual-interface (`TelemetryEnvValues | Record<...>`) exists to support a raw env passthrough that nobody uses. Simplify to a single clean interface. The spike bypasses this wrapper entirely (Finding 3), so fixing it now prepares for spike alignment.
+
+**Key files:**
+
+- `packages/cli/src/telemetry/mode.ts` (lines 14–33, `as` assertions on lines 21, 25)
 
 ---
 
 ## Summary
 
-| #   | Finding                                   | Direction    | Priority | Size   |
-| --- | ----------------------------------------- | ------------ | -------- | ------ |
-| 1   | `output.result()` unused in main CLI      | spike → main | P1       | Medium |
-| 2   | Scope flag inline vs centralized          | main → spike | P2       | Small  |
-| 3   | Telemetry resolution interface mismatch   | main → spike | P2       | Small  |
-| 4   | Raw `process.env` vs `CliEnvConfig`       | main → spike | P2       | Medium |
-| 5   | Missing `withRuntime` features in spike   | main → spike | P2       | Medium |
-| 6   | Install command missing `force`/`preview` | main → spike | P3       | Small  |
-| 7   | Handler organization difference           | none         | —        | —      |
-| 8   | Root command no-subcommand behavior       | main → spike | P3       | Small  |
+| #   | Finding                                      | Direction    | Priority | Size   |
+| --- | -------------------------------------------- | ------------ | -------- | ------ |
+| 1   | `output.result()` unused in main CLI         | spike → main | P1       | Medium |
+| 9   | Handlers bypass Output with `process.stdout` | spike → main | P1       | Medium |
+| 2   | Scope flag inline vs centralized             | main → spike | P2       | Small  |
+| 3   | Telemetry resolution interface mismatch      | main → spike | P2       | Small  |
+| 4   | Raw `process.env` vs `CliEnvConfig`          | main → spike | P2       | Medium |
+| 5   | Missing `withRuntime` features in spike      | main → spike | P2       | Medium |
+| 10  | Telemetry wrapper uses `as` type assertions  | main CLI fix | P2       | Small  |
+| 6   | Install command missing `force`/`preview`    | main → spike | P3       | Small  |
+| 7   | Handler organization difference              | none         | —        | —      |
+| 8   | Root command no-subcommand behavior          | main → spike | P3       | Small  |
 
-**P1** — Biggest value-add: adopt `output.result()` in main CLI for structured data commands.
-**P2** — Bring the spike in line with production patterns so it remains a trustworthy reference.
+**P1** — Biggest value-add: adopt `output.result()` in main CLI for structured data commands and stop bypassing the Output service.
+**P2** — Bring the spike in line with production patterns so it remains a trustworthy reference. Fix assertion violations.
 **P3** — Small fixes for completeness and consistent UX.
+
+### Execution tracks
+
+**Track 1 — Main → Spike (reference integrity):** Findings 2, 3, 4, 5, 6, 8. Brings the spike up to production patterns. Mostly mechanical. Do first — the spike should be trustworthy before using it as a reference for Track 2.
+
+**Track 2 — Spike → Main (feature adoption):** Findings 1, 9. Adopt `output.result()` in main CLI commands that produce data (`skills list`, `whoami`). Highest user-facing value.
+
+**Track 3 — Main CLI internal:** Finding 10. Clean up the telemetry wrapper's type assertions. Small, independent.

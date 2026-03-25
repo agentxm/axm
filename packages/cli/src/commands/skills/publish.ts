@@ -25,13 +25,13 @@ const publishConfig = {
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ extensions, registry, yes, force, preview }) =>
+  ({ extensions, registry }) =>
     withRuntime(
       withWorkspace(
         DEFAULT_WORKSPACE_SCOPE,
         handlePublish({ extensions: [...extensions], registry }),
       ),
-      { command: "skills publish", flags: { yes, force, preview } },
+      { command: "skills publish" },
     ),
 ).pipe(
   withArgvTracking(publishConfig),

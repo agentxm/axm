@@ -30,10 +30,9 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, skill, yes, force, preview }) =>
+  ({ source, scope, agent, skill }) =>
     withRuntime(withWorkspace(scope, handleUpdate({ source, agents: agent, skills: skill })), {
       command: "skills update",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(updateConfig),

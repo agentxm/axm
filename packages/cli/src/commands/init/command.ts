@@ -21,10 +21,10 @@ const initConfig = {
 export const initCommand = Command.make(
   "init",
   initConfig,
-  ({ scope, agent, yes, force, preview }) =>
+  ({ scope, agent }) =>
     withRuntime(
       withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
-      { command: "init", flags: { yes, force, preview } },
+      { command: "init" },
     ),
 ).pipe(
   withArgvTracking(initConfig),

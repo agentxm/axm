@@ -10,7 +10,6 @@ import * as Layer from "effect/Layer";
 import {
   type CliTelemetryConfigService,
   makeFoundationLayer,
-  readGlobalFlagProperties,
   resolveCliFormat,
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
@@ -53,7 +52,6 @@ export const withRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
-    const globalProperties = yield* readGlobalFlagProperties;
     const foundationLayer = makeFoundationLayer(format, {
       ci: spikeCliTelemetryConfig.ci,
     });
@@ -64,6 +62,5 @@ export const withRuntime = <A, R>(
       command: options?.command,
       format,
       telemetryConfig: spikeCliTelemetryConfig,
-      globalProperties,
     });
   });

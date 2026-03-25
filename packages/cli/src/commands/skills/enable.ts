@@ -17,10 +17,9 @@ const enableConfig = {
 export const enableCommand = Command.make(
   "enable",
   enableConfig,
-  ({ name, scope, yes, force, preview }) =>
+  ({ name, scope }) =>
     withRuntime(withWorkspace(scope, handleEnable({ name })), {
       command: "skills enable",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(enableConfig),

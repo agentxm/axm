@@ -7,9 +7,9 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import {
+  CommandArgv,
   type CliTelemetryConfigService,
   makeFoundationLayer,
-  readGlobalFlagProperties,
   resolveCliFormat,
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
@@ -58,11 +58,6 @@ export { baseLayer };
 interface RuntimeOptions {
   readonly command?: string;
   readonly isLongRunning?: boolean;
-  readonly flags?: {
-    readonly yes?: boolean;
-    readonly force?: boolean;
-    readonly preview?: boolean;
-  };
 }
 
 const makeDebugLoggerLayer = (diagnosticVerbosity: DiagnosticVerbosity) =>
@@ -153,10 +148,10 @@ export const withRuntime = <A, R>(
   Effect.gen(function* () {
     const config = yield* resolveRuntimeConfig();
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
-    const globalProperties = yield* readGlobalFlagProperties;
+    const argvOption = yield* Effect.serviceOption(CommandArgv);
     const foundationLayer = makeFoundationLayer(format, {
       ci: config.ci,
-      flags: options?.flags,
+      argv: Option.getOrUndefined(argvOption),
     });
     const appLayer = Layer.provideMerge(config.debugLoggerLayer, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
@@ -166,6 +161,5 @@ export const withRuntime = <A, R>(
       format,
       telemetryConfig: config.telemetryConfig,
       appErrorRenderOptions: config.diagnosticVerbosity,
-      globalProperties,
     });
   });

@@ -19,10 +19,9 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview }) =>
+  ({ source, scope }) =>
     withRuntime(withWorkspace(scope, handleInstallCommand({ source })), {
       command: "commands install",
-      flags: { yes, force, preview },
     }),
 ).pipe(
   withArgvTracking(installConfig),

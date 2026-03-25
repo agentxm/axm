@@ -17,7 +17,6 @@ export {
 export {
   trackCliCommand,
   trackCliCommandCompleted,
-  readGlobalFlagProperties,
   reportCliDefect,
   reportCliError,
   type CliCommandTelemetryOptions,
@@ -27,6 +26,7 @@ export {
   CommandArgv,
   type CommandArgvService,
   withArgvTracking,
+  readBooleanFlag,
   serializeArgv,
   extractParamKinds,
 } from "./command-argv.js";

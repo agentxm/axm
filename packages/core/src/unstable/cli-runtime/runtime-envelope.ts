@@ -2,15 +2,14 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
 import {
   CliFlags,
   makeCliFlagsLayer,
   outputFormatFlag,
-  type CliPerCommandFlags,
 } from "../cli-flags/index.js";
+import type { CommandArgvService } from "./command-argv.js";
 import type { OutputFormat } from "../output-format.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError, type RenderAppErrorOptions } from "../app-error/index.js";
@@ -78,10 +77,10 @@ export const makeFoundationLayer = (
   format: OutputFormat,
   options?: {
     readonly ci?: boolean | undefined;
-    readonly flags?: CliPerCommandFlags | undefined;
+    readonly argv?: CommandArgvService | undefined;
   },
 ) => {
-  const cliFlagsLayer = makeCliFlagsLayer({ ci: options?.ci, flags: options?.flags });
+  const cliFlagsLayer = makeCliFlagsLayer({ ci: options?.ci, argv: options?.argv });
   const uiLayer = makeUiLayer(format);
   const inputLayer = format === "text" ? Layer.provide(InputLive, cliFlagsLayer) : InputStructured;
   return Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer);
@@ -111,9 +110,8 @@ export const withCliErrorHandling = <A, R>(
     readonly format: OutputFormat;
     readonly telemetryConfig: CliTelemetryConfigService;
     readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-    readonly globalProperties?: Record<string, string> | undefined;
   },
-): Effect.Effect<A, unknown, R | HttpClient.HttpClient> => {
+) => {
   const command = options.command ?? "unknown";
   const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
 
@@ -125,10 +123,13 @@ export const withCliErrorHandling = <A, R>(
       onSome: (argv) => serializeArgv(argv.value, argv.paramKinds),
     });
 
+    // Read global flag properties for telemetry
+    const globalProperties = yield* readGlobalFlagProperties;
+
     // Merge all properties for command_invoked
     const allProperties: Record<string, string> = {
       ...argvProperties,
-      ...(options.globalProperties ?? {}),
+      ...globalProperties,
     };
 
     // Fire command_invoked
@@ -197,7 +198,7 @@ export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
   readonly isLongRunning?: boolean | undefined;
   readonly ci?: boolean | undefined;
-  readonly flags?: CliPerCommandFlags | undefined;
+  readonly argv?: CommandArgvService | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
   readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
 }
@@ -208,8 +209,7 @@ export const withCliRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
-    const globalProperties = yield* readGlobalFlagProperties;
-    const foundationLayer = makeFoundationLayer(format, { ci: options.ci, flags: options.flags });
+    const foundationLayer = makeFoundationLayer(format, { ci: options.ci, argv: options.argv });
     const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {
@@ -217,6 +217,5 @@ export const withCliRuntime = <A, R>(
       format,
       telemetryConfig: options.telemetryConfig,
       appErrorRenderOptions: options.appErrorRenderOptions,
-      globalProperties,
     });
   });

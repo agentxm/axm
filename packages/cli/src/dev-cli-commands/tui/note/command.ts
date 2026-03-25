@@ -8,6 +8,6 @@ export const noteCommand = {
       yield* output.note("This is a note with a title.", "Welcome");
       yield* output.note("This is a note without a title.");
     });
-    return Effect.runPromise(program.pipe(Effect.provide(OutputLive("text"))));
+    return Effect.runPromise(program.pipe(Effect.provide(OutputLive())));
   },
 };

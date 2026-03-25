@@ -2,50 +2,23 @@
 // list.ts — Reference pattern for INSTANT commands using Output service
 //
 // Demonstrates the idiomatic command structure with @axm.sh/core services:
-//   1. Output schema — defines the JSON contract (with _version)
-//   2. Text renderer — pure function for human-readable output
-//   3. Command handler — uses Output.result() via withRuntime()
-//
-// The key improvement over manual format branching: the handler doesn't
-// know or care about the output format. Output.result() handles text/json/
-// stream-json routing transparently based on which layer was provided.
+//   1. Fetch data via services
+//   2. Format and emit output via Output service
+//   3. withRuntime() provides Output + Activity layers
 // ==========================================================================
+import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { Output } from "@axm.sh/core/unstable/output";
-import { FakeSkillInfoSchema, FakeSkillsManager } from "../../fake-skills-manager.js";
+import { type FakeSkillInfo, FakeSkillsManager } from "../../fake-skills-manager.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
-// Output schema — the JSON contract for `skills list`
-//
-// Every JSON output includes _version: 1 for forward-compatible schema
-// evolution. When we make breaking changes, we bump _version and consumers
-// can branch on it. Additive changes (new fields) don't bump the version.
-//
-// Schema.NullOr(Schema.String) for version means the field is ALWAYS present
-// in JSON output — it's either a string or null, never omitted. This gives
-// consumers a stable shape to destructure without checking for missing keys.
-// Compare: { version?: string } would omit the key entirely, forcing
-// consumers to check `"version" in obj` before accessing it.
-// ---------------------------------------------------------------------------
-
-export const SkillListOutputSchema = Schema.Array(FakeSkillInfoSchema);
-export type SkillListOutput = typeof SkillListOutputSchema.Type;
-
-// ---------------------------------------------------------------------------
 // Text renderer — human-friendly table for TTY output
-//
-// Text rendering is a pure function (data → string) separated from the
-// handler for testability. The same data flows through both paths: text
-// mode calls renderText(), json/stream-json mode calls Schema.encodeSync().
-// This ensures text and JSON output always represent the same data.
 // ---------------------------------------------------------------------------
 
-const renderText = (skills: SkillListOutput): string => {
+const renderText = (skills: ReadonlyArray<FakeSkillInfo>): string => {
   if (skills.length === 0) return "No skills installed.";
 
   const header = `${"Name".padEnd(16)} ${"Source".padEnd(16)} ${"Version".padEnd(10)} ${"Enabled".padEnd(8)} Scope`;
@@ -59,14 +32,6 @@ const renderText = (skills: SkillListOutput): string => {
 
 // ---------------------------------------------------------------------------
 // Command
-//
-// The handler is now format-agnostic:
-//   1. withRuntime() resolves format and provides Output + Activity services
-//   2. yield* Output to get the service
-//   3. yield* output.result(schema, data, renderText) to emit output
-//
-// No more: const format = resolveOutputFormat(yield* outputFormatFlag)
-// No more: yield* writeOutput(format, schema, data, renderText)
 // ---------------------------------------------------------------------------
 
 const listConfig = {
@@ -80,10 +45,9 @@ const listConfig = {
 export const listCommand = Command.make("list", listConfig, (config) =>
   withRuntime(
     Effect.gen(function* () {
-      const output = yield* Output;
       const fakeSkillsManager = yield* FakeSkillsManager;
       const skills = yield* fakeSkillsManager.listSkills(config.scope);
-      yield* output.result(SkillListOutputSchema, skills, renderText);
+      yield* Console.log(renderText(skills));
     }),
     { command: "skills list" },
   ),
@@ -97,10 +61,6 @@ export const listCommand = Command.make("list", listConfig, (config) =>
     {
       command: "axm-spike skills list --agent claude-code",
       description: "List skills for an agent",
-    },
-    {
-      command: "axm-spike skills list --output-format json",
-      description: "List skills as JSON (for piping)",
     },
   ]),
 );

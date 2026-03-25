@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type * as Schema from "effect/Schema";
 import type * as ServiceMap from "effect/ServiceMap";
 import * as Stream from "effect/Stream";
 import { Output, type BoxOptions, type StreamLevel } from "./output.js";
@@ -84,10 +83,6 @@ export const makeOutputTestLayer = (): readonly [Layer.Layer<Output>, MockOutput
         ),
         Effect.asVoid,
       ),
-    result: <A, I>(schema: Schema.Codec<A, I>, data: A, textRenderer: (data: A) => string) =>
-      Effect.sync(() => {
-        mock.calls.push({ method: "result", args: [schema, data, textRenderer] });
-      }),
   };
 
   const layer = Layer.succeed(Output, mock);

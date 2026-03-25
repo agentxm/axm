@@ -83,25 +83,6 @@ The `Output` service SHALL provide a `stream` method accepting a `StreamLevel` a
 - **WHEN** a handler calls `output.stream("error", textStream)`
 - **THEN** the stream SHALL be consumed and rendered with error-level formatting
 
-### Requirement: Output service provides typed result emission
-
-The `Output` service SHALL provide a `result` method accepting a Schema encoder, typed data, and a text renderer function. The layer SHALL resolve the output format internally — handlers SHALL NOT pass or resolve the output format.
-
-#### Scenario: Result in text mode
-
-- **WHEN** a handler calls `output.result(schema, data, textRenderer)` in text mode
-- **THEN** `textRenderer(data)` SHALL be called and the result written to stdout
-
-#### Scenario: Result in json mode
-
-- **WHEN** a handler calls `output.result(schema, data, textRenderer)` in json mode
-- **THEN** the data SHALL be encoded via the schema and written to stdout as a single JSON object
-
-#### Scenario: Result in stream-json mode
-
-- **WHEN** a handler calls `output.result(schema, data, textRenderer)` in stream-json mode
-- **THEN** the data SHALL be encoded via the schema and written to stdout as `{ "type": "result", "data": <encoded> }`
-
 ### Requirement: Output service has structured output layers
 
 The `Output` service SHALL have a structured layer factory `OutputStructured(mode)` where mode is `"json" | "stream-json"`. In json mode, messages SHALL route to stderr. In stream-json mode, messages SHALL emit NDJSON log events on stdout. The NDJSON event schemas SHALL be unchanged from the current `output.ts` definitions.

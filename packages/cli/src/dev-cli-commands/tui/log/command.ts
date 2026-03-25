@@ -11,6 +11,6 @@ export const logCommand = {
       yield* output.success("This is a success message");
       yield* output.message("This is a plain message");
     });
-    return Effect.runPromise(program.pipe(Effect.provide(OutputLive("text"))));
+    return Effect.runPromise(program.pipe(Effect.provide(OutputLive())));
   },
 };

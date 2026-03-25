@@ -3,12 +3,10 @@
 //
 // Stub commands define the CLI interface (args, flags, description) without
 // real business logic. To convert this stub to a real command:
-//   1. Add an output schema (Schema.Struct with _version: Schema.Literal(1))
-//   2. Add a text renderer (pure function: data -> string)
-//   3. Replace Console.log with the standard handler pattern:
+//   1. Replace Console.log with the standard handler pattern:
 //        const output = yield* Output;
 //        const result = yield* doWork(config);
-//        yield* output.result(schema, result, renderText);
+//        yield* output.success(formatResult(result));
 //
 // See list.ts (instant) and install.ts (long-running) for complete examples.
 // ---------------------------------------------------------------------------

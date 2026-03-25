@@ -11,7 +11,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
-import { CliEnvConfig } from "../../config/index.js";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
@@ -64,7 +63,6 @@ const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
     inputLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
     CliEnvironmentTest(),
-    CliEnvConfig.testDefaults,
   );
 };
 

@@ -15,7 +15,6 @@ import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { CliEnvConfig } from "../../config/index.js";
 import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
 import type { SourceHostProvider, LocalSource, ExtensionRef } from "@axm.sh/core/unstable/sources";
 
@@ -29,7 +28,7 @@ import type { SourceHostProvider, LocalSource, ExtensionRef } from "@axm.sh/core
  */
 export const createLocalSourceHostProvider = (): SourceHostProvider<
   LocalSource,
-  FileSystem.FileSystem | Path.Path | CliEnvConfig
+  FileSystem.FileSystem | Path.Path
 > => ({
   type: "local",
 

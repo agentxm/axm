@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import {
   TelemetryClient,
   TelemetryClientTest,
@@ -8,7 +7,6 @@ import {
   type TelemetryClientService,
 } from "@axm.sh/core/unstable/telemetry";
 import type { TelemetryMode } from "./mode.js";
-import { CliEnvConfig } from "../config/index.js";
 import { loadVersion } from "../version.js";
 
 export type { TelemetryClientService };
@@ -18,19 +16,18 @@ export const TelemetryClientLive = (mode: TelemetryMode, command: string) =>
   Layer.effect(
     TelemetryClient,
     Effect.gen(function* () {
-      const envConfig = yield* CliEnvConfig;
+      const ci = process.env["CI"] === "true";
+      const vitest = process.env["VITEST"] === "true";
+      const telemetryBaseUrl = process.env["AXM_TELEMETRY_BASE_URL"];
 
       return yield* makeTelemetryClient({
         mode,
         command,
         client: { name: "cli", version: loadVersion() },
         runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-        ci: envConfig.ci,
-        test: envConfig.vitest === "true",
-        ...Option.match(envConfig.telemetryBaseUrl, {
-          onNone: () => ({}),
-          onSome: (baseUrl) => ({ baseUrl }),
-        }),
+        ci,
+        test: vitest,
+        ...(telemetryBaseUrl !== undefined ? { baseUrl: telemetryBaseUrl } : {}),
       });
     }),
   );

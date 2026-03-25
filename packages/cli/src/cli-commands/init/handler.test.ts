@@ -25,7 +25,6 @@ import { afterEach, beforeEach } from "vitest";
 import { Output, makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { Input, makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../config/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -64,7 +63,6 @@ describe("init.handler", () => {
     outputLayer,
     inputLayer,
     CliEnvironmentTest(),
-    CliEnvConfig.testDefaults,
   );
 
   /**
@@ -76,13 +74,7 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Output
-        | Input
-        | Workspace
-        | CliEnvironment
-        | CliEnvConfig
+        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -311,7 +303,6 @@ describe("init.handler", () => {
       const InteractiveTestLayer = Layer.mergeAll(
         TestLayer,
         CliEnvironmentTest({ nonInteractive: false }),
-        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(
         workspaceLayer({ scope: "project", agents: Option.none() }),
@@ -378,20 +369,13 @@ describe("init.handler", () => {
         iOutputLayer,
         iInputLayer,
         CliEnvironmentTest({ nonInteractive: false }),
-        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
       return <A, E>(
         effect: Effect.Effect<
           A,
           E,
-          | FileSystem.FileSystem
-          | Path.Path
-          | Output
-          | Input
-          | Workspace
-          | CliEnvironment
-          | CliEnvConfig
+          FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
@@ -470,7 +454,6 @@ describe("init.handler", () => {
         iOutputLayer,
         iInputLayer,
         CliEnvironmentTest(),
-        CliEnvConfig.testDefaults,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
@@ -482,6 +465,8 @@ describe("init.handler", () => {
     });
 
     it.effect("does not display telemetry notice when AXM_TELEMETRY=0", () => {
+      const origTelemetry = process.env["AXM_TELEMETRY"];
+      process.env["AXM_TELEMETRY"] = "0";
       const [iOutputLayer, mockOutput] = makeOutputTestLayer();
       const [iInputLayer] = makeInputTestLayer({
         methodBehaviors: {
@@ -490,33 +475,11 @@ describe("init.handler", () => {
           multiselect: { type: "multiselect", indices: [] },
         },
       });
-      // Provide CliEnvConfig with telemetry explicitly set to "0"
-      const telemetryOffConfig = Layer.succeed(CliEnvConfig, {
-        registryUrl: "https://registry.agentxm.ai",
-        token: Option.none(),
-        ci: false,
-        doNotTrack: Option.none(),
-        telemetry: Option.some("0"),
-        sshClient: Option.none(),
-        sshTty: Option.none(),
-        xdgConfigHome: Option.none(),
-        claudeSkillsDir: Option.none(),
-        geminiCliSkillsDir: Option.none(),
-        installInternalSkills: Option.none(),
-        vitest: "false",
-        home: Option.none(),
-        userProfile: Option.none(),
-        homePath: Option.none(),
-        verbose: Option.none(),
-        debug: Option.none(),
-        telemetryBaseUrl: Option.none(),
-      });
       const BaseLayer = Layer.mergeAll(
         NodeServices.layer,
         iOutputLayer,
         iInputLayer,
         CliEnvironmentTest(),
-        telemetryOffConfig,
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
@@ -524,7 +487,15 @@ describe("init.handler", () => {
 
         const infoMessages = mockOutput.logs.info;
         expect(infoMessages).not.toContain("Telemetry is enabled to help improve axm. To disable:");
-      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (origTelemetry !== undefined) process.env["AXM_TELEMETRY"] = origTelemetry;
+            else delete process.env["AXM_TELEMETRY"];
+          }),
+        ),
+        Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)),
+      );
     });
   });
 

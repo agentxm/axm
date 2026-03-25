@@ -16,7 +16,6 @@ import type { Skill } from "@axm.sh/core/unstable/extensions";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CliEnvConfig } from "../../../config/index.js";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 
 /**
@@ -241,16 +240,11 @@ export const discoverSkillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
-): Effect.Effect<
-  ReadonlyArray<DiscoveredSkill>,
-  AppError,
-  FileSystem.FileSystem | Path.Path | CliEnvConfig
-> =>
+): Effect.Effect<ReadonlyArray<DiscoveredSkill>, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const envConfig = yield* CliEnvConfig;
-    const { installInternalSkills } = envConfig;
+    const installInternalSkills = Option.fromUndefinedOr(process.env["INSTALL_INTERNAL_SKILLS"]);
 
     // Compute effective search root
     const searchRoot = Option.match(subPath, {

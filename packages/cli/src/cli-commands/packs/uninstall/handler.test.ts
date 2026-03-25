@@ -18,7 +18,6 @@ import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
@@ -129,7 +128,6 @@ describe("packs uninstall handler", () => {
       activityLayer,
       inputLayer,
       CliEnvironmentTest(),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

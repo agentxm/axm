@@ -18,7 +18,6 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvConfig } from "../config/index.js";
 import { Workspace } from "../workspace/service.js";
 import type {
   ExtensionFiles,
@@ -175,14 +174,13 @@ export const createRegistryMetaProvider = () => ({
 export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
-  FileSystem.FileSystem | Path.Path | Workspace | CliEnvConfig
+  FileSystem.FileSystem | Path.Path | Workspace
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const envConfig = yield* CliEnvConfig;
     const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
 
     const localProvider = createLocalSourceHostProvider();
@@ -195,7 +193,6 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Workspace, ws),
-      Layer.succeed(CliEnvConfig, envConfig),
     );
     const depLayer = Option.match(ambientHttpClient, {
       onNone: () => baseDepLayer,

@@ -11,10 +11,8 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Redacted from "effect/Redacted";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore } from "./credential-store.js";
 import {
   CredentialStoreTokenSource,
@@ -81,12 +79,9 @@ export const resolveStoredToken = (
  * 1. AXM_TOKEN env var
  * 2. --token flag (passed as `flagToken` parameter)
  */
-export const resolveAmbientToken = (
-  flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, never, CliEnvConfig> =>
+export const resolveAmbientToken = (flagToken?: string) =>
   Effect.gen(function* () {
-    const config = yield* CliEnvConfig;
-    const envToken = Option.map(config.token, Redacted.value).pipe(Option.getOrUndefined);
+    const envToken = process.env["AXM_TOKEN"];
     if (envToken !== undefined && envToken.length > 0) {
       yield* emitEnvVarMessage;
       return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
@@ -110,7 +105,7 @@ export const resolveAmbientToken = (
 export const resolveToken = (
   registryUrl: string,
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | CliEnvConfig> =>
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore> =>
   Effect.gen(function* () {
     const ambient = yield* resolveAmbientToken(flagToken);
     if (Option.isSome(ambient)) return ambient;

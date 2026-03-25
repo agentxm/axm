@@ -8,7 +8,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { CliEnvConfig } from "../../../config/index.js";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { Source, ExtensionRef, SkillExtensionRef } from "@axm.sh/core/unstable/sources";
@@ -190,7 +189,6 @@ const withServices = (
     Workspace.layer(mockWs),
     outputLayer,
     Layer.succeed(SourceHostProviders, sourceProviders),
-    CliEnvConfig.testDefaults,
   );
 };
 

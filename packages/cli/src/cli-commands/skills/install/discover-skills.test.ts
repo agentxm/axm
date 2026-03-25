@@ -10,55 +10,38 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
   discoverSkillsInDir,
   type DiscoveryOptions,
   getPriorityDirectories,
 } from "./discover-skills.js";
-import { CliEnvConfig } from "../../../config/index.js";
 import { getAllAgents } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const TestLayer = Layer.mergeAll(NodeServices.layer, CliEnvConfig.testDefaults);
+const TestLayer = NodeServices.layer;
 
-const withFileSystem = <A, E>(
-  effect: Effect.Effect<A, E, NodeServices.NodeServices | CliEnvConfig>,
-) => effect.pipe(Effect.provide(TestLayer));
+const withFileSystem = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
+  effect.pipe(Effect.provide(TestLayer));
 
-/** Provide a custom CliEnvConfig with installInternalSkills set. */
+/** Set INSTALL_INTERNAL_SKILLS env var for the duration of the effect. */
 const withInstallInternalSkills = (value: string) => {
-  const customConfig = Layer.mergeAll(
-    NodeServices.layer,
-    Layer.succeed(CliEnvConfig, {
-      ...{
-        registryUrl: "https://registry.agentxm.ai",
-        token: Option.none(),
-        ci: false,
-        doNotTrack: Option.none(),
-        telemetry: Option.none(),
-        sshClient: Option.none(),
-        sshTty: Option.none(),
-        xdgConfigHome: Option.none(),
-        claudeSkillsDir: Option.none(),
-        geminiCliSkillsDir: Option.none(),
-        installInternalSkills: Option.some(value),
-        vitest: "false",
-        home: Option.none(),
-        userProfile: Option.none(),
-        homePath: Option.none(),
-        verbose: Option.none(),
-        debug: Option.none(),
-        telemetryBaseUrl: Option.none(),
-      },
-    }),
-  );
-  return <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices | CliEnvConfig>) =>
-    effect.pipe(Effect.provide(customConfig));
+  return <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) => {
+    const saved = process.env["INSTALL_INTERNAL_SKILLS"];
+    process.env["INSTALL_INTERNAL_SKILLS"] = value;
+    return effect.pipe(
+      Effect.provide(TestLayer),
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (saved === undefined) delete process.env["INSTALL_INTERNAL_SKILLS"];
+          else process.env["INSTALL_INTERNAL_SKILLS"] = saved;
+        }),
+      ),
+    );
+  };
 };
 
 /**

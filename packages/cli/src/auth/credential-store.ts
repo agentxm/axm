@@ -18,7 +18,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvConfig } from "../config/index.js";
 import { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
@@ -270,8 +269,10 @@ export const CredentialStoreLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const config = yield* CliEnvConfig;
-    const homeDir = resolveHomeDir(config);
+    const home = Option.fromUndefinedOr(process.env["HOME"]);
+    const userProfile = Option.fromUndefinedOr(process.env["USERPROFILE"]);
+    const homePath = Option.fromUndefinedOr(process.env["HOMEPATH"]);
+    const homeDir = resolveHomeDir({ home, userProfile, homePath });
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     yield* emitEnvironmentWarnings(env, storageTier);

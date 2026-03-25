@@ -18,7 +18,6 @@ import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
 import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -130,7 +129,6 @@ describe("packs install handler", () => {
       activityLayer,
       inputLayer,
       CliEnvironmentTest(flagsOverrides),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -178,7 +176,6 @@ describe("packs install handler", () => {
       activityLayer,
       inputLayer,
       CliEnvironmentTest(flagsOverrides),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

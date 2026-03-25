@@ -18,7 +18,6 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
 import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -100,7 +99,6 @@ describe("disable.handler", () => {
       outputLayer,
       inputLayer,
       CliEnvironmentTest(),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -114,13 +112,7 @@ describe("disable.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Output
-        | Input
-        | Workspace
-        | CliEnvironment
-        | CliEnvConfig
+        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

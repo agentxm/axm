@@ -5,9 +5,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
-import { CliEnvConfig, type CliEnvConfigService } from "../config/index.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 
 /**
@@ -32,49 +30,39 @@ const mockFileSystem = (overrides: {
     },
   } as FileSystem.FileSystem);
 
-/**
- * Creates a CliEnvConfig test layer with overrides.
- */
-const makeTestConfig = (overrides: Partial<CliEnvConfigService> = {}): Layer.Layer<CliEnvConfig> =>
-  Layer.succeed(CliEnvConfig, {
-    registryUrl: "https://registry.agentxm.ai",
-    token: Option.none(),
-    ci: false,
-    doNotTrack: Option.none(),
-    telemetry: Option.none(),
-    sshClient: Option.none(),
-    sshTty: Option.none(),
-    xdgConfigHome: Option.none(),
-    claudeSkillsDir: Option.none(),
-    geminiCliSkillsDir: Option.none(),
-    installInternalSkills: Option.none(),
-    vitest: "false",
-    home: Option.none(),
-    userProfile: Option.none(),
-    homePath: Option.none(),
-    verbose: Option.none(),
-    debug: Option.none(),
-    telemetryBaseUrl: Option.none(),
-    ...overrides,
-  } satisfies CliEnvConfigService);
-
 describe("Environment detection", () => {
   describe("detectSSH", () => {
+    let origSshClient: string | undefined;
+    let origSshTty: string | undefined;
+
+    beforeEach(() => {
+      origSshClient = process.env["SSH_CLIENT"];
+      origSshTty = process.env["SSH_TTY"];
+      delete process.env["SSH_CLIENT"];
+      delete process.env["SSH_TTY"];
+    });
+
+    afterEach(() => {
+      if (origSshClient !== undefined) process.env["SSH_CLIENT"] = origSshClient;
+      else delete process.env["SSH_CLIENT"];
+      if (origSshTty !== undefined) process.env["SSH_TTY"] = origSshTty;
+      else delete process.env["SSH_TTY"];
+    });
+
     it("returns true when SSH_CLIENT is set", async () => {
-      const layer = makeTestConfig({ sshClient: Option.some("192.168.1.1 12345 22") });
-      const result = await Effect.runPromise(detectSSH.pipe(Effect.provide(layer)));
+      process.env["SSH_CLIENT"] = "192.168.1.1 12345 22";
+      const result = await Effect.runPromise(detectSSH);
       expect(result).toBe(true);
     });
 
     it("returns true when SSH_TTY is set", async () => {
-      const layer = makeTestConfig({ sshTty: Option.some("/dev/pts/0") });
-      const result = await Effect.runPromise(detectSSH.pipe(Effect.provide(layer)));
+      process.env["SSH_TTY"] = "/dev/pts/0";
+      const result = await Effect.runPromise(detectSSH);
       expect(result).toBe(true);
     });
 
     it("returns false when neither SSH var is set", async () => {
-      const layer = makeTestConfig();
-      const result = await Effect.runPromise(detectSSH.pipe(Effect.provide(layer)));
+      const result = await Effect.runPromise(detectSSH);
       expect(result).toBe(false);
     });
   });
@@ -142,21 +130,32 @@ describe("Environment detection", () => {
   });
 
   describe("detectCI", () => {
+    let origCI: string | undefined;
+
+    beforeEach(() => {
+      origCI = process.env["CI"];
+      delete process.env["CI"];
+    });
+
+    afterEach(() => {
+      if (origCI !== undefined) process.env["CI"] = origCI;
+      else delete process.env["CI"];
+    });
+
     it("returns true when CI=true", async () => {
-      const layer = makeTestConfig({ ci: true });
-      const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
+      process.env["CI"] = "true";
+      const result = await Effect.runPromise(detectCI);
       expect(result).toBe(true);
     });
 
     it("returns false when CI is not set", async () => {
-      const layer = makeTestConfig({ ci: false });
-      const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
+      const result = await Effect.runPromise(detectCI);
       expect(result).toBe(false);
     });
 
     it("returns false when CI is not true", async () => {
-      const layer = makeTestConfig({ ci: false });
-      const result = await Effect.runPromise(detectCI.pipe(Effect.provide(layer)));
+      process.env["CI"] = "false";
+      const result = await Effect.runPromise(detectCI);
       expect(result).toBe(false);
     });
   });

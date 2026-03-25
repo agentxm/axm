@@ -18,7 +18,6 @@ import { afterEach, beforeEach } from "vitest";
 import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
@@ -140,7 +139,6 @@ describe("packs-add.handler", () => {
       outputLayer,
       inputLayer,
       CliEnvironmentTest(flagsOverrides),
-      CliEnvConfig.testDefaults,
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

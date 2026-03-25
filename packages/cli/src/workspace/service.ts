@@ -23,7 +23,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { getAgentById } from "@axm.sh/core/unstable/agents";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig } from "../config/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -335,7 +334,6 @@ const make = (options: WorkspaceContextOptions) =>
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const envConfig = yield* CliEnvConfig;
     const output = yield* Output;
     const input = yield* Input;
     const semaphore = yield* Semaphore.make(1);
@@ -345,7 +343,6 @@ const make = (options: WorkspaceContextOptions) =>
     const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(CliEnvConfig, envConfig),
     );
 
     // Built-in sources: parameterized via options, falling back to git forges only
@@ -1620,7 +1617,7 @@ export interface WorkspaceContextService {
   readonly resolvePlan: (
     plan: Plan,
     flags: { yes: boolean; force: boolean; preview: boolean },
-  ) => Effect.Effect<ExecutedPlan, PromptCancelled | AppError, CliEnvironment | CliEnvConfig>;
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | AppError, CliEnvironment>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */

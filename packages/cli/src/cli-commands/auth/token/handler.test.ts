@@ -5,23 +5,17 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Redacted from "effect/Redacted";
-import { vi, beforeEach } from "vitest";
+import { vi, afterEach, beforeEach } from "vitest";
 
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { CliEnvConfig, type CliEnvConfigService } from "../../../config/index.js";
 import { handleToken } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeLayers = (opts?: {
-  hasCredentials?: boolean;
-  configOverrides?: Partial<CliEnvConfigService>;
-}) => {
+const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const credStoreLayer = opts?.hasCredentials
     ? CredentialStoreTest("encrypted-file", {
         version: 1,
@@ -42,36 +36,7 @@ const makeLayers = (opts?: {
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
-  const configLayer = opts?.configOverrides
-    ? Layer.succeed(CliEnvConfig, {
-        registryUrl: "https://registry.agentxm.ai",
-        token: Option.none(),
-        ci: false,
-        doNotTrack: Option.none(),
-        telemetry: Option.none(),
-        sshClient: Option.none(),
-        sshTty: Option.none(),
-        xdgConfigHome: Option.none(),
-        claudeSkillsDir: Option.none(),
-        geminiCliSkillsDir: Option.none(),
-        installInternalSkills: Option.none(),
-        vitest: "false",
-        home: Option.none(),
-        userProfile: Option.none(),
-        homePath: Option.none(),
-        verbose: Option.none(),
-        debug: Option.none(),
-        telemetryBaseUrl: Option.none(),
-        ...opts.configOverrides,
-      } satisfies CliEnvConfigService)
-    : CliEnvConfig.testDefaults;
-
-  const FullLayer = Layer.mergeAll(
-    CliEnvironmentTest(),
-    credStoreLayer,
-    registryUrlLayer,
-    configLayer,
-  );
+  const FullLayer = Layer.mergeAll(CliEnvironmentTest(), credStoreLayer, registryUrlLayer);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -81,8 +46,17 @@ const makeLayers = (opts?: {
 };
 
 describe("auth token handler", () => {
+  let origAxmToken: string | undefined;
+
   beforeEach(() => {
+    origAxmToken = process.env["AXM_TOKEN"];
+    delete process.env["AXM_TOKEN"];
     resetEnvVarMessageFlag();
+  });
+
+  afterEach(() => {
+    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
+    else delete process.env["AXM_TOKEN"];
   });
 
   it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
@@ -114,9 +88,8 @@ describe("auth token handler", () => {
   });
 
   it.effect("outputs token from AXM_TOKEN env var", () => {
-    const { provide } = makeLayers({
-      configOverrides: { token: Option.some(Redacted.make("axm_env_test_token")) },
-    });
+    process.env["AXM_TOKEN"] = "axm_env_test_token";
+    const { provide } = makeLayers();
     const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
 
     return provide(

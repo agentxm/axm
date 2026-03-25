@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -26,14 +26,14 @@ import { Output } from "@axm.sh/core/unstable/output";
 export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Load credentials
   const existing = yield* credStore.load(registryUrl);
 
   if (Option.isNone(existing)) {
-    yield* output.info("Not logged in.");
+    yield* renderer.info("Not logged in.");
     return;
   }
 
@@ -47,10 +47,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   // Step 4: Display result
   if (Option.isSome(revokeResult)) {
-    yield* output.success("Logged out successfully.");
+    yield* renderer.success("Logged out successfully.");
   } else {
-    yield* output.warn("Signed out locally, but remote revoke failed.");
-    yield* output.info(
+    yield* renderer.warn("Signed out locally, but remote revoke failed.");
+    yield* renderer.info(
       "Your token may still be active on the server. It will expire automatically.",
     );
   }

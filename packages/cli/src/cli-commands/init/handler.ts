@@ -10,7 +10,7 @@
 import { getAgentById } from "@axm.sh/core/unstable/agents";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { resolveTelemetryMode } from "../../telemetry/index.js";
 import { Workspace } from "../../workspace/index.js";
 
@@ -28,10 +28,10 @@ import { Workspace } from "../../workspace/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const handleInit = Effect.fn("Init.handle")(function* () {
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
   const context = yield* Workspace;
   // Show intro
-  yield* output.info(`axm init (${context.scope})`);
+  yield* renderer.info(`axm init (${context.scope})`);
 
   // Display result
   const agentIds = yield* context.getConfiguredAgents();
@@ -45,10 +45,10 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     .join(", ");
 
   if (agentIds.length > 0) {
-    yield* output.info(`Agents: ${agentNames}`);
+    yield* renderer.info(`Agents: ${agentNames}`);
   }
-  yield* output.info(`Settings: ${context.path}/settings.json`);
-  yield* output.success(
+  yield* renderer.info(`Settings: ${context.path}/settings.json`);
+  yield* renderer.success(
     agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
   );
 
@@ -61,8 +61,8 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     {},
   );
   if (telemetryMode !== "off") {
-    yield* output.info("");
-    yield* output.info("Telemetry is enabled to help improve axm. To disable:");
-    yield* output.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
+    yield* renderer.info("");
+    yield* renderer.info("Telemetry is enabled to help improve axm. To disable:");
+    yield* renderer.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
   }
 }, Effect.asVoid);

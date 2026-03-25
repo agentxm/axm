@@ -11,7 +11,8 @@ import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { OutputAdapter } from "@axm.sh/core/unstable/output";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleWhoami } from "./handler.js";
 
@@ -27,7 +28,7 @@ const defaultMe = {
 };
 
 const makeLayers = (opts?: { hasCredentials?: boolean }) => {
-  const [outputLayer, mockLog] = makeOutputTestLayer();
+  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 
   const credStoreLayer = opts?.hasCredentials
     ? CredentialStoreTest("encrypted-file", {
@@ -54,7 +55,8 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    outputLayer,
+    rendererLayer,
+    OutputAdapter.pipe(Layer.provide(rendererLayer)),
     CliEnvironmentTest(),
     credStoreLayer,
     authClientLayer,
@@ -65,7 +67,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, mockLog };
+  return { provide, rendererState };
 };
 
 describe("auth whoami handler", () => {
@@ -86,13 +88,13 @@ describe("auth whoami handler", () => {
   });
 
   it.effect("displays identity in human-readable format", () => {
-    const { provide, mockLog } = makeLayers({ hasCredentials: true });
+    const { provide, rendererState } = makeLayers({ hasCredentials: true });
     return provide(
       Effect.gen(function* () {
         yield* handleWhoami({ json: false });
-        expect(mockLog.logs.info.some((m) => m.includes("alice"))).toBe(true);
-        expect(mockLog.logs.info.some((m) => m.includes("alice@example.com"))).toBe(true);
-        expect(mockLog.logs.info.some((m) => m.includes("session"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice@example.com"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("session"))).toBe(true);
       }),
     );
   });

@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { resolveToken } from "../../../auth/token-resolution.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ export interface WhoamiHandlerArgs {
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: WhoamiHandlerArgs) {
   const authClient = yield* AuthClient;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
@@ -69,8 +69,8 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
       ),
     );
   } else {
-    yield* output.info(`Handle:     ${me.userHandle}`);
-    yield* output.info(`Email:      ${me.email}`);
-    yield* output.info(`Token type: ${me.tokenType}`);
+    yield* renderer.info(`Handle:     ${me.userHandle}`);
+    yield* renderer.info(`Email:      ${me.email}`);
+    yield* renderer.info(`Token type: ${me.tokenType}`);
   }
 }, Effect.asVoid);

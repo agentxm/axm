@@ -1,0 +1,304 @@
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import type * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+
+import {
+  CliRenderer,
+  type LogLevel,
+  type ProgressConfig,
+  type ProgressHandle,
+  type SpinnerHandle,
+  type SpinnerOptions,
+  type TaskLogConfig,
+  type TaskLogGroupHandle,
+  type TaskLogHandle,
+} from "./cli-renderer.js";
+
+// ---------------------------------------------------------------------------
+// Helpers — NDJSON event emission to stderr
+// ---------------------------------------------------------------------------
+
+const emitStderrEvent = (event: Record<string, unknown>) =>
+  Effect.sync(() => {
+    process.stderr.write(JSON.stringify(event) + "\n");
+  });
+
+const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
+  emitStderrEvent({ type: "log", level, message });
+
+const levelToLogLevel = (level: LogLevel): "info" | "warn" | "error" => {
+  if (level === "warn") return "warn";
+  if (level === "error") return "error";
+  return "info";
+};
+
+// ---------------------------------------------------------------------------
+// Noop handles for machine mode
+// ---------------------------------------------------------------------------
+
+const noopSpinnerHandle: SpinnerHandle = {
+  stop: () => Effect.void,
+  update: () => Effect.void,
+  cancel: () => Effect.void,
+  error: () => Effect.void,
+  clear: () => Effect.void,
+};
+
+const noopProgressHandle: ProgressHandle = {
+  ...noopSpinnerHandle,
+  advance: () => Effect.void,
+};
+
+// ---------------------------------------------------------------------------
+// NDJSON-emitting handles for machine mode
+// ---------------------------------------------------------------------------
+
+const makeStreamSpinnerHandle = (phase: string): SpinnerHandle => ({
+  stop: (message) =>
+    message
+      ? emitStderrEvent({ type: "progress", phase, percent: 100, message })
+      : Effect.void,
+  update: (message) =>
+    message
+      ? emitStderrEvent({ type: "progress", phase, percent: -1, message })
+      : Effect.void,
+  cancel: (message) =>
+    emitStderrEvent({
+      type: "progress",
+      phase,
+      percent: -1,
+      message: message ?? "Cancelled",
+    }),
+  error: (message) =>
+    emitLogEvent("error", message ?? "Error"),
+  clear: () => Effect.void,
+});
+
+const makeStreamProgressHandle = (phase: string, max: number): ProgressHandle => {
+  let current = 0;
+  return {
+    stop: (message) =>
+      message
+        ? emitStderrEvent({ type: "progress", phase, percent: 100, message })
+        : Effect.void,
+    update: (message) =>
+      message
+        ? emitStderrEvent({
+            type: "progress",
+            phase,
+            percent: Math.round((current / max) * 100),
+            message,
+          })
+        : Effect.void,
+    cancel: (message) =>
+      emitStderrEvent({
+        type: "progress",
+        phase,
+        percent: -1,
+        message: message ?? "Cancelled",
+      }),
+    error: (message) => emitLogEvent("error", message ?? "Error"),
+    clear: () => Effect.void,
+    advance: (step, message) => {
+      current = Math.min(current + (step ?? 1), max);
+      const percent = Math.round((current / max) * 100);
+      return message
+        ? emitStderrEvent({ type: "progress", phase, percent, message })
+        : Effect.void;
+    },
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Stdout helpers
+// ---------------------------------------------------------------------------
+
+const writeStdout = (content: string) =>
+  Effect.sync(() => {
+    process.stdout.write(content);
+  });
+
+const writeStdoutLine = (content: string) =>
+  Effect.sync(() => {
+    process.stdout.write(content + "\n");
+  });
+
+// ---------------------------------------------------------------------------
+// MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
+// ---------------------------------------------------------------------------
+
+export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
+  const machineWithSpinner = <A, E, R>(
+    message: string,
+    f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
+    options?: SpinnerOptions<A>,
+  ): Effect.Effect<A, E, R> => {
+    const handle = makeStreamSpinnerHandle("work");
+    return emitStderrEvent({
+      type: "progress",
+      phase: "work",
+      percent: 0,
+      message,
+    }).pipe(
+      Effect.andThen(f(handle)),
+      Effect.tap((a) => {
+        const successMessage =
+          typeof options?.successMessage === "function"
+            ? options.successMessage(a)
+            : typeof options?.successMessage === "string"
+              ? options.successMessage
+              : message;
+        return emitStderrEvent({
+          type: "progress",
+          phase: "work",
+          percent: 100,
+          message: successMessage,
+        });
+      }),
+    );
+  };
+
+  return Layer.succeed(CliRenderer, {
+    // Chrome (stderr) — emit NDJSON log events
+    intro: (title) => emitLogEvent("info", title),
+    outro: (message) => emitLogEvent("info", message),
+    message: (message) => emitLogEvent("info", message),
+    info: (message) => emitLogEvent("info", message),
+    success: (message) => emitLogEvent("info", message),
+    step: (message) => emitLogEvent("info", message),
+    warn: (message) => emitLogEvent("warn", message),
+    error: (message) => emitLogEvent("error", message),
+    cancel: (message) =>
+      message ? emitLogEvent("info", message) : Effect.void,
+    note: (message, title) =>
+      emitLogEvent("info", title ? `${title}: ${message}` : message),
+    box: (message, title) =>
+      emitLogEvent("info", title ? `${title}: ${message}` : message),
+    streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
+      Stream.runCollect(stream).pipe(
+        Effect.flatMap((chunks) => {
+          const message = Array.from(chunks).join("");
+          return emitLogEvent(levelToLogLevel(level), message);
+        }),
+      ),
+
+    // Activity — emit NDJSON progress events to stderr
+    spinner: (message) =>
+      emitStderrEvent({
+        type: "progress",
+        phase: "start",
+        percent: 0,
+        message: message ?? "",
+      }).pipe(Effect.as(makeStreamSpinnerHandle("start"))),
+    withSpinner: machineWithSpinner,
+    progress: (config, message) => {
+      const max = config.max ?? 100;
+      if (message) {
+        return emitStderrEvent({
+          type: "progress",
+          phase: "progress",
+          percent: 0,
+          message,
+        }).pipe(Effect.as(makeStreamProgressHandle("progress", max)));
+      }
+      return Effect.succeed(noopProgressHandle);
+    },
+    withProgress: <A, E, R>(
+      config: ProgressConfig,
+      message: string,
+      f: (handle: ProgressHandle) => Effect.Effect<A, E, R>,
+      stopMessage?: string,
+    ): Effect.Effect<A, E, R> => {
+      const max = config.max ?? 100;
+      const handle = makeStreamProgressHandle("progress", max);
+      return emitStderrEvent({
+        type: "progress",
+        phase: "progress",
+        percent: 0,
+        message,
+      }).pipe(
+        Effect.andThen(f(handle)),
+        Effect.tap(() =>
+          emitStderrEvent({
+            type: "progress",
+            phase: "progress",
+            percent: 100,
+            message: stopMessage ?? message,
+          }),
+        ),
+      );
+    },
+    taskLog: (config: TaskLogConfig) =>
+      Effect.succeed({
+        message: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
+        group: (name: string) =>
+          Effect.succeed({
+            message: (msg: string) => emitLogEvent("info", `[${name}] ${msg}`),
+            error: (msg: string) => emitLogEvent("error", `[${name}] ${msg}`),
+            success: (msg: string) => emitLogEvent("info", `[${name}] ${msg}`),
+          } satisfies TaskLogGroupHandle),
+        error: (msg: string) => emitLogEvent("error", `[${config.title}] ${msg}`),
+        success: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
+      } satisfies TaskLogHandle),
+    withTaskLog: <A, E, R>(
+      config: TaskLogConfig,
+      f: (handle: TaskLogHandle) => Effect.Effect<A, E, R>,
+    ): Effect.Effect<A, E, R> => {
+      const handle: TaskLogHandle = {
+        message: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
+        group: (name: string) =>
+          Effect.succeed({
+            message: (msg: string) => emitLogEvent("info", `[${name}] ${msg}`),
+            error: (msg: string) => emitLogEvent("error", `[${name}] ${msg}`),
+            success: (msg: string) => emitLogEvent("info", `[${name}] ${msg}`),
+          } satisfies TaskLogGroupHandle),
+        error: (msg: string) => emitLogEvent("error", `[${config.title}] ${msg}`),
+        success: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
+      };
+      return f(handle);
+    },
+    runTasks: <E, R>(
+      tasks: ReadonlyArray<{
+        readonly title: string;
+        readonly task: (
+          message: (msg: string) => Effect.Effect<void>,
+        ) => Effect.Effect<string | void, E, R>;
+        readonly enabled?: boolean;
+      }>,
+    ) =>
+      Effect.forEach(
+        tasks.filter((t) => t.enabled !== false),
+        (task) =>
+          machineWithSpinner(task.title, (handle) =>
+            Effect.map(
+              task.task((msg) => handle.update(msg)),
+              (result) => result ?? task.title,
+            ),
+          ),
+        { concurrency: 1 },
+      ),
+
+    // Data display — no-ops in machine mode
+    table: () => Effect.void,
+    detail: () => Effect.void,
+    tree: () => Effect.void,
+
+    // Machine data output (stdout)
+    // Data is already typed as T matching the schema — encode via JSON.stringify.
+    // Schema is accepted for contract documentation and future validation but
+    // encoding is deferred to avoid EncodingServices constraints.
+    result: <T>(data: T, _schema: Schema.Schema<T>) =>
+      writeStdoutLine(JSON.stringify(data, null, 2)).pipe(Effect.as(true)),
+    resultStream: <T>(stream: Stream.Stream<T>, _schema: Schema.Schema<T>) =>
+      stream.pipe(
+        Stream.mapEffect((item) => writeStdoutLine(JSON.stringify(item))),
+        Stream.runDrain,
+        Effect.as(true),
+      ),
+
+    // Both modes (stdout)
+    json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),
+    raw: (content) => writeStdout(content),
+  });
+};

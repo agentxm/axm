@@ -13,9 +13,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Input } from "@axm.sh/core/unstable/input";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
@@ -73,8 +72,8 @@ export const withAuthGuard = <A, E, R>(
 
     // Interactive: prompt (auto-accept with --yes)
     if (!options.yes) {
-      const input = yield* Input;
-      const shouldLogin = yield* input.confirm({
+      const prompt = yield* CliPrompt;
+      const shouldLogin = yield* prompt.confirm({
         message: "You need to sign in to publish. Sign in now?",
       });
       if (!shouldLogin) {

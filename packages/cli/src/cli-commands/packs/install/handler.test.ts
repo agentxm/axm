@@ -14,9 +14,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
-import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
@@ -114,9 +114,9 @@ describe("packs install handler", () => {
     },
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
-    const [outputLayer, mockLog] = makeOutputTestLayer();
-    const [activityLayer, mockSpinner] = makeActivityTestLayer();
-    const [inputLayer] = makeInputTestLayer({
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    
+    const [inputLayer] = makeTestPrompt({
       methodBehaviors: {
         confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
         select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
@@ -125,9 +125,9 @@ describe("packs install handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      outputLayer,
-      activityLayer,
-      inputLayer,
+      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
+      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
+      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -161,9 +161,9 @@ describe("packs install handler", () => {
     mockService: SourceHostProvidersService,
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
-    const [outputLayer, mockLog] = makeOutputTestLayer();
-    const [activityLayer, mockSpinner] = makeActivityTestLayer();
-    const [inputLayer] = makeInputTestLayer({
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    
+    const [inputLayer] = makeTestPrompt({
       methodBehaviors: {
         confirm: { type: "return", value: true },
         select: { type: "select", index: 0 },
@@ -172,9 +172,9 @@ describe("packs install handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      outputLayer,
-      activityLayer,
-      inputLayer,
+      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
+      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
+      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {

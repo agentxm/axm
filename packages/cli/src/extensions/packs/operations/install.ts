@@ -18,7 +18,7 @@ import {
 } from "@axm.sh/core/unstable/lockfile";
 import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -71,11 +71,11 @@ export type InstallPackOperation = Operation<"install-pack", InstallPackOperatio
  */
 export const installPack: OperationHandler<
   InstallPackOperation,
-  Workspace | Output | SourceHostProviders | FileSystem.FileSystem | Path.Path
+  Workspace | CliRenderer | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const sources = yield* SourceHostProviders;
     const path = yield* Path.Path;
 
@@ -144,7 +144,7 @@ export const installPack: OperationHandler<
         resolvedMcpServers: { ...op.args.resolvedMcpServers },
         versionConstraint: op.args.versionConstraint,
       })
-      .pipe(Effect.catch((e) => output.warn(`Pack metadata update failed: ${String(e)}`)));
+      .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));
 
     return {
       result: "success",

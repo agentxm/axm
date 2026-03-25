@@ -16,8 +16,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
@@ -56,7 +56,7 @@ export interface PublishHandlerArgs {
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
     const literalInputs = extensions.filter((e) => !isGlobPattern(e));
@@ -68,8 +68,8 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     const globMatches = expandGlobs(globPatterns, installedNames);
 
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      yield* output.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
-      yield* output.success("Nothing to publish.");
+      yield* renderer.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
+      yield* renderer.success("Nothing to publish.");
       return [] as ReadonlyArray<string>;
     }
 
@@ -99,11 +99,11 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
-  const output = yield* Output;
-  const activity = yield* Activity;
+  const renderer = yield* CliRenderer;
+  
   const base = ws.baseDir;
 
-  yield* output.info("axm skills publish");
+  yield* renderer.info("axm skills publish");
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
@@ -127,7 +127,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   );
 
   // Step 3: Validate each extension
-  yield* activity.withSpinner(
+  yield* renderer.withSpinner(
     "Validating extensions...",
     () =>
       Effect.gen(function* () {
@@ -252,5 +252,5 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     });
   }
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

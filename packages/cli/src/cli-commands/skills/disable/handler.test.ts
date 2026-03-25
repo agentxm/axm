@@ -15,8 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
-import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
@@ -92,12 +92,12 @@ describe("disable.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [outputLayer, mockLog] = makeOutputTestLayer();
-    const [inputLayer] = makeInputTestLayer();
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      outputLayer,
-      inputLayer,
+      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
+      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {

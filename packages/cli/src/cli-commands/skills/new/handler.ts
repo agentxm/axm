@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
 import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -52,9 +52,9 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
 ) {
   const ws = yield* Workspace;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm skills new");
+  yield* renderer.info("axm skills new");
 
   // 1. Resolve profile
   const profile = Option.isSome(args.profile)
@@ -125,5 +125,5 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     preview: args.preview,
   });
 
-  yield* output.success(`Created skill ${fqn}`);
+  yield* renderer.success(`Created skill ${fqn}`);
 });

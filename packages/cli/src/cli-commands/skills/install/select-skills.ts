@@ -8,8 +8,8 @@
  */
 
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Input } from "@axm.sh/core/unstable/input";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
@@ -44,7 +44,7 @@ export const determineSkillsToInstall = (
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const nonInteractive = yield* isNonInteractive;
 
     // 1. --skill specified -> glob-aware matching
@@ -68,7 +68,7 @@ export const determineSkillsToInstall = (
 
     // 2. --all / --non-interactive -> return all
     if (args.all || nonInteractive) {
-      if (args.all) yield* output.info(`Installing all ${skills.length} skill(s)`);
+      if (args.all) yield* renderer.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }
 
@@ -89,9 +89,9 @@ export const determineSkillsToInstall = (
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
   Effect.gen(function* () {
-    const input = yield* Input;
+    const prompt = yield* CliPrompt;
 
-    return yield* input
+    return yield* prompt
       .multiselect({
         message: "Select skills to install",
         options: skills.map((s) => {

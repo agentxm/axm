@@ -9,9 +9,11 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, type MeResponse } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-store.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
-import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
+import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogin } from "./handler.js";
@@ -25,15 +27,9 @@ const makeLayers = (opts?: {
   meResponse?: MeResponse;
   confirmValue?: boolean;
 }) => {
-  const [outputLayer, mockLog] = makeOutputTestLayer();
-  const [activityLayer, mockSpinner] = makeActivityTestLayer();
-  const [inputLayer, mockPrompt] = makeInputTestLayer({
-    defaultBehavior: { type: "return", value: "" },
-    methodBehaviors: {
-      confirm: { type: "return", value: opts?.confirmValue ?? true },
-      select: { type: "select", index: 0 },
-      multiselect: { type: "multiselect", indices: [] },
-    },
+  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const [promptLayer, promptState] = makeTestPrompt({
+    confirmResponses: [opts?.confirmValue ?? true],
   });
 
   const flagsLayer = CliEnvironmentTest({
@@ -89,9 +85,11 @@ const makeLayers = (opts?: {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    outputLayer,
-    activityLayer,
-    inputLayer,
+    rendererLayer,
+    promptLayer,
+    OutputAdapter.pipe(Layer.provide(rendererLayer)),
+    ActivityAdapter.pipe(Layer.provide(rendererLayer)),
+    InputAdapter.pipe(Layer.provide(promptLayer)),
     flagsLayer,
     credStoreLayer,
     authClientLayer,
@@ -102,7 +100,7 @@ const makeLayers = (opts?: {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, mockLog, mockSpinner, mockPrompt };
+  return { provide, rendererState, promptState };
 };
 
 describe("auth login handler", () => {
@@ -119,68 +117,68 @@ describe("auth login handler", () => {
   });
 
   it.effect("completes device flow and displays handle", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
       }),
     );
   });
 
   it.effect("displays URL and code for manual entry", () => {
-    const { provide, mockLog } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        const steps = mockLog.calls.filter((c) => c.method === "step").map((c) => c.args[0]);
+        const steps = rendererState.logs.filter((l) => l._tag === "step").map((l) => l.message);
         expect(
-          steps.some((m) => String(m).includes("https://auth.agentxm.ai/device?code=ABCD-1234")),
+          steps.some((m) => m.includes("https://auth.agentxm.ai/device?code=ABCD-1234")),
         ).toBe(true);
-        expect(steps.some((m) => String(m).includes("ABCD-1234"))).toBe(true);
+        expect(steps.some((m) => m.includes("ABCD-1234"))).toBe(true);
       }),
     );
   });
 
   it.effect("prompts when already logged in", () => {
-    const { provide, mockLog, mockPrompt } = makeLayers({
+    const { provide, rendererState, promptState } = makeLayers({
       existingCredentials: true,
       confirmValue: true,
     });
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(mockLog.logs.info.some((m) => m.includes("Already logged in"))).toBe(true);
-        expect(mockPrompt.calls.some((c) => c.method === "confirm")).toBe(true);
-        expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Already logged in"))).toBe(true);
+        expect(promptState.confirmCalls.length > 0).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
       }),
     );
   });
 
   it.effect("skips prompt when already logged in with --yes", () => {
-    const { provide, mockLog, mockPrompt } = makeLayers({
+    const { provide, rendererState, promptState } = makeLayers({
       existingCredentials: true,
       yes: true,
     });
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: true });
-        expect(mockLog.logs.info.some((m) => m.includes("Already logged in"))).toBe(true);
-        expect(mockPrompt.calls.filter((c) => c.method === "confirm")).toHaveLength(0);
-        expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
+        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Already logged in"))).toBe(true);
+        expect(promptState.confirmCalls).toHaveLength(0);
+        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
       }),
     );
   });
 
   it.effect("returns early when user declines re-login", () => {
-    const { provide, mockLog } = makeLayers({
+    const { provide, rendererState } = makeLayers({
       existingCredentials: true,
       confirmValue: false,
     });
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(mockLog.logs.success.filter((m) => m.includes("Logged in"))).toHaveLength(0);
+        expect(rendererState.logs.filter((l) => l._tag === "success" && l.message.includes("Logged in"))).toHaveLength(0);
       }),
     );
   });
@@ -211,19 +209,17 @@ describe("auth login handler", () => {
         ),
     });
 
-    const [outputLayer2, mockLog2] = makeOutputTestLayer();
-    const [activityLayer2] = makeActivityTestLayer();
-    const [inputLayer2] = makeInputTestLayer({
-      defaultBehavior: { type: "return", value: "" },
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-      },
+    const { layer: rendererLayer2, state: rendererState2 } = TestRenderer.make();
+    const [promptLayer2] = makeTestPrompt({
+      confirmResponses: [true],
     });
 
     const layer = Layer.mergeAll(
-      outputLayer2,
-      activityLayer2,
-      inputLayer2,
+      rendererLayer2,
+      promptLayer2,
+      OutputAdapter.pipe(Layer.provide(rendererLayer2)),
+      ActivityAdapter.pipe(Layer.provide(rendererLayer2)),
+      InputAdapter.pipe(Layer.provide(promptLayer2)),
       CliEnvironmentTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
@@ -235,7 +231,7 @@ describe("auth login handler", () => {
       Effect.catchTag("AppError", (error) =>
         Effect.gen(function* () {
           expect(error.code).toBe("AUTH_UNAUTHENTICATED");
-          expect(mockLog2.logs.success.some((m) => m.includes("Login successful"))).toBe(false);
+          expect(rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("Login successful"))).toBe(false);
 
           const credStore = yield* CredentialStore;
           const stored = yield* credStore.load(REGISTRY_URL);

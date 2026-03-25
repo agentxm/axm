@@ -18,8 +18,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { withAuthGuard } from "../../../auth/index.js";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import {
@@ -99,11 +98,10 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
-  const output = yield* Output;
-  const activity = yield* Activity;
+  const renderer = yield* CliRenderer;
   const base = ws.baseDir;
 
-  yield* output.info("axm packs publish");
+  yield* renderer.info("axm packs publish");
 
   // Step 1: Resolve pack name
   const hasProfile = args.pack.startsWith("@") && args.pack.includes("/");
@@ -125,7 +123,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const fqn = yield* parseFqn(packName);
 
   // Step 2: Validate managed pack exists
-  const manifestPath = yield* activity.withSpinner(
+  const manifestPath = yield* renderer.withSpinner(
     "Validating pack...",
     () =>
       Effect.gen(function* () {
@@ -252,7 +250,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             const step = yield* makeDependencyStep(parsed, depFqn, registryName);
             dependencySteps.push(step);
           } else {
-            yield* output.warn(`Skipping non-local dependency: ${depFqn}`);
+            yield* renderer.warn(`Skipping non-local dependency: ${depFqn}`);
           }
         }),
       { concurrency: "unbounded" },
@@ -300,7 +298,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     { yes: args.yes, force: args.force, preview: args.preview },
   );
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });
 
 // -----------------------------------------------------------------------------

@@ -20,9 +20,8 @@ import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef, Source, InputParseResult } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
-import { Input } from "@axm.sh/core/unstable/input";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { Workspace } from "../../../workspace/index.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/workflow.js";
@@ -178,11 +177,10 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
   InstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const output = yield* Output;
-    const activity = yield* Activity;
+    const renderer = yield* CliRenderer;
+    const prompt = yield* CliPrompt;
     const skillMgr = yield* SkillManager;
     const ws = yield* Workspace;
-    const input = yield* Input;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
     const env = yield* CliEnvironment;
@@ -191,10 +189,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(Output, output),
-      Layer.succeed(Activity, activity),
+      Layer.succeed(CliRenderer, renderer),
+      Layer.succeed(CliPrompt, prompt),
       Layer.succeed(Workspace, ws),
-      Layer.succeed(Input, input),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(CliEnvironment, env),
@@ -212,9 +209,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          yield* output.info(`axm skills install (${ws.scope})`);
+          yield* renderer.info(`axm skills install (${ws.scope})`);
 
-          const parsed = yield* activity.withSpinner(
+          const parsed = yield* renderer.withSpinner(
             "Parsing source...",
             () =>
               Effect.gen(function* () {
@@ -262,7 +259,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             parsed;
 
           if (resolutionProbes.length > 0) {
-            yield* output.message(
+            yield* renderer.message(
               `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
             );
           }
@@ -298,7 +295,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          return yield* activity.withSpinner(
+          return yield* renderer.withSpinner(
             "Discovering skills...",
             () =>
               sources
@@ -356,8 +353,8 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           );
 
           if (Array.isReadonlyArrayEmpty(selectedSkills)) {
-            yield* output.warn("No skills selected.");
-            yield* output.success("Nothing to install.");
+            yield* renderer.warn("No skills selected.");
+            yield* renderer.success("Nothing to install.");
             return { skillsToInstall: [] } satisfies InstallSkillCommandIntent;
           }
 

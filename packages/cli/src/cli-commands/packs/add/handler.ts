@@ -23,7 +23,7 @@ import type { AddToPackOperation } from "../../../extensions/packs/operations/ad
 import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
@@ -65,9 +65,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const output = yield* Output;
+  const renderer = yield* CliRenderer;
 
-  yield* output.info("axm packs add");
+  yield* renderer.info("axm packs add");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.getConfiguredPacks();
@@ -179,16 +179,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     // Check if already in pack (by FQN)
     if (fqn in currentSkills) {
-      yield* output.info(`Extension '${fqn}' already in pack`);
+      yield* renderer.info(`Extension '${fqn}' already in pack`);
       continue;
     }
 
     additions[fqn] = version;
-    yield* output.info(`Adding ${fqn}@${version}`);
+    yield* renderer.info(`Adding ${fqn}@${version}`);
   }
 
   if (Object.keys(additions).length === 0) {
-    yield* output.success("Nothing to do.");
+    yield* renderer.success("Nothing to do.");
     return;
   }
 
@@ -217,5 +217,5 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     preview: args.preview,
   });
 
-  yield* output.success("Done");
+  yield* renderer.success("Done");
 });

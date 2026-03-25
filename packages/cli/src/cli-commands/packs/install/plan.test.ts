@@ -18,7 +18,7 @@ import type { RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
 import { buildInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -197,9 +197,9 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
 });
 
 // Mock services needed for plan construction
-const [OutputTestLayer] = makeOutputTestLayer();
+const { layer: RendererTestLayer } = TestRenderer.make();
 const testLayer = Layer.mergeAll(
-  OutputTestLayer,
+  RendererTestLayer, OutputAdapter.pipe(Layer.provide(RendererTestLayer)),
   Layer.succeed(Workspace, {} as WorkspaceContextService),
   Layer.succeed(SourceHostProviders, {} as SourceHostProvidersService),
   Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),

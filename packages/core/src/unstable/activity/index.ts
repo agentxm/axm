@@ -11,6 +11,7 @@ export {
 } from "./activity.js";
 export { ActivityLive } from "./activity-live.js";
 export { ActivityStructured } from "./activity-structured.js";
+export { ActivityAdapter } from "./activity-adapter.js";
 export {
   ActivityTest,
   ActivityTestLayer,

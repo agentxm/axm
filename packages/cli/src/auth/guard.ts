@@ -12,14 +12,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { AppError } from "../app-error/app-error.js";
-import { makeAppError } from "../app-error/app-error.js";
-import { Output } from "../output/index.js";
-import { Input } from "../input/index.js";
-import { Activity } from "../activity/index.js";
-import { CliFlags } from "../cli-flags/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Input } from "@axm.sh/core/unstable/input";
+import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../config/index.js";
-import type { PromptCancelled } from "../prompt-cancelled.js";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";

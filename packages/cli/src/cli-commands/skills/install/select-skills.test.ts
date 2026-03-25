@@ -9,11 +9,11 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer, type Output } from "../../../output/index.js";
-import { makeInputTestLayer, type Input } from "../../../input/index.js";
-import { type CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
-import type { SkillExtensionRef } from "../../../sources/index.js";
-import { AppError } from "../../../app-error/index.js";
+import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
+import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
+import { type CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { AppError } from "@axm.sh/core/unstable/app-error";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------

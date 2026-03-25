@@ -11,13 +11,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../../agents/index.js";
-import { makeAppError } from "../../../app-error/index.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../index.js";
-import { removeFromAllCanonicalLocations } from "../../../utils/fs-helpers.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
+import { removeFromAllCanonicalLocations } from "@axm.sh/core/unstable/utils";
 import { getSkillFqn, isReferencedByPack, sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------

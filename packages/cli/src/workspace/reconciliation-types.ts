@@ -1,13 +1,13 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type {
   CommandLockEntry,
   McpServerLockEntry,
   PackLockEntry,
   SkillLockEntry,
-} from "../lockfile/index.js";
-import type { Settings } from "../settings/index.js";
+} from "@axm.sh/core/unstable/lockfile";
+import type { Settings } from "@axm.sh/core/unstable/settings";
 
 export type ReconcileExtensionType = "skills" | "commands" | "mcp-servers" | "packs";
 

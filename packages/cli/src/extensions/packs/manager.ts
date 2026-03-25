@@ -13,8 +13,8 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../app-error/index.js";
-import type { PackExtensionRef, RegistryPackRef } from "../../sources/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type { PackExtensionRef, RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
 import type {
   ExtensionManager,
@@ -23,11 +23,11 @@ import type {
 import { Workspace, type SetPackArgs } from "../../workspace/service.js";
 import { copySkillDirectory } from "../skills/operations/copy-directory.js";
 import { computePackPaths } from "./paths.js";
-import { removeIfExists } from "../../utils/fs-helpers.js";
+import { removeIfExists } from "@axm.sh/core/unstable/utils";
 import {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
-} from "../../lockfile/index.js";
+} from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Service Tag

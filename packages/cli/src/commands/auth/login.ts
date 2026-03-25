@@ -1,7 +1,7 @@
 import { Command } from "effect/unstable/cli";
 
 import { withRuntime } from "../../runtime.js";
-import { yesFlag } from "../../cli-flags/index.js";
+import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { handleLogin } from "../../cli-commands/auth/login/handler.js";
 
 export const loginCommand = Command.make("login", { yes: yesFlag }, ({ yes }) =>

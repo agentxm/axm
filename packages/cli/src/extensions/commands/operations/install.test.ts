@@ -9,18 +9,19 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeAppError } from "../../../app-error/index.js";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-  type ExtensionRef,
-} from "../../../sources/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type {
+  ExtensionRef,
+  CommandExtensionRef,
+  RegistryCommandRef,
+} from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { InstallCommandOperation } from "./install.js";
 import { installCommand } from "./install.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

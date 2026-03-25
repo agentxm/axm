@@ -15,8 +15,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
-import { resolveVersionWithConstraint } from "../version-constraints/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { resolveVersionWithConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -25,7 +25,7 @@ import type {
   ExtensionExistsArgs,
   GetExtensionsByProfileResponse,
 } from "./client.js";
-import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
+import { toAuthor, type Author, type ExtensionType } from "@axm.sh/core/unstable/extensions";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 

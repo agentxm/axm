@@ -25,7 +25,7 @@ import type {
   InstalledExtensionRef,
   ClassifiedExtensionRef,
 } from "./service.js";
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;

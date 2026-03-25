@@ -19,19 +19,25 @@ import * as Option from "effect/Option";
 
 import * as azurerepos from "@axm.sh/core/unstable/sources/azurerepos";
 import * as bitbucket from "@axm.sh/core/unstable/sources/bitbucket";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import * as github from "@axm.sh/core/unstable/sources/github";
 import * as gitlab from "@axm.sh/core/unstable/sources/gitlab";
 import { parseLocalPath } from "@axm.sh/core/unstable/sources/local";
-import { parseInputPattern } from "./index.js";
+import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+import type {
+  InputParseResult,
+  ShorthandInput,
+  RegistrySource,
+  Source,
+  SourceParams,
+  SourceType,
+} from "@axm.sh/core/unstable/sources";
 import { createRegistryClient } from "../registry/index.js";
-import type { ExtensionType } from "../extensions/index.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import type { RegistrySource, Source, SourceParams, SourceType } from "./index.js";
-import type { SourceHostConfig } from "../settings/index.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
+import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
+import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
+import type { SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "../workspace/index.js";
-import type { InputParseResult, ShorthandInput } from "./index.js";
 
 // -----------------------------------------------------------------------------
 // Constants

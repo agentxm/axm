@@ -9,15 +9,15 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { getAllAgents } from "../../../agents/index.js";
+import { getAllAgents } from "@axm.sh/core/unstable/agents";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
-import type { Skill } from "../../../extensions/index.js";
+import type { Skill } from "@axm.sh/core/unstable/extensions";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CliEnvConfig } from "../../../config/index.js";
-import { type AppError, makeAppError } from "../../../app-error/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 
 /**
  * A discovered skill — intermediate result from directory scanning.

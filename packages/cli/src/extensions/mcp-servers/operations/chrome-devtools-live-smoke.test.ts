@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { uninstallMcpServer } from "./uninstall.js";
 import { installMcpServer } from "./install.js";

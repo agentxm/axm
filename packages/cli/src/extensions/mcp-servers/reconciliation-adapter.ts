@@ -1,9 +1,12 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  MCP_SERVER_MANIFEST_FILENAME,
+  McpServerManifestSchema,
+} from "@axm.sh/core/unstable/extensions";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../../app-error/index.js";
-import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "../index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,

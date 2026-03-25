@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { forceFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { handleSkillsNew } from "../../cli-commands/skills/new/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 

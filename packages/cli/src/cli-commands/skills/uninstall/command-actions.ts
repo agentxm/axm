@@ -12,9 +12,9 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import { Workspace } from "../../../workspace/index.js";
-import { expandGlob } from "../../../skills/index.js";
+import { expandGlob } from "@axm.sh/core/unstable/utils";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/workflow.js";
 import type {
@@ -22,7 +22,7 @@ import type {
   UninstallRetentionPolicy,
 } from "../../../workflows/install-operation/workflow.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
-import type { AppError } from "../../../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 

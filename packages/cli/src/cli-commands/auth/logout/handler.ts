@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 
 // -----------------------------------------------------------------------------
 // Handler

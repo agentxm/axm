@@ -11,16 +11,18 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "./copy-directory.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../index.js";
-import { MANIFEST_FILENAME } from "../../index.js";
-import { stripFileProtocol } from "../../../utils/fs-helpers.js";
-import { parseFqn } from "../../index.js";
-import type { SkillExtensionRef } from "../../../sources/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  MANIFEST_FILENAME,
+  parseFqn,
+} from "@axm.sh/core/unstable/extensions";
+import { stripFileProtocol } from "@axm.sh/core/unstable/utils";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
 // Operation types

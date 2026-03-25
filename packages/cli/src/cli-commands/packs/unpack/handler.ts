@@ -14,9 +14,9 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../../app-error/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { Workspace } from "../../../workspace/index.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
@@ -31,7 +31,7 @@ import {
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
-import type { RegistrySource } from "../../../sources/index.js";
+import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { AppError } from "../app-error/index.js";
-import { PromptCancelled } from "../prompt-cancelled.js";
+import { AppError } from "@axm.sh/core/unstable/app-error";
+import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { classifyError, resolveDiagnosticVerbosity } from "./error-handling.js";
 
 describe("classifyError", () => {

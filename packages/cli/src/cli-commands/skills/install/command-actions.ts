@@ -15,18 +15,14 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliFlags } from "../../../cli-flags/index.js";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
-import {
-  SourceHostProviders,
-  parseInputPattern,
-  type SkillExtensionRef,
-  type Source,
-} from "../../../sources/index.js";
-import type { InputParseResult } from "../../../sources/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
-import { Input } from "../../../input/index.js";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef, Source, InputParseResult } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
+import { Input } from "@axm.sh/core/unstable/input";
 import { Workspace } from "../../../workspace/index.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/workflow.js";

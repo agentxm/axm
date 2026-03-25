@@ -8,13 +8,13 @@
  */
 
 import * as Option from "effect/Option";
-import { parseFqnOrThrow } from "./index.js";
+import { parseFqnOrThrow } from "@axm.sh/core/unstable/extensions";
 import type {
   RegistryCommandRef,
   RegistryMcpServerRef,
   RegistrySkillRef,
   RegistrySource,
-} from "../sources/index.js";
+} from "@axm.sh/core/unstable/sources";
 
 /**
  * Build a RegistrySkillRef from a pack's resolved skill FQN and version.

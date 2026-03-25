@@ -1,15 +1,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { createRegistryClient, type RegistryClient } from "../../../registry/index.js";
-import type { InputParseResult, InputPattern } from "../../../sources/index.js";
+import type { InputParseResult, InputPattern, RegistrySource } from "@axm.sh/core/unstable/sources";
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { RegistrySource } from "../../../sources/index.js";
 
 export type RegistryLookupProbe = {
   readonly location: string;

@@ -17,11 +17,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "../app-error/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvConfig } from "../config/index.js";
 import { Workspace } from "../workspace/service.js";
-import type { ExtensionFiles, FindOptions } from "./index.js";
-import type { ExtensionRef, RegistrySource, Source } from "./index.js";
+import type {
+  ExtensionFiles,
+  FindOptions,
+  ExtensionRef,
+  RegistrySource,
+  Source,
+} from "@axm.sh/core/unstable/sources";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,

@@ -13,13 +13,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import { CliEnvConfig } from "../../../config/index.js";
-import {
-  SourceHostProviders,
-  type SkillExtensionRef,
-  type Source,
-} from "../../../sources/index.js";
+import type { SkillExtensionRef, Source } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 

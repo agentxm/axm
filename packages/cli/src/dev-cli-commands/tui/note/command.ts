@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Output, OutputLive } from "../../../output/index.js";
+import { Output, OutputLive } from "@axm.sh/core/unstable/output";
 
 export const noteCommand = {
   handler: () => {

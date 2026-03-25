@@ -14,18 +14,23 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "../../../app-error/index.js";
-import { makeAppError } from "../../../app-error/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
   GetExtensionsByProfileArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
-import { computeIntegrity } from "../../../utils/integrity.js";
-import type { Author, ExtensionType } from "../../../extensions/index.js";
-import type { ExtensionFiles, FindOptions, SourceHostProvider } from "../../index.js";
-import type { RegistrySource, RegistrySourceHost, ExtensionRef } from "../../index.js";
+import { computeIntegrity } from "@axm.sh/core/unstable/utils";
+import type { Author, ExtensionType } from "@axm.sh/core/unstable/extensions";
+import type {
+  ExtensionFiles,
+  FindOptions,
+  SourceHostProvider,
+  RegistrySource,
+  RegistrySourceHost,
+  ExtensionRef,
+} from "@axm.sh/core/unstable/sources";
 import type { VersionEntry } from "../../../registry/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {

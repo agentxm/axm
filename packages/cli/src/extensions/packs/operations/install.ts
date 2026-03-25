@@ -11,14 +11,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
-} from "../../../lockfile/index.js";
+} from "@axm.sh/core/unstable/lockfile";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
-import type { PackExtensionRef } from "../../../sources/index.js";
-import { Output } from "../../../output/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";

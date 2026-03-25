@@ -19,7 +19,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { computeIntegrity } from "../utils/integrity.js";
+import { computeIntegrity } from "@axm.sh/core/unstable/utils";
 import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
 import type { GetExtensionsByProfileArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";

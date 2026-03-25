@@ -18,7 +18,7 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
   RegistrySource,
-} from "../../sources/index.js";
+} from "@axm.sh/core/unstable/sources";
 
 // ---------------------------------------------------------------------------
 // Helpers

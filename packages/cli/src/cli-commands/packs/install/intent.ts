@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackExtensionRef } from "../../../sources/index.js";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackExtensionRef;

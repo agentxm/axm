@@ -16,10 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeActivityTestLayer } from "../../../activity/index.js";
-import { makeInputTestLayer } from "../../../input/index.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
+import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
@@ -30,7 +30,7 @@ import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
-import { AppError } from "../../../app-error/index.js";
+import { AppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -114,7 +114,7 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
   ) => {
     const [outputLayer, logMock] = makeOutputTestLayer();
     const [activityLayer, spinnerMock] = makeActivityTestLayer();

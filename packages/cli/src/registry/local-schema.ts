@@ -8,7 +8,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { AuthorSchema, ExtensionTypeSchema } from "../extensions/index.js";
+import { AuthorSchema, ExtensionTypeSchema } from "@axm.sh/core/unstable/extensions";
 
 // =============================================================================
 // Version Entry

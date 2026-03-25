@@ -8,8 +8,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
-import { PackManifestSchema, type PackManifest } from "../extensions/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { PackManifestSchema, type PackManifest } from "@axm.sh/core/unstable/extensions";
 
 // -----------------------------------------------------------------------------
 // Identity Constants

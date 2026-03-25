@@ -7,8 +7,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer, type MockOutputService, Output } from "../output/index.js";
-import { makeAppError } from "../app-error/index.js";
+import { makeOutputTestLayer, type MockOutputService, Output } from "@axm.sh/core/unstable/output";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
 

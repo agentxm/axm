@@ -13,17 +13,17 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   formatFqn,
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
-} from "../../../extensions/index.js";
+} from "@axm.sh/core/unstable/extensions";
 import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
 import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
-import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { Output } from "../../../output/index.js";
+import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
+import { Output } from "@axm.sh/core/unstable/output";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";

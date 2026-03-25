@@ -12,32 +12,35 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AgentId } from "../../../agents/index.js";
+import type { AgentId } from "@axm.sh/core/unstable/agents";
 import { CliEnvConfig } from "../../../config/index.js";
-import { SourceHostProviders } from "../../../sources/index.js";
-import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { Output } from "../../../output/index.js";
-import { createSymlink } from "../../../utils/create-symlink.js";
-import { computeIntegrity } from "../../../utils/integrity.js";
-import { isPathSafe } from "../../../utils/path-safety.js";
-import { makeAppError } from "../../../app-error/index.js";
-import { createRegistryClient, extractZip } from "../../../registry/index.js";
-import { validateExactResolvedVersion } from "../../../lockfile/index.js";
-import type { OperationHandler } from "../../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../../workspace/plan.js";
-import { Workspace } from "../../../workspace/service.js";
-import { copySkillDirectory } from "./copy-directory.js";
-import { removeFromAllCanonicalLocations, stripFileProtocol } from "../../../utils/fs-helpers.js";
-import { sourceToLockEntry } from "../../../sources/index.js";
-import type { InstallResult } from "./install-result.js";
-import { sanitizeName } from "../utils.js";
+import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
 import type {
   BuiltinSkillRef,
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-} from "../../../sources/index.js";
+} from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import {
+  computeIntegrity,
+  createSymlink,
+  isPathSafe,
+  removeFromAllCanonicalLocations,
+  stripFileProtocol,
+} from "@axm.sh/core/unstable/utils";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
+import type { OperationHandler } from "../../../workspace/apply-plan.js";
+import type { Operation, OperationResult } from "../../../workspace/plan.js";
+import { Workspace } from "../../../workspace/service.js";
+import { copySkillDirectory } from "./copy-directory.js";
+import type { InstallResult } from "./install-result.js";
+import { sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

@@ -8,8 +8,8 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { AppError } from "../../app-error/index.js";
-import type { PromptCancelled } from "../../prompt-cancelled.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { Plan } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 

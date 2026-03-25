@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { makeAppError } from "../app-error/app-error.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore, type CredentialStoreService } from "./credential-store.js";
 import {

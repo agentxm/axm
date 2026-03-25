@@ -8,9 +8,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { RegistryPackRef, BuiltinPackRef } from "../../sources/index.js";
+import type { RegistryPackRef, BuiltinPackRef } from "@axm.sh/core/unstable/sources";
 import type { PackExtensionTarget } from "../../workflows/install-operation/workflow.js";
-import type { Lockfile } from "../../lockfile/index.js";
+import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import {
   expandPackInstallRefs,
   expandPackUninstallTargets,

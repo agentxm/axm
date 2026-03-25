@@ -14,18 +14,18 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { getAgentById } from "../agents/index.js";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { CliEnvConfig } from "../config/index.js";
 import {
   discoverSkillsInDir,
   type DiscoveredSkill,
 } from "../cli-commands/skills/install/discover-skills.js";
-import { expandGlobs, isGlobPattern } from "../skills/index.js";
+import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { Source } from "./index.js";
-import { fileUrlToPath } from "./index.js";
+import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
+import type { Source } from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
 // Helpers

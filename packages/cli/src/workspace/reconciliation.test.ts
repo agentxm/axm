@@ -7,7 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
-import type { Settings } from "../settings/index.js";
+import type { Settings } from "@axm.sh/core/unstable/settings";
 import {
   buildReconciliationSnapshot,
   dedupeDeclarations,

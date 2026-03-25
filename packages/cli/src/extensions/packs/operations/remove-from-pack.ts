@@ -10,7 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -18,7 +18,7 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
   type RawPackManifest,
-} from "../../index.js";
+} from "@axm.sh/core/unstable/extensions";
 import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 

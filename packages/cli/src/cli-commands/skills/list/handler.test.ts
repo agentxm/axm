@@ -15,9 +15,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer, type Output } from "../../../output/index.js";
-import { makeInputTestLayer, type Input } from "../../../input/index.js";
-import { CliFlags, CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer, type Output } from "@axm.sh/core/unstable/output";
+import { makeInputTestLayer, type Input } from "@axm.sh/core/unstable/input";
+import { CliFlags, CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,

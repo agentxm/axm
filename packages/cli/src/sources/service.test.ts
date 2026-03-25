@@ -20,13 +20,13 @@ import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
 import { CliEnvConfig } from "../config/index.js";
-import type { AppError } from "../app-error/index.js";
-import type { SourceHostConfig } from "../settings/index.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import { taxonomyStubs } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
-import type { FindOptions } from "./index.js";
+import type { FindOptions } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 
 // -----------------------------------------------------------------------------

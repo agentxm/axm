@@ -14,19 +14,24 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
-import { CliFlags } from "../cli-flags/index.js";
-import { makeAppError } from "../app-error/index.js";
-import { Output } from "../output/index.js";
-import { Input } from "../input/index.js";
-import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import {
+  type AgentDescriptor,
+  detectAgents,
+  getAllAgents,
+  getAgentById,
+} from "@axm.sh/core/unstable/agents";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Input } from "@axm.sh/core/unstable/input";
+import { LOCKFILE_NAME, writeLockfile } from "@axm.sh/core/unstable/lockfile";
 import {
   createDefaultSettings,
   readSettings,
   SETTINGS_FILENAME,
   type Settings,
   writeSettings,
-} from "../settings/index.js";
+} from "@axm.sh/core/unstable/settings";
 import { materializeBuiltinPack } from "./builtin-packs.js";
 import type { WorkspaceContextOptions } from "./service.js";
 

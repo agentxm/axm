@@ -14,23 +14,19 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeActivityTestLayer } from "../../../activity/index.js";
-import { makeInputTestLayer, type InputPromptBehavior } from "../../../input/index.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
+import { makeInputTestLayer, type InputPromptBehavior } from "@axm.sh/core/unstable/input";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
-import {
-  SourceHostProvidersLive,
-  SourceHostProviders,
-  type SourceHostProvidersService,
-  type ExtensionFiles,
-  type PackExtensionRef,
-} from "../../../sources/index.js";
+import type { ExtensionFiles, PackExtensionRef } from "@axm.sh/core/unstable/sources";
+import { SourceHostProvidersLive, SourceHostProviders } from "../../../sources/index.js";
+import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
 import {
   InstallPackCommandWorkflowActions,
@@ -40,7 +36,7 @@ import { PackManagerLive } from "../../../extensions/packs/manager.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { CommandManagerLive } from "../../../extensions/commands/manager.js";
 import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
-import { AppError, makeAppError } from "../../../app-error/index.js";
+import { AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -117,7 +113,7 @@ describe("packs install handler", () => {
       selectBehavior?: InputPromptBehavior;
       multiselectBehavior?: InputPromptBehavior;
     },
-    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [activityLayer, mockSpinner] = makeActivityTestLayer();
@@ -165,7 +161,7 @@ describe("packs install handler", () => {
 
   const makeLayersWithMockSources = (
     mockService: SourceHostProvidersService,
-    flagsOverrides?: Partial<import("../../../cli-flags/index.js").CliFlagsService>,
+    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliFlagsService>,
   ) => {
     const [outputLayer, mockLog] = makeOutputTestLayer();
     const [activityLayer, mockSpinner] = makeActivityTestLayer();

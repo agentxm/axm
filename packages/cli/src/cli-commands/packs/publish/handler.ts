@@ -17,9 +17,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { withAuthGuard } from "../../../auth/index.js";
-import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { Workspace } from "../../../workspace/index.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import {
@@ -30,7 +30,7 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
-} from "../../../extensions/index.js";
+} from "@axm.sh/core/unstable/extensions";
 import {
   publishPack,
   type PublishPackOperation,

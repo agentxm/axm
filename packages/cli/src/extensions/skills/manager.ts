@@ -15,13 +15,12 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { AppError } from "../../app-error/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvConfig } from "../../config/index.js";
-import { sourceToLockEntry } from "../../sources/index.js";
-import type { SkillExtensionRef } from "../../sources/index.js";
-import type { SourceHostProvidersService } from "../../sources/index.js";
+import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
+import type { SourceHostProvidersService } from "../../sources/index.js";
 import type {
   ExtensionManager,
   SkillExtensionTarget,
@@ -30,13 +29,16 @@ import { Workspace } from "../../workspace/service.js";
 import { sanitizeName } from "./utils.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
 import { copySkillDirectory } from "./operations/copy-directory.js";
-import { createSymlink } from "../../utils/create-symlink.js";
-import { isPathSafe } from "../../utils/path-safety.js";
-import { removeFromAllCanonicalLocations, stripFileProtocol } from "../../utils/fs-helpers.js";
+import {
+  computeIntegrity,
+  createSymlink,
+  isPathSafe,
+  removeFromAllCanonicalLocations,
+  stripFileProtocol,
+} from "@axm.sh/core/unstable/utils";
 import { DefaultCodingAgentRepository } from "../../agents/repository.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import { computeIntegrity } from "../../utils/integrity.js";
-import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Service Tag

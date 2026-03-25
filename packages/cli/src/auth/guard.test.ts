@@ -10,12 +10,12 @@ import { CliEnvConfig } from "../config/index.js";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
-import { makeOutputTestLayer } from "../output/index.js";
-import { makeActivityTestLayer } from "../activity/index.js";
-import { makeInputTestLayer } from "../input/index.js";
-import { CliFlagsTest } from "../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
+import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { withAuthGuard } from "./guard.js";
-import { makeAppError } from "../app-error/app-error.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 

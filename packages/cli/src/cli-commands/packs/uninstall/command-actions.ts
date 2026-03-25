@@ -28,15 +28,15 @@ import {
   type ExtensionTarget,
 } from "../../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../../workspace/index.js";
-import { Output } from "../../../output/index.js";
-import { expandGlob } from "../../../skills/index.js";
+import { Output } from "@axm.sh/core/unstable/output";
+import { expandGlob } from "@axm.sh/core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
 import type {
   PackExtensionRef,
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "../../../sources/index.js";
+} from "@axm.sh/core/unstable/sources";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------

@@ -15,15 +15,19 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "../../../auth/index.js";
-import { makeAppError } from "../../../app-error/index.js";
-import { Output } from "../../../output/index.js";
-import { Activity } from "../../../activity/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { Output } from "@axm.sh/core/unstable/output";
+import { Activity } from "@axm.sh/core/unstable/activity";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
-import { MANIFEST_FILENAME, REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../../extensions/index.js";
-import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
+import {
+  MANIFEST_FILENAME,
+  REGISTRY_EXTENSIONS_DIR,
+  parseFqn,
+} from "@axm.sh/core/unstable/extensions";
+import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 
 // -----------------------------------------------------------------------------
 // Types

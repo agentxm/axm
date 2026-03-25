@@ -2,15 +2,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type {
   CommandLockEntry,
   Lockfile,
   McpServerLockEntry,
   PackLockEntry,
   SkillLockEntry,
-} from "../lockfile/index.js";
-import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+} from "@axm.sh/core/unstable/lockfile";
+import { LOCKFILE_NAME, writeLockfile } from "@axm.sh/core/unstable/lockfile";
 import { commandReconciliationAdapter } from "../extensions/commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../extensions/mcp-servers/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../extensions/packs/reconciliation-adapter.js";

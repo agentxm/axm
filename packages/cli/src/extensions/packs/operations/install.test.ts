@@ -15,19 +15,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeActivityTestLayer } from "../../../activity/index.js";
-import { makeInputTestLayer } from "../../../input/index.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
+import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig } from "../../../config/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-  type ExtensionFiles,
-  type RegistryPackRef,
-} from "../../../sources/index.js";
-import { makeAppError } from "../../../app-error/index.js";
+import type { ExtensionFiles, RegistryPackRef } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import type { SourceHostProvidersService } from "../../../sources/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { installPack, type InstallPackOperation } from "./install.js";
 
 // -----------------------------------------------------------------------------

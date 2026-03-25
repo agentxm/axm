@@ -10,15 +10,15 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { ExtensionType } from "../index.js";
-import type { ExtensionRef, PackExtensionRef, RegistrySource } from "../../sources/index.js";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionRef, PackExtensionRef, RegistrySource } from "@axm.sh/core/unstable/sources";
 import type {
   ExtensionTarget,
   PackExtensionTarget,
   SkillExtensionTarget,
 } from "../../workflows/install-operation/workflow.js";
-import type { Lockfile } from "../../lockfile/index.js";
+import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // FQN Parsing

@@ -4,8 +4,8 @@ import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
-import type { AppError } from "./app-error/index.js";
-import type { PromptCancelled } from "./prompt-cancelled.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfigService,

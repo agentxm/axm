@@ -12,7 +12,7 @@ import { vi, beforeEach } from "vitest";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
-import { CliFlagsTest } from "../../../cli-flags/index.js";
+import { CliFlagsTest } from "@axm.sh/core/unstable/cli-flags";
 import { CliEnvConfig, type CliEnvConfigService } from "../../../config/index.js";
 import { handleToken } from "./handler.js";
 

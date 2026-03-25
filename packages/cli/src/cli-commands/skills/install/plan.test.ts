@@ -8,16 +8,12 @@ import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { SkillsLockMap } from "../../../lockfile/index.js";
-import {
-  SourceHostProviders,
-  type LocalSkillRef,
-  type RegistrySkillRef,
-  type Source,
-  type SourceHostProvidersService,
-} from "../../../sources/index.js";
+import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
+import type { LocalSkillRef, RegistrySkillRef, Source } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { CliEnvConfig } from "../../../config/index.js";
 import { buildSkillInstallPlan } from "./plan.js";
 

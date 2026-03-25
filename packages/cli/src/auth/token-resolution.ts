@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 
-import type { AppError } from "../app-error/app-error.js";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvConfig } from "../config/index.js";
 import { CredentialStore } from "./credential-store.js";
 import {

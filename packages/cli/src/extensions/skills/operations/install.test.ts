@@ -9,19 +9,15 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CliEnvConfig } from "../../../config/index.js";
-import { makeOutputTestLayer } from "../../../output/index.js";
-import { makeAppError } from "../../../app-error/index.js";
-import {
-  SourceHostProviders,
-  type Source,
-  type SourceHostProvidersService,
-  type ExtensionRef,
-} from "../../../sources/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type { Source, ExtensionRef, SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import { SourceHostProviders } from "../../../sources/index.js";
+import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
-import type { SkillExtensionRef } from "../../../sources/index.js";
 import { installSkill } from "./install.js";
 import { sanitizeName } from "../utils.js";
 

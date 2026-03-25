@@ -14,12 +14,12 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { CliEnvConfig } from "../../config/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
-import type { SourceHostProvider } from "../index.js";
-import { fileUrlToPath } from "../index.js";
+import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
 import type {
+  SourceHostProvider,
   GitHubSourceHost,
   GitLabSourceHost,
   BitbucketSourceHost,
@@ -30,7 +30,7 @@ import type {
   AzureReposSource,
   GitHostingSourceHost,
   ExtensionRef,
-} from "../index.js";
+} from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
 // New Factory (SourceHostProvider)

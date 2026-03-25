@@ -16,8 +16,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError } from "../app-error/index.js";
-import type { ExtensionType } from "../extensions/index.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type { VersionEntry } from "./local-schema.js";
 
 // -----------------------------------------------------------------------------

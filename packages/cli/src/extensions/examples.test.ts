@@ -10,14 +10,14 @@ import * as path from "node:path";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import * as YAML from "yaml";
-import { LockfileSchema } from "../lockfile/index.js";
-import { SettingsSchema } from "../settings/index.js";
+import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
+import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 import {
   SkillManifestSchema,
   CommandManifestSchema,
   McpServerManifestSchema,
   PackManifestSchema,
-} from "./index.js";
+} from "@axm.sh/core/unstable/extensions";
 
 const CLI_SRC = path.join(import.meta.dirname, "..");
 const CORE_SRC = path.join(import.meta.dirname, "../../../core/src/unstable");

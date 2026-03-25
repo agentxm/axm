@@ -10,10 +10,10 @@ import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { Lockfile, PackLockEntry } from "../../../lockfile/index.js";
+import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { makeOutputTestLayer } from "../../../output/index.js";
+import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 

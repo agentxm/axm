@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Activity, ActivityLive } from "../../../activity/index.js";
+import { Activity, ActivityLive } from "@axm.sh/core/unstable/activity";
 
 export const spinnerCommand = {
   handler: () => {

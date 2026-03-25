@@ -1,6 +1,3 @@
-// Re-export data layer from core
-export * from "@axm.sh/core/unstable/sources";
-
 // Provider implementations (CLI-specific)
 export {
   createAzureReposSourceHostProvider,

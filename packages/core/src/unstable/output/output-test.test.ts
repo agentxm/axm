@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Output } from "./output.js";
 import { makeOutputTestLayer } from "./output-test.js";
@@ -63,19 +62,6 @@ describe("makeOutputTestLayer", () => {
       yield* output.stream("info", Stream.make("hello ", "world"));
 
       expect(mock.calls).toEqual([{ method: "stream", args: ["info", "hello world"] }]);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("records result calls", () => {
-    const [layer, mock] = makeOutputTestLayer();
-    return Effect.gen(function* () {
-      const output = yield* Output;
-      const TestSchema = Schema.Struct({ name: Schema.String });
-      const data = { name: "test" };
-      yield* output.result(TestSchema, data, (d) => d.name);
-
-      expect(mock.calls).toHaveLength(1);
-      expect(mock.calls[0]!.method).toBe("result");
     }).pipe(Effect.provide(layer));
   });
 });

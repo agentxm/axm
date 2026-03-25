@@ -1,5 +1,4 @@
 import type * as Effect from "effect/Effect";
-import type * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import type * as Stream from "effect/Stream";
 import type { AppError } from "../app-error/index.js";
@@ -33,10 +32,5 @@ export class Output extends ServiceMap.Service<
       level: StreamLevel,
       stream: Stream.Stream<string, E, R>,
     ) => Effect.Effect<void, AppError | E, R>;
-    readonly result: <A, I>(
-      schema: Schema.Codec<A, I>,
-      data: A,
-      textRenderer: (data: A) => string,
-    ) => Effect.Effect<void>;
   }
 >()("@axm.sh/cli/Output") {}

@@ -6,24 +6,9 @@ Last verified: 2026-03-25
 
 ---
 
-## 1. `output.result()` schema-driven output unused in main CLI
+## 1. ~~Remove `output.result()` from Output service~~ ✓ Done
 
-The spike demonstrates `output.result(schema, data, renderText)` as the canonical pattern for format-agnostic output — text/json/stream-json routing handled transparently by the Output service. The main CLI uses only `output.info()`, `output.warn()`, `output.success()`, etc. No command in the main CLI calls `output.result()`.
-
-Worse, some main CLI commands bypass the Output service entirely — `whoami` and `token` use raw `process.stdout.write()` for data output (see Finding 9).
-
-**Direction:** spike → main CLI
-
-a) Adopt `output.result()` in main CLI commands that emit structured data (e.g., `skills list`, `whoami`, `token`)
-b) Remove `output.result()` from the spike and standardize on info/warn/success methods only
-c) Leave as-is — adopt incrementally
-
-**Recommendation:** (a) — The spike's pattern is the right direction for JSON output support. Commands that produce data should adopt `output.result()`. Commands that only produce log-style output keep using `output.info()` etc.
-
-**Key files:**
-
-- Spike reference: `packages/cli-spike/src/commands/skills/list.ts` (schema + renderText + `output.result()`)
-- Main CLI gap: `packages/cli/src/cli-commands/skills/list/handler.ts` (uses `output.info()` / `output.message()` only)
+Removed `output.result()` from the Output service interface, all implementations (OutputLive, OutputStructured, test layer), spike callers, and tests. The API was over-abstracted — process completion signals "done," and Unix stdout/stderr conventions handle routing. Spike commands now use `output.message()` / `output.success()` directly. `OutputLive()` no longer accepts a format parameter. Spec updated to remove the result requirement.
 
 ---
 
@@ -173,17 +158,16 @@ Several main CLI handlers write directly to `process.stdout` instead of using th
 
 **Direction:** spike → main CLI
 
-a) Refactor `whoami` and `token` to use `output.result()` with an output schema and text renderer, removing the custom `--json` flag in favor of the global `--output-format` flag
-b) Keep `token` as raw stdout (it's a credential pipe) but fix `whoami`
+a) Refactor `whoami` to use the Output service (`output.message()` / `output.info()`) and remove the custom `--json` flag. Refactor `token` to use Output service for consistency.
+b) Keep `token` as raw stdout (it's a credential pipe) but fix `whoami` to use the Output service
 c) Leave as-is
 
-**Recommendation:** (b) — `token` is intentionally a raw credential pipe (stdout-only, no decoration) for scripting use (`axm token | xargs curl -H "Authorization: Bearer $1"`). The `output.result()` pattern doesn't fit here. But `whoami` should use `output.result()` with a schema and the global `--output-format` flag — the custom `--json` flag is inconsistent UX.
+**Recommendation:** (b) — `token` is intentionally a raw credential pipe (stdout-only, no decoration) for scripting use (`axm token | xargs curl -H "Authorization: Bearer $1"`). But `whoami` should use the Output service and drop the custom `--json` flag — the per-command flag is inconsistent UX. JSON output support can be designed later if needed (see Finding 1).
 
 **Key files:**
 
 - `packages/cli/src/cli-commands/auth/whoami/handler.ts` (lines 54–75, manual JSON + `--json` flag)
 - `packages/cli/src/cli-commands/auth/token/handler.ts` (line 38, raw stdout)
-- Spike reference: `packages/cli-spike/src/commands/skills/list.ts` (correct pattern)
 
 ---
 
@@ -207,27 +191,27 @@ c) Leave as-is — the wrapper is small and contained
 
 ## Summary
 
-| #   | Finding                                      | Direction    | Priority | Size   |
-| --- | -------------------------------------------- | ------------ | -------- | ------ |
-| 1   | `output.result()` unused in main CLI         | spike → main | P1       | Medium |
-| 9   | Handlers bypass Output with `process.stdout` | spike → main | P1       | Medium |
-| 2   | Scope flag inline vs centralized             | main → spike | P2       | Small  |
-| 3   | Telemetry resolution interface mismatch      | main → spike | P2       | Small  |
-| 4   | Raw `process.env` vs `CliEnvConfig`          | main → spike | P2       | Medium |
-| 5   | Missing `withRuntime` features in spike      | main → spike | P2       | Medium |
-| 10  | Telemetry wrapper uses `as` type assertions  | main CLI fix | P2       | Small  |
-| 6   | Install command missing `force`/`preview`    | main → spike | P3       | Small  |
-| 7   | Handler organization difference              | none         | —        | —      |
-| 8   | Root command no-subcommand behavior          | main → spike | P3       | Small  |
+| #   | Finding                                          | Direction    | Priority | Size   |
+| --- | ------------------------------------------------ | ------------ | -------- | ------ |
+| 9   | Handlers bypass Output with `process.stdout`     | main CLI fix | P1       | Medium |
+| 2   | Scope flag inline vs centralized                 | main → spike | P2       | Small  |
+| 3   | Telemetry resolution interface mismatch          | main → spike | P2       | Small  |
+| 4   | Raw `process.env` vs `CliEnvConfig`              | main → spike | P2       | Medium |
+| 5   | Missing `withRuntime` features in spike          | main → spike | P2       | Medium |
+| 10  | Telemetry wrapper uses `as` type assertions      | main CLI fix | P2       | Small  |
+| 1   | ~~Remove `output.result()` from Output service~~ | ✓ Done       | P3       | Small  |
+| 6   | Install command missing `force`/`preview`        | main → spike | P3       | Small  |
+| 7   | Handler organization difference                  | none         | —        | —      |
+| 8   | Root command no-subcommand behavior              | main → spike | P3       | Small  |
 
-**P1** — Biggest value-add: adopt `output.result()` in main CLI for structured data commands and stop bypassing the Output service.
+**P1** — Stop bypassing the Output service with raw `process.stdout.write()`.
 **P2** — Bring the spike in line with production patterns so it remains a trustworthy reference. Fix assertion violations.
-**P3** — Small fixes for completeness and consistent UX.
+**P3** — Small cleanups for completeness and consistent UX.
 
 ### Execution tracks
 
 **Track 1 — Main → Spike (reference integrity):** Findings 2, 3, 4, 5, 6, 8. Brings the spike up to production patterns. Mostly mechanical. Do first — the spike should be trustworthy before using it as a reference for Track 2.
 
-**Track 2 — Spike → Main (feature adoption):** Findings 1, 9. Adopt `output.result()` in main CLI commands that produce data (`skills list`, `whoami`). Highest user-facing value.
+**Track 2 — Main CLI fixes:** Findings 9, 10. Stop bypassing the Output service in `whoami`. Clean up telemetry type assertions.
 
-**Track 3 — Main CLI internal:** Finding 10. Clean up the telemetry wrapper's type assertions. Small, independent.
+**Track 3 — ~~Remove `output.result()`~~:** ✓ Done. Removed from interface, all implementations, spike callers, tests, and spec.

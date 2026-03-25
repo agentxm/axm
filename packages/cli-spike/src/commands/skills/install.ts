@@ -9,7 +9,6 @@
 // The handler is completely format-agnostic. No emitEvent(), no format
 // branching. The Activity service handles all format differences.
 // ==========================================================================
-import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -20,24 +19,13 @@ import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
-// Output schema — the JSON contract for `skills install`
-// ---------------------------------------------------------------------------
-
-export const InstallResultSchema = Schema.Struct({
-  _version: Schema.Literal(1),
-  source: Schema.String,
-  installed: Schema.Array(Schema.String),
-});
-export type InstallResult = typeof InstallResultSchema.Type;
-
-// ---------------------------------------------------------------------------
 // Text renderer
 // ---------------------------------------------------------------------------
 
-const renderText = (result: InstallResult): string => {
+const renderText = (source: string, installed: ReadonlyArray<string>): string => {
   const lines = [
-    `\u2713 Installed ${result.installed.length} skill(s) from ${result.source}`,
-    ...result.installed.map((s) => `  \u2022 ${s}`),
+    `\u2713 Installed ${installed.length} skill(s) from ${source}`,
+    ...installed.map((s) => `  \u2022 ${s}`),
   ];
   return lines.join("\n");
 };
@@ -93,12 +81,7 @@ export const installCommand = Command.make("install", installConfig, (config) =>
         "Installation complete",
       );
 
-      const result: InstallResult = {
-        _version: 1,
-        source: config.source,
-        installed: Array.from(skills),
-      };
-      yield* output.result(InstallResultSchema, result, renderText);
+      yield* output.success(renderText(config.source, skills));
     }),
     { command: "skills install", isLongRunning: true },
   ),
@@ -118,10 +101,6 @@ export const installCommand = Command.make("install", installConfig, (config) =>
     {
       command: "axm-spike skills install owner/repo --all --yes",
       description: "Install all without prompts",
-    },
-    {
-      command: "axm-spike skills install owner/repo --output-format json",
-      description: "Install with JSON output",
     },
   ]),
 );

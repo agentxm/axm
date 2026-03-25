@@ -1,7 +1,5 @@
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { emitEvent, type OutputFormat } from "../output-format.js";
 import { Output, type StreamLevel } from "./output.js";
@@ -46,21 +44,5 @@ export const OutputStructured = (mode: StructuredMode): Layer.Layer<Output> => {
     box: (message, title) => logEvent("info", title ? `${title}: ${message}` : message),
 
     stream: (level, stream) => collectAndLog(levelToLogLevel(level))(stream),
-
-    result: <A, I>(schema: Schema.Codec<A, I>, data: A, _textRenderer: (data: A) => string) =>
-      Effect.gen(function* () {
-        switch (mode) {
-          case "json": {
-            const encoded = Schema.encodeSync(schema)(data);
-            yield* Console.log(JSON.stringify(encoded));
-            break;
-          }
-          case "stream-json": {
-            const encoded = Schema.encodeSync(schema)(data);
-            yield* Console.log(JSON.stringify({ type: "result", data: encoded }));
-            break;
-          }
-        }
-      }),
   });
 };

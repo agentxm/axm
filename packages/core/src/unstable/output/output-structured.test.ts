@@ -3,7 +3,6 @@ import * as Console from "effect/Console";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Output } from "./output.js";
 import { OutputStructured } from "./output-structured.js";
@@ -90,27 +89,6 @@ describe("OutputStructured", () => {
       }).pipe(Effect.provide(testLayer));
     });
 
-    it.effect("emits result as NDJSON with type: result", () => {
-      const lines: Array<string> = [];
-      const testLayer = Layer.merge(
-        layer,
-        Layer.succeed(Console.Console, {
-          ...console,
-          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
-        }),
-      );
-
-      return Effect.gen(function* () {
-        const output = yield* Output;
-        const TestSchema = Schema.Struct({ name: Schema.String });
-        yield* output.result(TestSchema, { name: "test" }, (d) => d.name);
-
-        expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
-        expect(parsed).toEqual({ type: "result", data: { name: "test" } });
-      }).pipe(Effect.provide(testLayer));
-    });
-
     it.effect("collects stream and emits as log event", () => {
       const lines: Array<string> = [];
       const testLayer = Layer.merge(
@@ -171,27 +149,6 @@ describe("OutputStructured", () => {
           }),
         ),
       );
-    });
-
-    it.effect("emits result as plain JSON", () => {
-      const lines: Array<string> = [];
-      const testLayer = Layer.merge(
-        layer,
-        Layer.succeed(Console.Console, {
-          ...console,
-          log: (...args: ReadonlyArray<unknown>) => lines.push(args.map(String).join(" ")),
-        }),
-      );
-
-      return Effect.gen(function* () {
-        const output = yield* Output;
-        const TestSchema = Schema.Struct({ name: Schema.String });
-        yield* output.result(TestSchema, { name: "test" }, (d) => d.name);
-
-        expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
-        expect(parsed).toEqual({ name: "test" });
-      }).pipe(Effect.provide(testLayer));
     });
   });
 });

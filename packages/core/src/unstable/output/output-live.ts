@@ -1,11 +1,8 @@
 import * as p from "@clack/prompts";
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { OutputFormat } from "../output-format.js";
 import { Output, type StreamLevel } from "./output.js";
 
 const streamMethodMap: Record<StreamLevel, (iter: Iterable<string>) => Promise<void>> = {
@@ -17,7 +14,7 @@ const streamMethodMap: Record<StreamLevel, (iter: Iterable<string>) => Promise<v
   error: (iter) => p.stream.error(iter),
 };
 
-export const OutputLive = (format: OutputFormat = "text"): Layer.Layer<Output> =>
+export const OutputLive = (): Layer.Layer<Output> =>
   Layer.succeed(Output, {
     message: (message) => Effect.sync(() => p.log.message(message)),
     info: (message) => Effect.sync(() => p.log.info(message)),
@@ -44,23 +41,4 @@ export const OutputLive = (format: OutputFormat = "text"): Layer.Layer<Output> =
             }),
         });
       }) as Effect.Effect<void, AppError | E, R>,
-
-    result: <A, I>(schema: Schema.Codec<A, I>, data: A, textRenderer: (data: A) => string) =>
-      Effect.gen(function* () {
-        switch (format) {
-          case "text":
-            yield* Console.log(textRenderer(data));
-            break;
-          case "json": {
-            const encoded = Schema.encodeSync(schema)(data);
-            yield* Console.log(JSON.stringify(encoded));
-            break;
-          }
-          case "stream-json": {
-            const encoded = Schema.encodeSync(schema)(data);
-            yield* Console.log(JSON.stringify({ type: "result", data: encoded }));
-            break;
-          }
-        }
-      }),
   });

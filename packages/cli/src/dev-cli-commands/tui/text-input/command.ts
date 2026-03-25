@@ -19,7 +19,7 @@ export const textInputCommand = {
       program.pipe(
         Effect.provide(
           Layer.mergeAll(
-            OutputLive("text"),
+            OutputLive(),
             Layer.provide(InputLive, CliEnvironmentTest({ nonInteractive: false })),
           ),
         ),

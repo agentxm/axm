@@ -32,7 +32,7 @@ Command handlers currently split output across three services (`Output`, `Activi
 
 ### Superseded Capabilities
 
-- `cli-output-service`: Superseded by `cli-renderer`. `Output` methods (`message`, `info`, `success`, `warn`, `error`, `intro`, `outro`, `note`) become `CliRenderer` chrome methods.
+- `cli-output-service`: Superseded by `cli-renderer`. `Output` methods (`message`, `info`, `success`, `warn`, `error`, `intro`, `outro`, `note`) become `CliRenderer` chrome methods. `Output.stream()` becomes `CliRenderer.streamLog()`.
 - `cli-flags`: `--output-format` removed; per-command `--json` flag added (same pattern as `--yes`, `--force`). `-q`/`--quiet`, `-v`/`--verbose` added as global flags. Verbosity resolution moves to dedicated `Verbosity` service.
 - `tui-spinner`: `Activity` service removed. `startSpinner`/`withSpinner` become `CliRenderer.spinner()`/`withSpinner()`.
 - `tui-log`: Per-level methods (`info`/`warn`/`error`/`success`/`step`) become `CliRenderer.log()` with a `LogMessage` discriminant.

@@ -18,14 +18,11 @@ const initConfig = {
   preview: previewFlag,
 } as const;
 
-export const initCommand = Command.make(
-  "init",
-  initConfig,
-  ({ scope, agent }) =>
-    withRuntime(
-      withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
-      { command: "init" },
-    ),
+export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
+  withRuntime(
+    withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
+    { command: "init" },
+  ),
 ).pipe(
   withArgvTracking(initConfig),
   Command.withDescription("Set up axm in the current project"),

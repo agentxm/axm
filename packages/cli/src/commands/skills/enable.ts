@@ -14,13 +14,10 @@ const enableConfig = {
   preview: previewFlag,
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope }) =>
-    withRuntime(withWorkspace(scope, handleEnable({ name })), {
-      command: "skills enable",
-    }),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope }) =>
+  withRuntime(withWorkspace(scope, handleEnable({ name })), {
+    command: "skills enable",
+  }),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled skill"),

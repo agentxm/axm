@@ -19,22 +19,18 @@ const newConfig = {
   ),
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  (config) => {
-    const namespace = Option.getOrElse(config.namespace, () => "-");
-    const agents = Option.match(config.agent, {
-      onNone: () => "-",
-      onSome: (agentIds) => agentIds.join(", "),
-    });
+export const newCommand = Command.make("new", newConfig, (config) => {
+  const namespace = Option.getOrElse(config.namespace, () => "-");
+  const agents = Option.match(config.agent, {
+    onNone: () => "-",
+    onSome: (agentIds) => agentIds.join(", "),
+  });
 
-    return withRuntime(
-      Console.log(`[stub] skills new name=${config.name} namespace=${namespace} agents=${agents}`),
-      { command: "skills new" },
-    );
-  },
-).pipe(
+  return withRuntime(
+    Console.log(`[stub] skills new name=${config.name} namespace=${namespace} agents=${agents}`),
+    { command: "skills new" },
+  );
+}).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new skill"),
   Command.withExamples([

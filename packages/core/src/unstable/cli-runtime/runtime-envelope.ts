@@ -4,11 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
-import {
-  CliFlags,
-  makeCliFlagsLayer,
-  outputFormatFlag,
-} from "../cli-flags/index.js";
+import { CliFlags, makeCliFlagsLayer, outputFormatFlag } from "../cli-flags/index.js";
 import type { CommandArgvService } from "./command-argv.js";
 import type { OutputFormat } from "../output-format.js";
 import type { AppError } from "../app-error/index.js";

@@ -7,9 +7,7 @@ import { scopeFlag } from "../../cli-flags/index.js";
 import { handleRename } from "../../cli-commands/skills/rename/handler.js";
 
 const renameConfig = {
-  oldName: Argument.string("old-name").pipe(
-    Argument.withDescription("Current name of the skill"),
-  ),
+  oldName: Argument.string("old-name").pipe(Argument.withDescription("Current name of the skill")),
   newName: Argument.string("new-name").pipe(Argument.withDescription("New name for the skill")),
   scope: scopeFlag,
   yes: yesFlag,
@@ -17,13 +15,10 @@ const renameConfig = {
   preview: previewFlag,
 } as const;
 
-export const renameCommand = Command.make(
-  "rename",
-  renameConfig,
-  ({ oldName, newName, scope }) =>
-    withRuntime(withWorkspace(scope, handleRename({ oldName, newName })), {
-      command: "skills rename",
-    }),
+export const renameCommand = Command.make("rename", renameConfig, ({ oldName, newName, scope }) =>
+  withRuntime(withWorkspace(scope, handleRename({ oldName, newName })), {
+    command: "skills rename",
+  }),
 ).pipe(
   withArgvTracking(renameConfig),
   Command.withDescription("Rename a skill"),

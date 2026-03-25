@@ -16,13 +16,10 @@ const installConfig = {
   preview: previewFlag,
 } as const;
 
-export const installCommand = Command.make(
-  "install",
-  installConfig,
-  ({ source, scope }) =>
-    withRuntime(withWorkspace(scope, handleInstallCommand({ source })), {
-      command: "commands install",
-    }),
+export const installCommand = Command.make("install", installConfig, ({ source, scope }) =>
+  withRuntime(withWorkspace(scope, handleInstallCommand({ source })), {
+    command: "commands install",
+  }),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install a command from a registry"),

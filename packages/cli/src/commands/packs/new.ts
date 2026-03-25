@@ -19,13 +19,10 @@ const newConfig = {
   preview: previewFlag,
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, profile }) =>
-    withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksNew({ name, profile })), {
-      command: "packs new",
-    }),
+export const newCommand = Command.make("new", newConfig, ({ name, profile }) =>
+  withRuntime(withWorkspace(DEFAULT_WORKSPACE_SCOPE, handlePacksNew({ name, profile })), {
+    command: "packs new",
+  }),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new empty extension pack"),

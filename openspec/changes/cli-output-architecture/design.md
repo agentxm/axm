@@ -22,7 +22,7 @@ The `--output-format text|json|stream-json` flag conflates format selection with
 - Interactive prompt redesign — CliPrompt stays a separate service with its existing interface; this change codifies its relationship to CliRenderer but does not alter prompt behavior
 - Telemetry/observability output changes
 - Preserving CliEnvironment — this change removes CliEnvironment entirely (its responsibilities are absorbed by Verbosity, nonInteractiveFlag, and per-command flags)
-- Error formatting changes (AppError rendering stays in runtime-envelope)
+- Error formatting changes — AppError rendering in `--json` mode is out of scope; current runtime-envelope error handling behavior is preserved. The `MachineRenderer` does not serialize errors to stdout; errors flow through the existing `handleError` path in `runCliMain`
 - `--jq` or `--template` post-processing flags
 - Third-party table library adoption (custom formatter preferred)
 
@@ -110,6 +110,7 @@ class CliRenderer extends ServiceMap.Service<
 
 ```typescript
 type LogMessage =
+  | { readonly _tag: "message"; readonly message: string }
   | { readonly _tag: "info"; readonly message: string }
   | { readonly _tag: "success"; readonly message: string }
   | { readonly _tag: "step"; readonly message: string }
@@ -117,11 +118,31 @@ type LogMessage =
   | { readonly _tag: "error"; readonly message: string };
 ```
 
-The per-level methods on the service interface (`info`, `success`, `step`, `warn`, `error`) delegate to `LogMessage` internally. Handlers call `renderer.step("msg")` directly — the tagged union is an implementation detail, not part of the handler-facing API.
+The per-level methods on the service interface (`message`, `info`, `success`, `step`, `warn`, `error`) delegate to `LogMessage` internally. Handlers call `renderer.step("msg")` directly — the tagged union is an implementation detail, not part of the handler-facing API.
+
+**Clack method mapping:**
+
+| CliRenderer method          | Clack function | Notes                                                        |
+| --------------------------- | -------------- | ------------------------------------------------------------ |
+| `message`                   | `log.message`  | Generic log, no icon prefix                                  |
+| `info`                      | `log.info`     | Blue info icon                                               |
+| `success`                   | `log.success`  | Green check icon                                             |
+| `step`                      | `log.step`     | Dash icon                                                    |
+| `warn`                      | `log.warn`     | Yellow warning icon                                          |
+| `error`                     | `log.error`    | Red error icon                                               |
+| `intro`                     | `intro`        | Session opening message                                      |
+| `outro`                     | `outro`        | Session closing message                                      |
+| `cancel`                    | `cancel`       | Cancellation message                                         |
+| `note`                      | `note`         | Bordered message with title                                  |
+| `box`                       | `box`          | Boxed message with alignment, width, rounded corners         |
+| `spinner` / `withSpinner`   | `spinner`      | Animated spinner with message                                |
+| `progress` / `withProgress` | `progress`     | Extends spinner with advance/percent                         |
+| `taskLog` / `withTaskLog`   | `taskLog`      | Command output capture (clears on success, retains on error) |
+| `runTasks`                  | `tasks`        | Batch task execution with spinner display                    |
 
 ### 2. Replace --output-format with per-command --json
 
-**Decision:** A per-command `--json` boolean flag replaces the global `--output-format text|json|stream-json`. Only commands that declare an output schema (Decision 7) include the flag. The flag feeds into renderer layer selection — when active, the `MachineRenderer` is used, which suppresses chrome and makes data display methods no-ops.
+**Decision:** A per-command `--json` boolean flag replaces the global `--output-format text|json|stream-json`. Only commands that declare an output schema (Decision 7) include the flag. The flag feeds into renderer layer selection — when active, the `MachineRenderer` is used, which emits NDJSON log events on stderr for chrome methods (preserving progress/status for CI consumers) and makes data display methods no-ops.
 
 **Alternatives considered:**
 
@@ -132,7 +153,7 @@ The per-level methods on the service interface (`info`, `success`, `step`, `warn
 
 **Rationale:** `--json` is per-command in the CLI parser — a reusable `Flag` definition in `cli-flags/index.ts`, declared in the command config. It only appears in `--help` for commands that support it.
 
-However, the flag drives renderer layer selection, not handler branching. The `run()` boundary scans argv for `--json` (same early-resolution mechanism as the current `resolveFormatFromArgv`) to select the `MachineRenderer`. This gives automatic chrome suppression — `axm skills list --json | jq` produces clean JSON on stdout with no spinner messages on stderr.
+However, the flag drives renderer layer selection, not handler branching. The `run()` boundary scans argv for `--json` (same early-resolution mechanism as the current `resolveFormatFromArgv`) to select the `MachineRenderer`. This gives clean stdout — `axm skills list --json | jq` produces clean JSON on stdout. Chrome methods in `MachineRenderer` emit NDJSON log events to stderr (not stdout), so CI consumers can parse progress/status from stderr while piping data from stdout.
 
 ```typescript
 // cli-flags/index.ts
@@ -201,7 +222,24 @@ Global flags (resolved once at the `run()` boundary into the service layer):
 | `-v` / `--verbose` | verbose |
 | `-vv` / `--debug`  | debug   |
 
-The existing `debugFlag` and `verboseFlag` in `cli-flags` are reused. A new `quietFlag` is added. Conflict resolution: highest wins (`-q -v` → verbose). The resolved level is provided via `makeVerbosityLayer(level)` at the `run()` boundary.
+The existing `debugFlag` and `verboseFlag` in `cli-flags` are reused. A new `quietFlag` is added. Conflict resolution: **last flag wins** (`-q -v` → verbose, `-v -q` → quiet). This matches POSIX convention — users expect the rightmost flag to take precedence, especially when composing aliases with explicit overrides.
+
+**Implementation:** Effect's CLI parser doesn't expose argv positions, so verbosity is resolved from raw argv at the `run()` boundary — the same `resolveFromArgv` pattern used for `--json`. Scan argv right-to-left; the first verbosity flag found determines the level.
+
+```typescript
+// cli-runtime/resolve-verbosity.ts
+const resolveVerbosityFromArgv = (argv: ReadonlyArray<string>): VerbosityLevel => {
+  for (let i = argv.length - 1; i >= 0; i--) {
+    const arg = argv[i];
+    if (arg === "--debug" || arg === "-vv") return "debug";
+    if (arg === "--verbose" || arg === "-v") return "verbose";
+    if (arg === "--quiet" || arg === "-q") return "quiet";
+  }
+  return "normal";
+};
+```
+
+The resolved level is provided via `makeVerbosityLayer(level)` at the `run()` boundary.
 
 ```typescript
 // cli-flags/index.ts
@@ -274,17 +312,12 @@ Verbosity shapes what data the handler prepares — not how the renderer formats
 const handleList = (args: ListArgs) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const v = yield* Verbosity;
     const skills = yield* fetchSkills(args);
 
-    // Verbose JSON includes extra fields; result() short-circuits in machine mode
-    const data = v.isAtLeast("verbose")
-      ? skills.map((s) => ({ ...s, source: s.source, installedAt: s.installedAt }))
-      : skills.map((s) => ({ name: s.name, version: s.version, enabled: s.enabled }));
-    if (yield* renderer.result(data)) return;
-
-    // Table columns with priority handle verbose display automatically
-    yield* renderer.table(skills, columns);
+    // Schema drives everything — priority annotations handle verbose fields automatically
+    // In JSON mode, all fields are emitted regardless of priority
+    // In table mode, priority: 1 fields only appear at --verbose
+    yield* emitMany(skills, { schema: SkillListItem, title: "Skills" });
     yield* whenVerbose(renderer.info(`${skills.length} skills found`));
   });
 ```
@@ -293,10 +326,10 @@ const handleList = (args: ListArgs) =>
 
 **Decision:** Enforce channel separation unconditionally in both modes.
 
-| Channel    | Methods                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| **stdout** | `result`, `resultStream`, `table`, `tree`, `json`, `raw`                                    |
-| **stderr** | `intro`, `outro`, `info`, `success`, `step`, `warn`, `error`, `note`, `spinner`, `progress` |
+| Channel    | Methods                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **stdout** | `result`, `resultStream`, `table`, `detail`, `tree`, `json`, `raw`                                                                             |
+| **stderr** | `intro`, `outro`, `message`, `info`, `success`, `step`, `warn`, `error`, `cancel`, `note`, `box`, `spinner`, `progress`, `taskLog`, `runTasks` |
 
 **Rationale:** This makes `axm skills list --json | jq` work cleanly — chrome goes to stderr, JSON goes to stdout. When piping without `--json`, chrome is still visible on stderr while stdout carries nothing (handler didn't call `result()`). The current implementation already routes structured output chrome to `console.error` — this formalizes and extends that pattern.
 
@@ -311,15 +344,17 @@ const handleList = (args: ListArgs) =>
 
 **Rationale:** CI environments (GitHub Actions) have TTY-like stdout but shouldn't get animated spinners. Currently, CI detection is done via `isNonInteractive` which conflates "don't prompt" with "don't animate." Splitting into two axes lets CI get colored static output (spinner start/stop messages) without animation frames.
 
+These axes feed renderer selection (Decision 11) and internal renderer behavior. `InteractiveRenderer` reads `TerminalCapabilities` to degrade gracefully: no colors when `canRender` is false (e.g., `NO_COLOR`, `TERM=dumb`), static output when `isInteractive` is false (CI — spinner start/stop messages without animation frames, box-drawing without cursor movement).
+
 These axes are resolved once at the `run()` boundary and stored in a `TerminalCapabilities` value provided to the renderer layer.
 
 ### 6. result() / resultStream() return boolean
 
-**Decision:** `result()` returns `true` in machine mode (data emitted), `false` in interactive mode (no-op). This enables the short-circuit idiom:
+**Decision:** `result<T>(data: T, schema: Schema.Schema<T>)` returns `true` in machine mode (data validated and emitted), `false` in interactive mode (no-op). The schema parameter ensures all machine output is validated — no untyped JSON escape hatches. This enables the short-circuit idiom:
 
 ```typescript
-if (yield * renderer.result(data)) return;
-// ... interactive table/tree rendering follows
+if (yield * renderer.result(data, OutputSchema)) return;
+// ... interactive table/detail/tree rendering follows
 ```
 
 **Alternatives considered:**
@@ -332,7 +367,7 @@ if (yield * renderer.result(data)) return;
 
 ### 7. Schema-driven output with annotations
 
-**Decision:** Each command that supports `--json` declares a single Effect `Schema` for its output shape. The schema is annotated with display metadata (column headers, priority, alignment, formatting). One definition drives five outputs: TypeScript types, JSON serialization, table columns, JSON Schema documentation, and field descriptions.
+**Decision:** Each command that supports `--json` declares a single Effect `Schema` for its output shape. The schema is annotated with display metadata (column headers, priority, alignment, formatting). One definition drives six outputs: TypeScript types, JSON serialization, table columns, detail labels, JSON Schema documentation, and field descriptions.
 
 **Alternatives considered:**
 
@@ -400,10 +435,11 @@ type SkillListItem = typeof SkillListItem.Type;
 
 #### Deriving columns from schema
 
-A utility reads annotations from the schema AST and produces `ColumnDef<T>` arrays:
+A utility reads annotations from the schema AST using Effect v4's `SchemaAST` accessor APIs and produces `ColumnDef<T>` arrays:
 
 ```typescript
 // cli-renderer/command-output.ts
+import { SchemaAST } from "effect";
 
 interface ColumnDef<T> {
   readonly key: string;
@@ -416,31 +452,36 @@ interface ColumnDef<T> {
 
 const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDef<T>> => {
   const ast = schema.ast;
-  if (ast._tag !== "TypeLiteral") return [];
+  if (!SchemaAST.isObjects(ast)) return [];
 
   return ast.propertySignatures
-    .filter((prop) => !prop.type.annotations?.[Hidden])
-    .filter((prop) => prop.type.annotations?.[ColumnHeader] !== undefined)
-    .map((prop) => {
-      const ann = prop.type.annotations ?? {};
-      const key = String(prop.name);
-      const format = ann[DisplayFormat] as ((v: unknown) => string) | undefined;
+    .filter((ps) => {
+      const ann = SchemaAST.resolve(ps.type);
+      return ann?.[Hidden] !== true && ann?.[ColumnHeader] !== undefined;
+    })
+    .map((ps) => {
+      const ann = SchemaAST.resolve(ps.type) ?? {};
+      const key = String(ps.name);
+      const format = ann[DisplayFormat];
+      const header = ann[ColumnHeader];
       return {
         key,
-        header: ann[ColumnHeader] as string,
+        header: typeof header === "string" ? header : key,
         value: (item: T) => {
           const raw = (item as Record<string, unknown>)[key];
-          if (format) return format(raw);
+          if (typeof format === "function") return format(raw);
           if (raw == null) return "";
           return String(raw);
         },
-        priority: (ann[ColumnPriority] as number) ?? 0,
-        align: (ann[ColumnAlign] as "left" | "right") ?? "left",
-        width: (ann[ColumnWidth] as "auto" | "fill" | number) ?? "auto",
-      };
+        priority: typeof ann[ColumnPriority] === "number" ? ann[ColumnPriority] : 0,
+        align: ann[ColumnAlign] === "right" ? "right" : "left",
+        width: ann[ColumnWidth] ?? "auto",
+      } satisfies ColumnDef<T>;
     });
 };
 ```
+
+**Why v4 APIs:** Effect v4 provides `SchemaAST.isObjects(ast)` for safe struct detection and `SchemaAST.resolve(ast)` for reading annotations from AST nodes. Property annotations are accessible via `propertySignature.type` — the `resolve()` function handles intermediate nodes (transformations, optionals, refinements) that might wrap the annotations. This is more reliable than raw `annotations?.[key]` access on AST nodes, which could miss annotations hidden behind intermediate wrappers.
 
 #### Emit helpers
 
@@ -458,32 +499,33 @@ interface CommandOutputOpts<T> {
 const emitMany = <T>(items: ReadonlyArray<T>, opts: CommandOutputOpts<T>) =>
   Effect.gen(function* () {
     const out = yield* CliRenderer;
-    if (yield* out.result(items.map(Schema.encodeSync(opts.schema)))) return;
+    if (yield* out.result(items, Schema.Array(opts.schema))) return;
     yield* out.table(items, columnsFrom(opts.schema), opts.title);
   });
 
-// For single-item output (detail/info commands)
+// For single-item output (detail/info commands) — renders as vertical key-value display
 const emitOne = <T>(data: T, opts: CommandOutputOpts<T>) =>
   Effect.gen(function* () {
     const out = yield* CliRenderer;
-    if (yield* out.result(Schema.encodeSync(opts.schema)(data))) return;
-    yield* out.table([data], columnsFrom(opts.schema), opts.title);
+    if (yield* out.result(data, opts.schema)) return;
+    yield* out.detail(data, columnsFrom(opts.schema), opts.title);
   });
 ```
 
 #### What one definition drives
 
-| Derived artifact   | How                                                               |
-| ------------------ | ----------------------------------------------------------------- |
-| TypeScript types   | `typeof SkillListItem.Type` — inferred by Effect Schema           |
-| JSON serialization | `Schema.encode` — validated, typed                                |
-| Table columns      | `columnsFrom(schema)` — reads annotations, produces `ColumnDef[]` |
-| JSON Schema files  | `JSONSchema.make(schema)` — standard JSON Schema for docs         |
-| Field descriptions | `Schema.annotations({ description })` — carried to JSON Schema    |
+| Derived artifact   | How                                                                |
+| ------------------ | ------------------------------------------------------------------ |
+| TypeScript types   | `typeof SkillListItem.Type` — inferred by Effect Schema            |
+| JSON serialization | `Schema.encode` — validated, typed                                 |
+| Table columns      | `columnsFrom(schema)` — reads annotations, produces `ColumnDef[]`  |
+| Detail labels      | Same `ColumnDef[]` rendered vertically by `detail()` via `emitOne` |
+| JSON Schema files  | `JSONSchema.make(schema)` — standard JSON Schema for docs          |
+| Field descriptions | `Schema.annotations({ description })` — carried to JSON Schema     |
 
-**Verbosity is automatic via `priority`.** The renderer filters columns by priority based on the resolved verbosity level. A `priority: 1` column only appears when `--verbose` is active. Handlers define the schema once; the renderer handles the rest.
+**Verbosity is automatic via `priority`.** The renderer filters columns/fields by priority based on the resolved verbosity level. A `priority: 1` field only appears when `--verbose` is active. Handlers define the schema once; the renderer handles the rest.
 
-**The `hidden()` annotation** is for fields that should appear in JSON output but never in tables — internal identifiers, integrity hashes, metadata useful for machines but noise for humans.
+**The `hidden()` annotation** is for fields that should appear in JSON output but never in tables or detail views — internal identifiers, integrity hashes, metadata useful for machines but noise for humans.
 
 **JSON Schema generation** — the same schema produces publishable documentation:
 
@@ -522,9 +564,44 @@ interface ColumnDef<T> {
 
 The `InteractiveRenderer` uses a custom formatter matching Clack's visual language (│ guide line, box-drawing characters). The formatter is minimal — columns, alignment, truncation. If table complexity grows, evaluate extraction or library adoption.
 
-**table() and tree() stay on the service interface** even though the `result()` short-circuit means they only execute in interactive mode. Removing them would force handlers to call standalone utilities directly, and the TestRenderer couldn't capture what was displayed. Keeping them on the interface preserves testability: `expect(testRenderer.tables).toHaveLength(1)`.
+**table(), detail(), and tree() stay on the service interface** even though the `result()` short-circuit means they only execute in interactive mode. Removing them would force handlers to call standalone utilities directly, and the TestRenderer couldn't capture what was displayed. Keeping them on the interface preserves testability: `expect(testRenderer.tables).toHaveLength(1)`.
 
-### 9. Unified tree primitive for structured non-tabular output
+### 9. Vertical detail display for single items
+
+**Decision:** `detail()` renders a single item as a vertical key-value list, using the same `ColumnDef<T>` arrays as `table()`. This is the natural display for single-entity views (show/info commands) — a 1-row table is visually awkward; vertical key-value is how users expect detail views to look.
+
+```typescript
+readonly detail: <T>(
+  item: T,
+  columns: ReadonlyArray<ColumnDef<T>>,
+  title?: string,
+) => Effect<void>;
+```
+
+**Rendering:** The `InteractiveRenderer` renders detail views in Clack's visual language — each field as a labeled row with the label left-aligned and value right-aligned:
+
+```
+my-skill
+  Name          my-skill
+  Version       2.1.0
+  Type          skill
+  Source        github:acme/my-skill
+  Publisher     @acme
+```
+
+**Schema annotations drive both layouts:** The same `column()` annotations produce `ColumnDef[]` via `columnsFrom()`. For `table()`, the header becomes a column header. For `detail()`, the header becomes a label. Priority filtering, formatting, and `hidden()` work identically in both views.
+
+**`emitOne` uses `detail()`** — single-item output uses vertical layout by default:
+
+```typescript
+yield * emitOne(skill, { schema: SkillInfo, title: skill.name });
+// Machine mode: JSON via result()
+// Interactive mode: vertical key-value via detail()
+```
+
+Handlers can override this by calling `table()` directly for cases where a single-row table makes more sense (e.g., a single row in a batch result).
+
+### 10. Unified tree primitive for structured non-tabular output
 
 **Decision:** A single `tree()` method replaces `list()` for all non-tabular structured output: flat lists, key-value displays, grouped lists, and dependency trees.
 
@@ -672,14 +749,14 @@ The `InteractiveRenderer` renders trees with Clack-style guide lines and box-dra
 
 The `note()` method from Clack retains its role for freeform text blocks (next steps, error explanations) that aren't structured data. Any time you're rendering structured items — flat, grouped, or hierarchical — `tree()` is the primitive.
 
-### 10. Three renderer implementations
+### 11. Three renderer implementations
 
 **Decision:** Three `Layer` implementations, selected at the `run()` boundary:
 
 | Implementation        | Purpose                                        | Selection           |
 | --------------------- | ---------------------------------------------- | ------------------- |
 | `InteractiveRenderer` | Clack-based chrome, formatted tables and trees | TTY + no `--json`   |
-| `MachineRenderer`     | JSON/NDJSON to stdout, chrome suppressed       | `--json` or non-TTY |
+| `MachineRenderer`     | JSON/NDJSON to stdout, NDJSON chrome on stderr | `--json` or non-TTY |
 | `TestRenderer`        | Captures structured calls                      | Test layers         |
 
 **Alternatives considered:**
@@ -687,26 +764,35 @@ The `note()` method from Clack retains its role for freeform text blocks (next s
 - (a) Single class with mode flag (Rich pattern) → simpler code but harder to test; every method has an if/else
 - (b) Two production implementations + test → chosen; each implementation is straightforward with no branching
 
-The `MachineRenderer` makes chrome methods no-ops (no spinner text on stderr when piping), `table()`/`tree()` no-ops (display is irrelevant in machine mode), and `result()`/`resultStream()` write JSON to stdout and return `true`. The `InteractiveRenderer` does the inverse: chrome methods render via Clack, `table()`/`tree()` format to stdout, `result()` is a no-op returning `false`.
+The `MachineRenderer` emits NDJSON log events to stderr for chrome methods (preserving progress/status for CI consumers that parse stderr), makes `table()`/`detail()`/`tree()` no-ops (display is irrelevant in machine mode), and `result()`/`resultStream()` write schema-validated JSON to stdout and return `true`. The `InteractiveRenderer` does the inverse: chrome methods render via Clack, `table()`/`detail()`/`tree()` format to stdout, `result()` is a no-op returning `false`.
+
+The NDJSON events on stderr use the same schema as the current `StreamEvent` types (log events with level, progress events with phase/percent). This preserves compatibility for CI consumers that previously used `--output-format stream-json` to monitor progress. The key difference from the old model: events go to stderr (not stdout), so `axm command --json | jq` always works cleanly.
 
 Selection uses `Layer.unwrapEffect` at the `run()` boundary, matching the current `makeUiLayer` pattern but producing a single `CliRenderer` layer instead of `Output | Activity`.
 
-### 11. TestRenderer design
+### 12. TestRenderer design
 
 **Decision:** The test renderer captures all calls as structured data in a mutable state object, extending the current `makeOutputTestLayer` pattern to cover the full CliRenderer surface.
 
 ```typescript
 interface TestRendererState {
-  readonly logs: Array<LogMessage>; // captured from per-level methods (info, step, etc.)
+  readonly logs: Array<LogMessage>; // captured from per-level methods (message, info, step, etc.)
   readonly tables: Array<{
     items: Array<unknown>;
     columns: Array<ColumnDef<unknown>>;
     caption?: string;
   }>;
+  readonly details: Array<{
+    item: unknown;
+    columns: Array<ColumnDef<unknown>>;
+    title?: string;
+  }>;
   readonly trees: Array<{ roots: Array<TreeNode<unknown>>; def: TreeDef<unknown>; title?: string }>;
-  readonly results: Array<unknown>;
+  readonly results: Array<{ data: unknown; schema: Schema.Schema<unknown> }>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
+  readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
+  readonly cancelMessages: Array<string>;
   readonly introTitle: Option<string>;
   readonly outroMessage: Option<string>;
 }
@@ -723,7 +809,7 @@ expect(testRenderer.state.trees[0].roots[0].children).toHaveLength(3);
 
 The default `TestRenderer` returns `false` from `result()` (interactive behavior). A `TestMachineRenderer` variant returns `true` for testing the machine output code path. Both capture all calls for assertion.
 
-### 12. Layer wiring
+### 13. Layer wiring
 
 The composition at the `run()` boundary:
 
@@ -749,7 +835,7 @@ Effect LogLevel (derived from verbosity)
 
 `CliPrompt` replaces the existing `Input` service — same prompt methods, renamed for consistency with `CliRenderer`.
 
-### 13. CliPrompt stays separate, shares channel awareness with CliRenderer
+### 14. CliPrompt stays separate, shares channel awareness with CliRenderer
 
 **Decision:** Prompts remain a separate `CliPrompt` service. The service is not merged into `CliRenderer`. Both services share the channel model: prompts render on stderr (interactive chrome) and read from stdin; `CliRenderer` owns stdout for data and stderr for chrome.
 
@@ -902,7 +988,7 @@ expect(testPrompt.state.textCalls[0].message).toBe("Extension name:");
 - **Resolution chain** for `--non-interactive` (explicit flag → `CI=true` → `!stdin.isTTY`) — unchanged, but resolved at the prompt layer boundary instead of via `CliEnvironment`
 - **Flag independence** (`--yes` ≠ `--non-interactive` ≠ `--force`) — unchanged; `--yes` moves from service-internal to handler-explicit
 
-### 14. Module organization
+### 15. Module organization
 
 Three new core modules replace six existing ones. All follow the `unstable/` namespace convention with one barrel (`index.ts`) per module.
 
@@ -997,8 +1083,28 @@ Mitigation: Both formatters are minimal and deliberately scoped. The table forma
 **Verbosity helpers add boilerplate** → Handlers wrap output calls in `whenVerbose(...)` / `whenNotQuiet(...)`.
 Mitigation: This is explicit and readable — better than implicit filtering. The alternative (renderer checks verbosity internally) would couple format and volume decisions.
 
-**Schema AST traversal may be fragile** → `columnsFrom` walks Effect Schema's AST to read annotations from property signatures. The AST is public API but not trivial to traverse — property signatures may be wrapped in transformations, optionals, or refinements, which could hide annotations behind intermediate AST nodes.
-Mitigation: Spike `columnsFrom` against a non-trivial schema (nested optionals, branded types, enums, `Schema.optional`) before building the full infrastructure. If AST traversal proves too fragile, fall back to a registration pattern where schemas call a `registerColumns()` function alongside the struct definition — less elegant but robust.
+**Schema AST traversal** → `columnsFrom` walks Effect Schema's AST to read annotations from property signatures. Property signatures may be wrapped in transformations, optionals, or refinements.
+Mitigation: Effect v4 provides `SchemaAST.resolve(ast)` which handles intermediate AST wrappers, and `SchemaAST.isObjects(ast)` for safe struct detection. These APIs are more robust than raw annotation access. Spike `columnsFrom` against a non-trivial schema (nested optionals, branded types, enums, `Schema.optional`) before building the full infrastructure. If v4 APIs prove insufficient, fall back to a registration pattern where schemas call a `registerColumns()` function alongside the struct definition.
+
+**Code examples use `as` assertions** → Handler sketches and `columnsFrom` examples use type assertions (`as`) for brevity. Production implementations must use type-safe alternatives per the project's "No Type Assertions" rule (type guards, `satisfies`, generic accessors, `Schema.decodeUnknownEffect`).
+
+## Migration
+
+This is a sweeping change (3 services → 1, CliEnvironment removed, flag changes, test helper changes). Migration proceeds in phases:
+
+1. **Implement new services** — Create `CliRenderer`, `Verbosity`, and `CliPrompt` services with their layer implementations (`InteractiveRenderer`, `MachineRenderer`, `TestRenderer`). These exist alongside the current services.
+
+2. **Add adapter layers** — Implement `Output` and `Activity` as thin wrappers over `CliRenderer`, and `Input` as a re-export of `CliPrompt`. Existing handlers continue working unchanged. The adapter layers are temporary scaffolding.
+
+3. **Migrate handlers** — Convert handlers one at a time from `Output`/`Activity`/`Input` to `CliRenderer`/`CliPrompt`. Each handler migration is an independent, reviewable PR. Add output schemas and `--json` support as handlers are touched.
+
+4. **Update test infrastructure** — Replace `makeOutputTestLayer()` + `makeActivityTestLayer()` + `makeInputTestLayer()` with `TestRenderer` + `TestPrompt`. Migrate tests alongside their handlers.
+
+5. **Remove adapters** — Once all handlers are migrated, remove the adapter layers, the old service definitions, `CliEnvironment`, and the `--output-format` flag.
+
+6. **Wire verbosity** — Add `resolveVerbosityFromArgv`, `-q`/`-v`/`-vv` flags, and `makeVerbosityLayer` at the `run()` boundary. Add `whenVerbose`/`whenNotQuiet` helpers. Migrate handlers to use verbosity-conditional output.
+
+Phases 1-2 can land in a single PR. Phase 3 proceeds incrementally. Phase 5 is the breaking change — all handlers must be migrated before adapters are removed.
 
 ## Appendix: Handler Sketches
 
@@ -1063,11 +1169,11 @@ export const handleList = (args: ListArgs) =>
   });
 ```
 
-### B. Show handler — emitOne, tree (nested), note
+### B. Show handler — emitOne (detail), tree (nested), note
 
-A detail/inspect command: show structured info about a single entity, with nested dependencies.
+A detail/inspect command: show structured info about a single entity, with nested dependencies. `emitOne` renders the entity as a vertical key-value detail view in interactive mode.
 
-**Methods exercised:** `step`, `withSpinner`, `emitOne`, `tree` (nested), `note`
+**Methods exercised:** `step`, `withSpinner`, `emitOne` (→ `detail`), `tree` (nested), `note`
 
 ```typescript
 // commands/skills/show/output.ts
@@ -1124,7 +1230,7 @@ export const handleShow = (args: ShowArgs) =>
       resolveSkill(args.name),
     );
 
-    // Schema drives JSON + key-value table in interactive mode
+    // Schema drives JSON output in machine mode + vertical key-value detail in interactive mode
     yield* emitOne(skill, { schema: SkillInfo, title: skill.name });
 
     // Dependency tree (nested) — display-only, not part of the output schema
@@ -1155,15 +1261,21 @@ export const handleShow = (args: ShowArgs) =>
 
 ### C. Install handler — progress, spinner lifecycle, log variants, tree (flat list)
 
-A mutation command: install with progress tracking, multiple log levels, and a file summary. Mutation commands typically use `result()` directly rather than `emitOne`/`emitMany` since their output shape is ad-hoc (not a domain entity with meaningful table columns).
+A mutation command: install with progress tracking, multiple log levels, and a file summary. Mutation commands define lightweight output schemas for their result shape — simpler than entity schemas but still validated.
 
 **Methods exercised:** `intro`, `outro`, `info`, `success`, `warn`, `error`, `step`, `spinner` (manual handle), `withProgress`, `result`, `tree` (flat list)
 
 ```typescript
 // commands/skills/install/handler.ts
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { whenNotQuiet } from "@axm.sh/core/unstable/verbosity";
+
+const InstallResult = Schema.Struct({
+  name: Schema.String,
+  version: Schema.String,
+  files: Schema.Number,
+});
 
 interface InstallArgs {
   readonly name: string;
@@ -1220,9 +1332,9 @@ export const handleInstall = (args: InstallArgs) =>
     // Post-install
     yield* renderer.withSpinner("Linking…", () => linkSkill(resolved));
 
-    // Machine output — ad-hoc shape, not a domain schema
+    // Machine output — lightweight schema for mutation result
     const resultData = { name: resolved.name, version: resolved.version, files: files.length };
-    if (yield* renderer.result(resultData)) return;
+    if (yield* renderer.result(resultData, InstallResult)) return;
 
     // Interactive summary — flat list of created files
     yield* renderer.tree(
@@ -1246,8 +1358,15 @@ A long-running streaming command: watch for changes and emit events.
 
 ```typescript
 // commands/skills/watch/handler.ts
-import { Effect, Stream } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
+const WatchEvent = Schema.Struct({
+  type: Schema.String,
+  skill: Schema.String,
+  version: Schema.String,
+  timestamp: Schema.String,
+});
 
 interface WatchArgs {
   readonly workspace: string;
@@ -1263,7 +1382,7 @@ export const handleWatch = (args: WatchArgs) =>
     const eventStream = watchSkillChanges(args.workspace, args.filter);
 
     // Machine mode — stream NDJSON events, short-circuit
-    if (yield* renderer.resultStream(eventStream)) return;
+    if (yield* renderer.resultStream(eventStream, WatchEvent)) return;
 
     // Interactive mode — live spinner + log each event
     const spin = yield* renderer.spinner("Watching…");
@@ -1312,14 +1431,19 @@ export const handleExport = (args: ExportArgs) =>
 
 ### F. Init handler — full lifecycle with grouped tree
 
-A scaffold command: create files, show grouped status, guide the user. Like install, uses `result()` directly since the output shape is ad-hoc.
+A scaffold command: create files, show grouped status, guide the user. Defines a lightweight output schema for the result shape.
 
 **Methods exercised:** `intro`, `outro`, `step`, `success`, `withSpinner`, `result`, `tree` (grouped with union type), `note`
 
 ```typescript
 // commands/init/handler.ts
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
+const InitResult = Schema.Struct({
+  created: Schema.Array(Schema.String),
+  skipped: Schema.Array(Schema.String),
+});
 
 type GroupNode = { readonly kind: "group"; readonly name: string; readonly count: number };
 type FileNode = {
@@ -1339,14 +1463,12 @@ export const handleInit = () =>
       stopMessage: (r) => `Created ${r.created.length} files`,
     });
 
-    // Machine output — ad-hoc shape
-    if (
-      yield* renderer.result({
-        created: result.created.map((f) => f.path),
-        skipped: result.skipped.map((f) => f.path),
-      })
-    )
-      return;
+    // Machine output
+    const initResult = {
+      created: result.created.map((f) => f.path),
+      skipped: result.skipped.map((f) => f.path),
+    };
+    if (yield* renderer.result(initResult, InitResult)) return;
 
     // Grouped tree: created vs skipped files
     yield* renderer.tree<GroupNode | FileNode>(
@@ -1402,9 +1524,15 @@ A command that gathers input via prompts (or flags), then executes with renderer
 
 ```typescript
 // commands/new/handler.ts
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt, fromFlagOrPrompt, autoConfirm } from "@axm.sh/core/unstable/cli-prompt";
+
+const NewExtensionResult = Schema.Struct({
+  name: Schema.String,
+  agents: Schema.Array(Schema.String),
+  files: Schema.Array(Schema.String),
+});
 
 interface NewHandlerArgs {
   readonly name: Option.Option<string>;
@@ -1456,7 +1584,8 @@ export const handleNew = (args: NewHandlerArgs) =>
     );
 
     // Machine output
-    if (yield* out.result({ name, agents, files: files.map((f) => f.path) })) return;
+    if (yield* out.result({ name, agents, files: files.map((f) => f.path) }, NewExtensionResult))
+      return;
 
     // Interactive summary
     yield* out.tree(
@@ -1496,7 +1625,7 @@ it("scaffolds extension with prompted inputs", async () => {
   expect(testPrompt.state.confirmCalls).toHaveLength(1);
 
   // Verify output
-  expect(testRenderer.state.results[0]).toEqual({
+  expect(testRenderer.state.results[0].data).toEqual({
     name: "my-extension",
     agents: ["claude-code", "cursor"],
     files: expect.any(Array),
@@ -1525,30 +1654,36 @@ it("skips prompts when flags provided", async () => {
 
 ### Surface coverage matrix
 
-| Method               | A (list) | B (show) | C (install) | D (watch) | E (export) | F (init) | G (new) |
-| -------------------- | -------- | -------- | ----------- | --------- | ---------- | -------- | ------- |
-| `intro`              | ✓        |          | ✓           |           |            | ✓        | ✓       |
-| `outro`              | ✓        |          | ✓           |           |            | ✓        | ✓       |
-| `info`               |          |          | ✓           | ✓         |            |          |         |
-| `success`            |          |          | ✓           |           |            | ✓        | ✓       |
-| `step`               |          | ✓        | ✓           |           |            | ✓        |         |
-| `warn`               | ✓        |          | ✓           |           |            |          |         |
-| `error`              |          |          | ✓           |           |            |          |         |
-| `note`               |          | ✓        |             |           |            | ✓        |         |
-| `spinner` (manual)   |          |          | ✓           | ✓         |            |          |         |
-| `withSpinner`        | ✓        | ✓        | ✓           |           |            | ✓        | ✓       |
-| `withProgress`       |          |          | ✓           |           |            |          |         |
-| `emitMany`           | ✓        |          |             |           |            |          |         |
-| `emitOne`            |          | ✓        |             |           |            |          |         |
-| `result` (direct)    |          |          | ✓           |           |            | ✓        | ✓       |
-| `tree` (flat)        |          |          | ✓           |           |            |          | ✓       |
-| `tree` (nested)      |          | ✓        |             |           |            |          |         |
-| `tree` (grouped)     |          |          |             |           |            | ✓        |         |
-| `resultStream`       |          |          |             | ✓         |            |          |         |
-| `json`               |          |          |             |           | ✓          |          |         |
-| `raw`                |          |          |             |           | ✓          |          |         |
-| `whenNotQuiet`       |          |          | ✓           |           |            |          |         |
-| `prompt.text`        |          |          |             |           |            |          | ✓       |
-| `prompt.multiselect` |          |          |             |           |            |          | ✓       |
-| `prompt.confirm`     |          |          |             |           |            |          | ✓       |
-| `fromFlagOrPrompt`   |          |          |             |           |            |          | ✓       |
+| Method               | A (list) | B (show)      | C (install) | D (watch) | E (export) | F (init) | G (new) |
+| -------------------- | -------- | ------------- | ----------- | --------- | ---------- | -------- | ------- |
+| `intro`              | ✓        |               | ✓           |           |            | ✓        | ✓       |
+| `outro`              | ✓        |               | ✓           |           |            | ✓        | ✓       |
+| `message`            |          |               |             |           |            |          |         |
+| `info`               |          |               | ✓           | ✓         |            |          |         |
+| `success`            |          |               | ✓           |           |            | ✓        | ✓       |
+| `step`               |          | ✓             | ✓           |           |            | ✓        |         |
+| `warn`               | ✓        |               | ✓           |           |            |          |         |
+| `error`              |          |               | ✓           |           |            |          |         |
+| `cancel`             |          |               |             |           |            |          |         |
+| `note`               |          | ✓             |             |           |            | ✓        |         |
+| `box`                |          |               |             |           |            |          |         |
+| `spinner` (manual)   |          |               | ✓           | ✓         |            |          |         |
+| `withSpinner`        | ✓        | ✓             | ✓           |           |            | ✓        | ✓       |
+| `withProgress`       |          |               | ✓           |           |            |          |         |
+| `taskLog`            |          |               |             |           |            |          |         |
+| `runTasks`           |          |               |             |           |            |          |         |
+| `emitMany`           | ✓        |               |             |           |            |          |         |
+| `emitOne`            |          | ✓             |             |           |            |          |         |
+| `result` (direct)    |          |               | ✓           |           |            | ✓        | ✓       |
+| `detail`             |          | (via emitOne) |             |           |            |          |         |
+| `tree` (flat)        |          |               | ✓           |           |            |          | ✓       |
+| `tree` (nested)      |          | ✓             |             |           |            |          |         |
+| `tree` (grouped)     |          |               |             |           |            | ✓        |         |
+| `resultStream`       |          |               |             | ✓         |            |          |         |
+| `json`               |          |               |             |           | ✓          |          |         |
+| `raw`                |          |               |             |           | ✓          |          |         |
+| `whenNotQuiet`       |          |               | ✓           |           |            |          |         |
+| `prompt.text`        |          |               |             |           |            |          | ✓       |
+| `prompt.multiselect` |          |               |             |           |            |          | ✓       |
+| `prompt.confirm`     |          |               |             |           |            |          | ✓       |
+| `fromFlagOrPrompt`   |          |               |             |           |            |          | ✓       |

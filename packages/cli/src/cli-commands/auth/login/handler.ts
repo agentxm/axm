@@ -22,7 +22,7 @@ import { CredentialStore } from "../../../auth/credential-store.js";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Activity } from "@axm.sh/core/unstable/activity";
 import { Input } from "@axm.sh/core/unstable/input";
-import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
+import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------
@@ -32,14 +32,14 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { yes: boolean }) {
   const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
-  const env = yield* CliEnvironment;
   const output = yield* Output;
   const activity = yield* Activity;
   const input = yield* Input;
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Reject non-interactive mode
-  if (env.nonInteractive) {
+  const nonInteractive = yield* isNonInteractive;
+  if (nonInteractive) {
     return yield* makeAppError({
       code: "AUTH_LOGIN_REQUIRED",
       what: "Login requires an interactive terminal",

@@ -20,7 +20,7 @@ import {
   getAllAgents,
   getAgentById,
 } from "@axm.sh/core/unstable/agents";
-import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
+import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
@@ -44,7 +44,7 @@ import type { WorkspaceContextOptions } from "./service.js";
  */
 export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
-    const flags = yield* CliEnvironment;
+    const nonInteractive = yield* isNonInteractive;
 
     // Select agents based on options
     let selectedAgents: ReadonlyArray<AgentDescriptor>;
@@ -76,7 +76,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
         ),
       );
 
-      if (flags.nonInteractive) {
+      if (nonInteractive) {
         // Non-interactive mode: auto-select all detected agents
         selectedAgents = detectedAgents;
       } else {

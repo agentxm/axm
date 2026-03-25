@@ -25,9 +25,6 @@ export {
   RegistryAccountsSchema,
 } from "./schema.js";
 
-// Environment detection
-export { detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
-
 // Credential store service
 export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";
 export {

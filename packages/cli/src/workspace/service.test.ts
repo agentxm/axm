@@ -171,7 +171,12 @@ describe("WorkspaceContextService", () => {
     };
 
     const runResolvePlan = (
-      flags: Partial<CliEnvironmentService> & { yes?: boolean; force?: boolean; preview?: boolean },
+      flags: Partial<CliEnvironmentService> & {
+        nonInteractive?: boolean;
+        yes?: boolean;
+        force?: boolean;
+        preview?: boolean;
+      },
       mockLog: MockOutputService,
       confirmValue = true,
       plan: LegacyPlan<TestOp> = testPlan,
@@ -1550,7 +1555,7 @@ describe("WorkspaceContextService", () => {
      * Uses multiselect behavior to control which agents are "selected".
      */
     const getServiceWithInit = (
-      flags: Partial<CliEnvironmentService>,
+      flags: Partial<CliEnvironmentService> & { nonInteractive?: boolean },
       multiselectBehavior?: { type: "return"; indices: readonly number[] } | { type: "cancel" },
     ) => {
       const [logLayer] = makeOutputTestLayer();

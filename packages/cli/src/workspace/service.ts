@@ -80,7 +80,6 @@ import * as Layer from "effect/Layer";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Input } from "@axm.sh/core/unstable/input";
 import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
-import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
@@ -613,13 +612,8 @@ const make = (options: WorkspaceContextOptions) =>
       resolvePlan: Effect.fn("Workspace.resolvePlan")(function* (plan: Plan) {
         const flags = yield* CliFlags;
         const resolvedYes = flags.yes || flags.nonInteractive;
-        const envConfig = yield* CliEnvConfig;
-        const verbosity = resolveDiagnosticVerbosity(process.argv, {
-          AXM_VERBOSE: Option.getOrUndefined(envConfig.verbose),
-          AXM_DEBUG: Option.getOrUndefined(envConfig.debug),
-        });
         const showPlan = (targetPlan: Plan | ExecutedPlan) =>
-          displayPlan(targetPlan, { verbosity }).pipe(
+          displayPlan(targetPlan).pipe(
             Effect.provide(Layer.succeed(Output, output)),
           );
 

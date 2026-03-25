@@ -10,29 +10,27 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { Output } from "@axm.sh/core/unstable/output";
-import { renderAppError, type RenderAppErrorOptions } from "@axm.sh/core/unstable/app-error";
+import { CliFlags } from "@axm.sh/core/unstable/cli-flags";
+import { renderAppError } from "@axm.sh/core/unstable/app-error";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
 // -----------------------------------------------------------------------------
 
-const defaultVerbosity: RenderAppErrorOptions = {
-  verbose: false,
-  debug: false,
-};
-
-export interface DisplayPlanOptions {
-  readonly verbosity?: RenderAppErrorOptions;
-}
-
 /**
  * Display a plan or executed plan summary via the Log service.
+ *
+ * Reads verbosity settings from the `CliFlags` service.
  */
-export const displayPlan = (plan: Plan | ExecutedPlan, options: DisplayPlanOptions = {}) =>
+export const displayPlan = (plan: Plan | ExecutedPlan) =>
   Effect.gen(function* () {
     const output = yield* Output;
-    const verbosity = options.verbosity ?? defaultVerbosity;
+    const flags = yield* CliFlags;
+    const verbosity: { readonly verbose: boolean; readonly debug: boolean } = {
+      verbose: flags.verbose,
+      debug: flags.debug,
+    };
 
     // Heading
     const heading = Option.match(plan.description, {
@@ -85,7 +83,7 @@ const renderPlannedStep = (
 const renderCompletedStep = (
   step: CompletedJobStep,
   output: ServiceMap.Service.Shape<typeof Output>,
-  verbosity: RenderAppErrorOptions,
+  verbosity: { readonly verbose: boolean; readonly debug: boolean },
 ) => {
   switch (step.result.result) {
     case "success": {

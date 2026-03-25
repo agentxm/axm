@@ -4,11 +4,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { InputLive, InputStructured, type Input } from "../input/index.js";
-import { CliFlags, makeCliFlagsLayer, outputFormatFlag } from "../cli-flags/index.js";
+import { CliFlags, makeCliFlagsLayer, outputFormatFlag, verboseFlag, debugFlag } from "../cli-flags/index.js";
 import type { CommandArgvService } from "./command-argv.js";
 import type { OutputFormat } from "../output-format.js";
 import type { AppError } from "../app-error/index.js";
-import { renderAppError, type RenderAppErrorOptions } from "../app-error/index.js";
+import { renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
 import type { Activity } from "../activity/activity.js";
 import type { Output } from "../output/output.js";
@@ -31,20 +31,17 @@ export type CliRuntimeFoundation = Output | Activity | Input | CliFlags;
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? 0 : 1;
 
-const writeExpectedCliError = (
-  error: ExpectedCliError,
-  format: OutputFormat,
-  options?: {
-    readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
-  },
-): Effect.Effect<void> => {
-  if (error._tag === "PromptCancelled") {
-    return Effect.void;
-  }
+const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
+  Effect.gen(function* () {
+    if (error._tag === "PromptCancelled") {
+      return;
+    }
 
-  return Effect.sync(() => {
+    const verbose = yield* verboseFlag;
+    const debug = yield* debugFlag;
+
     if (format === "text") {
-      console.error(renderAppError(error, options?.appErrorRenderOptions));
+      console.error(renderAppError(error, { verbose, debug }));
       return;
     }
 
@@ -57,7 +54,6 @@ const writeExpectedCliError = (
     );
     console.error(`\u2717 ${error.what}`);
   });
-};
 
 // ---------------------------------------------------------------------------
 // Building blocks — composable pieces callers assemble directly
@@ -74,9 +70,16 @@ export const makeFoundationLayer = (
   options?: {
     readonly ci?: boolean | undefined;
     readonly argv?: CommandArgvService | undefined;
+    readonly envVerbose?: boolean | undefined;
+    readonly envDebug?: boolean | undefined;
   },
 ) => {
-  const cliFlagsLayer = makeCliFlagsLayer({ ci: options?.ci, argv: options?.argv });
+  const cliFlagsLayer = makeCliFlagsLayer({
+    ci: options?.ci,
+    argv: options?.argv,
+    envVerbose: options?.envVerbose,
+    envDebug: options?.envDebug,
+  });
   const uiLayer = makeUiLayer(format);
   const inputLayer = format === "text" ? Layer.provide(InputLive, cliFlagsLayer) : InputStructured;
   return Layer.mergeAll(uiLayer, cliFlagsLayer, inputLayer);
@@ -105,7 +108,6 @@ export const withCliErrorHandling = <A, R>(
     readonly command?: string | undefined;
     readonly format: OutputFormat;
     readonly telemetryConfig: CliTelemetryConfigService;
-    readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
   },
 ) => {
   const command = options.command ?? "unknown";
@@ -147,9 +149,7 @@ export const withCliErrorHandling = <A, R>(
         const exitCode = defaultExitCodeForExpectedError(error);
         const result = error._tag === "PromptCancelled" ? "cancelled" : "error";
 
-        return writeExpectedCliError(error, options.format, {
-          appErrorRenderOptions: options.appErrorRenderOptions,
-        }).pipe(
+        return writeExpectedCliError(error, options.format).pipe(
           Effect.andThen(reportCliError(error, command)),
           Effect.andThen(
             trackCliCommandCompleted({
@@ -196,7 +196,6 @@ export interface WithCliRuntimeOptions {
   readonly ci?: boolean | undefined;
   readonly argv?: CommandArgvService | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
-  readonly appErrorRenderOptions?: RenderAppErrorOptions | undefined;
 }
 
 export const withCliRuntime = <A, R>(
@@ -212,6 +211,5 @@ export const withCliRuntime = <A, R>(
       command: options.command,
       format,
       telemetryConfig: options.telemetryConfig,
-      appErrorRenderOptions: options.appErrorRenderOptions,
     });
   });

@@ -10,10 +10,6 @@ import {
 export interface CliTelemetryConfigService {
   readonly mode: TelemetryClientOptions["mode"];
   readonly client: TelemetryClientOptions["client"];
-  readonly runtime: TelemetryClientOptions["runtime"];
-  readonly ci: TelemetryClientOptions["ci"];
-  readonly test?: TelemetryClientOptions["test"] | undefined;
-  readonly baseUrl?: TelemetryClientOptions["baseUrl"] | undefined;
 }
 
 export const makeCliTelemetryLayer = (
@@ -24,8 +20,4 @@ export const makeCliTelemetryLayer = (
     mode: config.mode,
     command,
     client: config.client,
-    runtime: config.runtime,
-    ci: config.ci,
-    ...(config.test !== undefined && { test: config.test }),
-    ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
   } satisfies TelemetryClientOptions);

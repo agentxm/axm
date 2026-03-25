@@ -62,8 +62,6 @@ interface RuntimeEnvConfig {
   readonly registryUrl: string;
   readonly doNotTrack: Option.Option<string>;
   readonly telemetry: Option.Option<string>;
-  readonly ci: boolean;
-  readonly vitest: string;
   readonly verbose: Option.Option<string>;
   readonly debug: Option.Option<string>;
 }
@@ -72,8 +70,6 @@ const readRuntimeEnvConfig = Effect.sync(() => ({
   registryUrl: process.env["AXM_REGISTRY_URL"] ?? "https://registry.agentxm.ai",
   doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
   telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
-  ci: process.env["CI"] === "true",
-  vitest: process.env["VITEST"] ?? "false",
   verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
   debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
 }));
@@ -87,9 +83,6 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
     {},
   ),
   client: { name: "cli", version: loadVersion() },
-  runtime: { name: "bun", version: process.versions["bun"] ?? "unknown" },
-  ci: envConfig.ci,
-  test: envConfig.vitest === "true",
 });
 
 const makeWorkspaceProgramLayer = (
@@ -125,7 +118,6 @@ const resolveRuntimeConfig = () =>
 
     return {
       envConfig,
-      ci: envConfig.ci,
       envVerbose: envToBool(envConfig.verbose),
       envDebug: envToBool(envConfig.debug),
       telemetryConfig: makeCliTelemetryConfig(envConfig),

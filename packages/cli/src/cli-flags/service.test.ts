@@ -17,7 +17,6 @@ import {
  */
 const getFlags = (flags: {
   nonInteractive: Option.Option<boolean>;
-  ci?: boolean;
   verbose?: boolean;
   debug?: boolean;
   envVerbose?: boolean;
@@ -30,7 +29,6 @@ const getFlags = (flags: {
   );
 
   const cliEnvironmentLayer = makeCliEnvironmentLayer({
-    ci: flags.ci,
     envVerbose: flags.envVerbose,
     envDebug: flags.envDebug,
   });
@@ -50,25 +48,41 @@ describe("makeCliEnvironmentLayer", () => {
       }),
     );
 
-    it.effect("explicit Option.some(false) resolves to false even with ci=true", () =>
-      Effect.gen(function* () {
+    it.effect("explicit Option.some(false) resolves to false even in CI", () => {
+      const origCI = process.env["CI"];
+      process.env["CI"] = "true";
+      return Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.some(false),
-          ci: true,
         });
         expect(flags.nonInteractive).toBe(false);
-      }),
-    );
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (origCI !== undefined) process.env["CI"] = origCI;
+            else delete process.env["CI"];
+          }),
+        ),
+      );
+    });
 
-    it.effect("Option.none() with ci=true resolves to true", () =>
-      Effect.gen(function* () {
+    it.effect("Option.none() in CI resolves to true", () => {
+      const origCI = process.env["CI"];
+      process.env["CI"] = "true";
+      return Effect.gen(function* () {
         const flags = yield* getFlags({
           nonInteractive: Option.none(),
-          ci: true,
         });
         expect(flags.nonInteractive).toBe(true);
-      }),
-    );
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (origCI !== undefined) process.env["CI"] = origCI;
+            else delete process.env["CI"];
+          }),
+        ),
+      );
+    });
 
     it.effect("Option.none() with ci unset falls back to TTY detection", () =>
       Effect.gen(function* () {
@@ -78,38 +92,6 @@ describe("makeCliEnvironmentLayer", () => {
         // In test environment, stdin.isTTY may be undefined (non-TTY)
         // so nonInteractive should be true
         expect(typeof flags.nonInteractive).toBe("boolean");
-      }),
-    );
-  });
-
-  describe("isCI", () => {
-    it.effect("isCI is true when ci option is true", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-          ci: true,
-        });
-        expect(flags.isCI).toBe(true);
-      }),
-    );
-
-    it.effect("isCI is false when ci option is not provided", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(false),
-        });
-        expect(flags.isCI).toBe(false);
-      }),
-    );
-
-    it.effect("isCI is independent of nonInteractive flag", () =>
-      Effect.gen(function* () {
-        const flags = yield* getFlags({
-          nonInteractive: Option.some(true),
-          ci: false,
-        });
-        expect(flags.isCI).toBe(false);
-        expect(flags.nonInteractive).toBe(true);
       }),
     );
   });
@@ -183,10 +165,9 @@ describe("makeCliEnvironmentLayer", () => {
 });
 
 describe("CliEnvironmentTest helper", () => {
-  it.effect("defaults to isCI: false, nonInteractive: true, verbose/debug: false", () =>
+  it.effect("defaults to nonInteractive: true, verbose/debug: false", () =>
     Effect.gen(function* () {
       const flags = yield* CliEnvironment.asEffect().pipe(Effect.provide(CliEnvironmentTest()));
-      expect(flags.isCI).toBe(false);
       expect(flags.nonInteractive).toBe(true);
       expect(flags.verbose).toBe(false);
       expect(flags.debug).toBe(false);

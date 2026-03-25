@@ -26,7 +26,7 @@ export {
 } from "./schema.js";
 
 // Environment detection
-export { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
+export { detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 
 // Credential store service
 export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";

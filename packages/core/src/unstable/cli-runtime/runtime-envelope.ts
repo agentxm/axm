@@ -73,13 +73,11 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 export const makeFoundationLayer = (
   format: OutputFormat,
   options?: {
-    readonly ci?: boolean | undefined;
     readonly envVerbose?: boolean | undefined;
     readonly envDebug?: boolean | undefined;
   },
 ) => {
   const cliEnvLayer = makeCliEnvironmentLayer({
-    ci: options?.ci,
     envVerbose: options?.envVerbose,
     envDebug: options?.envDebug,
   });
@@ -196,7 +194,6 @@ export const withCliErrorHandling = <A, R>(
 export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
   readonly isLongRunning?: boolean | undefined;
-  readonly ci?: boolean | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
 }
 
@@ -206,7 +203,7 @@ export const withCliRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
-    const foundationLayer = makeFoundationLayer(format, { ci: options.ci });
+    const foundationLayer = makeFoundationLayer(format);
     const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {

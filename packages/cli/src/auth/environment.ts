@@ -46,11 +46,6 @@ export const detectWSL = Effect.gen(function* () {
 });
 
 /**
- * Detects CI environment via CI=true env var.
- */
-export const detectCI = Effect.sync(() => process.env["CI"] === "true");
-
-/**
  * Detects if running as root (uid 0).
  */
 export const detectRoot = Effect.sync(() => process.getuid?.() === 0);

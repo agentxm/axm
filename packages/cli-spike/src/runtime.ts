@@ -52,9 +52,7 @@ export const withRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
-    const foundationLayer = makeFoundationLayer(format, {
-      ci: spikeCliTelemetryConfig.ci,
-    });
+    const foundationLayer = makeFoundationLayer(format);
     const appLayer = Layer.provideMerge(FakeSkillsManagerLive, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 

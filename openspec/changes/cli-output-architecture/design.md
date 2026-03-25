@@ -46,15 +46,18 @@ The CliRenderer service shape:
 class CliRenderer extends ServiceMap.Service<
   CliRenderer,
   {
-    // Chrome (stderr in both modes; no-op in machine mode)
+    // Chrome (stderr in both modes; NDJSON log events on stderr in machine mode)
     readonly intro: (title: string) => Effect<void>;
     readonly outro: (message: string) => Effect<void>;
+    readonly message: (message: string) => Effect<void>;
     readonly info: (message: string) => Effect<void>;
     readonly success: (message: string) => Effect<void>;
     readonly step: (message: string) => Effect<void>;
     readonly warn: (message: string) => Effect<void>;
     readonly error: (message: string) => Effect<void>;
+    readonly cancel: (message?: string) => Effect<void>;
     readonly note: (message: string, title?: string) => Effect<void>;
+    readonly box: (message: string, title?: string, opts?: BoxOptions) => Effect<void>;
     readonly spinner: (message: string) => Effect<SpinnerHandle>;
     readonly withSpinner: <A, E, R>(
       message: string,
@@ -68,12 +71,23 @@ class CliRenderer extends ServiceMap.Service<
       f: (handle: ProgressHandle) => Effect<A, E, R>,
       stopMessage?: string,
     ) => Effect<A, E, R>;
+    readonly taskLog: (config: TaskLogConfig) => Effect<TaskLogHandle>;
+    readonly withTaskLog: <A, E, R>(
+      config: TaskLogConfig,
+      f: (handle: TaskLogHandle) => Effect<A, E, R>,
+    ) => Effect<A, E, R>;
+    readonly runTasks: <E, R>(tasks: ReadonlyArray<Task<E, R>>) => Effect<void, E, R>;
 
     // Data display (stdout; only executes in interactive mode after result() short-circuit)
     readonly table: <T>(
       items: ReadonlyArray<T>,
       columns: ReadonlyArray<ColumnDef<T>>,
       caption?: string,
+    ) => Effect<void>;
+    readonly detail: <T>(
+      item: T,
+      columns: ReadonlyArray<ColumnDef<T>>,
+      title?: string,
     ) => Effect<void>;
     readonly tree: <T>(
       roots: ReadonlyArray<TreeNode<T>>,
@@ -82,8 +96,8 @@ class CliRenderer extends ServiceMap.Service<
     ) => Effect<void>;
 
     // Machine data output (stdout; no-op in interactive mode)
-    readonly result: (data: unknown) => Effect<boolean>;
-    readonly resultStream: (stream: Stream<unknown>) => Effect<boolean>;
+    readonly result: <T>(data: T, schema: Schema.Schema<T>) => Effect<boolean>;
+    readonly resultStream: <T>(stream: Stream<T>, schema: Schema.Schema<T>) => Effect<boolean>;
 
     // Both modes (stdout)
     readonly json: (data: unknown) => Effect<void>;
@@ -330,7 +344,7 @@ if (yield * renderer.result(data)) return;
 Symbol-keyed annotations that Effect Schema carries on fields. The renderer reads them; JSON serialization ignores them.
 
 ```typescript
-// output/annotations.ts
+// cli-renderer/annotations.ts
 
 const ColumnHeader = Symbol.for("axm/output/ColumnHeader");
 const ColumnPriority = Symbol.for("axm/output/ColumnPriority");
@@ -389,7 +403,7 @@ type SkillListItem = typeof SkillListItem.Type;
 A utility reads annotations from the schema AST and produces `ColumnDef<T>` arrays:
 
 ```typescript
-// output/output-def.ts
+// cli-renderer/command-output.ts
 
 interface ColumnDef<T> {
   readonly key: string;
@@ -433,7 +447,7 @@ const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDef<T>> =
 `emitOne` and `emitMany` tie the schema to the renderer — one function handles the entire result/table output path:
 
 ```typescript
-// output/command-output.ts
+// cli-renderer/command-output.ts
 
 interface CommandOutputOpts<T> {
   readonly schema: Schema.Schema<T>;
@@ -888,6 +902,87 @@ expect(testPrompt.state.textCalls[0].message).toBe("Extension name:");
 - **Resolution chain** for `--non-interactive` (explicit flag → `CI=true` → `!stdin.isTTY`) — unchanged, but resolved at the prompt layer boundary instead of via `CliEnvironment`
 - **Flag independence** (`--yes` ≠ `--non-interactive` ≠ `--force`) — unchanged; `--yes` moves from service-internal to handler-explicit
 
+### 14. Module organization
+
+Three new core modules replace six existing ones. All follow the `unstable/` namespace convention with one barrel (`index.ts`) per module.
+
+#### `@axm.sh/core/unstable/cli-renderer` (new)
+
+Replaces `unstable/output/`, `unstable/activity/`, and `unstable/output-format.ts`.
+
+| File                          | Exports                                                                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli-renderer.ts`             | `CliRenderer`, `SpinnerHandle`, `SpinnerOptions`, `ProgressHandle`, `ProgressConfig`, `LogMessage`, `ColumnDef`, `TreeNode`, `TreeDef` |
+| `terminal-capabilities.ts`    | `TerminalCapabilities`, `resolveTerminalCapabilities`                                                                                  |
+| `cli-renderer-interactive.ts` | `InteractiveRenderer` layer — Clack chrome, table formatter, tree formatter                                                            |
+| `cli-renderer-machine.ts`     | `MachineRenderer` layer — JSON/NDJSON stdout, chrome no-ops                                                                            |
+| `cli-renderer-test.ts`        | `TestRenderer`, `TestMachineRenderer`, `TestRendererState`                                                                             |
+| `annotations.ts`              | `column()`, `hidden()`, annotation symbols (`ColumnHeader`, `ColumnPriority`, etc.)                                                    |
+| `command-output.ts`           | `columnsFrom()`, `emitMany()`, `emitOne()`, `CommandOutputOpts`                                                                        |
+| `index.ts`                    | Barrel — re-exports all public API                                                                                                     |
+
+#### `@axm.sh/core/unstable/cli-prompt` (new)
+
+Replaces `unstable/input/`.
+
+| File                        | Exports                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `cli-prompt.ts`             | `CliPrompt`, config types (`TextOpts`, `ConfirmOpts`, `SelectOpts`, `MultiselectOpts`, `PasswordOpts`, `PathOpts`) |
+| `cli-prompt-interactive.ts` | `InteractivePrompt` layer — Clack prompts, non-interactive fail-fast                                               |
+| `cli-prompt-test.ts`        | `TestPrompt`, `TestPromptConfig`, `TestPromptState`                                                                |
+| `helpers.ts`                | `fromFlagOrPrompt()`, `autoConfirm()`                                                                              |
+| `index.ts`                  | Barrel                                                                                                             |
+
+#### `@axm.sh/core/unstable/verbosity` (new)
+
+| File           | Exports                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| `verbosity.ts` | `Verbosity`, `VerbosityLevel`, `LevelOrder`, `makeVerbosityLayer()`, `verbosityToLogLevel()` |
+| `helpers.ts`   | `whenNotQuiet()`, `whenVerbose()`, `whenDebug()`                                             |
+| `index.ts`     | Barrel                                                                                       |
+
+#### `unstable/cli-flags/` (modified)
+
+| Change | Item                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------- |
+| Add    | `quietFlag` — `-q` / `--quiet` global flag                                                  |
+| Add    | `jsonFlag` — `--json` per-command flag                                                      |
+| Remove | `outputFormatFlag` — replaced by `jsonFlag`                                                 |
+| Remove | `CliEnvironment`, `makeCliEnvironmentLayer`, `CliEnvironmentTest` — absorbed by `Verbosity` |
+
+#### `unstable/cli-runtime/` (modified)
+
+| Change | Item                                                                                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Update | `makeFoundationLayer({ json, terminalCapabilities })` — provides `CliRenderer \| CliPrompt \| Verbosity` instead of `Output \| Activity \| Input \| CliEnvironment` |
+| Update | `CliRuntimeFoundation` type → `CliRenderer \| CliPrompt \| Verbosity`                                                                                               |
+| Update | `withCliErrorHandling` — reads `Verbosity` instead of `verboseFlag`/`debugFlag` directly                                                                            |
+| Remove | `makeUiLayer` — absorbed into `makeFoundationLayer`                                                                                                                 |
+| Remove | `resolveFormat`, `resolveCliFormat` — replaced by `--json` flag + `TerminalCapabilities`                                                                            |
+
+#### Removed modules
+
+| Module                      | Replacement                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `unstable/output/`          | `unstable/cli-renderer/`                                                       |
+| `unstable/activity/`        | `unstable/cli-renderer/`                                                       |
+| `unstable/input/`           | `unstable/cli-prompt/`                                                         |
+| `unstable/output-format.ts` | Removed — NDJSON event schemas move to `cli-renderer/` if needed for streaming |
+
+Package exports `./unstable/output`, `./unstable/activity`, `./unstable/input`, and `./unstable/output-format` are removed from `package.json`. New exports: `./unstable/cli-renderer`, `./unstable/cli-prompt`, `./unstable/verbosity`.
+
+CLI package: `src/output.ts` (re-export barrel for `output-format`) is removed.
+
+#### Handler import paths
+
+| Symbol                                          | Package export                       |
+| ----------------------------------------------- | ------------------------------------ |
+| `CliRenderer`, types, annotations, emit helpers | `@axm.sh/core/unstable/cli-renderer` |
+| `CliPrompt`, `fromFlagOrPrompt`, `autoConfirm`  | `@axm.sh/core/unstable/cli-prompt`   |
+| `Verbosity`, `whenNotQuiet/Verbose/Debug`       | `@axm.sh/core/unstable/verbosity`    |
+| `TestRenderer`, `TestMachineRenderer`           | `@axm.sh/core/unstable/cli-renderer` |
+| `TestPrompt`                                    | `@axm.sh/core/unstable/cli-prompt`   |
+
 ## Risks / Trade-offs
 
 **Single service may grow large** → CliRenderer has ~15 methods. If features like streaming tables or interactive selection are added later, the interface could bloat.
@@ -918,7 +1013,7 @@ A typical CRUD list command: fetch data, show as table interactively or JSON in 
 ```typescript
 // commands/skills/list/output.ts
 import { Schema } from "effect";
-import { column } from "@/output/annotations";
+import { column } from "@axm.sh/core/unstable/cli-renderer";
 
 export const SkillListItem = Schema.Struct({
   name: Schema.String.pipe(column({ header: "Name", width: "fill" })),
@@ -936,8 +1031,8 @@ export type SkillListItem = typeof SkillListItem.Type;
 ```typescript
 // commands/skills/list/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer } from "@/cli-renderer";
-import { emitMany } from "@/output/command-output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { emitMany } from "@axm.sh/core/unstable/cli-renderer";
 import { SkillListItem } from "./output";
 
 interface ListArgs {
@@ -977,7 +1072,7 @@ A detail/inspect command: show structured info about a single entity, with neste
 ```typescript
 // commands/skills/show/output.ts
 import { Schema } from "effect";
-import { column } from "@/output/annotations";
+import { column } from "@axm.sh/core/unstable/cli-renderer";
 
 export const SkillInfo = Schema.Struct({
   name: Schema.String.pipe(column({ header: "Name" })),
@@ -1011,8 +1106,8 @@ export type SkillInfo = typeof SkillInfo.Type;
 ```typescript
 // commands/skills/show/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer } from "@/cli-renderer";
-import { emitOne } from "@/output/command-output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { emitOne } from "@axm.sh/core/unstable/cli-renderer";
 import { SkillInfo } from "./output";
 
 interface ShowArgs {
@@ -1067,7 +1162,8 @@ A mutation command: install with progress tracking, multiple log levels, and a f
 ```typescript
 // commands/skills/install/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer, whenNotQuiet } from "@/cli-renderer";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { whenNotQuiet } from "@axm.sh/core/unstable/verbosity";
 
 interface InstallArgs {
   readonly name: string;
@@ -1151,7 +1247,7 @@ A long-running streaming command: watch for changes and emit events.
 ```typescript
 // commands/skills/watch/handler.ts
 import { Effect, Stream } from "effect";
-import { CliRenderer } from "@/cli-renderer";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 interface WatchArgs {
   readonly workspace: string;
@@ -1190,7 +1286,7 @@ A data export command: output raw content or structured JSON with no chrome.
 ```typescript
 // commands/workspace/export/handler.ts
 import { Effect } from "effect";
-import { CliRenderer } from "@/cli-renderer";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 interface ExportArgs {
   readonly format: "json" | "yaml";
@@ -1223,7 +1319,7 @@ A scaffold command: create files, show grouped status, guide the user. Like inst
 ```typescript
 // commands/init/handler.ts
 import { Effect } from "effect";
-import { CliRenderer } from "@/cli-renderer";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 type GroupNode = { readonly kind: "group"; readonly name: string; readonly count: number };
 type FileNode = {
@@ -1307,8 +1403,8 @@ A command that gathers input via prompts (or flags), then executes with renderer
 ```typescript
 // commands/new/handler.ts
 import { Effect, Option } from "effect";
-import { CliRenderer } from "@/cli-renderer";
-import { CliPrompt, fromFlagOrPrompt, autoConfirm } from "@/cli-prompt";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt, fromFlagOrPrompt, autoConfirm } from "@axm.sh/core/unstable/cli-prompt";
 
 interface NewHandlerArgs {
   readonly name: Option.Option<string>;

@@ -6,7 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { detectCI, detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
+import { detectContainer, detectRoot, detectSSH, detectWSL } from "./environment.js";
 
 /**
  * Creates a mock FileSystem layer for testing.
@@ -125,37 +125,6 @@ describe("Environment detection", () => {
       const layer = mockFileSystem({ exists: () => false });
       const result = await Effect.runPromise(detectWSL.pipe(Effect.provide(layer)));
 
-      expect(result).toBe(false);
-    });
-  });
-
-  describe("detectCI", () => {
-    let origCI: string | undefined;
-
-    beforeEach(() => {
-      origCI = process.env["CI"];
-      delete process.env["CI"];
-    });
-
-    afterEach(() => {
-      if (origCI !== undefined) process.env["CI"] = origCI;
-      else delete process.env["CI"];
-    });
-
-    it("returns true when CI=true", async () => {
-      process.env["CI"] = "true";
-      const result = await Effect.runPromise(detectCI);
-      expect(result).toBe(true);
-    });
-
-    it("returns false when CI is not set", async () => {
-      const result = await Effect.runPromise(detectCI);
-      expect(result).toBe(false);
-    });
-
-    it("returns false when CI is not true", async () => {
-      process.env["CI"] = "false";
-      const result = await Effect.runPromise(detectCI);
       expect(result).toBe(false);
     });
   });

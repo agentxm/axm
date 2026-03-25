@@ -151,7 +151,6 @@ export const withRuntime = <A, R>(
     const config = yield* resolveRuntimeConfig();
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
     const foundationLayer = makeFoundationLayer(format, {
-      ci: config.ci,
       envVerbose: config.envVerbose,
       envDebug: config.envDebug,
     });

@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
+import { isCI } from "../utils/ci.js";
 import { isInteractive } from "../utils/tty.js";
 
 // ---------------------------------------------------------------------------
@@ -62,7 +63,6 @@ export const previewFlag = Flag.boolean("preview").pipe(
 // ---------------------------------------------------------------------------
 
 export interface CliEnvironmentService {
-  readonly isCI: boolean;
   readonly nonInteractive: boolean;
   readonly verbose: boolean;
   readonly debug: boolean;
@@ -73,7 +73,6 @@ export class CliEnvironment extends ServiceMap.Service<CliEnvironment, CliEnviro
 ) {}
 
 export const makeCliEnvironmentLayer = (options?: {
-  readonly ci?: boolean | undefined;
   readonly envVerbose?: boolean | undefined;
   readonly envDebug?: boolean | undefined;
 }) =>
@@ -81,14 +80,12 @@ export const makeCliEnvironmentLayer = (options?: {
     CliEnvironment,
     Effect.gen(function* () {
       const nonInteractiveOpt = yield* nonInteractiveFlag;
-      const isCI = options?.ci ?? false;
 
       const debug = (yield* debugFlag) || (options?.envDebug ?? false);
       const verbose = (yield* verboseFlag) || (options?.envVerbose ?? false) || debug;
 
       return {
-        isCI,
-        nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI || !isInteractive()),
+        nonInteractive: Option.getOrElse(nonInteractiveOpt, () => isCI() || !isInteractive()),
         verbose,
         debug,
       } satisfies CliEnvironmentService;
@@ -103,7 +100,6 @@ export const CliEnvironmentTest = (
   overrides?: Partial<CliEnvironmentService>,
 ): Layer.Layer<CliEnvironment> =>
   Layer.succeed(CliEnvironment, {
-    isCI: false,
     nonInteractive: true,
     verbose: false,
     debug: false,

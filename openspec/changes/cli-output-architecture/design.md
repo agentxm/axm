@@ -155,7 +155,7 @@ type LogLevel = "message" | "info" | "success" | "step" | "warn" | "error";
 ```typescript
 interface SpinnerHandle {
   readonly stop: (message?: string) => Effect<void>;
-  readonly message: (message?: string) => Effect<void>;
+  readonly update: (message?: string) => Effect<void>;
   readonly cancel: (message?: string) => Effect<void>;
   readonly error: (message?: string) => Effect<void>;
   readonly clear: () => Effect<void>;
@@ -202,7 +202,7 @@ interface Task<E, R> {
 }
 ```
 
-These match the current `Activity` handle shapes. `SpinnerHandle.message` updates the spinner text (named `message` for Clack API alignment). `ProgressHandle` extends `SpinnerHandle` with `advance(step)` for incrementing progress.
+These match the current `Activity` handle shapes. `SpinnerHandle.update` updates the spinner text. `ProgressHandle` extends `SpinnerHandle` with `advance(step)` for incrementing progress.
 
 **`json()` / `raw()` are mutually exclusive with `result()` / `resultStream()`.** Commands that use `result()` for schema-validated output should not also call `json()` or `raw()`. `json()` and `raw()` exist for export/dump commands that produce raw content in both modes (e.g., `axm workspace export --format yaml`). A handler that calls both `result()` and `json()` would produce two objects on stdout in machine mode — this is a handler bug.
 
@@ -309,12 +309,12 @@ The resolved level is provided via `makeVerbosityLayer(level)` at the `run()` bo
 
 ```typescript
 // cli-flags/index.ts
-export const quietFlag = GlobalFlag.setting(
-  Flag.boolean("quiet").pipe(
+export const quietFlag = GlobalFlag.setting("axm-quiet")({
+  flag: Flag.boolean("quiet").pipe(
     Flag.withAlias("q"),
     Flag.withDescription("Suppress non-essential output"),
   ),
-);
+});
 
 // Layer construction
 const makeVerbosityLayer = (level: VerbosityLevel) =>
@@ -359,13 +359,13 @@ The verbosity level maps to Effect's log level at the layer boundary. This means
 const verbosityToLogLevel = (level: VerbosityLevel): LogLevel => {
   switch (level) {
     case "quiet":
-      return LogLevel.Warning;
+      return "Warn";
     case "normal":
-      return LogLevel.Info;
+      return "Info";
     case "verbose":
-      return LogLevel.Debug;
+      return "Debug";
     case "debug":
-      return LogLevel.Trace;
+      return "Trace";
   }
 };
 ```
@@ -454,7 +454,7 @@ const ColumnWidth = Symbol.for("axm/output/ColumnWidth");
 const DisplayFormat = Symbol.for("axm/output/DisplayFormat");
 const Hidden = Symbol.for("axm/output/Hidden");
 
-// Annotation helper — wraps Schema.annotations for ergonomics
+// Annotation helper — wraps Schema.annotate for ergonomics
 // Generic <A> infers field type at call site; stored untyped in annotations
 // but safe because columnsFrom() only calls format with the matching field value
 const column = <A = unknown>(opts: {
@@ -464,7 +464,7 @@ const column = <A = unknown>(opts: {
   width?: "auto" | "fill" | number;
   format?: (value: A) => string;
 }) =>
-  Schema.annotations({
+  Schema.annotate({
     [ColumnHeader]: opts.header,
     [ColumnPriority]: opts.priority ?? 0,
     [ColumnAlign]: opts.align ?? "left",
@@ -473,7 +473,7 @@ const column = <A = unknown>(opts: {
   });
 
 // Fields that appear in JSON but never in tables
-const hidden = () => Schema.annotations({ [Hidden]: true });
+const hidden = () => Schema.annotate({ [Hidden]: true });
 ```
 
 #### Output schema example
@@ -483,7 +483,7 @@ const hidden = () => Schema.annotations({ [Hidden]: true });
 export const SkillListItem = Schema.Struct({
   name: Schema.String.pipe(
     column({ header: "Name", width: "fill" }),
-    Schema.annotations({ description: "Fully qualified skill name" }),
+    Schema.annotate({ description: "Fully qualified skill name" }),
   ),
   version: Schema.String.pipe(column({ header: "Version", width: "auto" })),
   enabled: Schema.Boolean.pipe(
@@ -491,7 +491,7 @@ export const SkillListItem = Schema.Struct({
   ),
   source: Schema.String.pipe(
     column({ header: "Source", priority: 1 }),
-    Schema.annotations({ description: "Installation source" }),
+    Schema.annotate({ description: "Installation source" }),
   ),
   installedAt: Schema.String.pipe(column({ header: "Installed", priority: 1 })),
   // Appears in --json but not in tables
@@ -588,28 +588,14 @@ const emitOne = <T>(data: T, opts: CommandOutputOpts<T>) =>
 | JSON serialization | `Schema.encode` — validated, typed                                 |
 | Table columns      | `columnsFrom(schema)` — reads annotations, produces `ColumnDef[]`  |
 | Detail labels      | Same `ColumnDef[]` rendered vertically by `detail()` via `emitOne` |
-| JSON Schema files  | `JSONSchema.make(schema)` — standard JSON Schema for docs          |
-| Field descriptions | `Schema.annotations({ description })` — carried to JSON Schema     |
+| JSON Schema files  | `JsonSchema` module — standard JSON Schema for docs                |
+| Field descriptions | `Schema.annotate({ description })` — carried to JSON Schema        |
 
 **Verbosity is automatic via `priority`.** The renderer filters columns/fields by priority based on the resolved verbosity level. A `priority: 1` field only appears when `--verbose` is active. Handlers define the schema once; the renderer handles the rest.
 
 **The `hidden()` annotation** is for fields that should appear in JSON output but never in tables or detail views — internal identifiers, integrity hashes, metadata useful for machines but noise for humans.
 
-**JSON Schema generation** — the same schema produces publishable documentation:
-
-```typescript
-// scripts/generate-output-schemas.ts
-import { JSONSchema } from "effect";
-
-const schemas = {
-  "skills-list": JSONSchema.make(Schema.Array(SkillListItem)),
-  "skills-show": JSONSchema.make(SkillInfo),
-};
-
-for (const [command, schema] of Object.entries(schemas)) {
-  writeFileSync(`docs/schemas/cli-output/${command}.json`, JSON.stringify(schema, null, 2));
-}
-```
+**JSON Schema generation** — the same schema produces publishable documentation via Effect v4's `JsonSchema` module (exact API to be resolved during implementation).
 
 **Rationale:** The previous design had schemas and `ColumnDef<T>` arrays as separate definitions co-located in the same file. This works but creates a synchronization problem — adding a field to the schema requires remembering to add a matching column definition. Schema annotations eliminate this: one field definition carries both the data contract and the display metadata. The `column()` helper keeps the annotation ergonomic.
 
@@ -838,7 +824,7 @@ The `MachineRenderer` emits NDJSON log events to stderr for chrome methods (pres
 
 The NDJSON events on stderr use the same schema as the current `StreamEvent` types (log events with level, progress events with phase/percent). This preserves compatibility for CI consumers that previously used `--output-format stream-json` to monitor progress. The key difference from the old model: events go to stderr (not stdout), so `axm command --json | jq` always works cleanly.
 
-Selection uses `Layer.unwrapEffect` at the `run()` boundary, matching the current `makeUiLayer` pattern but producing a single `CliRenderer` layer instead of `Output | Activity`.
+Selection uses `Layer.unwrap` at the `run()` boundary, matching the current `makeUiLayer` pattern but producing a single `CliRenderer` layer instead of `Output | Activity`.
 
 ### 12. TestRenderer design
 
@@ -977,15 +963,15 @@ const makeInteractivePrompt = (nonInteractive: boolean) => ({
     Effect.gen(function* () {
       // --non-interactive with no default → fail fast
       if (nonInteractive && opts.default === undefined) {
-        yield* makeAppError({
+        return yield* makeAppError({
           code: "PROMPT_REQUIRED",
           what: `Confirmation required: ${opts.message}`,
           howToFix: Option.some("Pass --yes to auto-accept"),
         });
       }
 
-      // --non-interactive with default → use it silently
-      if (nonInteractive) return opts.default!;
+      // --non-interactive with default → use it silently (TS narrows after the guard above)
+      if (nonInteractive) return opts.default;
 
       // Interactive → show Clack prompt
       return yield* clackConfirm(opts);
@@ -1262,7 +1248,7 @@ export const handleList = (args: ListArgs) =>
     yield* renderer.intro("Skills");
 
     const skills = yield* renderer.withSpinner("Fetching skills…", () => fetchSkills(args), {
-      stopMessage: (result) => `Found ${result.length} skills`,
+      successMessage: (result) => `Found ${result.length} skills`,
     });
 
     if (skills.length === 0) {
@@ -1569,7 +1555,7 @@ export const handleInit = () =>
     yield* renderer.step("Setting up workspace");
 
     const result = yield* renderer.withSpinner("Creating files…", () => scaffoldWorkspace(), {
-      stopMessage: (r) => `Created ${r.created.length} files`,
+      successMessage: (r) => `Created ${r.created.length} files`,
     });
 
     // Machine output

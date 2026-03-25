@@ -119,7 +119,7 @@ Terminal capabilities SHALL be resolved into two independent axes: `canRender` (
 
 ### Requirement: Layer selection at run() boundary
 
-The `run()` boundary SHALL select the renderer implementation based on the `--json` flag and terminal capabilities. Selection SHALL use `Layer.unwrapEffect`.
+The `run()` boundary SHALL select the renderer implementation based on the `--json` flag and terminal capabilities. Selection SHALL use `Layer.unwrap`.
 
 #### Scenario: TTY without --json selects InteractiveRenderer
 

@@ -10,14 +10,19 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
 import { Command } from "effect/unstable/cli";
 
-import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
+import {
+  nonInteractiveFlag,
+  outputFormatFlag,
+  verboseFlag,
+  debugFlag,
+} from "@axm.sh/core/unstable/cli-flags";
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
 import { skillsCommand } from "./commands/skills/command.js";
 import { telemetryCommand } from "./commands/telemetry/command.js";
 
-const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
+const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, outputFormatFlag] as const;
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Effect v4 CLI spike — proving out idiomatic command/flag patterns."),

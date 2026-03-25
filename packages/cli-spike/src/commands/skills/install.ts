@@ -13,6 +13,7 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { Output } from "@axm.sh/core/unstable/output";
 import { Activity } from "@axm.sh/core/unstable/activity";
 import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -51,23 +52,25 @@ const renderText = (result: InstallResult): string => {
 //   - Per-command --yes flag imported from core (demonstrates the pattern)
 // ---------------------------------------------------------------------------
 
+const installConfig = {
+  source: Argument.string("source").pipe(
+    Argument.withDescription("GitHub shorthand (owner/repo), local path, or URL"),
+  ),
+  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+    Flag.withDescription("Configuration scope"),
+    Flag.withDefault("project" as const),
+  ),
+  skill: Flag.string("skill").pipe(
+    Flag.withDescription("Install only specified skill(s) by name"),
+    Flag.atLeast(0),
+  ),
+  all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
+  yes: yesFlag,
+} as const;
+
 export const installCommand = Command.make(
   "install",
-  {
-    source: Argument.string("source").pipe(
-      Argument.withDescription("GitHub shorthand (owner/repo), local path, or URL"),
-    ),
-    scope: Flag.choice("scope", ["project", "user"] as const).pipe(
-      Flag.withDescription("Configuration scope"),
-      Flag.withDefault("project" as const),
-    ),
-    skill: Flag.string("skill").pipe(
-      Flag.withDescription("Install only specified skill(s) by name"),
-      Flag.atLeast(0),
-    ),
-    all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
-    yes: yesFlag,
-  },
+  installConfig,
   (config) =>
     withRuntime(
       Effect.gen(function* () {
@@ -103,6 +106,7 @@ export const installCommand = Command.make(
       { command: "skills install", isLongRunning: true },
     ),
 ).pipe(
+  withArgvTracking(installConfig),
   Command.withDescription("Install skills from GitHub or local path"),
   Command.withExamples([
     { command: "axm-spike skills install owner/repo", description: "Install skills interactively" },

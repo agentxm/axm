@@ -2,26 +2,29 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { handlePublish } from "../../cli-commands/skills/publish/handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "../../workspace/scope.js";
 
+const publishConfig = {
+  extensions: Argument.string("extensions").pipe(
+    Argument.withDescription(
+      "Extension names or glob patterns (@profile/skills/name, bare name, or glob)",
+    ),
+    Argument.atLeast(1),
+  ),
+  registry: Flag.string("registry").pipe(
+    Flag.withDescription("Named registry source to publish to"),
+    Flag.optional,
+  ),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+} as const;
+
 export const publishCommand = Command.make(
   "publish",
-  {
-    extensions: Argument.string("extensions").pipe(
-      Argument.withDescription(
-        "Extension names or glob patterns (@profile/skills/name, bare name, or glob)",
-      ),
-      Argument.atLeast(1),
-    ),
-    registry: Flag.string("registry").pipe(
-      Flag.withDescription("Named registry source to publish to"),
-      Flag.optional,
-    ),
-    yes: yesFlag,
-    force: forceFlag,
-    preview: previewFlag,
-  },
+  publishConfig,
   ({ extensions, registry, yes, force, preview }) =>
     withRuntime(
       withWorkspace(
@@ -31,6 +34,7 @@ export const publishCommand = Command.make(
       { command: "skills publish", flags: { yes, force, preview } },
     ),
 ).pipe(
+  withArgvTracking(publishConfig),
   Command.withDescription("Publish extensions to a registry"),
   Command.withExamples([
     {

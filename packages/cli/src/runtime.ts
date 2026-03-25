@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
-import { Flag, GlobalFlag } from "effect/unstable/cli";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
@@ -10,10 +9,16 @@ import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import {
   type CliTelemetryConfigService,
   makeFoundationLayer,
+  readGlobalFlagProperties,
   resolveCliFormat,
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
-import { nonInteractiveFlag, outputFormatFlag } from "@axm.sh/core/unstable/cli-flags";
+import {
+  nonInteractiveFlag,
+  outputFormatFlag,
+  verboseFlag,
+  debugFlag,
+} from "@axm.sh/core/unstable/cli-flags";
 import { InstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./cli-commands/commands/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./cli-commands/mcp-servers/install/command-actions.js";
@@ -39,18 +44,7 @@ import {
 import { loadVersion } from "./version.js";
 import { getBuiltInSources } from "./workspace/source-metadata.js";
 
-export const verboseFlag = GlobalFlag.setting("axm-verbose")({
-  flag: Flag.boolean("verbose").pipe(
-    Flag.withAlias("v"),
-    Flag.withDescription("Show additional diagnostic details for errors"),
-  ),
-});
-
-export const debugFlag = GlobalFlag.setting("axm-debug")({
-  flag: Flag.boolean("debug").pipe(
-    Flag.withDescription("Show full debug details for errors (implies --verbose)"),
-  ),
-});
+export { verboseFlag, debugFlag };
 
 export const axmGlobalFlags = [
   nonInteractiveFlag,
@@ -159,6 +153,7 @@ export const withRuntime = <A, R>(
   Effect.gen(function* () {
     const config = yield* resolveRuntimeConfig();
     const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
+    const globalProperties = yield* readGlobalFlagProperties;
     const foundationLayer = makeFoundationLayer(format, {
       ci: config.ci,
       flags: options?.flags,
@@ -171,5 +166,6 @@ export const withRuntime = <A, R>(
       format,
       telemetryConfig: config.telemetryConfig,
       appErrorRenderOptions: config.diagnosticVerbosity,
+      globalProperties,
     });
   });

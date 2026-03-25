@@ -16,18 +16,21 @@ import * as Console from "effect/Console";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
+
+const uninstallConfig = {
+  skill: Argument.string("skill").pipe(
+    Argument.withDescription("Name of the skill to uninstall"),
+  ),
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+} as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
-  {
-    skill: Argument.string("skill").pipe(
-      Argument.withDescription("Name of the skill to uninstall"),
-    ),
-    yes: yesFlag,
-    force: forceFlag,
-    preview: previewFlag,
-  },
+  uninstallConfig,
   (config) =>
     withRuntime(
       Console.log(
@@ -36,6 +39,7 @@ export const uninstallCommand = Command.make(
       { command: "skills uninstall" },
     ),
 ).pipe(
+  withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a skill from agents"),
   Command.withExamples([
     { command: "axm-spike skills uninstall my-skill", description: "Uninstall a skill" },

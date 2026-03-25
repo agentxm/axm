@@ -5,7 +5,12 @@ import * as Layer from "effect/Layer";
 import { makeAppError } from "../app-error/index.js";
 import { PromptCancelled } from "../prompt-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
-import { reportCliDefect, reportCliError, trackCliCommand } from "./telemetry.js";
+import {
+  reportCliDefect,
+  reportCliError,
+  trackCliCommand,
+  trackCliCommandCompleted,
+} from "./telemetry.js";
 
 interface Capture {
   readonly events: Array<{ event: string; properties?: Record<string, string> }>;
@@ -53,7 +58,7 @@ describe("cli telemetry helpers", () => {
       expect(capture.events).toEqual([
         {
           event: "command_invoked",
-          properties: { command: "skills install", scope: "project" },
+          properties: { "cli.command": "skills install", scope: "project" },
         },
       ]);
     }),
@@ -123,6 +128,68 @@ describe("cli telemetry helpers", () => {
           command: "skills list",
         },
       ]);
+    }),
+  );
+
+  it.effect("trackCliCommandCompleted emits success event", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+
+      yield* trackCliCommandCompleted({
+        command: "skills install",
+        result: "success",
+        durationMs: 1234,
+      }).pipe(Effect.provide(layer));
+
+      expect(capture.events).toEqual([
+        {
+          event: "command_completed",
+          properties: {
+            "cli.command": "skills install",
+            "cli.result": "success",
+            "cli.duration_ms": "1234",
+          },
+        },
+      ]);
+    }),
+  );
+
+  it.effect("trackCliCommandCompleted includes error_code on failure", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+
+      yield* trackCliCommandCompleted({
+        command: "skills install",
+        result: "error",
+        durationMs: 567,
+        errorCode: "SOURCE_CLONE_FAILED",
+      }).pipe(Effect.provide(layer));
+
+      expect(capture.events).toEqual([
+        {
+          event: "command_completed",
+          properties: {
+            "cli.command": "skills install",
+            "cli.result": "error",
+            "cli.duration_ms": "567",
+            "cli.error_code": "SOURCE_CLONE_FAILED",
+          },
+        },
+      ]);
+    }),
+  );
+
+  it.effect("trackCliCommandCompleted omits error_code when absent", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+
+      yield* trackCliCommandCompleted({
+        command: "init",
+        result: "cancelled",
+        durationMs: 100,
+      }).pipe(Effect.provide(layer));
+
+      expect(capture.events[0]?.properties).not.toHaveProperty("cli.error_code");
     }),
   );
 });

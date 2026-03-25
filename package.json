@@ -6,6 +6,7 @@
     "axm": "bun packages/cli/src/main.ts",
     "axm:local": "AXM_REGISTRY_URL=http://localhost:4300 bun packages/cli/src/main.ts",
     "axm-dev": "bun packages/cli/src/dev-main.ts",
+    "spike": "pnpm --filter @axm.sh/cli-spike spike",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:e2e": "pnpm --filter @axm.sh/cli run test:e2e",

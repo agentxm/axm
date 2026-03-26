@@ -11,11 +11,31 @@ import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
-import type { LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { buildUpdatePlan } from "./plan.js";
 
 // Assertion needed: plan builders only produce LegacyPlannedStep
 const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
+
+type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
+type UpdatePlan = LegacyPlan<UpdateOperation>;
+type UpdateStep = LegacyPlannedStep<UpdateOperation>;
+
+const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T => {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${label} at index ${index}`);
+  }
+  return item;
+};
+
+const getJob = (plan: UpdatePlan) => getItem(plan.jobs, 0, "job");
+
+const getSteps = (plan: UpdatePlan) => getJob(plan).steps;
+
+const getStep = (steps: ReadonlyArray<UpdateStep>, index: number) => getItem(steps, index, "step");
+
+const getFirstStep = (plan: UpdatePlan) => getStep(getSteps(plan), 0);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -216,7 +236,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -238,7 +258,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "skip",
       message: "already up to date",
     });
@@ -260,7 +280,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -282,7 +302,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -304,7 +324,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -326,7 +346,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
+    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
   });
 
   it("handles bitbucket source with git hash comparison", () => {
@@ -345,7 +365,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("skip");
+    expect(planned(getFirstStep(plan)).readiness.status).toBe("skip");
   });
 
   it("handles azurerepos source with git hash comparison", () => {
@@ -365,7 +385,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
+    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
   });
 
   it("handles generic git source with git hash comparison", () => {
@@ -383,7 +403,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
+    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
   });
 
   // ---------------------------------------------------------------------------
@@ -408,7 +428,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -432,7 +452,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "skip",
       message: "already up to date",
     });
@@ -450,7 +470,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "skip",
       message: "already up to date",
     });
@@ -464,7 +484,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -482,7 +502,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -509,7 +529,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -534,7 +554,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
+    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
   });
 
   // ---------------------------------------------------------------------------
@@ -546,7 +566,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none());
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(planned(getFirstStep(plan)).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -560,7 +580,7 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan([], emptyLockfile, "Update", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(0);
+    expect(getSteps(plan)).toHaveLength(0);
   });
 
   it("derives label from skill name", () => {
@@ -571,8 +591,9 @@ describe("buildUpdatePlan", () => {
       Option.none(),
     );
 
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("commit");
-    expect(plan.jobs[0]!.steps[1]!.label).toBe("review-pr");
+    const steps = getSteps(plan);
+    expect(getStep(steps, 0).label).toBe("commit");
+    expect(getStep(steps, 1).label).toBe("review-pr");
   });
 
   it("passes through caller-provided name and description", () => {
@@ -596,7 +617,7 @@ describe("buildUpdatePlan", () => {
     );
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe("unbounded");
+    expect(getJob(plan).concurrency).toBe("unbounded");
   });
 
   it("handles mixed ready and skip readiness", () => {
@@ -629,13 +650,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan(ops, lf, "Update", Option.none());
 
-    const steps = plan.jobs[0]!.steps;
-    expect(planned(steps[0]!).readiness.status).toBe("ready");
-    expect(steps[0]!.label).toBe("changed");
-    expect(planned(steps[1]!).readiness.status).toBe("skip");
-    expect(steps[1]!.label).toBe("unchanged");
-    expect(planned(steps[2]!).readiness.status).toBe("ready");
-    expect(steps[2]!.label).toBe("local-skill");
+    const steps = getSteps(plan);
+    expect(planned(getStep(steps, 0)).readiness.status).toBe("ready");
+    expect(getStep(steps, 0).label).toBe("changed");
+    expect(planned(getStep(steps, 1)).readiness.status).toBe("skip");
+    expect(getStep(steps, 1).label).toBe("unchanged");
+    expect(planned(getStep(steps, 2)).readiness.status).toBe("ready");
+    expect(getStep(steps, 2).label).toBe("local-skill");
   });
 
   // ---------------------------------------------------------------------------
@@ -651,9 +672,10 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([installOp, uninstallOp], emptyLockfile, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps).toHaveLength(2);
-    expect(plan.jobs[0]!.steps[0]!.operation.name).toBe("install-skill");
-    expect(plan.jobs[0]!.steps[1]!.operation.name).toBe("uninstall-skill");
+    const steps = getSteps(plan);
+    expect(steps).toHaveLength(2);
+    expect(getStep(steps, 0).operation.name).toBe("install-skill");
+    expect(getStep(steps, 1).operation.name).toBe("uninstall-skill");
   });
 
   it("gives UninstallSkillOperation steps a rename cleanup label", () => {
@@ -664,7 +686,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([uninstallOp], emptyLockfile, "Update", Option.none());
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = getFirstStep(plan);
     expect(step.label).toContain("old-name");
     expect(step.label).toContain("renamed");
     expect(planned(step).readiness.status).toBe("ready");
@@ -687,10 +709,11 @@ describe("buildUpdatePlan", () => {
       Option.some("Rename detected"),
     );
 
-    expect(plan.jobs[0]!.steps).toHaveLength(2);
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("new-skill");
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
-    expect(plan.jobs[0]!.steps[1]!.label).toContain("old-skill");
-    expect(plan.jobs[0]!.steps[1]!.label).toContain("renamed");
+    const steps = getSteps(plan);
+    expect(steps).toHaveLength(2);
+    expect(getStep(steps, 0).label).toBe("new-skill");
+    expect(planned(getStep(steps, 0)).readiness.status).toBe("ready");
+    expect(getStep(steps, 1).label).toContain("old-skill");
+    expect(getStep(steps, 1).label).toContain("renamed");
   });
 });

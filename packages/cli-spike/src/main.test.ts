@@ -24,6 +24,43 @@ interface CaptureServer {
   readonly close: () => Promise<void>;
 }
 
+interface TelemetryErrorPayload {
+  readonly message: string;
+  readonly name: string;
+}
+
+interface TelemetryRequestBody {
+  readonly errors: ReadonlyArray<TelemetryErrorPayload>;
+  readonly level: string;
+  readonly handled: boolean;
+  readonly context: {
+    readonly command: string;
+  };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isTelemetryErrorPayload = (value: unknown): value is TelemetryErrorPayload =>
+  isRecord(value) && typeof value["message"] === "string" && typeof value["name"] === "string";
+
+const isTelemetryRequestBody = (value: unknown): value is TelemetryRequestBody =>
+  isRecord(value) &&
+  Array.isArray(value["errors"]) &&
+  value["errors"].every(isTelemetryErrorPayload) &&
+  typeof value["level"] === "string" &&
+  typeof value["handled"] === "boolean" &&
+  isRecord(value["context"]) &&
+  typeof value["context"]["command"] === "string";
+
+const parseTelemetryRequestBody = (value: unknown): TelemetryRequestBody => {
+  if (!isTelemetryRequestBody(value)) {
+    throw new Error("Invalid telemetry request body");
+  }
+
+  return value;
+};
+
 const runSpike = (args: ReadonlyArray<string>, env: Record<string, string>): Promise<CliResult> =>
   new Promise((resolve, reject) => {
     const child = spawn("bun", ["run", CLI_PATH, ...args], {
@@ -71,7 +108,7 @@ const startCaptureServer = async (): Promise<CaptureServer> => {
     req.on("end", () => {
       captured.push({
         url: req.url ?? "/",
-        body: body.length > 0 ? (JSON.parse(body) as unknown) : undefined,
+        body: body.length > 0 ? JSON.parse(body) : undefined,
       });
       res.statusCode = 202;
       res.end("");
@@ -121,13 +158,7 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      // Assertion needed: test boundary — narrowing captured JSON body for assertions
-      const body = request.body as unknown as {
-        errors: ReadonlyArray<{ message: string; name: string }>;
-        level: string;
-        handled: boolean;
-        context: { command: string };
-      };
+      const body = parseTelemetryRequestBody(request.body);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated handled telemetry failure");
@@ -154,13 +185,7 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      // Assertion needed: test boundary — narrowing captured JSON body for assertions
-      const body = request.body as unknown as {
-        errors: ReadonlyArray<{ message: string; name: string }>;
-        level: string;
-        handled: boolean;
-        context: { command: string };
-      };
+      const body = parseTelemetryRequestBody(request.body);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated defect telemetry failure");

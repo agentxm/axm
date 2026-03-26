@@ -82,43 +82,27 @@ describe("outputs commands", () => {
     expectStderr(result, "content inside a box");
   });
 
-  it(
-    "outputs spinner completes with success",
-    async () => {
-      const result = await runCli(["outputs", "spinner"], { timeout: 15000 });
-      expectExitCode(result, 0);
-    },
-    15000,
-  );
+  it("outputs spinner completes with success", async () => {
+    const result = await runCli(["outputs", "spinner"], { timeout: 15000 });
+    expectExitCode(result, 0);
+  }, 15000);
 
-  it(
-    "outputs progress --style block renders progress bar",
-    async () => {
-      const result = await runCli(["outputs", "progress", "--style", "block"], { timeout: 15000 });
-      expectExitCode(result, 0);
-    },
-    15000,
-  );
+  it("outputs progress --style block renders progress bar", async () => {
+    const result = await runCli(["outputs", "progress", "--style", "block"], { timeout: 15000 });
+    expectExitCode(result, 0);
+  }, 15000);
 
-  it(
-    "outputs task-log --retain-log retains output",
-    async () => {
-      const result = await runCli(["outputs", "task-log", "--retain-log"], { timeout: 15000 });
-      expectExitCode(result, 0);
-      // Machine mode emits task log messages as NDJSON to stderr
-      expectStderr(result, "Building project");
-    },
-    15000,
-  );
+  it("outputs task-log --retain-log retains output", async () => {
+    const result = await runCli(["outputs", "task-log", "--retain-log"], { timeout: 15000 });
+    expectExitCode(result, 0);
+    // Machine mode emits task log messages as NDJSON to stderr
+    expectStderr(result, "Building project");
+  }, 15000);
 
-  it(
-    "outputs run-tasks shows task status",
-    async () => {
-      const result = await runCli(["outputs", "run-tasks"], { timeout: 30000 });
-      expectExitCode(result, 0);
-    },
-    35000,
-  );
+  it("outputs run-tasks shows task status", async () => {
+    const result = await runCli(["outputs", "run-tasks"], { timeout: 30000 });
+    expectExitCode(result, 0);
+  }, 35000);
 
   it("outputs table exits successfully", async () => {
     // In machine mode, table is a no-op (no output), but should exit 0
@@ -144,14 +128,10 @@ describe("outputs commands", () => {
     expectExitCode(result, 0);
   });
 
-  it(
-    "outputs stream-log produces streaming output",
-    async () => {
-      const result = await runCli(["outputs", "stream-log"], { timeout: 15000 });
-      expectExitCode(result, 0);
-    },
-    15000,
-  );
+  it("outputs stream-log produces streaming output", async () => {
+    const result = await runCli(["outputs", "stream-log"], { timeout: 15000 });
+    expectExitCode(result, 0);
+  }, 15000);
 
   it("outputs result renders human-readable output", async () => {
     const result = await runCli(["outputs", "result"]);

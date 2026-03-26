@@ -15,12 +15,8 @@ const confirmConfig = {
     Flag.withDescription("Label for the inactive (false) option"),
     Flag.optional,
   ),
-  initial: Flag.boolean("initial").pipe(
-    Flag.withDescription("Initial value for the confirmation"),
-  ),
-  vertical: Flag.boolean("vertical").pipe(
-    Flag.withDescription("Display options vertically"),
-  ),
+  initial: Flag.boolean("initial").pipe(Flag.withDescription("Initial value for the confirmation")),
+  vertical: Flag.boolean("vertical").pipe(Flag.withDescription("Display options vertically")),
 } as const;
 
 export const confirmCommand = Command.make("confirm", confirmConfig, (config) =>

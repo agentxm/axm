@@ -26,9 +26,7 @@ const groupMultiselectConfig = {
     Flag.withDescription("Spacing between groups"),
     Flag.optional,
   ),
-  required: Flag.boolean("required").pipe(
-    Flag.withDescription("Require at least one selection"),
-  ),
+  required: Flag.boolean("required").pipe(Flag.withDescription("Require at least one selection")),
 } as const;
 
 export const groupMultiselectCommand = Command.make(

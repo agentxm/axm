@@ -22,9 +22,7 @@ const autocompleteMultiselectConfig = {
     Flag.withDescription("Maximum number of items to display"),
     Flag.optional,
   ),
-  required: Flag.boolean("required").pipe(
-    Flag.withDescription("Require at least one selection"),
-  ),
+  required: Flag.boolean("required").pipe(Flag.withDescription("Require at least one selection")),
 } as const;
 
 export const autocompleteMultiselectCommand = Command.make(

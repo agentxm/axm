@@ -361,3 +361,10 @@ Clean up the CLI package and wire `pnpm test:e2e` to E2E project targets.
 - [x] Verify: `pnpm test:e2e` runs both E2E projects
 - [x] Verify: `pnpm test` no longer picks up any `*.e2e.test.ts` in CLI packages
 - [x] Update CLAUDE.md testing section to reflect new E2E structure
+
+### Post-Implementation Follow-up
+
+- [x] Update CI to run `pnpm test:e2e` explicitly alongside `pnpm test`
+- [x] Update publish automation to verify `pnpm test:e2e` before release publish
+- [x] Keep pre-commit lightweight and add local E2E enforcement via `.husky/pre-push`
+- [x] Update active contributor/testing docs to describe dedicated distribution E2E projects

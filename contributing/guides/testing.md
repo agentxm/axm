@@ -37,25 +37,20 @@ logic. They run fast, require no external dependencies, and catch regressions in
 core logic. Place unit tests alongside source files (`parser.test.ts` next to
 `parser.ts`).
 
-**Co-located E2E tests** verify CLI commands work correctly from the user's
-perspective during development. They spawn the CLI from source (`bun run
-src/main.ts`), interact with the file system, and validate user-facing behavior.
-Co-located with command handlers (`*.e2e.test.ts`).
-
 **Distribution E2E tests** verify the **built artifact** works correctly. They
-live in a separate Nx project (`packages/<cli>-e2e/`), have zero internal
-dependencies, and spawn the compiled output from `dist/`. These catch
-build/bundle failures, missing deps, entry point wiring issues, and
-platform-specific problems that co-located tests can't.
+live in separate Nx projects (`packages/<cli>-e2e/`), depend only on shared
+test helpers from `packages/e2e-utils/`, and spawn the compiled output from
+`dist/`. These catch build/bundle failures, missing deps, entry point wiring
+issues, and platform-specific problems that unit tests cannot.
 
-| Aspect           | Unit Tests                    | Co-located E2E                   | Distribution E2E                   |
-| ---------------- | ----------------------------- | -------------------------------- | ---------------------------------- |
-| **Scope**        | Single function or handler    | Full CLI command                 | Full CLI command                   |
-| **Speed**        | Milliseconds                  | Seconds                          | Seconds                            |
-| **Dependencies** | Mocked or test layers         | Real file system, source binary  | Real file system, built artifact   |
-| **Location**     | Colocated with source         | Colocated with source            | `packages/<cli>-e2e/`              |
-| **Tests what**   | Logic correctness, edge cases | CLI parsing, integration, output | Build integrity, distribution      |
-| **Runs**         | `pnpm test`                   | `pnpm test:e2e`                  | `pnpm nx e2e <cli>-e2e`           |
+| Aspect           | Unit Tests                    | Distribution E2E                 |
+| ---------------- | ----------------------------- | -------------------------------- |
+| **Scope**        | Single function or handler    | Full CLI command                 |
+| **Speed**        | Milliseconds                  | Seconds                          |
+| **Dependencies** | Mocked or test layers         | Real file system, built artifact |
+| **Location**     | Colocated with source         | `packages/<cli>-e2e/`            |
+| **Tests what**   | Logic correctness, edge cases | Build integrity, CLI behavior    |
+| **Runs**         | `pnpm test`                   | `pnpm test:e2e`                  |
 
 ---
 
@@ -70,6 +65,9 @@ implementation. This project follows test-first development for most changes:
 
 The CLAUDE.md testing checklist captures the workflow: designs prescribe testing,
 tests define behavior, implementation follows.
+
+When a change can affect shipped CLI behavior, run both `pnpm test` and
+`pnpm test:e2e`.
 
 ---
 

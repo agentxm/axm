@@ -42,7 +42,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 1. Fork the repo and create a branch from `main`.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Ensure CI passes: `pnpm build && pnpm test && pnpm lint`.
+4. Ensure CI passes: `pnpm build && pnpm test && pnpm test:e2e && pnpm lint`.
 5. Open a pull request against `main`.
 
 ### Code Style
@@ -50,6 +50,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 - **TypeScript** in strict mode with [Effect](https://effect.website/) as the standard library.
 - **Prettier** for formatting, **ESLint** for linting — both run in CI.
 - Co-locate tests with the code they test (`feature.ts` + `feature.test.ts` in the same directory).
+- CLI E2E coverage lives in dedicated `packages/<cli>-e2e/` projects and runs against built artifacts.
 
 ## Releasing
 
@@ -68,7 +69,7 @@ We follow [semver](https://semver.org/):
 Requires `npm login` with publish access to the `@axm.sh` scope.
 
 ```bash
-pnpm build && pnpm test && pnpm lint
+pnpm build && pnpm test && pnpm test:e2e && pnpm lint
 pnpm --filter @axm.sh/cli exec npm version patch --no-git-tag-version
 pnpm --filter ./packages/cli run build
 pnpm --filter ./packages/cli publish --access public --no-git-checks
@@ -84,7 +85,7 @@ gh release create v0.1.1 --title "v0.1.1" --generate-notes  # optional
 The [publish workflow](/.github/workflows/publish.yml) publishes automatically when a GitHub Release is created, with npm [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC.
 
 ```bash
-pnpm build && pnpm test && pnpm lint
+pnpm build && pnpm test && pnpm test:e2e && pnpm lint
 pnpm --filter @axm.sh/cli exec npm version minor --no-git-tag-version
 git add packages/cli/package.json
 git commit -m "release: v0.2.0"

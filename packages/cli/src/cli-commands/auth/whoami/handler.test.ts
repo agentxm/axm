@@ -5,15 +5,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { vi, beforeEach } from "vitest";
+import { beforeEach } from "vitest";
 
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { expectRecord } from "../../../test-helpers.js";
 import { handleWhoami } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -27,11 +26,13 @@ const defaultMe = {
   orgs: [{ id: "org-1", handle: "acme" }],
 };
 
-const makeLayers = (opts?: { hasCredentials?: boolean }) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+const makeLayers = (opts?: { hasCredentials?: boolean; machine?: boolean }) => {
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
 
   const credStoreLayer = opts?.hasCredentials
-    ? CredentialStoreTest("encrypted-file", {
+    ? CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
           [REGISTRY_URL]: {
@@ -107,18 +108,34 @@ describe("auth whoami handler", () => {
   });
 
   it.effect("outputs JSON when --json flag is set", () => {
-    const { provide } = makeLayers({ hasCredentials: true });
-    const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    const { provide, rendererState } = makeLayers({ hasCredentials: true });
 
     return provide(
       Effect.gen(function* () {
         yield* handleWhoami({ json: true });
-        const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
-        const parsed = expectRecord(JSON.parse(output));
-        expect(parsed["userHandle"]).toBe("alice");
-        expect(parsed["email"]).toBe("alice@example.com");
-        expect(parsed["tokenType"]).toBe("session");
-        writeSpy.mockRestore();
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          userHandle: "alice",
+          email: "alice@example.com",
+          tokenType: "session",
+        });
+      }),
+    );
+  });
+
+  it.effect("emits machine-readable output through CliRenderer in machine mode", () => {
+    const { provide, rendererState } = makeLayers({ hasCredentials: true, machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleWhoami({ json: false });
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          userHandle: "alice",
+          email: "alice@example.com",
+          tokenType: "session",
+        });
+        expect(rendererState.logs).toHaveLength(0);
       }),
     );
   });

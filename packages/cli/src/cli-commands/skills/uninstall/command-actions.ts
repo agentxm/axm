@@ -109,50 +109,36 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
     const buildUninstallPlan = (
       intent: UninstallSkillCommandIntent,
     ): Effect.Effect<Plan, AppError> =>
-      Effect.gen(function* () {
-        // Build retention policy from workspace service
-        const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (policyArgs) =>
-            ws.isExtensionRequiredByInstalledPack(policyArgs.target),
-          markDependencyRetainedInLockfile: (policyArgs) =>
-            ws.markDependencyRetainedInLockfile(policyArgs.target),
-        };
-
-        // Read lockfile for target resolution
-        const lockedSkills = yield* ws.getLockedSkills();
-
-        // Resolve targets manually: installed skills get uninstall operations,
-        // not-in-lockfile skills get no-op success steps
-        const steps: PlannedJobStep[] = intent.skillsToUninstall.map((entry) => {
-          if (!(entry.skillName in lockedSkills)) {
-            return {
-              readiness: "ready",
-              label: entry.skillName,
-              run: Effect.succeed({
-                result: "success" as const,
-                message: `${entry.skillName} not installed`,
-              }),
-            } satisfies PlannedJobStep;
-          }
-          const target: SkillExtensionTarget = {
-            type: "skill" as const,
-            name: entry.skillName,
+      Effect.succeed(
+        (() => {
+          const retentionPolicy: UninstallRetentionPolicy = {
+            isRequiredByInstalledPack: (policyArgs) =>
+              ws.isExtensionRequiredByInstalledPack(policyArgs.target),
+            markDependencyRetainedInLockfile: (policyArgs) =>
+              ws.markDependencyRetainedInLockfile(policyArgs.target),
           };
-          return buildUninstallOperation(skillMgr, retentionPolicy, { target });
-        });
 
-        return {
-          _tag: "Plan",
-          name: "Uninstall skill(s)",
-          description: Option.none(),
-          jobs: [
-            {
-              concurrency: 1 as const,
-              steps,
-            },
-          ],
-        } satisfies Plan;
-      });
+          const steps: PlannedJobStep[] = intent.skillsToUninstall.map((entry) => {
+            const target: SkillExtensionTarget = {
+              type: "skill" as const,
+              name: entry.skillName,
+            };
+            return buildUninstallOperation(skillMgr, retentionPolicy, { target });
+          });
+
+          return {
+            _tag: "Plan",
+            name: "Uninstall skill(s)",
+            description: Option.none(),
+            jobs: [
+              {
+                concurrency: 1 as const,
+                steps,
+              },
+            ],
+          } satisfies Plan;
+        })(),
+      );
 
     return {
       parseArgs,

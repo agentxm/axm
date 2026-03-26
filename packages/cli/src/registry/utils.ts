@@ -17,6 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { resolveVersionWithConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type { VersionEntry } from "./local-schema.js";
 
@@ -35,6 +36,24 @@ export const selectVersion = (
   if (versions.length === 0) return Option.none();
   const [latest] = versions;
   return latest === undefined ? Option.none() : Option.some(latest);
+};
+
+export const resolveVersionEntry = (
+  versions: ReadonlyArray<VersionEntry>,
+  versionConstraint: Option.Option<string>,
+): Option.Option<VersionEntry> => {
+  if (Option.isNone(versionConstraint)) {
+    return selectVersion(versions);
+  }
+
+  const resolved = resolveVersionWithConstraint(versions, versionConstraint);
+  if (Option.isNone(resolved)) {
+    return Option.none();
+  }
+
+  return Option.fromUndefinedOr(
+    versions.find((candidate) => candidate.version === resolved.value.version),
+  );
 };
 
 // -----------------------------------------------------------------------------

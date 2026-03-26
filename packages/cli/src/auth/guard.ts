@@ -13,13 +13,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { AuthClient } from "./auth-client.js";
-import { CredentialStore } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
-import { resolveToken } from "./token-resolution.js";
+import { runDeviceLogin } from "./device-login.js";
+import { resolveRequestToken } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -41,9 +39,15 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
 // Auth guard combinator
 // -----------------------------------------------------------------------------
 
+const isRemoteRegistryUrl = (registryUrl: string): boolean => {
+  const protocol = new URL(registryUrl).protocol;
+  return protocol === "http:" || protocol === "https:";
+};
+
 /**
  * Wraps an Effect with a publish-time auth guard.
  *
+ * - If the target registry is local, runs the inner effect directly.
  * - If a token is already resolvable, runs the inner effect directly.
  * - If no token and `--non-interactive`: fails with `AUTH_LOGIN_REQUIRED`.
  * - If no token and TTY: prompts to sign in (auto-accepted by `--yes`).
@@ -52,11 +56,18 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
  */
 export const withAuthGuard = <A, E, R>(
   effect: Effect.Effect<A, E | AppError, R>,
-  options: { yes: boolean },
+  options: { yes: boolean; registryUrl?: string },
 ) =>
   Effect.gen(function* () {
-    const registryUrl = yield* RegistryUrl;
-    const token = yield* resolveToken(registryUrl);
+    const defaultRegistryUrl = yield* RegistryUrl;
+    const targetRegistryUrl = options.registryUrl ?? defaultRegistryUrl;
+
+    // Local registries do not require HTTP auth.
+    if (!isRemoteRegistryUrl(targetRegistryUrl)) {
+      return yield* effect;
+    }
+
+    const token = yield* resolveRequestToken(targetRegistryUrl, defaultRegistryUrl);
 
     // Token available — proceed directly
     if (Option.isSome(token)) {
@@ -82,50 +93,8 @@ export const withAuthGuard = <A, E, R>(
     }
 
     // Run inline login flow
-    yield* inlineLogin(registryUrl);
+    yield* runDeviceLogin(targetRegistryUrl);
 
     // Retry the inner effect once after login
     return yield* effect;
-  });
-
-// -----------------------------------------------------------------------------
-// Inline login (reuses AuthClient directly)
-// -----------------------------------------------------------------------------
-
-const inlineLogin = (registryUrl: string) =>
-  Effect.gen(function* () {
-    const authClient = yield* AuthClient;
-    const credStore = yield* CredentialStore;
-    const renderer = yield* CliRenderer;
-
-    // Initiate device flow
-    const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
-    const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
-
-    // Display URL and code
-    yield* renderer.step(`Open this URL in your browser: ${verificationUrl}`);
-    yield* renderer.step(`Enter code: ${deviceFlow.user_code}`);
-
-    // Poll with spinner
-    const token = yield* renderer.withSpinner(
-      "Waiting for approval in browser...",
-      () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
-      { successMessage: "Login successful." },
-    );
-
-    // Fetch identity and persist
-    const meResult = yield* authClient.getMe(registryUrl, token.access_token).pipe(Effect.option);
-
-    const handle = Option.match(meResult, {
-      onNone: () => "unknown",
-      onSome: (me) => me.userHandle,
-    });
-
-    yield* credStore.save(registryUrl, handle, {
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: token.expires_at,
-    });
-
-    yield* renderer.success(`Logged in as ${handle}`);
   });

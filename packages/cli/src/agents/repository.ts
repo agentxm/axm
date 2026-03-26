@@ -93,20 +93,7 @@ const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, AppErr
       Effect.forEach(ids, (id) =>
         Option.match(getAgentById(id), {
           onNone: () => Effect.succeed(Option.none<CodingAgent>()),
-          onSome: (descriptor) =>
-            descriptor.id === "claude-code"
-              ? Effect.succeed(Option.some(claudeCodeCodingAgent))
-              : descriptor.id === "codex"
-                ? Effect.succeed(Option.some(codexCodingAgent))
-                : descriptor.id === "cursor"
-                  ? Effect.succeed(Option.some(cursorCodingAgent))
-                  : descriptor.id === "github-copilot"
-                    ? Effect.succeed(Option.some(githubCopilotCodingAgent))
-                    : descriptor.id === "opencode"
-                      ? Effect.succeed(Option.some(opencodeCodingAgent))
-                      : descriptor.id === "gemini-cli"
-                        ? Effect.succeed(Option.some(geminiCliCodingAgent))
-                        : Effect.succeed(Option.some(codingAgentFromDescriptor(descriptor))),
+          onSome: (descriptor) => fromId(descriptor.id).pipe(Effect.map(Option.some)),
         }),
       ),
     ),

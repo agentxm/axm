@@ -41,8 +41,15 @@ export interface RemoveMcpServerArgs {
   readonly serverName: string;
 }
 
+export type McpServerSyncFallbackSource = "unsupported" | "disabled";
+
 export type McpServerSyncOutcome =
   | { readonly _tag: "success" }
+  | {
+      readonly _tag: "fallback";
+      readonly fallbackFrom: McpServerSyncFallbackSource;
+      readonly reason: string;
+    }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string }

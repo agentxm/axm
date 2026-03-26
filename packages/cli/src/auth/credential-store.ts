@@ -2,7 +2,7 @@
  * CredentialStore Effect service — 3-tier credential storage.
  *
  * Tier 1: OS keychain (TODO: @napi-rs/keyring not yet added)
- * Tier 2: File with restrictive permissions (~/.config/axm/credentials.json)
+ * Tier 2: Restricted-permission file (~/.config/axm/credentials.json)
  * Tier 3: Plaintext file with warning
  *
  * Environment detection determines which tier is selected.
@@ -235,17 +235,17 @@ export const detectEnvironment = Effect.gen(function* () {
  *
  * - Container → tier 3 (plaintext with warning)
  * - CI → tier 3 (plaintext, but token resolution via env var is expected)
- * - SSH → tier 2 (encrypted file; keychain may not be available)
+ * - SSH → tier 2 (restricted file; keychain may not be available)
  * - WSL → try tier 1, fall back to tier 2 (keychain not implemented, so tier 2)
  * - Default → try tier 1, fall back to tier 2 (keychain not implemented, so tier 2)
  */
 export const selectTier = (env: EnvironmentInfo): StorageTier => {
   if (env.isContainer) return "plaintext-file";
   if (env.isCI) return "plaintext-file";
-  if (env.isSSH) return "encrypted-file";
+  if (env.isSSH) return "restricted-file";
   // WSL and default: would try keychain first, but not implemented yet
   // TODO: when @napi-rs/keyring is added, try keychain first for WSL and default
-  return "encrypted-file";
+  return "restricted-file";
 };
 
 // -----------------------------------------------------------------------------
@@ -364,7 +364,7 @@ export const CredentialStoreLive = Layer.effect(
 // -----------------------------------------------------------------------------
 
 export const CredentialStoreTest = (
-  tier: StorageTier = "encrypted-file",
+  tier: StorageTier = "restricted-file",
   initialData?: CredentialFile,
 ) => {
   let data: CredentialFile = initialData ?? emptyCredentialFile;

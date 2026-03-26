@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { vi, afterEach, beforeEach } from "vitest";
 
+import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
@@ -17,7 +18,7 @@ const REGISTRY_URL = "https://registry.agentxm.ai";
 
 const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const credStoreLayer = opts?.hasCredentials
-    ? CredentialStoreTest("encrypted-file", {
+    ? CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
           [REGISTRY_URL]: {
@@ -36,7 +37,12 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
-  const FullLayer = Layer.mergeAll(CliEnvironmentTest(), credStoreLayer, registryUrlLayer);
+  const FullLayer = Layer.mergeAll(
+    CliEnvironmentTest(),
+    credStoreLayer,
+    AuthClientTest(),
+    registryUrlLayer,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

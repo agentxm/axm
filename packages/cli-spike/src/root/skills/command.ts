@@ -2,9 +2,9 @@
 // command.ts — Parent command that composes all skill subcommands
 //
 // Folder structure mirrors the CLI invocation:
-//   commands/skills/command.ts  →  axm skills
-//   commands/skills/list.ts     →  axm skills list
-//   commands/skills/install.ts  →  axm skills install
+//   root/skills/command.ts  →  axm skills
+//   root/skills/list.ts     →  axm skills list
+//   root/skills/install.ts  →  axm skills install
 //
 // Each leaf command (list.ts, install.ts, etc.) exports a single Command.
 // This parent has no handler — it just groups subcommands. When invoked

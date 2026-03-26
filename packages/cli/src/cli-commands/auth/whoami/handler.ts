@@ -12,6 +12,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
@@ -26,6 +27,20 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 export interface WhoamiHandlerArgs {
   readonly json: boolean;
 }
+
+const WhoamiResultSchema = Schema.Struct({
+  userId: Schema.String,
+  userHandle: Schema.String,
+  email: Schema.String,
+  tokenType: Schema.String,
+  scopes: Schema.Array(Schema.String),
+  orgs: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      handle: Schema.String,
+    }),
+  ),
+});
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -49,28 +64,28 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
 
   // Step 2: Call getMe
   const me = yield* authClient.getMe(registryUrl, maybeToken.value.token);
+  const identity = {
+    userId: me.userId,
+    userHandle: me.userHandle,
+    email: me.email,
+    tokenType: me.tokenType,
+    scopes: me.scopes,
+    orgs: me.orgs,
+  };
 
   // Step 3: Display result
   if (args.json) {
-    yield* Effect.sync(() =>
-      process.stdout.write(
-        JSON.stringify(
-          {
-            userId: me.userId,
-            userHandle: me.userHandle,
-            email: me.email,
-            tokenType: me.tokenType,
-            scopes: me.scopes,
-            orgs: me.orgs,
-          },
-          null,
-          2,
-        ) + "\n",
-      ),
-    );
-  } else {
-    yield* renderer.info(`Handle:     ${me.userHandle}`);
-    yield* renderer.info(`Email:      ${me.email}`);
-    yield* renderer.info(`Token type: ${me.tokenType}`);
+    yield* renderer.json(identity);
+    return;
   }
+
+  if (
+    yield* renderer.result(identity, WhoamiResultSchema)
+  ) {
+    return;
+  }
+
+  yield* renderer.info(`Handle:     ${me.userHandle}`);
+  yield* renderer.info(`Email:      ${me.email}`);
+  yield* renderer.info(`Token type: ${me.tokenType}`);
 }, Effect.asVoid);

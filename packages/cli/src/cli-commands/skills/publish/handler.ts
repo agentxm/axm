@@ -49,6 +49,11 @@ export interface PublishHandlerArgs {
   readonly preview: boolean;
 }
 
+interface TargetRegistry {
+  readonly registryName: string;
+  readonly registryUrl: string;
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -84,6 +89,62 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     ];
   });
 
+const resolveTargetRegistry = (registry: Option.Option<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "REGISTRY_SOURCES_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const [defaultRegistry] = registrySources;
+    if (defaultRegistry === undefined) {
+      return yield* Effect.fail(
+        makeAppError({
+          code: "NO_REGISTRY_CONFIGURED",
+          what: "No registry sources configured",
+          howToFix: "Run the registry guard first.",
+        }),
+      );
+    }
+
+    if (Option.isNone(registry)) {
+      return {
+        registryName: defaultRegistry.name,
+        registryUrl: defaultRegistry.location.href,
+      } satisfies TargetRegistry;
+    }
+
+    const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "PUBLISH_SKILL_REGISTRY_LOOKUP_FAILED",
+          what: `Failed to lookup registry source "${registry.value}"`,
+          cause: e,
+        }),
+      ),
+    );
+
+    if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
+      return yield* Effect.fail(
+        makeAppError({
+          code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
+          what: `Registry source "${registry.value}" not found or not a registry source`,
+        }),
+      );
+    }
+
+    return {
+      registryName: registry.value,
+      registryUrl: namedRegistry.value.location.href,
+    } satisfies TargetRegistry;
+  });
+
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -92,10 +153,17 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
-  yield* withAuthGuard(publishEffect(args), { yes: args.yes });
+  const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  yield* withAuthGuard(publishEffect(args, targetRegistry), {
+    yes: args.yes,
+    registryUrl: targetRegistry.registryUrl,
+  });
 });
 
-const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: PublishHandlerArgs) {
+const publishEffect = Effect.fn("Publish.publishEffect")(function* (
+  args: PublishHandlerArgs,
+  targetRegistry: TargetRegistry,
+) {
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
@@ -189,49 +257,12 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
   );
 
-  // Step 4: Determine target registry
-  const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-    Effect.mapError((e) =>
-      makeAppError({
-        code: "REGISTRY_SOURCES_FAILED",
-        what: `Failed to get registry sources: ${e._tag}`,
-        cause: e,
-      }),
-    ),
-  );
-
-  if (registrySources.length === 0) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
-      }),
-    );
-  }
-
-  const [defaultRegistry] = registrySources;
-  if (defaultRegistry === undefined) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
-      }),
-    );
-  }
-
-  const registryName = Option.match(args.registry, {
-    onNone: () => defaultRegistry.name,
-    onSome: (name) => name,
-  });
-
-  // Step 5: Build multi-step plan
+  // Step 4: Build multi-step plan
   const steps: LegacyPlannedStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
     _tag: "PlannedJobStep" as const,
     operation: {
       name: "publish-skill",
-      args: { name: extName, registryName },
+      args: { name: extName, registryName: targetRegistry.registryName },
     } satisfies PublishSkillOperation,
     readiness: { status: "ready" as const, message: Option.none() },
     label: `Publish ${extName}`,
@@ -239,8 +270,8 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
 
   const description =
     extensionNames.length === 1
-      ? `Publish ${extensionNames[0]} to registry "${registryName}"`
-      : `Publish ${extensionNames.length} skills to registry "${registryName}"`;
+      ? `Publish ${extensionNames[0]} to registry "${targetRegistry.registryName}"`
+      : `Publish ${extensionNames.length} skills to registry "${targetRegistry.registryName}"`;
 
   const plan = {
     name: "Publish skill",

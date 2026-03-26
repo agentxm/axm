@@ -6,6 +6,7 @@ import * as Logger from "effect/Logger";
 import * as Effect from "effect/Effect";
 
 import { AuthClientLive } from "../auth/auth-client.js";
+import { AuthLoginInteractionLive } from "../auth/login-interaction.js";
 import { AuthMiddlewareLive, RegistryUrl } from "../auth/auth-middleware.js";
 import { CredentialStoreLive } from "../auth/credential-store.js";
 
@@ -34,4 +35,8 @@ const AuthMiddlewareWrappedLayer = Layer.provide(
 
 const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
 
-export const baseLayer = Layer.mergeAll(AuthLayer, Logger.layer([], { mergeWithExisting: false }));
+export const baseLayer = Layer.mergeAll(
+  AuthLayer,
+  AuthLoginInteractionLive,
+  Logger.layer([], { mergeWithExisting: false }),
+);

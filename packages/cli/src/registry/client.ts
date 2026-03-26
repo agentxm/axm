@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { Author, ExtensionType } from "@axm.sh/core/unstable/extensions";
-import type { VersionEntry } from "./local-schema.js";
+import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";
 
@@ -59,6 +59,23 @@ export interface GetExtensionPackageArgs {
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: Option.Option<string>;
+}
+
+// -----------------------------------------------------------------------------
+// Get Extension Index Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for fetching extension index metadata from a registry.
+ *
+ * - `handle`: profile handle in the registry path (e.g. `"@acme"`)
+ * - `type`: extension type
+ * - `name`: extension name
+ */
+export interface GetExtensionIndexArgs {
+  readonly handle: string;
+  readonly type: ExtensionType;
+  readonly name: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -196,6 +213,9 @@ export interface RegistryClient {
     args: GetExtensionsByProfileArgs,
   ) => Effect.Effect<GetExtensionsByProfileResponse, AppError>;
   readonly profileExists: (handle: string) => Effect.Effect<ProfileExistsResponse, AppError>;
+  readonly getExtensionIndex: (
+    args: GetExtensionIndexArgs,
+  ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
   ) => Effect.Effect<GetExtensionPackageResponse, AppError>;

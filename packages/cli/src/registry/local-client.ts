@@ -16,7 +16,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { resolveVersionWithConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -27,29 +26,17 @@ import type {
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "@axm.sh/core/unstable/extensions";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
-import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
+import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-/**
- * Process a single name directory within a registry profile/type directory.
- * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(RegistryExtensionManifest) if a matching version is found, None otherwise.
- */
-const processNameDir = (
+const readExtensionIndex = (
   fs: FileSystem.FileSystem,
-  path: Path.Path,
-  typeDir: string,
-  nameDir: string,
-): Effect.Effect<Option.Option<RegistryExtensionManifest>, AppError> =>
+  idxPath: string,
+): Effect.Effect<ExtensionIndex, AppError> =>
   Effect.gen(function* () {
-    const dir = path.join(typeDir, nameDir);
-    const idxPath = path.join(dir, "index.json");
-    const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
-    if (!idxExists) return Option.none();
-
     const content = yield* fs.readFileString(idxPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -71,7 +58,8 @@ const processNameDir = (
           cause: e,
         }),
     });
-    const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
+
+    return yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_FETCH_FAILED",
@@ -80,26 +68,53 @@ const processNameDir = (
         }),
       ),
     );
+  });
 
-    const selectedVersion = selectVersion(index.versions);
-    if (Option.isNone(selectedVersion)) return Option.none();
+const indexToManifest = (
+  index: ExtensionIndex,
+  versionConstraint: Option.Option<string>,
+): Option.Option<RegistryExtensionManifest> => {
+  const selectedVersion = resolveVersionEntry(index.versions, versionConstraint);
+  if (Option.isNone(selectedVersion)) return Option.none();
 
-    const ver = selectedVersion.value;
-    return Option.some({
-      profile: index.profile,
-      type: index.type,
-      name: index.name,
-      description: Option.fromUndefinedOr(index.description),
-      repository: Option.fromUndefinedOr(index.repository),
-      license: Option.fromUndefinedOr(index.license),
-      authors: Option.match(Option.fromUndefinedOr(index.authors), {
-        onNone: (): ReadonlyArray<Author> => [],
-        onSome: (authors) => authors.map((author) => toAuthor(author)),
-      }),
-      dependencies: ver.dependencies ?? {},
-      version: ver.version,
-      integrity: ver.integrity,
-    } satisfies RegistryExtensionManifest);
+  const ver = selectedVersion.value;
+  return Option.some({
+    profile: index.profile,
+    type: index.type,
+    name: index.name,
+    description: Option.fromUndefinedOr(index.description),
+    repository: Option.fromUndefinedOr(index.repository),
+    license: Option.fromUndefinedOr(index.license),
+    authors: Option.match(Option.fromUndefinedOr(index.authors), {
+      onNone: (): ReadonlyArray<Author> => [],
+      onSome: (authors) => authors.map((author) => toAuthor(author)),
+    }),
+    dependencies: ver.dependencies ?? {},
+    version: ver.version,
+    integrity: ver.integrity,
+  } satisfies RegistryExtensionManifest);
+};
+
+/**
+ * Process a single name directory within a registry profile/type directory.
+ * Reads the index.json, validates it, and selects a matching version.
+ * Returns Some(RegistryExtensionManifest) if a matching version is found, None otherwise.
+ */
+const processNameDir = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  typeDir: string,
+  nameDir: string,
+  versionConstraint: Option.Option<string>,
+): Effect.Effect<Option.Option<RegistryExtensionManifest>, AppError> =>
+  Effect.gen(function* () {
+    const dir = path.join(typeDir, nameDir);
+    const idxPath = path.join(dir, "index.json");
+    const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+    if (!idxExists) return Option.none();
+
+    const index = yield* readExtensionIndex(fs, idxPath);
+    return indexToManifest(index, versionConstraint);
   });
 
 // -----------------------------------------------------------------------------
@@ -147,7 +162,7 @@ export const createLocalRegistryClient = (
 
                 return yield* Effect.forEach(
                   filtered,
-                  (nameDir) => processNameDir(fs, path, typeDir, nameDir),
+                  (nameDir) => processNameDir(fs, path, typeDir, nameDir, Option.none()),
                   { concurrency: "unbounded" },
                 ).pipe(Effect.map(Array.getSomes));
               }),
@@ -185,6 +200,18 @@ export const createLocalRegistryClient = (
       return { exists };
     }),
 
+  getExtensionIndex: (args) =>
+    Effect.gen(function* () {
+      const dir = extensionDir(registryRoot, args.handle, args.type, args.name, path.join);
+      const idxPath = path.join(dir, "index.json");
+      const exists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+      if (!exists) {
+        return Option.none<ExtensionIndex>();
+      }
+
+      return Option.some(yield* readExtensionIndex(fs, idxPath));
+    }),
+
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
       const profile = args.handle;
@@ -194,36 +221,7 @@ export const createLocalRegistryClient = (
         onNone: () =>
           Effect.gen(function* () {
             const idxPath = path.join(dir, "index.json");
-            const content = yield* fs.readFileString(idxPath).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Failed to read index: ${idxPath}`,
-                  cause: e,
-                }),
-              ),
-            );
-            const json = yield* Effect.try({
-              try: () => {
-                const parsed: unknown = JSON.parse(content);
-                return parsed;
-              },
-              catch: (e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Invalid JSON in index: ${idxPath}`,
-                  cause: e,
-                }),
-            });
-            const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Invalid index schema: ${idxPath}`,
-                  cause: e,
-                }),
-              ),
-            );
+            const index = yield* readExtensionIndex(fs, idxPath);
 
             const selected = selectVersion(index.versions);
             if (Option.isNone(selected)) {
@@ -250,41 +248,9 @@ export const createLocalRegistryClient = (
 
             // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
             const idxPath = path.join(dir, "index.json");
-            const content = yield* fs.readFileString(idxPath).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Failed to read index: ${idxPath}`,
-                  cause: e,
-                }),
-              ),
-            );
-            const json = yield* Effect.try({
-              try: () => {
-                const parsed: unknown = JSON.parse(content);
-                return parsed;
-              },
-              catch: (e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Invalid JSON in index: ${idxPath}`,
-                  cause: e,
-                }),
-            });
-            const index = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `Invalid index schema: ${idxPath}`,
-                  cause: e,
-                }),
-              ),
-            );
+            const index = yield* readExtensionIndex(fs, idxPath);
 
-            const selected = resolveVersionWithConstraint(
-              index.versions,
-              Option.some(requestedVersion),
-            );
+            const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
             if (Option.isNone(selected)) {
               return yield* Effect.fail(
                 makeAppError({

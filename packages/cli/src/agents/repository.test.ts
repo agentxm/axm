@@ -4,6 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Workspace, type WorkspaceContextService } from "../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { claudeCodeCodingAgent } from "./claude-code/service.js";
+import { cursorCodingAgent } from "./cursor/service.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 
 const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
@@ -50,6 +52,8 @@ describe("DefaultCodingAgentRepository", () => {
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getConfiguredAgents();
       expect(agents.map((agent) => agent.id)).toEqual(["claude-code", "cursor"]);
+      expect(agents[0]).toBe(claudeCodeCodingAgent);
+      expect(agents[1]).toBe(cursorCodingAgent);
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
   );
 

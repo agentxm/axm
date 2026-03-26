@@ -65,9 +65,15 @@ const summarizeAgentSync = (
   readonly status: "green" | "degraded";
   readonly details: ReadonlyArray<string>;
 } => {
-  const degraded = outcomes.some(({ outcome }) => outcome._tag === "failed");
+  const degraded = outcomes.some(
+    ({ outcome }) => outcome._tag === "failed" || outcome._tag === "fallback",
+  );
   const details = outcomes.map(({ agentId, outcome }) =>
-    outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome._tag}`,
+    outcome._tag === "success"
+      ? `${agentId}:success`
+      : outcome._tag === "fallback"
+        ? `${agentId}:fallback:${outcome.fallbackFrom}`
+        : `${agentId}:${outcome._tag}`,
   );
 
   return {
@@ -147,11 +153,14 @@ const syncConfiguredAgentsOnUninstall = (args: {
     const strictDisabledFailures = Array.filter(
       outcomes,
       ({ agentId, outcome }) =>
-        outcome._tag === "disabled" && args.strict && REQUIRED_AGENT_IDS.has(agentId),
+        (outcome._tag === "disabled" ||
+          (outcome._tag === "fallback" && outcome.fallbackFrom === "disabled")) &&
+        args.strict &&
+        REQUIRED_AGENT_IDS.has(agentId),
     );
     if (strictDisabledFailures.length > 0) {
       const details = strictDisabledFailures.map(({ agentId, outcome }) =>
-        outcome._tag === "disabled" ? `${agentId}: ${outcome.reason}` : `${agentId}: disabled`,
+        outcome._tag === "success" ? `${agentId}: disabled` : `${agentId}: ${outcome.reason}`,
       );
       return yield* makeAppError({
         code: "MCP_SERVER_AGENT_SYNC_DISABLED_REQUIRED",
@@ -163,12 +172,19 @@ const syncConfiguredAgentsOnUninstall = (args: {
     const warningOutcomes = Array.filter(
       outcomes,
       ({ outcome }) =>
-        outcome._tag === "unsupported" || outcome._tag === "disabled" || outcome._tag === "failed",
+        outcome._tag === "unsupported" ||
+        outcome._tag === "disabled" ||
+        outcome._tag === "failed" ||
+        outcome._tag === "fallback",
     );
     if (warningOutcomes.length > 0) {
       const warningMessage = warningOutcomes
         .map(({ agentId, outcome }) =>
-          outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
+          outcome._tag === "success"
+            ? `${agentId}:success`
+            : outcome._tag === "fallback"
+              ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
+              : `${agentId}:${outcome.reason}`,
         )
         .join(", ");
       yield* renderer.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);

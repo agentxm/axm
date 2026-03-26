@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, type MeResponse } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-store.js";
+import { AuthLoginInteractionTest } from "../../../auth/login-interaction.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
@@ -28,13 +29,14 @@ const makeLayers = (opts?: {
   const [promptLayer, promptState] = makeTestPrompt({
     confirmResponses: [opts?.confirmValue ?? true],
   });
+  const interactionLayer = AuthLoginInteractionTest().layer;
 
   const flagsLayer = CliEnvironmentTest({
     nonInteractive: opts?.nonInteractive ?? false,
   });
 
   const credStoreLayer = opts?.existingCredentials
-    ? CredentialStoreTest("encrypted-file", {
+    ? CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
           [REGISTRY_URL]: {
@@ -84,6 +86,7 @@ const makeLayers = (opts?: {
   const FullLayer = Layer.mergeAll(
     rendererLayer,
     promptLayer,
+    interactionLayer,
     flagsLayer,
     credStoreLayer,
     authClientLayer,
@@ -199,7 +202,7 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("fails closed when getMe fails", () => {
+  it.effect("persists placeholder credentials when getMe fails", () => {
     const authClientLayer = AuthClientTest({
       initiateDeviceFlow: () =>
         Effect.succeed({
@@ -229,37 +232,37 @@ describe("auth login handler", () => {
     const [promptLayer2] = makeTestPrompt({
       confirmResponses: [true],
     });
+    const interactionLayer2 = AuthLoginInteractionTest().layer;
 
     const layer = Layer.mergeAll(
       rendererLayer2,
       promptLayer2,
+      interactionLayer2,
       CliEnvironmentTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
       Layer.succeed(RegistryUrl, REGISTRY_URL),
     );
 
-    return handleLogin({ yes: false }).pipe(
-      Effect.as("unexpected_success" as const),
-      Effect.catchTag("AppError", (error) =>
-        Effect.gen(function* () {
-          expect(error.code).toBe("AUTH_UNAUTHENTICATED");
-          expect(
-            rendererState2.logs.some(
-              (l) => l._tag === "success" && l.message.includes("Login successful"),
-            ),
-          ).toBe(false);
+    return Effect.gen(function* () {
+      yield* handleLogin({ yes: false });
 
-          const credStore = yield* CredentialStore;
-          const stored = yield* credStore.load(REGISTRY_URL);
-          expect(stored._tag).toBe("None");
-          return "expected_failure" as const;
-        }),
-      ),
-      Effect.provide(layer),
-      Effect.map((result) => {
-        expect(result).toBe("expected_failure");
-      }),
-    );
+      expect(
+        rendererState2.logs.some(
+          (l) => l._tag === "success" && l.message.includes("Login successful"),
+        ),
+      ).toBe(true);
+      expect(
+        rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as")),
+      ).toBe(false);
+
+      const credStore = yield* CredentialStore;
+      const stored = yield* credStore.load(REGISTRY_URL);
+      expect(stored._tag).toBe("Some");
+      if (stored._tag === "Some") {
+        expect(stored.value.handle).toBe("unknown");
+        expect(stored.value.access_token).toBe("axm_ses_new");
+      }
+    }).pipe(Effect.provide(layer));
   });
 });

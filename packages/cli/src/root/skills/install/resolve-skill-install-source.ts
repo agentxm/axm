@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { createRegistryClient, type RegistryClient } from "../../../registry/index.js";
+import { createRegistryClient, type RegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InputParseResult, InputPattern, RegistrySource } from "@axm.sh/core/unstable/sources";
 import {
   resolveShorthandInputSource,

@@ -20,9 +20,8 @@ import type {
   RegistryClient,
   RegistryExtensionManifest,
   GetExtensionsByProfileArgs,
-} from "../../../registry/index.js";
-import { createRegistryClient, extractZip } from "../../../registry/index.js";
-import { resolveVersionEntry } from "../../../registry/utils.js";
+} from "@axm.sh/core/unstable/registry";
+import { createRegistryClient, extractZip, resolveVersionEntry } from "@axm.sh/core/unstable/registry";
 import { computeIntegrity } from "@axm.sh/core/unstable/utils";
 import { toAuthor, type Author, type ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type {
@@ -33,7 +32,7 @@ import type {
   RegistrySourceHost,
   ExtensionRef,
 } from "@axm.sh/core/unstable/sources";
-import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
+import type { ExtensionIndex, VersionEntry } from "@axm.sh/core/unstable/registry";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (

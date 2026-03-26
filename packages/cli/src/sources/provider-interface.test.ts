@@ -17,7 +17,7 @@ import type {
   FindOptions,
 } from "@axm.sh/core/unstable/sources";
 import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
-import type { VersionEntry } from "../registry/index.js";
+import type { VersionEntry } from "@axm.sh/core/unstable/registry";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
   readonly publishExtension: (

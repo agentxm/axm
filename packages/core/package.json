@@ -109,6 +109,10 @@
     "./unstable/git": {
       "types": "./src/unstable/git/index.ts",
       "default": "./dist/src/unstable/git/index.js"
+    },
+    "./unstable/registry": {
+      "types": "./src/unstable/registry/index.ts",
+      "default": "./dist/src/unstable/registry/index.js"
     }
   },
   "files": [

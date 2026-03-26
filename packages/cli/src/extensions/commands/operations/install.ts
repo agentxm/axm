@@ -15,7 +15,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { computeIntegrity, isPathSafe } from "@axm.sh/core/unstable/utils";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
-import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { createRegistryClient, extractZip } from "@axm.sh/core/unstable/registry";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";

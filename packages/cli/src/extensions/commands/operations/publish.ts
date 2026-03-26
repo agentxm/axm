@@ -20,8 +20,8 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   parseFqn,
 } from "@axm.sh/core/unstable/extensions";
-import type { VersionEntry } from "../../../registry/index.js";
-import { createRegistryClient } from "../../../registry/index.js";
+import type { VersionEntry } from "@axm.sh/core/unstable/registry";
+import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import { buildZipArchive, computeIntegrity } from "@axm.sh/core/unstable/utils";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";

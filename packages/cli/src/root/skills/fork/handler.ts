@@ -34,7 +34,7 @@ import { copySkill } from "../../../extensions/skills/operations/copy.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
-import { createRegistryClient } from "../../../registry/index.js";
+import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { Plan } from "../../../workspace/plan.js";
 

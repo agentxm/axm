@@ -24,7 +24,7 @@ import type {
   GetExtensionsByProfileArgs,
   GetExtensionsByProfileResponse,
   VersionEntry,
-} from "../../../registry/index.js";
+} from "@axm.sh/core/unstable/registry";
 import type {
   RegistryCommandRef,
   RegistryMcpServerRef,

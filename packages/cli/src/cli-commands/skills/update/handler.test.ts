@@ -7,20 +7,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
-import { AppError } from "@axm.sh/core/unstable/app-error";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -76,31 +75,23 @@ describe("update.handler — error recovery", () => {
   });
 
   const makeLayers = () => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [true],
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      prompt: {
+        confirmResponses: [true],
+      },
     });
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
+    const SPLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
     );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
+    const FullLayer = Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer);
+    const provide = makeEffectProvide(FullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs, rendererState };
   };
 
   it.effect("emits warning when skill source resolution fails and reports UPDATE_FAILED", () => {
@@ -124,8 +115,7 @@ describe("update.handler — error recovery", () => {
         );
 
         // Since all resolutions failed, the handler should fail with UPDATE_FAILED
-        expect(error._tag).toBe("AppError");
-        expect((error as AppError).code).toBe("UPDATE_FAILED");
+        expect(getAppError(error).code).toBe("UPDATE_FAILED");
       }),
     );
   });

@@ -8,18 +8,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type AppError } from "@axm.sh/core/unstable/app-error";
+import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -33,17 +26,10 @@ const initWorkspace = (
     packs?: Record<string, unknown>;
   } = {},
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = {
-    agents: ["claude-code"],
-    ...(opts.profile && { profile: opts.profile }),
-    ...(opts.packs && { packs: opts.packs }),
-  };
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {} }),
-  );
+  writeWorkspaceFiles(axmDir, {
+    profile: opts.profile,
+    packs: opts.packs,
+  });
 };
 
 const createPackManifest = (
@@ -105,30 +91,7 @@ describe("packs-remove.handler", () => {
 
   const makeLayers = (
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
-  ) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(flagsOverrides),
-    );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs };
-  };
+  ) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("remove specific extension", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
@@ -268,8 +231,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(defaultArgs("my-pack", "nonexistent-*")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("No extensions in pack match");
+          expect(getAppError(error).what).toContain("No extensions in pack match");
         }),
       );
     });
@@ -340,8 +302,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("my-pack", "@acme/skills/nonexistent"),
           ).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("not in the pack");
+          expect(getAppError(error).what).toContain("not in the pack");
         }),
       );
     });
@@ -357,8 +318,7 @@ describe("packs-remove.handler", () => {
           const error = yield* handlePacksRemove(
             defaultArgs("nonexistent-pack", "@acme/skills/some-ext"),
           ).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("not found");
+          expect(getAppError(error).what).toContain("not found");
         }),
       );
     });

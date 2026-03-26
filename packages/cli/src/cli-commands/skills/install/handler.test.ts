@@ -6,29 +6,28 @@
  * failures still produce INVALID_SOURCE.
  */
 
+import { createServer, type Server } from "node:http";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
-import { AppError } from "@axm.sh/core/unstable/app-error";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -82,6 +81,53 @@ const createRegistrySkill = ({
   );
 };
 
+interface UnavailableRegistry {
+  readonly location: string;
+  readonly server: Server;
+}
+
+const startUnavailableRegistry = () =>
+  Effect.promise<UnavailableRegistry>(
+    () =>
+      new Promise((resolve, reject) => {
+        const server = createServer((_req, res) => {
+          res.statusCode = 503;
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({ code: "registry_unavailable" }));
+        });
+
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", () => {
+          const address = server.address();
+
+          if (address === null || typeof address === "string") {
+            reject(new Error("Failed to bind test registry server"));
+            return;
+          }
+
+          resolve({
+            location: `http://127.0.0.1:${String(address.port)}`,
+            server,
+          });
+        });
+      }),
+  );
+
+const stopUnavailableRegistry = (server: Server) =>
+  Effect.promise(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      }),
+  );
+
 const defaultArgs = (
   source: string,
   overrides: Partial<InstallHandlerArgs> = {},
@@ -99,58 +145,79 @@ const defaultArgs = (
 describe("skills install handler — error propagation", () => {
   let tempDir: string;
   let originalCwd: string;
+  let unavailableRegistry: UnavailableRegistry | undefined;
 
-  beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-install-handler-test-"));
-    process.chdir(tempDir);
-  });
+  beforeEach(() =>
+    Effect.runPromise(
+      startUnavailableRegistry().pipe(
+        Effect.tap((registry) =>
+          Effect.sync(() => {
+            unavailableRegistry = registry;
+            originalCwd = process.cwd();
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-install-handler-test-"));
+            process.chdir(tempDir);
+          }),
+        ),
+      ),
+    ));
 
-  afterEach(() => {
-    process.chdir(originalCwd);
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
+  afterEach(() =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        process.chdir(originalCwd);
+        fs.rmSync(tempDir, { recursive: true, force: true });
+
+        if (unavailableRegistry !== undefined) {
+          yield* stopUnavailableRegistry(unavailableRegistry.server);
+          unavailableRegistry = undefined;
+        }
+      }),
+    ));
+
+  const getUnavailableRegistryLocation = () => {
+    if (unavailableRegistry === undefined) {
+      throw new Error("Expected unavailable registry test server");
+    }
+
+    return unavailableRegistry.location;
+  };
 
   const makeLayers = (
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService> & {
       nonInteractive?: boolean;
     },
   ) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer, multiselectMock] = makeTestPrompt({
-      confirmResponses: [true],
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      prompt: {
+        confirmResponses: [true],
+      },
+      flags: flagsOverrides,
     });
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(flagsOverrides),
+    const SPLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
     );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const SMLayer = Layer.provide(SkillManagerLive, Layer.mergeAll(BaseLayer, WsLayer, SPLayer));
+    const SMLayer = Layer.provide(
+      SkillManagerLive,
+      Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer),
+    );
     const ActionsLayer = Layer.provide(
       InstallSkillCommandWorkflowActionsLive,
-      Layer.mergeAll(BaseLayer, WsLayer, SPLayer, SMLayer),
+      Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer, SMLayer),
     );
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, ActionsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
+    const FullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      SPLayer,
+      ActionsLayer,
+    );
+    const provide = makeEffectProvide(FullLayer);
 
     return {
       provide,
-      logs,
-      multiselectMock,
-      rendererState,
+      logs: handlerTestContext.logs,
+      multiselectMock: handlerTestContext.promptState,
+      rendererState: handlerTestContext.rendererState,
     };
   };
 
@@ -173,8 +240,8 @@ describe("skills install handler — error propagation", () => {
             force: false,
             preview: false,
           }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("REGISTRY_SKILL_NOT_FOUND");
+          const appError = getAppError(error);
+          expect(appError.code).toBe("REGISTRY_SKILL_NOT_FOUND");
         }),
       );
     },
@@ -192,8 +259,8 @@ describe("skills install handler — error propagation", () => {
           force: false,
           preview: false,
         }).pipe(Effect.flip);
-        expect(error._tag).toBe("AppError");
-        expect((error as AppError).code).toBe("INVALID_SOURCE");
+        const appError = getAppError(error);
+        expect(appError.code).toBe("INVALID_SOURCE");
         expect(rendererState.spinnerMessages).toContain("Parsing source...");
         expect(rendererState.spinnerMessages).toContain("Failed");
       }),
@@ -215,7 +282,7 @@ describe("skills install handler — error propagation", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@myorg",
         sources: [
-          { type: "registry", name: "remote", location: "http://localhost:4300" },
+          { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
           { type: "registry", name: "local", location: `file://${registryDir}` },
         ],
       });
@@ -241,7 +308,7 @@ describe("skills install handler — error propagation", () => {
     initWorkspace(path.join(tempDir, ".axm"), {
       profile: "@myorg",
       sources: [
-        { type: "registry", name: "remote", location: "http://localhost:4300" },
+        { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
         { type: "registry", name: "local", location: `file://${registryDir}` },
       ],
     });
@@ -271,9 +338,9 @@ describe("skills install handler — error propagation", () => {
           force: false,
           preview: false,
         }).pipe(Effect.flip);
-        expect(error._tag).toBe("AppError");
-        expect((error as AppError).code).toBe("DISCOVER_FAILED");
-        const details = (error as AppError).details;
+        const appError = getAppError(error);
+        expect(appError.code).toBe("DISCOVER_FAILED");
+        const details = appError.details;
         const reason = details.find((d) => d.startsWith("Reason:"));
         expect(reason).toBeDefined();
         expect(reason).not.toBe("Reason:");

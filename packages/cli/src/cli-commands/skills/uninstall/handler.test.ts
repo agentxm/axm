@@ -7,21 +7,20 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import type { WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleUninstall, type UninstallHandlerArgs } from "./handler.js";
+import {
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -38,8 +37,15 @@ const initWorkspace = (
   // Build settings skills map so removeSkill can find them
   const settingsSkills: Record<string, string> = {};
   for (const name of Object.keys(lockfileSkills)) {
-    const entry = lockfileSkills[name] as { type?: string };
-    settingsSkills[name] = entry?.type ?? "local";
+    const entry = lockfileSkills[name];
+    const entryType =
+      typeof entry === "object" &&
+      entry !== null &&
+      "type" in entry &&
+      typeof entry.type === "string"
+        ? entry.type
+        : undefined;
+    settingsSkills[name] = entryType ?? "local";
   }
   const settings: Record<string, unknown> = { agents };
   if (Object.keys(settingsSkills).length > 0) {
@@ -139,20 +145,9 @@ describe("uninstall.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
-    );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-      ...wsOverrides,
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const handlerTestContext = makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
+    const BaseLayer = handlerTestContext.baseLayer;
+    const WsLayer = handlerTestContext.wsLayer;
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const SMLayer = Layer.provide(SkillManagerLive, Layer.mergeAll(BaseLayer, WsLayer, SPLayer));
     const ActionsLayer = Layer.provide(
@@ -160,14 +155,9 @@ describe("uninstall.handler", () => {
       Layer.mergeAll(BaseLayer, WsLayer, SMLayer),
     );
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
+    const provide = makeEffectProvide(FullLayer);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs };
+    return { provide, logs: handlerTestContext.logs };
   };
 
   // ---------------------------------------------------------------------------

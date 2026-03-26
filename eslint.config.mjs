@@ -86,4 +86,16 @@ export default [
       "@typescript-eslint/no-floating-promises": "error",
     },
   },
+  // Root config files are not part of any tsconfig project — disable type-aware linting
+  {
+    files: ["vitest.config.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "off",
+    },
+  },
 ];

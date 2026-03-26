@@ -78,7 +78,6 @@
     "test:e2e": "nx run cli-e2e:e2e",
     "axm": "nx run cli:start",
     "axm:local": "nx run cli:start-local",
-    "axm-dev": "nx run cli:dev",
     "typecheck": "nx run cli:typecheck"
   },
   "nx": {

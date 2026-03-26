@@ -35,16 +35,17 @@ export default [
               sourceTag: "type:lib",
               onlyDependOnLibsWithTags: ["type:lib"],
             },
+            {
+              sourceTag: "type:e2e",
+              onlyDependOnLibsWithTags: ["type:lib"],
+            },
           ],
         },
       ],
     },
   },
   {
-    files: [
-      "packages/**/src/**/*.ts",
-      "packages/**/src/**/*.tsx",
-    ],
+    files: ["packages/**/src/**/*.ts", "packages/**/src/**/*.tsx"],
     ignores: [
       "**/*.test.ts",
       "**/*.test.tsx",
@@ -100,10 +101,7 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/consistent-type-assertions": [
-        "error",
-        { assertionStyle: "never" },
-      ],
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
       "@effect/no-import-from-barrel-package": [
         "error",
         {

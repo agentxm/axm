@@ -5,7 +5,6 @@
   "scripts": {
     "axm": "nx run cli:start",
     "axm:local": "nx run cli:start-local",
-    "axm-dev": "nx run cli:dev",
     "spike": "nx run cli-spike:spike",
     "build": "nx run-many -t build",
     "build:affected": "nx affected -t build",

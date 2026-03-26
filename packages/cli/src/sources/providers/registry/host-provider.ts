@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -21,8 +22,9 @@ import type {
   GetExtensionsByProfileArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { resolveVersionEntry } from "../../../registry/utils.js";
 import { computeIntegrity } from "@axm.sh/core/unstable/utils";
-import type { Author, ExtensionType } from "@axm.sh/core/unstable/extensions";
+import { toAuthor, type Author, type ExtensionType } from "@axm.sh/core/unstable/extensions";
 import type {
   ExtensionFiles,
   FindOptions,
@@ -31,7 +33,7 @@ import type {
   RegistrySourceHost,
   ExtensionRef,
 } from "@axm.sh/core/unstable/sources";
-import type { VersionEntry } from "../../../registry/index.js";
+import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
@@ -62,6 +64,99 @@ const authorToMetadata = (author: Author): Record<string, string> => ({
   ...(Option.isSome(author.email) && { email: author.email.value }),
   ...(Option.isSome(author.url) && { url: author.url.value }),
 });
+
+const manifestFromIndex = (
+  index: ExtensionIndex,
+  versionConstraint: Option.Option<string>,
+): Option.Option<RegistryExtensionManifest> => {
+  const selectedVersion = resolveVersionEntry(index.versions, versionConstraint);
+  if (Option.isNone(selectedVersion)) return Option.none();
+
+  const version = selectedVersion.value;
+  return Option.some({
+    profile: index.profile,
+    type: index.type,
+    name: index.name,
+    description: Option.fromUndefinedOr(index.description),
+    repository: Option.fromUndefinedOr(index.repository),
+    license: Option.fromUndefinedOr(index.license),
+    authors: Option.match(Option.fromUndefinedOr(index.authors), {
+      onNone: (): ReadonlyArray<Author> => [],
+      onSome: (authors) => authors.map((author) => toAuthor(author)),
+    }),
+    dependencies: version.dependencies ?? {},
+    version: version.version,
+    integrity: version.integrity,
+  } satisfies RegistryExtensionManifest);
+};
+
+const findWithVersionConstraint = (
+  client: RegistryClient,
+  source: RegistrySource,
+  profiles: ReadonlyArray<string>,
+  options: FindOptions,
+) =>
+  Effect.forEach(
+    profiles,
+    (profile) =>
+      Effect.gen(function* () {
+        const requestedTypes: ReadonlyArray<ExtensionType> =
+          options.type === "*" ? ["skill", "command", "mcp-server", "pack"] : [options.type];
+        const requestedNames = options.skillNames.length > 0 ? options.skillNames : [];
+
+        if (requestedNames.length === 0) {
+          const result = yield* client.getExtensionsByScope(toSearchOptions(profile, options));
+          const resolved = yield* Effect.forEach(
+            result.extensions,
+            (entry) =>
+              client.getExtensionIndex({
+                handle: entry.profile,
+                type: entry.type,
+                name: entry.name,
+              }).pipe(
+                Effect.map((indexOption) =>
+                  Option.match(indexOption, {
+                    onNone: () => Option.none<RegistryExtensionManifest>(),
+                    onSome: (index) => manifestFromIndex(index, options.versionConstraint),
+                  }),
+                ),
+              ),
+            { concurrency: "unbounded" },
+          );
+
+          return Array.getSomes(resolved).map((entry) => toExtensionRef(entry, source));
+        }
+
+        const resolved = yield* Effect.forEach(
+          requestedNames,
+          (name) =>
+            Effect.forEach(
+              requestedTypes,
+              (type) =>
+                client.getExtensionIndex({ handle: profile, type, name }).pipe(
+                  Effect.map((indexOption) =>
+                    Option.match(indexOption, {
+                      onNone: () => Option.none<RegistryExtensionManifest>(),
+                      onSome: (index) => manifestFromIndex(index, options.versionConstraint),
+                    }),
+                  ),
+                ),
+              { concurrency: "unbounded" },
+            ),
+          { concurrency: "unbounded" },
+        );
+
+        return resolved
+          .flat()
+          .flatMap((entry) =>
+            Option.match(entry, {
+              onNone: () => [],
+              onSome: (manifest) => [toExtensionRef(manifest, source)],
+            }),
+          );
+      }),
+    { concurrency: "unbounded" },
+  ).pipe(Effect.map((results) => results.flat()));
 
 /** Map RegistryExtensionManifest to ExtensionRef, stamped with the source. */
 const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource): ExtensionRef => {
@@ -231,6 +326,10 @@ export const createLocalRegistrySourceHostProvider = (
         ? [options.profile.value]
         : entries.filter((d) => d.startsWith("@"));
 
+      if (Option.isSome(options.versionConstraint)) {
+        return yield* findWithVersionConstraint(client, source, namespaces, options);
+      }
+
       const results = yield* Effect.forEach(
         namespaces,
         (profile) =>
@@ -277,6 +376,9 @@ export const createRemoteRegistrySourceHostProvider = (
   find: (source, options) =>
     Effect.gen(function* () {
       const profile = Option.isSome(options.profile) ? options.profile.value : "*";
+      if (Option.isSome(options.versionConstraint) && profile !== "*") {
+        return yield* findWithVersionConstraint(client, source, [profile], options);
+      }
       const searchOptions = toSearchOptions(profile, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));

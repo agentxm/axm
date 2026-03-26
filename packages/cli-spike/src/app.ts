@@ -19,8 +19,8 @@ import {
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
-import { skillsCommand } from "./commands/skills/command.js";
-import { telemetryCommand } from "./commands/telemetry/command.js";
+import { skillsCommand } from "./root/skills/command.js";
+import { telemetryCommand } from "./root/telemetry/command.js";
 
 const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, outputFormatFlag] as const;
 

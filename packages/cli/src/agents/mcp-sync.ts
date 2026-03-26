@@ -8,6 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { envOption } from "@axm.sh/core/unstable/utils";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type {
@@ -32,6 +33,13 @@ export interface CliInvocationResult {
 type NodePlatform = NodeJS.Platform;
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
+
+const JsonMcpConfigSchema = Schema.Struct({
+  servers: Schema.Record(Schema.String, Schema.Unknown),
+});
+type JsonMcpConfig = typeof JsonMcpConfigSchema.Type;
+
+const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
 
 const redactSecrets = (value: string): string =>
   value
@@ -176,23 +184,32 @@ export const runCliInvocation = (
       }),
   });
 
-interface JsonMcpConfig {
-  readonly servers: Record<string, unknown>;
-}
+const decodeJsonConfig = (
+  configPath: string,
+  raw: string,
+): Effect.Effect<JsonMcpConfig, AppError> =>
+  Effect.gen(function* () {
+    const json = yield* Effect.try({
+      try: (): unknown => JSON.parse(raw),
+      catch: (error) =>
+        makeAppError({
+          code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
+          what: `Failed to parse MCP config JSON: ${configPath}`,
+          cause: error,
+        }),
+    });
 
-const decodeJsonConfig = (raw: string): JsonMcpConfig => {
-  const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed === "object" && parsed !== null) {
-    const servers = Reflect.get(parsed, "servers");
-    if (typeof servers === "object" && servers !== null) {
-      const normalizedServers: Record<string, unknown> = Object.fromEntries(Object.entries(servers));
-      return {
-        servers: normalizedServers,
-      };
-    }
-  }
-  return { servers: {} };
-};
+    return yield* Schema.decodeUnknownEffect(JsonMcpConfigSchema)(json).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
+          what: `Invalid MCP config format: ${configPath}`,
+          details: [error.message],
+          cause: error,
+        }),
+      ),
+    );
+  });
 
 const upsertJsonConfigServer = (
   configPath: string,
@@ -213,10 +230,19 @@ const upsertJsonConfigServer = (
       ),
     );
 
-    const existing = yield* fs
-      .readFileString(configPath)
-      .pipe(Effect.catch(() => Effect.succeed('{\n  "servers": {}\n}')));
-    const parsed = decodeJsonConfig(existing);
+    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const parsed = exists
+      ? yield* fs.readFileString(configPath).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "CODING_AGENT_MCP_CONFIG_READ_FAILED",
+              what: `Failed to read MCP config: ${configPath}`,
+              cause: error,
+            }),
+          ),
+          Effect.flatMap((raw) => decodeJsonConfig(configPath, raw)),
+        )
+      : emptyJsonMcpConfig;
     const updated = {
       ...parsed,
       servers: {
@@ -256,7 +282,7 @@ const removeJsonConfigServer = (
         }),
       ),
     );
-    const parsed = decodeJsonConfig(existing);
+    const parsed = yield* decodeJsonConfig(configPath, existing);
     const { [serverName]: _, ...rest } = parsed.servers;
     void _;
     const updated = {
@@ -368,6 +394,15 @@ const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   canonicalPath: args.canonicalPath,
 });
 
+const fallbackOutcome = (
+  fallbackFrom: "unsupported" | "disabled",
+  reason: string,
+): McpServerSyncOutcome => ({
+  _tag: "fallback",
+  fallbackFrom,
+  reason,
+});
+
 export const addMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: AddMcpServerArgs,
@@ -389,13 +424,6 @@ export const addMcpServerMixed = (
           timeoutMs: strategy.timeoutMs ?? 10_000,
           cwd: args.workspaceRoot,
         }).pipe(
-          Effect.catch(() =>
-            Effect.succeed({
-              exitCode: 127,
-              stdout: "",
-              stderr: "CLI not available",
-            } satisfies CliInvocationResult),
-          ),
           Effect.map((invocation) =>
             cliResultToOutcome(invocation, {
               idempotentPatterns: strategy.addIdempotentPatterns ?? ADD_IDEMPOTENT_PATTERNS,
@@ -416,7 +444,7 @@ export const addMcpServerMixed = (
         args.serverName,
         entryFromAddArgs(args),
       );
-      return { _tag: "success" };
+      return fallbackOutcome("unsupported", cliOutcome.reason);
     }
 
     if (cliOutcome._tag === "disabled") {
@@ -425,7 +453,7 @@ export const addMcpServerMixed = (
         args.serverName,
         entryFromAddArgs(args),
       );
-      return { _tag: "success" };
+      return fallbackOutcome("disabled", cliOutcome.reason);
     }
 
     return cliOutcome;
@@ -452,13 +480,6 @@ export const removeMcpServerMixed = (
           timeoutMs: strategy.timeoutMs ?? 10_000,
           cwd: args.workspaceRoot,
         }).pipe(
-          Effect.catch(() =>
-            Effect.succeed({
-              exitCode: 127,
-              stdout: "",
-              stderr: "CLI not available",
-            } satisfies CliInvocationResult),
-          ),
           Effect.map((invocation) =>
             cliResultToOutcome(invocation, {
               idempotentPatterns: strategy.removeIdempotentPatterns ?? REMOVE_IDEMPOTENT_PATTERNS,
@@ -478,7 +499,7 @@ export const removeMcpServerMixed = (
         strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
         args.serverName,
       );
-      return { _tag: "success" };
+      return fallbackOutcome(cliOutcome._tag, cliOutcome.reason);
     }
 
     return cliOutcome;
@@ -537,15 +558,7 @@ const verifyConfigFirst = (
       args: strategy.verifyCommand.slice(1).map((value) => replaceTemplate(value, args)),
       timeoutMs: strategy.timeoutMs ?? 10_000,
       cwd: args.workspaceRoot,
-    }).pipe(
-      Effect.catch(() =>
-        Effect.succeed({
-          exitCode: 127,
-          stdout: "",
-          stderr: "CLI not available",
-        } satisfies CliInvocationResult),
-      ),
-    );
+    });
 
     const outcome = cliResultToOutcome(invocation, {
       idempotentPatterns: [],

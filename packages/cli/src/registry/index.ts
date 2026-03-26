@@ -18,6 +18,7 @@ export type {
   RegistryExtensionManifest,
   GetExtensionsByProfileArgs,
   GetExtensionsByProfileResponse,
+  GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
   PublishExtensionArgs,

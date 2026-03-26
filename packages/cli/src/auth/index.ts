@@ -39,6 +39,8 @@ export {
 export {
   resolveToken,
   resolveStoredToken,
+  resolveStoredTokenWithRefresh,
+  refreshStoredToken,
   resolveAmbientToken,
   resetEnvVarMessageFlag,
 } from "./token-resolution.js";
@@ -55,6 +57,20 @@ export type {
   TokenResponse,
 } from "./auth-client.js";
 export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-client.js";
+
+// Auth login interaction
+export type {
+  AuthLoginInteractionService,
+  AuthLoginInteractionTestState,
+} from "./login-interaction.js";
+export {
+  AuthLoginInteraction,
+  AuthLoginInteractionLive,
+  AuthLoginInteractionTest,
+} from "./login-interaction.js";
+
+// Shared device login flow
+export { runDeviceLogin } from "./device-login.js";
 
 // Auth guard
 export { withAuthGuard } from "./guard.js";

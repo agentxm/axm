@@ -10,7 +10,12 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import {
+  parseInputPattern,
+  type InputPattern,
+  type RegistrySource,
+  type SkillExtensionRef,
+} from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -26,7 +31,7 @@ import {
   PackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
-import { parseVersionConstraint } from "@axm.sh/core/unstable/version-constraints";
+import { createRegistryClient } from "../../../registry/index.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import { buildUpdatePlan } from "./plan.js";
@@ -35,6 +40,7 @@ import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 import {
   detectHoldbackWarnings,
+  resolveConstrainedVersion,
   type PackConstraint,
   type SkillConstraints,
 } from "./constraint-resolution.js";
@@ -60,6 +66,18 @@ export interface UpdateHandlerArgs {
   /** Display plan without applying. */
   readonly preview: boolean;
 }
+
+type RegistrySkillPattern = Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>;
+
+const toRegistrySkillPattern = (source: string): Option.Option<RegistrySkillPattern> => {
+  const parsed = parseInputPattern(source);
+  if (Option.isNone(parsed)) return Option.none();
+  if (parsed.value.pattern.pattern !== "registry-pattern-input") return Option.none();
+  if (Option.isSome(parsed.value.pattern.type) && parsed.value.pattern.type.value !== "skills") {
+    return Option.none();
+  }
+  return Option.some(parsed.value.pattern);
+};
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -163,8 +181,138 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   // Step 5: Re-resolve each source and discover skills
   type ResolveResult =
-    | { type: "match"; ref: SkillExtensionRef }
-    | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
+    | {
+        readonly type: "match";
+        readonly ref: SkillExtensionRef;
+        readonly versionConstraint: Option.Option<string>;
+        readonly warnings: ReadonlyArray<string>;
+      }
+    | {
+        readonly type: "rename";
+        readonly oldName: string;
+        readonly newRef: SkillExtensionRef;
+        readonly versionConstraint: Option.Option<string>;
+        readonly warnings: ReadonlyArray<string>;
+      };
+
+  const findSkillRefs = (
+    source: RegistrySource | SkillExtensionRef["source"],
+    options: {
+      readonly skillNames: ReadonlyArray<string>;
+      readonly profile: Option.Option<string>;
+      readonly versionConstraint: Option.Option<string>;
+    },
+  ) =>
+    sources.find(source, {
+      skillNames: options.skillNames,
+      type: "skill",
+      profile: options.profile,
+      versionConstraint: options.versionConstraint,
+    }).pipe(
+      Effect.map((refs) =>
+        Array.filter(refs, (ref): ref is SkillExtensionRef => ref.type === "skill"),
+      ),
+    );
+
+  const resolveRegistrySkillWithConstraints = ({
+    source,
+    profile,
+    lookupName,
+    userConstraint,
+    packConstraints,
+  }: {
+    readonly source: RegistrySource;
+    readonly profile: string;
+    readonly lookupName: string;
+    readonly userConstraint: Option.Option<string>;
+    readonly packConstraints: ReadonlyArray<PackConstraint>;
+  }) =>
+    Effect.gen(function* () {
+      const location =
+        source.location.protocol === "file:" ? source.location.pathname : source.location.href;
+      const client = yield* createRegistryClient(location);
+      const indexOption = yield* client.getExtensionIndex({
+        handle: profile,
+        type: "skill",
+        name: lookupName,
+      });
+      if (Option.isNone(indexOption)) {
+        return Option.none<{
+          readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
+          readonly versionConstraint: Option.Option<string>;
+          readonly warnings: ReadonlyArray<string>;
+        }>();
+      }
+
+      const skillFqn = `${profile}/skills/${lookupName}`;
+      const constraints: SkillConstraints = { userConstraint, packConstraints };
+      const versions = indexOption.value.versions.map((entry) => entry.version);
+      const [latestVersion] = versions;
+      if (latestVersion === undefined) {
+        return yield* Effect.fail(
+          makeAppError({
+            code: "UPDATE_SOURCE_EMPTY",
+            what: `Registry skill "${skillFqn}" has no published versions`,
+            details: [`Source: ${sources.origin(source)}`],
+            howToFix: "Publish a version before running `axm skills update`.",
+          }),
+        );
+      }
+
+      const resolvedVersion = resolveConstrainedVersion(versions, constraints, skillFqn);
+      if (Option.isNone(resolvedVersion)) {
+        const constraintLabel = Option.match(userConstraint, {
+          onNone: () => "the configured constraints",
+          onSome: (constraint) => `"${constraint}"`,
+        });
+        return yield* Effect.fail(
+          makeAppError({
+            code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
+            what: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
+            details: [`Source: ${sources.origin(source)}`],
+            howToFix: "Relax the version constraint or update the dependent pack constraints.",
+          }),
+        );
+      }
+
+      const exactRefs = yield* findSkillRefs(source, {
+        skillNames: [lookupName],
+        profile: Option.some(profile),
+        versionConstraint: Option.some(resolvedVersion.value.resolvedVersion),
+      });
+      const exactRef = exactRefs.find(
+        (
+          ref,
+        ): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
+          ref.refType === "registry" &&
+          ref.skill.name === lookupName &&
+          ref.version === resolvedVersion.value.resolvedVersion,
+      );
+      if (exactRef === undefined) {
+        return yield* Effect.fail(
+          makeAppError({
+            code: "UPDATE_RESOLUTION_FAILED",
+            what: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
+            details: [`Source: ${sources.origin(source)}`],
+            howToFix: "Verify the registry index and package metadata are consistent.",
+          }),
+        );
+      }
+
+      return Option.some({
+        ref: exactRef,
+        versionConstraint: userConstraint,
+        warnings: [
+          ...resolvedVersion.value.warnings,
+          ...detectHoldbackWarnings(
+            latestVersion,
+            resolvedVersion.value.resolvedVersion,
+            constraints,
+            skillFqn,
+          ),
+        ],
+      });
+    });
 
   const results = yield* renderer.withSpinner(
     "Resolving sources...",
@@ -174,35 +322,57 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         ([name, sourceStr]) =>
           Effect.gen(function* () {
             const source = yield* resolveSource(sourceStr);
+            const registryPattern = toRegistrySkillPattern(sourceStr);
+
+            if (source.type === "registry" && Option.isSome(registryPattern)) {
+              const lookupName = Option.getOrElse(registryPattern.value.name, () => name);
+              const registryResolved = yield* resolveRegistrySkillWithConstraints({
+                source,
+                profile: registryPattern.value.profile,
+                lookupName,
+                userConstraint: registryPattern.value.versionConstraint,
+                packConstraints:
+                  packConstraintMap.get(`${registryPattern.value.profile}/skills/${lookupName}`) ??
+                  [],
+              });
+              if (Option.isSome(registryResolved)) {
+                return Option.some<ResolveResult>({
+                  type: "match",
+                  ref: registryResolved.value.ref,
+                  versionConstraint: registryResolved.value.versionConstraint,
+                  warnings: registryResolved.value.warnings,
+                });
+              }
+            }
+
+            const requestedProfile = Option.match(registryPattern, {
+              onNone: () => Option.none<string>(),
+              onSome: (pattern) => Option.some(pattern.profile),
+            });
 
             // First try with name filter (fast path)
-            const namedRefs = yield* sources.find(source, {
+            const namedRefs = yield* findSkillRefs(source, {
               skillNames: [name],
-              type: "skill",
-              profile: Option.none(),
+              profile: requestedProfile,
               versionConstraint: Option.none(),
             });
-            const namedSkillRefs = Array.filter(
-              namedRefs,
-              (r): r is SkillExtensionRef => r.type === "skill",
-            );
-            const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
+            const skillRef = namedRefs.find((r) => r.skill.name === name);
 
             if (skillRef) {
-              return Option.some<ResolveResult>({ type: "match", ref: skillRef });
+              return Option.some<ResolveResult>({
+                type: "match",
+                ref: skillRef,
+                versionConstraint: Option.none(),
+                warnings: [],
+              });
             }
 
             // Skill not found by name — re-resolve without name filter for rename detection
-            const allRefs = yield* sources.find(source, {
+            const allSkillRefs = yield* findSkillRefs(source, {
               skillNames: [],
-              type: "skill",
-              profile: Option.none(),
+              profile: requestedProfile,
               versionConstraint: Option.none(),
             });
-            const allSkillRefs = Array.filter(
-              allRefs,
-              (r): r is SkillExtensionRef => r.type === "skill",
-            );
 
             if (allSkillRefs.length === 1) {
               // Single-skill source: treat as rename
@@ -210,7 +380,40 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               if (newRef === undefined) {
                 return Option.none<ResolveResult>();
               }
-              return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
+
+              if (
+                source.type === "registry" &&
+                newRef.refType === "registry" &&
+                Option.isSome(registryPattern)
+              ) {
+                const renameResolved = yield* resolveRegistrySkillWithConstraints({
+                  source,
+                  profile: registryPattern.value.profile,
+                  lookupName: newRef.skill.name,
+                  userConstraint: registryPattern.value.versionConstraint,
+                  packConstraints:
+                    packConstraintMap.get(
+                      `${registryPattern.value.profile}/skills/${newRef.skill.name}`,
+                    ) ?? [],
+                });
+                if (Option.isSome(renameResolved)) {
+                  return Option.some<ResolveResult>({
+                    type: "rename",
+                    oldName: name,
+                    newRef: renameResolved.value.ref,
+                    versionConstraint: renameResolved.value.versionConstraint,
+                    warnings: renameResolved.value.warnings,
+                  });
+                }
+              }
+
+              return Option.some<ResolveResult>({
+                type: "rename",
+                oldName: name,
+                newRef,
+                versionConstraint: Option.none(),
+                warnings: [],
+              });
             } else if (allSkillRefs.length > 1) {
               // Multi-skill source: ambiguous rename
               const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
@@ -246,41 +449,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     );
   }
 
-  // Step 7: Emit holdback warnings for registry skills held back by pack constraints
-  const holdbackWarnings = Array.flatMap(
-    resolved.filter(
-      (
-        item,
-      ): item is {
-        readonly type: "match";
-        readonly ref: Extract<SkillExtensionRef, { refType: "registry" }>;
-      } => item.type === "match" && item.ref.refType === "registry",
-    ),
-    (item) => {
-      const registryRef = item.ref;
-      const skillFqn = `${registryRef.profile}/skills/${registryRef.skill.name}`;
-      const packConstraints = packConstraintMap.get(skillFqn) ?? [];
-      if (packConstraints.length === 0) return [];
-
-      const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
-      const userConstraint =
-        settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
-
-      const constraints: SkillConstraints = { userConstraint, packConstraints };
-      // TODO: Bug — registryRef.version is the already-resolved version, not the latest available.
-      // detectHoldbackWarnings compares latestVersion vs resolvedVersion to detect when a pack
-      // constraint holds back a skill. Passing the same value for both means warnings are never
-      // emitted. To fix properly, we need a separate registry query for the latest version
-      // (without constraints), which is not available in the current resolution flow.
-      return detectHoldbackWarnings(
-        registryRef.version,
-        registryRef.version,
-        constraints,
-        skillFqn,
-      );
-    },
-  );
-  yield* Effect.forEach(holdbackWarnings, (w) => renderer.warn(w), { discard: true });
+  // Step 7: Emit resolution warnings
+  yield* Effect.forEach(Array.flatMap(resolved, (item) => item.warnings), (warning) =>
+    renderer.warn(warning), { discard: true });
 
   // Step 8: Build operations
   const ops = Array.flatMap(resolved, (item) => {
@@ -293,7 +464,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           args: {
             ref: item.ref,
             force: args.force,
-            versionConstraint: Option.none(),
+            versionConstraint: item.versionConstraint,
             skipSettings: Option.none(),
             existingInstalledAt,
             sourceName: Option.none(),
@@ -310,7 +481,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         args: {
           ref: item.newRef,
           force: args.force,
-          versionConstraint: Option.none(),
+          versionConstraint: item.versionConstraint,
           skipSettings: Option.none(),
           existingInstalledAt,
           sourceName: Option.none(),

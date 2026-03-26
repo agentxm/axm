@@ -29,10 +29,11 @@ const initWorkspace = (
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
   lockfilePacks: Record<string, unknown> = {},
+  configuredSkills: Record<string, string> = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   // Build settings skills map so removeSkill can find them
-  const settingsSkills: Record<string, string> = {};
+  const settingsSkills: Record<string, string> = { ...configuredSkills };
   for (const name of Object.keys(lockfileSkills)) {
     const entry = lockfileSkills[name];
     const entryType =
@@ -198,6 +199,42 @@ describe("uninstall.handler", () => {
         }),
       );
     });
+
+    it.effect("removes settings-only configured skills that are absent from the lockfile", () => {
+      const { provide, logs } = makeLayers();
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        ["claude-code"],
+        {},
+        { "settings-only": "local:/configured-only" },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstall(defaultArgs("settings-only"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
+          );
+          const skills =
+            typeof settings === "object" &&
+            settings !== null &&
+            "skills" in settings &&
+            typeof settings.skills === "object" &&
+            settings.skills !== null
+              ? settings.skills
+              : undefined;
+
+          expect(skills?.["settings-only"]).toBeUndefined();
+          expect(logs.success.some((m) => m.includes("settings-only"))).toBe(true);
+        }),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -272,7 +309,7 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("literal name not in lockfile", () => {
-    it.effect("builds no-op plan for literal name not in lockfile", () => {
+    it.effect("runs the uninstall workflow for literal names absent from the lockfile", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -284,9 +321,9 @@ describe("uninstall.handler", () => {
             preview: false,
           });
 
-          // Should show the no-op result
+          expect(logs.success.length > 0).toBe(true);
           const allLogs = [...logs.success, ...logs.info, ...logs.message];
-          expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
+          expect(allLogs.some((m) => m.includes("not installed"))).toBe(false);
         }),
       );
     });

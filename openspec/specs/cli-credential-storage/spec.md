@@ -2,7 +2,7 @@
 
 ## Purpose
 
-3-tier credential persistence (keychain, encrypted file, plaintext) with versioned schema and environment-aware tier selection.
+3-tier credential persistence (keychain, restricted-permission file, plaintext) with versioned schema and environment-aware tier selection.
 
 ## Requirements
 
@@ -36,11 +36,11 @@ The system SHALL provide a `CredentialStore` service with methods to read, write
 #### Scenario: Storage tier reported
 
 - **WHEN** any credential operation succeeds
-- **THEN** the `CredentialStore` SHALL expose the active storage tier (`keychain`, `encrypted-file`, or `plaintext-file`)
+- **THEN** the `CredentialStore` SHALL expose the active storage tier (`keychain`, `restricted-file`, or `plaintext-file`)
 
 ### Requirement: Three-tier storage fallback
 
-The `CredentialStore` SHALL attempt storage tiers in order: OS keychain, encrypted file, plaintext file.
+The `CredentialStore` SHALL attempt storage tiers in order: OS keychain, restricted-permission file, plaintext file.
 
 #### Scenario: Keychain available
 
@@ -48,15 +48,15 @@ The `CredentialStore` SHALL attempt storage tiers in order: OS keychain, encrypt
 - **THEN** the store SHALL use the OS keychain as the storage backend
 - **AND** keychain entries SHALL use service `agentxm-cli` and account `{registry_url}:{handle}`
 
-#### Scenario: Keychain unavailable, encrypted file used
+#### Scenario: Keychain unavailable, restricted file used
 
 - **WHEN** `@napi-rs/keyring` fails to load or the test write fails
 - **AND** the environment is not a container
-- **THEN** the store SHALL fall back to encrypted file storage at `~/.config/axm/credentials.json`
+- **THEN** the store SHALL fall back to restricted-permission file storage at `~/.config/axm/credentials.json`
 
 #### Scenario: Plaintext fallback with warning
 
-- **WHEN** both keychain and encrypted file are unavailable (e.g., container environment)
+- **WHEN** both keychain and restricted-permission file are unavailable (e.g., container environment)
 - **THEN** the store SHALL fall back to plaintext file storage at `~/.config/axm/credentials.json` with `0o600` permissions
 - **AND** the store SHALL emit a warning: "Credentials stored in plaintext. Consider using AXM_TOKEN for CI environments."
 
@@ -94,10 +94,10 @@ The credential file SHALL use a versioned JSON schema keyed by registry URL.
 
 The `CredentialStore` SHALL detect the runtime environment and adjust tier selection.
 
-#### Scenario: SSH environment prefers encrypted file
+#### Scenario: SSH environment prefers restricted file
 
 - **WHEN** `SSH_CLIENT` or `SSH_TTY` environment variable is set
-- **THEN** the store SHALL prefer tier 2 (encrypted file) over tier 1 (keychain)
+- **THEN** the store SHALL prefer tier 2 (restricted-permission file) over tier 1 (keychain)
 
 #### Scenario: Container environment uses plaintext
 

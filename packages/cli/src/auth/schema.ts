@@ -77,4 +77,4 @@ export interface StoredCredentials {
 // Storage Tier
 // -----------------------------------------------------------------------------
 
-export type StorageTier = "keychain" | "encrypted-file" | "plaintext-file";
+export type StorageTier = "keychain" | "restricted-file" | "plaintext-file";

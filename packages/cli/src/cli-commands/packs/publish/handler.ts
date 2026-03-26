@@ -79,6 +79,67 @@ export type PackPublishOp =
   | PublishCommandOperation
   | PublishMcpServerOperation;
 
+interface TargetRegistry {
+  readonly registryName: string;
+  readonly registryUrl: string;
+}
+
+const resolveTargetRegistry = (registry: Option.Option<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "REGISTRY_SOURCES_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const [defaultRegistry] = registrySources;
+    if (defaultRegistry === undefined) {
+      return yield* Effect.fail(
+        makeAppError({
+          code: "NO_REGISTRY_CONFIGURED",
+          what: "No registry sources configured",
+          howToFix: "Run the registry guard first.",
+        }),
+      );
+    }
+
+    if (Option.isNone(registry)) {
+      return {
+        registryName: defaultRegistry.name,
+        registryUrl: defaultRegistry.location.href,
+      } satisfies TargetRegistry;
+    }
+
+    const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "PUBLISH_PACK_REGISTRY_LOOKUP_FAILED",
+          what: `Failed to lookup registry source "${registry.value}"`,
+          cause: e,
+        }),
+      ),
+    );
+
+    if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
+      return yield* Effect.fail(
+        makeAppError({
+          code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
+          what: `Registry source "${registry.value}" not found or not a registry source`,
+        }),
+      );
+    }
+
+    return {
+      registryName: registry.value,
+      registryUrl: namedRegistry.value.location.href,
+    } satisfies TargetRegistry;
+  });
+
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -89,11 +150,16 @@ export type PackPublishOp =
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-  yield* withAuthGuard(publishPackEffect(args), { yes: args.yes });
+  const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  yield* withAuthGuard(publishPackEffect(args, targetRegistry), {
+    yes: args.yes,
+    registryUrl: targetRegistry.registryUrl,
+  });
 });
 
 const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   args: PublishPackHandlerArgs,
+  targetRegistry: TargetRegistry,
 ) {
   const ws = yield* Workspace;
   const path = yield* Path.Path;
@@ -164,34 +230,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     { successMessage: `Validated ${packName}` },
   );
 
-  // Step 3: Determine target registry
-  const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-    Effect.mapError((e) =>
-      makeAppError({
-        code: "REGISTRY_SOURCES_FAILED",
-        what: `Failed to get registry sources: ${e._tag}`,
-        cause: e,
-      }),
-    ),
-  );
-
-  if (registrySources.length === 0) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
-      }),
-    );
-  }
-
-  const [defaultRegistry] = registrySources;
-  const registryName = Option.match(args.registry, {
-    onNone: () => defaultRegistry?.name ?? "default",
-    onSome: (name) => name,
-  });
-
-  // Step 4: Discover local dependencies (when --include-dependencies)
+  // Step 3: Discover local dependencies (when --include-dependencies)
   const dependencySteps: LegacyPlannedStep<PackPublishOp>[] = [];
 
   if (args.includeDependencies) {
@@ -251,7 +290,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
 
           if (exists) {
-            const step = yield* makeDependencyStep(parsed, depFqn, registryName);
+            const step = yield* makeDependencyStep(parsed, depFqn, targetRegistry.registryName);
             dependencySteps.push(step);
           } else {
             yield* renderer.warn(`Skipping non-local dependency: ${depFqn}`);
@@ -261,14 +300,14 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
   }
 
-  // Step 5: Build plan
+  // Step 4: Build plan
   const packStep: LegacyPlannedStep<PackPublishOp> = {
     _tag: "PlannedJobStep",
     operation: {
       name: "publish-pack",
       args: {
         name: packName,
-        registryName,
+        registryName: targetRegistry.registryName,
       },
     } satisfies PublishPackOperation,
     readiness: { status: "ready", message: Option.none() },
@@ -288,7 +327,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   const plan = {
     name: "Publish pack",
-    description: Option.some(`Publish ${packName} to registry "${registryName}"`),
+    description: Option.some(`Publish ${packName} to registry "${targetRegistry.registryName}"`),
     jobs,
   };
 

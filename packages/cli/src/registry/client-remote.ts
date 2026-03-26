@@ -22,6 +22,7 @@ import { isLoopbackAddress } from "@axm.sh/core/unstable/utils";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
+  GetExtensionIndexArgs,
   GetExtensionsByProfileArgs,
   GetExtensionsByProfileResponse,
   PublishExtensionArgs,
@@ -37,7 +38,7 @@ import {
   type ExtensionType,
 } from "@axm.sh/core/unstable/extensions";
 import { ExtensionIndexSchema } from "./local-schema.js";
-import { pluralizeType } from "./utils.js";
+import { pluralizeType, resolveVersionEntry } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // RFC 7807 Problem Detail → AppError Mapping
@@ -474,11 +475,12 @@ const remoteDiscoveryTypes = ["skill", "command", "mcp-server", "pack"] as const
 
 const toRegistryManifest = (
   index: Schema.Schema.Type<typeof ExtensionIndexSchema>,
+  versionConstraint: Option.Option<string>,
 ): Option.Option<RegistryExtensionManifest> => {
-  const latest = index.versions[0];
-  if (latest === undefined) {
-    return Option.none();
-  }
+  const selected = resolveVersionEntry(index.versions, versionConstraint);
+  if (Option.isNone(selected)) return Option.none();
+
+  const latest = selected.value;
 
   return Option.some({
     profile: index.profile,
@@ -537,7 +539,7 @@ const getExtensionIndex = ({
     });
 
     if (response.status === 404) {
-      return Option.none<RegistryExtensionManifest>();
+      return Option.none<Schema.Schema.Type<typeof ExtensionIndexSchema>>();
     }
 
     // Auth error mapping for read operations
@@ -587,7 +589,7 @@ const getExtensionIndex = ({
       what: "Remote discovery response does not match extension index schema",
     });
 
-    return toRegistryManifest(index);
+    return Option.some(index);
   });
 
 const getExtensionCollection = ({
@@ -703,7 +705,11 @@ const getListModeExtensions = ({
     const allExtensions = maybeEntries.flatMap((entry) =>
       Option.match(entry, {
         onNone: () => [],
-        onSome: (value) => [value],
+        onSome: (value) =>
+          Option.match(toRegistryManifest(value, Option.none()), {
+            onNone: () => [],
+            onSome: (manifest) => [manifest],
+          }),
       }),
     );
 
@@ -965,7 +971,11 @@ const getExtensionsByScope = (
             return maybeEntries.flat().flatMap((entry) =>
               Option.match(entry, {
                 onNone: () => [],
-                onSome: (value) => [value],
+                onSome: (value) =>
+                  Option.match(toRegistryManifest(value, Option.none()), {
+                    onNone: () => [],
+                    onSome: (manifest) => [manifest],
+                  }),
               }),
             );
           });
@@ -1225,6 +1235,14 @@ export const createRemoteRegistryClient = (
 ): RegistryClient => ({
   getExtensionsByScope: (args) => getExtensionsByScope(baseUrl, httpClient, args),
   profileExists: (handle) => profileExists(baseUrl, httpClient, handle),
+  getExtensionIndex: (args: GetExtensionIndexArgs) =>
+    getExtensionIndex({
+      baseUrl,
+      httpClient,
+      profile: args.handle,
+      type: args.type,
+      name: args.name,
+    }),
   getExtensionPackage: (args) => getExtensionPackage(baseUrl, httpClient, args),
   publishExtension: (args) => publishExtension(baseUrl, httpClient, args),
   extensionExists: (args) => extensionExists(baseUrl, httpClient, args),

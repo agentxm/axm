@@ -16,9 +16,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { AuthClient } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore } from "../../../auth/credential-store.js";
+import { runDeviceLogin } from "../../../auth/device-login.js";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
@@ -29,7 +29,6 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 // -----------------------------------------------------------------------------
 
 export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { yes: boolean }) {
-  const authClient = yield* AuthClient;
   const credStore = yield* CredentialStore;
   const renderer = yield* CliRenderer;
   const prompt = yield* CliPrompt;
@@ -60,30 +59,5 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
     }
   }
 
-  // Step 3: Initiate device flow
-  const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
-  const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
-
-  // Step 4: Display URL and code
-  yield* renderer.step(`Open this URL in your browser: ${verificationUrl}`);
-  yield* renderer.step(`Enter code: ${deviceFlow.user_code}`);
-
-  // Step 5: Poll with spinner
-  const token = yield* renderer.withSpinner(
-    "Waiting for approval in browser...",
-    () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
-    { successMessage: "Login successful." },
-  );
-
-  // Step 6: Fetch identity before persisting credentials so login fails closed
-  const me = yield* authClient.getMe(registryUrl, token.access_token);
-
-  yield* credStore.save(registryUrl, me.userHandle, {
-    access_token: token.access_token,
-    refresh_token: token.refresh_token,
-    expires_at: token.expires_at,
-  });
-
-  // Step 7: Display result
-  yield* renderer.success(`Logged in as ${me.userHandle}`);
+  yield* runDeviceLogin(registryUrl);
 }, Effect.asVoid);

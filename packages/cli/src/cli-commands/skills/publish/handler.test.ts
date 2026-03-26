@@ -113,28 +113,34 @@ describe("publish.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (options?: {
+    wsOverrides?: Partial<WorkspaceContextOptions>;
+    authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+  }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
-      wsOptions: wsOverrides,
+      wsOptions: options?.wsOverrides,
     });
-    const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
-      version: 1,
-      registries: {
-        "https://registry.agentxm.ai": {
-          accounts: {
-            testuser: {
-              access_token: "axm_ses_test",
-              refresh_token: "axm_ref_test",
-              expires_at: "2099-01-01T00:00:00Z",
-              active: true,
+    const authCredStoreLayer =
+      options?.authCredentials === null
+        ? CredentialStoreTest()
+        : CredentialStoreTest("restricted-file", options?.authCredentials ?? {
+            version: 1,
+            registries: {
+              "https://registry.agentxm.ai": {
+                accounts: {
+                  testuser: {
+                    access_token: "axm_ses_test",
+                    refresh_token: "axm_ref_test",
+                    expires_at: "2099-01-01T00:00:00Z",
+                    active: true,
+                  },
+                },
+              },
             },
-          },
-        },
-      },
-    });
+          });
     const BaseLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       AuthClientTest(),
@@ -184,6 +190,43 @@ describe("publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+        }),
+      );
+    });
+  });
+
+  describe("local registry auth bypass", () => {
+    it.effect("publishes to a local registry without requiring remote auth", () => {
+      const { provide, logs } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "offline-skill", {
+        name: "@test/skills/offline-skill",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/offline-skill"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "offline-skill",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -563,7 +606,23 @@ describe("publish.handler", () => {
 
   describe("completion status", () => {
     it.effect("fails when plan contains failed publish steps", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs } = makeLayers({
+        authCredentials: {
+          version: 1,
+          registries: {
+            "http://127.0.0.1:1": {
+              accounts: {
+                testuser: {
+                  access_token: "axm_ses_test",
+                  refresh_token: "axm_ref_test",
+                  expires_at: "2099-01-01T00:00:00Z",
+                  active: true,
+                },
+              },
+            },
+          },
+        },
+      });
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {

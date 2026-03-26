@@ -126,28 +126,34 @@ describe("packs publish.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+  const makeLayers = (options?: {
+    wsOverrides?: Partial<WorkspaceContextOptions>;
+    authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+  }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
-      wsOptions: wsOverrides,
+      wsOptions: options?.wsOverrides,
     });
-    const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
-      version: 1,
-      registries: {
-        "https://registry.agentxm.ai": {
-          accounts: {
-            testuser: {
-              access_token: "axm_ses_test",
-              refresh_token: "axm_ref_test",
-              expires_at: "2099-01-01T00:00:00Z",
-              active: true,
+    const authCredStoreLayer =
+      options?.authCredentials === null
+        ? CredentialStoreTest()
+        : CredentialStoreTest("restricted-file", options?.authCredentials ?? {
+            version: 1,
+            registries: {
+              "https://registry.agentxm.ai": {
+                accounts: {
+                  testuser: {
+                    access_token: "axm_ses_test",
+                    refresh_token: "axm_ref_test",
+                    expires_at: "2099-01-01T00:00:00Z",
+                    active: true,
+                  },
+                },
+              },
             },
-          },
-        },
-      },
-    });
+          });
     const BaseLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       AuthClientTest(),
@@ -205,6 +211,42 @@ describe("packs publish.handler", () => {
           expect(indexContent.type).toBe("pack");
           expect(indexContent.versions).toHaveLength(1);
           expect(indexContent.versions[0].version).toBe("1.0.0");
+        }),
+      );
+    });
+  });
+
+  describe("local registry auth bypass", () => {
+    it.effect("publishes to a local registry without requiring remote auth", () => {
+      const { provide, logs } = makeLayers({ authCredentials: null });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "offline-pack", {
+        name: "@test/packs/offline-pack",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/offline-pack", { registry: Option.some("local") }),
+          );
+
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "packs",
+                "offline-pack",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
         }),
       );
     });

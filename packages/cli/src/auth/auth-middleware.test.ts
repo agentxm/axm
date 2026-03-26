@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
 import { resetEnvVarMessageFlag } from "./token-resolution.js";
@@ -39,17 +40,18 @@ const makeTestLayers = (
   flagToken?: string,
 ) => {
   const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
-  const credStoreLayer = CredentialStoreTest("encrypted-file", credentialData);
+  const credStoreLayer = CredentialStoreTest("restricted-file", credentialData);
+  const authClientLayer = Layer.provide(AuthClientLive, baseClientLayer);
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
-  // Auth middleware depends on HttpClient, CredentialStore, RegistryUrl
+  // Auth middleware depends on HttpClient, CredentialStore, AuthClient, RegistryUrl
   const middlewareLayer = Layer.provide(
     makeAuthMiddlewareLive(flagToken),
-    Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer),
+    Layer.mergeAll(baseClientLayer, credStoreLayer, authClientLayer, registryUrlLayer),
   );
 
   // Merge credential store so tests can access it
-  return Layer.mergeAll(middlewareLayer, credStoreLayer, registryUrlLayer);
+  return Layer.mergeAll(middlewareLayer, credStoreLayer, authClientLayer, registryUrlLayer);
 };
 
 const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
@@ -131,6 +133,25 @@ describe("AuthMiddleware", () => {
       expect(capturedAuth).toBe("Bearer axm_ses_env");
     });
 
+    it("prefers AXM_TOKEN over stored credentials for the default registry", async () => {
+      process.env["AXM_TOKEN"] = "axm_ses_env";
+      let capturedAuth: string | null = null;
+
+      const layers = makeTestLayers((req) => {
+        capturedAuth = authorizationHeader(req);
+        return new Response("ok", { status: 200 });
+      }, storedCredentials());
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      expect(capturedAuth).toBe("Bearer axm_ses_env");
+    });
+
     it("injects Bearer header for --token flag", async () => {
       let capturedAuth: string | null = null;
 
@@ -140,6 +161,28 @@ describe("AuthMiddleware", () => {
           return new Response("ok", { status: 200 });
         },
         undefined,
+        "axm_ses_flag",
+      );
+
+      const program = Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
+        return yield* client.execute(request);
+      });
+
+      await Effect.runPromise(program.pipe(Effect.provide(layers)));
+      expect(capturedAuth).toBe("Bearer axm_ses_flag");
+    });
+
+    it("prefers --token over stored credentials for the default registry", async () => {
+      let capturedAuth: string | null = null;
+
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = authorizationHeader(req);
+          return new Response("ok", { status: 200 });
+        },
+        storedCredentials(),
         "axm_ses_flag",
       );
 
@@ -415,7 +458,7 @@ describe("AuthMiddleware", () => {
       };
 
       const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
-      const credStoreLayer = CredentialStoreTest("encrypted-file", {
+      const credStoreLayer = CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
           [NON_DEFAULT_REGISTRY]: {
@@ -431,12 +474,18 @@ describe("AuthMiddleware", () => {
         },
       });
       const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+      const authClientLayer = Layer.provide(AuthClientLive, baseClientLayer);
 
       const middlewareLayer = Layer.provide(
         makeAuthMiddlewareLive(),
-        Layer.mergeAll(baseClientLayer, credStoreLayer, registryUrlLayer),
+        Layer.mergeAll(baseClientLayer, credStoreLayer, authClientLayer, registryUrlLayer),
       );
-      const layers = Layer.mergeAll(middlewareLayer, credStoreLayer, registryUrlLayer);
+      const layers = Layer.mergeAll(
+        middlewareLayer,
+        credStoreLayer,
+        authClientLayer,
+        registryUrlLayer,
+      );
 
       const program = Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;

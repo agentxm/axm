@@ -71,7 +71,51 @@ describe("mcp-sync helpers", () => {
             addArgs(workspaceRoot),
           );
 
-          expect(outcome._tag).toBe("success");
+          expect(outcome).toEqual({
+            _tag: "fallback",
+            fallbackFrom: "unsupported",
+            reason:
+              "__missing_bin__ CLI executable is unavailable on " +
+              `${process.platform}; install __missing_bin__ and ensure it is on PATH`,
+          });
+
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.agent/mcp.json`);
+          expect(config).toContain('"chrome-devtools-mcp"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("preserves disabled outcome after config fallback", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        try {
+          const outcome = yield* addMcpServerMixed(
+            {
+              configPath: "{workspaceRoot}/.agent/mcp.json",
+              cliAdd: [
+                process.execPath,
+                "-e",
+                "process.stderr.write('login required'); process.exit(1)",
+              ],
+              cliRemove: [
+                process.execPath,
+                "-e",
+                "process.stderr.write('login required'); process.exit(1)",
+              ],
+            },
+            addArgs(workspaceRoot),
+          );
+
+          expect(outcome).toEqual({
+            _tag: "fallback",
+            fallbackFrom: "disabled",
+            reason: "login required",
+          });
 
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.agent/mcp.json`);
@@ -126,6 +170,66 @@ describe("mcp-sync helpers", () => {
             },
           );
           expect(removeOutcome._tag).toBe("success");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("fails on malformed existing JSON config without overwriting it", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        const configPath = `${workspaceRoot}/.agent/mcp.json`;
+        const invalidConfig = "{invalid json";
+
+        try {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(nodePath.dirname(configPath), { recursive: true });
+          yield* fs.writeFileString(configPath, invalidConfig);
+
+          const error = yield* addMcpServerMixed(
+            {
+              configPath: "{workspaceRoot}/.agent/mcp.json",
+              cliAdd: ["__missing_bin__", "mcp", "add", "{serverName}"],
+              cliRemove: ["__missing_bin__", "mcp", "remove", "{serverName}"],
+            },
+            addArgs(workspaceRoot),
+          ).pipe(Effect.flip);
+
+          expect(error.code).toBe("CODING_AGENT_MCP_CONFIG_PARSE_FAILED");
+          expect(yield* fs.readFileString(configPath)).toBe(invalidConfig);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("fails on invalid config shape without overwriting it", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        const configPath = `${workspaceRoot}/.agent/mcp.json`;
+        const invalidConfig = '{\n  "foo": {}\n}\n';
+
+        try {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(nodePath.dirname(configPath), { recursive: true });
+          yield* fs.writeFileString(configPath, invalidConfig);
+
+          const error = yield* addMcpServerMixed(
+            {
+              configPath: "{workspaceRoot}/.agent/mcp.json",
+              cliAdd: ["__missing_bin__", "mcp", "add", "{serverName}"],
+              cliRemove: ["__missing_bin__", "mcp", "remove", "{serverName}"],
+            },
+            addArgs(workspaceRoot),
+          ).pipe(Effect.flip);
+
+          expect(error.code).toBe("CODING_AGENT_MCP_CONFIG_PARSE_FAILED");
+          expect(yield* fs.readFileString(configPath)).toBe(invalidConfig);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

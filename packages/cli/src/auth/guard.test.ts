@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
+import { AuthLoginInteractionTest } from "./login-interaction.js";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
@@ -26,21 +27,23 @@ const makeLayers = (opts?: {
   yes?: boolean;
   hasToken?: boolean;
   confirmValue?: boolean;
+  storedRegistryUrl?: string;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const [promptLayer, promptState] = makeTestPrompt({
     confirmResponses: [opts?.confirmValue ?? true],
   });
+  const interactionLayer = AuthLoginInteractionTest().layer;
 
   const flagsLayer = CliEnvironmentTest({
     nonInteractive: opts?.nonInteractive ?? false,
   });
 
   const credStoreLayer = opts?.hasToken
-    ? CredentialStoreTest("encrypted-file", {
+    ? CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
-          [REGISTRY_URL]: {
+          [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
             accounts: {
               alice: {
                 access_token: "axm_ses_existing",
@@ -84,6 +87,7 @@ const makeLayers = (opts?: {
   const FullLayer = Layer.mergeAll(
     rendererLayer,
     promptLayer,
+    interactionLayer,
     flagsLayer,
     credStoreLayer,
     authClientLayer,
@@ -101,6 +105,34 @@ describe("withAuthGuard", () => {
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
+      }),
+    );
+  });
+
+  it.effect("uses the explicit registry URL for token resolution", () => {
+    const customRegistryUrl = "https://custom.registry.example.com";
+    const { FullLayer } = makeLayers({ hasToken: true, storedRegistryUrl: customRegistryUrl });
+    return withAuthGuard(makeInnerEffect(), {
+      yes: false,
+      registryUrl: customRegistryUrl,
+    }).pipe(
+      Effect.provide(FullLayer),
+      Effect.map((result) => {
+        expect(result).toBe("publish-result");
+      }),
+    );
+  });
+
+  it.effect("skips auth for local registry URLs", () => {
+    const { FullLayer, promptState } = makeLayers({ confirmValue: false });
+    return withAuthGuard(makeInnerEffect(), {
+      yes: false,
+      registryUrl: "file:///tmp/registry",
+    }).pipe(
+      Effect.provide(FullLayer),
+      Effect.map((result) => {
+        expect(result).toBe("publish-result");
+        expect(promptState.confirmCalls).toHaveLength(0);
       }),
     );
   });

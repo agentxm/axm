@@ -20,7 +20,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 
   const credStoreLayer = opts?.existingCredentials
-    ? CredentialStoreTest("encrypted-file", {
+    ? CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
           [REGISTRY_URL]: {

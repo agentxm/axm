@@ -102,6 +102,7 @@ const toResult = (
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensionsByScope: () => Effect.succeed(toResult([])),
   profileExists: () => Effect.succeed({ exists: false }),
+  getExtensionIndex: () => Effect.succeed(Option.none()),
   getExtensionPackage: () =>
     Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.succeed({ published: true } as const),
@@ -118,6 +119,13 @@ const createFailingClient = (): RegistryClient => ({
       }),
     ),
   profileExists: () =>
+    Effect.fail(
+      makeAppError({
+        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        what: "remote registry not yet supported",
+      }),
+    ),
+  getExtensionIndex: () =>
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",

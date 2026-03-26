@@ -7,6 +7,8 @@ dist
 
 .reference/
 .axm/cache/
+.claude/settings.local.json
 .claude/worktrees/
 .nx/cache/
 .nx/workspace-data/
+tmp/

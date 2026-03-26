@@ -88,7 +88,7 @@ export type LockfileState = "ok" | "missing" | "invalid";
 import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./reconciliation.js";
 import type { ReconciliationContext } from "./reconciliation-types.js";
 import { classifyExtensions } from "./classifier.js";
-import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
+import { discoverSkillsInDir } from "../root/skills/install/discover-skills.js";
 // Extracted modules
 import {
   deriveSourceMetaForNonSkill,

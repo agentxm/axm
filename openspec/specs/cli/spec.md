@@ -70,30 +70,6 @@ The CLI SHALL register `login`, `logout`, `whoami`, and `token` as top-level com
 - **THEN** the commands SHALL work without a workspace context
 - **AND** SHALL NOT require `.axm/settings.json` to exist
 
-### Requirement: Command File Organization
-
-CLI commands SHALL follow the project structure defined in CLAUDE.md, organizing files by command hierarchy with colocated tests.
-
-#### Scenario: Top-level command directory structure
-
-- **WHEN** a new CLI command is added
-- **THEN** its files are placed in `packages/cli/src/commands/<command>/`
-- **AND** the yargs command definition is in `command.ts`
-- **AND** the Effect handler is in `handler.ts`
-- **AND** handler tests are in `handler.test.ts`
-
-#### Scenario: Subcommand directory structure
-
-- **WHEN** a command has subcommands
-- **THEN** each subcommand has its own directory under the parent command
-- **AND** files follow the same pattern: `<command>/<subcommand>/command.ts`, `handler.ts`, `handler.test.ts`
-
-#### Scenario: Test colocation
-
-- **WHEN** tests exist for a handler
-- **THEN** tests are colocated with the handler file as `handler.test.ts`
-- **AND** tests are NOT placed in separate `__tests__/` directories
-
 ### Requirement: Standard Flags
 
 The CLI SHALL support standard global flags for controlling output, interactivity, and execution behavior. The flags `--yes` (`-y`), `--non-interactive`, `--force` (`-f`), and `--preview` SHALL be defined once globally in the root yargs configuration. Individual commands SHALL NOT redefine these flags.
@@ -143,49 +119,6 @@ The CLI SHALL support standard global flags for controlling output, interactivit
 
 - **WHEN** a command builder is defined
 - **THEN** it SHALL NOT call `.option()` for `yes`, `non-interactive`, `force`, or `preview`
-
-### Requirement: TTY Detection
-
-The CLI SHALL detect TTY availability and auto-enable `--non-interactive` when stdin is not a TTY.
-
-#### Scenario: Non-TTY stdin enables non-interactive mode
-
-- **WHEN** `process.stdin.isTTY` is false
-- **AND** the user has NOT explicitly passed `--non-interactive`
-- **THEN** the CLI SHALL behave as if `--non-interactive` were passed
-- **AND** this SHALL imply `--yes` behavior
-
-#### Scenario: CI environment enables non-interactive mode
-
-- **WHEN** the `CI` environment variable is set to `"true"`
-- **AND** the user has NOT explicitly passed `--non-interactive`
-- **THEN** the CLI SHALL behave as if `--non-interactive` were passed
-
-#### Scenario: Non-TTY stdout disables fancy output
-
-- **WHEN** `process.stdout.isTTY` is false
-- **THEN** the CLI disables colors, spinners, and other ANSI escape sequences
-- **AND** outputs plain text suitable for piping
-
-### Requirement: --force flag propagation
-
-Commands that accept `--force` SHALL propagate the flag through their entire execution chain to the plan resolution layer.
-
-#### Scenario: skills install propagates --force
-
-- **WHEN** the user runs `axm skills install <source> --force`
-- **THEN** the `--force` flag SHALL reach `resolvePlan` and override error-readiness constraints
-
-#### Scenario: packs install propagates --force
-
-- **WHEN** the user runs `axm packs install <source> --force`
-- **THEN** the `--force` flag SHALL reach `resolvePlan` and override error-readiness constraints
-
-#### Scenario: --force flag description consistency
-
-- **WHEN** any command defines a `--force` option
-- **THEN** the description SHALL be "Override constraints that would cause failure"
-- **AND** SHALL NOT describe warning auto-acceptance or prompt skipping
 
 ### Requirement: --yes does not supply selection defaults
 
@@ -250,18 +183,3 @@ The CLI SHALL provide actionable error messages with recovery guidance. All erro
 
 - **WHEN** an error has a known recovery path
 - **THEN** the error message suggests how to resolve the issue
-
-### Requirement: Parser Unit Testing
-
-CLI commands SHALL have parser unit tests for yargs validation.
-
-#### Scenario: Parser tests isolate yargs behavior
-
-- **WHEN** testing CLI argument parsing
-- **THEN** tests use a fresh yargs instance with `.exitProcess(false)` and `.fail(false)`
-- **AND** tests verify required arguments, defaults, and type coercion
-
-#### Scenario: Parser tests are colocated
-
-- **WHEN** a command has parser tests
-- **THEN** tests are in `command.test.ts` alongside `command.ts`

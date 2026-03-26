@@ -195,32 +195,6 @@ Telemetry SHALL be automatically disabled in test environments.
 - **WHEN** the `VITEST` environment variable is set to `true`
 - **THEN** the telemetry layer SHALL use the no-op implementation automatically
 
-### Requirement: TelemetryClient Effect Service
-
-The system SHALL provide a `TelemetryClient` Effect service for all telemetry operations.
-
-#### Scenario: Service available in AppLayer
-
-- **WHEN** a command handler needs to track events
-- **THEN** it SHALL yield the `TelemetryClient` service from the Effect context
-
-#### Scenario: Two methods
-
-- **WHEN** using the `TelemetryClient` service
-- **THEN** it SHALL provide `trackEvent` for usage events and `reportError` for error reports
-
-#### Scenario: Telemetry API base URL
-
-- **WHEN** the `TelemetryClient` sends data
-- **THEN** it SHALL send to `https://t.agentxm.ai` using the existing `HttpClient` service
-- **AND** SHALL use `POST /events` for usage events and `POST /errors` for error reports
-
-#### Scenario: Telemetry active without workspace
-
-- **WHEN** a command runs without a workspace (e.g., before `axm init`)
-- **THEN** the `TelemetryClient` SHALL still be active using env vars and default settings
-- **AND** SHALL NOT require a workspace to resolve telemetry mode
-
 ### Requirement: Command Name in RunOptions
 
 The `run()` function SHALL accept a command name for telemetry context.

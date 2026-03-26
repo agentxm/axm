@@ -18,13 +18,3 @@ The update handler SHALL use configured skill entries from settings as the updat
 
 - **WHEN** a skill exists only as an implicit installed lockfile entry
 - **THEN** the update handler SHALL NOT include it in configured update iteration
-
-### Requirement: Update logging excludes legacy unmanaged-marker paths
-
-Update logging SHALL not emit legacy marker-based unmanaged skip messages.
-
-#### Scenario: No unmanaged-marker skip log
-
-- **WHEN** `axm skills update` runs
-- **THEN** output SHALL NOT include legacy unmanaged marker skip language
-- **AND** reporting SHALL reflect configured-entry iteration behavior

@@ -1,0 +1,15 @@
+{
+  "name": "@axm.sh/cli-spike-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Distribution E2E tests for the cli-spike CLI",
+  "type": "module",
+  "nx": {
+    "includedScripts": []
+  },
+  "devDependencies": {
+    "execa": "^9.6.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

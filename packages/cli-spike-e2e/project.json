@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli-spike-e2e",
+  "projectType": "application",
+  "root": "packages/cli-spike-e2e",
+  "sourceRoot": "packages/cli-spike-e2e/src",
+  "tags": ["type:e2e", "scope:spike"],
+  "targets": {
+    "e2e": {
+      "dependsOn": ["cli-spike:build"],
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli-spike-e2e/vitest.config.ts"
+      }
+    }
+  }
+}

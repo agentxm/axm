@@ -452,4 +452,5 @@ it("installs skill", async () => {
 
 - [ ] **Handler unit tests** — Effect handlers tested independently of CLI parsing
 - [ ] **Test layers provided** — Handler tests provide test layers
-- [ ] **E2E tests** — Full CLI binary tested via subprocess for user-visible behavior
+- [ ] **Co-located E2E tests** — CLI tested via subprocess for user-visible behavior (`*.e2e.test.ts`)
+- [ ] **Distribution E2E tests** — Built artifact tested in `packages/<cli>-e2e/` (zero internal deps)

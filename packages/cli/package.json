@@ -71,14 +71,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "nx run cli:build",
-    "prepublishOnly": "nx run cli:build",
-    "generate:schemas": "nx run cli:generate-schemas",
-    "test": "nx run cli:test",
-    "test:e2e": "nx run cli-e2e:e2e",
-    "axm": "nx run cli:start",
-    "axm:local": "nx run cli:start-local",
-    "typecheck": "nx run cli:typecheck"
+    "prepublishOnly": "nx run cli:build"
   },
   "nx": {
     "includedScripts": []

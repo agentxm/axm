@@ -37,17 +37,25 @@ logic. They run fast, require no external dependencies, and catch regressions in
 core logic. Place unit tests alongside source files (`parser.test.ts` next to
 `parser.ts`).
 
-**E2E tests** verify CLI commands work correctly from the user's perspective.
-They spawn the actual CLI binary, interact with the file system, and validate
-user-facing behavior. Place E2E tests in `packages/cli/e2e/`.
+**Co-located E2E tests** verify CLI commands work correctly from the user's
+perspective during development. They spawn the CLI from source (`bun run
+src/main.ts`), interact with the file system, and validate user-facing behavior.
+Co-located with command handlers (`*.e2e.test.ts`).
 
-| Aspect           | Unit Tests                    | E2E Tests                        |
-| ---------------- | ----------------------------- | -------------------------------- |
-| **Scope**        | Single function or handler    | Full CLI command                 |
-| **Speed**        | Milliseconds                  | Seconds                          |
-| **Dependencies** | Mocked or test layers         | Real file system, real binary    |
-| **Location**     | Colocated with source         | `packages/cli/e2e/`              |
-| **When to use**  | Logic correctness, edge cases | CLI parsing, integration, output |
+**Distribution E2E tests** verify the **built artifact** works correctly. They
+live in a separate Nx project (`packages/<cli>-e2e/`), have zero internal
+dependencies, and spawn the compiled output from `dist/`. These catch
+build/bundle failures, missing deps, entry point wiring issues, and
+platform-specific problems that co-located tests can't.
+
+| Aspect           | Unit Tests                    | Co-located E2E                   | Distribution E2E                   |
+| ---------------- | ----------------------------- | -------------------------------- | ---------------------------------- |
+| **Scope**        | Single function or handler    | Full CLI command                 | Full CLI command                   |
+| **Speed**        | Milliseconds                  | Seconds                          | Seconds                            |
+| **Dependencies** | Mocked or test layers         | Real file system, source binary  | Real file system, built artifact   |
+| **Location**     | Colocated with source         | Colocated with source            | `packages/<cli>-e2e/`              |
+| **Tests what**   | Logic correctness, edge cases | CLI parsing, integration, output | Build integrity, distribution      |
+| **Runs**         | `pnpm test`                   | `pnpm test:e2e`                  | `pnpm nx e2e <cli>-e2e`           |
 
 ---
 

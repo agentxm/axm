@@ -129,6 +129,8 @@ packages/
             handler.test.ts      # Handler tests
             command.ts           # Parser-agnostic command runner
             command.e2e.test.ts  # CLI contract tests (co-located when useful)
+  cli-spike/        # @axm.sh/cli-spike - Effect v4 CLI spike
+  cli-spike-e2e/    # Distribution E2E tests for cli-spike (tests built artifact)
       lockfile/     # Lockfile feature
         lockfile.ts              # Core logic + LOCKFILE_NAME constant
         lockfile.test.ts
@@ -700,8 +702,11 @@ const value = Option.getOrThrow(maybeValue); // Throws if None
 - [ ] Implement until tests pass
 - [ ] Bug fix → regression test first
 - [ ] **Unit tests** (`*.test.ts`) for pure functions, handlers, business logic, error paths
-- [ ] **E2E tests** (`*.e2e.test.ts`) for user-visible functional behavior
-      → Co-located with command handlers, not in separate `e2e/` folder
+- [ ] **Co-located E2E tests** (`*.e2e.test.ts`) for dev-time CLI behavior verification
+      → Co-located with command handlers, run against source via `bun run src/main.ts`
+- [ ] **Distribution E2E tests** (`packages/<cli>-e2e/`) for verifying built artifacts
+      → Separate package, zero internal deps, runs against `dist/` output
+      → Catches build/bundle failures, missing deps, entry point wiring, platform issues
 
 ### Test Organization
 
@@ -710,6 +715,7 @@ const value = Option.getOrThrow(maybeValue); // Throws if None
 - [ ] Test structure mirrors code structure and vice versa
 - [ ] E2E tests focus on user-visible functional behavior, not internals
 - [ ] Test suite reads as a behavior catalog — names and structure convey what the system does
+- [ ] Distribution E2E tests live in `packages/<cli>-e2e/` — separate Nx project, depends on `<cli>:build`
 
 ### Test Quality
 

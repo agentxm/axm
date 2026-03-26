@@ -47,5 +47,6 @@
       "dependsOn": ["^build"],
       "inputs": ["default", "^production"]
     }
-  }
+  },
+  "analytics": false
 }

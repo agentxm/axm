@@ -16,6 +16,10 @@ import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
 // Text renderer — human-friendly table for TTY output
+//
+// Uses renderer.raw() intentionally to demonstrate the escape hatch for
+// custom-formatted output. See CliRenderer.table() for the canonical
+// column-based data display pattern.
 // ---------------------------------------------------------------------------
 
 const renderText = (skills: ReadonlyArray<FakeSkillInfo>): string => {

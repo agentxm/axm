@@ -55,17 +55,17 @@ export const createDefaultSettings = (): Settings => ({});
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const orderSettingsKeys = (settings: Settings): Settings => {
-  // Assertions needed: Settings has fixed keys, not a string index signature.
-  // Dynamic key access requires Record cast; result has same keys so Settings cast is safe.
-  const ordered: Record<string, unknown> = {};
-  for (const key of SETTINGS_KEY_ORDER) {
-    if (key in settings) {
-      ordered[key] = (settings as Record<string, unknown>)[key];
-    }
-  }
-  return ordered as Settings;
-};
+const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
+const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
+
+const orderSettingsRecord = (settings: Readonly<Record<string, unknown>>): Record<string, unknown> =>
+  SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((ordered, key) => {
+    const value = settings[key];
+    return value === undefined ? ordered : { ...ordered, [key]: value };
+  }, {});
+
+export const orderSettingsKeys = (settings: Settings): Settings =>
+  decodeSettingsSync(orderSettingsRecord(encodeSettingsSync(settings)));
 
 // -----------------------------------------------------------------------------
 // Core Functions
@@ -112,7 +112,7 @@ export const readSettings = (axmDir: string) =>
 
     // Parse JSON
     const json = yield* Effect.try({
-      try: () => JSON.parse(content) as unknown,
+      try: () => JSON.parse(content),
       catch: (error) =>
         makeAppError({
           code: "SETTINGS_PARSE_FAILED",
@@ -174,11 +174,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     );
 
     // Serialize to JSON with pretty printing and trailing newline.
-    // Assertion needed: Schema.encode produces Encoded type with same top-level keys as Settings
-    // but different value types (e.g., string instead of URL). orderSettingsKeys only reads keys,
-    // so the cast is safe for key ordering.
-    const content =
-      JSON.stringify(orderSettingsKeys(encoded as unknown as Settings), null, 2) + "\n";
+    const content = JSON.stringify(orderSettingsRecord(encoded), null, 2) + "\n";
 
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(

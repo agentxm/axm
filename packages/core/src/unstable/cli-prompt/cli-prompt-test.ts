@@ -1,15 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type {
-  AutocompleteMultiselectOpts,
-  AutocompleteOpts,
   ConfirmOpts,
-  GroupMultiselectOpts,
-  MultiselectOpts,
   PasswordOpts,
   PathOpts,
-  SelectKeyOpts,
-  SelectOpts,
   TextOpts,
 } from "./cli-prompt.js";
 import { CliPrompt } from "./cli-prompt.js";
@@ -39,12 +34,12 @@ export interface TestPromptState {
   readonly textCalls: Array<TextOpts>;
   readonly passwordCalls: Array<PasswordOpts>;
   readonly confirmCalls: Array<ConfirmOpts>;
-  readonly selectCalls: Array<SelectOpts<unknown>>;
-  readonly multiselectCalls: Array<MultiselectOpts<unknown>>;
-  readonly groupMultiselectCalls: Array<GroupMultiselectOpts<unknown>>;
-  readonly selectKeyCalls: Array<SelectKeyOpts<string>>;
-  readonly autocompleteCalls: Array<AutocompleteOpts<unknown>>;
-  readonly autocompleteMultiselectCalls: Array<AutocompleteMultiselectOpts<unknown>>;
+  readonly selectCalls: Array<unknown>;
+  readonly multiselectCalls: Array<unknown>;
+  readonly groupMultiselectCalls: Array<unknown>;
+  readonly selectKeyCalls: Array<unknown>;
+  readonly autocompleteCalls: Array<unknown>;
+  readonly autocompleteMultiselectCalls: Array<unknown>;
   readonly pathCalls: Array<PathOpts>;
 }
 
@@ -54,24 +49,77 @@ export interface TestPromptState {
 
 const makeQueue = <T>(items: ReadonlyArray<T> | undefined): Array<T> => Array.from(items ?? []);
 
-const erasePromptType = <T>(value: unknown): T => {
-  // Assertion needed: generic prompt values cross a test-only erased boundary.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as T;
-};
-
-const popAs = <T>(queue: Array<unknown>, method: string): Effect.Effect<T> => {
+const popValue = (queue: Array<unknown>, method: string): Effect.Effect<unknown> => {
   const value = queue.shift();
   if (value === undefined) {
     return Effect.die(
       new Error(
         `TestPrompt: no canned response for "${method}" — queue is empty. ` +
-          `Add more responses to TestPromptConfig.${method}Responses.`,
+        `Add more responses to TestPromptConfig.${method}Responses.`,
       ),
     );
   }
-  return Effect.succeed(erasePromptType<T>(value));
+  return Effect.succeed(value);
 };
+
+const dieInvalidResponse = (method: string, message: string): Effect.Effect<never> =>
+  Effect.die(new Error(`TestPrompt: invalid canned response for "${method}" — ${message}`));
+
+const stringifyForError = (value: unknown): string => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const matchesOptionValue = <T>(candidate: T, rawValue: unknown): boolean =>
+  Object.is(candidate, rawValue) || isDeepStrictEqual(candidate, rawValue);
+
+const findOptionValue = <T>(
+  options: ReadonlyArray<{ readonly value: T }>,
+  rawValue: unknown,
+  method: string,
+): Effect.Effect<T> => {
+  const option = options.find((entry) => matchesOptionValue(entry.value, rawValue));
+  if (option === undefined) {
+    return dieInvalidResponse(method, "response did not match any option value");
+  }
+  return Effect.succeed(option.value);
+};
+
+const findOptionValues = <T>(
+  options: ReadonlyArray<{ readonly value: T }>,
+  rawValue: unknown,
+  method: string,
+): Effect.Effect<ReadonlyArray<T>> => {
+  if (!Array.isArray(rawValue)) {
+    return dieInvalidResponse(method, "expected an array of option values");
+  }
+
+  const values: Array<T> = [];
+  for (const entry of rawValue) {
+    const option = options.find((candidate) => matchesOptionValue(candidate.value, entry));
+    if (option === undefined) {
+      return dieInvalidResponse(
+        method,
+        `one or more responses did not match an option value (response=${stringifyForError(entry)}, options=${stringifyForError(options.map((candidate) => candidate.value))})`,
+      );
+    }
+    values.push(option.value);
+  }
+  return Effect.succeed(values);
+};
+
+const flattenGroupedOptions = <T>(
+  options: Record<string, ReadonlyArray<{ readonly value: T }>>,
+): ReadonlyArray<{ readonly value: T }> => Object.values(options).flat();
+
+const resolveAutocompleteOptions = <T>(
+  options:
+    | ReadonlyArray<{ readonly value: T }>
+    | (() => ReadonlyArray<{ readonly value: T }>),
+): ReadonlyArray<{ readonly value: T }> => (typeof options === "function" ? options() : options);
 
 export const makeTestPrompt = (
   config: TestPromptConfig = {},
@@ -100,50 +148,84 @@ export const makeTestPrompt = (
   const autocompleteMultiselectQueue = makeQueue(config.autocompleteMultiselectResponses);
   const pathQueue = makeQueue(config.pathResponses);
 
-  const pushOpts = <TStored, TValue>(calls: Array<TStored>, opts: TValue) => {
-    calls.push(erasePromptType<TStored>(opts));
-  };
-
   const layer = Layer.succeed(CliPrompt, {
     text: (opts) => {
       state.textCalls.push(opts);
-      return popAs<string>(textQueue, "text");
+      const response = textQueue.shift();
+      if (response === undefined) {
+        return dieInvalidResponse("text", "queue is empty");
+      }
+      return Effect.succeed(response);
     },
     password: (opts) => {
       state.passwordCalls.push(opts);
-      return popAs<string>(passwordQueue, "password");
+      const response = passwordQueue.shift();
+      if (response === undefined) {
+        return dieInvalidResponse("password", "queue is empty");
+      }
+      return Effect.succeed(response);
     },
     confirm: (opts) => {
       state.confirmCalls.push(opts);
-      return popAs<boolean>(confirmQueue, "confirm");
+      const response = confirmQueue.shift();
+      if (response === undefined) {
+        return dieInvalidResponse("confirm", "queue is empty");
+      }
+      return Effect.succeed(response);
     },
-    select: <V>(opts: SelectOpts<V>) => {
-      pushOpts(state.selectCalls, opts);
-      return popAs<V>(selectQueue, "select");
+    select: (opts) => {
+      state.selectCalls.push(opts);
+      return popValue(selectQueue, "select").pipe(
+        Effect.flatMap((response) => findOptionValue(opts.options, response, "select")),
+      );
     },
-    multiselect: <V>(opts: MultiselectOpts<V>) => {
-      pushOpts(state.multiselectCalls, opts);
-      return popAs<ReadonlyArray<V>>(multiselectQueue, "multiselect");
+    multiselect: (opts) => {
+      state.multiselectCalls.push(opts);
+      return popValue(multiselectQueue, "multiselect").pipe(
+        Effect.flatMap((response) => findOptionValues(opts.options, response, "multiselect")),
+      );
     },
-    groupMultiselect: <V>(opts: GroupMultiselectOpts<V>) => {
-      pushOpts(state.groupMultiselectCalls, opts);
-      return popAs<ReadonlyArray<V>>(groupMultiselectQueue, "groupMultiselect");
+    groupMultiselect: (opts) => {
+      state.groupMultiselectCalls.push(opts);
+      return popValue(groupMultiselectQueue, "groupMultiselect").pipe(
+        Effect.flatMap((response) =>
+          findOptionValues(flattenGroupedOptions(opts.options), response, "groupMultiselect"),
+        ),
+      );
     },
-    selectKey: <V extends string>(opts: SelectKeyOpts<V>) => {
-      pushOpts(state.selectKeyCalls, opts);
-      return popAs<V>(selectKeyQueue, "selectKey");
+    selectKey: (opts) => {
+      state.selectKeyCalls.push(opts);
+      return popValue(selectKeyQueue, "selectKey").pipe(
+        Effect.flatMap((response) => findOptionValue(opts.options, response, "selectKey")),
+      );
     },
-    autocomplete: <V>(opts: AutocompleteOpts<V>) => {
-      pushOpts(state.autocompleteCalls, opts);
-      return popAs<V>(autocompleteQueue, "autocomplete");
+    autocomplete: (opts) => {
+      state.autocompleteCalls.push(opts);
+      return popValue(autocompleteQueue, "autocomplete").pipe(
+        Effect.flatMap((response) =>
+          findOptionValue(resolveAutocompleteOptions(opts.options), response, "autocomplete"),
+        ),
+      );
     },
-    autocompleteMultiselect: <V>(opts: AutocompleteMultiselectOpts<V>) => {
-      pushOpts(state.autocompleteMultiselectCalls, opts);
-      return popAs<ReadonlyArray<V>>(autocompleteMultiselectQueue, "autocompleteMultiselect");
+    autocompleteMultiselect: (opts) => {
+      state.autocompleteMultiselectCalls.push(opts);
+      return popValue(autocompleteMultiselectQueue, "autocompleteMultiselect").pipe(
+        Effect.flatMap((response) =>
+          findOptionValues(
+            resolveAutocompleteOptions(opts.options),
+            response,
+            "autocompleteMultiselect",
+          ),
+        ),
+      );
     },
     path: (opts) => {
       state.pathCalls.push(opts);
-      return popAs<string>(pathQueue, "path");
+      const response = pathQueue.shift();
+      if (response === undefined) {
+        return dieInvalidResponse("path", "queue is empty");
+      }
+      return Effect.succeed(response);
     },
   });
 

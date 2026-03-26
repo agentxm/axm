@@ -132,6 +132,23 @@ describe("makeTestPrompt", () => {
         expect(result).toEqual(["a", "b"]);
       }).pipe(Effect.provide(layer));
     });
+
+    it.effect("multiselect matches structurally equal object values", () => {
+      const [layer] = makeTestPrompt({
+        multiselectResponses: [[{ id: "commit" }, { id: "review-pr" }]],
+      });
+      return Effect.gen(function* () {
+        const prompt = yield* CliPrompt;
+        const result = yield* prompt.multiselect({
+          message: "Pick many:",
+          options: [
+            { value: { id: "commit" }, label: "Commit" },
+            { value: { id: "review-pr" }, label: "Review PR" },
+          ],
+        });
+        expect(result).toEqual([{ id: "commit" }, { id: "review-pr" }]);
+      }).pipe(Effect.provide(layer));
+    });
   });
 
   describe("queue consumption", () => {

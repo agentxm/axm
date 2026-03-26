@@ -2,7 +2,20 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { PromptCancelled } from "../prompt-cancelled.js";
 import type { AppError } from "../app-error/index.js";
-import { Input } from "./input.js";
+import {
+  Input,
+  type AutocompleteConfig,
+  type AutocompleteMultiselectConfig,
+  type ConfirmConfig,
+  type GroupMultiselectConfig,
+  type InputOption,
+  type MultiselectConfig,
+  type PasswordConfig,
+  type PathConfig,
+  type SelectConfig,
+  type SelectKeyConfig,
+  type TextConfig,
+} from "./input.js";
 
 export interface InputCall {
   readonly method: string;
@@ -70,17 +83,6 @@ const isBehavior = (value: unknown): value is InputPromptBehavior =>
     value.type === "select" ||
     value.type === "multiselect");
 
-const isOptionConfig = (
-  config: unknown,
-): config is { options: ReadonlyArray<{ value: unknown }> } =>
-  typeof config === "object" && config !== null && "options" in config;
-
-const erasePromptType = <T>(value: unknown): T => {
-  // Assertion needed: the test harness returns caller-chosen prompt value types.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as T;
-};
-
 export const makeInputTestLayer = (
   configOrBehavior: InputPromptBehavior | InputTestLayerConfig = defaultBehavior,
 ): readonly [Layer.Layer<Input>, MockInputService] => {
@@ -126,63 +128,213 @@ export const makeInputTestLayer = (
     );
   };
 
-  const runPrompt = <A>(
+  const dieInvalidBehavior = (method: InputMethod, message: string): Effect.Effect<never> =>
+    Effect.die(new Error(`Test setup error for ${method}: ${message}`));
+
+  const resolveOptionValue = <A>(
+    options: ReadonlyArray<InputOption<A>>,
+    index: number,
+    method: InputMethod,
+  ): Effect.Effect<A> => {
+    const option = options[index];
+    if (option === undefined) {
+      return dieInvalidBehavior(method, `index ${String(index)} out of bounds`);
+    }
+    return Effect.succeed(option.value);
+  };
+
+  const resolveOptionValueByMatch = <A>(
+    options: ReadonlyArray<InputOption<A>>,
+    value: unknown,
+    method: InputMethod,
+  ): Effect.Effect<A> => {
+    const option = options.find((entry) => Object.is(entry.value, value));
+    if (option === undefined) {
+      return dieInvalidBehavior(method, "response did not match any option value");
+    }
+    return Effect.succeed(option.value);
+  };
+
+  const resolveOptionValues = <A>(
+    options: ReadonlyArray<InputOption<A>>,
+    indices: ReadonlyArray<number>,
+    method: InputMethod,
+  ): Effect.Effect<ReadonlyArray<A>> => {
+    const values: Array<A> = [];
+    for (const index of indices) {
+      const option = options[index];
+      if (option === undefined) {
+        return dieInvalidBehavior(method, `index ${String(index)} out of bounds`);
+      }
+      values.push(option.value);
+    }
+    return Effect.succeed(values);
+  };
+
+  const resolveOptionValuesByMatch = <A>(
+    options: ReadonlyArray<InputOption<A>>,
+    value: unknown,
+    method: InputMethod,
+  ): Effect.Effect<ReadonlyArray<A>> => {
+    if (!Array.isArray(value)) {
+      return dieInvalidBehavior(method, "expected an array of option values");
+    }
+
+    const values: Array<A> = [];
+    for (const entry of value) {
+      const option = options.find((candidate) => Object.is(candidate.value, entry));
+      if (option === undefined) {
+        return dieInvalidBehavior(method, "one or more responses did not match an option value");
+      }
+      values.push(option.value);
+    }
+    return Effect.succeed(values);
+  };
+
+  const resolveAutocompleteOptions = <A>(
+    options: ReadonlyArray<InputOption<A>> | (() => ReadonlyArray<InputOption<A>>),
+  ): ReadonlyArray<InputOption<A>> => (typeof options === "function" ? options() : options);
+
+  const flattenGroupedOptions = <A>(
+    options: Record<string, ReadonlyArray<InputOption<A>>>,
+  ): ReadonlyArray<InputOption<A>> => Object.values(options).flat();
+
+  const recordCall = (
     method: InputMethod,
     config: unknown,
-  ): Effect.Effect<A, AppError | PromptCancelled> => {
+  ): InputPromptBehavior => {
     mock.calls.push({ method, config });
-    const behavior = resolveBehavior(method);
+    return resolveBehavior(method);
+  };
+
+  const runStringPrompt = (
+    method: InputMethod,
+    config: TextConfig | PasswordConfig | PathConfig,
+  ): Effect.Effect<string, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+    if (behavior.type === "cancel") {
+      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+    }
+    if (behavior.type === "return") {
+      if (typeof behavior.value === "string") {
+        return Effect.succeed(behavior.value);
+      }
+      return dieInvalidBehavior(method, "expected a string response");
+    }
+    return dieInvalidBehavior(method, "expected a return or cancel behavior");
+  };
+
+  const runBooleanPrompt = (
+    method: InputMethod,
+    config: ConfirmConfig,
+  ): Effect.Effect<boolean, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+    if (behavior.type === "cancel") {
+      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+    }
+    if (behavior.type === "return") {
+      if (typeof behavior.value === "boolean") {
+        return Effect.succeed(behavior.value);
+      }
+      return dieInvalidBehavior(method, "expected a boolean response");
+    }
+    return dieInvalidBehavior(method, "expected a return or cancel behavior");
+  };
+
+  const runSelectPrompt = <A>(
+    method: InputMethod,
+    config: SelectConfig<A> | AutocompleteConfig<A>,
+  ): Effect.Effect<A, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+    const options =
+      "options" in config && typeof config.options !== "function"
+        ? config.options
+        : resolveAutocompleteOptions(config.options);
 
     if (behavior.type === "cancel") {
       return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
     }
     if (behavior.type === "return") {
-      return Effect.succeed(erasePromptType<A>(behavior.value));
+      return resolveOptionValueByMatch(options, behavior.value, method);
     }
     if (behavior.type === "select") {
-      if (!isOptionConfig(config)) {
-        return Effect.die(
-          new Error(`Test setup error: method ${method} does not provide selectable options`),
-        );
-      }
-      const option = config.options[behavior.index];
-      if (!option) {
-        return Effect.die(
-          new Error(`Test setup error: index ${String(behavior.index)} out of bounds`),
-        );
-      }
-      return Effect.succeed(erasePromptType<A>(option.value));
+      return resolveOptionValue(options, behavior.index, method);
     }
-    // multiselect
-    if (!isOptionConfig(config)) {
-      return Effect.die(
-        new Error(`Test setup error: method ${method} does not provide selectable options`),
-      );
+    return dieInvalidBehavior(method, "expected a single-select behavior");
+  };
+
+  const runSelectKeyPrompt = <A extends string>(
+    method: InputMethod,
+    config: SelectKeyConfig<A>,
+  ): Effect.Effect<A, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+
+    if (behavior.type === "cancel") {
+      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
     }
-    return Effect.succeed(
-      erasePromptType<A>(
-        behavior.indices.map((index) => {
-          const option = config.options[index];
-          if (!option) {
-            throw new Error(`Test setup error: index ${String(index)} out of bounds`);
-          }
-          return option.value;
-        }),
-      ),
-    );
+    if (behavior.type === "return") {
+      return resolveOptionValueByMatch(config.options, behavior.value, method);
+    }
+    if (behavior.type === "select") {
+      return resolveOptionValue(config.options, behavior.index, method);
+    }
+    return dieInvalidBehavior(method, "expected a single-select behavior");
+  };
+
+  const runMultiselectPrompt = <A>(
+    method: InputMethod,
+    config: MultiselectConfig<A> | AutocompleteMultiselectConfig<A>,
+  ): Effect.Effect<ReadonlyArray<A>, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+    const options =
+      Array.isArray(config.options)
+        ? config.options
+        : typeof config.options === "function"
+          ? resolveAutocompleteOptions(config.options)
+          : config.options;
+
+    if (behavior.type === "cancel") {
+      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+    }
+    if (behavior.type === "return") {
+      return resolveOptionValuesByMatch(options, behavior.value, method);
+    }
+    if (behavior.type === "multiselect") {
+      return resolveOptionValues(options, behavior.indices, method);
+    }
+    return dieInvalidBehavior(method, "expected a multiselect behavior");
+  };
+
+  const runGroupMultiselectPrompt = <A>(
+    method: InputMethod,
+    config: GroupMultiselectConfig<A>,
+  ): Effect.Effect<ReadonlyArray<A>, AppError | PromptCancelled> => {
+    const behavior = recordCall(method, config);
+    const options = flattenGroupedOptions(config.options);
+
+    if (behavior.type === "cancel") {
+      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+    }
+    if (behavior.type === "return") {
+      return resolveOptionValuesByMatch(options, behavior.value, method);
+    }
+    if (behavior.type === "multiselect") {
+      return resolveOptionValues(options, behavior.indices, method);
+    }
+    return dieInvalidBehavior(method, "expected a multiselect behavior");
   };
 
   const layer = Layer.succeed(Input, {
-    text: (config) => runPrompt<string>("text", config),
-    password: (config) => runPrompt<string>("password", config),
-    confirm: (config) => runPrompt<boolean>("confirm", config),
-    select: (config) => runPrompt("select", config),
-    multiselect: (config) => runPrompt("multiselect", config),
-    groupMultiselect: (config) => runPrompt("groupMultiselect", config),
-    selectKey: (config) => runPrompt("selectKey", config),
-    autocomplete: (config) => runPrompt("autocomplete", config),
-    autocompleteMultiselect: (config) => runPrompt("autocompleteMultiselect", config),
-    path: (config) => runPrompt<string>("path", config),
+    text: (config) => runStringPrompt("text", config),
+    password: (config) => runStringPrompt("password", config),
+    confirm: (config) => runBooleanPrompt("confirm", config),
+    select: (config) => runSelectPrompt("select", config),
+    multiselect: (config) => runMultiselectPrompt("multiselect", config),
+    groupMultiselect: (config) => runGroupMultiselectPrompt("groupMultiselect", config),
+    selectKey: (config) => runSelectKeyPrompt("selectKey", config),
+    autocomplete: (config) => runSelectPrompt("autocomplete", config),
+    autocompleteMultiselect: (config) => runMultiselectPrompt("autocompleteMultiselect", config),
+    path: (config) => runStringPrompt("path", config),
   });
 
   return [layer, mock] as const;

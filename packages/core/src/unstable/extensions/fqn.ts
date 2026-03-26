@@ -29,6 +29,31 @@ export interface Fqn {
 
 const FQN_PARTS_PATTERN = /^(@[\w-]+)\/(skills|packs|commands|mcp-servers)\/([\w-]+)$/;
 
+const parseFqnMatch = (input: string): Fqn | undefined => {
+  const match = FQN_PARTS_PATTERN.exec(input);
+  if (!match) {
+    return undefined;
+  }
+
+  const handle = match.at(1);
+  const type = match.at(2);
+  const name = match.at(3);
+
+  if (
+    handle === undefined ||
+    name === undefined ||
+    (type !== "skills" && type !== "packs" && type !== "commands" && type !== "mcp-servers")
+  ) {
+    return undefined;
+  }
+
+  return {
+    handle,
+    type,
+    name,
+  };
+};
+
 /**
  * Parse a 3-segment FQN string into its parts.
  *
@@ -36,8 +61,8 @@ const FQN_PARTS_PATTERN = /^(@[\w-]+)\/(skills|packs|commands|mcp-servers)\/([\w
  */
 export const parseFqn = (input: string) =>
   Effect.gen(function* () {
-    const match = FQN_PARTS_PATTERN.exec(input);
-    if (!match) {
+    const parsed = parseFqnMatch(input);
+    if (parsed === undefined) {
       return yield* makeAppError({
         code: "INVALID_FQN",
         what: `Invalid fully qualified name: ${input}`,
@@ -45,12 +70,7 @@ export const parseFqn = (input: string) =>
         howToFix: "Use the 3-segment format: @handle/(skills|packs|mcp-servers)/name",
       });
     }
-
-    return {
-      handle: match[1]!,
-      type: match[2]! as ExtensionTypePlural,
-      name: match[3]!,
-    } satisfies Fqn;
+    return parsed;
   });
 
 /**
@@ -59,18 +79,13 @@ export const parseFqn = (input: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const parseFqnOrThrow = (input: string): Fqn => {
-  const match = FQN_PARTS_PATTERN.exec(input);
-  if (!match) {
+  const parsed = parseFqnMatch(input);
+  if (parsed === undefined) {
     throw new Error(
       `Invalid fully qualified name: ${input}. Expected format: @handle/(skills|packs|mcp-servers)/name`,
     );
   }
-
-  return {
-    handle: match[1]!,
-    type: match[2]! as ExtensionTypePlural,
-    name: match[3]!,
-  } satisfies Fqn;
+  return parsed;
 };
 
 /**

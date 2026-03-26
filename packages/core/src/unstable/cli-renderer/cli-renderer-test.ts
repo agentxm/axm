@@ -28,21 +28,21 @@ import {
 export interface TestRendererState {
   readonly logs: Array<LogMessage>;
   readonly tables: Array<{
-    items: Array<unknown>;
-    columns: Array<ColumnDef<unknown>>;
+    items: ReadonlyArray<unknown>;
+    columns: ReadonlyArray<unknown>;
     caption?: string;
   }>;
   readonly details: Array<{
     item: unknown;
-    columns: Array<ColumnDef<unknown>>;
+    columns: ReadonlyArray<unknown>;
     title?: string;
   }>;
   readonly trees: Array<{
-    roots: Array<TreeNode<unknown>>;
-    def: TreeDef<unknown>;
+    roots: ReadonlyArray<unknown>;
+    def: unknown;
     title?: string;
   }>;
-  readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Schema<unknown>> }>;
+  readonly results: Array<{ data: unknown; schema: Option.Option<unknown> }>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
@@ -69,12 +69,6 @@ const makeEmptyState = (): TestRendererState => ({
   outroMessage: Option.none(),
 });
 
-const eraseTestType = <T>(value: unknown): T => {
-  // Assertion needed: test renderer intentionally erases generic values at capture boundaries.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return value as T;
-};
-
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
   stop: (msg) =>
     Effect.sync(() => {
@@ -100,7 +94,10 @@ const makeMockProgressHandle = (state: TestRendererState, message: string): Prog
   advance: () => Effect.void,
 });
 
-const makeTestRendererService = (state: TestRendererState, resultReturnValue: boolean) => {
+const makeTestRendererService = (
+  state: TestRendererState,
+  resultReturnValue: boolean,
+): typeof CliRenderer.Service => {
   const mockWithSpinner = <A, E, R>(
     message: string,
     f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
@@ -140,7 +137,7 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
       );
     });
 
-  const service = {
+  const service: typeof CliRenderer.Service = {
     // Chrome (stderr)
     intro: (title: string) =>
       Effect.sync(() => {
@@ -341,7 +338,7 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
       Effect.sync(() => {
         state.tables.push({
           items: Array.from(items),
-          columns: eraseTestType(Array.from(columns)),
+          columns: Array.from(columns),
           ...(caption !== undefined && { caption }),
         });
       }),
@@ -349,15 +346,15 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
       Effect.sync(() => {
         state.details.push({
           item,
-          columns: eraseTestType(Array.from(columns)),
+          columns: Array.from(columns),
           ...(title !== undefined && { title }),
         });
       }),
     tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) =>
       Effect.sync(() => {
         state.trees.push({
-          roots: eraseTestType(Array.from(roots)),
-          def: eraseTestType(def),
+          roots: Array.from(roots),
+          def,
           ...(title !== undefined && { title }),
         });
       }),
@@ -367,7 +364,7 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
       Effect.sync(() => {
         state.results.push({
           data,
-          schema: Option.some(eraseTestType(schema)),
+          schema: Option.some(schema),
         });
         return resultReturnValue;
       }),
@@ -378,7 +375,7 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
             for (const item of chunks) {
               state.results.push({
                 data: item,
-                schema: Option.some(eraseTestType(schema)),
+                schema: Option.some(schema),
               });
             }
           }),
@@ -436,7 +433,7 @@ export const TestRenderer = {
   make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, false);
-    const layer = Layer.succeed(CliRenderer, eraseTestType<typeof CliRenderer.Service>(service));
+    const layer = Layer.succeed(CliRenderer, service);
     return { layer, state };
   },
 };
@@ -449,7 +446,7 @@ export const TestMachineRenderer = {
   make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, true);
-    const layer = Layer.succeed(CliRenderer, eraseTestType<typeof CliRenderer.Service>(service));
+    const layer = Layer.succeed(CliRenderer, service);
     return { layer, state };
   },
 };

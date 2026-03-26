@@ -2,7 +2,7 @@ import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { Output, type StreamLevel } from "./output.js";
 
 const streamMethodMap: Record<StreamLevel, (iter: Iterable<string>) => Promise<void>> = {
@@ -29,16 +29,17 @@ export const OutputLive = (): Layer.Layer<Output> =>
     box: (message, title, opts) => Effect.sync(() => p.box(message, title, opts)),
 
     stream: <E, R>(level: StreamLevel, stream: Stream.Stream<string, E, R>) =>
-      Effect.gen(function* () {
-        const arr = yield* Stream.runCollect(stream);
-        yield* Effect.tryPromise({
-          try: () => streamMethodMap[level](arr),
-          catch: (error) =>
-            makeAppError({
-              code: "STREAM_RENDER_FAILED",
-              what: "Stream rendering failed",
-              cause: error,
-            }),
-        });
-      }) as Effect.Effect<void, AppError | E, R>,
+      Stream.runCollect(stream).pipe(
+        Effect.flatMap((arr) =>
+          Effect.tryPromise({
+            try: () => streamMethodMap[level](arr),
+            catch: (error) =>
+              makeAppError({
+                code: "STREAM_RENDER_FAILED",
+                what: "Stream rendering failed",
+                cause: error,
+              }),
+          }),
+        ),
+      ),
   });

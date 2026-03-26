@@ -15,10 +15,9 @@ import { textInputCommand } from "./dev-cli-commands/tui/text-input/command.js";
 const ROOT_COMMAND = "axm-dev";
 const DEV_VERSION = "dev";
 
-type AnyCommand = Command.Command.Any;
 type DemoHandler = () => Promise<unknown> | unknown;
 
-const devCliCommandRef: { current: AnyCommand | undefined } = { current: undefined };
+const devCliCommandRef: { current: Command.Command.Any | undefined } = { current: undefined };
 
 interface DevCliExit {
   readonly _tag: "DevCliExit";
@@ -38,7 +37,7 @@ const isDevCliExit = (error: unknown): error is DevCliExit =>
   "exitCode" in error &&
   typeof error.exitCode === "number";
 
-const getDevCliCommand = (): AnyCommand => {
+const getDevCliCommand = (): Command.Command.Any => {
   if (devCliCommandRef.current === undefined) {
     throw new Error("Dev CLI command not initialized");
   }
@@ -51,14 +50,14 @@ const runDemo = (handler: DemoHandler) =>
     await Promise.resolve(handler());
   });
 
-const showHelpFor = (command: AnyCommand, commandPath: ReadonlyArray<string>) =>
+const showHelpFor = (command: Command.Command.Any, commandPath: ReadonlyArray<string>) =>
   GlobalFlag.Help.run(true, {
     command,
     commandPath,
     version: DEV_VERSION,
   });
 
-const makeLeafCommand = (name: string, description: string, handler: DemoHandler): AnyCommand =>
+const makeLeafCommand = (name: string, description: string, handler: DemoHandler) =>
   Command.make(name, {}, () => runDemo(handler)).pipe(Command.withDescription(description));
 
 const tuiCommand = Command.make("tui", {}, () =>
@@ -99,11 +98,10 @@ export const runDevCli = async (
   args: ReadonlyArray<string> = process.argv.slice(2),
 ): Promise<void> => {
   try {
-    await Effect.runPromise(
-      Command.runWith(devCliCommand, { version: DEV_VERSION })(args).pipe(
-        Effect.provide(NodeServices.layer),
-      ) as Effect.Effect<void>,
-    );
+    const program: Effect.Effect<void, unknown, never> = Command.runWith(devCliCommand, {
+      version: DEV_VERSION,
+    })(args).pipe(Effect.provide(NodeServices.layer));
+    await Effect.runPromise(program);
   } catch (error) {
     if (isDevCliExit(error)) {
       process.exit(error.exitCode);

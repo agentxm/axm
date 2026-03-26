@@ -30,7 +30,7 @@ import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
  */
 const nameFromFqn = (fqn: string): string => {
   const parts = fqn.split("/");
-  return parts[parts.length - 1]!;
+  return parts[parts.length - 1] ?? fqn;
 };
 
 /**
@@ -39,7 +39,7 @@ const nameFromFqn = (fqn: string): string => {
  */
 const namespaceFromFqn = (fqn: string): string => {
   const parts = fqn.split("/");
-  return parts[0]!;
+  return parts[0] ?? "";
 };
 
 // -----------------------------------------------------------------------------
@@ -125,7 +125,8 @@ export const expandPackInstallRefs = (args: {
     }
   }
 
-  return Effect.succeed([pack as ExtensionRef, ...deps]);
+  const packRef: ExtensionRef = pack;
+  return Effect.succeed([packRef, ...deps]);
 };
 
 // -----------------------------------------------------------------------------

@@ -102,7 +102,10 @@ export const publishSkill: OperationHandler<
     );
 
     const manifestJson = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(manifestContent);
+        return parsed;
+      },
       catch: (e) =>
         makeAppError({
           code: "PUBLISH_SKILL_MANIFEST_PARSE_FAILED",

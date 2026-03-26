@@ -84,7 +84,11 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   // Resolve pack profile from the entry (format: "@profile/packs/name" or { source: "@profile/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
   const hasProfile = packSource.startsWith("@") && packSource.includes("/");
-  const packProfile = hasProfile ? packSource.split("/")[0]! : yield* ws.getConfiguredProfile();
+  const [packProfileFromSource] = packSource.split("/");
+  const packProfile =
+    hasProfile && packProfileFromSource !== undefined
+      ? packProfileFromSource
+      : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
@@ -105,7 +109,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const manifestHash = hashContent(manifestContent);
 
   const json = yield* Effect.try({
-    try: () => JSON.parse(manifestContent) as unknown,
+    try: () => {
+      const parsed: unknown = JSON.parse(manifestContent);
+      return parsed;
+    },
     catch: (e) =>
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
@@ -169,7 +176,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const additions: Record<string, string> = {};
 
   for (const name of matchedNames) {
-    const lockEntry = lockedSkills[name]!;
+    const lockEntry = lockedSkills[name];
+    if (lockEntry === undefined) {
+      continue;
+    }
 
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;

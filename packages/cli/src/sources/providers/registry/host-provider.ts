@@ -52,7 +52,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 const toSearchOptions = (profile: string, options: FindOptions): GetExtensionsByProfileArgs => ({
   handle: profile,
   names: options.skillNames,
-  types: options.type === "*" ? [] : [options.type as ExtensionType],
+  types: options.type === "*" ? [] : [options.type],
   limit: Option.none(),
   offset: 0,
 });
@@ -222,11 +222,11 @@ export const createLocalRegistrySourceHostProvider = (
       const dirExists = yield* fsService
         .exists(extensionsDir)
         .pipe(Effect.orElseSucceed(() => false));
-      if (!dirExists) return [] as ReadonlyArray<ExtensionRef>;
+      if (!dirExists) return [];
 
       const entries = yield* fsService
         .readDirectory(extensionsDir)
-        .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+        .pipe(Effect.orElseSucceed((): readonly string[] => []));
       const namespaces = Option.isSome(options.profile)
         ? [options.profile.value]
         : entries.filter((d) => d.startsWith("@"));

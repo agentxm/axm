@@ -104,7 +104,10 @@ export const removeFromPack: OperationHandler<
 
     // 4. Parse and apply removals
     const json = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(manifestContent);
+        return parsed;
+      },
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
@@ -113,8 +116,7 @@ export const removeFromPack: OperationHandler<
         }),
     });
 
-    // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
-    const manifest = (yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
@@ -122,21 +124,27 @@ export const removeFromPack: OperationHandler<
           cause: e,
         }),
       ),
-    )) as RawPackManifest;
+    );
 
     const removalSet = new Set(removals);
-    for (const section of ["skills", "commands", "mcp-servers"] as const) {
-      const entries = manifest[section];
-      if (entries === undefined) continue;
-      for (const name of Object.keys(entries)) {
-        if (removalSet.has(name)) {
-          delete entries[name];
-        }
-      }
-    }
+    const updatedSkills = Object.fromEntries(
+      Object.entries(manifest.skills ?? {}).filter(([name]) => !removalSet.has(name)),
+    );
+    const updatedCommands = Object.fromEntries(
+      Object.entries(manifest.commands ?? {}).filter(([name]) => !removalSet.has(name)),
+    );
+    const updatedMcpServers = Object.fromEntries(
+      Object.entries(manifest["mcp-servers"] ?? {}).filter(([name]) => !removalSet.has(name)),
+    );
+    const updatedManifest: RawPackManifest = {
+      ...manifest,
+      skills: updatedSkills,
+      commands: updatedCommands,
+      "mcp-servers": updatedMcpServers,
+    };
 
     // 5. Write updated manifest
-    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
+    yield* fs.writeFileString(manifestPath, JSON.stringify(updatedManifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_WRITE_FAILED",

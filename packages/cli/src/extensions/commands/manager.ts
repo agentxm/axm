@@ -81,7 +81,7 @@ export const CommandManagerLive = Layer.effect(
           });
         }
 
-        const registryRef = ref as RegistryCommandRef;
+        const registryRef = ref;
         const canonicalPath = path.join(
           baseDir,
           REGISTRY_EXTENSIONS_DIR,
@@ -216,7 +216,7 @@ export const CommandManagerLive = Layer.effect(
       }) => {
         if (ref.refType !== "registry")
           return Effect.void.pipe(Effect.withSpan("CommandManager.upsertSettingsEntry"));
-        const registryRef = ref as RegistryCommandRef;
+        const registryRef = ref;
         return validateExactResolvedVersion(
           `commands.${ref.command.name}.resolvedVersion`,
           registryRef.version,
@@ -237,7 +237,7 @@ export const CommandManagerLive = Layer.effect(
       upsertLockfileEntry: ({ ref }: { readonly ref: CommandExtensionRef }) => {
         if (ref.refType !== "registry")
           return Effect.void.pipe(Effect.withSpan("CommandManager.upsertLockfileEntry"));
-        const registryRef = ref as RegistryCommandRef;
+        const registryRef = ref;
         return validateExactResolvedVersion(
           `commands.${ref.command.name}.resolvedVersion`,
           registryRef.version,

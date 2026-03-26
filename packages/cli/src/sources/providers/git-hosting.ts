@@ -28,7 +28,7 @@ import type {
   BitbucketSource,
   AzureReposSource,
   GitHostingSourceHost,
-  ExtensionRef,
+  SkillExtensionRef,
 } from "@axm.sh/core/unstable/sources";
 
 // -----------------------------------------------------------------------------
@@ -47,14 +47,11 @@ import type {
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitHostingSourceHostProvider = <
-  H extends GitHostingSourceHost,
-  S extends (GitHubSource | GitLabSource | BitbucketSource | AzureReposSource) & {
-    type: H["type"];
-  },
+  S extends GitHubSource | GitLabSource | BitbucketSource | AzureReposSource,
 >(
-  host: H,
+  host: Extract<GitHostingSourceHost, { type: S["type"] }>,
 ): SourceHostProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
-  type: host.type as S["type"],
+  type: host.type,
 
   match: (url: URL) => Effect.succeed(url.hostname === host.url.hostname),
 
@@ -110,7 +107,7 @@ export const createGitHostingSourceHostProvider = <
             // Assertion needed: TS can't prove generic S narrows to a concrete ExtensionRef source variant.
             // The `source` parameter is typed as S (a git hosting source), but ExtensionRef requires
             // a specific source type. satisfies won't work here due to the generic type parameter.
-            return {
+            const ref: SkillExtensionRef = {
               type: "skill" as const,
               refType: "git-hosted" as const,
               skill: {
@@ -121,7 +118,8 @@ export const createGitHostingSourceHostProvider = <
               source,
               location: d.location,
               gitTreeSha: Option.some(gitTreeSha),
-            } as ExtensionRef;
+            };
+            return ref;
           }),
         { concurrency: "unbounded" },
       );
@@ -171,25 +169,25 @@ export const buildCloneUrlForSource = (
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitHubSourceHostProvider = (host: GitHubSourceHost) =>
-  createGitHostingSourceHostProvider<GitHubSourceHost, GitHubSource>(host);
+  createGitHostingSourceHostProvider<GitHubSource>(host);
 
 /**
  * Source host provider for GitLab repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitLabSourceHostProvider = (host: GitLabSourceHost) =>
-  createGitHostingSourceHostProvider<GitLabSourceHost, GitLabSource>(host);
+  createGitHostingSourceHostProvider<GitLabSource>(host);
 
 /**
  * Source host provider for Bitbucket repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createBitbucketSourceHostProvider = (host: BitbucketSourceHost) =>
-  createGitHostingSourceHostProvider<BitbucketSourceHost, BitbucketSource>(host);
+  createGitHostingSourceHostProvider<BitbucketSource>(host);
 
 /**
  * Source host provider for Azure Repos repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createAzureReposSourceHostProvider = (host: AzureReposSourceHost) =>
-  createGitHostingSourceHostProvider<AzureReposSourceHost, AzureReposSource>(host);
+  createGitHostingSourceHostProvider<AzureReposSource>(host);

@@ -58,7 +58,10 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
   );
 
   const json = yield* Effect.try({
-    try: () => JSON.parse(content) as unknown,
+    try: () => {
+      const parsed: unknown = JSON.parse(content);
+      return parsed;
+    },
     catch: (e) =>
       makeAppError({
         code: "BUILTIN_PACK_PARSE_FAILED",

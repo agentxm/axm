@@ -150,7 +150,7 @@ const scanDirectory = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
-    if (Option.isNone(entries)) return [] as readonly DiscoveredSkill[];
+    if (Option.isNone(entries)) return [];
 
     return yield* Effect.forEach(
       entries.value,

@@ -120,7 +120,7 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
       name: plan.name,
       description: plan.description,
       jobs: Array.map(jobResults, (steps, i) => ({
-        concurrency: plan.jobs[i]!.concurrency,
+        concurrency: plan.jobs[i]?.concurrency ?? 1,
         steps,
       })),
     } satisfies ExecutedPlan;

@@ -139,10 +139,9 @@ const classifyExtensions = (
 
     // Step 4: Build classified rows
 
-    const configured: ReadonlyArray<ClassifiedExtension> = Object.keys(input.configured)
-      .sort()
-      .map((name) => {
-        const entry = input.configured[name]!;
+    const configured: ReadonlyArray<ClassifiedExtension> = Object.entries(input.configured)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([name, entry]) => {
         const sourceMeta = sourceMetaFor(name);
         return {
           type: input.type,

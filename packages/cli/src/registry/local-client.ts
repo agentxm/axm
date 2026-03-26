@@ -60,7 +60,10 @@ const processNameDir = (
       ),
     );
     const json = yield* Effect.try({
-      try: () => JSON.parse(content) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(content);
+        return parsed;
+      },
       catch: (e) =>
         makeAppError({
           code: "REGISTRY_FETCH_FAILED",
@@ -135,11 +138,11 @@ export const createLocalRegistryClient = (
                 const typeDirExists = yield* fs
                   .exists(typeDir)
                   .pipe(Effect.orElseSucceed(() => false));
-                if (!typeDirExists) return [] as ReadonlyArray<RegistryExtensionManifest>;
+                if (!typeDirExists) return [];
 
                 const nameDirs = yield* fs
                   .readDirectory(typeDir)
-                  .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+                  .pipe(Effect.orElseSucceed((): readonly string[] => []));
                 const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
 
                 return yield* Effect.forEach(
@@ -201,7 +204,10 @@ export const createLocalRegistryClient = (
               ),
             );
             const json = yield* Effect.try({
-              try: () => JSON.parse(content) as unknown,
+              try: () => {
+                const parsed: unknown = JSON.parse(content);
+                return parsed;
+              },
               catch: (e) =>
                 makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
@@ -254,7 +260,10 @@ export const createLocalRegistryClient = (
               ),
             );
             const json = yield* Effect.try({
-              try: () => JSON.parse(content) as unknown,
+              try: () => {
+                const parsed: unknown = JSON.parse(content);
+                return parsed;
+              },
               catch: (e) =>
                 makeAppError({
                   code: "REGISTRY_FETCH_FAILED",
@@ -346,7 +355,10 @@ export const createLocalRegistryClient = (
           ),
         );
         const json = yield* Effect.try({
-          try: () => JSON.parse(content) as unknown,
+          try: () => {
+            const parsed: unknown = JSON.parse(content);
+            return parsed;
+          },
           catch: (e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",

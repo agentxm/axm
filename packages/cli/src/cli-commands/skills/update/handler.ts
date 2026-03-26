@@ -133,7 +133,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               resolveSource(sourceStr).pipe(
                 Effect.map((resolved) =>
                   sources.origin(resolved) === sourceArgOrigin
-                    ? Option.some([name, sourceStr] as [string, string])
+                    ? Option.some<readonly [string, string]>([name, sourceStr])
                     : Option.none<[string, string]>(),
                 ),
                 Effect.catch(() => Effect.succeed(Option.none<[string, string]>())),
@@ -206,7 +206,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
             if (allSkillRefs.length === 1) {
               // Single-skill source: treat as rename
-              const newRef = allSkillRefs[0]!;
+              const [newRef] = allSkillRefs;
+              if (newRef === undefined) {
+                return Option.none<ResolveResult>();
+              }
               return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
             } else if (allSkillRefs.length > 1) {
               // Multi-skill source: ambiguous rename
@@ -246,15 +249,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   // Step 7: Emit holdback warnings for registry skills held back by pack constraints
   const holdbackWarnings = Array.flatMap(
     resolved.filter(
-      (item): item is typeof item & { type: "match" } =>
-        item.type === "match" && item.ref.type === "skill" && item.ref.refType === "registry",
+      (
+        item,
+      ): item is {
+        readonly type: "match";
+        readonly ref: Extract<SkillExtensionRef, { refType: "registry" }>;
+      } => item.type === "match" && item.ref.refType === "registry",
     ),
     (item) => {
-      const registryRef = item.ref as {
-        readonly profile: string;
-        readonly skill: { readonly name: string };
-        readonly version: string;
-      };
+      const registryRef = item.ref;
       const skillFqn = `${registryRef.profile}/skills/${registryRef.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];
       if (packConstraints.length === 0) return [];
@@ -393,7 +396,8 @@ const collectPackConstraints = () =>
 
         const json = yield* Effect.sync(() => {
           try {
-            return Option.some(JSON.parse(content) as unknown);
+            const parsed: unknown = JSON.parse(content);
+            return Option.some(parsed);
           } catch {
             return Option.none<unknown>();
           }

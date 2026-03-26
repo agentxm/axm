@@ -33,7 +33,8 @@ export const selectVersion = (
   versions: ReadonlyArray<VersionEntry>,
 ): Option.Option<VersionEntry> => {
   if (versions.length === 0) return Option.none();
-  return Option.some(versions[0]!);
+  const [latest] = versions;
+  return latest === undefined ? Option.none() : Option.some(latest);
 };
 
 // -----------------------------------------------------------------------------

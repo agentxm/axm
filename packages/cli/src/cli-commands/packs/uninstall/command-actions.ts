@@ -228,7 +228,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           return {
             label: toLabel(target),
             readiness: "error",
-            errorMessage: `Unsupported dependency type: ${(target as ExtensionTarget).type}`,
+            errorMessage: "Unsupported dependency type",
           };
         });
 

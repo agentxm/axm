@@ -15,7 +15,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironment, nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef, Source, InputParseResult } from "@axm.sh/core/unstable/sources";
@@ -184,6 +184,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
     const env = yield* CliEnvironment;
+    const nonInteractive = yield* nonInteractiveFlag;
 
     // Build a service layer providing all services needed by inner effects
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
@@ -195,14 +196,12 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(CliEnvironment, env),
+      Layer.succeed(nonInteractiveFlag, nonInteractive),
     );
 
-    // Provide all captured services, bridging R to never and allowing
-    // PromptCancelled to narrow to AppError for the interface contract.
-    // PromptCancelled propagates at runtime to the command runner level.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service context
-    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, AppError, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, AppError, never>;
+    // Provide all captured services so workflow methods close over their
+    // dependencies while PromptCancelled still propagates to the runtime.
+    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
     // PromptCancelled from prompts propagates through the workflow
     // to the run() handler. The provide() helper narrows E to AppError for the interface.
@@ -286,55 +285,59 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const discoverRefs = (reqs: ReadonlyArray<SkillSourceRequest>) =>
       provide(
-        Effect.gen(function* () {
-          const req = reqs[0];
-          if (req === undefined) {
-            return yield* makeAppError({
-              code: "DISCOVER_FAILED",
-              what: "No source request to discover from",
-            });
-          }
+        Effect.scoped(
+          Effect.gen(function* () {
+            const req = reqs[0];
+            if (req === undefined) {
+              return yield* makeAppError({
+                code: "DISCOVER_FAILED",
+                what: "No source request to discover from",
+              });
+            }
 
-          return yield* renderer.withSpinner(
-            "Discovering skills...",
-            () =>
-              sources
-                .find(req.source, {
-                  skillNames: req.requestedSkills,
-                  type: "skill" as const,
-                  profile: req.requestedProfile,
-                  versionConstraint: req.versionConstraint,
-                })
-                .pipe(
-                  Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-                  Effect.mapError((error) => {
-                    const reason = summarizeDiscoverError(error);
-                    return makeAppError({
-                      code: "DISCOVER_FAILED",
-                      what: "Failed to discover skills from source",
-                      details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
-                      howToFix: discoverHowToFix(req.source, error),
-                      cause: error,
-                    });
-                  }),
-                  Effect.flatMap((discoveredSkills) =>
-                    !Array.isReadonlyArrayEmpty(discoveredSkills)
-                      ? Effect.succeed(discoveredSkills)
-                      : Effect.fail(
-                          makeAppError({
-                            code: "NO_SKILLS_FOUND",
-                            what: "No skills found in source",
-                            details: [`Source: ${sources.origin(req.source)}`],
-                            howToFix: noSkillsFoundHowToFix(req.source),
-                          }),
-                        ),
+            return yield* renderer.withSpinner(
+              "Discovering skills...",
+              () =>
+                sources
+                  .find(req.source, {
+                    skillNames: req.requestedSkills,
+                    type: "skill" as const,
+                    profile: req.requestedProfile,
+                    versionConstraint: req.versionConstraint,
+                  })
+                  .pipe(
+                    Effect.map(
+                      Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
+                    ),
+                    Effect.mapError((error) => {
+                      const reason = summarizeDiscoverError(error);
+                      return makeAppError({
+                        code: "DISCOVER_FAILED",
+                        what: "Failed to discover skills from source",
+                        details: [`Source: ${sources.origin(req.source)}`, `Reason: ${reason}`],
+                        howToFix: discoverHowToFix(req.source, error),
+                        cause: error,
+                      });
+                    }),
+                    Effect.flatMap((discoveredSkills) =>
+                      !Array.isReadonlyArrayEmpty(discoveredSkills)
+                        ? Effect.succeed(discoveredSkills)
+                        : Effect.fail(
+                            makeAppError({
+                              code: "NO_SKILLS_FOUND",
+                              what: "No skills found in source",
+                              details: [`Source: ${sources.origin(req.source)}`],
+                              howToFix: noSkillsFoundHowToFix(req.source),
+                            }),
+                          ),
+                    ),
                   ),
-                ),
-            {
-              successMessage: (discoveredSkills) => `Found ${discoveredSkills.length} skill(s)`,
-            },
-          );
-        }),
+              {
+                successMessage: (discoveredSkills) => `Found ${discoveredSkills.length} skill(s)`,
+              },
+            );
+          }),
+        ),
       );
 
     const finalizeIntent = (
@@ -344,8 +347,19 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           // Select skills
+          const [firstDiscoveredRef, ...remainingDiscoveredRefs] = discoveredRefs;
+          if (firstDiscoveredRef === undefined) {
+            return yield* makeAppError({
+              code: "NO_SKILLS_FOUND",
+              what: "No skills found in source",
+            });
+          }
+          const nonEmptyDiscoveredRefs: Array.NonEmptyReadonlyArray<SkillExtensionRef> = [
+            firstDiscoveredRef,
+            ...remainingDiscoveredRefs,
+          ];
           const selectedSkills = yield* determineSkillsToInstall(
-            discoveredRefs as Array.NonEmptyReadonlyArray<SkillExtensionRef>,
+            nonEmptyDiscoveredRefs,
             {
               requestedSkills: parsed.requestedSkills,
               all: parsed.all,

@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   BUILTIN_PACK_FQN,
   BUILTIN_PACK_NAME,
@@ -22,6 +23,11 @@ import {
 import { copySkillDirectory } from "../extensions/skills/operations/copy-directory.js";
 import { readLockfile, writeLockfile } from "@axm.sh/core/unstable/lockfile";
 import { createSymlink } from "@axm.sh/core/unstable/utils";
+
+const getSkillNameFromFqn = (fqn: string): Option.Option<string> => {
+  const [, , skillName] = fqn.split("/");
+  return Option.fromUndefinedOr(skillName);
+};
 
 /**
  * Materialize builtin pack skills into the workspace.
@@ -54,7 +60,14 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
       ([fqn, version]) =>
         Effect.gen(function* () {
           // Extract skill name from FQN (@axm/skills/axm-manage-skills -> axm-manage-skills)
-          const skillName = fqn.split("/")[2]!;
+          const skillName = yield* Option.match(getSkillNameFromFqn(fqn), {
+            onNone: () =>
+              makeAppError({
+                code: "BUILTIN_PACK_INVALID_FQN",
+                what: `Builtin pack skill dependency is not a valid FQN: ${fqn}`,
+              }),
+            onSome: Effect.succeed,
+          });
 
           // Source: bundled skill directory
           const sourceDir = path.join(builtinPack.skillsDir, skillName);
@@ -95,7 +108,14 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
       { type: "builtin"; agents: string[]; installedAt: Date; updatedAt: Date }
     > = {};
     for (const [fqn] of skillEntries) {
-      const skillName = fqn.split("/")[2]!;
+      const skillName = yield* Option.match(getSkillNameFromFqn(fqn), {
+        onNone: () =>
+          makeAppError({
+            code: "BUILTIN_PACK_INVALID_FQN",
+            what: `Builtin pack skill dependency is not a valid FQN: ${fqn}`,
+          }),
+        onSome: Effect.succeed,
+      });
       skillLockEntries[skillName] = {
         type: "builtin" as const,
         agents: [...agentIds],
@@ -104,6 +124,8 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
       };
     }
 
+    const resolvedCommands: Record<string, string> = {};
+    const resolvedMcpServers: Record<string, string> = {};
     const packLockEntry = {
       type: "builtin" as const,
       profile: BUILTIN_PACK_SCOPE,
@@ -112,8 +134,8 @@ export const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyA
       installedAt: now,
       updatedAt: now,
       resolvedSkills: Object.fromEntries(skillEntries.map(([fqn, ver]) => [fqn, ver])),
-      resolvedCommands: {} as Record<string, string>,
-      resolvedMcpServers: {} as Record<string, string>,
+      resolvedCommands,
+      resolvedMcpServers,
     };
 
     // Write updated lockfile

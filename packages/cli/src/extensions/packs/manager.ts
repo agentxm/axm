@@ -115,7 +115,7 @@ export const PackManagerLive = Layer.effect(
         return;
       }
 
-      const registryRef = ref as RegistryPackRef;
+      const registryRef = ref;
 
       yield* validateExactResolvedVersion(
         `packs.${ref.pack.name}.resolvedVersion`,
@@ -195,7 +195,7 @@ export const PackManagerLive = Layer.effect(
       }) => {
         if (ref.refType === "builtin")
           return Effect.void.pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
-        const args = buildSetPackArgs(ref as RegistryPackRef, versionConstraint);
+        const args = buildSetPackArgs(ref, versionConstraint);
         return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
       },
 
@@ -205,7 +205,7 @@ export const PackManagerLive = Layer.effect(
       upsertLockfileEntry: ({ ref }: { readonly ref: PackExtensionRef }) => {
         if (ref.refType === "builtin")
           return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
-        const args = buildSetPackArgs(ref as RegistryPackRef, Option.none());
+        const args = buildSetPackArgs(ref, Option.none());
         return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
       },
 

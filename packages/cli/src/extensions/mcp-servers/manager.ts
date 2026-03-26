@@ -77,7 +77,7 @@ export const McpServerManagerLive = Layer.effect(
           });
         }
 
-        const registryRef = ref as RegistryMcpServerRef;
+        const registryRef = ref;
         const canonicalPath = path.join(
           baseDir,
           REGISTRY_EXTENSIONS_DIR,
@@ -212,7 +212,7 @@ export const McpServerManagerLive = Layer.effect(
       }) => {
         if (ref.refType !== "registry")
           return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));
-        const registryRef = ref as RegistryMcpServerRef;
+        const registryRef = ref;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
@@ -233,7 +233,7 @@ export const McpServerManagerLive = Layer.effect(
       upsertLockfileEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
         if (ref.refType !== "registry")
           return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
-        const registryRef = ref as RegistryMcpServerRef;
+        const registryRef = ref;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,

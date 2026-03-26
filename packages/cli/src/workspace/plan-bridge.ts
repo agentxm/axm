@@ -41,6 +41,11 @@ export interface LegacyPlan<TOperation> {
   }>;
 }
 
+const isOperationHandler = <Op extends { readonly name: string }>(
+  value: unknown,
+): value is (op: Op) => Effect.Effect<OperationResult, AppError, never> =>
+  typeof value === "function";
+
 /**
  * Convert a legacy plan with handler map to a new-style Plan with run closures.
  *
@@ -49,11 +54,9 @@ export interface LegacyPlan<TOperation> {
  */
 export const bridgeLegacyPlan = <
   Op extends { readonly name: string },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  T extends Record<string, (op: any) => Effect.Effect<OperationResult, AppError, any>>,
 >(
   legacyPlan: LegacyPlan<Op>,
-  handlers: T,
+  handlers: Readonly<Record<string, unknown>>,
 ): Plan => ({
   _tag: "Plan",
   name: legacyPlan.name,
@@ -79,8 +82,8 @@ export const bridgeLegacyPlan = <
             label: step.label,
           };
         case "warn": {
-          const handler = handlers[step.operation.name as keyof T];
-          if (!handler) {
+          const handler = Reflect.get(handlers, step.operation.name);
+          if (!isOperationHandler<Op>(handler)) {
             return {
               readiness: "error",
               errorMessage: `No handler for operation: ${step.operation.name}`,
@@ -91,14 +94,12 @@ export const bridgeLegacyPlan = <
             readiness: "warn",
             warnMessage: step.readiness.message,
             label: step.label,
-            run: (handler as (op: Op) => Effect.Effect<OperationResult, AppError, never>)(
-              step.operation,
-            ).pipe(Effect.map(toJobStepResult)),
+            run: handler(step.operation).pipe(Effect.map(toJobStepResult)),
           };
         }
         case "ready": {
-          const handler = handlers[step.operation.name as keyof T];
-          if (!handler) {
+          const handler = Reflect.get(handlers, step.operation.name);
+          if (!isOperationHandler<Op>(handler)) {
             return {
               readiness: "error",
               errorMessage: `No handler for operation: ${step.operation.name}`,
@@ -108,9 +109,7 @@ export const bridgeLegacyPlan = <
           return {
             readiness: "ready",
             label: step.label,
-            run: (handler as (op: Op) => Effect.Effect<OperationResult, AppError, never>)(
-              step.operation,
-            ).pipe(Effect.map(toJobStepResult)),
+            run: handler(step.operation).pipe(Effect.map(toJobStepResult)),
           };
         }
       }

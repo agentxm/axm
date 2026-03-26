@@ -105,7 +105,10 @@ export const addToPack: OperationHandler<
 
     // 4. Parse and apply additions
     const json = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(manifestContent);
+        return parsed;
+      },
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
@@ -114,8 +117,7 @@ export const addToPack: OperationHandler<
         }),
     });
 
-    // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
-    const manifest = (yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
@@ -123,7 +125,7 @@ export const addToPack: OperationHandler<
           cause: e,
         }),
       ),
-    )) as RawPackManifest;
+    );
 
     const currentSkills = { ...(manifest.skills ?? {}) };
     const currentCommands = { ...(manifest.commands ?? {}) };
@@ -147,12 +149,15 @@ export const addToPack: OperationHandler<
       }
     }
 
-    manifest.skills = currentSkills;
-    manifest.commands = currentCommands;
-    manifest["mcp-servers"] = currentMcpServers;
+    const updatedManifest: RawPackManifest = {
+      ...manifest,
+      skills: currentSkills,
+      commands: currentCommands,
+      "mcp-servers": currentMcpServers,
+    };
 
     // 5. Write updated manifest
-    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
+    yield* fs.writeFileString(manifestPath, JSON.stringify(updatedManifest, null, 2) + "\n").pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_WRITE_FAILED",

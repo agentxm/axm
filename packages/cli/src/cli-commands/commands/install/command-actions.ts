@@ -111,9 +111,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(CliEnvironment, env),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>): Effect.Effect<A, E, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, E, never>;
+    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
     const parseArgs = (
       args: InstallCommandHandlerArgs,
@@ -251,8 +249,16 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             howToFix: "Verify the command name and check available commands.",
           });
         }
+        const [ref] = refs;
+        if (ref === undefined) {
+          return yield* makeAppError({
+            code: "COMMAND_NOT_FOUND",
+            what: `Command "${parsed.commandName}" not found in registry`,
+            howToFix: "Verify the command name and check available commands.",
+          });
+        }
         return {
-          ref: refs[0]!,
+          ref,
           versionConstraint: parsed.versionConstraint,
           force: parsed.force,
         };

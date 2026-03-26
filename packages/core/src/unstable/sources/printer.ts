@@ -6,13 +6,15 @@
  */
 
 import * as Option from "effect/Option";
-import type { SkillLockEntry } from "../lockfile/schema.js";
+import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/schema.js";
 import { print as azurereposPrint } from "./azurerepos/index.js";
 import { print as bitbucketPrint } from "./bitbucket/index.js";
 import { print as githubPrint } from "./github/index.js";
 import { print as gitlabPrint } from "./gitlab/index.js";
 import { print as localPrint } from "./local/index.js";
 import type { SourceParams } from "./types.js";
+
+type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry;
 
 /**
  * Print source params as their canonical shorthand string.
@@ -47,7 +49,7 @@ export const printSourceParams = (source: SourceParams): string => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => {
+export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams => {
   switch (entry.type) {
     case "github":
       return {

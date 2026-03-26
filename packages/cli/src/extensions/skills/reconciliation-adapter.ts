@@ -26,9 +26,15 @@ const parseRegistrySkillSource = (
     return Option.none();
   }
 
+  const profile = match[1];
+  const name = match[2];
+  if (profile === undefined || name === undefined) {
+    return Option.none();
+  }
+
   return Option.some({
-    profile: match[1]!,
-    name: match[2]!,
+    profile,
+    name,
     constraint: match[3] ?? "*",
   });
 };
@@ -127,7 +133,10 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       }
 
       const manifestJson = yield* Effect.try({
-        try: () => JSON.parse(manifestRaw) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(manifestRaw);
+          return parsed;
+        },
         catch: () =>
           makeAppError({
             code: "LOCKFILE_RECONCILE_MANIFEST_INVALID",

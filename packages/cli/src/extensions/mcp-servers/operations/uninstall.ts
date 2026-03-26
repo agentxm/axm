@@ -55,7 +55,7 @@ const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
 ]);
 
 interface AgentOutcome {
-  readonly agentId: string;
+  readonly agentId: AgentId;
   readonly outcome: McpServerSyncOutcome;
 }
 
@@ -147,7 +147,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     const strictDisabledFailures = Array.filter(
       outcomes,
       ({ agentId, outcome }) =>
-        outcome._tag === "disabled" && args.strict && REQUIRED_AGENT_IDS.has(agentId as AgentId),
+        outcome._tag === "disabled" && args.strict && REQUIRED_AGENT_IDS.has(agentId),
     );
     if (strictDisabledFailures.length > 0) {
       const details = strictDisabledFailures.map(({ agentId, outcome }) =>

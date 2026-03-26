@@ -121,7 +121,8 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      const body = request.body as {
+      // Assertion needed: test boundary — narrowing captured JSON body for assertions
+      const body = request.body as unknown as {
         errors: ReadonlyArray<{ message: string; name: string }>;
         level: string;
         handled: boolean;
@@ -153,7 +154,8 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      const body = request.body as {
+      // Assertion needed: test boundary — narrowing captured JSON body for assertions
+      const body = request.body as unknown as {
         errors: ReadonlyArray<{ message: string; name: string }>;
         level: string;
         handled: boolean;

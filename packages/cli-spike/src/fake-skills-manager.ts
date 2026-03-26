@@ -33,7 +33,7 @@ const FAKE_SKILLS: ReadonlyArray<FakeSkillInfo> = [
     scope: "project",
   },
   { _version: 1, name: "my-custom", source: "local", version: null, enabled: false, scope: "user" },
-] as const;
+];
 
 export interface FakeSkillsManagerService {
   readonly listSkills: (scope: "project" | "user") => Effect.Effect<ReadonlyArray<FakeSkillInfo>>;

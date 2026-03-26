@@ -7,12 +7,6 @@
   "bin": {
     "axm-spike": "dist/src/main.js"
   },
-  "scripts": {
-    "build": "nx run cli-spike:build",
-    "typecheck": "nx run cli-spike:typecheck",
-    "test": "nx run cli-spike:test",
-    "spike": "nx run cli-spike:spike"
-  },
   "nx": {
     "includedScripts": []
   },

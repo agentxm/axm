@@ -34,8 +34,8 @@ All commands use `pnpm` scripts that delegate to Nx. Nx provides caching (repeat
 | `pnpm test`           | Run all tests (Vitest)                   |
 | `pnpm test:e2e`       | Run E2E tests only                       |
 | `pnpm typecheck`      | Type check without emitting              |
-| `pnpm format`         | Format code and markdown                 |
-| `pnpm format:check`   | Check formatting without writing         |
+| `pnpm format`         | Format code (Nx built-in)                |
+| `pnpm format:check`   | Check formatting (Nx built-in)           |
 | `pnpm lint`           | Lint with ESLint                         |
 | `pnpm lint:fix`       | Lint and auto-fix                        |
 | `pnpm build:affected` | Build only packages changed since `main` |

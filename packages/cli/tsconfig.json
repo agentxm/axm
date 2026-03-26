@@ -1,15 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "incremental": true,
-    "composite": true,
-    "outDir": "dist",
-    "rootDir": "."
-  },
-  "include": ["src/**/*", "e2e/**/*"],
-  "references": [
-    {
-      "path": "../core"
-    }
-  ]
+  "files": [],
+  "include": [],
+  "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.spec.json" }]
 }

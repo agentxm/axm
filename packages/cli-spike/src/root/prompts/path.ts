@@ -11,13 +11,8 @@ const pathConfig = {
     Flag.withDescription("Root directory for path completion"),
     Flag.optional,
   ),
-  directory: Flag.boolean("directory").pipe(
-    Flag.withDescription("Only show directories"),
-  ),
-  initial: Flag.string("initial").pipe(
-    Flag.withDescription("Initial path value"),
-    Flag.optional,
-  ),
+  directory: Flag.boolean("directory").pipe(Flag.withDescription("Only show directories")),
+  initial: Flag.string("initial").pipe(Flag.withDescription("Initial path value"), Flag.optional),
 } as const;
 
 export const pathCommand = Command.make("path", pathConfig, (config) =>

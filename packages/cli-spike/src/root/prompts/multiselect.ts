@@ -19,9 +19,7 @@ const multiselectConfig = {
     Flag.withDescription("Maximum number of items to display"),
     Flag.optional,
   ),
-  required: Flag.boolean("required").pipe(
-    Flag.withDescription("Require at least one selection"),
-  ),
+  required: Flag.boolean("required").pipe(Flag.withDescription("Require at least one selection")),
   "cursor-at": Flag.string("cursor-at").pipe(
     Flag.withDescription("Initial cursor position (value)"),
     Flag.optional,

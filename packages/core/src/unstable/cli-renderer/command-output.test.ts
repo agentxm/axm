@@ -212,8 +212,6 @@ interface MockCall {
 }
 
 const eraseTestType = <T>(value: unknown): T => {
-  // Assertion needed: generic test mock values cross an erased runtime boundary.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return value as T;
 };
 

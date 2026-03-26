@@ -1,17 +1,6 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
 
-const sourceFiles = [
-  "**/*.ts",
-  "**/*.tsx",
-  "**/*.cts",
-  "**/*.mts",
-  "**/*.js",
-  "**/*.jsx",
-  "**/*.cjs",
-  "**/*.mjs",
-];
-
 export default [
   ...nxPlugin.configs["flat/base"],
   ...nxPlugin.configs["flat/typescript"],
@@ -19,19 +8,24 @@ export default [
   {
     ignores: [
       "**/dist/**",
+      "**/build/**",
       "**/node_modules/**",
       ".reference/**",
       ".axm/cache/**",
       ".claude/worktrees/**",
+      "**/.wrangler-artifacts/**",
+      "**/vite.config.*.timestamp*",
+      "**/vitest.config.*.timestamp*",
     ],
   },
   {
-    files: sourceFiles,
+    files: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
     rules: {
       "@nx/enforce-module-boundaries": [
         "error",
         {
-          allow: [],
+          enforceBuildableLibDependency: true,
+          allow: ["^.*/eslint(\\.base)?\\.config\\.[cm]?js$"],
           depConstraints: [
             {
               sourceTag: "type:app",
@@ -42,48 +36,94 @@ export default [
               onlyDependOnLibsWithTags: ["type:lib"],
             },
           ],
-          enforceBuildableLibDependency: true,
         },
       ],
     },
   },
   {
-    files: sourceFiles,
-    plugins: {
-      "@effect": effectEslint,
-    },
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
-    },
+    files: [
+      "packages/**/src/**/*.ts",
+      "packages/**/src/**/*.tsx",
+    ],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/src/main.ts",
+      "**/src/config.ts",
+      "**/src/runtime.ts",
+    ],
     rules: {
-      // Enforce direct imports from Effect submodules
-      "@effect/no-import-from-barrel-package": [
+      "no-restricted-properties": [
         "error",
-        { packageNames: ["effect", "@effect/platform", "@effect/platform-node"] },
+        {
+          object: "process",
+          property: "env",
+          message:
+            "Use centralized runtime config modules and Effect Config instead of direct process.env reads.",
+        },
       ],
-      // Allow _-prefixed variables to be unused
-      "@typescript-eslint/no-unused-vars": [
+      "no-restricted-syntax": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        {
+          selector:
+            "BinaryExpression[left.type='MemberExpression'][left.property.name='hostname'][right.type='Literal'][right.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
+        {
+          selector:
+            "BinaryExpression[right.type='MemberExpression'][right.property.name='hostname'][left.type='Literal'][left.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
       ],
-      // Ban type assertions (as T) — use type-safe alternatives (warn until existing violations are fixed)
-      "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
-      // Ban non-null assertions (value!) — use ?? or assertion functions
-      "@typescript-eslint/no-non-null-assertion": "error",
-      // Ban explicit any — use unknown and narrow instead
-      "@typescript-eslint/no-explicit-any": "error",
     },
   },
   {
     files: ["**/*.ts", "**/*.tsx", "**/*.cts", "**/*.mts"],
+    plugins: {
+      "@effect": effectEslint,
+    },
     languageOptions: {
       parserOptions: {
         projectService: true,
       },
     },
     rules: {
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        { assertionStyle: "never" },
+      ],
+      "@effect/no-import-from-barrel-package": [
+        "error",
+        {
+          packageNames: ["effect", "@effect/platform", "@effect/platform-node"],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.cts",
+      "**/*.test.mts",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/*.spec.cts",
+      "**/*.spec.mts",
+    ],
+    rules: {
+      "@typescript-eslint/consistent-type-assertions": "off",
     },
   },
   // Root config files are not part of any tsconfig project — disable type-aware linting
@@ -97,5 +137,9 @@ export default [
     rules: {
       "@typescript-eslint/no-floating-promises": "off",
     },
+  },
+  {
+    files: ["**/*.js", "**/*.jsx", "**/*.cjs", "**/*.mjs"],
+    rules: {},
   },
 ];

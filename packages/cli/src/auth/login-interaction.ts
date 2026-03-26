@@ -112,12 +112,12 @@ export const AuthLoginInteractionTest = (overrides?: {
     openBrowser: (url) =>
       Effect.gen(function* () {
         state.openBrowserCalls.push(url);
-        return yield* (overrides?.openBrowser?.(url) ?? Effect.succeed(false));
+        return yield* overrides?.openBrowser?.(url) ?? Effect.succeed(false);
       }),
     copyToClipboard: (text) =>
       Effect.gen(function* () {
         state.copyToClipboardCalls.push(text);
-        return yield* (overrides?.copyToClipboard?.(text) ?? Effect.succeed(false));
+        return yield* overrides?.copyToClipboard?.(text) ?? Effect.succeed(false);
       }),
   } satisfies AuthLoginInteractionService);
 

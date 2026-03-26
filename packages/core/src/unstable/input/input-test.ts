@@ -199,10 +199,7 @@ export const makeInputTestLayer = (
     options: Record<string, ReadonlyArray<InputOption<A>>>,
   ): ReadonlyArray<InputOption<A>> => Object.values(options).flat();
 
-  const recordCall = (
-    method: InputMethod,
-    config: unknown,
-  ): InputPromptBehavior => {
+  const recordCall = (method: InputMethod, config: unknown): InputPromptBehavior => {
     mock.calls.push({ method, config });
     return resolveBehavior(method);
   };
@@ -286,12 +283,11 @@ export const makeInputTestLayer = (
     config: MultiselectConfig<A> | AutocompleteMultiselectConfig<A>,
   ): Effect.Effect<ReadonlyArray<A>, AppError | PromptCancelled> => {
     const behavior = recordCall(method, config);
-    const options =
-      Array.isArray(config.options)
-        ? config.options
-        : typeof config.options === "function"
-          ? resolveAutocompleteOptions(config.options)
-          : config.options;
+    const options = Array.isArray(config.options)
+      ? config.options
+      : typeof config.options === "function"
+        ? resolveAutocompleteOptions(config.options)
+        : config.options;
 
     if (behavior.type === "cancel") {
       return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));

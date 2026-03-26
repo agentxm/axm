@@ -134,8 +134,11 @@ export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliP
     multiselect: <Value>(opts: MultiselectOpts<Value>) => {
       const tokenized = makeTokenizedOptions(opts.options);
       const initialTokens =
-        opts.initialValues !== undefined ? tokenized.tokensForValues(opts.initialValues) : undefined;
-      const cursorAt = opts.cursorAt !== undefined ? tokenized.tokenForValue(opts.cursorAt) : undefined;
+        opts.initialValues !== undefined
+          ? tokenized.tokensForValues(opts.initialValues)
+          : undefined;
+      const cursorAt =
+        opts.cursorAt !== undefined ? tokenized.tokenForValue(opts.cursorAt) : undefined;
 
       return guardedPrompt(nonInteractive, initialTokens, opts.message, () =>
         p.multiselect({
@@ -147,14 +150,19 @@ export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliP
           ...(cursorAt !== undefined && { cursorAt }),
         }),
       ).pipe(
-        Effect.flatMap((tokens) => resolveTokenValues("multiselect", tokenized.resolveValues(tokens))),
+        Effect.flatMap((tokens) =>
+          resolveTokenValues("multiselect", tokenized.resolveValues(tokens)),
+        ),
       );
     },
     groupMultiselect: <Value>(opts: GroupMultiselectOpts<Value>) => {
       const tokenized = makeTokenizedGroupedOptions(opts.options);
       const initialTokens =
-        opts.initialValues !== undefined ? tokenized.tokensForValues(opts.initialValues) : undefined;
-      const cursorAt = opts.cursorAt !== undefined ? tokenized.tokenForValue(opts.cursorAt) : undefined;
+        opts.initialValues !== undefined
+          ? tokenized.tokensForValues(opts.initialValues)
+          : undefined;
+      const cursorAt =
+        opts.cursorAt !== undefined ? tokenized.tokenForValue(opts.cursorAt) : undefined;
 
       return guardedPrompt(nonInteractive, initialTokens, opts.message, () =>
         p.groupMultiselect({
@@ -233,7 +241,9 @@ export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliP
     autocompleteMultiselect: <Value>(opts: AutocompleteMultiselectOpts<Value>) => {
       const tokenized = makeTokenizedAutocompleteOptions(opts.options);
       const initialTokens =
-        opts.initialValues !== undefined ? tokenized.tokensForValues(opts.initialValues) : undefined;
+        opts.initialValues !== undefined
+          ? tokenized.tokensForValues(opts.initialValues)
+          : undefined;
       const validate = opts.validate;
       const filter = opts.filter;
 

@@ -37,13 +37,16 @@ type InstalledRow = ConfiguredRow | ImplicitRow;
 type ExternalConfiguredRow = ConfiguredRow & { packagingKind: "non-native" };
 type ExternalUnmanagedRow = UnmanagedRow & { packagingKind: "non-native" };
 
-const isConfigured = (row: ClassifiedExtension): row is ConfiguredRow => row.lifecycle === "configured";
+const isConfigured = (row: ClassifiedExtension): row is ConfiguredRow =>
+  row.lifecycle === "configured";
 
 const isImplicit = (row: ClassifiedExtension): row is ImplicitRow => row.lifecycle === "implicit";
 
-const isUnmanaged = (row: ClassifiedExtension): row is UnmanagedRow => row.lifecycle === "unmanaged";
+const isUnmanaged = (row: ClassifiedExtension): row is UnmanagedRow =>
+  row.lifecycle === "unmanaged";
 
-const isInstalled = (row: ClassifiedExtension): row is InstalledRow => row.lifecycle !== "unmanaged";
+const isInstalled = (row: ClassifiedExtension): row is InstalledRow =>
+  row.lifecycle !== "unmanaged";
 
 const isExternalConfigured = (row: ClassifiedExtension): row is ExternalConfiguredRow =>
   row.lifecycle === "configured" && row.packagingKind === "non-native";

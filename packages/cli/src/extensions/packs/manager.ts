@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import type { PackExtensionRef, RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
 import type {
@@ -22,6 +23,7 @@ import type {
 } from "../../workflows/install-operation/workflow.js";
 import { Workspace, type SetPackArgs } from "../../workspace/service.js";
 import { copySkillDirectory } from "../skills/operations/copy-directory.js";
+import { sanitizeName } from "../skills/utils.js";
 import { computePackPaths } from "./paths.js";
 import { removeIfExists } from "@axm.sh/core/unstable/utils";
 import {
@@ -55,6 +57,48 @@ const buildSetPackArgs = (
   resolvedMcpServers: { ...ref.pack.mcpServers },
   versionConstraint,
 });
+
+const checkInstalledOnDisk = (
+  fsService: FileSystem.FileSystem,
+  pathService: Path.Path,
+  baseDir: string,
+  packName: string,
+) =>
+  Effect.gen(function* () {
+    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!extensionsDirExists) return false;
+
+    const candidateNames = [packName];
+    const sanitizedName = sanitizeName(packName);
+    if (sanitizedName !== packName) {
+      candidateNames.push(sanitizedName);
+    }
+
+    const scopeDirs = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+    const results = yield* Effect.forEach(
+      scopeDirs,
+      (scopeDir) => {
+        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
+        return Effect.forEach(
+          candidateNames,
+          (candidateName) => {
+            const packPath = pathService.join(extensionsDir, scopeDir, "packs", candidateName);
+            return fsService.exists(packPath).pipe(Effect.catch(() => Effect.succeed(false)));
+          },
+          { concurrency: "unbounded" },
+        ).pipe(Effect.map((candidates) => candidates.some((exists) => exists)));
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
+  });
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -183,6 +227,15 @@ export const PackManagerLive = Layer.effect(
 
     return {
       extensionType: "pack",
+      isInstalled: ({ target }: { readonly target: PackExtensionTarget }) =>
+        Effect.gen(function* () {
+          const installedPacks = yield* ws.getInstalledPacks();
+          if (target.name in installedPacks) {
+            return true;
+          }
+
+          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        }).pipe(Effect.withSpan("PackManager.isInstalled")),
       materializeInstall,
       materializeUninstall,
 

@@ -461,11 +461,7 @@ const make = (options: WorkspaceContextOptions) =>
               lockedNames: Object.keys(lockfile.skills),
               detectedNames,
               ignoredPatterns: settings.ignored?.skills ?? [],
-              sourceMetaByName: deriveSourceMetaForSkills(
-                settings,
-                lockfile.skills,
-                detectedNames,
-              ),
+              sourceMetaByName: deriveSourceMetaForSkills(settings, lockfile.skills, detectedNames),
             });
           }
           case "command": {

@@ -11,7 +11,10 @@ export interface TelemetryEnvValues {
   readonly axmTelemetry?: string | undefined;
 }
 
-const readEnvValue = (env: TelemetryEnvValues | Record<string, string | undefined>, key: string) => {
+const readEnvValue = (
+  env: TelemetryEnvValues | Record<string, string | undefined>,
+  key: string,
+) => {
   const value = Reflect.get(env, key);
   return typeof value === "string" ? value : undefined;
 };

@@ -163,7 +163,6 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     const segments = input.split("/");
     const profile = segments.at(0);
     if (profile !== undefined && REGISTRY_NAMESPACE_PATTERN.test(profile)) {
-
       if (segments.length === 1) {
         return Option.some(
           wrap({

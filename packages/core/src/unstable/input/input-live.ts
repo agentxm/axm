@@ -101,7 +101,9 @@ export const InputLive = Layer.effect(
       select: <Value>(config: SelectConfig<Value>) => {
         const tokenized = makeTokenizedOptions(config.options);
         const initialToken =
-          config.initialValue !== undefined ? tokenized.tokenForValue(config.initialValue) : undefined;
+          config.initialValue !== undefined
+            ? tokenized.tokenForValue(config.initialValue)
+            : undefined;
 
         return guardedPrompt(ni, () =>
           p.select({
@@ -110,7 +112,9 @@ export const InputLive = Layer.effect(
             ...(initialToken !== undefined && { initialValue: initialToken }),
             ...(config.maxItems !== undefined && { maxItems: config.maxItems }),
           }),
-        ).pipe(Effect.flatMap((token) => resolveTokenValue("select", tokenized.resolveValue(token))));
+        ).pipe(
+          Effect.flatMap((token) => resolveTokenValue("select", tokenized.resolveValue(token))),
+        );
       },
       multiselect: <Value>(config: MultiselectConfig<Value>) => {
         const tokenized = makeTokenizedOptions(config.options);
@@ -131,7 +135,9 @@ export const InputLive = Layer.effect(
             ...(cursorAt !== undefined && { cursorAt }),
           }),
         ).pipe(
-          Effect.flatMap((tokens) => resolveTokenValues("multiselect", tokenized.resolveValues(tokens))),
+          Effect.flatMap((tokens) =>
+            resolveTokenValues("multiselect", tokenized.resolveValues(tokens)),
+          ),
         );
       },
       groupMultiselect: <Value>(config: GroupMultiselectConfig<Value>) => {
@@ -186,7 +192,9 @@ export const InputLive = Layer.effect(
       autocomplete: <Value>(config: AutocompleteConfig<Value>) => {
         const tokenized = makeTokenizedAutocompleteOptions(config.options);
         const initialToken =
-          config.initialValue !== undefined ? tokenized.tokenForValue(config.initialValue) : undefined;
+          config.initialValue !== undefined
+            ? tokenized.tokenForValue(config.initialValue)
+            : undefined;
         const validate = config.validate;
         const filter = config.filter;
 

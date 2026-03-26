@@ -51,6 +51,36 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
   updatedAt: now,
 });
 
+const checkInstalledOnDisk = (
+  fsService: FileSystem.FileSystem,
+  pathService: Path.Path,
+  baseDir: string,
+  commandName: string,
+) =>
+  Effect.gen(function* () {
+    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!extensionsDirExists) return false;
+
+    const scopeDirs = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+    const results = yield* Effect.forEach(
+      scopeDirs,
+      (scopeDir) => {
+        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
+        const commandPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
+        return fsService.exists(commandPath).pipe(Effect.catch(() => Effect.succeed(false)));
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
+  });
+
 // -----------------------------------------------------------------------------
 // Live Layer
 // -----------------------------------------------------------------------------
@@ -204,6 +234,15 @@ export const CommandManagerLive = Layer.effect(
 
     return {
       extensionType: "command",
+      isInstalled: ({ target }: { readonly target: CommandExtensionTarget }) =>
+        Effect.gen(function* () {
+          const installedCommands = yield* ws.getInstalledCommands();
+          if (target.name in installedCommands) {
+            return true;
+          }
+
+          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        }).pipe(Effect.withSpan("CommandManager.isInstalled")),
 
       materializeInstall,
       materializeUninstall,

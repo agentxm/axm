@@ -58,7 +58,9 @@ export const createDefaultSettings = (): Settings => ({});
 const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
 const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
 
-const orderSettingsRecord = (settings: Readonly<Record<string, unknown>>): Record<string, unknown> =>
+const orderSettingsRecord = (
+  settings: Readonly<Record<string, unknown>>,
+): Record<string, unknown> =>
   SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((ordered, key) => {
     const value = settings[key];
     return value === undefined ? ordered : { ...ordered, [key]: value };

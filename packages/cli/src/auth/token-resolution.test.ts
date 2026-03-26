@@ -438,7 +438,9 @@ describe("resolveRequestToken", () => {
     });
 
     const result = await Effect.runPromise(
-      resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL).pipe(Effect.provide(layer)),
+      resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL).pipe(
+        Effect.provide(layer),
+      ),
     );
 
     expect(Option.isSome(result)).toBe(true);

@@ -93,6 +93,9 @@ export const toLabel = (target: ExtensionTarget): string =>
  */
 export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly extensionType: TRef["type"];
+  readonly isInstalled: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<boolean, AppError, never>;
   readonly materializeInstall: (args: {
     readonly ref: TRef;
   }) => Effect.Effect<void, AppError, never>;

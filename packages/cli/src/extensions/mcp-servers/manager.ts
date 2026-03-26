@@ -47,6 +47,36 @@ const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServe
   updatedAt: now,
 });
 
+const checkInstalledOnDisk = (
+  fsService: FileSystem.FileSystem,
+  pathService: Path.Path,
+  baseDir: string,
+  serverName: string,
+) =>
+  Effect.gen(function* () {
+    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!extensionsDirExists) return false;
+
+    const scopeDirs = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+    const results = yield* Effect.forEach(
+      scopeDirs,
+      (scopeDir) => {
+        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
+        const serverPath = pathService.join(extensionsDir, scopeDir, "mcp-servers", serverName);
+        return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
+  });
+
 // -----------------------------------------------------------------------------
 // Live Layer
 // -----------------------------------------------------------------------------
@@ -200,6 +230,15 @@ export const McpServerManagerLive = Layer.effect(
 
     return {
       extensionType: "mcp-server",
+      isInstalled: ({ target }: { readonly target: McpServerExtensionTarget }) =>
+        Effect.gen(function* () {
+          const installedMcpServers = yield* ws.getInstalledMcpServers();
+          if (target.name in installedMcpServers) {
+            return true;
+          }
+
+          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        }).pipe(Effect.withSpan("McpServerManager.isInstalled")),
 
       materializeInstall,
       materializeUninstall,

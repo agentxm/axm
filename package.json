@@ -11,7 +11,7 @@
     "build:affected": "nx affected -t build",
     "test": "nx run-many -t test",
     "test:affected": "nx affected -t test",
-    "test:e2e": "nx run cli:e2e",
+    "test:e2e": "nx run-many -t e2e",
     "typecheck": "nx run-many -t typecheck",
     "typecheck:affected": "nx affected -t typecheck",
     "format": "nx run axm:format",

@@ -1,0 +1,19 @@
+{
+  "name": "@axm.sh/e2e-utils",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared E2E test utilities for axm CLIs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "execa": "^9.6.1"
+  }
+}

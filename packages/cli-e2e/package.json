@@ -1,8 +1,8 @@
 {
-  "name": "@axm.sh/cli-spike-e2e",
+  "name": "@axm.sh/cli-e2e",
   "version": "0.0.1",
   "private": true,
-  "description": "Distribution E2E tests for the cli-spike CLI",
+  "description": "Distribution E2E tests for the axm CLI",
   "type": "module",
   "nx": {
     "includedScripts": []
@@ -10,6 +10,7 @@
   "devDependencies": {
     "@axm.sh/e2e-utils": "workspace:*",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "^2.8.2"
   }
 }

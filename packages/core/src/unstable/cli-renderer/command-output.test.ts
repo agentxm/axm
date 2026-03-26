@@ -278,9 +278,7 @@ describe("emitMany", () => {
 
   it("passes items and schema to result()", async () => {
     const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer),
-    );
+    await Effect.runPromise(Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer));
     const resultCall = mock.calls.find((c) => c.method === "result");
     assertDefined(resultCall, "Expected result() call");
     expect(resultCall.args[0]).toBe(items);
@@ -303,9 +301,7 @@ describe("emitMany", () => {
 
   it("short-circuits when result() returns true (machine mode)", async () => {
     const mock = makeMockRenderer(true);
-    await Effect.runPromise(
-      Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer),
-    );
+    await Effect.runPromise(Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer));
     expect(mock.calls).toHaveLength(1);
     expect(mock.calls[0]?.method).toBe("result");
     // table() should NOT be called
@@ -338,9 +334,7 @@ describe("emitOne", () => {
 
   it("passes item and schema to result()", async () => {
     const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer),
-    );
+    await Effect.runPromise(Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer));
     const resultCall = mock.calls.find((c) => c.method === "result");
     assertDefined(resultCall, "Expected result() call");
     expect(resultCall.args[0]).toBe(item);
@@ -361,9 +355,7 @@ describe("emitOne", () => {
 
   it("short-circuits when result() returns true (machine mode)", async () => {
     const mock = makeMockRenderer(true);
-    await Effect.runPromise(
-      Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer),
-    );
+    await Effect.runPromise(Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer));
     expect(mock.calls).toHaveLength(1);
     expect(mock.calls[0]?.method).toBe("result");
     expect(mock.calls.find((c) => c.method === "detail")).toBeUndefined();

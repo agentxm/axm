@@ -3,8 +3,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 
-import { Activity } from "@axm.sh/core/unstable/activity";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 export const FakeSkillInfoSchema = Schema.Struct({
   _version: Schema.Literal(1),
@@ -48,21 +47,20 @@ export class FakeSkillsManager extends ServiceMap.Service<
 export const FakeSkillsManagerLive = Layer.effect(
   FakeSkillsManager,
   Effect.gen(function* () {
-    const activity = yield* Activity;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
 
     return {
       listSkills: (scope) =>
-        activity.withSpinner(
+        renderer.withSpinner(
           `FakeSkillsManager: preparing ${scope} demo skills`,
           (spinner) =>
             Effect.gen(function* () {
-              yield* spinner.message(`Filtering ${scope} demo skills`);
-              yield* output.info(`FakeSkillsManager: listing ${scope} demo skills`);
+              yield* spinner.update(`Filtering ${scope} demo skills`);
+              yield* renderer.info(`FakeSkillsManager: listing ${scope} demo skills`);
 
               return FAKE_SKILLS.filter((skill) => skill.scope === scope);
             }),
-          "Fake skills ready",
+          { successMessage: "Fake skills ready" },
         ),
     } satisfies FakeSkillsManagerService;
   }),

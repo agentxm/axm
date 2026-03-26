@@ -11,7 +11,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   ExtensionRef,
@@ -177,7 +177,7 @@ const withServices = (
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(mockWs),
-    makeOutputTestLayer()[0],
+    TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
   );
 };

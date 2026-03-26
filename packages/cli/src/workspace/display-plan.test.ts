@@ -8,7 +8,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer, type MockOutputService, Output } from "@axm.sh/core/unstable/output";
+import {
+  TestRenderer,
+  type TestRendererState,
+  CliRenderer,
+  logsByTag,
+} from "@axm.sh/core/unstable/cli-renderer";
 import {
   type CliEnvironment,
   type CliEnvironmentService,
@@ -38,21 +43,13 @@ const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan =
   ...overrides,
 });
 
-const messagesByMethod = (
-  mock: MockOutputService,
-  method: "message" | "info" | "success" | "warn" | "error",
-): ReadonlyArray<string> =>
-  mock.calls.filter((call) => call.method === method).map((call) => String(call.args[0] ?? ""));
-
-/** Creates a fresh output + CliEnvironment test layer and runs the effect, returning the mock for inspection. */
+/** Creates a fresh renderer + CliEnvironment test layer and runs the effect, returning the state for inspection. */
 const withOutput = <A, E>(
-  fn: (mock: MockOutputService) => Effect.Effect<A, E, Output | CliEnvironment>,
+  fn: (state: TestRendererState) => Effect.Effect<A, E, CliRenderer | CliEnvironment>,
   flagsOverrides?: Partial<CliEnvironmentService>,
 ): Effect.Effect<A, E> => {
-  const [outputLayer, mock] = makeOutputTestLayer();
-  return fn(mock).pipe(
-    Effect.provide(Layer.mergeAll(outputLayer, CliEnvironmentTest(flagsOverrides))),
-  );
+  const { layer, state } = TestRenderer.make();
+  return fn(state).pipe(Effect.provide(Layer.mergeAll(layer, CliEnvironmentTest(flagsOverrides))));
 };
 
 // -----------------------------------------------------------------------------
@@ -61,7 +58,7 @@ const withOutput = <A, E>(
 
 describe("displayPlan", () => {
   it.effect("uses plan name as heading", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -81,15 +78,13 @@ describe("displayPlan", () => {
           }),
         );
 
-        expect(messagesByMethod(mock, "info").some((m) => m.includes("Install skill(s)"))).toBe(
-          true,
-        );
+        expect(logsByTag(state).info.some((m) => m.includes("Install skill(s)"))).toBe(true);
       }),
     ),
   );
 
   it.effect("shows description when present", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -110,16 +105,14 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "info").some((m) =>
-            m.includes("Install skills from github:owner/repo"),
-          ),
+          logsByTag(state).info.some((m) => m.includes("Install skills from github:owner/repo")),
         ).toBe(true);
       }),
     ),
   );
 
   it.effect("lists ready items with + prefix for unapplied plan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -143,18 +136,18 @@ describe("displayPlan", () => {
           }),
         );
 
+        expect(logsByTag(state).success.some((m) => m.includes("+") && m.includes("commit"))).toBe(
+          true,
+        );
         expect(
-          messagesByMethod(mock, "success").some((m) => m.includes("+") && m.includes("commit")),
-        ).toBe(true);
-        expect(
-          messagesByMethod(mock, "success").some((m) => m.includes("+") && m.includes("review-pr")),
+          logsByTag(state).success.some((m) => m.includes("+") && m.includes("review-pr")),
         ).toBe(true);
       }),
     ),
   );
 
   it.effect("shows warn items with warning prefix and message", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -175,7 +168,7 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "warn").some(
+          logsByTag(state).warn.some(
             (m) => m.includes("\u26A0") && m.includes("commit") && m.includes("version mismatch"),
           ),
         ).toBe(true);
@@ -184,7 +177,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("shows error readiness items with error prefix and message", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -204,7 +197,7 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "error").some(
+          logsByTag(state).error.some(
             (m) => m.includes("\u2717") && m.includes("commit") && m.includes("dependency missing"),
           ),
         ).toBe(true);
@@ -213,7 +206,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("shows summary counts for unapplied plan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -238,16 +231,14 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "message").some(
-            (m) => m.includes("1 to apply") && m.includes("1 error"),
-          ),
+          logsByTag(state).message.some((m) => m.includes("1 to apply") && m.includes("1 error")),
         ).toBe(true);
       }),
     ),
   );
 
   it.effect("omits zero counts in summary", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -266,7 +257,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        const summary = messagesByMethod(mock, "message").find((m) => m.includes("to apply"));
+        const summary = logsByTag(state).message.find((m) => m.includes("to apply"));
         expect(summary).toBeDefined();
         expect(summary).not.toContain("error");
         expect(summary).not.toContain("warning");
@@ -275,7 +266,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("includes warn and error counts in unapplied summary", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
@@ -305,7 +296,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        const summary = messagesByMethod(mock, "message").find((m) => m.includes("to apply"));
+        const summary = logsByTag(state).message.find((m) => m.includes("to apply"));
         expect(summary).toBeDefined();
         expect(summary).toContain("1 to apply");
         expect(summary).toContain("1 error");
@@ -315,7 +306,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("shows success items with checkmark for applied plan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makeExecutedPlan({
@@ -334,16 +325,14 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "success").some(
-            (m) => m.includes("\u2713") && m.includes("commit"),
-          ),
+          logsByTag(state).success.some((m) => m.includes("\u2713") && m.includes("commit")),
         ).toBe(true);
       }),
     ),
   );
 
   it.effect("shows error items for applied plan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makeExecutedPlan({
@@ -366,20 +355,20 @@ describe("displayPlan", () => {
         );
 
         expect(
-          messagesByMethod(mock, "error").some(
+          logsByTag(state).error.some(
             (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
           ),
         ).toBe(true);
-        expect(
-          messagesByMethod(mock, "error").some((m) => m.includes("commit: failed to apply")),
-        ).toBe(true);
+        expect(logsByTag(state).error.some((m) => m.includes("commit: failed to apply"))).toBe(
+          true,
+        );
       }),
     ),
   );
 
   it.effect("shows cause lines for step errors in debug mode", () =>
     withOutput(
-      (mock) =>
+      (state) =>
         Effect.gen(function* () {
           yield* displayPlan(
             makeExecutedPlan({
@@ -406,11 +395,11 @@ describe("displayPlan", () => {
             }),
           );
 
+          expect(logsByTag(state).error.some((m) => m.includes("Cause: connection refused"))).toBe(
+            true,
+          );
           expect(
-            messagesByMethod(mock, "error").some((m) => m.includes("Cause: connection refused")),
-          ).toBe(true);
-          expect(
-            messagesByMethod(mock, "error").some((m) =>
+            logsByTag(state).error.some((m) =>
               m.includes("Registry URL: https://registry.example.com"),
             ),
           ).toBe(true);
@@ -420,7 +409,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("shows past tense summary for applied plan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makeExecutedPlan({
@@ -446,7 +435,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        const summary = messagesByMethod(mock, "message").find((m) => m.includes("applied"));
+        const summary = logsByTag(state).message.find((m) => m.includes("applied"));
         expect(summary).toBeDefined();
         expect(summary).toContain("1 applied");
         expect(summary).toContain("1 failed");
@@ -455,7 +444,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("omits zero counts in applied summary", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makeExecutedPlan({
@@ -473,7 +462,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        const summary = messagesByMethod(mock, "message").find((m) => m.includes("applied"));
+        const summary = logsByTag(state).message.find((m) => m.includes("applied"));
         expect(summary).toBeDefined();
         expect(summary).not.toContain("failed");
       }),
@@ -481,7 +470,7 @@ describe("displayPlan", () => {
   );
 
   it.effect("uses _tag discriminant to distinguish Plan from ExecutedPlan", () =>
-    withOutput((mock) =>
+    withOutput((state) =>
       Effect.gen(function* () {
         // An ExecutedPlan with _tag should render completed steps (checkmarks)
         yield* displayPlan(
@@ -502,9 +491,7 @@ describe("displayPlan", () => {
 
         // Should use executed-plan rendering (checkmarks) not planned-plan rendering (+)
         expect(
-          messagesByMethod(mock, "success").some(
-            (m) => m.includes("\u2713") && m.includes("my-step"),
-          ),
+          logsByTag(state).success.some((m) => m.includes("\u2713") && m.includes("my-step")),
         ).toBe(true);
       }),
     ),

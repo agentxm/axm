@@ -13,7 +13,7 @@ import type { LocalSkillRef, RegistrySkillRef, Source } from "@axm.sh/core/unsta
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildSkillInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -84,7 +84,7 @@ const runBuildPlan = ({
   // Provide all required services (FileSystem/Path/Log only needed inside run closures, not plan construction)
   const { layer: rendererTestLayer } = TestRenderer.make();
   const testLayer = Layer.mergeAll(
-    rendererTestLayer, OutputAdapter.pipe(Layer.provide(rendererTestLayer)),
+    rendererTestLayer,
     Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
     Layer.succeed(Path.Path, {} as Path.Path),
   );

@@ -42,7 +42,7 @@ export interface TestRendererState {
     def: TreeDef<unknown>;
     title?: string;
   }>;
-  readonly results: Array<{ data: unknown; schema: Schema.Schema<unknown> }>;
+  readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Schema<unknown>> }>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
@@ -69,10 +69,7 @@ const makeEmptyState = (): TestRendererState => ({
   outroMessage: Option.none(),
 });
 
-const makeMockSpinnerHandle = (
-  state: TestRendererState,
-  _message: string,
-): SpinnerHandle => ({
+const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
   stop: (msg) =>
     Effect.sync(() => {
       if (msg) state.spinnerMessages.push(msg);
@@ -92,18 +89,12 @@ const makeMockSpinnerHandle = (
   clear: () => Effect.void,
 });
 
-const makeMockProgressHandle = (
-  state: TestRendererState,
-  message: string,
-): ProgressHandle => ({
+const makeMockProgressHandle = (state: TestRendererState, message: string): ProgressHandle => ({
   ...makeMockSpinnerHandle(state, message),
   advance: () => Effect.void,
 });
 
-const makeTestRendererService = (
-  state: TestRendererState,
-  resultReturnValue: boolean,
-) => {
+const makeTestRendererService = (state: TestRendererState, resultReturnValue: boolean) => {
   const mockWithSpinner = <A, E, R>(
     message: string,
     f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
@@ -113,13 +104,9 @@ const makeTestRendererService = (
       state.spinnerMessages.push(message);
       const handle = makeMockSpinnerHandle(state, message);
       const successMessage =
-        typeof options?.successMessage === "string"
-          ? options.successMessage
-          : undefined;
+        typeof options?.successMessage === "string" ? options.successMessage : undefined;
       const successMessageFn =
-        typeof options?.successMessage === "function"
-          ? options.successMessage
-          : undefined;
+        typeof options?.successMessage === "function" ? options.successMessage : undefined;
       const failureMessage = options?.failureMessage;
 
       return Effect.interruptible(f(handle)).pipe(
@@ -128,6 +115,8 @@ const makeTestRendererService = (
             if (Cause.hasInterruptsOnly(cause)) {
               state.cancelMessages.push("Cancelled");
             } else {
+              const errorMsg = failureMessage ?? "Failed";
+              state.spinnerMessages.push(errorMsg);
               state.logs.push({
                 _tag: "error",
                 message: failureMessage ?? message,
@@ -237,6 +226,7 @@ const makeTestRendererService = (
               if (Cause.hasInterruptsOnly(cause)) {
                 state.cancelMessages.push("Cancelled");
               } else {
+                state.spinnerMessages.push("Failed");
                 state.logs.push({ _tag: "error", message });
               }
               return Effect.failCause(cause);
@@ -338,14 +328,10 @@ const makeTestRendererService = (
             ),
           ),
         { concurrency: 1 },
-      ),
+      ).pipe(Effect.asVoid),
 
     // Data display (stdout)
-    table: <T>(
-      items: ReadonlyArray<T>,
-      columns: ReadonlyArray<ColumnDef<T>>,
-      caption?: string,
-    ) =>
+    table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) =>
       Effect.sync(() => {
         state.tables.push({
           // Assertion needed: T erased at capture boundary for test state
@@ -354,11 +340,7 @@ const makeTestRendererService = (
           ...(caption !== undefined && { caption }),
         });
       }),
-    detail: <T>(
-      item: T,
-      columns: ReadonlyArray<ColumnDef<T>>,
-      title?: string,
-    ) =>
+    detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) =>
       Effect.sync(() => {
         state.details.push({
           item: item as unknown,
@@ -366,11 +348,7 @@ const makeTestRendererService = (
           ...(title !== undefined && { title }),
         });
       }),
-    tree: <T>(
-      roots: ReadonlyArray<TreeNode<T>>,
-      def: TreeDef<T>,
-      title?: string,
-    ) =>
+    tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) =>
       Effect.sync(() => {
         state.trees.push({
           roots: roots as unknown as Array<TreeNode<unknown>>,
@@ -384,7 +362,7 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.results.push({
           data: data as unknown,
-          schema: schema as unknown as Schema.Schema<unknown>,
+          schema: Option.some(schema as unknown as Schema.Schema<unknown>),
         });
         return resultReturnValue;
       }),
@@ -395,7 +373,7 @@ const makeTestRendererService = (
             for (const item of chunks) {
               state.results.push({
                 data: item as unknown,
-                schema: schema as unknown as Schema.Schema<unknown>,
+                schema: Option.some(schema as unknown as Schema.Schema<unknown>),
               });
             }
           }),
@@ -408,7 +386,7 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.results.push({
           data,
-          schema: undefined as unknown as Schema.Schema<unknown>,
+          schema: Option.none(),
         });
       }),
     raw: (content: string) =>
@@ -421,6 +399,31 @@ const makeTestRendererService = (
 };
 
 // ---------------------------------------------------------------------------
+// logsByTag — convenience getter object for filtering logs by tag
+// ---------------------------------------------------------------------------
+
+export const logsByTag = (state: TestRendererState) => ({
+  get message() {
+    return state.logs.filter((l) => l._tag === "message").map((l) => l.message);
+  },
+  get info() {
+    return state.logs.filter((l) => l._tag === "info").map((l) => l.message);
+  },
+  get warn() {
+    return state.logs.filter((l) => l._tag === "warn").map((l) => l.message);
+  },
+  get error() {
+    return state.logs.filter((l) => l._tag === "error").map((l) => l.message);
+  },
+  get success() {
+    return state.logs.filter((l) => l._tag === "success").map((l) => l.message);
+  },
+  get step() {
+    return state.logs.filter((l) => l._tag === "step").map((l) => l.message);
+  },
+});
+
+// ---------------------------------------------------------------------------
 // TestRenderer — result() returns false (simulates interactive mode)
 // ---------------------------------------------------------------------------
 
@@ -429,10 +432,7 @@ export const TestRenderer = {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, false);
     // Assertion needed: generic methods require type erasure at service boundary
-    const layer = Layer.succeed(
-      CliRenderer,
-      service as unknown as typeof CliRenderer.Service,
-    );
+    const layer = Layer.succeed(CliRenderer, service as unknown as typeof CliRenderer.Service);
     return { layer, state };
   },
 };
@@ -446,10 +446,7 @@ export const TestMachineRenderer = {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, true);
     // Assertion needed: generic methods require type erasure at service boundary
-    const layer = Layer.succeed(
-      CliRenderer,
-      service as unknown as typeof CliRenderer.Service,
-    );
+    const layer = Layer.succeed(CliRenderer, service as unknown as typeof CliRenderer.Service);
     return { layer, state };
   },
 };

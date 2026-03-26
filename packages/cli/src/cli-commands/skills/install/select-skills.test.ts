@@ -9,8 +9,8 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { AppError } from "@axm.sh/core/unstable/app-error";
@@ -29,10 +29,10 @@ const makeSkill = (name: string): SkillExtensionRef => ({
 });
 
 const { layer: rendererLayer } = TestRenderer.make();
-const [inputLayer] = makeTestPrompt({
-  methodBehaviors: { multiselect: { type: "multiselect", indices: [0, 1] } },
+const [promptLayer] = makeTestPrompt({
+  multiselectResponses: [[makeSkill("commit"), makeSkill("review-pr")]],
 });
-const TestLayer = Layer.mergeAll(rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)), promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)), CliEnvironmentTest());
+const TestLayer = Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest());
 
 type TestR = Layer.Success<typeof TestLayer>;
 
@@ -40,7 +40,7 @@ const provide = <A, E>(effect: Effect.Effect<A, E, TestR>) =>
   effect.pipe(Effect.provide(TestLayer));
 
 const provideWithFlags = (overrides: Parameters<typeof CliEnvironmentTest>[0]) => {
-  const layer = Layer.mergeAll(rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)), promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)), CliEnvironmentTest(overrides));
+  const layer = Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest(overrides));
   return <A, E>(effect: Effect.Effect<A, E, TestR>) => effect.pipe(Effect.provide(layer));
 };
 

@@ -10,7 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import type { CodingAgent } from "../../../agents/coding-agent.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { McpServerLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -129,7 +129,7 @@ const withServices = (
   Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
-    makeOutputTestLayer()[0],
+    TestRenderer.make().layer,
   );
 
 const makeOp = (

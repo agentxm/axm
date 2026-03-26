@@ -10,7 +10,6 @@ import { AuthClientTest } from "../../../auth/auth-client.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { OutputAdapter } from "@axm.sh/core/unstable/output";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleLogout } from "./handler.js";
 
@@ -52,7 +51,6 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    OutputAdapter.pipe(Layer.provide(rendererLayer)),
     CliEnvironmentTest(),
     credStoreLayer,
     authClientLayer,
@@ -72,7 +70,9 @@ describe("auth logout handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Not logged in"))).toBe(true);
+        expect(
+          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Not logged in")),
+        ).toBe(true);
       }),
     );
   });
@@ -82,7 +82,11 @@ describe("auth logout handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
-        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged out successfully"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "success" && l.message.includes("Logged out successfully"),
+          ),
+        ).toBe(true);
       }),
     );
   });
@@ -96,9 +100,17 @@ describe("auth logout handler", () => {
       Effect.gen(function* () {
         yield* handleLogout();
         expect(
-          rendererState.logs.some((l) => l._tag === "warn" && l.message.includes("Signed out locally, but remote revoke failed")),
+          rendererState.logs.some(
+            (l) =>
+              l._tag === "warn" &&
+              l.message.includes("Signed out locally, but remote revoke failed"),
+          ),
         ).toBe(true);
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("expire automatically"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("expire automatically"),
+          ),
+        ).toBe(true);
       }),
     );
   });

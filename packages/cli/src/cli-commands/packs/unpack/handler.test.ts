@@ -15,9 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
@@ -132,19 +131,14 @@ describe("packs unpack.handler", () => {
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [true],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -160,12 +154,14 @@ describe("packs unpack.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs, rendererState };
   };
 
   describe("full unpack", () => {
     it.effect("promotes resolved skills to direct entries and removes pack", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir, {
@@ -226,7 +222,7 @@ describe("packs unpack.handler", () => {
         Effect.gen(function* () {
           yield* handleUnpack(defaultArgs("frontend-tools"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Check settings: pack should be removed, skills should be added
           const settingsContent = JSON.parse(
@@ -334,7 +330,7 @@ describe("packs unpack.handler", () => {
 
   describe("pack not installed", () => {
     it.effect("fails when pack is not in lockfile", () => {
-      const { provide, mockSpinner } = makeLayers();
+      const { provide, rendererState } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir);
@@ -353,8 +349,8 @@ describe("packs unpack.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("not installed");
           expect((result as { howToFix: string }).howToFix).toContain("axm packs install");
-          expect(mockSpinner.starts).toContain("Checking pack...");
-          expect(mockSpinner.stops).toContain("Failed");
+          expect(rendererState.spinnerMessages).toContain("Checking pack...");
+          expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );
     });

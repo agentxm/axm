@@ -16,9 +16,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
@@ -117,20 +116,15 @@ describe("skills install handler — error propagation", () => {
       nonInteractive?: boolean;
     },
   ) => {
-    const [rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)), logMock] = TestRenderer.make();
-    
-    const [promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)), multiselectMock] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+
+    const [promptLayer, multiselectMock] = makeTestPrompt({
+      confirmResponses: [true],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -150,11 +144,13 @@ describe("skills install handler — error propagation", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
+    const logs = logsByTag(rendererState);
+
     return {
       provide,
-      logMock,
+      logs,
       multiselectMock,
-      spinnerMock,
+      rendererState,
     };
   };
 
@@ -185,7 +181,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("returns INVALID_SOURCE for unparseable input", () => {
-    const { provide, spinnerMock } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -198,8 +194,8 @@ describe("skills install handler — error propagation", () => {
         }).pipe(Effect.flip);
         expect(error._tag).toBe("AppError");
         expect((error as AppError).code).toBe("INVALID_SOURCE");
-        expect(spinnerMock.starts).toContain("Parsing source...");
-        expect(spinnerMock.stops).toContain("Failed");
+        expect(rendererState.spinnerMessages).toContain("Parsing source...");
+        expect(rendererState.spinnerMessages).toContain("Failed");
       }),
     );
   });
@@ -235,7 +231,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
-    const { provide, logMock, multiselectMock } = makeLayers({
+    const { provide, logs, multiselectMock } = makeLayers({
       nonInteractive: false,
     });
 
@@ -258,8 +254,8 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(multiselectMock.calls.filter((c) => c.method === "multiselect")).toHaveLength(0);
-        expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
+        expect(multiselectMock.multiselectCalls).toHaveLength(0);
+        expect(logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
       }),
     );
   });
@@ -290,7 +286,7 @@ describe("skills install handler — error propagation", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-    const { provide, logMock } = makeLayers();
+    const { provide, logs } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -315,7 +311,7 @@ describe("skills install handler — error propagation", () => {
         };
         const result = yield* ws.resolvePlan(plan, { yes: false, force: true, preview: false });
         // --force downgrades errors to warnings and proceeds
-        expect(logMock.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+        expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");
       }),
     );

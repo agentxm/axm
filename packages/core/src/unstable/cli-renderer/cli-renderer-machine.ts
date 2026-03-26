@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Schema from "effect/Schema";
@@ -56,13 +57,9 @@ const noopProgressHandle: ProgressHandle = {
 
 const makeStreamSpinnerHandle = (phase: string): SpinnerHandle => ({
   stop: (message) =>
-    message
-      ? emitStderrEvent({ type: "progress", phase, percent: 100, message })
-      : Effect.void,
+    message ? emitStderrEvent({ type: "progress", phase, percent: 100, message }) : Effect.void,
   update: (message) =>
-    message
-      ? emitStderrEvent({ type: "progress", phase, percent: -1, message })
-      : Effect.void,
+    message ? emitStderrEvent({ type: "progress", phase, percent: -1, message }) : Effect.void,
   cancel: (message) =>
     emitStderrEvent({
       type: "progress",
@@ -70,18 +67,16 @@ const makeStreamSpinnerHandle = (phase: string): SpinnerHandle => ({
       percent: -1,
       message: message ?? "Cancelled",
     }),
-  error: (message) =>
-    emitLogEvent("error", message ?? "Error"),
+  error: (message) => emitLogEvent("error", message ?? "Error"),
   clear: () => Effect.void,
 });
 
-const makeStreamProgressHandle = (phase: string, max: number): ProgressHandle => {
+const makeStreamProgressHandle = (phase: string, rawMax: number): ProgressHandle => {
+  const max = Math.max(rawMax, 1);
   let current = 0;
   return {
     stop: (message) =>
-      message
-        ? emitStderrEvent({ type: "progress", phase, percent: 100, message })
-        : Effect.void,
+      message ? emitStderrEvent({ type: "progress", phase, percent: 100, message }) : Effect.void,
     update: (message) =>
       message
         ? emitStderrEvent({
@@ -103,9 +98,7 @@ const makeStreamProgressHandle = (phase: string, max: number): ProgressHandle =>
     advance: (step, message) => {
       current = Math.min(current + (step ?? 1), max);
       const percent = Math.round((current / max) * 100);
-      return message
-        ? emitStderrEvent({ type: "progress", phase, percent, message })
-        : Effect.void;
+      return message ? emitStderrEvent({ type: "progress", phase, percent, message }) : Effect.void;
     },
   };
 };
@@ -135,6 +128,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     options?: SpinnerOptions<A>,
   ): Effect.Effect<A, E, R> => {
     const handle = makeStreamSpinnerHandle("work");
+    const failureMessage = options?.failureMessage;
     return emitStderrEvent({
       type: "progress",
       phase: "work",
@@ -142,19 +136,37 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       message,
     }).pipe(
       Effect.andThen(f(handle)),
-      Effect.tap((a) => {
-        const successMessage =
-          typeof options?.successMessage === "function"
-            ? options.successMessage(a)
-            : typeof options?.successMessage === "string"
-              ? options.successMessage
-              : message;
-        return emitStderrEvent({
-          type: "progress",
-          phase: "work",
-          percent: 100,
-          message: successMessage,
-        });
+      Effect.matchCauseEffect({
+        onFailure: (cause) => {
+          const failEvent = Cause.hasInterruptsOnly(cause)
+            ? emitStderrEvent({
+                type: "progress",
+                phase: "work",
+                percent: -1,
+                message: "Cancelled",
+              })
+            : emitStderrEvent({
+                type: "progress",
+                phase: "work",
+                percent: -1,
+                message: failureMessage ?? message,
+              });
+          return failEvent.pipe(Effect.andThen(Effect.failCause(cause)));
+        },
+        onSuccess: (a) => {
+          const successMessage =
+            typeof options?.successMessage === "function"
+              ? options.successMessage(a)
+              : typeof options?.successMessage === "string"
+                ? options.successMessage
+                : message;
+          return emitStderrEvent({
+            type: "progress",
+            phase: "work",
+            percent: 100,
+            message: successMessage,
+          }).pipe(Effect.as(a));
+        },
       }),
     );
   };
@@ -169,12 +181,9 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     step: (message) => emitLogEvent("info", message),
     warn: (message) => emitLogEvent("warn", message),
     error: (message) => emitLogEvent("error", message),
-    cancel: (message) =>
-      message ? emitLogEvent("info", message) : Effect.void,
-    note: (message, title) =>
-      emitLogEvent("info", title ? `${title}: ${message}` : message),
-    box: (message, title) =>
-      emitLogEvent("info", title ? `${title}: ${message}` : message),
+    cancel: (message) => (message ? emitLogEvent("info", message) : Effect.void),
+    note: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
+    box: (message, title) => emitLogEvent("info", title ? `${title}: ${message}` : message),
     streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
       Stream.runCollect(stream).pipe(
         Effect.flatMap((chunks) => {
@@ -277,7 +286,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
             ),
           ),
         { concurrency: 1 },
-      ),
+      ).pipe(Effect.asVoid),
 
     // Data display — no-ops in machine mode
     table: () => Effect.void,

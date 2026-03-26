@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 
@@ -73,7 +73,7 @@ const workspaceMock = {} as WorkspaceContextService;
 
 const { layer: RendererTestLayer } = TestRenderer.make();
 const testLayer = Layer.mergeAll(
-  RendererTestLayer, OutputAdapter.pipe(Layer.provide(RendererTestLayer)),
+  RendererTestLayer,
   Layer.succeed(Workspace, workspaceMock),
   Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
   Layer.succeed(Path.Path, {} as Path.Path),

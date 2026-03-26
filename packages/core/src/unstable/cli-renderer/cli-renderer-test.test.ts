@@ -12,6 +12,10 @@ import { TestRenderer, TestMachineRenderer } from "./cli-renderer-test.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
+function assertDefined<T>(value: T | undefined, msg: string): asserts value is T {
+  if (value === undefined) throw new Error(msg);
+}
+
 const run = <A>(effect: Effect.Effect<A, never, CliRenderer>, layer: Layer.Layer<CliRenderer>) =>
   Effect.runPromise(Effect.provide(effect, layer));
 
@@ -280,7 +284,14 @@ describe("TestRenderer", () => {
       const { layer, state } = TestRenderer.make();
       const items = [{ name: "alpha" }, { name: "beta" }];
       const columns: ReadonlyArray<ColumnDef<{ name: string }>> = [
-        { key: "name", header: "Name", value: (i) => i.name, priority: 0, align: "left", width: "auto" },
+        {
+          key: "name",
+          header: "Name",
+          value: (i) => i.name,
+          priority: 0,
+          align: "left",
+          width: "auto",
+        },
       ];
       await run(
         Effect.gen(function* () {
@@ -298,8 +309,22 @@ describe("TestRenderer", () => {
       const { layer, state } = TestRenderer.make();
       const item = { name: "my-skill", version: "1.0.0" };
       const columns: ReadonlyArray<ColumnDef<typeof item>> = [
-        { key: "name", header: "Name", value: (i) => i.name, priority: 0, align: "left", width: "auto" },
-        { key: "version", header: "Version", value: (i) => i.version, priority: 0, align: "left", width: "auto" },
+        {
+          key: "name",
+          header: "Name",
+          value: (i) => i.name,
+          priority: 0,
+          align: "left",
+          width: "auto",
+        },
+        {
+          key: "version",
+          header: "Version",
+          value: (i) => i.version,
+          priority: 0,
+          align: "left",
+          width: "auto",
+        },
       ];
       await run(
         Effect.gen(function* () {
@@ -374,7 +399,9 @@ describe("TestRenderer", () => {
         layer,
       );
       expect(state.results[0]?.data).toEqual({ name: "test" });
-      expect(state.results[0]?.schema).toBe(schema);
+      const firstResult = state.results[0];
+      assertDefined(firstResult, "Expected result entry");
+      expect(Option.getOrThrow(firstResult.schema)).toBe(schema);
     });
   });
 

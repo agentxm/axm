@@ -80,10 +80,12 @@ let stdoutWriteSpy: any;
 
 beforeEach(() => {
   stdoutWrites = [];
-  stdoutWriteSpy = vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
-    stdoutWrites.push(String(args[0]));
-    return true;
-  });
+  stdoutWriteSpy = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation((...args: Array<unknown>) => {
+      stdoutWrites.push(String(args[0]));
+      return true;
+    });
   vi.clearAllMocks();
 });
 
@@ -357,30 +359,27 @@ describe("InteractiveRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.detail(
-            { name: "test", longLabel: "val" },
-            [
-              {
-                key: "name",
-                header: "Name",
-                value: (i: { name: string; longLabel: string }) => i.name,
-                priority: 0,
-                align: "left" as const,
-                width: "auto" as const,
-              },
-              {
-                key: "longLabel",
-                header: "Long Label",
-                value: (i: { name: string; longLabel: string }) => i.longLabel,
-                priority: 0,
-                align: "left" as const,
-                width: "auto" as const,
-              },
-            ],
-          );
+          yield* r.detail({ name: "test", longLabel: "val" }, [
+            {
+              key: "name",
+              header: "Name",
+              value: (i: { name: string; longLabel: string }) => i.name,
+              priority: 0,
+              align: "left" as const,
+              width: "auto" as const,
+            },
+            {
+              key: "longLabel",
+              header: "Long Label",
+              value: (i: { name: string; longLabel: string }) => i.longLabel,
+              priority: 0,
+              align: "left" as const,
+              width: "auto" as const,
+            },
+          ]);
         }),
       );
-      const output = stdoutWrites[0];
+      const output = stdoutWrites[0] ?? "";
       const lines = output.split("\n");
       // Both lines should have aligned labels (Name padded to match Long Label width)
       const nameLine = lines.find((l) => l.includes("Name") && l.includes("test"));
@@ -427,10 +426,7 @@ describe("InteractiveRenderer", () => {
             [
               {
                 data: { name: "root" },
-                children: [
-                  { data: { name: "child1" } },
-                  { data: { name: "child2" } },
-                ],
+                children: [{ data: { name: "child1" } }, { data: { name: "child2" } }],
               },
             ],
             { label: (item: { name: string }) => item.name },
@@ -450,13 +446,10 @@ describe("InteractiveRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.tree(
-            [{ data: { name: "file.ts" } }],
-            {
-              label: (item: { name: string }) => item.name,
-              icon: () => "+",
-            },
-          );
+          yield* r.tree([{ data: { name: "file.ts" } }], {
+            label: (item: { name: string }) => item.name,
+            icon: () => "+",
+          });
         }),
       );
       const output = stdoutWrites[0];
@@ -467,13 +460,10 @@ describe("InteractiveRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.tree(
-            [{ data: { key: "Version", value: "1.0.0" } }],
-            {
-              label: (item: { key: string; value: string }) => item.key,
-              detail: (item: { key: string; value: string }) => item.value,
-            },
-          );
+          yield* r.tree([{ data: { key: "Version", value: "1.0.0" } }], {
+            label: (item: { key: string; value: string }) => item.key,
+            detail: (item: { key: string; value: string }) => item.value,
+          });
         }),
       );
       const output = stdoutWrites[0];
@@ -485,11 +475,7 @@ describe("InteractiveRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.tree(
-            [],
-            { label: (item: { name: string }) => item.name },
-            "Empty",
-          );
+          yield* r.tree([], { label: (item: { name: string }) => item.name }, "Empty");
         }),
       );
       expect(stdoutWrites).toHaveLength(0);
@@ -536,6 +522,7 @@ describe("InteractiveRenderer", () => {
         }),
       );
       expect(stdoutWrites).toHaveLength(1);
+      assertDefined(stdoutWrites[0], "Expected stdout write from json()");
       const parsed = JSON.parse(stdoutWrites[0]) as Record<string, unknown>;
       expect(parsed).toEqual({ key: "value" });
       // Pretty-printed

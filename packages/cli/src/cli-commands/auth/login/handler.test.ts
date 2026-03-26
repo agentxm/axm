@@ -11,9 +11,6 @@ import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-store.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogin } from "./handler.js";
@@ -87,9 +84,6 @@ const makeLayers = (opts?: {
   const FullLayer = Layer.mergeAll(
     rendererLayer,
     promptLayer,
-    OutputAdapter.pipe(Layer.provide(rendererLayer)),
-    ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-    InputAdapter.pipe(Layer.provide(promptLayer)),
     flagsLayer,
     credStoreLayer,
     authClientLayer,
@@ -121,7 +115,11 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+          ),
+        ).toBe(true);
       }),
     );
   });
@@ -132,9 +130,9 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
         const steps = rendererState.logs.filter((l) => l._tag === "step").map((l) => l.message);
-        expect(
-          steps.some((m) => m.includes("https://auth.agentxm.ai/device?code=ABCD-1234")),
-        ).toBe(true);
+        expect(steps.some((m) => m.includes("https://auth.agentxm.ai/device?code=ABCD-1234"))).toBe(
+          true,
+        );
         expect(steps.some((m) => m.includes("ABCD-1234"))).toBe(true);
       }),
     );
@@ -148,9 +146,17 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Already logged in"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          ),
+        ).toBe(true);
         expect(promptState.confirmCalls.length > 0).toBe(true);
-        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+          ),
+        ).toBe(true);
       }),
     );
   });
@@ -163,9 +169,17 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: true });
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Already logged in"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          ),
+        ).toBe(true);
         expect(promptState.confirmCalls).toHaveLength(0);
-        expect(rendererState.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as alice"))).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+          ),
+        ).toBe(true);
       }),
     );
   });
@@ -178,7 +192,9 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
-        expect(rendererState.logs.filter((l) => l._tag === "success" && l.message.includes("Logged in"))).toHaveLength(0);
+        expect(
+          rendererState.logs.filter((l) => l._tag === "success" && l.message.includes("Logged in")),
+        ).toHaveLength(0);
       }),
     );
   });
@@ -217,9 +233,6 @@ describe("auth login handler", () => {
     const layer = Layer.mergeAll(
       rendererLayer2,
       promptLayer2,
-      OutputAdapter.pipe(Layer.provide(rendererLayer2)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer2)),
-      InputAdapter.pipe(Layer.provide(promptLayer2)),
       CliEnvironmentTest({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
@@ -231,7 +244,11 @@ describe("auth login handler", () => {
       Effect.catchTag("AppError", (error) =>
         Effect.gen(function* () {
           expect(error.code).toBe("AUTH_UNAUTHENTICATED");
-          expect(rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("Login successful"))).toBe(false);
+          expect(
+            rendererState2.logs.some(
+              (l) => l._tag === "success" && l.message.includes("Login successful"),
+            ),
+          ).toBe(false);
 
           const credStore = yield* CredentialStore;
           const stored = yield* credStore.load(REGISTRY_URL);

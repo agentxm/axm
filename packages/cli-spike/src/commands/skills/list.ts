@@ -1,15 +1,15 @@
 // ==========================================================================
-// list.ts — Reference pattern for INSTANT commands using Output service
+// list.ts — Reference pattern for INSTANT commands using CliRenderer
 //
 // Demonstrates the idiomatic command structure with @axm.sh/core services:
 //   1. Fetch data via services
-//   2. Format and emit output via Output service
-//   3. withRuntime() provides Output + Activity layers
+//   2. Format and emit output via CliRenderer service
+//   3. withRuntime() provides CliRenderer + CliPrompt layers
 // ==========================================================================
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/unstable/cli";
 
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { type FakeSkillInfo, FakeSkillsManager } from "../../fake-skills-manager.js";
 import { withRuntime } from "../../runtime.js";
@@ -45,9 +45,10 @@ const listConfig = {
 export const listCommand = Command.make("list", listConfig, (config) =>
   withRuntime(
     Effect.gen(function* () {
+      const renderer = yield* CliRenderer;
       const fakeSkillsManager = yield* FakeSkillsManager;
       const skills = yield* fakeSkillsManager.listSkills(config.scope);
-      yield* Console.log(renderText(skills));
+      yield* renderer.raw(renderText(skills));
     }),
     { command: "skills list" },
   ),

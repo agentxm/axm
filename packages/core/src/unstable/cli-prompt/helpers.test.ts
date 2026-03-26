@@ -7,9 +7,8 @@ import { autoConfirm, fromFlagOrPrompt } from "./helpers.js";
 describe("fromFlagOrPrompt", () => {
   it.effect("returns the flag value when Option is Some", () =>
     Effect.gen(function* () {
-      const result = yield* fromFlagOrPrompt(
-        Option.some("from-flag"),
-        () => Effect.succeed("from-prompt"),
+      const result = yield* fromFlagOrPrompt(Option.some("from-flag"), () =>
+        Effect.succeed("from-prompt"),
       );
       expect(result).toBe("from-flag");
     }),

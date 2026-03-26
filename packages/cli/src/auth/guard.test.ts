@@ -9,9 +9,8 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { RegistryUrl } from "./auth-middleware.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
-import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -28,13 +27,9 @@ const makeLayers = (opts?: {
   hasToken?: boolean;
   confirmValue?: boolean;
 }) => {
-  const [outputLayer, mockLog] = makeOutputTestLayer();
-  const [activityLayer] = makeActivityTestLayer();
-  const [inputLayer, mockPrompt] = makeInputTestLayer({
-    defaultBehavior: { type: "return", value: "" },
-    methodBehaviors: {
-      confirm: { type: "return", value: opts?.confirmValue ?? true },
-    },
+  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const [promptLayer, promptState] = makeTestPrompt({
+    confirmResponses: [opts?.confirmValue ?? true],
   });
 
   const flagsLayer = CliEnvironmentTest({
@@ -87,16 +82,16 @@ const makeLayers = (opts?: {
   });
 
   const FullLayer = Layer.mergeAll(
-    outputLayer,
-    activityLayer,
-    inputLayer,
+    rendererLayer,
+    promptLayer,
     flagsLayer,
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,
   );
 
-  return { FullLayer, mockLog, mockPrompt };
+  const logs = logsByTag(rendererState);
+  return { FullLayer, rendererState, promptState, logs };
 };
 
 describe("withAuthGuard", () => {
@@ -122,12 +117,12 @@ describe("withAuthGuard", () => {
   });
 
   it.effect("prompts and runs login when no token and user accepts", () => {
-    const { FullLayer, mockLog } = makeLayers({ confirmValue: true });
+    const { FullLayer, logs } = makeLayers({ confirmValue: true });
     return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
-        expect(mockLog.logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
+        expect(logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
       }),
     );
   });
@@ -144,13 +139,13 @@ describe("withAuthGuard", () => {
   });
 
   it.effect("auto-accepts login with --yes flag", () => {
-    const { FullLayer, mockPrompt } = makeLayers({ yes: true });
+    const { FullLayer, promptState } = makeLayers({ yes: true });
     return withAuthGuard(makeInnerEffect(), { yes: true }).pipe(
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
         // Should not have prompted (--yes auto-accepts)
-        expect(mockPrompt.calls.filter((c) => c.method === "confirm")).toHaveLength(0);
+        expect(promptState.confirmCalls).toHaveLength(0);
       }),
     );
   });

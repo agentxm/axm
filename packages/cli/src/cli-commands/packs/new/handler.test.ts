@@ -14,8 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
@@ -84,8 +84,8 @@ describe("packs-new.handler", () => {
     const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -99,12 +99,14 @@ describe("packs-new.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
@@ -138,9 +140,7 @@ describe("packs-new.handler", () => {
           expect(settings.packs).toBeDefined();
           expect(settings.packs["frontend-tools"]).toBe("@acme/packs/frontend-tools");
 
-          expect(mockLog.logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(
-            true,
-          );
+          expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
         }),
       );
     });
@@ -148,7 +148,7 @@ describe("packs-new.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { profile: "@acme" });
 
       return provide(
@@ -173,7 +173,7 @@ describe("packs-new.handler", () => {
           expect(settings.packs?.["frontend-tools"]).toBeUndefined();
 
           // Preview log message should appear
-          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
         }),
       );
     });

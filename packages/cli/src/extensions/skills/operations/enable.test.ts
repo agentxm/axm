@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { sanitizeName } from "../utils.js";
@@ -147,7 +147,7 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
-  const [outputLayer] = makeOutputTestLayer();
+  const { layer: outputLayer } = TestRenderer.make();
   return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), outputLayer);
 };
 

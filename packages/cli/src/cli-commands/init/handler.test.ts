@@ -22,13 +22,8 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { InputAdapter } from "@axm.sh/core/unstable/input";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import {
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../workspace/index.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../workspace/index.js";
 import { handleInit } from "./handler.js";
 
 describe("init.handler", () => {
@@ -59,8 +54,6 @@ describe("init.handler", () => {
     NodeServices.layer,
     rendererLayer,
     promptLayer,
-    OutputAdapter.pipe(Layer.provide(rendererLayer)),
-    InputAdapter.pipe(Layer.provide(promptLayer)),
     CliEnvironmentTest(),
   );
 
@@ -344,8 +337,6 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
-        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
@@ -417,15 +408,15 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
-        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest(),
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = iRendererState.logs.filter((l) => l._tag === "info").map((l) => l.message);
+        const infoMessages = iRendererState.logs
+          .filter((l) => l._tag === "info")
+          .map((l) => l.message);
         expect(infoMessages).toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     });
@@ -442,15 +433,15 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        OutputAdapter.pipe(Layer.provide(iRendererLayer)),
-        InputAdapter.pipe(Layer.provide(iPromptLayer)),
         CliEnvironmentTest(),
       );
       const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
       return Effect.gen(function* () {
         yield* handleInit();
 
-        const infoMessages = iRendererState.logs.filter((l) => l._tag === "info").map((l) => l.message);
+        const infoMessages = iRendererState.logs
+          .filter((l) => l._tag === "info")
+          .map((l) => l.message);
         expect(infoMessages).not.toContain("Telemetry is enabled to help improve axm. To disable:");
       }).pipe(
         Effect.ensuring(

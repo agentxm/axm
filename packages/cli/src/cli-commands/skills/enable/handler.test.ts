@@ -8,21 +8,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { FileSystem, Path } from "effect";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
-import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
 import { handleEnable, type EnableHandlerArgs } from "./handler.js";
 
@@ -96,8 +91,8 @@ describe("enable.handler", () => {
     const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -108,15 +103,13 @@ describe("enable.handler", () => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   // ---------------------------------------------------------------------------
@@ -151,7 +144,7 @@ describe("enable.handler", () => {
     });
 
     it.effect("no-op when skill is already enabled", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
@@ -162,8 +155,8 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.info.some((m) => m.includes("already enabled"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already enabled"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
         }),
       );
     });
@@ -216,7 +209,7 @@ describe("enable.handler", () => {
 
   describe("promoted skill re-enable", () => {
     it.effect("re-enables promoted transitive skill by updating settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       // Skill was promoted to direct via disable: bare name key, no lock entry
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -252,7 +245,7 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("code-review"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -272,7 +265,7 @@ describe("enable.handler", () => {
 
   describe("settings-only enable (no lock entry)", () => {
     it.effect("enables a configured-disabled skill with no lockfile entry", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       // Skill in settings as disabled but not in lockfile
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -290,7 +283,7 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -310,7 +303,7 @@ describe("enable.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves enable plan for disabled skill", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       // Create a disabled skill: { source: "local", enabled: false }
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -333,7 +326,7 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Verify agent symlink was created
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");

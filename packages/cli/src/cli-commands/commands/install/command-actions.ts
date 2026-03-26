@@ -112,9 +112,8 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
-    const provide = <A, E>(
-      effect: Effect.Effect<A, E, any>,
-    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer) as Effect.Effect<A, E, never>;
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>): Effect.Effect<A, E, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, E, never>;
 
     const parseArgs = (
       args: InstallCommandHandlerArgs,

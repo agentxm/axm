@@ -64,7 +64,6 @@ export interface UnpackHandlerArgs {
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
-  
 
   yield* renderer.info("axm packs unpack");
 

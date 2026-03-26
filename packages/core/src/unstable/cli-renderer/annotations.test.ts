@@ -2,7 +2,16 @@ import * as Schema from "effect/Schema";
 import * as SchemaAST from "effect/SchemaAST";
 import { describe, expect, it } from "vitest";
 
-import { column, hidden, ColumnHeader, ColumnPriority, ColumnAlign, ColumnWidth, DisplayFormat, Hidden } from "./annotations.js";
+import {
+  column,
+  hidden,
+  ColumnHeader,
+  ColumnPriority,
+  ColumnAlign,
+  ColumnWidth,
+  DisplayFormat,
+  Hidden,
+} from "./annotations.js";
 
 // ---------------------------------------------------------------------------
 // Assertion helper — avoids non-null assertions per project conventions
@@ -87,10 +96,7 @@ describe("column()", () => {
   });
 
   it("later annotations override earlier ones", () => {
-    const annotated = Schema.String.pipe(
-      column({ header: "First" }),
-      column({ header: "Second" }),
-    );
+    const annotated = Schema.String.pipe(column({ header: "First" }), column({ header: "Second" }));
     const ann = SchemaAST.resolve(annotated.ast);
     expect(ann?.[ColumnHeader]).toBe("Second");
   });

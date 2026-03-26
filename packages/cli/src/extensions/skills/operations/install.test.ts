@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { Source, ExtensionRef, SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
@@ -183,7 +183,7 @@ const withServices = (
           ? source.path
           : source.type,
   };
-  const [outputLayer] = makeOutputTestLayer();
+  const { layer: outputLayer } = TestRenderer.make();
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(mockWs),

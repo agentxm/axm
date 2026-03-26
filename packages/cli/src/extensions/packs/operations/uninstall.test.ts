@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallPackOperation } from "./uninstall.js";
@@ -84,7 +84,7 @@ const makeLayer = (axmDir: string) => {
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(makeWorkspaceMock(axmDir)),
-    makeOutputTestLayer()[0],
+    TestRenderer.make().layer,
   );
 };
 

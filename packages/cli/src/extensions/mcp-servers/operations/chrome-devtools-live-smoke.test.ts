@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { uninstallMcpServer } from "./uninstall.js";
 import { installMcpServer } from "./install.js";
@@ -113,7 +113,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         },
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock), makeOutputTestLayer()[0]),
+          Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock), TestRenderer.make().layer),
         ),
       );
 
@@ -127,7 +127,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         },
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock), makeOutputTestLayer()[0]),
+          Layer.mergeAll(NodeServices.layer, Workspace.layer(wsMock), TestRenderer.make().layer),
         ),
       );
 

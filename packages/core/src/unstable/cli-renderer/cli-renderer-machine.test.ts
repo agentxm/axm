@@ -20,14 +20,18 @@ let stderrWriteSpy: any;
 beforeEach(() => {
   stdoutWrites = [];
   stderrWrites = [];
-  stdoutWriteSpy = vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
-    stdoutWrites.push(String(args[0]));
-    return true;
-  });
-  stderrWriteSpy = vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
-    stderrWrites.push(String(args[0]));
-    return true;
-  });
+  stdoutWriteSpy = vi
+    .spyOn(process.stdout, "write")
+    .mockImplementation((...args: Array<unknown>) => {
+      stdoutWrites.push(String(args[0]));
+      return true;
+    });
+  stderrWriteSpy = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((...args: Array<unknown>) => {
+      stderrWrites.push(String(args[0]));
+      return true;
+    });
 });
 
 afterEach(() => {
@@ -43,8 +47,7 @@ const run = <A>(effect: Effect.Effect<A, never, CliRenderer>) =>
 const parseStderrEvents = () =>
   stderrWrites.map((line) => JSON.parse(line.trim()) as Record<string, unknown>);
 
-const parseStdout = () =>
-  stdoutWrites.map((line) => JSON.parse(line.trim()) as unknown);
+const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()) as unknown);
 
 // ---------------------------------------------------------------------------
 // Chrome methods — emit NDJSON log events to stderr
@@ -280,19 +283,16 @@ describe("MachineRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.detail(
-            { name: "test" },
-            [
-              {
-                key: "name",
-                header: "Name",
-                value: (i: { name: string }) => i.name,
-                priority: 0,
-                align: "left" as const,
-                width: "auto" as const,
-              },
-            ],
-          );
+          yield* r.detail({ name: "test" }, [
+            {
+              key: "name",
+              header: "Name",
+              value: (i: { name: string }) => i.name,
+              priority: 0,
+              align: "left" as const,
+              width: "auto" as const,
+            },
+          ]);
         }),
       );
       expect(stdoutWrites).toHaveLength(0);
@@ -302,10 +302,7 @@ describe("MachineRenderer", () => {
       await run(
         Effect.gen(function* () {
           const r = yield* CliRenderer;
-          yield* r.tree(
-            [{ data: { name: "root" } }],
-            { label: (i: { name: string }) => i.name },
-          );
+          yield* r.tree([{ data: { name: "root" } }], { label: (i: { name: string }) => i.name });
         }),
       );
       expect(stdoutWrites).toHaveLength(0);

@@ -1,16 +1,16 @@
 import * as Effect from "effect/Effect";
-import { Output, OutputLive } from "@axm.sh/core/unstable/output";
+import { CliRenderer, InteractiveRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 export const logCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
-      const output = yield* Output;
-      yield* output.info("This is an info message");
-      yield* output.warn("This is a warning message");
-      yield* output.error("This is an error message");
-      yield* output.success("This is a success message");
-      yield* output.message("This is a plain message");
+      const renderer = yield* CliRenderer;
+      yield* renderer.info("This is an info message");
+      yield* renderer.warn("This is a warning message");
+      yield* renderer.error("This is an error message");
+      yield* renderer.success("This is a success message");
+      yield* renderer.message("This is a plain message");
     });
-    return Effect.runPromise(program.pipe(Effect.provide(OutputLive())));
+    return Effect.runPromise(program.pipe(Effect.provide(InteractiveRenderer())));
   },
 };

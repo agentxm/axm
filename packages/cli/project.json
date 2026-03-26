@@ -69,7 +69,7 @@
     },
     "publish": {
       "cache": false,
-      "dependsOn": ["build"],
+      "dependsOn": ["build", "cli-e2e:e2e", "cli-spike-e2e:e2e"],
       "executor": "nx:run-commands",
       "options": {
         "command": "npm publish --provenance --access public --no-git-checks",

@@ -15,7 +15,7 @@ import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
-import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -82,6 +82,33 @@ const testLayer = Layer.mergeAll(
 const runBuildPlan = (args: BuildUninstallPlanArgs) =>
   Effect.runSync(buildUninstallPlan(args).pipe(Effect.provide(testLayer)));
 
+const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T => {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`Missing ${label} at index ${index}`);
+  }
+  return item;
+};
+
+const getJob = (plan: Plan) => getItem(plan.jobs, 0, "job");
+
+const getSteps = (plan: Plan) => getJob(plan).steps;
+
+const getStep = (steps: ReadonlyArray<PlannedJobStep>, index: number) =>
+  getItem(steps, index, "step");
+
+const findStep = (
+  steps: ReadonlyArray<PlannedJobStep>,
+  predicate: (step: PlannedJobStep) => boolean,
+  label: string,
+): PlannedJobStep => {
+  const step = steps.find(predicate);
+  if (step === undefined) {
+    throw new Error(`Missing ${label}`);
+  }
+  return step;
+};
+
 /** Check if a ready step is a no-op by running its closure and inspecting the result message. */
 const runStep = (step: PlannedJobStep): JobStepResult | undefined => {
   if (step.readiness !== "ready") return undefined;
@@ -103,14 +130,14 @@ describe("buildUninstallPlan", () => {
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(1);
-    expect(plan.jobs[0]!.steps[0]!.readiness).toBe("ready");
+    expect(getSteps(plan)).toHaveLength(1);
+    expect(getStep(getSteps(plan), 0).readiness).toBe("ready");
   });
 
   it("marks packs not in lockfile as ready with not-installed no-op", () => {
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile: emptyLockfile }));
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = getStep(getSteps(plan), 0);
     expect(step.readiness).toBe("ready");
     expect(isNoOp(step, "not installed")).toBe(true);
   });
@@ -119,7 +146,7 @@ describe("buildUninstallPlan", () => {
     const plan = runBuildPlan(makePlanArgs({ ops: [], lockfile: emptyLockfile }));
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(0);
+    expect(getSteps(plan)).toHaveLength(0);
   });
 
   it("derives label from pack name", () => {
@@ -131,8 +158,9 @@ describe("buildUninstallPlan", () => {
       makePlanArgs({ ops: [makeOp("pack-a"), makeOp("pack-b")], lockfile }),
     );
 
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("pack-a");
-    expect(plan.jobs[0]!.steps[1]!.label).toBe("pack-b");
+    const steps = getSteps(plan);
+    expect(getStep(steps, 0).label).toBe("pack-a");
+    expect(getStep(steps, 1).label).toBe("pack-b");
   });
 
   it("passes through caller-provided name and description", () => {
@@ -157,7 +185,7 @@ describe("buildUninstallPlan", () => {
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("a"), makeOp("b")], lockfile }));
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe(1);
+    expect(getJob(plan).concurrency).toBe(1);
   });
 
   it("handles mixed ready and not-installed steps", () => {
@@ -172,15 +200,15 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.readiness).toBe("ready");
-    expect(steps[0]!.label).toBe("pack-a");
+    const steps = getSteps(plan);
+    expect(getStep(steps, 0).readiness).toBe("ready");
+    expect(getStep(steps, 0).label).toBe("pack-a");
     // pack-b not installed, becomes ready no-op
-    expect(steps[1]!.readiness).toBe("ready");
-    expect(steps[1]!.label).toBe("pack-b");
-    expect(isNoOp(steps[1]!, "not installed")).toBe(true);
-    expect(steps[2]!.readiness).toBe("ready");
-    expect(steps[2]!.label).toBe("pack-c");
+    expect(getStep(steps, 1).readiness).toBe("ready");
+    expect(getStep(steps, 1).label).toBe("pack-b");
+    expect(isNoOp(getStep(steps, 1), "not installed")).toBe(true);
+    expect(getStep(steps, 2).readiness).toBe("ready");
+    expect(getStep(steps, 2).label).toBe("pack-c");
   });
 
   // ---------------------------------------------------------------------------
@@ -196,7 +224,7 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const steps = plan.jobs[0]!.steps;
+    const steps = getSteps(plan);
     // 1 pack step + 2 skill steps
     expect(steps).toHaveLength(3);
 
@@ -217,10 +245,13 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const skillStep = plan.jobs[0]!.steps.find((s) => s.label.startsWith("@acme/skills/"));
-    expect(skillStep).toBeDefined();
-    expect(skillStep!.readiness).toBe("ready");
-    expect(skillStep!.label).toBe("@acme/skills/skill-a");
+    const skillStep = findStep(
+      getSteps(plan),
+      (step) => step.label.startsWith("@acme/skills/"),
+      "skill removal step",
+    );
+    expect(skillStep.readiness).toBe("ready");
+    expect(skillStep.label).toBe("@acme/skills/skill-a");
   });
 
   it("places pack steps before skill steps", () => {
@@ -232,9 +263,9 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.label).toBe("my-pack");
-    expect(steps[1]!.label).toBe("@acme/skills/skill-a");
+    const steps = getSteps(plan);
+    expect(getStep(steps, 0).label).toBe("my-pack");
+    expect(getStep(steps, 1).label).toBe("@acme/skills/skill-a");
   });
 
   it("excludes skills shared with a remaining pack", () => {
@@ -257,9 +288,9 @@ describe("buildUninstallPlan", () => {
     );
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("removing-pack")], lockfile }));
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const skillSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/skills/"));
     expect(skillSteps).toHaveLength(1);
-    expect(skillSteps[0]!.label).toBe("@acme/skills/orphaned");
+    expect(getStep(skillSteps, 0).label).toBe("@acme/skills/orphaned");
   });
 
   it("marks directly-installed skills as preserved no-op steps", () => {
@@ -277,15 +308,14 @@ describe("buildUninstallPlan", () => {
     );
 
     // Orphaned step is ready with run closure (not no-op)
-    const orphanedStep = plan.jobs[0]!.steps.find((s) => s.label === "@acme/skills/orphaned");
-    expect(orphanedStep).toBeDefined();
-    expect(orphanedStep!.readiness).toBe("ready");
+    const steps = getSteps(plan);
+    const orphanedStep = findStep(steps, (step) => step.label === "@acme/skills/orphaned", "orphaned skill step");
+    expect(orphanedStep.readiness).toBe("ready");
 
     // Preserved step is ready no-op
-    const preservedStep = plan.jobs[0]!.steps.find((s) => s.label === "@acme/skills/code-review");
-    expect(preservedStep).toBeDefined();
-    expect(preservedStep!.readiness).toBe("ready");
-    expect(isNoOp(preservedStep!, "preserved")).toBe(true);
+    const preservedStep = findStep(steps, (step) => step.label === "@acme/skills/code-review", "preserved skill step");
+    expect(preservedStep.readiness).toBe("ready");
+    expect(isNoOp(preservedStep, "preserved")).toBe(true);
   });
 
   it("handles glob batch: skill shared between TWO removed packs is removable", () => {
@@ -311,9 +341,9 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const skillSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/skills/"));
     expect(skillSteps).toHaveLength(1);
-    expect(skillSteps[0]!.label).toBe("@acme/skills/shared-skill");
+    expect(getStep(skillSteps, 0).label).toBe("@acme/skills/shared-skill");
   });
 
   it("handles glob batch: remaining packs computed correctly", () => {
@@ -346,7 +376,7 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const skillSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/skills/"));
     // skill-a is still referenced by pack-c, so no skill removal
     expect(skillSteps).toHaveLength(0);
   });
@@ -356,7 +386,7 @@ describe("buildUninstallPlan", () => {
       makePlanArgs({ ops: [makeOp("nonexistent-pack")], lockfile: emptyLockfile }),
     );
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const skillSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/skills/"));
     expect(skillSteps).toHaveLength(0);
   });
 
@@ -389,7 +419,7 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const skillSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/skills/"));
     // 3 unique skills: shared, only-a, only-b
     expect(skillSteps).toHaveLength(3);
     const labels = skillSteps.map((s) => s.label).sort();
@@ -409,7 +439,7 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const commandSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/commands/"));
+    const commandSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/commands/"));
     expect(commandSteps).toHaveLength(2);
     expect(commandSteps.map((s) => s.label).sort()).toEqual([
       "@acme/commands/cmd-a",
@@ -426,10 +456,13 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const cmdStep = plan.jobs[0]!.steps.find((s) => s.label.startsWith("@acme/commands/"));
-    expect(cmdStep).toBeDefined();
-    expect(cmdStep!.readiness).toBe("ready");
-    expect(cmdStep!.label).toBe("@acme/commands/cmd-a");
+    const cmdStep = findStep(
+      getSteps(plan),
+      (step) => step.label.startsWith("@acme/commands/"),
+      "command removal step",
+    );
+    expect(cmdStep.readiness).toBe("ready");
+    expect(cmdStep.label).toBe("@acme/commands/cmd-a");
   });
 
   it("excludes commands shared with a remaining pack", () => {
@@ -452,9 +485,9 @@ describe("buildUninstallPlan", () => {
     );
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("removing-pack")], lockfile }));
 
-    const commandSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/commands/"));
+    const commandSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/commands/"));
     expect(commandSteps).toHaveLength(1);
-    expect(commandSteps[0]!.label).toBe("@acme/commands/orphaned");
+    expect(getStep(commandSteps, 0).label).toBe("@acme/commands/orphaned");
   });
 
   it("marks directly-configured commands as preserved no-op steps", () => {
@@ -471,13 +504,12 @@ describe("buildUninstallPlan", () => {
       makePlanArgs({ ops: [makeOp("my-pack")], lockfile, configuredCommands: ["direct-cmd"] }),
     );
 
-    const orphanedStep = plan.jobs[0]!.steps.find((s) => s.label === "@acme/commands/orphaned");
-    const preservedStep = plan.jobs[0]!.steps.find((s) => s.label === "@acme/commands/direct-cmd");
-    expect(orphanedStep).toBeDefined();
-    expect(preservedStep).toBeDefined();
-    expect(orphanedStep!.readiness).toBe("ready");
-    expect(preservedStep!.readiness).toBe("ready");
-    expect(isNoOp(preservedStep!, "preserved")).toBe(true);
+    const steps = getSteps(plan);
+    const orphanedStep = findStep(steps, (step) => step.label === "@acme/commands/orphaned", "orphaned command step");
+    const preservedStep = findStep(steps, (step) => step.label === "@acme/commands/direct-cmd", "preserved command step");
+    expect(orphanedStep.readiness).toBe("ready");
+    expect(preservedStep.readiness).toBe("ready");
+    expect(isNoOp(preservedStep, "preserved")).toBe(true);
   });
 
   it("glob: command shared between two removed packs produces one step", () => {
@@ -503,9 +535,9 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const commandSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/commands/"));
+    const commandSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/commands/"));
     expect(commandSteps).toHaveLength(1);
-    expect(commandSteps[0]!.label).toBe("@acme/commands/shared-cmd");
+    expect(getStep(commandSteps, 0).label).toBe("@acme/commands/shared-cmd");
   });
 
   // ---------------------------------------------------------------------------
@@ -524,7 +556,7 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+    const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
     expect(mcpSteps).toHaveLength(2);
     expect(mcpSteps.map((s) => s.label).sort()).toEqual([
       "@acme/mcp-servers/srv-a",
@@ -541,10 +573,13 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const mcpStep = plan.jobs[0]!.steps.find((s) => s.label.startsWith("@acme/mcp-servers/"));
-    expect(mcpStep).toBeDefined();
-    expect(mcpStep!.readiness).toBe("ready");
-    expect(mcpStep!.label).toBe("@acme/mcp-servers/srv-a");
+    const mcpStep = findStep(
+      getSteps(plan),
+      (step) => step.label.startsWith("@acme/mcp-servers/"),
+      "mcp-server removal step",
+    );
+    expect(mcpStep.readiness).toBe("ready");
+    expect(mcpStep.label).toBe("@acme/mcp-servers/srv-a");
   });
 
   it("excludes MCP servers shared with a remaining pack", () => {
@@ -567,9 +602,9 @@ describe("buildUninstallPlan", () => {
     );
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("removing-pack")], lockfile }));
 
-    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+    const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
     expect(mcpSteps).toHaveLength(1);
-    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/orphaned");
+    expect(getStep(mcpSteps, 0).label).toBe("@acme/mcp-servers/orphaned");
   });
 
   it("marks directly-configured MCP servers as preserved no-op steps", () => {
@@ -590,15 +625,16 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const orphanedStep = plan.jobs[0]!.steps.find((s) => s.label === "@acme/mcp-servers/orphaned");
-    const preservedStep = plan.jobs[0]!.steps.find(
-      (s) => s.label === "@acme/mcp-servers/direct-srv",
+    const steps = getSteps(plan);
+    const orphanedStep = findStep(steps, (step) => step.label === "@acme/mcp-servers/orphaned", "orphaned mcp-server step");
+    const preservedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/mcp-servers/direct-srv",
+      "preserved mcp-server step",
     );
-    expect(orphanedStep).toBeDefined();
-    expect(preservedStep).toBeDefined();
-    expect(orphanedStep!.readiness).toBe("ready");
-    expect(preservedStep!.readiness).toBe("ready");
-    expect(isNoOp(preservedStep!, "preserved")).toBe(true);
+    expect(orphanedStep.readiness).toBe("ready");
+    expect(preservedStep.readiness).toBe("ready");
+    expect(isNoOp(preservedStep, "preserved")).toBe(true);
   });
 
   it("glob: MCP server shared between two removed packs produces one step", () => {
@@ -624,9 +660,9 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+    const mcpSteps = getSteps(plan).filter((s) => s.label.startsWith("@acme/mcp-servers/"));
     expect(mcpSteps).toHaveLength(1);
-    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/shared-srv");
+    expect(getStep(mcpSteps, 0).label).toBe("@acme/mcp-servers/shared-srv");
   });
 
   // ---------------------------------------------------------------------------
@@ -644,10 +680,10 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const steps = plan.jobs[0]!.steps;
+    const steps = getSteps(plan);
     expect(steps).toHaveLength(4);
     // Pack step is first
-    expect(steps[0]!.label).toBe("my-pack");
+    expect(getStep(steps, 0).label).toBe("my-pack");
     // Extension steps follow
     const extensionLabels = steps.slice(1).map((s) => s.label);
     expect(extensionLabels).toContain("@acme/skills/skill-a");
@@ -666,7 +702,7 @@ describe("buildUninstallPlan", () => {
     ]);
     const plan = runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
 
-    const labels = plan.jobs[0]!.steps.map((s) => s.label);
+    const labels = getSteps(plan).map((s) => s.label);
     expect(labels).toContain("my-pack");
     expect(labels.some((l) => l.startsWith("@acme/skills/"))).toBe(true);
     expect(labels.some((l) => l.startsWith("@acme/commands/"))).toBe(true);
@@ -703,9 +739,10 @@ describe("buildUninstallPlan", () => {
       }),
     );
 
-    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/skills/"));
-    const commandSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/commands/"));
-    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
+    const steps = getSteps(plan);
+    const skillSteps = steps.filter((s) => s.label.startsWith("@acme/skills/"));
+    const commandSteps = steps.filter((s) => s.label.startsWith("@acme/commands/"));
+    const mcpSteps = steps.filter((s) => s.label.startsWith("@acme/mcp-servers/"));
 
     // All shared extensions are removable since both packs are being removed
     expect(skillSteps).toHaveLength(2); // shared + only-b

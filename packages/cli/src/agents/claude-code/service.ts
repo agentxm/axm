@@ -4,8 +4,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { envOption } from "@axm.sh/core/unstable/utils";
 import type { CodingAgent } from "../coding-agent.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
@@ -23,7 +25,8 @@ export const claudeCodeCodingAgent: CodingAgent = {
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
-      const runtimeOverride = process.env[CLAUDE_ENV_OVERRIDE];
+      const runtimeOverrideOpt = yield* envOption(CLAUDE_ENV_OVERRIDE);
+      const runtimeOverride = Option.getOrUndefined(runtimeOverrideOpt);
       if (runtimeOverride !== undefined && runtimeOverride.trim().length === 0) {
         return {
           _tag: "misconfigured",

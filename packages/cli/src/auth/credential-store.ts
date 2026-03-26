@@ -18,7 +18,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { isCI, isContainer, isRoot, isSSH, isWSL } from "@axm.sh/core/unstable/utils";
+import { envOption, isCI, isContainer, isRoot, isSSH, isWSL } from "@axm.sh/core/unstable/utils";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 
@@ -222,10 +222,10 @@ export interface EnvironmentInfo {
 
 export const detectEnvironment = Effect.gen(function* () {
   return {
-    isSSH: isSSH(),
+    isSSH: yield* isSSH,
     isContainer: yield* isContainer,
     isWSL: yield* isWSL,
-    isCI: isCI(),
+    isCI: yield* isCI,
     isRoot: isRoot(),
   } satisfies EnvironmentInfo;
 });
@@ -273,9 +273,9 @@ export const CredentialStoreLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const home = Option.fromUndefinedOr(process.env["HOME"]);
-    const userProfile = Option.fromUndefinedOr(process.env["USERPROFILE"]);
-    const homePath = Option.fromUndefinedOr(process.env["HOMEPATH"]);
+    const home = yield* envOption("HOME");
+    const userProfile = yield* envOption("USERPROFILE");
+    const homePath = yield* envOption("HOMEPATH");
     const homeDir = resolveHomeDir({ home, userProfile, homePath });
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);

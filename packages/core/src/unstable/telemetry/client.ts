@@ -6,7 +6,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as HttpBody from "effect/unstable/http/HttpBody";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import { isCI } from "../utils/index.js";
+import { envWithDefault, isCI } from "../utils/index.js";
 import type { TelemetryMode } from "./mode.js";
 
 export interface TelemetryClientService {
@@ -48,10 +48,13 @@ const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
 const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
   effect.pipe(swallowFailure, Effect.forkDetach, Effect.asVoid);
 
-const isTest = (): boolean =>
-  process.env["VITEST"] === "true" && process.env["AXM_TELEMETRY_ENABLE_IN_TEST"] !== "true";
+const isTest = Effect.gen(function* () {
+  const vitest = yield* envWithDefault("VITEST", "");
+  const enableInTest = yield* envWithDefault("AXM_TELEMETRY_ENABLE_IN_TEST", "");
+  return vitest === "true" && enableInTest !== "true";
+});
 
-const readBaseUrl = (): string => process.env["AXM_TELEMETRY_BASE_URL"] ?? DEFAULT_BASE_URL;
+const readBaseUrl = envWithDefault("AXM_TELEMETRY_BASE_URL", DEFAULT_BASE_URL);
 
 const readRuntime = (): { readonly name: string; readonly version: string } => ({
   name: "bun",
@@ -60,27 +63,29 @@ const readRuntime = (): { readonly name: string; readonly version: string } => (
 
 export const makeTelemetryClient = (
   options: TelemetryClientOptions,
-): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> => {
-  if (options.mode === "off" || isTest()) {
-    return Effect.succeed({
-      trackEvent: () => Effect.void,
-      reportError: () => Effect.void,
-    });
-  }
+): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> =>
+  Effect.gen(function* () {
+    const inTest = yield* isTest;
+    if (options.mode === "off" || inTest) {
+      return {
+        trackEvent: () => Effect.void,
+        reportError: () => Effect.void,
+      };
+    }
 
-  return Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient;
+    const ci = yield* isCI;
 
     const context = {
       client: options.client,
       os: { name: process.platform, version: os.release() },
       runtime: readRuntime(),
       device: { arch: process.arch },
-      ci: isCI(),
+      ci,
     };
 
     const distinctId = createHash("sha256").update(os.hostname()).digest("hex");
-    const baseUrl = readBaseUrl();
+    const baseUrl = yield* readBaseUrl;
 
     const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) => {
       if (options.mode === "errors") return Effect.void;
@@ -136,7 +141,6 @@ export const makeTelemetryClient = (
 
     return { trackEvent, reportError };
   });
-};
 
 export const TelemetryClientLive = (
   options: TelemetryClientOptions,

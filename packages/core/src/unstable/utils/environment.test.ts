@@ -61,18 +61,18 @@ describe("Environment detection", () => {
       else delete process.env["CI"];
     });
 
-    it("returns true when CI=true", () => {
+    it("returns true when CI=true", async () => {
       process.env["CI"] = "true";
-      expect(isCI()).toBe(true);
+      expect(await Effect.runPromise(isCI)).toBe(true);
     });
 
-    it("returns false when CI is not set", () => {
-      expect(isCI()).toBe(false);
+    it("returns false when CI is not set", async () => {
+      expect(await Effect.runPromise(isCI)).toBe(false);
     });
 
-    it("returns false when CI is not 'true'", () => {
+    it("returns false when CI is not 'true'", async () => {
       process.env["CI"] = "false";
-      expect(isCI()).toBe(false);
+      expect(await Effect.runPromise(isCI)).toBe(false);
     });
   });
 
@@ -153,18 +153,18 @@ describe("Environment detection", () => {
       else delete process.env["SSH_TTY"];
     });
 
-    it("returns true when SSH_CLIENT is set", () => {
+    it("returns true when SSH_CLIENT is set", async () => {
       process.env["SSH_CLIENT"] = "192.168.1.1 12345 22";
-      expect(isSSH()).toBe(true);
+      expect(await Effect.runPromise(isSSH)).toBe(true);
     });
 
-    it("returns true when SSH_TTY is set", () => {
+    it("returns true when SSH_TTY is set", async () => {
       process.env["SSH_TTY"] = "/dev/pts/0";
-      expect(isSSH()).toBe(true);
+      expect(await Effect.runPromise(isSSH)).toBe(true);
     });
 
-    it("returns false when neither SSH var is set", () => {
-      expect(isSSH()).toBe(false);
+    it("returns false when neither SSH var is set", async () => {
+      expect(await Effect.runPromise(isSSH)).toBe(false);
     });
   });
 

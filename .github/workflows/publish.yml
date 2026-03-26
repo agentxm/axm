@@ -25,10 +25,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm test
+      - name: Verify
+        run: pnpm nx run-many -t build typecheck test e2e lint
 
-      - run: pnpm test:e2e
-
-      - run: pnpm --filter ./packages/cli run build
-
-      - run: pnpm --filter ./packages/cli publish --provenance --access public --no-git-checks
+      - name: Publish
+        run: pnpm nx run cli:publish

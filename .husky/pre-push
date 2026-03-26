@@ -1,1 +1,1 @@
-pnpm test:e2e
+pnpm nx affected -t e2e

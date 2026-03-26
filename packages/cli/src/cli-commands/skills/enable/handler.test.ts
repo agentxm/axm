@@ -7,18 +7,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type AppError } from "@axm.sh/core/unstable/app-error";
+import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -32,20 +25,16 @@ const initWorkspace = (
   agents: string[] = ["claude-code"],
   opts?: { packs?: Record<string, unknown>; lockfilePacks?: Record<string, unknown> },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = { agents };
-  if (Object.keys(skills).length > 0) {
-    settings["skills"] = skills;
-  }
-  if (opts?.packs && Object.keys(opts.packs).length > 0) {
-    settings["packs"] = opts.packs;
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = { lockfileVersion: 1, skills: lockfileSkills };
-  if (opts?.lockfilePacks) {
-    lockfile["packs"] = opts.lockfilePacks;
-  }
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  const configuredSkills = Object.keys(skills).length > 0 ? skills : undefined;
+  const configuredPacks =
+    opts?.packs && Object.keys(opts.packs).length > 0 ? opts.packs : undefined;
+  writeWorkspaceFiles(axmDir, {
+    agents,
+    skills: configuredSkills,
+    packs: configuredPacks,
+    lockfileSkills,
+    lockfilePacks: opts?.lockfilePacks,
+  });
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
@@ -86,31 +75,9 @@ describe("enable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
-    );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-      ...wsOverrides,
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs };
-  };
+  const makeLayers = (
+    wsOverrides?: Partial<import("../../../workspace/index.js").WorkspaceContextOptions>,
+  ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
 
   // ---------------------------------------------------------------------------
   // Validation: skill not found
@@ -124,8 +91,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("is not installed");
+          expect(getAppError(error).what).toContain("is not installed");
         }),
       );
     });
@@ -137,8 +103,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("is not installed");
+          expect(getAppError(error).what).toContain("is not installed");
         }),
       );
     });
@@ -196,8 +161,7 @@ describe("enable.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("code-review")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("is not installed");
+          expect(getAppError(error).what).toContain("is not installed");
         }),
       );
     });

@@ -7,18 +7,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type AppError } from "@axm.sh/core/unstable/app-error";
+import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleRename, type RenameHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -31,16 +25,11 @@ const initWorkspace = (
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = { agents };
-  if (Object.keys(skills).length > 0) {
-    settings["skills"] = skills;
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
-  );
+  writeWorkspaceFiles(axmDir, {
+    agents,
+    skills: Object.keys(skills).length > 0 ? skills : undefined,
+    lockfileSkills,
+  });
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
@@ -83,31 +72,9 @@ describe("rename.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
-    );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-      ...wsOverrides,
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs };
-  };
+  const makeLayers = (
+    wsOverrides?: Partial<import("../../../workspace/index.js").WorkspaceContextOptions>,
+  ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -123,8 +90,7 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("nonexistent", "new-name")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("not found");
+          expect(getAppError(error).what).toContain("not found");
         }),
       );
     });
@@ -138,8 +104,7 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("nonexistent", "new-name")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("not found");
+          expect(getAppError(error).what).toContain("not found");
         }),
       );
     });
@@ -168,8 +133,7 @@ describe("rename.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleRename(defaultArgs("my-skill", "new-name")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("not found");
+          expect(getAppError(error).what).toContain("not found");
         }),
       );
     });
@@ -187,8 +151,7 @@ describe("rename.handler", () => {
           const error = yield* handleRename(defaultArgs("my-skill", "other-skill")).pipe(
             Effect.flip,
           );
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("already exists");
+          expect(getAppError(error).what).toContain("already exists");
         }),
       );
     });

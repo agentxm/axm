@@ -8,18 +8,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { type AppError } from "@axm.sh/core/unstable/app-error";
+import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -34,17 +28,11 @@ const initWorkspace = (
     agents?: string[];
   } = {},
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = {
-    agents: opts.agents ?? ["claude-code"],
-    ...(opts.profile && { profile: opts.profile }),
-    ...(opts.skills && { skills: opts.skills }),
-  };
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {} }),
-  );
+  writeWorkspaceFiles(axmDir, {
+    agents: opts.agents,
+    profile: opts.profile,
+    skills: opts.skills,
+  });
 };
 
 const defaultArgs = (
@@ -81,30 +69,7 @@ describe("skills-new.handler", () => {
 
   const makeLayers = (
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
-  ) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    const [promptLayer] = makeTestPrompt();
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(flagsOverrides),
-    );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs };
-  };
+  ) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
@@ -229,8 +194,7 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("No profile configured");
+          expect(getAppError(error).what).toContain("No profile configured");
         }),
       );
     });
@@ -244,8 +208,7 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("-bad-name")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -257,8 +220,7 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("MySkill")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -271,8 +233,7 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs(longName)).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("SKILL_NAME_INVALID");
+          expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );
     });
@@ -289,8 +250,7 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("already exists");
+          expect(getAppError(error).what).toContain("already exists");
         }),
       );
     });

@@ -8,18 +8,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import type { WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
+import {
+  getErrorResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -130,33 +131,24 @@ describe("packs unpack.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [true],
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      prompt: {
+        confirmResponses: [true],
+      },
+      wsOptions: wsOverrides,
     });
-    const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
+    const SPLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
     );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-      ...wsOverrides,
+    const FullLayer = Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer);
+    const provide = makeEffectProvide(FullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs, rendererState };
   };
 
   describe("full unpack", () => {
@@ -346,9 +338,9 @@ describe("packs unpack.handler", () => {
               }),
             ),
           );
-          expect(result).toHaveProperty("error", true);
-          expect((result as { what: string }).what).toContain("not installed");
-          expect((result as { howToFix: string }).howToFix).toContain("axm packs install");
+          const errorResult = getErrorResult(result);
+          expect(errorResult.what).toContain("not installed");
+          expect(errorResult.howToFix).toContain("axm packs install");
           expect(rendererState.spinnerMessages).toContain("Checking pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

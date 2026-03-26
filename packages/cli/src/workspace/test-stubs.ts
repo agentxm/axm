@@ -5,8 +5,11 @@
  * @internal Test-only. Not exported from the barrel.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 import type {
   WorkspaceContextService,
   ConfiguredSkill,
@@ -26,12 +29,13 @@ import type {
   ClassifiedExtensionRef,
 } from "./service.js";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { RegistryPackLockEntry, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
 type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 
-const empty = <T>(): R<T> => Effect.succeed({}) as R<T>;
+const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
 const emptyArr = (): RA => Effect.succeed([]);
 
 /**
@@ -99,7 +103,7 @@ export const makeBaseWorkspaceMock = (
   overrides?: Partial<WorkspaceContextService>,
 ): WorkspaceContextService => {
   const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
-  const base: Record<string, unknown> = {
+  const base = {
     ...taxonomyStubs,
     scope: "project",
     path: axmDir,
@@ -155,6 +159,109 @@ export const makeBaseWorkspaceMock = (
     removePackLock: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
-  };
-  return { ...base, ...overrides } as unknown as WorkspaceContextService;
+  } satisfies WorkspaceContextService;
+  return { ...base, ...overrides };
 };
+
+const TEST_DATE = new Date("2025-01-01T00:00:00.000Z");
+
+const hasEntries = (value: Readonly<Record<string, unknown>> | undefined): value is Record<string, unknown> =>
+  value !== undefined && Object.keys(value).length > 0;
+
+export interface WriteWorkspaceFilesOptions {
+  readonly agents?: ReadonlyArray<string> | undefined;
+  readonly profile?: string | undefined;
+  readonly skills?: Record<string, unknown> | undefined;
+  readonly commands?: Record<string, unknown> | undefined;
+  readonly "mcp-servers"?: Record<string, unknown> | undefined;
+  readonly packs?: Record<string, unknown> | undefined;
+  readonly sources?: ReadonlyArray<unknown> | undefined;
+  readonly lockfileSkills?: Record<string, unknown> | undefined;
+  readonly lockfileCommands?: Record<string, unknown> | undefined;
+  readonly lockfileMcpServers?: Record<string, unknown> | undefined;
+  readonly lockfilePacks?: Record<string, unknown> | undefined;
+}
+
+export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+  fs.mkdirSync(axmDir, { recursive: true });
+
+  const settings: Record<string, unknown> = {
+    agents: [...(opts.agents ?? ["claude-code"])],
+    ...(opts.profile && { profile: opts.profile }),
+    ...(hasEntries(opts.skills) && { skills: opts.skills }),
+    ...(hasEntries(opts.commands) && { commands: opts.commands }),
+    ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),
+    ...(hasEntries(opts.packs) && { packs: opts.packs }),
+    ...(opts.sources && { sources: opts.sources }),
+  };
+
+  const lockfile: Record<string, unknown> = {
+    lockfileVersion: 1,
+    skills: opts.lockfileSkills ?? {},
+    ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
+    ...(hasEntries(opts.lockfileMcpServers) && { "mcp-servers": opts.lockfileMcpServers }),
+    ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
+  };
+
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+};
+
+export const makeLocalSkillLockEntry = (opts?: {
+  readonly path?: string;
+  readonly agents?: ReadonlyArray<string>;
+  readonly installedAt?: Date;
+  readonly updatedAt?: Date;
+}): SkillLockEntry => ({
+  type: "local",
+  path: opts?.path ?? "/installed",
+  agents: [...(opts?.agents ?? ["claude-code"])],
+  installedAt: opts?.installedAt ?? TEST_DATE,
+  updatedAt: opts?.updatedAt ?? TEST_DATE,
+});
+
+export const makeRegistrySkillLockEntry = (opts: {
+  readonly profile: string;
+  readonly name: string;
+  readonly resolvedVersion?: string;
+  readonly integrity?: string;
+  readonly sourceName?: string;
+  readonly agents?: ReadonlyArray<string>;
+  readonly installedAt?: Date;
+  readonly updatedAt?: Date;
+}): SkillLockEntry => ({
+  type: "registry",
+  profile: opts.profile,
+  name: opts.name,
+  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
+  integrity: opts.integrity ?? "sha512-AAAA==",
+  sourceName: opts.sourceName ?? "default",
+  agents: [...(opts.agents ?? ["claude-code"])],
+  installedAt: opts.installedAt ?? TEST_DATE,
+  updatedAt: opts.updatedAt ?? TEST_DATE,
+});
+
+export const makeRegistryPackLockEntry = (opts: {
+  readonly profile: string;
+  readonly name: string;
+  readonly resolvedVersion?: string;
+  readonly integrity?: string;
+  readonly sourceName?: string;
+  readonly resolvedSkills?: Record<string, string>;
+  readonly resolvedCommands?: Record<string, string>;
+  readonly resolvedMcpServers?: Record<string, string>;
+  readonly installedAt?: Date;
+  readonly updatedAt?: Date;
+}): RegistryPackLockEntry => ({
+  type: "registry",
+  profile: opts.profile,
+  name: opts.name,
+  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
+  integrity: opts.integrity ?? "sha512-AAAA==",
+  sourceName: opts.sourceName ?? "default",
+  installedAt: opts.installedAt ?? TEST_DATE,
+  updatedAt: opts.updatedAt ?? TEST_DATE,
+  resolvedSkills: opts.resolvedSkills ?? {},
+  resolvedCommands: opts.resolvedCommands ?? {},
+  resolvedMcpServers: opts.resolvedMcpServers ?? {},
+});

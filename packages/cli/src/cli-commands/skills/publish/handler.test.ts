@@ -7,21 +7,22 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import type { WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
+import {
+  getErrorResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 import { handlePublish, type PublishHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -113,10 +114,11 @@ describe("publish.handler", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-
-    const [promptLayer] = makeTestPrompt({
-      confirmResponses: [true],
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      prompt: {
+        confirmResponses: [true],
+      },
+      wsOptions: wsOverrides,
     });
     const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
       version: 1,
@@ -134,30 +136,21 @@ describe("publish.handler", () => {
       },
     });
     const BaseLayer = Layer.mergeAll(
-      NodeServices.layer,
-      rendererLayer,
-      promptLayer,
-      CliEnvironmentTest(),
+      handlerTestContext.baseLayer,
       AuthClientTest(),
       authCredStoreLayer,
       Layer.succeed(RegistryUrl, "https://registry.agentxm.ai"),
     );
-    const wsOptions: WorkspaceContextOptions = {
-      scope: "project",
-      agents: Option.none(),
-      ...wsOverrides,
-    };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const WsLayer = handlerTestContext.wsLayer;
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const provide = makeEffectProvide(FullLayer);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
-
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs, rendererState };
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
   };
 
   describe("publish with explicit registry", () => {
@@ -291,8 +284,7 @@ describe("publish.handler", () => {
           const result = yield* handlePublish(defaultArgs(["@test/skills/no-manifest"])).pipe(
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
-          expect(result).toHaveProperty("error", true);
-          expect((result as { what: string }).what).toContain("Missing manifest");
+          expect(getErrorResult(result).what).toContain("Missing manifest");
         }),
       );
     });
@@ -316,9 +308,9 @@ describe("publish.handler", () => {
               }),
             ),
           );
-          expect(result).toHaveProperty("error", true);
-          expect((result as { what: string }).what).toContain("Managed extension not found");
-          expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
+          const errorResult = getErrorResult(result);
+          expect(errorResult.what).toContain("Managed extension not found");
+          expect(errorResult.howToFix).toContain("axm skills fork");
           expect(rendererState.spinnerMessages).toContain("Validating extensions...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),

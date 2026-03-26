@@ -12,7 +12,7 @@ Publish @axm.sh/cli via the CI publish workflow.
 1. **Verify the build**
 
    ```bash
-   pnpm build && pnpm test && pnpm lint
+   pnpm nx run-many -t build typecheck test e2e lint
    ```
 
    Stop if anything fails.

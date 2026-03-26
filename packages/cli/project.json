@@ -74,6 +74,15 @@
         "command": ["bun", "src/dev-main.ts"],
         "cwd": "packages/cli"
       }
+    },
+    "publish": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm publish --provenance --access public --no-git-checks",
+        "cwd": "packages/cli"
+      }
     }
   }
 }

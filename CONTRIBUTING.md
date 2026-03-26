@@ -31,6 +31,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 | `pnpm test:e2e`       | Run E2E tests only                       |
 | `pnpm typecheck`      | Type-check without emitting              |
 | `pnpm format`         | Format code and markdown                 |
+| `pnpm format:check`   | Check formatting without writing         |
 | `pnpm lint`           | Lint with ESLint                         |
 | `pnpm lint:fix`       | Lint and auto-fix                        |
 | `pnpm build:affected` | Build only packages changed since `main` |
@@ -42,7 +43,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 1. Fork the repo and create a branch from `main`.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Ensure CI passes: `pnpm build && pnpm test && pnpm test:e2e && pnpm lint`.
+4. Ensure CI passes: `pnpm nx run-many -t build typecheck test e2e lint format-check`.
 5. Open a pull request against `main`.
 
 ### Code Style
@@ -69,10 +70,10 @@ We follow [semver](https://semver.org/):
 Requires `npm login` with publish access to the `@axm.sh` scope.
 
 ```bash
-pnpm build && pnpm test && pnpm test:e2e && pnpm lint
+pnpm nx run-many -t build typecheck test e2e lint
 pnpm --filter @axm.sh/cli exec npm version patch --no-git-tag-version
-pnpm --filter ./packages/cli run build
-pnpm --filter ./packages/cli publish --access public --no-git-checks
+pnpm nx run cli:build
+pnpm nx run cli:publish
 git add packages/cli/package.json
 git commit -m "release: v0.1.1"
 git tag v0.1.1
@@ -82,10 +83,10 @@ gh release create v0.1.1 --title "v0.1.1" --generate-notes  # optional
 
 ### Publishing via CI
 
-The [publish workflow](/.github/workflows/publish.yml) publishes automatically when a GitHub Release is created, with npm [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC.
+The [publish workflow](/.github/workflows/publish.yml) publishes automatically when a GitHub Release is created, with npm [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC. The workflow runs `nx run-many` to verify all checks, then `nx run cli:publish` which builds and publishes with provenance.
 
 ```bash
-pnpm build && pnpm test && pnpm test:e2e && pnpm lint
+pnpm nx run-many -t build typecheck test e2e lint
 pnpm --filter @axm.sh/cli exec npm version minor --no-git-tag-version
 git add packages/cli/package.json
 git commit -m "release: v0.2.0"

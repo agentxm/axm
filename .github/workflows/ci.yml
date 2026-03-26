@@ -6,10 +6,12 @@ on:
   pull_request:
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -19,10 +21,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
+      - name: Set Nx SHAs
+        uses: nrwl/nx-set-shas@v4
 
-      - run: pnpm test
+      - name: Run all checks
+        if: github.ref == 'refs/heads/main'
+        run: pnpm nx run-many -t build typecheck test e2e lint format-check
 
-      - run: pnpm test:e2e
-
-      - run: pnpm lint
+      - name: Run affected checks
+        if: github.event_name == 'pull_request'
+        run: pnpm nx affected -t build typecheck test e2e lint format-check

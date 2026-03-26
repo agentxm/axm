@@ -12,7 +12,7 @@ Publish @axm.sh/cli to npm locally.
 1. **Verify the build**
 
    ```bash
-   pnpm build && pnpm test && pnpm lint
+   pnpm nx run-many -t build typecheck test e2e lint
    ```
 
    Stop if anything fails.
@@ -32,8 +32,7 @@ Publish @axm.sh/cli to npm locally.
 4. **Build and publish**
 
    ```bash
-   pnpm --filter ./packages/cli run build
-   pnpm --filter ./packages/cli publish --access public --no-git-checks
+   pnpm nx run cli:publish
    ```
 
 5. **Commit, tag, and push**

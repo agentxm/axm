@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.base.json",
   "files": [],
+  "include": [],
   "references": [
     {
       "path": "./packages/cli-spike"

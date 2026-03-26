@@ -7,7 +7,7 @@
       "options": {
         "build": {
           "targetName": "build",
-          "configName": "tsconfig.build.json"
+          "configName": "tsconfig.lib.json"
         },
         "typecheck": {
           "targetName": "typecheck",

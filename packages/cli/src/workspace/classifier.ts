@@ -12,7 +12,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
 
 // ---------------------------------------------------------------------------
@@ -85,10 +85,7 @@ const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =
  */
 const classifyExtensions = (
   input: ClassifierInput,
-): Effect.Effect<
-  ReadonlyArray<ClassifiedExtension>,
-  import("@axm.sh/core/unstable/app-error").AppError
-> =>
+): Effect.Effect<ReadonlyArray<ClassifiedExtension>, AppError> =>
   Effect.gen(function* () {
     const sourceMetaFor = (name: string) =>
       input.sourceMetaByName[name] ?? {

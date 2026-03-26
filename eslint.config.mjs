@@ -1,8 +1,21 @@
 import effectEslint from "@effect/eslint-plugin";
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
+import nxPlugin from "@nx/eslint-plugin";
 
-export default tseslint.config(
+const sourceFiles = [
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.cts",
+  "**/*.mts",
+  "**/*.js",
+  "**/*.jsx",
+  "**/*.cjs",
+  "**/*.mjs",
+];
+
+export default [
+  ...nxPlugin.configs["flat/base"],
+  ...nxPlugin.configs["flat/typescript"],
+  ...nxPlugin.configs["flat/javascript"],
   {
     ignores: [
       "**/dist/**",
@@ -12,9 +25,30 @@ export default tseslint.config(
       ".claude/worktrees/**",
     ],
   },
-  js.configs.recommended,
-  tseslint.configs.recommended,
   {
+    files: sourceFiles,
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          allow: [],
+          depConstraints: [
+            {
+              sourceTag: "type:app",
+              onlyDependOnLibsWithTags: ["type:lib"],
+            },
+            {
+              sourceTag: "type:lib",
+              onlyDependOnLibsWithTags: ["type:lib"],
+            },
+          ],
+          enforceBuildableLibDependency: true,
+        },
+      ],
+    },
+  },
+  {
+    files: sourceFiles,
     plugins: {
       "@effect": effectEslint,
     },
@@ -39,4 +73,4 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "warn",
     },
   },
-);
+];

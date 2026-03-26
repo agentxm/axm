@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
@@ -89,9 +90,8 @@ describe("packs-remove.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
-  ) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  const makeLayers = (flagsOverrides?: Partial<CliEnvironmentService>) =>
+    makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("remove specific extension", () => {
     it.effect("removes a specific extension from the pack manifest", () => {

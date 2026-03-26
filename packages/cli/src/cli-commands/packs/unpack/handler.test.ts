@@ -141,7 +141,11 @@ describe("packs unpack.handler", () => {
       SourceHostProvidersLive,
       Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
     );
-    const FullLayer = Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer);
+    const FullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      SPLayer,
+    );
     const provide = makeEffectProvide(FullLayer);
 
     return {

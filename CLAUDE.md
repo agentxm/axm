@@ -16,6 +16,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
 - **Standard library**: Effect v4 (concurrency, type safety, error handling, async, observability)
+- **Monorepo**: Nx (task orchestration, caching, affected commands)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: `effect/unstable/cli`
 - **CLI UI**: Bombshell (prompts, forms, validation)
@@ -25,15 +26,29 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Commands
 
-| Command          | Purpose                     |
-| ---------------- | --------------------------- |
-| `pnpm build`     | Build all packages          |
-| `pnpm test`      | Run all tests (Vitest)      |
-| `pnpm test:e2e`  | Run E2E tests only          |
-| `pnpm typecheck` | Type check without emitting |
-| `pnpm format`    | Format code and markdown    |
-| `pnpm lint`      | Lint with ESLint            |
-| `pnpm lint:fix`  | Lint and auto-fix           |
+All commands use `pnpm` scripts that delegate to Nx. Nx provides caching (repeated runs are instant) and `affected` variants that only operate on packages changed since `main`.
+
+| Command               | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `pnpm build`          | Build all packages                       |
+| `pnpm test`           | Run all tests (Vitest)                   |
+| `pnpm test:e2e`       | Run E2E tests only                       |
+| `pnpm typecheck`      | Type check without emitting              |
+| `pnpm format`         | Format code and markdown                 |
+| `pnpm lint`           | Lint with ESLint                         |
+| `pnpm lint:fix`       | Lint and auto-fix                        |
+| `pnpm build:affected` | Build only packages changed since `main` |
+| `pnpm test:affected`  | Test only packages changed since `main`  |
+| `pnpm lint:affected`  | Lint only packages changed since `main`  |
+
+### Nx
+
+Nx orchestrates the monorepo. Configuration lives in `nx.json` (workspace-level) and per-package `project.json` files.
+
+- **Inference plugins** — `@nx/js/typescript` auto-infers `build` and `typecheck` targets from `tsconfig.build.json` / `tsconfig.json`. `@nx/eslint` and `@nx/vitest` auto-infer `lint` and `test` targets from config files. Only define targets explicitly in `project.json` when you need custom options (e.g., assets, non-standard config files).
+- **Target defaults** — `nx.json` `targetDefaults` set caching, inputs, and dependency ordering for all inferred targets.
+- **Named inputs** — `default` and `production` input sets control cache invalidation. Test files and vitest configs are excluded from `production`.
+- **Module boundaries** — `@nx/enforce-module-boundaries` ESLint rule enforces dependency constraints via project tags (`type:app` can depend on `type:lib`, not vice versa).
 
 ## CLI Conventions
 

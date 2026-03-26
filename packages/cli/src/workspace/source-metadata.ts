@@ -7,8 +7,11 @@
  * @internal
  */
 
-import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
-import { getSkillEntrySource } from "@axm.sh/core/unstable/settings";
+import {
+  getSkillEntrySource,
+  type Settings,
+  type SourceHostConfig,
+} from "@axm.sh/core/unstable/settings";
 import type { PackagingKind } from "./classifier.js";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +59,7 @@ export const getBuiltInSources = (registryUrl: string): ReadonlyArray<SourceHost
  * Build source metadata map for skills from lockfile and settings.
  */
 export const deriveSourceMetaForSkills = (
-  settings: import("@axm.sh/core/unstable/settings").Settings,
+  settings: Settings,
   lockSkills: Readonly<Record<string, { type: string }>>,
   _detectedNames: ReadonlyArray<string>,
 ): Readonly<Record<string, SourceMeta>> => {

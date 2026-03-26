@@ -22,8 +22,7 @@ import {
 /** Run an effect with the required context for SourceHostProvider operations. */
 const runMatch = (
   effect: Effect.Effect<boolean, AppError, FileSystem.FileSystem | Path.Path | Scope.Scope>,
-) =>
-  Effect.runSync(effect.pipe(Effect.provide(NodeServices.layer), Effect.scoped));
+) => Effect.runSync(effect.pipe(Effect.provide(NodeServices.layer), Effect.scoped));
 
 describe("createGitHubSourceHostProvider", () => {
   const host = { type: "github" as const, url: new URL("https://github.com") };

@@ -23,12 +23,7 @@ const setupWorkspace = async (tempPath: string, registryPath: string, profile: s
 };
 
 /** Create a skill extension in .axm/extensions/. */
-const createManagedSkill = (
-  tempPath: string,
-  profile: string,
-  name: string,
-  version: string = "1.0.0",
-) => {
+const createManagedSkill = (tempPath: string, profile: string, name: string, version = "1.0.0") => {
   const extensionDir = path.join(tempPath, ".axm", "extensions", profile, "skills", name);
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });

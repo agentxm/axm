@@ -48,7 +48,7 @@ import {
 } from "../extensions/skills/paths.js";
 import { computePackPaths, type PackDirPath } from "../extensions/packs/paths.js";
 import { sanitizeName } from "../extensions/skills/utils.js";
-import { AgentIdSchema, formatFqn } from "@axm.sh/core/unstable/extensions";
+import { AgentIdSchema, formatFqn, type ExtensionType } from "@axm.sh/core/unstable/extensions";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
   collapseSkillEntry,
@@ -441,9 +441,7 @@ const make = (options: WorkspaceContextOptions) =>
     /**
      * Classify extensions by type using the shared classifier.
      */
-    const getClassifiedExtensions = (
-      type: import("@axm.sh/core/unstable/extensions").ExtensionType,
-    ) =>
+    const getClassifiedExtensions = (type: ExtensionType) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
         const lockfile = yield* readLockfileSafe(workspaceDir);

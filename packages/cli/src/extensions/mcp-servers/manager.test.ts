@@ -74,8 +74,8 @@ describe("McpServerManager", () => {
   );
 
   it.effect("upsertSettingsEntry delegates to ws.setMcpServer for registry refs", () => {
-    const setMcpServerFn = vi.fn((_args: Parameters<WorkspaceContextService["setMcpServer"]>[0]) =>
-      Effect.void,
+    const setMcpServerFn = vi.fn(
+      (_args: Parameters<WorkspaceContextService["setMcpServer"]>[0]) => Effect.void,
     );
     return Effect.gen(function* () {
       const manager = yield* McpServerManager;

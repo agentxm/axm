@@ -8,10 +8,13 @@
     "axm-spike": "dist/src/main.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
-    "test": "pnpm --filter @axm.sh/core build && vitest run",
-    "spike": "pnpm --filter @axm.sh/core build && bun src/main.ts"
+    "build": "nx run cli-spike:build",
+    "typecheck": "nx run cli-spike:typecheck",
+    "test": "nx run cli-spike:test",
+    "spike": "nx run cli-spike:spike"
+  },
+  "nx": {
+    "includedScripts": []
   },
   "dependencies": {
     "@axm.sh/core": "workspace:*",

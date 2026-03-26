@@ -117,10 +117,13 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "pnpm run build",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "build": "nx run core:build",
+    "prepublishOnly": "nx run core:build",
+    "test": "nx run core:test",
+    "typecheck": "nx run core:typecheck"
+  },
+  "nx": {
+    "includedScripts": []
   },
   "dependencies": {
     "effect": "catalog:",

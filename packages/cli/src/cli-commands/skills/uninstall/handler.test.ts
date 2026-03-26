@@ -17,10 +17,7 @@ import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleUninstall, type UninstallHandlerArgs } from "./handler.js";
-import {
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
-} from "../../../test-helpers.js";
+import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

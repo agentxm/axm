@@ -8,3 +8,5 @@ dist
 .reference/
 .axm/cache/
 .claude/worktrees/
+.nx/cache/
+.nx/workspace-data/

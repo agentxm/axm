@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "@effect/language-service",

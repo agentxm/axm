@@ -1,0 +1,85 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli",
+  "projectType": "application",
+  "root": "packages/cli",
+  "sourceRoot": "packages/cli/src",
+  "tags": ["type:app", "scope:cli"],
+  "targets": {
+    "build": {
+      "dependsOn": ["^build"],
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/cli/src/main.ts",
+        "outputPath": "packages/cli/dist",
+        "tsConfig": "packages/cli/tsconfig.build.json",
+        "generatePackageJson": false,
+        "assets": [
+          {
+            "input": "packages/cli/src/builtin-pack",
+            "glob": "skills/**/*",
+            "output": "src/builtin-pack"
+          },
+          {
+            "input": "packages/cli/src/builtin-pack",
+            "glob": "axm-pack.json",
+            "output": "src/builtin-pack"
+          }
+        ]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
+      }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli/vitest.config.ts"
+      }
+    },
+    "e2e": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli/vitest.e2e.config.ts"
+      }
+    },
+    "generate-schemas": {
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-schemas.ts"],
+        "cwd": "packages/cli"
+      }
+    },
+    "start": {
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "src/main.ts"],
+        "cwd": "packages/cli"
+      }
+    },
+    "start-local": {
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "src/main.ts"],
+        "cwd": "packages/cli",
+        "env": {
+          "AXM_REGISTRY_URL": "http://localhost:4300"
+        }
+      }
+    },
+    "dev": {
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "src/dev-main.ts"],
+        "cwd": "packages/cli"
+      }
+    }
+  }
+}

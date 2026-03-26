@@ -135,7 +135,7 @@ describe("OutputStructured", () => {
     const layer = OutputStructured("json");
 
     it.effect("routes info to stderr", () => {
-      const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
       return Effect.gen(function* () {
         const output = yield* Output;

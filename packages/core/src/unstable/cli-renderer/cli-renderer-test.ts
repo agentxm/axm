@@ -69,6 +69,12 @@ const makeEmptyState = (): TestRendererState => ({
   outroMessage: Option.none(),
 });
 
+const eraseTestType = <T>(value: unknown): T => {
+  // Assertion needed: test renderer intentionally erases generic values at capture boundaries.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as T;
+};
+
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
   stop: (msg) =>
     Effect.sync(() => {
@@ -334,25 +340,24 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
     table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) =>
       Effect.sync(() => {
         state.tables.push({
-          // Assertion needed: T erased at capture boundary for test state
-          items: items as unknown as Array<unknown>,
-          columns: columns as unknown as Array<ColumnDef<unknown>>,
+          items: Array.from(items),
+          columns: eraseTestType(Array.from(columns)),
           ...(caption !== undefined && { caption }),
         });
       }),
     detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) =>
       Effect.sync(() => {
         state.details.push({
-          item: item as unknown,
-          columns: columns as unknown as Array<ColumnDef<unknown>>,
+          item,
+          columns: eraseTestType(Array.from(columns)),
           ...(title !== undefined && { title }),
         });
       }),
     tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) =>
       Effect.sync(() => {
         state.trees.push({
-          roots: roots as unknown as Array<TreeNode<unknown>>,
-          def: def as unknown as TreeDef<unknown>,
+          roots: eraseTestType(Array.from(roots)),
+          def: eraseTestType(def),
           ...(title !== undefined && { title }),
         });
       }),
@@ -361,8 +366,8 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
     result: <T>(data: T, schema: Schema.Schema<T>) =>
       Effect.sync(() => {
         state.results.push({
-          data: data as unknown,
-          schema: Option.some(schema as unknown as Schema.Schema<unknown>),
+          data,
+          schema: Option.some(eraseTestType(schema)),
         });
         return resultReturnValue;
       }),
@@ -372,8 +377,8 @@ const makeTestRendererService = (state: TestRendererState, resultReturnValue: bo
           Effect.sync(() => {
             for (const item of chunks) {
               state.results.push({
-                data: item as unknown,
-                schema: Option.some(schema as unknown as Schema.Schema<unknown>),
+                data: item,
+                schema: Option.some(eraseTestType(schema)),
               });
             }
           }),
@@ -431,8 +436,7 @@ export const TestRenderer = {
   make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, false);
-    // Assertion needed: generic methods require type erasure at service boundary
-    const layer = Layer.succeed(CliRenderer, service as unknown as typeof CliRenderer.Service);
+    const layer = Layer.succeed(CliRenderer, eraseTestType<typeof CliRenderer.Service>(service));
     return { layer, state };
   },
 };
@@ -445,8 +449,7 @@ export const TestMachineRenderer = {
   make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, true);
-    // Assertion needed: generic methods require type erasure at service boundary
-    const layer = Layer.succeed(CliRenderer, service as unknown as typeof CliRenderer.Service);
+    const layer = Layer.succeed(CliRenderer, eraseTestType<typeof CliRenderer.Service>(service));
     return { layer, state };
   },
 };

@@ -5,6 +5,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
+import type { BuiltinSkillRef } from "@axm.sh/core/unstable/sources";
 import { createBuiltinSourceHostProvider } from "./builtin.js";
 
 describe("createBuiltinSourceHostProvider", () => {
@@ -57,20 +58,17 @@ describe("createBuiltinSourceHostProvider", () => {
 
   it("fetch fails with not-yet-implemented error", () => {
     const provider = createBuiltinSourceHostProvider();
-    const result = Effect.runSync(
-      provider
-        .fetch({ type: "builtin" }, {
-          type: "skill",
-          refType: "builtin",
-          skill: {
-            name: "x",
-            description: { _tag: "None" } as never,
-            metadata: { _tag: "None" } as never,
-          },
-          source: { type: "builtin" },
-        } as never)
-        .pipe(Effect.result),
-    );
+    const ref: BuiltinSkillRef = {
+      type: "skill",
+      refType: "builtin",
+      skill: {
+        name: "x",
+        description: Option.none(),
+        metadata: Option.none(),
+      },
+      source: { type: "builtin" },
+    };
+    const result = Effect.runSync(provider.fetch({ type: "builtin" }, ref).pipe(Effect.result));
     expect(result._tag).toBe("Failure");
   });
 });

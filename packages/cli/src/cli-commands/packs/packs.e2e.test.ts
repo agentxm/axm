@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../e2e/utils.js";
+import { expectDefined } from "../../test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -194,9 +195,12 @@ describe("axm packs add/remove", () => {
       expect(skillKeys[0]).toMatch(/@test\/skills\/my-skill/);
 
       // Remove the extension from the pack
-      const removeResult = await runCli(["packs", "remove", "test-pack", skillKeys[0]!, "--yes"], {
-        cwd: temp.path,
-      });
+      const removeResult = await runCli(
+        ["packs", "remove", "test-pack", expectDefined(skillKeys[0]), "--yes"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(removeResult.exitCode).toBe(0);
 
       // Verify manifest no longer has the extension

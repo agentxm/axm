@@ -412,7 +412,8 @@ describe("AuthClient.getMe", () => {
     let capturedAuth: string | null = null;
 
     const layer = makeTestLayer((req) => {
-      capturedAuth = (req.headers["authorization"] as string) ?? null;
+      const authorization = req.headers["authorization"];
+      capturedAuth = typeof authorization === "string" ? authorization : null;
       return new Response(
         JSON.stringify({
           user: {

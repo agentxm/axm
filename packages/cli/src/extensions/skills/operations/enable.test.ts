@@ -16,6 +16,19 @@ import { sanitizeName } from "../utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 
+type SettingsSkillValue =
+  | string
+  | {
+      readonly source?: string | undefined;
+      readonly enabled?: boolean | undefined;
+    };
+
+const getConfiguredSkillSource = (value: SettingsSkillValue): string =>
+  typeof value === "string" ? value : (value.source ?? "");
+
+const isConfiguredSkillEnabled = (value: SettingsSkillValue): boolean =>
+  typeof value === "string" ? true : (value.enabled ?? true);
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -25,17 +38,15 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredAgents?: ReadonlyArray<string>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    lockfileSkills?: Record<string, any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    settingsSkills?: Record<string, any>;
+    lockfileSkills?: Record<string, SkillLockEntry>;
+    settingsSkills?: Record<string, SettingsSkillValue>;
     updateSkillEntryFn?: ReturnType<typeof vi.fn>;
     updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
-  const lockfileSkills = opts.lockfileSkills ?? {};
-  const settingsSkills = opts.settingsSkills ?? {};
+  const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
+  const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
   return {
     ...taxonomyStubs,
@@ -56,8 +67,8 @@ const makeWorkspaceMock = (
           Object.entries(settingsSkills).map(([k, v]) => [
             k,
             {
-              source: typeof v === "string" ? v : (v?.source ?? ""),
-              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
+              source: getConfiguredSkillSource(v),
+              enabled: isConfiguredSkillEnabled(v),
               packagingKind: "non-native" as const,
               isBuiltIn: false,
             },
@@ -71,8 +82,8 @@ const makeWorkspaceMock = (
             k,
             {
               lifecycle: "configured" as const,
-              source: typeof v === "string" ? v : (v?.source ?? ""),
-              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
+              source: getConfiguredSkillSource(v),
+              enabled: isConfiguredSkillEnabled(v),
               packagingKind: "non-native" as const,
               isBuiltIn: false,
             },
@@ -81,12 +92,11 @@ const makeWorkspaceMock = (
       ),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
-    getLockedSkill: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     getSkillDir: (name: string) => {
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
-      const lockEntry = lockfileSkills[name] as SkillLockEntry | undefined;
+      const lockEntry = lockfileSkills[name];
       if (lockEntry === undefined) {
         return Effect.fail(
           makeAppError({
@@ -96,8 +106,7 @@ const makeWorkspaceMock = (
         );
       }
       if (lockEntry.type === "registry") {
-        const profile =
-          "profile" in lockEntry ? (lockEntry as { profile: string }).profile : "@community";
+        const profile = lockEntry.profile;
         const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
@@ -158,7 +167,7 @@ const makeOp = (skillName = "my-skill"): EnableSkillOperation => ({
 });
 
 /** Creates a local source lock entry for the in-memory mock (Date objects). */
-const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source") => ({
+const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source"): SkillLockEntry => ({
   type: "local" as const,
   path: sourcePath,
   agents,
@@ -167,7 +176,7 @@ const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source") => ({
 });
 
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
-const makeRegistryLockEntry = (agents: string[]) => ({
+const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "registry" as const,
   profile: "@community",
   name: "my-skill",

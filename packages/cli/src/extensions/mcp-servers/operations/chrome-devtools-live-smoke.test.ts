@@ -9,7 +9,8 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { Workspace } from "../../../workspace/service.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import { uninstallMcpServer } from "./uninstall.js";
 import { installMcpServer } from "./install.js";
 
@@ -66,16 +67,13 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       const axmDir = path.join(base, ".axm");
       fs.mkdirSync(axmDir, { recursive: true });
 
-      const wsMock = {
-        scope: "project",
-        path: axmDir,
-        baseDir: base,
+      const wsMock = makeBaseWorkspaceMock(axmDir, {
         getConfiguredAgents: () => Effect.succeed([]),
         getLockedMcpServer: () => Effect.succeed(Option.none()),
         setMcpServer: () => Effect.void,
         setMcpServerLock: () => Effect.void,
         removeMcpServer: () => Effect.void,
-      } as unknown as WorkspaceContextService;
+      });
 
       vi.spyOn(DefaultCodingAgentRepository, "getUnknownConfiguredAgentIds").mockReturnValue(
         Effect.succeed([]),

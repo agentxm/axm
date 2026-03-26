@@ -25,6 +25,7 @@ import type { GetExtensionsByProfileArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";
+import { at } from "../test-helpers.js";
 
 /** Resolve FileSystem + Path and create a local registry client in one step. */
 const makeLocalClient = (registryRoot: string) =>
@@ -118,10 +119,10 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       });
 
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.type).toBe("skill");
-      expect(result.extensions[0]!.name).toBe("my-skill");
-      expect(result.extensions[0]!.version).toBe("1.0.0");
-      expect(result.extensions[0]!.profile).toBe("@test");
+      expect(at(result.extensions, 0).type).toBe("skill");
+      expect(at(result.extensions, 0).name).toBe("my-skill");
+      expect(at(result.extensions, 0).version).toBe("1.0.0");
+      expect(at(result.extensions, 0).profile).toBe("@test");
       expect(result.total).toBe(1);
     }).pipe(
       Effect.ensuring(
@@ -239,7 +240,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       });
 
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.profile).toBe("@test");
+      expect(at(result.extensions, 0).profile).toBe("@test");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -273,8 +274,8 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
         names: ["my-server"],
       });
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.type).toBe("mcp-server");
-      expect(result.extensions[0]!.name).toBe("my-server");
+      expect(at(result.extensions, 0).type).toBe("mcp-server");
+      expect(at(result.extensions, 0).name).toBe("my-server");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -567,11 +568,11 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
       const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
-      const index = JSON.parse(indexContent) as ExtensionIndex;
+      const index: ExtensionIndex = JSON.parse(indexContent);
       expect(index.name).toBe("my-skill");
       expect(index.profile).toBe("@test");
       expect(index.versions).toHaveLength(1);
-      expect(index.versions[0]!.version).toBe("1.0.0");
+      expect(at(index.versions, 0).version).toBe("1.0.0");
 
       const archiveExists = yield* fs.exists(nodePath.join(skillDir, "1.0.0.zip"));
       expect(archiveExists).toBe(true);
@@ -614,10 +615,10 @@ describe("LocalRegistryClient.publishExtension", () => {
       });
 
       const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
-      const index = JSON.parse(indexContent) as ExtensionIndex;
+      const index: ExtensionIndex = JSON.parse(indexContent);
       expect(index.versions).toHaveLength(2);
-      expect(index.versions[0]!.version).toBe("2.0.0");
-      expect(index.versions[1]!.version).toBe("1.0.0");
+      expect(at(index.versions, 0).version).toBe("2.0.0");
+      expect(at(index.versions, 1).version).toBe("1.0.0");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -636,19 +637,19 @@ describe("LocalRegistryClient.publishExtension", () => {
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       const publishArgs = {
-        handle: "@test" as const,
-        type: "skill" as const,
+        handle: "@test",
+        type: "skill",
         name: "my-skill",
         version: "1.0.0",
         archive,
         metadata: entry,
-      };
+      } satisfies Parameters<typeof client.publishExtension>[0];
       yield* client.publishExtension(publishArgs);
       yield* client.publishExtension(publishArgs);
 
       const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
       const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
-      const index = JSON.parse(indexContent) as ExtensionIndex;
+      const index: ExtensionIndex = JSON.parse(indexContent);
       expect(index.versions).toHaveLength(1);
     }).pipe(
       Effect.ensuring(
@@ -901,7 +902,7 @@ describe("createRegistryClient", () => {
         names: ["my-skill"],
       });
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.name).toBe("my-skill");
+      expect(at(result.extensions, 0).name).toBe("my-skill");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -925,7 +926,7 @@ describe("createRegistryClient", () => {
         names: ["my-skill"],
       });
       expect(result.extensions).toHaveLength(1);
-      expect(result.extensions[0]!.name).toBe("my-skill");
+      expect(at(result.extensions, 0).name).toBe("my-skill");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

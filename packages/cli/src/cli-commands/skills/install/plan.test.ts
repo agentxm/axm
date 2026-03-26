@@ -2,8 +2,7 @@
  * Unit tests for buildSkillInstallPlan.
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -12,8 +11,10 @@ import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import type { LocalSkillRef, RegistrySkillRef, Source } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
+import { Workspace } from "../../../workspace/index.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -74,20 +75,18 @@ const runBuildPlan = ({
   readonly versionConstraint?: Option.Option<string>;
   readonly source?: Source;
 }) => {
-  const workspaceMock = {
+  const workspaceMock = makeBaseWorkspaceMock("/tmp/axm", {
     getLockedSkills: () => Effect.succeed(lockedSkills),
-  };
-  const sourceProvidersMock = {
+  });
+  const sourceProvidersMock: SourceHostProvidersService = {
+    find: () => Effect.succeed([]),
+    fetch: () => Effect.die("unused test fetch"),
+    cloneUrl: () => Option.none(),
     origin: (s: Source) => (s.type === "local" ? s.path : "origin"),
   };
 
-  // Provide all required services (FileSystem/Path/Log only needed inside run closures, not plan construction)
   const { layer: rendererTestLayer } = TestRenderer.make();
-  const testLayer = Layer.mergeAll(
-    rendererTestLayer,
-    Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
-    Layer.succeed(Path.Path, {} as Path.Path),
-  );
+  const testLayer = Layer.mergeAll(NodeServices.layer, rendererTestLayer);
 
   return Effect.runSync(
     buildSkillInstallPlan({
@@ -96,13 +95,8 @@ const runBuildPlan = ({
       force,
       versionConstraint,
     }).pipe(
-      // Assertion needed: test only uses getLockedSkills from Workspace service.
-      Effect.provideService(Workspace, workspaceMock as unknown as WorkspaceContextService),
-      // Assertion needed: test only uses origin from SourceHostProviders service.
-      Effect.provideService(
-        SourceHostProviders,
-        sourceProvidersMock as unknown as SourceHostProvidersService,
-      ),
+      Effect.provideService(Workspace, workspaceMock),
+      Effect.provideService(SourceHostProviders, sourceProvidersMock),
       Effect.provide(testLayer),
     ),
   );
@@ -130,8 +124,8 @@ describe("buildSkillInstallPlan", () => {
     });
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(1);
-    const step = plan.jobs[0]!.steps[0]!;
+    expect(at(plan.jobs, 0).steps).toHaveLength(1);
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("ready");
     expect(step.label).toBe("commit");
     expect("run" in step).toBe(true);
@@ -143,7 +137,7 @@ describe("buildSkillInstallPlan", () => {
       lockedSkills: lockfileWith("commit"),
     });
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("ready");
     // No-op run closure returns "already installed" when executed
     if (step.readiness === "ready") {
@@ -160,7 +154,7 @@ describe("buildSkillInstallPlan", () => {
     });
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe(1);
+    expect(at(plan.jobs, 0).concurrency).toBe(1);
   });
 
   it("marks already-installed skills as ready with run closure when force is true", () => {
@@ -170,7 +164,7 @@ describe("buildSkillInstallPlan", () => {
       force: true,
     });
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("ready");
     expect("run" in step).toBe(true);
   });
@@ -182,8 +176,8 @@ describe("buildSkillInstallPlan", () => {
       versionConstraint: Option.some("^1.2.3"),
     });
 
-    const localStep = plan.jobs[0]!.steps[0]!;
-    const registryStep = plan.jobs[0]!.steps[1]!;
+    const localStep = at(at(plan.jobs, 0).steps, 0);
+    const registryStep = at(at(plan.jobs, 0).steps, 1);
 
     expect(localStep.label).toBe("local-skill");
     expect(registryStep.label).toBe("registry-skill");

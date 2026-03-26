@@ -35,20 +35,18 @@ import { PackManagerLive } from "../../../extensions/packs/manager.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { CommandManagerLive } from "../../../extensions/commands/manager.js";
 import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
-import { AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { getAppError } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
 /** Stub methods for SourceHostProvidersService. */
-const serviceStubs = {
-  find: (() => Effect.succeed([])) as SourceHostProvidersService["find"],
-  fetch: (() =>
-    Effect.fail(
-      makeAppError({ code: "FETCH_FAILED", what: "stub" }),
-    )) as SourceHostProvidersService["fetch"],
-  cloneUrl: () => Option.none() as Option.Option<string>,
+const serviceStubs: SourceHostProvidersService = {
+  find: () => Effect.succeed([]),
+  fetch: () => Effect.fail(makeAppError({ code: "FETCH_FAILED", what: "stub" })),
+  cloneUrl: () => Option.none(),
   origin: () => "unknown",
 };
 
@@ -281,9 +279,10 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
-          const error = yield* actions.parseArgs(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          const error = getAppError(
+            yield* actions.parseArgs(defaultArgs("@acme/my-pack")).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -295,9 +294,10 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
-          const error = yield* actions.parseArgs(defaultArgs("./local-path")).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          const error = getAppError(
+            yield* actions.parseArgs(defaultArgs("./local-path")).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -309,11 +309,10 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
-          const error = yield* actions
-            .parseArgs(defaultArgs("github:owner/repo"))
-            .pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          const error = getAppError(
+            yield* actions.parseArgs(defaultArgs("github:owner/repo")).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -330,13 +329,14 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("./local-path"), {
-            yes: false,
-            force: false,
-            preview: false,
-          }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("registry");
+          const error = getAppError(
+            yield* handleInstallPack(defaultArgs("./local-path"), {
+              yes: false,
+              force: false,
+              preview: false,
+            }).pipe(Effect.flip),
+          );
+          expect(error.what).toContain("registry");
         }),
       );
     });
@@ -347,13 +347,14 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("github:owner/repo"), {
-            yes: false,
-            force: false,
-            preview: false,
-          }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("registry");
+          const error = getAppError(
+            yield* handleInstallPack(defaultArgs("github:owner/repo"), {
+              yes: false,
+              force: false,
+              preview: false,
+            }).pipe(Effect.flip),
+          );
+          expect(error.what).toContain("registry");
         }),
       );
     });
@@ -366,13 +367,14 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/my-pack"), {
-            yes: false,
-            force: false,
-            preview: false,
-          }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+          const error = getAppError(
+            yield* handleInstallPack(defaultArgs("@acme/my-pack"), {
+              yes: false,
+              force: false,
+              preview: false,
+            }).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -472,13 +474,14 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"), {
-            yes: false,
-            force: false,
-            preview: true,
-          }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("INVALID_SOURCE");
+          const error = getAppError(
+            yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"), {
+              yes: false,
+              force: false,
+              preview: true,
+            }).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("INVALID_SOURCE");
           expect(rendererState.spinnerMessages).toContain("Parsing source...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),
@@ -611,7 +614,7 @@ describe("packs install handler", () => {
 
           const axmDir = path.join(tempDir, ".axm");
           const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-          const settingsJson = JSON.parse(settingsContent) as { packs?: Record<string, string> };
+          const settingsJson: { packs?: Record<string, string> } = JSON.parse(settingsContent);
           expect(settingsJson.packs?.["test-pack"]).toBe("@acme/packs/test-pack@^2.0.0");
         }),
       );
@@ -685,13 +688,14 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent"), {
-            yes: false,
-            force: false,
-            preview: false,
-          }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
-          expect((error as AppError).code).toBe("PACK_NOT_FOUND");
+          const error = getAppError(
+            yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent"), {
+              yes: false,
+              force: false,
+              preview: false,
+            }).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("PACK_NOT_FOUND");
         }),
       );
     });

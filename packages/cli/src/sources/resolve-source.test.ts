@@ -15,13 +15,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
 
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -86,17 +86,21 @@ const makeWorkspaceLayer = (
 ) =>
   Layer.merge(
     Layer.merge(
-      Layer.succeed(Workspace, {
-        getConfiguredSources: () => Effect.succeed(sources),
-        getLockedSkills: () => Effect.succeed(skills),
-        getRegistrySourceHosts: () =>
-          Effect.succeed(
-            registrySources ??
-              sources.filter(
-                (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-              ),
-          ),
-      } as unknown as ServiceMap.Service.Shape<typeof Workspace>),
+      Layer.succeed(
+        Workspace,
+        makeBaseWorkspaceMock("/tmp/axm", {
+          getConfiguredSources: () => Effect.succeed(sources),
+          getLockedSkills: () => Effect.succeed(skills),
+          getRegistrySourceHosts: () =>
+            Effect.succeed(
+              registrySources ??
+                sources.filter(
+                  (s): s is Extract<SourceHostConfig, { type: "registry" }> =>
+                    s.type === "registry",
+                ),
+            ),
+        }),
+      ),
       remoteHttpLayer,
     ),
     NodeServices.layer,

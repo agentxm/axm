@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../e2e/utils.js";
+import { expectDefined } from "../test-helpers.js";
 
 describe("structured output modes", () => {
   describe("--output-format json", () => {
@@ -72,12 +73,14 @@ describe("structured output modes", () => {
         const events = lines.map((line) => JSON.parse(line));
 
         // Should contain a log event with the "Not logged in" message
-        const logEvent = events.find(
-          (e: Record<string, unknown>) =>
-            e["type"] === "log" &&
-            typeof e["message"] === "string" &&
-            (e["message"] as string).includes("Not logged in"),
-        );
+        const logEvent = events.find((event: Record<string, unknown>) => {
+          const message = event["message"];
+          return (
+            event["type"] === "log" &&
+            typeof message === "string" &&
+            message.includes("Not logged in")
+          );
+        });
         expect(logEvent).toBeDefined();
         expect(logEvent["type"]).toBe("log");
         expect(logEvent["level"]).toBe("info");
@@ -118,9 +121,8 @@ describe("structured output modes", () => {
         .trim()
         .split("\n")
         .filter((l) => l.length > 0);
-      const jsonLine = lines.find((l) => l.startsWith("{"));
-      expect(jsonLine).toBeDefined();
-      const errorJson = JSON.parse(jsonLine!);
+      const jsonLine = expectDefined(lines.find((line) => line.startsWith("{")));
+      const errorJson = JSON.parse(jsonLine);
       expect(errorJson.type).toBe("error");
       expect(errorJson.code).toBe("USAGE_ERROR");
     });

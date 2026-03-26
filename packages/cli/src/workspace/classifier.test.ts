@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
+import { at, expectDefined } from "../test-helpers.js";
 import {
   classifyExtensions,
   isIgnoredName,
@@ -106,7 +107,7 @@ describe("classifyExtensions", () => {
       const result = run(classifyExtensions(input));
       const implicit = byLifecycle(result, "implicit");
       expect(implicit).toHaveLength(1);
-      expect(implicit[0]!.packagingKind).toBe("native");
+      expect(at(implicit, 0).packagingKind).toBe("native");
     });
   });
 
@@ -302,7 +303,7 @@ describe("classifyExtensions", () => {
       "%s returns empty unmanaged set",
       (type) => {
         const input: ClassifierInput = {
-          type: type as ExtensionType,
+          type,
           configured: {
             alpha: { source: "registry:alpha" },
           },
@@ -413,15 +414,15 @@ describe("classifyExtensions", () => {
 
       const result = run(classifyExtensions(input));
 
-      const builtinRow = result.find((r) => r.name === "builtin")!;
+      const builtinRow = expectDefined(result.find((r) => r.name === "builtin"));
       expect(builtinRow.packagingKind).toBe("native");
       expect(builtinRow.isBuiltIn).toBe(true);
 
-      const nativeRow = result.find((r) => r.name === "native")!;
+      const nativeRow = expectDefined(result.find((r) => r.name === "native"));
       expect(nativeRow.packagingKind).toBe("native");
       expect(nativeRow.isBuiltIn).toBe(false);
 
-      const externalRow = result.find((r) => r.name === "external")!;
+      const externalRow = expectDefined(result.find((r) => r.name === "external"));
       expect(externalRow.packagingKind).toBe("non-native");
       expect(externalRow.isBuiltIn).toBe(false);
     });
@@ -441,7 +442,7 @@ describe("classifyExtensions", () => {
       };
 
       const result = run(classifyExtensions(input));
-      const builtinRow = result.find((r) => r.name === "builtin")!;
+      const builtinRow = expectDefined(result.find((r) => r.name === "builtin"));
       expect(builtinRow.isBuiltIn).toBe(true);
       expect(builtinRow.packagingKind).toBe("native");
     });
@@ -640,7 +641,7 @@ describe("classifyExtensions", () => {
 
       const result = run(classifyExtensions(input));
       expect(result).toHaveLength(1);
-      expect(result[0]!.lifecycle).toBe("configured");
+      expect(at(result, 0).lifecycle).toBe("configured");
     });
   });
 
@@ -689,9 +690,8 @@ describe("classifyExtensions", () => {
       };
 
       const result = run(classifyExtensions(input));
-      const noMetaPack = result.find((r) => r.name === "no-meta-pack");
-      expect(noMetaPack).toBeDefined();
-      expect(noMetaPack!.packagingKind).toBe("native");
+      const noMetaPack = expectDefined(result.find((r) => r.name === "no-meta-pack"));
+      expect(noMetaPack.packagingKind).toBe("native");
     });
   });
 });

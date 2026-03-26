@@ -8,10 +8,15 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
+import type { PackLockEntry, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import {
+  Workspace,
+  type SetSkillArgs,
+  type WorkspaceContextService,
+} from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { getAppError } from "../../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
 
@@ -22,34 +27,34 @@ import { uninstallSkill } from "./uninstall.js";
 /** Creates a workspace mock backed by in-memory skills + on-disk YAML. */
 const makeWorkspaceMock = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileSkills: Record<string, any> = {},
+  lockfileSkills: Record<string, SkillLockEntry> = {},
   overrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
     removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-    lockedPacks?: Record<string, any>;
+    lockedPacks?: Record<string, PackLockEntry>;
   },
 ): WorkspaceContextService => {
-  // Use in-memory skills for reads, write to disk for mutations
-  let skills = { ...lockfileSkills };
+  let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
+  const lockfileErrorOverride = overrides?.lockfileErrorOverride;
+  const setSkillErrorOverride = overrides?.setSkillErrorOverride;
+  const removeSkillFn = overrides?.removeSkillFn;
+  const removeSkillErrorOverride = overrides?.removeSkillErrorOverride;
+  const removeSkillFromSettingsFn = overrides?.removeSkillFromSettingsFn;
+  const lockedPacks: Record<string, PackLockEntry> = overrides?.lockedPacks ?? {};
 
   const writeToDisk = () => {
-    const lockfile = { lockfileVersion: 1, skills: {} as Record<string, unknown> };
+    const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
+      lockfileVersion: 1,
+      skills: {},
+    };
     for (const [k, v] of Object.entries(skills)) {
       lockfile.skills[k] = {
-        ...(v as Record<string, unknown>),
-        installedAt:
-          (v as { installedAt: Date }).installedAt instanceof Date
-            ? (v as { installedAt: Date }).installedAt.toISOString()
-            : (v as { installedAt: string }).installedAt,
-        updatedAt:
-          (v as { updatedAt: Date }).updatedAt instanceof Date
-            ? (v as { updatedAt: Date }).updatedAt.toISOString()
-            : (v as { updatedAt: string }).updatedAt,
+        ...v,
+        installedAt: v.installedAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -72,64 +77,65 @@ const makeWorkspaceMock = (
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () =>
-      overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, AppError>)
-        : Effect.succeed(skills),
+      lockfileErrorOverride !== undefined ? lockfileErrorOverride() : Effect.succeed(skills),
     getLockedSkill: (name: string) =>
-      overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, AppError>)
-        : Effect.succeed(Option.fromUndefinedOr(skills[name] as SkillLockEntry | undefined)),
+      lockfileErrorOverride !== undefined
+        ? lockfileErrorOverride()
+        : Effect.succeed(Option.fromUndefinedOr(skills[name])),
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: overrides?.setSkillErrorOverride
-      ? () => overrides.setSkillErrorOverride!()
-      : (args: { name: string; lockEntry: unknown }) =>
-          Effect.sync(() => {
-            skills = {
-              ...skills,
-              [args.name]: {
-                ...(args.lockEntry as Record<string, unknown>),
-                updatedAt: new Date(),
-              },
-            };
-            writeToDisk();
-          }),
-    setSkillLock: (args: { name: string; lockEntry: unknown }) =>
+    setSkill:
+      setSkillErrorOverride !== undefined
+        ? () => setSkillErrorOverride()
+        : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
+            Effect.sync(() => {
+              skills = {
+                ...skills,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              };
+              writeToDisk();
+            }),
+    setSkillLock: ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
       Effect.sync(() => {
         skills = {
           ...skills,
-          [args.name]: {
-            ...(args.lockEntry as Record<string, unknown>),
+          [name]: {
+            ...lockEntry,
             updatedAt: new Date(),
           },
         };
         writeToDisk();
       }),
-    removeSkill: overrides?.removeSkillFn
-      ? (name: string) => overrides.removeSkillFn!(name)
-      : overrides?.removeSkillErrorOverride
-        ? () => overrides.removeSkillErrorOverride!()
-        : (name: string) =>
-            Effect.sync(() => {
-              const { [name]: _, ...rest } = skills;
-              void _;
-              skills = rest;
-              writeToDisk();
-            }),
+    removeSkill:
+      removeSkillFn !== undefined
+        ? (name: string) => removeSkillFn(name)
+        : removeSkillErrorOverride !== undefined
+          ? () => removeSkillErrorOverride()
+          : (name: string) =>
+              Effect.sync(() => {
+                const { [name]: _, ...rest } = skills;
+                void _;
+                skills = rest;
+                writeToDisk();
+              }),
     updateSkillEntry: () => Effect.void,
     setSkillEntry: () => Effect.void,
     renameSkill: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
-    removeSkillFromSettings: overrides?.removeSkillFromSettingsFn
-      ? (name: string) => overrides.removeSkillFromSettingsFn!(name)
-      : (name: string) =>
-          Effect.sync(() => {
-            // Settings-only removal: keep skill in lockfile/disk
-            void name;
-          }),
+    removeSkillFromSettings:
+      removeSkillFromSettingsFn !== undefined
+        ? (name: string) => removeSkillFromSettingsFn(name)
+        : (name: string) =>
+            Effect.sync(() => {
+              // Settings-only removal: keep skill in lockfile/disk
+              void name;
+            }),
     getConfiguredPacks: () => Effect.succeed({}),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed(overrides?.lockedPacks ?? {}),
+    getLockedPacks: () => Effect.succeed(lockedPacks),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
     removePack: () => Effect.void,
@@ -161,16 +167,14 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + Path + a minimal Workspace. */
 const withServices = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileSkills: Record<string, any> = {},
+  lockfileSkills: Record<string, SkillLockEntry> = {},
   wsOverrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
     removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-    lockedPacks?: Record<string, any>;
+    lockedPacks?: Record<string, PackLockEntry>;
   },
 ) => {
   return Layer.mergeAll(
@@ -627,9 +631,9 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("AppError");
-        expect((result as AppError).code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
-        expect((result as AppError).cause).toBeInstanceOf(AppError);
+        const error = getAppError(result);
+        expect(error.code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
+        expect(error.cause).toBeInstanceOf(AppError);
         // Canonical dir should still exist (error propagated before removal)
         expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
@@ -659,8 +663,8 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("AppError");
-        expect((result as AppError).what).toContain("Failed to update lockfile");
+        const error = getAppError(result);
+        expect(error.what).toContain("Failed to update lockfile");
       }),
     );
 

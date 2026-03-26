@@ -22,14 +22,13 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredAgents?: ReadonlyArray<string>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    lockfileSkills?: Record<string, any>;
+    lockfileSkills?: Record<string, SkillLockEntry>;
     updateSkillEntryFn?: ReturnType<typeof vi.fn>;
     updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
-  const lockfileSkills = opts.lockfileSkills ?? {};
+  const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
 
   return {
     ...taxonomyStubs,
@@ -48,8 +47,7 @@ const makeWorkspaceMock = (
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
-    getLockedSkill: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: () => Effect.void,
     setSkillLock: () => Effect.void,
@@ -104,7 +102,7 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 });
 
 /** Creates a local source lock entry. */
-const makeLocalLockEntry = (agents: string[]) => ({
+const makeLocalLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "local" as const,
   path: "/tmp/source",
   agents,
@@ -113,7 +111,7 @@ const makeLocalLockEntry = (agents: string[]) => ({
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[]) => ({
+const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "registry" as const,
   profile: "@community",
   name: "my-skill",
@@ -458,10 +456,7 @@ describe("disableSkill", () => {
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
-          getLockedSkill: () =>
-            Effect.succeed(
-              Option.some(makeLocalLockEntry(["claude-code"]) as unknown as SkillLockEntry),
-            ),
+          getLockedSkill: () => Effect.succeed(Option.some(makeLocalLockEntry(["claude-code"]))),
           getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
           setSkill: () => Effect.void,
           setSkillLock: () => Effect.void,

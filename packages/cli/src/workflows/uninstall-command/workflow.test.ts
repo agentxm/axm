@@ -14,7 +14,8 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
-import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
+import { Workspace } from "../../workspace/service.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   type UninstallExtensionCommandWorkflowActions,
   runUninstallCommandWorkflow,
@@ -39,16 +40,13 @@ const emptyExecutedPlan: ExecutedPlan = {
   jobs: [],
 };
 
-const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceContextService =>
-  ({
-    scope: "project",
-    path: "/tmp/test/.axm",
-    baseDir: "/tmp/test",
+const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void) =>
+  makeBaseWorkspaceMock("/tmp/test/.axm", {
     resolvePlan: (plan: Plan) => {
       onResolvePlan?.(plan);
       return Effect.succeed(emptyExecutedPlan);
     },
-  }) as unknown as WorkspaceContextService;
+  });
 
 const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
   const { layer: rendererLayer } = TestRenderer.make();

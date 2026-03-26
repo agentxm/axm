@@ -13,7 +13,7 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
-import { AppError } from "@axm.sh/core/unstable/app-error";
+import { getAppError } from "../../../test-helpers.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -45,8 +45,13 @@ const provideWithFlags = (overrides: Parameters<typeof CliEnvironmentTest>[0]) =
 };
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
-const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillExtensionRef> =>
-  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<SkillExtensionRef>;
+const skills = (
+  first: string,
+  ...rest: ReadonlyArray<string>
+): Array.NonEmptyReadonlyArray<SkillExtensionRef> => [
+  makeSkill(first),
+  ...rest.map((name) => makeSkill(name)),
+];
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -83,13 +88,15 @@ describe("determineSkillsToInstall", () => {
     it.effect("errors when no requested patterns match any skill", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall(skills("commit"), {
-            requestedSkills: ["foo", "bar"],
-            all: false,
-          }).pipe(Effect.flip);
+          const error = getAppError(
+            yield* determineSkillsToInstall(skills("commit"), {
+              requestedSkills: ["foo", "bar"],
+              all: false,
+            }).pipe(Effect.flip),
+          );
 
           expect(error._tag).toBe("AppError");
-          expect((error as AppError).what).toContain("No skills matched");
+          expect(error.what).toContain("No skills matched");
         }),
       ),
     );
@@ -153,14 +160,16 @@ describe("determineSkillsToInstall", () => {
     it.effect("errors when glob pattern matches nothing", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
-            requestedSkills: ["effect-*"],
-            all: false,
-          }).pipe(Effect.flip);
+          const error = getAppError(
+            yield* determineSkillsToInstall(skills("commit", "review-pr"), {
+              requestedSkills: ["effect-*"],
+              all: false,
+            }).pipe(Effect.flip),
+          );
 
           expect(error._tag).toBe("AppError");
-          expect((error as AppError).details.join(", ")).toContain("commit");
-          expect((error as AppError).details.join(", ")).toContain("review-pr");
+          expect(error.details.join(", ")).toContain("commit");
+          expect(error.details.join(", ")).toContain("review-pr");
         }),
       ),
     );

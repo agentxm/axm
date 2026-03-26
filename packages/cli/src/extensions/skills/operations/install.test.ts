@@ -10,11 +10,24 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { Source, ExtensionRef, SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import type {
+  BuiltinSkillRef,
+  ExtensionRef,
+  GitHostedSkillRef,
+  LocalSkillRef,
+  RegistrySkillRef,
+  Source,
+  SkillExtensionRef,
+} from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import {
+  Workspace,
+  type SetSkillArgs,
+  type WorkspaceContextService,
+} from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { at } from "../../../test-helpers.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill } from "./install.js";
@@ -76,13 +89,14 @@ const makeWorkspaceMock = (
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: setSkillFn
-      ? (args: { name: string; lockEntry: unknown }) => setSkillFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
+      ? ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
+          setSkillFn({ name, lockEntry, versionConstraint })
+      : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
           Effect.try({
             try: () => {
               const lf = readLf();
-              lf.skills[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+              lf.skills[name] = {
+                ...lockEntry,
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);
@@ -95,13 +109,14 @@ const makeWorkspaceMock = (
               }),
           }),
     setSkillLock: setSkillFn
-      ? (args: { name: string; lockEntry: unknown }) => setSkillFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
+      ? ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
+          setSkillFn({ name, lockEntry, versionConstraint })
+      : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
           Effect.try({
             try: () => {
               const lf = readLf();
-              lf.skills[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+              lf.skills[name] = {
+                ...lockEntry,
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);
@@ -213,7 +228,7 @@ const makeOp = (
     };
   } = {},
 ): InstallSkillOperation => {
-  const sourceInput = overrides.source ?? ({ type: "local", path: "/tmp/source" } as Source);
+  const sourceInput = overrides.source ?? ({ type: "local", path: "/tmp/source" } satisfies Source);
   const skill = overrides.skill ?? {
     name: overrides.skillName ?? "my-skill",
     description: Option.some("A test skill"),
@@ -235,33 +250,33 @@ const makeOp = (
         return {
           ...base,
           refType: "registry" as const,
-          source: source as never,
+          source,
           profile: overrides.profile ?? "@community",
           name: skill.name,
           version: Option.getOrElse(version, () => ""),
           integrity: "",
-        } as SkillExtensionRef;
+        } satisfies RegistrySkillRef;
       case "local":
         return {
           ...base,
           refType: "local" as const,
-          source: source as never,
+          source,
           location,
-        } as SkillExtensionRef;
+        } satisfies LocalSkillRef;
       case "builtin":
         return {
           ...base,
           refType: "builtin" as const,
-          source: source as never,
-        } as SkillExtensionRef;
+          source,
+        } satisfies BuiltinSkillRef;
       default:
         return {
           ...base,
           refType: "git-hosted" as const,
-          source: source as never,
+          source,
           location,
           gitTreeSha,
-        } as SkillExtensionRef;
+        } satisfies GitHostedSkillRef;
     }
   })();
 
@@ -880,7 +895,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -897,8 +912,8 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        const args = setSkillFn.mock.calls[0]![0];
-        expect(Option.isNone(args.versionConstraint as Option.Option<string>)).toBe(true);
+        const args = at(setSkillFn.mock.calls, 0)[0];
+        expect(Option.isNone(args.versionConstraint)).toBe(true);
       }),
     );
 
@@ -907,7 +922,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -926,8 +941,8 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        const args = setSkillFn.mock.calls[0]![0];
-        expect(Option.getOrNull(args.versionConstraint as Option.Option<string>)).toBe("^1.0.0");
+        const args = at(setSkillFn.mock.calls, 0)[0];
+        expect(Option.getOrNull(args.versionConstraint)).toBe("^1.0.0");
       }),
     );
 
@@ -936,7 +951,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
-          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(
@@ -955,8 +970,8 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        const args = setSkillFn.mock.calls[0]![0];
-        expect(Option.getOrNull(args.versionConstraint as Option.Option<string>)).toBe("1.2.3");
+        const args = at(setSkillFn.mock.calls, 0)[0];
+        expect(Option.getOrNull(args.versionConstraint)).toBe("1.2.3");
       }),
     );
 
@@ -965,7 +980,7 @@ describe("installSkill", () => {
         const src = setupSource();
         const { axmDir } = setupBase();
         const setSkillFn = vi.fn(
-          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+          (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
         );
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
@@ -974,8 +989,8 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        const args = setSkillFn.mock.calls[0]![0];
-        expect(Option.isNone(args.versionConstraint as Option.Option<string>)).toBe(true);
+        const args = at(setSkillFn.mock.calls, 0)[0];
+        expect(Option.isNone(args.versionConstraint)).toBe(true);
       }),
     );
   });

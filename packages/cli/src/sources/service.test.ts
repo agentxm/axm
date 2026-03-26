@@ -19,7 +19,6 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
-import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
@@ -92,7 +91,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredProfile: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
+  getConfiguredProfile: () => Effect.succeed("@test"),
   getDefaultProfile: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),

@@ -33,6 +33,13 @@ import type { OperationResult, Operation } from "./plan.js";
 import type { LegacyPlan, LegacyPlannedStep } from "./plan-bridge.js";
 import { bridgeLegacyPlan } from "./plan-bridge.js";
 import {
+  expectDefined,
+  getAppError,
+  property,
+  recordEntry,
+  stringProperty,
+} from "../test-helpers.js";
+import {
   Workspace,
   layer as workspaceLayer,
   type SetCommandArgs,
@@ -339,10 +346,10 @@ describe("WorkspaceContextService", () => {
         );
         const result = yield* effect.pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect((result as AppError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        const error = getAppError(result);
+        expect(error.code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // howToFix suggests --force
-        expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
+        expect(Option.getOrNull(error.howToFix)).toMatch(/--force/);
         // Plan should have been displayed
         expect(logMessages(rendererState, "info")).toContain("Test Plan");
       }),
@@ -361,10 +368,10 @@ describe("WorkspaceContextService", () => {
         );
         const result = yield* effect.pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect((result as AppError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
+        const error = getAppError(result);
+        expect(error.code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // howToFix suggests --force
-        expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
+        expect(Option.getOrNull(error.howToFix)).toMatch(/--force/);
         // Plan should have been displayed even in default mode
         expect(logMessages(rendererState, "info")).toContain("Test Plan");
       }),
@@ -652,12 +659,15 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const sources = yield* ws.getConfiguredSources();
 
-        const githubSource = sources.find((s) => s.name === "github");
-        expect(githubSource).toBeDefined();
-        // Project wins over global
-        expect((githubSource as SourceHostConfig & { url: URL }).url).toEqual(
-          new URL("https://github.mycompany.com"),
+        const githubSource = expectDefined(
+          sources.find((s) => s.name === "github"),
+          "Expected github source",
         );
+        // Project wins over global
+        expect("url" in githubSource).toBe(true);
+        if ("url" in githubSource) {
+          expect(githubSource.url).toEqual(new URL("https://github.mycompany.com"));
+        }
         // Built-in github is also overridden (only one "github" entry)
         expect(sources.filter((s) => s.name === "github")).toHaveLength(1);
       }),
@@ -678,11 +688,14 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const sources = yield* ws.getConfiguredSources();
 
-        const gitlabSource = sources.find((s) => s.name === "gitlab");
-        expect(gitlabSource).toBeDefined();
-        expect((gitlabSource as SourceHostConfig & { url: URL }).url).toEqual(
-          new URL("https://gitlab.corp.example.com"),
+        const gitlabSource = expectDefined(
+          sources.find((s) => s.name === "gitlab"),
+          "Expected gitlab source",
         );
+        expect("url" in gitlabSource).toBe(true);
+        if ("url" in gitlabSource) {
+          expect(gitlabSource.url).toEqual(new URL("https://gitlab.corp.example.com"));
+        }
         expect(sources.filter((s) => s.name === "gitlab")).toHaveLength(1);
       }),
     );
@@ -988,15 +1001,21 @@ describe("WorkspaceContextService", () => {
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
 
+  interface TestLockfileDiskData {
+    readonly lockfileVersion: number;
+    readonly skills: Record<string, unknown>;
+    readonly packs?: Record<string, unknown>;
+    readonly commands?: Record<string, unknown>;
+    readonly mcpServers?: Record<string, unknown>;
+  }
+
   /** Read lockfile from disk for verification. */
-  const readLockfileFromDisk = (dir: string) =>
-    YAML.parse(fs.readFileSync(path.join(dir, ".axm", "axm-lock.yaml"), "utf-8")) as {
-      lockfileVersion: number;
-      skills: Record<string, unknown>;
-      packs?: Record<string, unknown>;
-      commands?: Record<string, unknown>;
-      mcpServers?: Record<string, unknown>;
-    };
+  const readLockfileFromDisk = (dir: string): TestLockfileDiskData => {
+    const lockfile: TestLockfileDiskData = YAML.parse(
+      fs.readFileSync(path.join(dir, ".axm", "axm-lock.yaml"), "utf-8"),
+    );
+    return lockfile;
+  };
 
   /** Create a sample SkillLockEntry for testing. */
   const makeSampleLockEntry = (agents: readonly string[] = ["claude-code"]): SkillLockEntry => ({
@@ -1209,7 +1228,7 @@ describe("WorkspaceContextService", () => {
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).toHaveProperty("code-review");
-        expect((lockfile.skills["code-review"] as { type: string }).type).toBe("github");
+        expect(property(recordEntry(lockfile.skills, "code-review"), "type")).toBe("github");
       }),
     );
 
@@ -1229,7 +1248,7 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         const updatedAt = new Date(
-          (lockfile.skills["code-review"] as { updatedAt: string }).updatedAt,
+          stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
         );
         expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
         expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
@@ -1275,7 +1294,7 @@ describe("WorkspaceContextService", () => {
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
-        expect((lockfile.skills["code-review"] as { agents: string[] }).agents).toEqual([
+        expect(property(recordEntry(lockfile.skills, "code-review"), "agents")).toEqual([
           "claude-code",
           "cursor",
         ]);
@@ -1440,7 +1459,7 @@ describe("WorkspaceContextService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toHaveProperty("test-gen");
-        expect(Object.keys(settings.skills as Record<string, string>)).toHaveLength(1);
+        expect(Object.keys(expectDefined(settings.skills))).toHaveLength(1);
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).toHaveProperty("test-gen");
@@ -1965,7 +1984,7 @@ describe("WorkspaceContextService", () => {
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).not.toHaveProperty("old-name");
         expect(lockfile.skills).toHaveProperty("new-name");
-        expect((lockfile.skills["new-name"] as { type: string }).type).toBe("github");
+        expect(property(recordEntry(lockfile.skills, "new-name"), "type")).toBe("github");
       }),
     );
 
@@ -2032,7 +2051,7 @@ describe("WorkspaceContextService", () => {
         yield* ws.updateLockEntryAgents("code-review", ["claude-code", "cursor"]);
 
         const lockfile = readLockfileFromDisk(projectDir);
-        expect((lockfile.skills["code-review"] as { agents: string[] }).agents).toEqual([
+        expect(property(recordEntry(lockfile.skills, "code-review"), "agents")).toEqual([
           "claude-code",
           "cursor",
         ]);
@@ -2252,7 +2271,9 @@ describe("WorkspaceContextService", () => {
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.packs).toHaveProperty("starter-pack");
-        expect((lockfile.packs!["starter-pack"] as { type: string }).type).toBe("registry");
+        expect(property(recordEntry(expectDefined(lockfile.packs), "starter-pack"), "type")).toBe(
+          "registry",
+        );
       }),
     );
 
@@ -2268,7 +2289,7 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         const updatedAt = new Date(
-          (lockfile.packs!["starter-pack"] as { updatedAt: string }).updatedAt,
+          stringProperty(recordEntry(expectDefined(lockfile.packs), "starter-pack"), "updatedAt"),
         );
         expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
         expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
@@ -2350,7 +2371,7 @@ describe("WorkspaceContextService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toHaveProperty("other-pack");
-        expect(Object.keys(settings.packs as Record<string, string>)).toHaveLength(1);
+        expect(Object.keys(expectDefined(settings.packs))).toHaveLength(1);
       }),
     );
   });
@@ -2403,7 +2424,7 @@ describe("WorkspaceContextService", () => {
         const skills = yield* ws.getInstalledSkills();
 
         expect(skills).toHaveProperty("code-review");
-        expect(skills["code-review"]!.lifecycle).toBe("implicit");
+        expect(recordEntry(skills, "code-review").lifecycle).toBe("implicit");
       }),
     );
 
@@ -2430,7 +2451,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getInstalledSkills();
 
-        expect(skills["code-review"]!.lifecycle).toBe("configured");
+        expect(recordEntry(skills, "code-review").lifecycle).toBe("configured");
       }),
     );
 
@@ -2593,8 +2614,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const classified = yield* ws.getClassifiedSkills();
 
-        expect(classified["my-skill"]!.lifecycle).toBe("configured");
-        expect(classified["implicit-skill"]!.lifecycle).toBe("implicit");
+        expect(recordEntry(classified, "my-skill").lifecycle).toBe("configured");
+        expect(recordEntry(classified, "implicit-skill").lifecycle).toBe("implicit");
       }),
     );
   });
@@ -2614,7 +2635,7 @@ describe("WorkspaceContextService", () => {
         const external = yield* ws.getConfiguredExternalSkills();
 
         expect(Object.keys(external)).toEqual(["external-skill"]);
-        expect(external["external-skill"]!.packagingKind).toBe("non-native");
+        expect(recordEntry(external, "external-skill").packagingKind).toBe("non-native");
       }),
     );
   });
@@ -2780,8 +2801,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.getInstalledCommands();
 
-        expect(installed["configured-cmd"]!.lifecycle).toBe("configured");
-        expect(installed["implicit-cmd"]!.lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "configured-cmd").lifecycle).toBe("configured");
+        expect(recordEntry(installed, "implicit-cmd").lifecycle).toBe("implicit");
       }),
     );
   });
@@ -2797,7 +2818,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const classified = yield* ws.getClassifiedCommands();
 
-        expect(classified["my-cmd"]!.lifecycle).toBe("configured");
+        expect(recordEntry(classified, "my-cmd").lifecycle).toBe("configured");
       }),
     );
   });
@@ -2980,8 +3001,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.getInstalledMcpServers();
 
-        expect(installed["configured-mcp"]!.lifecycle).toBe("configured");
-        expect(installed["implicit-mcp"]!.lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "configured-mcp").lifecycle).toBe("configured");
+        expect(recordEntry(installed, "implicit-mcp").lifecycle).toBe("implicit");
       }),
     );
   });
@@ -2997,7 +3018,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const classified = yield* ws.getClassifiedMcpServers();
 
-        expect(classified["my-mcp"]!.lifecycle).toBe("configured");
+        expect(recordEntry(classified, "my-mcp").lifecycle).toBe("configured");
       }),
     );
   });
@@ -3149,8 +3170,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.getInstalledPacks();
 
-        expect(installed["@axm/packs/axm-builtin"]!.lifecycle).toBe("implicit");
-        expect(installed["@axm/packs/axm-builtin"]!.isBuiltIn).toBe(true);
+        expect(recordEntry(installed, "@axm/packs/axm-builtin").lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "@axm/packs/axm-builtin").isBuiltIn).toBe(true);
       }),
     );
 
@@ -3194,8 +3215,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.getInstalledPacks();
 
-        expect(installed["my-pack"]!.lifecycle).toBe("configured");
-        expect(installed["@axm/packs/axm-builtin"]!.lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
+        expect(recordEntry(installed, "@axm/packs/axm-builtin").lifecycle).toBe("implicit");
       }),
     );
   });
@@ -3211,7 +3232,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const classified = yield* ws.getClassifiedPacks();
 
-        expect(classified["my-pack"]!.lifecycle).toBe("configured");
+        expect(recordEntry(classified, "my-pack").lifecycle).toBe("configured");
       }),
     );
   });
@@ -3484,7 +3505,9 @@ describe("WorkspaceContextService", () => {
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.commands).toHaveProperty("my-command");
-        expect((lockfile.commands!["my-command"] as { type: string }).type).toBe("github");
+        expect(property(recordEntry(expectDefined(lockfile.commands), "my-command"), "type")).toBe(
+          "github",
+        );
       }),
     );
 
@@ -3500,7 +3523,7 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         const updatedAt = new Date(
-          (lockfile.commands!["my-command"] as { updatedAt: string }).updatedAt,
+          stringProperty(recordEntry(expectDefined(lockfile.commands), "my-command"), "updatedAt"),
         );
         expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
         expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
@@ -3543,7 +3566,9 @@ describe("WorkspaceContextService", () => {
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
-        expect((lockfile.commands!["my-command"] as { repo: string }).repo).toBe("my-command-v2");
+        expect(property(recordEntry(expectDefined(lockfile.commands), "my-command"), "repo")).toBe(
+          "my-command-v2",
+        );
       }),
     );
   });
@@ -3565,7 +3590,9 @@ describe("WorkspaceContextService", () => {
         // Lockfile should have the command
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.commands).toHaveProperty("my-command");
-        expect((lockfile.commands!["my-command"] as { type: string }).type).toBe("github");
+        expect(property(recordEntry(expectDefined(lockfile.commands), "my-command"), "type")).toBe(
+          "github",
+        );
       }),
     );
   });
@@ -3634,11 +3661,11 @@ describe("WorkspaceContextService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.commands).toHaveProperty("other-command");
-        expect(Object.keys(settings.commands as Record<string, string>)).toHaveLength(1);
+        expect(Object.keys(expectDefined(settings.commands))).toHaveLength(1);
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.commands).toHaveProperty("other-command");
-        expect(Object.keys(lockfile.commands!)).toHaveLength(1);
+        expect(Object.keys(expectDefined(lockfile.commands))).toHaveLength(1);
       }),
     );
 
@@ -3775,7 +3802,9 @@ describe("WorkspaceContextService", () => {
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
-        expect((lockfile.mcpServers!["my-mcp-server"] as { type: string }).type).toBe("github");
+        expect(
+          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "type"),
+        ).toBe("github");
       }),
     );
 
@@ -3791,7 +3820,10 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         const updatedAt = new Date(
-          (lockfile.mcpServers!["my-mcp-server"] as { updatedAt: string }).updatedAt,
+          stringProperty(
+            recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"),
+            "updatedAt",
+          ),
         );
         expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
         expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
@@ -3834,9 +3866,9 @@ describe("WorkspaceContextService", () => {
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
-        expect((lockfile.mcpServers!["my-mcp-server"] as { repo: string }).repo).toBe(
-          "my-mcp-server-v2",
-        );
+        expect(
+          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "repo"),
+        ).toBe("my-mcp-server-v2");
       }),
     );
   });
@@ -3858,7 +3890,9 @@ describe("WorkspaceContextService", () => {
         // Lockfile should have the mcp server
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
-        expect((lockfile.mcpServers!["my-mcp-server"] as { type: string }).type).toBe("github");
+        expect(
+          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "type"),
+        ).toBe("github");
       }),
     );
   });
@@ -3927,11 +3961,11 @@ describe("WorkspaceContextService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toHaveProperty("other-server");
-        expect(Object.keys(settings["mcpServers"] as Record<string, string>)).toHaveLength(1);
+        expect(Object.keys(expectDefined(settings["mcpServers"]))).toHaveLength(1);
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).toHaveProperty("other-server");
-        expect(Object.keys(lockfile.mcpServers!)).toHaveLength(1);
+        expect(Object.keys(expectDefined(lockfile.mcpServers))).toHaveLength(1);
       }),
     );
 
@@ -4532,8 +4566,7 @@ describe("WorkspaceContextService", () => {
         yield* ws.markDependencyRetainedInLockfile({ type: "skill", name: "code-review" });
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const entry = lockfile.skills["code-review"] as Record<string, unknown>;
-        expect(entry["retainedByPack"]).toBe(true);
+        expect(property(recordEntry(lockfile.skills, "code-review"), "retainedByPack")).toBe(true);
       }),
     );
 
@@ -4553,8 +4586,9 @@ describe("WorkspaceContextService", () => {
         yield* ws.markDependencyRetainedInLockfile({ type: "command", name: "my-cmd" });
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const entry = lockfile.commands!["my-cmd"] as Record<string, unknown>;
-        expect(entry["retainedByPack"]).toBe(true);
+        expect(
+          property(recordEntry(expectDefined(lockfile.commands), "my-cmd"), "retainedByPack"),
+        ).toBe(true);
       }),
     );
 
@@ -4574,8 +4608,9 @@ describe("WorkspaceContextService", () => {
         yield* ws.markDependencyRetainedInLockfile({ type: "mcp-server", name: "my-mcp" });
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const entry = lockfile.mcpServers!["my-mcp"] as Record<string, unknown>;
-        expect(entry["retainedByPack"]).toBe(true);
+        expect(
+          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp"), "retainedByPack"),
+        ).toBe(true);
       }),
     );
 

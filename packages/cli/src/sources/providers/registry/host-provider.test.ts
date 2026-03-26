@@ -38,6 +38,7 @@ import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,
 } from "./host-provider.js";
+import { at } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -143,8 +144,40 @@ const createFailingClient = (): RegistryClient => ({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
-    ),
+  ),
 });
+
+const expectRegistrySkillRef = (ref: ExtensionRef): RegistrySkillRef => {
+  if (ref.type !== "skill" || ref.refType !== "registry") {
+    throw new Error("Expected registry skill ref");
+  }
+
+  return ref;
+};
+
+const expectRegistryMcpServerRef = (ref: ExtensionRef): RegistryMcpServerRef => {
+  if (ref.type !== "mcp-server" || ref.refType !== "registry") {
+    throw new Error("Expected registry mcp-server ref");
+  }
+
+  return ref;
+};
+
+const expectRegistryCommandRef = (ref: ExtensionRef): RegistryCommandRef => {
+  if (ref.type !== "command" || ref.refType !== "registry") {
+    throw new Error("Expected registry command ref");
+  }
+
+  return ref;
+};
+
+const expectRegistryPackRef = (ref: ExtensionRef): RegistryPackRef => {
+  if (ref.type !== "pack" || ref.refType !== "registry") {
+    throw new Error("Expected registry pack ref");
+  }
+
+  return ref;
+};
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider — find
@@ -199,12 +232,11 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
         // Verify ExtensionRef mapping
         expect(refs).toHaveLength(1);
-        const ref = refs[0]!;
+        const ref = at(refs, 0);
         expect(ref.type).toBe("skill");
         expect(ref.refType).toBe("registry");
-        expect(ref.source).toBe(registry.source);
-        // Assertion needed: TS can't narrow SkillExtensionRef union to RegistrySkillRef
-        const skillRef = ref as RegistrySkillRef;
+        const skillRef = expectRegistrySkillRef(ref);
+        expect(skillRef.source).toBe(registry.source);
         expect(skillRef.skill.name).toBe("my-skill");
         expect(skillRef.skill.description).toEqual(Option.some("My skill description"));
         expect(skillRef.skill.metadata).toEqual(
@@ -254,11 +286,10 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const ref = refs[0]!;
+        const ref = at(refs, 0);
         expect(ref.type).toBe("mcp-server");
         expect(ref.refType).toBe("registry");
-        // Assertion needed: TS can't narrow to RegistryMcpServerRef
-        const serverRef = ref as RegistryMcpServerRef;
+        const serverRef = expectRegistryMcpServerRef(ref);
         expect(serverRef.server.name).toBe("my-server");
         expect(serverRef.profile).toBe("@test");
         expect(serverRef.name).toBe("my-server");
@@ -298,11 +329,10 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const ref = refs[0]!;
+        const ref = at(refs, 0);
         expect(ref.type).toBe("command");
         expect(ref.refType).toBe("registry");
-        // Assertion needed: TS can't narrow to RegistryCommandRef
-        const cmdRef = ref as RegistryCommandRef;
+        const cmdRef = expectRegistryCommandRef(ref);
         expect(cmdRef.command.name).toBe("my-command");
         expect(cmdRef.profile).toBe("@test");
         expect(cmdRef.name).toBe("my-command");
@@ -342,11 +372,10 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const ref = refs[0]!;
+        const ref = at(refs, 0);
         expect(ref.type).toBe("pack");
         expect(ref.refType).toBe("registry");
-        // Assertion needed: TS can't narrow to RegistryPackRef
-        const packRef = ref as RegistryPackRef;
+        const packRef = expectRegistryPackRef(ref);
         expect(packRef.pack.name).toBe("my-pack");
         expect(packRef.pack.skills).toEqual({});
         expect(packRef.pack.commands).toEqual({});
@@ -394,7 +423,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const packRef = refs[0]! as RegistryPackRef;
+        const packRef = expectRegistryPackRef(at(refs, 0));
         expect(packRef.pack.skills).toEqual({
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
@@ -445,7 +474,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         });
 
         expect(refs).toHaveLength(1);
-        const packRef = refs[0]! as RegistryPackRef;
+        const packRef = expectRegistryPackRef(at(refs, 0));
         expect(packRef.pack.skills).toEqual({ "@acme/skills/valid": "^1.0.0" });
         expect(packRef.pack.commands).toEqual({});
         expect(packRef.pack.mcpServers).toEqual({});

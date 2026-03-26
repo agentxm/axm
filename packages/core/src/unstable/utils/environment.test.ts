@@ -1,6 +1,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -21,20 +22,26 @@ const mockFileSystem = (overrides: {
   exists?: (path: string) => boolean;
   readFileString?: (path: string) => string;
 }) =>
-  Layer.succeed(FileSystem.FileSystem, {
-    exists: (path: string) =>
-      Effect.succeed(overrides.exists?.(path) ?? false) as ReturnType<
-        FileSystem.FileSystem["exists"]
-      >,
-    readFileString: (path: string) => {
-      const content = overrides.readFileString?.(path);
-      return (
-        content !== undefined
-          ? Effect.succeed(content)
-          : Effect.fail({ _tag: "SystemError", reason: "NotFound", message: "Not found" } as const)
-      ) as ReturnType<FileSystem.FileSystem["readFileString"]>;
-    },
-  } as FileSystem.FileSystem);
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const overridesLayer = {
+        exists: (path: string) => Effect.succeed(overrides.exists?.(path) ?? false),
+        readFileString: (path: string) => {
+          const content = overrides.readFileString?.(path);
+          return content !== undefined
+            ? Effect.succeed(content)
+            : fileSystem.readFileString("/definitely-missing-environment-test-path");
+        },
+      } satisfies Pick<FileSystem.FileSystem, "exists" | "readFileString">;
+
+      return {
+        ...fileSystem,
+        ...overridesLayer,
+      } satisfies FileSystem.FileSystem;
+    }),
+  ).pipe(Layer.provide(NodeServices.layer));
 
 // ---------------------------------------------------------------------------
 // Tests

@@ -573,7 +573,7 @@ describe("publish.handler", () => {
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
-        { name: "local-registry", type: "registry", location: new URL("https://localhost:4300/") },
+        { name: "local-registry", type: "registry", location: new URL("http://127.0.0.1:1/") },
       ]);
 
       return provide(

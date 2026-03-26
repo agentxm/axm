@@ -8,7 +8,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/ServiceMap";
 
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders } from "./service.js";
@@ -16,6 +15,8 @@ import type { SourceHostProvidersService } from "./service.js";
 import type { FindOptions, ExtensionRef, GitHubSource } from "@axm.sh/core/unstable/sources";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import { Workspace } from "../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { at } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -30,19 +31,59 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
 
 const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_SOURCES) =>
   Layer.merge(
-    Layer.succeed(Workspace, {
-      getConfiguredSources: () => Effect.succeed(sources),
-      getLockedSkills: () => Effect.succeed({}),
-      getConfiguredSkills: () => Effect.succeed({}),
-      getRegistrySourceHosts: () =>
-        Effect.succeed(
-          sources.filter(
-            (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+    Layer.succeed(
+      Workspace,
+      makeBaseWorkspaceMock("/tmp/axm", {
+        getConfiguredSources: () => Effect.succeed(sources),
+        getLockedSkills: () => Effect.succeed({}),
+        getConfiguredSkills: () => Effect.succeed({}),
+        getRegistrySourceHosts: () =>
+          Effect.succeed(
+            sources.filter(
+              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+            ),
           ),
-        ),
-    } as unknown as ServiceMap.Service.Shape<typeof Workspace>),
+      }),
+    ),
     NodeServices.layer,
   );
+
+const expectStringOption = (value: unknown): Option.Option<string> => {
+  if (typeof value === "object" && value !== null && "_tag" in value && value._tag === "None") {
+    return Option.none();
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "_tag" in value &&
+    value._tag === "Some" &&
+    "value" in value &&
+    typeof value.value === "string"
+  ) {
+    return Option.some(value.value);
+  }
+
+  throw new Error("Expected Option<string>");
+};
+
+const expectGitHubSource = (source: { readonly type: string }): GitHubSource => {
+  if (source.type !== "github") {
+    throw new Error("Expected GitHub source");
+  }
+
+  const url = "url" in source ? source.url : undefined;
+  const owner = "owner" in source ? source.owner : undefined;
+  const repo = "repo" in source ? source.repo : undefined;
+  const ref = expectStringOption("ref" in source ? source.ref : Option.none<string>());
+  const subPath = expectStringOption("subPath" in source ? source.subPath : Option.none<string>());
+
+  if (!(url instanceof URL) || typeof owner !== "string" || typeof repo !== "string") {
+    throw new Error("Expected GitHub source fields");
+  }
+
+  return { type: "github", url, owner, repo, ref, subPath };
+};
 
 /** Create a mock SourceHostProviders that records find() calls. */
 const makeMockProviders = (
@@ -86,7 +127,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
         }
 
         // Step 2: SourceHostProviders.find() discovers extensions from Source
-        const ghSource = source as GitHubSource;
+        const ghSource = expectGitHubSource(source);
         const mockRef: ExtensionRef = {
           type: "skill",
           refType: "git-hosted",
@@ -113,9 +154,9 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
         }).pipe(Effect.provide(providers), Effect.scoped);
 
         expect(refs).toHaveLength(1);
-        expect(refs[0]!.type).toBe("skill");
+        expect(at(refs, 0).type).toBe("skill");
         expect(findCalls).toHaveLength(1);
-        expect(findCalls[0]!.source).toEqual(source);
+        expect(at(findCalls, 0).source).toEqual(source);
       }),
     { timeout: 10_000 },
   );

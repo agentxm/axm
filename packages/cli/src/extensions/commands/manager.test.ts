@@ -14,6 +14,7 @@ import { vi } from "vitest";
 import { CommandManager, CommandManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { at } from "../../test-helpers.js";
 import type { RegistryCommandRef, RegistrySource } from "@axm.sh/core/unstable/sources";
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,9 @@ describe("CommandManager", () => {
   );
 
   it.effect("upsertSettingsEntry delegates to ws.setCommand for registry refs", () => {
-    const setCommandFn = vi.fn(() => Effect.void);
+    const setCommandFn = vi.fn((_args: Parameters<WorkspaceContextService["setCommand"]>[0]) =>
+      Effect.void,
+    );
     return Effect.gen(function* () {
       const manager = yield* CommandManager;
       yield* manager.upsertSettingsEntry({
@@ -77,27 +80,27 @@ describe("CommandManager", () => {
         versionConstraint: Option.none(),
       });
       expect(setCommandFn).toHaveBeenCalledTimes(1);
-      const args = (setCommandFn.mock.calls as unknown[][])[0]![0] as {
-        name: string;
-        lockEntry: { resolvedVersion: string };
-      };
-      expect(args.name).toBe("my-cmd");
-      expect(args.lockEntry.resolvedVersion).toBe("1.0.0");
+      const [args] = at(setCommandFn.mock.calls, 0);
+      expect(args).toMatchObject({
+        name: "my-cmd",
+        lockEntry: { resolvedVersion: "1.0.0" },
+      });
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setCommand: setCommandFn }))));
   });
 
   it.effect("upsertLockfileEntry delegates to ws.setCommandLock for registry refs", () => {
-    const setCommandLockFn = vi.fn(() => Effect.void);
+    const setCommandLockFn = vi.fn((_args: Parameters<WorkspaceContextService["setCommandLock"]>[0]) =>
+      Effect.void,
+    );
     return Effect.gen(function* () {
       const manager = yield* CommandManager;
       yield* manager.upsertLockfileEntry({ ref: makeRegistryCommandRef("my-cmd") });
       expect(setCommandLockFn).toHaveBeenCalledTimes(1);
-      const args = (setCommandLockFn.mock.calls as unknown[][])[0]![0] as {
-        name: string;
-        lockEntry: { resolvedVersion: string };
-      };
-      expect(args.name).toBe("my-cmd");
-      expect(args.lockEntry.resolvedVersion).toBe("1.0.0");
+      const [args] = at(setCommandLockFn.mock.calls, 0);
+      expect(args).toMatchObject({
+        name: "my-cmd",
+        lockEntry: { resolvedVersion: "1.0.0" },
+      });
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setCommandLock: setCommandLockFn }))));
   });
 

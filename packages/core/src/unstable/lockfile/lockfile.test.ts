@@ -27,7 +27,7 @@ describe("lockfile", () => {
     effect.pipe(Effect.provide(NodeServices.layer));
 
   const createTestEntry = (
-    overrides?: Partial<SkillLockEntry>,
+    overrides?: Partial<Extract<SkillLockEntry, { readonly type: "github" }>>,
   ): SkillLockEntry & { type: "github" } => ({
     type: "github",
     owner: "example-org",
@@ -35,7 +35,7 @@ describe("lockfile", () => {
     agents: ["claude-code"],
     installedAt: new Date("2026-01-28T10:00:00.000Z"),
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
-    ...(overrides as Partial<SkillLockEntry & { type: "github" }>),
+    ...overrides,
   });
 
   describe("readLockfile", () => {

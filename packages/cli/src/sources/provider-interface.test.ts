@@ -10,9 +10,9 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type {
   BuiltinSource,
+  GitHostedSkillRef,
   GitHubSource,
   RegistrySource,
-  ExtensionRef,
   SourceHostProvider,
   FindOptions,
 } from "@axm.sh/core/unstable/sources";
@@ -119,7 +119,14 @@ describe("SourceHostProvider", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    const ref = {} as ExtensionRef;
+    const ref: GitHostedSkillRef = {
+      type: "skill",
+      refType: "git-hosted",
+      skill: { name: "test-skill", description: Option.none(), metadata: Option.none() },
+      source,
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
+    };
     const result = await Effect.runPromise(provider.fetch(source, ref));
     expect(result.directory).toBe("/tmp/clone");
   });

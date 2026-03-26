@@ -11,6 +11,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { at } from "../../../test-helpers.js";
 import {
   discoverSkillsInDir,
   type DiscoveryOptions,
@@ -101,8 +102,8 @@ describe("discoverSkillsInDir", () => {
           });
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("root-skill");
-          expect(skills[0]!.skill.description).toBe("A root skill");
+          expect(at(skills, 0).skill.name).toBe("root-skill");
+          expect(at(skills, 0).skill.description).toBe("A root skill");
         }),
       ),
     );
@@ -135,7 +136,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("my-skill");
+          expect(at(skills, 0).skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -154,7 +155,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("my-skill");
+          expect(at(skills, 0).skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -171,7 +172,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("claude-skill");
+          expect(at(skills, 0).skill.name).toBe("claude-skill");
         }),
       ),
     );
@@ -188,7 +189,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("curated-skill");
+          expect(at(skills, 0).skill.name).toBe("curated-skill");
         }),
       ),
     );
@@ -202,7 +203,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("only-skill");
+          expect(at(skills, 0).skill.name).toBe("only-skill");
         }),
       ),
     );
@@ -220,7 +221,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("top-level-skill");
+          expect(at(skills, 0).skill.name).toBe("top-level-skill");
         }),
       ),
     );
@@ -316,7 +317,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("normal-skill");
+          expect(at(skills, 0).skill.name).toBe("normal-skill");
         }),
       ),
     );
@@ -340,7 +341,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("deep-skill");
+          expect(at(skills, 0).skill.name).toBe("deep-skill");
         }),
       ),
     );
@@ -519,7 +520,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("my-skill");
+          expect(at(skills, 0).skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -569,7 +570,7 @@ describe("discoverSkillsInDir", () => {
           const found = skills.filter((s) => s.skill.name === "dup-skill");
           expect(found).toHaveLength(1);
           // The priority directory version should win (discovered first in phase 2)
-          expect(found[0]!.skill.description).toBe("Priority version");
+          expect(at(found, 0).skill.description).toBe("Priority version");
         }),
       ),
     );
@@ -712,7 +713,7 @@ describe("discoverSkillsInDir", () => {
           );
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("my-skill");
+          expect(at(skills, 0).skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -755,13 +756,10 @@ describe("discoverSkillsInDir", () => {
 
       // Multiple agents share `.agents/skills` (amp, kimi-cli, replit)
       // and `.trae/skills` (trae, trae-cn) — each should appear only once
-      const agentSkillsCounts = dirs.reduce(
-        (acc, dir) => {
-          acc[dir] = (acc[dir] ?? 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
+      const agentSkillsCounts = dirs.reduce<Record<string, number>>((acc, dir) => {
+        acc[dir] = (acc[dir] ?? 0) + 1;
+        return acc;
+      }, {});
 
       for (const count of Object.values(agentSkillsCounts)) {
         expect(count).toBe(1);
@@ -782,7 +780,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.skill.name).toBe("exact-skill");
+          expect(at(skills, 0).skill.name).toBe("exact-skill");
         }),
       ),
     );

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { RegistryPackRef, BuiltinPackRef } from "@axm.sh/core/unstable/sources";
 import type { PackExtensionTarget } from "../../workflows/install-operation/workflow.js";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
+import { at } from "../../test-helpers.js";
 import {
   expandPackInstallRefs,
   expandPackUninstallTargets,
@@ -90,7 +91,7 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("pack");
+    expect(at(result, 0).type).toBe("pack");
   });
 
   it("returns pack ref first, followed by dependency refs", () => {
@@ -105,8 +106,8 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
   });
 
   it("produces skill dependency refs in declaration order", () => {
@@ -124,12 +125,14 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(3);
-    expect(result[1]!.type).toBe("skill");
-    if (result[1]!.type === "skill") {
-      expect(result[1]!.skill.name).toBe("skill-a");
+    const firstSkill = at(result, 1);
+    const secondSkill = at(result, 2);
+    expect(firstSkill.type).toBe("skill");
+    if (firstSkill.type === "skill") {
+      expect(firstSkill.skill.name).toBe("skill-a");
     }
-    if (result[2]!.type === "skill") {
-      expect(result[2]!.skill.name).toBe("skill-b");
+    if (secondSkill.type === "skill") {
+      expect(secondSkill.skill.name).toBe("skill-b");
     }
   });
 
@@ -146,9 +149,9 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(3);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("command");
-    expect(result[2]!.type).toBe("mcp-server");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("command");
+    expect(at(result, 2).type).toBe("mcp-server");
   });
 
   it("orders: pack, skills, commands, mcp-servers", () => {
@@ -165,10 +168,10 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(4);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
-    expect(result[2]!.type).toBe("command");
-    expect(result[3]!.type).toBe("mcp-server");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
+    expect(at(result, 2).type).toBe("command");
+    expect(at(result, 3).type).toBe("mcp-server");
   });
 
   it("uses pack's registry source for dependency refs", () => {
@@ -182,7 +185,7 @@ describe("expandPackInstallRefs", () => {
       }),
     );
 
-    const skillRef = result[1]!;
+    const skillRef = at(result, 1);
     expect(skillRef.source.type).toBe("registry");
   });
 
@@ -197,7 +200,7 @@ describe("expandPackInstallRefs", () => {
       }),
     );
 
-    const skillRef = result[1]!;
+    const skillRef = at(result, 1);
     if (skillRef.refType === "registry") {
       expect(skillRef.integrity).toBe("");
     }
@@ -217,8 +220,8 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
   });
 
   it("extracts name from FQN for skill dependencies", () => {
@@ -232,8 +235,9 @@ describe("expandPackInstallRefs", () => {
       }),
     );
 
-    if (result[1]!.type === "skill") {
-      expect(result[1]!.skill.name).toBe("code-review");
+    const skillRef = at(result, 1);
+    if (skillRef.type === "skill") {
+      expect(skillRef.skill.name).toBe("code-review");
     }
   });
 
@@ -250,8 +254,8 @@ describe("expandPackInstallRefs", () => {
     );
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
   });
 });
 
@@ -290,7 +294,7 @@ describe("expandPackUninstallTargets", () => {
     );
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("pack");
+    expect(at(result, 0).type).toBe("pack");
   });
 
   it("returns pack target first then orphaned dependency targets", () => {
@@ -323,8 +327,8 @@ describe("expandPackUninstallTargets", () => {
     );
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
   });
 
   it("excludes dependencies still referenced by another installed pack", () => {
@@ -371,7 +375,7 @@ describe("expandPackUninstallTargets", () => {
 
     // Only the pack target — shared-skill is retained by other-pack
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("pack");
+    expect(at(result, 0).type).toBe("pack");
   });
 
   it("excludes dependencies that are directly configured in settings", () => {
@@ -409,7 +413,7 @@ describe("expandPackUninstallTargets", () => {
 
     // Only the pack target — user-skill is directly configured
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("pack");
+    expect(at(result, 0).type).toBe("pack");
   });
 
   it("includes all orphaned dependency types", () => {
@@ -442,10 +446,10 @@ describe("expandPackUninstallTargets", () => {
     );
 
     expect(result).toHaveLength(4);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
-    expect(result[2]!.type).toBe("command");
-    expect(result[3]!.type).toBe("mcp-server");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
+    expect(at(result, 2).type).toBe("command");
+    expect(at(result, 3).type).toBe("mcp-server");
   });
 
   it("returns only pack target when pack is not in lockfile", () => {
@@ -459,7 +463,7 @@ describe("expandPackUninstallTargets", () => {
     );
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.type).toBe("pack");
+    expect(at(result, 0).type).toBe("pack");
   });
 
   it("filters by supportedDependencyTypes", () => {
@@ -492,8 +496,8 @@ describe("expandPackUninstallTargets", () => {
     );
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.type).toBe("pack");
-    expect(result[1]!.type).toBe("skill");
+    expect(at(result, 0).type).toBe("pack");
+    expect(at(result, 1).type).toBe("skill");
   });
 });
 

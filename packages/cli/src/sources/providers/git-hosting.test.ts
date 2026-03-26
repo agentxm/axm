@@ -7,7 +7,11 @@
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import {
   createGitHubSourceHostProvider,
   createGitLabSourceHostProvider,
@@ -16,10 +20,10 @@ import {
 } from "./git-hosting.js";
 
 /** Run an effect with the required context for SourceHostProvider operations. */
-const runMatch = (effect: Effect.Effect<boolean, unknown, unknown>) =>
-  Effect.runSync(
-    effect.pipe(Effect.provide(NodeServices.layer)) as Effect.Effect<boolean, unknown, never>,
-  );
+const runMatch = (
+  effect: Effect.Effect<boolean, AppError, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+) =>
+  Effect.runSync(effect.pipe(Effect.provide(NodeServices.layer), Effect.scoped));
 
 describe("createGitHubSourceHostProvider", () => {
   const host = { type: "github" as const, url: new URL("https://github.com") };

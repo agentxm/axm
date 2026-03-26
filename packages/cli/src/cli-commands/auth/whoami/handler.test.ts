@@ -13,6 +13,7 @@ import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { expectRecord } from "../../../test-helpers.js";
 import { handleWhoami } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -113,7 +114,7 @@ describe("auth whoami handler", () => {
       Effect.gen(function* () {
         yield* handleWhoami({ json: true });
         const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
-        const parsed = JSON.parse(output) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(output));
         expect(parsed["userHandle"]).toBe("alice");
         expect(parsed["email"]).toBe("alice@example.com");
         expect(parsed["tokenType"]).toBe("session");

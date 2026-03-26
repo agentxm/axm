@@ -45,9 +45,15 @@ const run = <A>(effect: Effect.Effect<A, never, CliRenderer>) =>
   Effect.runPromise(Effect.provide(effect, layer));
 
 const parseStderrEvents = () =>
-  stderrWrites.map((line) => JSON.parse(line.trim()) as Record<string, unknown>);
+  stderrWrites.map((line) => {
+    const event = JSON.parse(line.trim());
+    if (typeof event !== "object" || event === null || Array.isArray(event)) {
+      throw new Error("Expected stderr event record");
+    }
+    return event;
+  });
 
-const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()) as unknown);
+const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
 
 // ---------------------------------------------------------------------------
 // Chrome methods — emit NDJSON log events to stderr

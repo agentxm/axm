@@ -4,8 +4,7 @@
  * Tests the pack-specific plan builder that diffs operations against lockfile state.
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -17,7 +16,8 @@ import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/
 import type { RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
+import { Workspace } from "../../../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
@@ -199,12 +199,17 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
 
 // Mock services needed for plan construction
 const { layer: RendererTestLayer } = TestRenderer.make();
+const sourceHostProvidersStub: SourceHostProvidersService = {
+  find: () => Effect.succeed([]),
+  fetch: () => Effect.die("unexpected fetch in plan test"),
+  cloneUrl: () => Option.none(),
+  origin: () => "test",
+};
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
-  Layer.succeed(Workspace, {} as WorkspaceContextService),
-  Layer.succeed(SourceHostProviders, {} as SourceHostProvidersService),
-  Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
-  Layer.succeed(Path.Path, {} as Path.Path),
+  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  Layer.succeed(SourceHostProviders, sourceHostProvidersStub),
+  NodeServices.layer,
 );
 
 const runBuild = (args: Parameters<typeof buildInstallPlan>[0]) =>

@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 
-import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { type AppError, makeAppError } from "../app-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers

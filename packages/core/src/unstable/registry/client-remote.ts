@@ -17,8 +17,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { isLoopbackAddress } from "@axm.sh/core/unstable/utils";
+import { type AppError, makeAppError } from "../app-error/index.js";
+import { isLoopbackAddress } from "../utils/index.js";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
@@ -36,7 +36,7 @@ import {
   ExtensionTypeSchema,
   toAuthor,
   type ExtensionType,
-} from "@axm.sh/core/unstable/extensions";
+} from "../extensions/index.js";
 import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 

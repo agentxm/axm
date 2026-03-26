@@ -32,7 +32,7 @@ import {
   stripFileProtocol,
 } from "@axm.sh/core/unstable/utils";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { createRegistryClient, extractZip } from "@axm.sh/core/unstable/registry";
 import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";

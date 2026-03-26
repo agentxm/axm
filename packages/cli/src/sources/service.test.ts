@@ -23,7 +23,7 @@ import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import { taxonomyStubs } from "../workspace/test-stubs.js";
-import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
+import type { ExtensionIndex, VersionEntry } from "@axm.sh/core/unstable/registry";
 import type { FindOptions } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 

@@ -37,7 +37,7 @@ import {
   stripFileProtocol,
 } from "@axm.sh/core/unstable/utils";
 import { DefaultCodingAgentRepository } from "../../agents/repository.js";
-import { createRegistryClient, extractZip } from "../../registry/index.js";
+import { createRegistryClient, extractZip } from "@axm.sh/core/unstable/registry";
 import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------

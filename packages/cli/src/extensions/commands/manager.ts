@@ -27,7 +27,7 @@ import type {
 } from "../../workflows/install-operation/workflow.js";
 import { Workspace } from "../../workspace/service.js";
 import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
-import { createRegistryClient, extractZip } from "../../registry/index.js";
+import { createRegistryClient, extractZip } from "@axm.sh/core/unstable/registry";
 import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------

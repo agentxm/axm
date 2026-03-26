@@ -31,7 +31,7 @@ import {
   PackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
-import { createRegistryClient } from "../../../registry/index.js";
+import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import { buildUpdatePlan } from "./plan.js";

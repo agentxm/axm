@@ -33,7 +33,13 @@ export { createRegistryClient } from "./client.js";
 export { createLocalRegistryClient } from "./local-client.js";
 
 // Remote client
-export { createRemoteRegistryClient } from "./client-remote.js";
+export { createRemoteRegistryClient, mapProblemDetailToAppError } from "./client-remote.js";
 
 // Utilities
-export { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";
+export {
+  extensionDir,
+  extractZip,
+  pluralizeType,
+  resolveVersionEntry,
+  selectVersion,
+} from "./utils.js";

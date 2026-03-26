@@ -32,7 +32,7 @@ import type {
   SourceParams,
   SourceType,
 } from "@axm.sh/core/unstable/sources";
-import { createRegistryClient } from "../registry/index.js";
+import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { ExtensionType } from "@axm.sh/core/unstable/extensions";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";

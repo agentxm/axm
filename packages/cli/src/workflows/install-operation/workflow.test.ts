@@ -135,6 +135,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
   it("produces a ready step with the correct label", () => {
     const manager: ExtensionManager<SkillExtensionRef> = {
       extensionType: "skill",
+      isInstalled: () => Effect.succeed(true),
       materializeInstall: () => Effect.void,
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
@@ -158,6 +159,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
       const callOrder: string[] = [];
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: () =>
           Effect.sync(() => {
             callOrder.push("materialize");
@@ -197,6 +199,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
 
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: (args) =>
           Effect.sync(() => {
             capturedInstallRef = args.ref;
@@ -235,6 +238,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
     Effect.gen(function* () {
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: () =>
           Effect.fail(makeAppError({ code: "MATERIALIZE_FAILED", what: "disk error" })),
         materializeUninstall: () => Effect.void,
@@ -262,6 +266,7 @@ describe("buildInstallOperation / runInstallOperation", () => {
       const callOrder: string[] = [];
       const manager: ExtensionManager<PackExtensionRef> = {
         extensionType: "pack",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: () =>
           Effect.sync(() => {
             callOrder.push("materialize");

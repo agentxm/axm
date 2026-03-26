@@ -9,7 +9,9 @@ import type { CliResult, RunCliOptions } from "./types.js";
 const DEFAULT_TIMEOUT = 30000;
 
 const resolveArtifactPath = (artifactPath: string | URL): string =>
-  artifactPath instanceof URL ? fileURLToPath(artifactPath) : path.resolve(process.cwd(), artifactPath);
+  artifactPath instanceof URL
+    ? fileURLToPath(artifactPath)
+    : path.resolve(process.cwd(), artifactPath);
 
 export const createCliRunner =
   (artifactPath: string | URL) =>
@@ -23,6 +25,7 @@ export const createCliRunner =
 
     const result = await execa("bun", ["run", cliPath, ...args], {
       cwd,
+      // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
       env: { ...process.env, ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
       timeout,
       reject: false,

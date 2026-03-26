@@ -219,10 +219,7 @@ artifact path.
 // e2e-utils/src/runner.ts
 export const createCliRunner = (artifactPath: string) => {
   const resolvedPath = path.resolve(import.meta.dirname, artifactPath);
-  return async (
-    args: ReadonlyArray<string>,
-    options: RunCliOptions = {},
-  ): Promise<CliResult> => {
+  return async (args: ReadonlyArray<string>, options: RunCliOptions = {}): Promise<CliResult> => {
     // ... execa spawn logic
   };
 };
@@ -238,14 +235,14 @@ export { createTempDir };
 
 ### Shared utilities
 
-| Export | Source file | Purpose |
-|---|---|---|
-| `createCliRunner` | `runner.ts` | Factory returning a `runCli` fn bound to an artifact path |
-| `CliResult` | `types.ts` | Subprocess result: stdout, stderr, exitCode |
-| `RunCliOptions` | `types.ts` | Options: cwd, env, timeout |
-| `TempDirContext` | `temp-dir.ts` | Test context with temp dir path + cleanup |
-| `createTempDir` | `temp-dir.ts` | Creates isolated temp dir, returns `TempDirContext` |
-| `copyFixture` | `fixtures.ts` | Copies a fixture directory into a temp dir |
+| Export            | Source file   | Purpose                                                   |
+| ----------------- | ------------- | --------------------------------------------------------- |
+| `createCliRunner` | `runner.ts`   | Factory returning a `runCli` fn bound to an artifact path |
+| `CliResult`       | `types.ts`    | Subprocess result: stdout, stderr, exitCode               |
+| `RunCliOptions`   | `types.ts`    | Options: cwd, env, timeout                                |
+| `TempDirContext`  | `temp-dir.ts` | Test context with temp dir path + cleanup                 |
+| `createTempDir`   | `temp-dir.ts` | Creates isolated temp dir, returns `TempDirContext`       |
+| `copyFixture`     | `fixtures.ts` | Copies a fixture directory into a temp dir                |
 
 ---
 
@@ -308,13 +305,16 @@ original is removed.
 Progress note: all 27 source E2E files are copied into `cli-e2e` as non-entry modules, wired through feature-area entry files, and verified against the built artifact.
 
 **Smoke & top-level** (→ `smoke.e2e.test.ts`)
+
 - [x] Migrate `src/command.e2e.test.ts` (root CLI tests)
 - [x] Migrate `src/cli-commands/structured-output.e2e.test.ts`
 
 **Init** (→ `init.e2e.test.ts`)
+
 - [x] Migrate `src/cli-commands/init/command.e2e.test.ts`
 
 **Skills** (→ `skills.e2e.test.ts`)
+
 - [x] Migrate `src/cli-commands/skills/command.e2e.test.ts`
 - [x] Migrate `src/cli-commands/skills/install/command.e2e.test.ts`
 - [x] Migrate `src/cli-commands/skills/install/preview.e2e.test.ts`
@@ -333,6 +333,7 @@ Progress note: all 27 source E2E files are copied into `cli-e2e` as non-entry mo
 - [x] Migrate `src/cli-commands/skills/publish/publish.e2e.test.ts`
 
 **Auth** (→ `auth.e2e.test.ts`)
+
 - [x] Migrate `src/cli-commands/auth/auth.e2e.test.ts`
 - [x] Migrate `src/cli-commands/auth/login/login.e2e.test.ts`
 - [x] Migrate `src/cli-commands/auth/logout/logout.e2e.test.ts`
@@ -340,10 +341,12 @@ Progress note: all 27 source E2E files are copied into `cli-e2e` as non-entry mo
 - [x] Migrate `src/cli-commands/auth/token/token.e2e.test.ts`
 
 **Packs** (→ `packs.e2e.test.ts`)
+
 - [x] Migrate `src/cli-commands/packs/packs.e2e.test.ts`
 - [x] Migrate `src/cli-commands/packs/publish/publish.e2e.test.ts`
 
 **TUI** (→ `tui.e2e.test.ts`)
+
 - [x] Migrate `src/dev-cli-commands/tui/command.e2e.test.ts`
 
 - [x] Verify: `pnpm nx e2e cli-e2e` passes all migrated tests

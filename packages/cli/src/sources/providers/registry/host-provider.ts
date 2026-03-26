@@ -109,18 +109,20 @@ const findWithVersionConstraint = (
           const resolved = yield* Effect.forEach(
             result.extensions,
             (entry) =>
-              client.getExtensionIndex({
-                handle: entry.profile,
-                type: entry.type,
-                name: entry.name,
-              }).pipe(
-                Effect.map((indexOption) =>
-                  Option.match(indexOption, {
-                    onNone: () => Option.none<RegistryExtensionManifest>(),
-                    onSome: (index) => manifestFromIndex(index, options.versionConstraint),
-                  }),
+              client
+                .getExtensionIndex({
+                  handle: entry.profile,
+                  type: entry.type,
+                  name: entry.name,
+                })
+                .pipe(
+                  Effect.map((indexOption) =>
+                    Option.match(indexOption, {
+                      onNone: () => Option.none<RegistryExtensionManifest>(),
+                      onSome: (index) => manifestFromIndex(index, options.versionConstraint),
+                    }),
+                  ),
                 ),
-              ),
             { concurrency: "unbounded" },
           );
 
@@ -146,14 +148,12 @@ const findWithVersionConstraint = (
           { concurrency: "unbounded" },
         );
 
-        return resolved
-          .flat()
-          .flatMap((entry) =>
-            Option.match(entry, {
-              onNone: () => [],
-              onSome: (manifest) => [toExtensionRef(manifest, source)],
-            }),
-          );
+        return resolved.flat().flatMap((entry) =>
+          Option.match(entry, {
+            onNone: () => [],
+            onSome: (manifest) => [toExtensionRef(manifest, source)],
+          }),
+        );
       }),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((results) => results.flat()));

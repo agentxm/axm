@@ -24,6 +24,7 @@ import type { SkillExtensionRef, PackExtensionRef } from "@axm.sh/core/unstable/
 
 const makeSkillManager = (callOrder: string[]): ExtensionManager<SkillExtensionRef> => ({
   extensionType: "skill",
+  isInstalled: () => Effect.succeed(true),
   materializeInstall: () =>
     Effect.sync(() => {
       callOrder.push("materializeInstall");
@@ -81,6 +82,27 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
     expect(step.readiness).toBe("ready");
     expect(step.label).toBe("code-review");
   });
+
+  it.effect("returns a no-op message when the target is not installed", () =>
+    Effect.gen(function* () {
+      const callOrder: string[] = [];
+      const manager: ExtensionManager<SkillExtensionRef> = {
+        ...makeSkillManager(callOrder),
+        isInstalled: () => Effect.succeed(false),
+      };
+      const retentionPolicy = makeRetentionPolicy(false, callOrder);
+
+      const target: SkillExtensionTarget = { type: "skill", name: "code-review" };
+      const step = buildUninstallOperation(manager, retentionPolicy, { target });
+
+      if (step.readiness !== "ready") throw new Error("Expected ready step");
+      const result = yield* step.run;
+
+      expect(result.result).toBe("success");
+      expect(result.message).toContain("not installed");
+      expect(callOrder).toEqual([]);
+    }),
+  );
 
   it.effect("full removal path: disk -> lockfile -> settings when not required by pack", () =>
     Effect.gen(function* () {
@@ -152,6 +174,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
 
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: () => Effect.void,
         materializeUninstall: (args) =>
           Effect.sync(() => {
@@ -199,6 +222,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
     Effect.gen(function* () {
       const manager: ExtensionManager<SkillExtensionRef> = {
         extensionType: "skill",
+        isInstalled: () => Effect.succeed(true),
         materializeInstall: () => Effect.void,
         materializeUninstall: () =>
           Effect.fail(makeAppError({ code: "UNMATERIALIZE_FAILED", what: "disk error" })),
@@ -224,6 +248,7 @@ describe("buildUninstallOperation / runUninstallOperation", () => {
     const callOrder: string[] = [];
     const manager: ExtensionManager<PackExtensionRef> = {
       extensionType: "pack",
+      isInstalled: () => Effect.succeed(true),
       materializeInstall: () => Effect.void,
       materializeUninstall: () =>
         Effect.sync(() => {

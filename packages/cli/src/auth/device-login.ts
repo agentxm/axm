@@ -62,9 +62,8 @@ export const runDeviceLogin = (registryUrl: string) =>
 
     yield* presentDeviceFlow(verificationUrl, deviceFlow.user_code);
 
-    const token = yield* renderer.withSpinner(
-      "Waiting for approval in browser...",
-      () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
+    const token = yield* renderer.withSpinner("Waiting for approval in browser...", () =>
+      authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
     );
 
     const handle = yield* persistLoginCredentials(registryUrl, token);

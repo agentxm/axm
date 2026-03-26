@@ -48,6 +48,14 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
   args: UninstallOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
+    const isInstalled = yield* manager.isInstalled({ target: args.target });
+    if (!isInstalled) {
+      return {
+        result: "success" as const,
+        message: "not installed",
+      } satisfies JobStepResult;
+    }
+
     const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
       target: args.target,
     });

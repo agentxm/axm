@@ -8,10 +8,10 @@ user-invocable: false
 
 Two levels of E2E testing:
 
-| Level | Location | Tests what | Runs when |
-|---|---|---|---|
-| **Co-located** | `packages/cli/src/**/*.e2e.test.ts` | Source via `bun run src/main.ts` | Every PR |
-| **Distribution** | `packages/<cli>-e2e/` | Built artifact via `dist/` | After build, before release |
+| Level            | Location                            | Tests what                       | Runs when                   |
+| ---------------- | ----------------------------------- | -------------------------------- | --------------------------- |
+| **Co-located**   | `packages/cli/src/**/*.e2e.test.ts` | Source via `bun run src/main.ts` | Every PR                    |
+| **Distribution** | `packages/<cli>-e2e/`               | Built artifact via `dist/`       | After build, before release |
 
 ---
 
@@ -63,10 +63,10 @@ Import from `./utils.js`:
 import { createTempDir, runCli } from "./utils.js";
 ```
 
-| Helper                         | Purpose                                         |
-| ------------------------------ | ----------------------------------------------- |
-| `runCli(args, opts)`           | Run **built** CLI, returns `{ exitCode, stdout, stderr }` |
-| `createTempDir(prefix?)`      | Create temp dir, returns `{ path, cleanup }`    |
+| Helper                   | Purpose                                                   |
+| ------------------------ | --------------------------------------------------------- |
+| `runCli(args, opts)`     | Run **built** CLI, returns `{ exitCode, stdout, stderr }` |
+| `createTempDir(prefix?)` | Create temp dir, returns `{ path, cleanup }`              |
 
 Key difference: `runCli` spawns `cli-spike/dist/src/main.js` (the build output), not source. Fails fast if the artifact doesn't exist.
 

@@ -46,37 +46,39 @@ describe("coding-agent services", () => {
     ),
   );
 
-  it.effect("opencode MCP add/remove uses success contract", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-opencode-test-"));
-        try {
-          const addOutcome = yield* opencodeCodingAgent.addMcpServer({
-            workspaceRoot,
-            serverName: "chrome-devtools-mcp",
-            canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
-            profile: "@mcp",
-            resolvedVersion: "1.0.0",
-          });
-          expect(addOutcome._tag).toBe("success");
+  it.effect(
+    "opencode MCP add/remove uses success contract",
+    () =>
+      withNode(
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-opencode-test-"));
+          try {
+            const addOutcome = yield* opencodeCodingAgent.addMcpServer({
+              workspaceRoot,
+              serverName: "chrome-devtools-mcp",
+              canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
+              profile: "@mcp",
+              resolvedVersion: "1.0.0",
+            });
+            expect(addOutcome._tag).toBe("success");
 
-          const fs = yield* FileSystem.FileSystem;
-          const addedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
-          expect(addedConfig).toContain('"chrome-devtools-mcp"');
+            const fs = yield* FileSystem.FileSystem;
+            const addedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
+            expect(addedConfig).toContain('"chrome-devtools-mcp"');
 
-          const removeOutcome = yield* opencodeCodingAgent.removeMcpServer({
-            workspaceRoot,
-            serverName: "chrome-devtools-mcp",
-          });
-          expect(removeOutcome._tag).toBe("success");
+            const removeOutcome = yield* opencodeCodingAgent.removeMcpServer({
+              workspaceRoot,
+              serverName: "chrome-devtools-mcp",
+            });
+            expect(removeOutcome._tag).toBe("success");
 
-          const removedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
-          expect(removedConfig).not.toContain('"chrome-devtools-mcp"');
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
+            const removedConfig = yield* fs.readFileString(`${workspaceRoot}/.opencode/mcp.json`);
+            expect(removedConfig).not.toContain('"chrome-devtools-mcp"');
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+      ),
     { timeout: 10_000 },
   );
 

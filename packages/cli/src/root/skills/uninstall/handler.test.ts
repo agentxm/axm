@@ -309,7 +309,7 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("literal name not in lockfile", () => {
-    it.effect("runs the uninstall workflow for literal names absent from the lockfile", () => {
+    it.effect("reports a no-op for literal names absent from the lockfile", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -323,7 +323,7 @@ describe("uninstall.handler", () => {
 
           expect(logs.success.length > 0).toBe(true);
           const allLogs = [...logs.success, ...logs.info, ...logs.message];
-          expect(allLogs.some((m) => m.includes("not installed"))).toBe(false);
+          expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
         }),
       );
     });

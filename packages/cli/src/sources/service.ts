@@ -228,7 +228,10 @@ export const SourceHostProvidersLive: Layer.Layer<
       }
     };
 
-    const fetchImpl = (source: Source, ref: ExtensionRef): Effect.Effect<ExtensionFiles, AppError, Scope.Scope> => {
+    const fetchImpl = (
+      source: Source,
+      ref: ExtensionRef,
+    ): Effect.Effect<ExtensionFiles, AppError, Scope.Scope> => {
       switch (source.type) {
         case "github":
         case "gitlab":
@@ -247,7 +250,8 @@ export const SourceHostProvidersLive: Layer.Layer<
     };
 
     const service: SourceHostProvidersService = {
-      find: (source, options) => findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
+      find: (source, options) =>
+        findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
       fetch: (ref) => {
         const source = ref.source;
         return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));

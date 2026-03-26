@@ -1,12 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type {
-  ConfirmOpts,
-  PasswordOpts,
-  PathOpts,
-  TextOpts,
-} from "./cli-prompt.js";
+import type { ConfirmOpts, PasswordOpts, PathOpts, TextOpts } from "./cli-prompt.js";
 import { CliPrompt } from "./cli-prompt.js";
 
 // ---------------------------------------------------------------------------
@@ -55,7 +50,7 @@ const popValue = (queue: Array<unknown>, method: string): Effect.Effect<unknown>
     return Effect.die(
       new Error(
         `TestPrompt: no canned response for "${method}" — queue is empty. ` +
-        `Add more responses to TestPromptConfig.${method}Responses.`,
+          `Add more responses to TestPromptConfig.${method}Responses.`,
       ),
     );
   }
@@ -116,9 +111,7 @@ const flattenGroupedOptions = <T>(
 ): ReadonlyArray<{ readonly value: T }> => Object.values(options).flat();
 
 const resolveAutocompleteOptions = <T>(
-  options:
-    | ReadonlyArray<{ readonly value: T }>
-    | (() => ReadonlyArray<{ readonly value: T }>),
+  options: ReadonlyArray<{ readonly value: T }> | (() => ReadonlyArray<{ readonly value: T }>),
 ): ReadonlyArray<{ readonly value: T }> => (typeof options === "function" ? options() : options);
 
 export const makeTestPrompt = (

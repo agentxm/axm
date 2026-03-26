@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
@@ -68,6 +69,43 @@ const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<strin
     now: new Date(),
     sourceName: Option.none(),
     existingInstalledAt: Option.none(),
+  });
+
+const checkInstalledOnDisk = (
+  fsService: FileSystem.FileSystem,
+  pathService: Path.Path,
+  baseDir: string,
+  skillName: string,
+) =>
+  Effect.gen(function* () {
+    const sanitizedName = sanitizeName(skillName);
+
+    const canonicalExists = yield* fsService
+      .exists(pathService.join(baseDir, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName))
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (canonicalExists) return true;
+
+    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!extensionsDirExists) return false;
+
+    const scopeDirs = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+    const results = yield* Effect.forEach(
+      scopeDirs,
+      (scopeDir) => {
+        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
+        const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
+        return fsService.exists(skillPath).pipe(Effect.catch(() => Effect.succeed(false)));
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
   });
 
 // -----------------------------------------------------------------------------
@@ -194,6 +232,15 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       extensionType: "skill",
+      isInstalled: ({ target }: { readonly target: SkillExtensionTarget }) =>
+        Effect.gen(function* () {
+          const installedSkills = yield* ws.getInstalledSkills();
+          if (target.name in installedSkills) {
+            return true;
+          }
+
+          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        }).pipe(Effect.withSpan("SkillManager.isInstalled")),
 
       materializeInstall,
       materializeUninstall,

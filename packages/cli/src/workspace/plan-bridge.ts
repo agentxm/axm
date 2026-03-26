@@ -52,9 +52,7 @@ const isOperationHandler = <Op extends { readonly name: string }>(
  * Each legacy step's operation is dispatched to the matching handler by name.
  * The handler's OperationResult is converted to JobStepResult.
  */
-export const bridgeLegacyPlan = <
-  Op extends { readonly name: string },
->(
+export const bridgeLegacyPlan = <Op extends { readonly name: string }>(
   legacyPlan: LegacyPlan<Op>,
   handlers: Readonly<Record<string, unknown>>,
 ): Plan => ({

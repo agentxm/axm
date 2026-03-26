@@ -15,5 +15,8 @@
   },
   "dependencies": {
     "execa": "^9.6.1"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
   }
 }

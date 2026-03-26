@@ -308,7 +308,7 @@ export interface LocalRefDetails {
 }
 
 /** Ref details for builtin sources — no additional fields. @experimental */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentionally empty: builtin extensions are resolved from bundled data
+// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type -- intentionally empty: builtin extensions are resolved from bundled data
 export interface BuiltinRefDetails {}
 
 // =============================================================================

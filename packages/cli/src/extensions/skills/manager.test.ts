@@ -91,8 +91,8 @@ describe("SkillManager", () => {
   it.effect(
     "upsertSettingsEntry delegates to ws.setSkill with lock entry containing agents",
     () => {
-      const setSkillFn = vi.fn((_args: Parameters<WorkspaceContextService["setSkill"]>[0]) =>
-        Effect.void,
+      const setSkillFn = vi.fn(
+        (_args: Parameters<WorkspaceContextService["setSkill"]>[0]) => Effect.void,
       );
       return Effect.gen(function* () {
         const manager = yield* SkillManager;

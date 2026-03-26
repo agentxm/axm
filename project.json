@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "axm",
+  "root": ".",
+  "tags": ["type:tooling", "scope:root"],
+  "targets": {
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["pnpm", "exec", "prettier", "--write", ".", "--ignore-path", ".gitignore"]
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["pnpm", "exec", "prettier", "--check", ".", "--ignore-path", ".gitignore"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
+      }
+    }
+  }
+}

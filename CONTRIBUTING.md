@@ -9,6 +9,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 - [Node.js](https://nodejs.org/) >= 18
 - [Bun](https://bun.sh/) (used as the dev runtime)
 - [pnpm](https://pnpm.io/) (installed via corepack)
+- [Nx](https://nx.dev/) (installed as a devDependency — no global install needed)
 
 ### Setup
 
@@ -21,15 +22,20 @@ pnpm test                # run tests
 
 ### Useful Commands
 
-| Command          | Purpose                     |
-| ---------------- | --------------------------- |
-| `pnpm build`     | Build all packages          |
-| `pnpm test`      | Run all tests               |
-| `pnpm test:e2e`  | Run E2E tests only          |
-| `pnpm typecheck` | Type-check without emitting |
-| `pnpm format`    | Format code and markdown    |
-| `pnpm lint`      | Lint with ESLint            |
-| `pnpm lint:fix`  | Lint and auto-fix           |
+All commands delegate to Nx for caching and dependency-aware orchestration.
+
+| Command               | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `pnpm build`          | Build all packages                       |
+| `pnpm test`           | Run all tests                            |
+| `pnpm test:e2e`       | Run E2E tests only                       |
+| `pnpm typecheck`      | Type-check without emitting              |
+| `pnpm format`         | Format code and markdown                 |
+| `pnpm lint`           | Lint with ESLint                         |
+| `pnpm lint:fix`       | Lint and auto-fix                        |
+| `pnpm build:affected` | Build only packages changed since `main` |
+| `pnpm test:affected`  | Test only packages changed since `main`  |
+| `pnpm lint:affected`  | Lint only packages changed since `main`  |
 
 ## Making Changes
 

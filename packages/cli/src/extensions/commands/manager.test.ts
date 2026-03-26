@@ -70,8 +70,8 @@ describe("CommandManager", () => {
   );
 
   it.effect("upsertSettingsEntry delegates to ws.setCommand for registry refs", () => {
-    const setCommandFn = vi.fn((_args: Parameters<WorkspaceContextService["setCommand"]>[0]) =>
-      Effect.void,
+    const setCommandFn = vi.fn(
+      (_args: Parameters<WorkspaceContextService["setCommand"]>[0]) => Effect.void,
     );
     return Effect.gen(function* () {
       const manager = yield* CommandManager;
@@ -89,8 +89,8 @@ describe("CommandManager", () => {
   });
 
   it.effect("upsertLockfileEntry delegates to ws.setCommandLock for registry refs", () => {
-    const setCommandLockFn = vi.fn((_args: Parameters<WorkspaceContextService["setCommandLock"]>[0]) =>
-      Effect.void,
+    const setCommandLockFn = vi.fn(
+      (_args: Parameters<WorkspaceContextService["setCommandLock"]>[0]) => Effect.void,
     );
     return Effect.gen(function* () {
       const manager = yield* CommandManager;

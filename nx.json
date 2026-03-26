@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "plugins": [
+    {
+      "plugin": "@nx/js/typescript",
+      "options": {
+        "build": {
+          "targetName": "build",
+          "configName": "tsconfig.build.json"
+        },
+        "typecheck": {
+          "targetName": "typecheck",
+          "configName": "tsconfig.json"
+        }
+      }
+    }
+  ],
+  "pluginsConfig": {
+    "@nx/js": {
+      "projectsAffectedByDependencyUpdates": "auto"
+    }
+  },
+  "namedInputs": {
+    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json"],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": [
+      "default",
+      "!{projectRoot}/dist/**",
+      "!{projectRoot}/**/*.test.ts",
+      "!{projectRoot}/**/*.e2e.test.ts",
+      "!{projectRoot}/**/*.spec.ts",
+      "!{projectRoot}/vitest.config.ts",
+      "!{projectRoot}/vitest.e2e.config.ts"
+    ]
+  },
+  "targetDefaults": {
+    "@nx/eslint:lint": {
+      "cache": true,
+      "options": {
+        "maxWarnings": 192
+      },
+      "inputs": ["default", "^production", "{workspaceRoot}/eslint.config.mjs"]
+    },
+    "@nx/vitest:test": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"]
+    }
+  }
+}

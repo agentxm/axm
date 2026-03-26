@@ -13,10 +13,7 @@ import { getSkillDisplayName, sanitizeName } from "./utils.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (
-  name: string,
-  path: string = `/fake/${name || "unnamed"}`,
-): SkillExtensionRef => ({
+const makeSkill = (name: string, path = `/fake/${name || "unnamed"}`): SkillExtensionRef => ({
   type: "skill",
   refType: "local",
   skill: { name, description: Option.none(), metadata: Option.none() },

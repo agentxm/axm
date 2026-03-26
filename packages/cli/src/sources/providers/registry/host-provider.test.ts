@@ -144,7 +144,7 @@ const createFailingClient = (): RegistryClient => ({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
         what: "remote registry not yet supported",
       }),
-  ),
+    ),
 });
 
 const expectRegistrySkillRef = (ref: ExtensionRef): RegistrySkillRef => {

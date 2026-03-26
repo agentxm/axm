@@ -71,14 +71,18 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r src/builtin-pack/skills dist/src/builtin-pack/ && cp src/builtin-pack/axm-pack.json dist/src/builtin-pack/",
-    "prepublishOnly": "pnpm run build",
-    "generate:schemas": "bun scripts/generate-schemas.ts",
-    "test": "vitest run",
-    "pretest:e2e": "pnpm --filter @axm.sh/core build",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "axm-dev": "bun src/dev-main.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "nx run cli:build",
+    "prepublishOnly": "nx run cli:build",
+    "generate:schemas": "nx run cli:generate-schemas",
+    "test": "nx run cli:test",
+    "test:e2e": "nx run cli:e2e",
+    "axm": "nx run cli:start",
+    "axm:local": "nx run cli:start-local",
+    "axm-dev": "nx run cli:dev",
+    "typecheck": "nx run cli:typecheck"
+  },
+  "nx": {
+    "includedScripts": []
   },
   "engines": {
     "node": ">=18"

@@ -16,7 +16,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -108,7 +108,7 @@ describe("packs install handler", () => {
     tuiConfig?: {
       confirmValue?: boolean;
     },
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
+    flagsOverrides?: Partial<CliEnvironmentService>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 
@@ -152,7 +152,7 @@ describe("packs install handler", () => {
 
   const makeLayersWithMockSources = (
     mockService: SourceHostProvidersService,
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
+    flagsOverrides?: Partial<CliEnvironmentService>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 

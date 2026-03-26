@@ -102,8 +102,8 @@ describe("PackManager", () => {
   });
 
   it.effect("upsertSettingsEntry delegates to ws.setPack for registry refs", () => {
-    const setPackFn = vi.fn((_args: Parameters<WorkspaceContextService["setPack"]>[0]) =>
-      Effect.void,
+    const setPackFn = vi.fn(
+      (_args: Parameters<WorkspaceContextService["setPack"]>[0]) => Effect.void,
     );
     return Effect.gen(function* () {
       const manager = yield* PackManager;

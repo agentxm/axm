@@ -80,19 +80,19 @@ const makeWorkspaceMock = (
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(commands),
-    getLockedCommand: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(commands[name])),
+    getLockedCommand: (name: string) => Effect.succeed(Option.fromUndefinedOr(commands[name])),
     setCommand: () => Effect.void,
     setCommandLock: () => Effect.void,
-    removeCommand: removeCommandFn !== undefined
-      ? (name: string) => removeCommandFn(name)
-      : (name: string) =>
-          Effect.sync(() => {
-            const { [name]: _, ...rest } = commands;
-            void _;
-            commands = rest;
-            writeToDisk();
-          }),
+    removeCommand:
+      removeCommandFn !== undefined
+        ? (name: string) => removeCommandFn(name)
+        : (name: string) =>
+            Effect.sync(() => {
+              const { [name]: _, ...rest } = commands;
+              void _;
+              commands = rest;
+              writeToDisk();
+            }),
     getLockedMcpServers: () => Effect.succeed({}),
     getLockedMcpServer: () => Effect.succeed(Option.none()),
     setMcpServer: () => Effect.void,
@@ -153,10 +153,7 @@ const makeRegistryLockEntryYaml = () => ({
   updatedAt: new Date().toISOString(),
 });
 
-const writeLockfileYaml = (
-  axmDir: string,
-  commands: Record<string, unknown>,
-) => {
+const writeLockfileYaml = (axmDir: string, commands: Record<string, unknown>) => {
   const lockfile = { lockfileVersion: 1, commands };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };

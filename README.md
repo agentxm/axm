@@ -118,6 +118,8 @@ axm packs publish my-pack
 
 ## Development
 
+This is an Nx monorepo. All commands delegate to Nx for caching and dependency-aware orchestration.
+
 ```bash
 pnpm install    # Install dependencies
 pnpm build      # Build all packages
@@ -125,6 +127,8 @@ pnpm test       # Run tests
 pnpm typecheck  # Type check
 pnpm lint       # Lint
 ```
+
+Use `pnpm build:affected`, `pnpm test:affected`, or `pnpm lint:affected` to only operate on packages changed since `main`.
 
 ## License
 

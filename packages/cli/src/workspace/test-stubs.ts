@@ -165,8 +165,9 @@ export const makeBaseWorkspaceMock = (
 
 const TEST_DATE = new Date("2025-01-01T00:00:00.000Z");
 
-const hasEntries = (value: Readonly<Record<string, unknown>> | undefined): value is Record<string, unknown> =>
-  value !== undefined && Object.keys(value).length > 0;
+const hasEntries = (
+  value: Readonly<Record<string, unknown>> | undefined,
+): value is Record<string, unknown> => value !== undefined && Object.keys(value).length > 0;
 
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;

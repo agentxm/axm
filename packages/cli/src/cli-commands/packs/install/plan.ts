@@ -11,10 +11,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
-import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import type {
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "../../../workspace/plan.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
@@ -163,7 +168,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
     const makeRunClosure = (
       op: PackInstallOp,
-    ): Effect.Effect<JobStepResult, import("@axm.sh/core/unstable/app-error").AppError, never> => {
+    ): Effect.Effect<JobStepResult, AppError, never> => {
       const runOperation = (() => {
         switch (op.name) {
           case "install-pack":

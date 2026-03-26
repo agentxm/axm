@@ -11,14 +11,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  Workspace,
-} from "../../../workspace/index.js";
+import { Workspace } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
@@ -159,7 +158,8 @@ describe("skills install handler — error propagation", () => {
           }),
         ),
       ),
-    ));
+    ),
+  );
 
   afterEach(() =>
     Effect.runPromise(
@@ -172,7 +172,8 @@ describe("skills install handler — error propagation", () => {
           unavailableRegistry = undefined;
         }
       }),
-    ));
+    ),
+  );
 
   const getUnavailableRegistryLocation = () => {
     if (unavailableRegistry === undefined) {
@@ -183,7 +184,7 @@ describe("skills install handler — error propagation", () => {
   };
 
   const makeLayers = (
-    flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService> & {
+    flagsOverrides?: Partial<CliEnvironmentService> & {
       nonInteractive?: boolean;
     },
   ) => {

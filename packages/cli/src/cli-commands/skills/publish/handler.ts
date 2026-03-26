@@ -70,7 +70,7 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
       yield* renderer.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
       yield* renderer.success("Nothing to publish.");
-      return [] as ReadonlyArray<string>;
+      return [];
     }
 
     const seen = new Set<string>(globMatches);
@@ -134,7 +134,15 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
         const fqns = yield* Effect.forEach(extensionNames, (extName) => parseFqn(extName));
 
         yield* Effect.forEach(fqns, (fqn, i) => {
-          const extName = extensionNames[i]!;
+          const extName = extensionNames[i];
+          if (extName === undefined) {
+            return Effect.fail(
+              makeAppError({
+                code: "EXTENSION_NOT_FOUND",
+                what: `Missing extension name for parsed FQN ${fqn.handle}/skills/${fqn.name}`,
+              }),
+            );
+          }
           const extensionDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,
@@ -202,8 +210,19 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
     );
   }
 
+  const [defaultRegistry] = registrySources;
+  if (defaultRegistry === undefined) {
+    return yield* Effect.fail(
+      makeAppError({
+        code: "NO_REGISTRY_CONFIGURED",
+        what: "No registry sources configured",
+        howToFix: "Run the registry guard first.",
+      }),
+    );
+  }
+
   const registryName = Option.match(args.registry, {
-    onNone: () => registrySources[0]!.name,
+    onNone: () => defaultRegistry.name,
     onSome: (name) => name,
   });
 

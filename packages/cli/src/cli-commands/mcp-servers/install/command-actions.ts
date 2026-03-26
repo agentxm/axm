@@ -105,9 +105,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(CliEnvironment, env),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>): Effect.Effect<A, E, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, E, never>;
+    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
     const parseArgs = (
       args: InstallMcpServerHandlerArgs,
@@ -247,8 +245,16 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             howToFix: "Verify the server name and check available MCP servers.",
           });
         }
+        const [ref] = refs;
+        if (ref === undefined) {
+          return yield* makeAppError({
+            code: "MCP_SERVER_NOT_FOUND",
+            what: `MCP server "${parsed.serverName}" not found in registry`,
+            howToFix: "Verify the server name and check available MCP servers.",
+          });
+        }
         return {
-          ref: refs[0]!,
+          ref,
           versionConstraint: parsed.versionConstraint,
           force: parsed.force,
         };

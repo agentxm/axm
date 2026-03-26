@@ -42,7 +42,7 @@ export type PackUninstallOp =
  */
 const simpleNameFromFqn = (fqn: string): string => {
   const parts = fqn.split("/");
-  return parts[parts.length - 1]!;
+  return parts[parts.length - 1] ?? fqn;
 };
 
 /**

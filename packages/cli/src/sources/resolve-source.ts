@@ -370,8 +370,9 @@ export const routeNameInput = (
         }),
       ),
     );
-    if (name in skills) {
-      return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
+    const lockedSkill = skills[name];
+    if (lockedSkill !== undefined) {
+      return yield* parseLocalPath(getInstalledSkillPath(name, lockedSkill));
     }
 
     // Tier 2: configured skill with a source string
@@ -427,7 +428,14 @@ export const routeRegistryInput = (
       });
     }
 
-    const regConfig = registrySources[0]!;
+    const [regConfig] = registrySources;
+    if (regConfig === undefined) {
+      return yield* makeAppError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No registry source configured for profile "${pattern.profile}"`,
+        details: [input],
+      });
+    }
     return {
       type: "registry" as const,
       location: regConfig.location,

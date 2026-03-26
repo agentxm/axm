@@ -76,7 +76,11 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   // Resolve pack profile
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
   const hasProfile = packSource.startsWith("@") && packSource.includes("/");
-  const packProfile = hasProfile ? packSource.split("/")[0]! : yield* ws.getConfiguredProfile();
+  const [packProfileFromSource] = packSource.split("/");
+  const packProfile =
+    hasProfile && packProfileFromSource !== undefined
+      ? packProfileFromSource
+      : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
@@ -97,7 +101,10 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const manifestHash = hashContent(manifestContent);
 
   const json = yield* Effect.try({
-    try: () => JSON.parse(manifestContent) as unknown,
+    try: () => {
+      const parsed: unknown = JSON.parse(manifestContent);
+      return parsed;
+    },
     catch: (e) =>
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",

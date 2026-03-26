@@ -88,7 +88,10 @@ const refreshTokenRequest = (
     );
 
     const json = yield* Effect.try({
-      try: () => JSON.parse(bodyText) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(bodyText);
+        return parsed;
+      },
       catch: (error) =>
         makeAppError({
           code: "AUTH_REFRESH_FAILED",

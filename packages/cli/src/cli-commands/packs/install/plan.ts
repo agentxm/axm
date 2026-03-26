@@ -164,33 +164,24 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
     const makeRunClosure = (
       op: PackInstallOp,
     ): Effect.Effect<JobStepResult, import("@axm.sh/core/unstable/app-error").AppError, never> => {
-      const handler =
-        op.name === "install-pack"
-          ? installPack
-          : op.name === "install-skill"
-            ? installSkill
-            : op.name === "install-command"
-              ? installCommand
-              : installMcpServer;
+      const runOperation = (() => {
+        switch (op.name) {
+          case "install-pack":
+            return installPack(op);
+          case "install-skill":
+            return installSkill(op);
+          case "install-command":
+            return installCommand(op);
+          case "install-mcp-server":
+            return installMcpServer(op);
+        }
+      })();
 
-      return provideServices(
-        // Assertion needed: handler union loses specific type after dynamic dispatch
-
-        (
-          handler as (
-            op: PackInstallOp,
-          ) => Effect.Effect<
-            import("../../../workspace/plan.js").OperationResult,
-            import("@axm.sh/core/unstable/app-error").AppError,
-            never
-          >
-        )(op),
-      ).pipe(
-        Effect.map(
-          (result): JobStepResult =>
-            result.result === "error"
-              ? { result: "error", message: result.message, error: result.error }
-              : { result: "success", message: result.message },
+      return provideServices(runOperation).pipe(
+        Effect.map((result): JobStepResult =>
+          result.result === "error"
+            ? { result: "error", message: result.message, error: result.error }
+            : { result: "success", message: result.message },
         ),
       );
     };

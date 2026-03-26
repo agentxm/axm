@@ -64,18 +64,20 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
       continue;
     }
 
-    switch (result.reconstructed.extensionType) {
+    const reconstructed = result.reconstructed;
+
+    switch (reconstructed.extensionType) {
       case "skills":
-        skills[result.reconstructed.name] = result.reconstructed.entry as SkillLockEntry;
+        skills[reconstructed.name] = reconstructed.entry;
         break;
       case "commands":
-        commands[result.reconstructed.name] = result.reconstructed.entry as CommandLockEntry;
+        commands[reconstructed.name] = reconstructed.entry;
         break;
       case "mcp-servers":
-        mcpServers[result.reconstructed.name] = result.reconstructed.entry as McpServerLockEntry;
+        mcpServers[reconstructed.name] = reconstructed.entry;
         break;
       case "packs":
-        packs[result.reconstructed.name] = result.reconstructed.entry as PackLockEntry;
+        packs[reconstructed.name] = reconstructed.entry;
         break;
     }
   }

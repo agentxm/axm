@@ -185,8 +185,9 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
   }
 
+  const [defaultRegistry] = registrySources;
   const registryName = Option.match(args.registry, {
-    onNone: () => registrySources[0]!.name,
+    onNone: () => defaultRegistry?.name ?? "default",
     onSome: (name) => name,
   });
 
@@ -205,7 +206,10 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
 
     const json = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(manifestContent);
+        return parsed;
+      },
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",

@@ -178,8 +178,8 @@ export const mapProblemDetailToAppError = (status: number, problem: unknown): Ap
  * object is not a plain record or the field is absent / has the wrong type.
  */
 const getField = <T>(obj: unknown, field: string, guard: (v: unknown) => v is T): T | undefined => {
-  if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
-    const value = (obj as Record<string, unknown>)[field];
+  if (obj !== null && obj !== undefined && typeof obj === "object") {
+    const value = Reflect.get(obj, field);
     return guard(value) ? value : undefined;
   }
   return undefined;
@@ -225,7 +225,7 @@ const formatValidationIssue = (issue: unknown): string | undefined => {
   }
 
   const message = getStringField(issue, "message");
-  const path = formatIssuePath((issue as Record<string, unknown>)["path"]);
+  const path = formatIssuePath(Reflect.get(issue, "path"));
   const values = getArrayField(issue, "values")
     ?.map((value) => (typeof value === "string" ? value : undefined))
     .filter((value): value is string => value !== undefined);
@@ -393,7 +393,10 @@ const parseJson = ({
   readonly what: string;
 }): Effect.Effect<unknown, AppError> =>
   Effect.try({
-    try: () => JSON.parse(bodyText) as unknown,
+    try: () => {
+      const parsed: unknown = JSON.parse(bodyText);
+      return parsed;
+    },
     catch: (error) =>
       makeAppError({
         code,
@@ -540,7 +543,10 @@ const getExtensionIndex = ({
     if (response.status === 401 || response.status === 403) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
-        try: () => JSON.parse(bodyText) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(bodyText);
+          return parsed;
+        },
         catch: () => null,
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
@@ -607,7 +613,10 @@ const getExtensionCollection = ({
     if (response.status === 401 || response.status === 403) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
-        try: () => JSON.parse(bodyText) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(bodyText);
+          return parsed;
+        },
         catch: () => null,
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
@@ -735,7 +744,10 @@ const profileExists = (
     if (response.status === 401 || response.status === 403) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
-        try: () => JSON.parse(bodyText) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(bodyText);
+          return parsed;
+        },
         catch: () => null,
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
@@ -813,7 +825,10 @@ const getExtensionPackage = (
     if (indexResponse.status === 401 || indexResponse.status === 403) {
       const bodyText = yield* indexResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
-        try: () => JSON.parse(bodyText) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(bodyText);
+          return parsed;
+        },
         catch: () => null,
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(indexResponse, problem);
@@ -1003,7 +1018,10 @@ const extensionExists = (
     if (response.status === 401 || response.status === 403) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
       const problem = yield* Effect.try({
-        try: () => JSON.parse(bodyText) as unknown,
+        try: () => {
+          const parsed: unknown = JSON.parse(bodyText);
+          return parsed;
+        },
         catch: () => null,
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
@@ -1150,7 +1168,10 @@ const publishExtension = (
     const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
 
     const problem = yield* Effect.try({
-      try: () => JSON.parse(bodyText) as unknown,
+      try: () => {
+        const parsed: unknown = JSON.parse(bodyText);
+        return parsed;
+      },
       catch: () => null,
     }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
 

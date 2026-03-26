@@ -8,7 +8,6 @@
  * @internal
  */
 
-import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 
 import type { ClassifiedExtension } from "./classifier.js";
@@ -30,410 +29,240 @@ import type {
   UnmanagedSkill,
 } from "./taxonomy-types.js";
 
+type ConfiguredRow = Extract<ClassifiedExtension, { lifecycle: "configured" }>;
+type NonConfiguredRow = Exclude<ClassifiedExtension, ConfiguredRow>;
+type ImplicitRow = NonConfiguredRow & { lifecycle: "implicit" };
+type UnmanagedRow = NonConfiguredRow & { lifecycle: "unmanaged" };
+type InstalledRow = ConfiguredRow | ImplicitRow;
+type ExternalConfiguredRow = ConfiguredRow & { packagingKind: "non-native" };
+type ExternalUnmanagedRow = UnmanagedRow & { packagingKind: "non-native" };
+
+const isConfigured = (row: ClassifiedExtension): row is ConfiguredRow => row.lifecycle === "configured";
+
+const isImplicit = (row: ClassifiedExtension): row is ImplicitRow => row.lifecycle === "implicit";
+
+const isUnmanaged = (row: ClassifiedExtension): row is UnmanagedRow => row.lifecycle === "unmanaged";
+
+const isInstalled = (row: ClassifiedExtension): row is InstalledRow => row.lifecycle !== "unmanaged";
+
+const isExternalConfigured = (row: ClassifiedExtension): row is ExternalConfiguredRow =>
+  row.lifecycle === "configured" && row.packagingKind === "non-native";
+
+const isExternalUnmanaged = (row: ClassifiedExtension): row is ExternalUnmanagedRow =>
+  row.lifecycle === "unmanaged" && row.packagingKind === "non-native";
+
+const collectRecord = <R extends ClassifiedExtension, A>(
+  rows: ReadonlyArray<ClassifiedExtension>,
+  predicate: (row: ClassifiedExtension) => row is R,
+  mapValue: (row: R) => A,
+): Record.ReadonlyRecord<string, A> => {
+  const result: Record<string, A> = {};
+
+  for (const row of rows) {
+    if (predicate(row)) {
+      result[row.name] = mapValue(row);
+    }
+  }
+
+  return result;
+};
+
+const mapRecord = <A>(
+  rows: ReadonlyArray<ClassifiedExtension>,
+  mapValue: (row: ClassifiedExtension) => A,
+): Record.ReadonlyRecord<string, A> => {
+  const result: Record<string, A> = {};
+
+  for (const row of rows) {
+    result[row.name] = mapValue(row);
+  }
+
+  return result;
+};
+
+const toConfiguredSkill = (row: ConfiguredRow): ConfiguredSkill => ({
+  source: row.source,
+  enabled: row.enabled,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toImplicitSkill = (row: NonConfiguredRow): ImplicitSkill => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toUnmanagedSkill = (row: NonConfiguredRow): UnmanagedSkill => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toInstalledSkill = (row: InstalledRow): InstalledSkill =>
+  row.lifecycle === "configured"
+    ? { lifecycle: "configured", ...toConfiguredSkill(row) }
+    : { lifecycle: "implicit", ...toImplicitSkill(row) };
+
+const toClassifiedSkill = (row: ClassifiedExtension): ClassifiedSkill => {
+  switch (row.lifecycle) {
+    case "configured":
+      return { lifecycle: "configured", ...toConfiguredSkill(row) };
+    case "implicit":
+      return { lifecycle: "implicit", ...toImplicitSkill(row) };
+    case "unmanaged":
+      return { lifecycle: "unmanaged", ...toUnmanagedSkill(row) };
+  }
+};
+
+const toConfiguredCommand = (row: ConfiguredRow): ConfiguredCommand => ({
+  source: row.source,
+  enabled: row.enabled,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toImplicitCommand = (row: NonConfiguredRow): ImplicitCommand => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toUnmanagedCommand = (row: NonConfiguredRow): UnmanagedCommand => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toInstalledCommand = (row: InstalledRow): InstalledCommand =>
+  row.lifecycle === "configured"
+    ? { lifecycle: "configured", ...toConfiguredCommand(row) }
+    : { lifecycle: "implicit", ...toImplicitCommand(row) };
+
+const toClassifiedCommand = (row: ClassifiedExtension): ClassifiedCommand => {
+  switch (row.lifecycle) {
+    case "configured":
+      return { lifecycle: "configured", ...toConfiguredCommand(row) };
+    case "implicit":
+      return { lifecycle: "implicit", ...toImplicitCommand(row) };
+    case "unmanaged":
+      return { lifecycle: "unmanaged", ...toUnmanagedCommand(row) };
+  }
+};
+
+const toConfiguredExtensionRef = (row: ConfiguredRow): ConfiguredExtensionRef => ({
+  source: row.source,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toImplicitExtensionRef = (row: NonConfiguredRow): ImplicitExtensionRef => ({
+  source: row.source,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toUnmanagedExtensionRef = (row: NonConfiguredRow): UnmanagedExtensionRef => ({
+  source: row.source,
+  packagingKind: row.packagingKind,
+  isBuiltIn: row.isBuiltIn,
+});
+
+const toInstalledExtensionRef = (row: InstalledRow): InstalledExtensionRef =>
+  row.lifecycle === "configured"
+    ? { lifecycle: "configured", ...toConfiguredExtensionRef(row) }
+    : { lifecycle: "implicit", ...toImplicitExtensionRef(row) };
+
+const toClassifiedExtensionRef = (row: ClassifiedExtension): ClassifiedExtensionRef => {
+  switch (row.lifecycle) {
+    case "configured":
+      return { lifecycle: "configured", ...toConfiguredExtensionRef(row) };
+    case "implicit":
+      return { lifecycle: "implicit", ...toImplicitExtensionRef(row) };
+    case "unmanaged":
+      return { lifecycle: "unmanaged", ...toUnmanagedExtensionRef(row) };
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Skill record converters
 // ---------------------------------------------------------------------------
 
 export const toConfiguredSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter(
-        (r): r is ClassifiedExtension & { lifecycle: "configured" } => r.lifecycle === "configured",
-      )
-      .map((r) => [
-        r.name,
-        {
-          source: r.source,
-          enabled: r.enabled,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredSkill>;
+  collectRecord(rows, isConfigured, toConfiguredSkill);
 
 export const toImplicitSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "implicit")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ImplicitSkill>;
+  collectRecord(rows, isImplicit, toImplicitSkill);
 
 export const toUnmanagedSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedSkill>;
+  collectRecord(rows, isUnmanaged, toUnmanagedSkill);
 
 export const toInstalledSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
-      .map((r) => {
-        if (r.lifecycle === "configured") {
-          return [
-            r.name,
-            {
-              lifecycle: "configured" as const,
-              source: r.source,
-              enabled: r.enabled,
-              packagingKind: r.packagingKind,
-              isBuiltIn: r.isBuiltIn,
-            },
-          ];
-        }
-        return [
-          r.name,
-          {
-            lifecycle: "implicit" as const,
-            source: r.source as Option.Option<string>,
-            enabled: true as const,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }),
-  ) as Record.ReadonlyRecord<string, InstalledSkill>;
+  collectRecord(rows, isInstalled, toInstalledSkill);
 
 export const toClassifiedSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows.map((r) => {
-      if (r.lifecycle === "configured") {
-        return [
-          r.name,
-          {
-            lifecycle: "configured" as const,
-            source: r.source,
-            enabled: r.enabled,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }
-      return [
-        r.name,
-        {
-          lifecycle: r.lifecycle,
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ];
-    }),
-  ) as Record.ReadonlyRecord<string, ClassifiedSkill>;
+  mapRecord(rows, toClassifiedSkill);
 
 // ---------------------------------------------------------------------------
 // Command record converters
 // ---------------------------------------------------------------------------
 
 export const toConfiguredCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter(
-        (r): r is ClassifiedExtension & { lifecycle: "configured" } => r.lifecycle === "configured",
-      )
-      .map((r) => [
-        r.name,
-        {
-          source: r.source,
-          enabled: r.enabled,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredCommand>;
+  collectRecord(rows, isConfigured, toConfiguredCommand);
 
 // ---------------------------------------------------------------------------
 // Generic extension ref record converters (MCP servers, packs)
 // ---------------------------------------------------------------------------
 
 export const toConfiguredExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter(
-        (r): r is ClassifiedExtension & { lifecycle: "configured" } => r.lifecycle === "configured",
-      )
-      .map((r) => [
-        r.name,
-        { source: r.source, packagingKind: r.packagingKind, isBuiltIn: r.isBuiltIn },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>;
+  collectRecord(rows, isConfigured, toConfiguredExtensionRef);
 
 export const toImplicitExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "implicit")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ImplicitExtensionRef>;
+  collectRecord(rows, isImplicit, toImplicitExtensionRef);
 
 export const toUnmanagedExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>;
+  collectRecord(rows, isUnmanaged, toUnmanagedExtensionRef);
 
 export const toInstalledExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
-      .map((r) => {
-        if (r.lifecycle === "configured") {
-          return [
-            r.name,
-            {
-              lifecycle: "configured" as const,
-              source: r.source,
-              packagingKind: r.packagingKind,
-              isBuiltIn: r.isBuiltIn,
-            },
-          ];
-        }
-        return [
-          r.name,
-          {
-            lifecycle: "implicit" as const,
-            source: r.source as Option.Option<string>,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }),
-  ) as Record.ReadonlyRecord<string, InstalledExtensionRef>;
+  collectRecord(rows, isInstalled, toInstalledExtensionRef);
 
 export const toClassifiedExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows.map((r) => {
-      if (r.lifecycle === "configured") {
-        return [
-          r.name,
-          {
-            lifecycle: "configured" as const,
-            source: r.source,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }
-      return [
-        r.name,
-        {
-          lifecycle: r.lifecycle,
-          source: r.source as Option.Option<string>,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ];
-    }),
-  ) as Record.ReadonlyRecord<string, ClassifiedExtensionRef>;
+  mapRecord(rows, toClassifiedExtensionRef);
 
 // ---------------------------------------------------------------------------
 // Filtered variants (external = non-native packaging)
 // ---------------------------------------------------------------------------
 
 export const toConfiguredExternalSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as string,
-          enabled: (r as { enabled: boolean }).enabled,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredSkill>;
+  collectRecord(rows, isExternalConfigured, toConfiguredSkill);
 
 export const toUnmanagedExternalSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedSkill>;
+  collectRecord(rows, isExternalUnmanaged, toUnmanagedSkill);
 
 export const toImplicitCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "implicit")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ImplicitCommand>;
+  collectRecord(rows, isImplicit, toImplicitCommand);
 
 export const toUnmanagedCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedCommand>;
+  collectRecord(rows, isUnmanaged, toUnmanagedCommand);
 
 export const toInstalledCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
-      .map((r) => {
-        if (r.lifecycle === "configured") {
-          return [
-            r.name,
-            {
-              lifecycle: "configured" as const,
-              source: r.source,
-              enabled: r.enabled,
-              packagingKind: r.packagingKind,
-              isBuiltIn: r.isBuiltIn,
-            },
-          ];
-        }
-        return [
-          r.name,
-          {
-            lifecycle: "implicit" as const,
-            source: r.source as Option.Option<string>,
-            enabled: true as const,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }),
-  ) as Record.ReadonlyRecord<string, InstalledCommand>;
+  collectRecord(rows, isInstalled, toInstalledCommand);
 
 export const toClassifiedCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows.map((r) => {
-      if (r.lifecycle === "configured") {
-        return [
-          r.name,
-          {
-            lifecycle: "configured" as const,
-            source: r.source,
-            enabled: r.enabled,
-            packagingKind: r.packagingKind,
-            isBuiltIn: r.isBuiltIn,
-          },
-        ];
-      }
-      return [
-        r.name,
-        {
-          lifecycle: r.lifecycle,
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ];
-    }),
-  ) as Record.ReadonlyRecord<string, ClassifiedCommand>;
+  mapRecord(rows, toClassifiedCommand);
 
 export const toConfiguredExternalCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as string,
-          enabled: (r as { enabled: boolean }).enabled,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredCommand>;
+  collectRecord(rows, isExternalConfigured, toConfiguredCommand);
 
 export const toUnmanagedExternalCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          enabled: true as const,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedCommand>;
+  collectRecord(rows, isExternalUnmanaged, toUnmanagedCommand);
 
 export const toConfiguredExternalExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as string,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>;
+  collectRecord(rows, isExternalConfigured, toConfiguredExtensionRef);
 
 export const toUnmanagedExternalExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
-  Object.fromEntries(
-    rows
-      .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
-      .map((r) => [
-        r.name,
-        {
-          source: r.source as Option.Option<string>,
-          packagingKind: r.packagingKind,
-          isBuiltIn: r.isBuiltIn,
-        },
-      ]),
-  ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>;
+  collectRecord(rows, isExternalUnmanaged, toUnmanagedExtensionRef);

@@ -70,7 +70,8 @@ const readJsonFile = (
     if (Option.isNone(content)) return Option.none();
     return yield* Effect.sync(() => {
       try {
-        return Option.some(JSON.parse(content.value) as unknown);
+        const parsed: unknown = JSON.parse(content.value);
+        return Option.some(parsed);
       } catch {
         return Option.none<unknown>();
       }

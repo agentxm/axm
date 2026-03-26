@@ -177,17 +177,15 @@ interface JsonMcpConfig {
 }
 
 const decodeJsonConfig = (raw: string): JsonMcpConfig => {
-  const parsed = JSON.parse(raw) as unknown;
-  if (
-    typeof parsed === "object" &&
-    parsed !== null &&
-    "servers" in parsed &&
-    typeof (parsed as { servers?: unknown }).servers === "object" &&
-    (parsed as { servers?: unknown }).servers !== null
-  ) {
-    return {
-      servers: { ...(parsed as { servers: Record<string, unknown> }).servers },
-    };
+  const parsed: unknown = JSON.parse(raw);
+  if (typeof parsed === "object" && parsed !== null) {
+    const servers = Reflect.get(parsed, "servers");
+    if (typeof servers === "object" && servers !== null) {
+      const normalizedServers: Record<string, unknown> = Object.fromEntries(Object.entries(servers));
+      return {
+        servers: normalizedServers,
+      };
+    }
   }
   return { servers: {} };
 };

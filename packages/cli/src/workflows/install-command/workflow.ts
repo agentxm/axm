@@ -38,7 +38,7 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
   readonly finalizeIntent: (
     parsed: Parsed,
     refs: ReadonlyArray<Ref>,
-  ) => Effect.Effect<Intent, AppError>;
+  ) => Effect.Effect<Intent, AppError | PromptCancelled>;
   readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
 }
 

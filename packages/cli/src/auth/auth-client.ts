@@ -151,7 +151,10 @@ const readResponseBody = (
 
 const parseJsonBody = (bodyText: string, code: string, what: string) =>
   Effect.try({
-    try: () => JSON.parse(bodyText) as unknown,
+    try: () => {
+      const parsed: unknown = JSON.parse(bodyText);
+      return parsed;
+    },
     catch: (error) => makeAppError({ code, what: `Failed to parse JSON: ${what}`, cause: error }),
   });
 

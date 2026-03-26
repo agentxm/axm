@@ -23,6 +23,7 @@ import type {
   ExtensionFiles,
   FindOptions,
   ExtensionRef,
+  GitHostingSource,
   RegistrySource,
   Source,
 } from "@axm.sh/core/unstable/sources";
@@ -199,63 +200,62 @@ export const SourceHostProvidersLive: Layer.Layer<
       onSome: (client) => Layer.merge(baseDepLayer, Layer.succeed(HttpClient.HttpClient, client)),
     });
 
+    const findGitHosting = (source: GitHostingSource, options: FindOptions) => {
+      const provider = createGitHostingSourceHostProvider(source);
+      return provider.find(source, options).pipe(Effect.provide(depLayer));
+    };
+
+    const fetchGitHosting = (source: GitHostingSource, ref: ExtensionRef) => {
+      const provider = createGitHostingSourceHostProvider(source);
+      return provider.fetch(source, ref).pipe(Effect.provide(depLayer));
+    };
+
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
         case "github":
         case "gitlab":
         case "bitbucket":
-        case "azurerepos": {
-          // Assertion needed: Source carries host config (url) at runtime but TS types diverge
-          const provider = createGitHostingSourceHostProvider(source as never);
-          return provider.find(source as never, options).pipe(Effect.provide(depLayer));
-        }
+        case "azurerepos":
+          return findGitHosting(source, options);
         case "local":
-          return localProvider.find(source as never, options).pipe(Effect.provide(depLayer));
+          return localProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "git":
-          return gitProvider.find(source as never, options).pipe(Effect.provide(depLayer));
+          return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "builtin":
-          return builtinProvider.find(source as never, options).pipe(Effect.provide(depLayer));
+          return builtinProvider.find(source, options).pipe(Effect.provide(depLayer));
       }
     };
 
-    return {
-      find: ((source: Source, options: FindOptions) =>
-        findImpl(source, options).pipe(
-          Effect.withSpan("SourceHostProviders.find"),
-        )) as SourceHostProvidersService["find"],
+    const fetchImpl = (source: Source, ref: ExtensionRef): Effect.Effect<ExtensionFiles, AppError, Scope.Scope> => {
+      switch (source.type) {
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+          return fetchGitHosting(source, ref);
+        case "local":
+          return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "git":
+          return gitProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "registry":
+          return registryMetaProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "builtin":
+          return builtinProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+      }
+    };
+
+    const service: SourceHostProvidersService = {
+      find: (source, options) => findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
       fetch: (ref) => {
         const source = ref.source;
-        const inner = (() => {
-          switch (source.type) {
-            case "github":
-            case "gitlab":
-            case "bitbucket":
-            case "azurerepos": {
-              const provider = createGitHostingSourceHostProvider(source as never);
-              return provider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-            }
-            case "local":
-              return localProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-            case "git":
-              return gitProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-            case "registry":
-              return registryMetaProvider
-                .fetch(source as never, ref)
-                .pipe(Effect.provide(depLayer)) as Effect.Effect<
-                ExtensionFiles,
-                AppError,
-                Scope.Scope
-              >;
-            case "builtin":
-              return builtinProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
-          }
-        })();
-        return inner.pipe(Effect.withSpan("SourceHostProviders.fetch"));
+        return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,
     };
+
+    return service;
   }),
 );

@@ -15,10 +15,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import type { Source, SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/sources";
 import { resolveSourcePattern, SourceHostProviders } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -147,8 +150,19 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
   const sources = yield* SourceHostProviders;
+  const runLayer = Layer.mergeAll(
+    Layer.succeed(Workspace, ws),
+    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+    Layer.succeed(SourceHostProviders, sources),
+  );
+  const provideRun = <R>(effect: Effect.Effect<JobStepResult, AppError, R>) =>
+    Effect.provide(effect, runLayer);
 
   yield* renderer.info("axm skills fork");
 
@@ -262,7 +276,16 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       }),
     );
   }
-  const registrySource = registrySources[0]!;
+  const [registrySource] = registrySources;
+  if (registrySource === undefined) {
+    return yield* Effect.fail(
+      makeAppError({
+        code: "NO_REGISTRY_CONFIGURED",
+        what: "No registry sources configured",
+        howToFix: "Run the registry guard first.",
+      }),
+    );
+  }
   const registryName = registrySource.name;
 
   // Step 5: Build plan — fork + publish + install per skill (3 sequential ops)
@@ -283,27 +306,23 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     const copyStep: PlannedJobStep = {
       readiness: "ready",
       label: `Fork ${ref.skill.name}`,
-      run: copySkill({
-        name: "copy-skill",
-        args: { ref: extensionRef, targetName },
-      } satisfies CopySkillOperation).pipe(Effect.map(toJobStepResult)) as Effect.Effect<
-        JobStepResult,
-        AppError,
-        never
-      >,
+      run: provideRun(
+        copySkill({
+          name: "copy-skill",
+          args: { ref: extensionRef, targetName },
+        } satisfies CopySkillOperation).pipe(Effect.map(toJobStepResult)),
+      ),
     };
 
     const publishStep: PlannedJobStep = {
       readiness: "ready",
       label: `Publish ${targetName}`,
-      run: publishSkill({
-        name: "publish-skill",
-        args: { name: targetName, registryName },
-      } satisfies PublishSkillOperation).pipe(Effect.map(toJobStepResult)) as Effect.Effect<
-        JobStepResult,
-        AppError,
-        never
-      >,
+      run: provideRun(
+        publishSkill({
+          name: "publish-skill",
+          args: { name: targetName, registryName },
+        } satisfies PublishSkillOperation).pipe(Effect.map(toJobStepResult)),
+      ),
     };
 
     // Install step queries the registry at execution time to obtain the
@@ -311,49 +330,51 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     const installStep: PlannedJobStep = {
       readiness: "ready",
       label: `Install ${ref.skill.name}`,
-      run: Effect.gen(function* () {
-        const client = yield* createRegistryClient(registryLocationStr);
-        const response = yield* client.getExtensionsByScope({
-          handle: profile,
-          names: [ref.skill.name],
-          types: ["skill"],
-          limit: Option.some(1),
-          offset: 0,
-        });
+      run: provideRun(
+        Effect.gen(function* () {
+          const client = yield* createRegistryClient(registryLocationStr);
+          const response = yield* client.getExtensionsByScope({
+            handle: profile,
+            names: [ref.skill.name],
+            types: ["skill"],
+            limit: Option.some(1),
+            offset: 0,
+          });
 
-        const published = response.extensions[0];
-        const integrity = published != null ? published.integrity : "";
+          const published = response.extensions[0];
+          const integrity = published != null ? published.integrity : "";
 
-        const registryRef: RegistrySkillRef = {
-          type: "skill" as const,
-          refType: "registry" as const,
-          skill: {
+          const registryRef: RegistrySkillRef = {
+            type: "skill" as const,
+            refType: "registry" as const,
+            skill: {
+              name: ref.skill.name,
+              description: ref.skill.description,
+              metadata: ref.skill.metadata,
+            },
+            source: {
+              type: "registry" as const,
+              location: registrySource.location,
+              profile: Option.none(),
+            },
+            profile,
             name: ref.skill.name,
-            description: ref.skill.description,
-            metadata: ref.skill.metadata,
-          },
-          source: {
-            type: "registry" as const,
-            location: registrySource.location,
-            profile: Option.none(),
-          },
-          profile,
-          name: ref.skill.name,
-          version: published != null ? published.version : "0.1.0",
-          integrity,
-        };
+            version: published != null ? published.version : "0.1.0",
+            integrity,
+          };
 
-        return yield* installSkill({
-          name: "install-skill",
-          args: {
-            ref: registryRef,
-            force: true,
-            versionConstraint: Option.none(),
-            skipSettings: Option.none(),
-            sourceName: Option.some(registryName),
-          },
-        } satisfies InstallSkillOperation).pipe(Effect.map(toJobStepResult));
-      }) as Effect.Effect<JobStepResult, AppError, never>,
+          return yield* installSkill({
+            name: "install-skill",
+            args: {
+              ref: registryRef,
+              force: true,
+              versionConstraint: Option.none(),
+              skipSettings: Option.none(),
+              sourceName: Option.some(registryName),
+            },
+          } satisfies InstallSkillOperation).pipe(Effect.map(toJobStepResult));
+        }),
+      ),
     };
 
     return [copyStep, publishStep, installStep];

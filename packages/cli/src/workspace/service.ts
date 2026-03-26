@@ -465,13 +465,14 @@ const make = (options: WorkspaceContextOptions) =>
               ignoredPatterns: settings.ignored?.skills ?? [],
               sourceMetaByName: deriveSourceMetaForSkills(
                 settings,
-                lockfile.skills as Record<string, { type: string }>,
+                lockfile.skills,
                 detectedNames,
               ),
             });
           }
           case "command": {
             const commandSettings = settings.commands ?? {};
+            const commandLockEntries: CommandsLockMap = lockfile.commands ?? {};
             const configured = Object.fromEntries(
               Object.entries(commandSettings).map(([name, source]) => [
                 name,
@@ -481,34 +482,30 @@ const make = (options: WorkspaceContextOptions) =>
             return yield* classifyExtensions({
               type,
               configured,
-              lockedNames: Object.keys(lockfile.commands ?? {}),
+              lockedNames: Object.keys(commandLockEntries),
               detectedNames: [],
               ignoredPatterns: settings.ignored?.commands ?? [],
-              sourceMetaByName: deriveSourceMetaForNonSkill(
-                commandSettings,
-                (lockfile.commands ?? {}) as Record<string, { type: string }>,
-              ),
+              sourceMetaByName: deriveSourceMetaForNonSkill(commandSettings, commandLockEntries),
             });
           }
           case "mcp-server": {
             const mcpSettings = settings.mcpServers ?? {};
+            const mcpServerLockEntries: McpServersLockMap = lockfile.mcpServers ?? {};
             const configured = Object.fromEntries(
               Object.entries(mcpSettings).map(([name, source]) => [name, { source }]),
             );
             return yield* classifyExtensions({
               type,
               configured,
-              lockedNames: Object.keys(lockfile.mcpServers ?? {}),
+              lockedNames: Object.keys(mcpServerLockEntries),
               detectedNames: [],
               ignoredPatterns: settings.ignored?.mcpServers ?? [],
-              sourceMetaByName: deriveSourceMetaForNonSkill(
-                mcpSettings,
-                (lockfile.mcpServers ?? {}) as Record<string, { type: string }>,
-              ),
+              sourceMetaByName: deriveSourceMetaForNonSkill(mcpSettings, mcpServerLockEntries),
             });
           }
           case "pack": {
             const packSettings = settings.packs ?? {};
+            const packLockEntries: PacksLockMap = lockfile.packs ?? {};
             const configured = Object.fromEntries(
               Object.entries(packSettings).map(([name, entry]) => {
                 const source = typeof entry === "string" ? entry : entry.source;
@@ -518,13 +515,10 @@ const make = (options: WorkspaceContextOptions) =>
             return yield* classifyExtensions({
               type,
               configured,
-              lockedNames: Object.keys(lockfile.packs ?? {}),
+              lockedNames: Object.keys(packLockEntries),
               detectedNames: [],
               ignoredPatterns: settings.ignored?.packs ?? [],
-              sourceMetaByName: deriveSourceMetaForPacks(
-                packSettings,
-                (lockfile.packs ?? {}) as Record<string, { type: string }>,
-              ),
+              sourceMetaByName: deriveSourceMetaForPacks(packSettings, packLockEntries),
             });
           }
         }
@@ -769,7 +763,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getIgnoredSkillPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => (s.ignored?.skills ?? []) as ReadonlyArray<string>),
+          Effect.map((s): ReadonlyArray<string> => s.ignored?.skills ?? []),
         ),
 
       getConfiguredAgents: () =>
@@ -931,7 +925,14 @@ const make = (options: WorkspaceContextOptions) =>
                 what: `Skill "${name}" not found in settings`,
               });
             }
-            const normalized = normalizeSkillEntry(currentSkills[name]!);
+            const currentEntry = currentSkills[name];
+            if (currentEntry === undefined) {
+              return yield* makeAppError({
+                code: "SKILL_NOT_FOUND",
+                what: `Skill "${name}" not found in settings`,
+              });
+            }
+            const normalized = normalizeSkillEntry(currentEntry);
             const updated = updater(normalized);
             const collapsed = collapseSkillEntry(updated);
             const updatedSettings = {
@@ -970,7 +971,13 @@ const make = (options: WorkspaceContextOptions) =>
             }
 
             // Rename in settings
-            const oldEntry = currentSkills[oldName]!;
+            const oldEntry = currentSkills[oldName];
+            if (oldEntry === undefined) {
+              return yield* makeAppError({
+                code: "SKILL_NOT_FOUND",
+                what: `Skill "${oldName}" not found in settings`,
+              });
+            }
             const { [oldName]: _, ...remainingSkills } = currentSkills;
             void _;
             const updatedSettings = {
@@ -981,8 +988,8 @@ const make = (options: WorkspaceContextOptions) =>
 
             // Rename in lockfile if entry exists
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            if (oldName in currentLockfile.skills) {
-              const oldLockEntry = currentLockfile.skills[oldName]!;
+            const oldLockEntry = currentLockfile.skills[oldName];
+            if (oldLockEntry !== undefined) {
               const { [oldName]: __, ...remainingLockSkills } = currentLockfile.skills;
               void __;
               const updatedLockfile = {
@@ -1004,7 +1011,13 @@ const make = (options: WorkspaceContextOptions) =>
                 what: `Lock entry "${name}" not found in lockfile`,
               });
             }
-            const oldEntry = currentLockfile.skills[name]!;
+            const oldEntry = currentLockfile.skills[name];
+            if (oldEntry === undefined) {
+              return yield* makeAppError({
+                code: "LOCK_ENTRY_NOT_FOUND",
+                what: `Lock entry "${name}" not found in lockfile`,
+              });
+            }
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
@@ -1063,7 +1076,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getIgnoredCommandPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => (s.ignored?.commands ?? []) as ReadonlyArray<string>),
+          Effect.map((s): ReadonlyArray<string> => s.ignored?.commands ?? []),
         ),
 
       // -----------------------------------------------------------------------
@@ -1097,7 +1110,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getIgnoredMcpServerPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => (s.ignored?.mcpServers ?? []) as ReadonlyArray<string>),
+          Effect.map((s): ReadonlyArray<string> => s.ignored?.mcpServers ?? []),
         ),
 
       // -----------------------------------------------------------------------
@@ -1127,7 +1140,7 @@ const make = (options: WorkspaceContextOptions) =>
 
       getIgnoredPackPatterns: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => (s.ignored?.packs ?? []) as ReadonlyArray<string>),
+          Effect.map((s): ReadonlyArray<string> => s.ignored?.packs ?? []),
         ),
 
       getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
@@ -1216,9 +1229,7 @@ const make = (options: WorkspaceContextOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
-            // Assertion needed: CommandLockEntry is structurally compatible with SkillLockEntry
-            // for lockEntryToSourceParams (only accesses source-type fields, not agents)
-            const sourceInput = lockEntryToSourceParams(lockEntry as unknown as SkillLockEntry);
+            const sourceInput = lockEntryToSourceParams(lockEntry);
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
@@ -1311,9 +1322,7 @@ const make = (options: WorkspaceContextOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
-            // Assertion needed: McpServerLockEntry is structurally compatible with SkillLockEntry
-            // for lockEntryToSourceParams (only accesses source-type fields, not agents)
-            const sourceInput = lockEntryToSourceParams(lockEntry as unknown as SkillLockEntry);
+            const sourceInput = lockEntryToSourceParams(lockEntry);
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
@@ -1529,8 +1538,8 @@ const make = (options: WorkspaceContextOptions) =>
 
             switch (target.type) {
               case "skill": {
-                if (!(target.name in currentLockfile.skills)) return;
-                const entry = currentLockfile.skills[target.name]!;
+                const entry = currentLockfile.skills[target.name];
+                if (entry === undefined) return;
                 const updatedLockfile = {
                   ...currentLockfile,
                   skills: {
@@ -1543,8 +1552,8 @@ const make = (options: WorkspaceContextOptions) =>
               }
               case "command": {
                 const commands = currentLockfile.commands ?? {};
-                if (!(target.name in commands)) return;
-                const entry = commands[target.name]!;
+                const entry = commands[target.name];
+                if (entry === undefined) return;
                 const updatedLockfile = {
                   ...currentLockfile,
                   commands: {
@@ -1557,8 +1566,8 @@ const make = (options: WorkspaceContextOptions) =>
               }
               case "mcp-server": {
                 const mcpServers = currentLockfile.mcpServers ?? {};
-                if (!(target.name in mcpServers)) return;
-                const entry = mcpServers[target.name]!;
+                const entry = mcpServers[target.name];
+                if (entry === undefined) return;
                 const updatedLockfile = {
                   ...currentLockfile,
                   mcpServers: {

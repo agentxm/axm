@@ -71,7 +71,8 @@ export const resolveConstrainedVersion = (
   constraints: SkillConstraints,
   skillName: string,
 ): Option.Option<ConstraintResolutionResult> => {
-  if (versions.length === 0) return Option.none();
+  const [newest] = versions;
+  if (newest === undefined) return Option.none();
 
   const userConstraintStr = Option.getOrElse(constraints.userConstraint, () => "*");
   const isWildcard = userConstraintStr === "*";
@@ -86,7 +87,7 @@ export const resolveConstrainedVersion = (
   // Case 2: User has wildcard — apply pack constraints
   if (constraints.packConstraints.length === 0) {
     // No pack constraints — use newest
-    return Option.some({ resolvedVersion: versions[0]!, warnings: [] });
+    return Option.some({ resolvedVersion: newest, warnings: [] });
   }
 
   // Try each version (newest first) against all pack constraints
@@ -100,7 +101,6 @@ export const resolveConstrainedVersion = (
   }
 
   // No version satisfies all pack constraints — use newest, warn
-  const newest = versions[0]!;
   const warnings = constraints.packConstraints
     .filter((pc) => !satisfiesConstraint(newest, pc.constraint))
     .map((pc) => `${skillName} held at ${newest} by pack "${pc.packName}" (${pc.constraint})`);

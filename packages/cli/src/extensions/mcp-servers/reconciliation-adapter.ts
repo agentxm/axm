@@ -29,9 +29,15 @@ const parseRegistryMcpSource = (
     return Option.none();
   }
 
+  const profile = match[1];
+  const name = match[2];
+  if (profile === undefined || name === undefined) {
+    return Option.none();
+  }
+
   return Option.some({
-    profile: match[1]!,
-    name: match[2]!,
+    profile,
+    name,
     constraint: match[3] ?? "*",
   });
 };
@@ -125,7 +131,8 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
 
       const parsedJson = yield* Effect.sync(() => {
         try {
-          return JSON.parse(manifestRaw) as unknown;
+          const parsed: unknown = JSON.parse(manifestRaw);
+          return parsed;
         } catch {
           return null;
         }

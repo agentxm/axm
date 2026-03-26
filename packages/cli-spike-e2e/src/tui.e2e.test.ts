@@ -1,9 +1,9 @@
 /**
- * E2E tests for the `axm-dev tui` command and its sub-commands.
+ * E2E tests for the `axm-spike tui` command and its sub-commands.
  */
 
 import { describe, expect, it } from "vitest";
-import { runDevCli } from "../../e2e/utils.js";
+import { runCli } from "./utils.js";
 
 /**
  * Get combined output from CLI result.
@@ -13,45 +13,10 @@ function getOutput(result: { stdout: string; stderr: string }): string {
   return result.stdout + result.stderr;
 }
 
-describe("axm-dev (root command)", () => {
-  describe("without arguments", () => {
-    it("exits with code 1 (demandCommand requires a subcommand)", async () => {
-      const result = await runDevCli([]);
-
-      expect(result.exitCode).toBe(1);
-    });
-
-    it("displays available commands", async () => {
-      const result = await runDevCli([]);
-      const output = getOutput(result);
-
-      expect(output).toContain("tui");
-    });
-  });
-
-  describe("--help", () => {
-    it("displays help information", async () => {
-      const result = await runDevCli(["--help"]);
-
-      expect(result.exitCode).toBe(0);
-      expect(getOutput(result)).toContain("tui");
-    });
-  });
-});
-
-describe("axm-dev tui", () => {
-  describe("without arguments", () => {
-    it("prompts for a sub-command", async () => {
-      const result = await runDevCli(["tui"]);
-      const output = getOutput(result);
-
-      expect(output).toContain("Please specify a TUI component to demo");
-    });
-  });
-
+describe("axm-spike tui", () => {
   describe("--help", () => {
     it("shows all sub-commands", async () => {
-      const result = await runDevCli(["tui", "--help"]);
+      const result = await runCli(["tui", "--help"]);
       const output = getOutput(result);
 
       expect(result.exitCode).toBe(0);
@@ -68,13 +33,13 @@ describe("axm-dev tui", () => {
 
   describe("tui log", () => {
     it("exits with code 0", async () => {
-      const result = await runDevCli(["tui", "log"]);
+      const result = await runCli(["tui", "log"]);
 
       expect(result.exitCode).toBe(0);
     });
 
-    it("displays all clack log variants", async () => {
-      const result = await runDevCli(["tui", "log"]);
+    it("displays all log variants", async () => {
+      const result = await runCli(["tui", "log"]);
       const output = getOutput(result);
 
       expect(output).toContain("This is an info message");
@@ -87,13 +52,13 @@ describe("axm-dev tui", () => {
 
   describe("tui spinner", () => {
     it("exits with code 0", async () => {
-      const result = await runDevCli(["tui", "spinner"], { timeout: 10000 });
+      const result = await runCli(["tui", "spinner"], { timeout: 10000 });
 
       expect(result.exitCode).toBe(0);
     });
 
     it("displays completion message", async () => {
-      const result = await runDevCli(["tui", "spinner"], { timeout: 10000 });
+      const result = await runCli(["tui", "spinner"], { timeout: 10000 });
       const output = getOutput(result);
 
       expect(output).toContain("Done loading!");
@@ -102,13 +67,13 @@ describe("axm-dev tui", () => {
 
   describe("tui note", () => {
     it("exits with code 0", async () => {
-      const result = await runDevCli(["tui", "note"]);
+      const result = await runCli(["tui", "note"]);
 
       expect(result.exitCode).toBe(0);
     });
 
-    it("displays clack note output", async () => {
-      const result = await runDevCli(["tui", "note"]);
+    it("displays note output", async () => {
+      const result = await runCli(["tui", "note"]);
       const output = getOutput(result);
 
       expect(output).toContain("Welcome");
@@ -126,7 +91,7 @@ describe("axm-dev tui", () => {
     { command: "multiselect", description: "Demo multiselect prompt" },
   ])("tui $command", ({ command, description }) => {
     it("displays help with --help", async () => {
-      const result = await runDevCli(["tui", command, "--help"]);
+      const result = await runCli(["tui", command, "--help"]);
       const output = getOutput(result);
 
       expect(result.exitCode).toBe(0);

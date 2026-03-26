@@ -21,6 +21,7 @@ import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
 import { skillsCommand } from "./root/skills/command.js";
 import { telemetryCommand } from "./root/telemetry/command.js";
+import { tuiCommand } from "./root/tui/command.js";
 
 const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, outputFormatFlag] as const;
 
@@ -34,7 +35,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       description: "Send a handled AppError to telemetry",
     },
   ]),
-  Command.withSubcommands([skillsCommand, telemetryCommand]),
+  Command.withSubcommands([skillsCommand, telemetryCommand, tuiCommand]),
   Command.withGlobalFlags(globalFlags),
 );
 

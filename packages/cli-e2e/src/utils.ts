@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { copyFixture, createCliRunner, createTempDir } from "@axm.sh/e2e-utils";
 
 export const runCli = createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
-export const runDevCli = createCliRunner(new URL("../../cli/dist/src/dev-main.js", import.meta.url));
 
 export { createTempDir };
 

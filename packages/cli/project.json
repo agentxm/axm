@@ -67,14 +67,6 @@
         }
       }
     },
-    "dev": {
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "src/dev-main.ts"],
-        "cwd": "packages/cli"
-      }
-    },
     "publish": {
       "cache": false,
       "dependsOn": ["build"],

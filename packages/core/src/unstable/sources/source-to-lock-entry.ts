@@ -31,10 +31,11 @@ export interface SourceToLockEntryInput {
 // -----------------------------------------------------------------------------
 
 const optionalField = <K extends string, V>(key: K, value: Option.Option<V>): { [P in K]?: V } => {
+  const fields: { [P in K]?: V } = {};
   if (Option.isSome(value)) {
-    return { [key]: value.value } as { [P in K]?: V };
+    fields[key] = value.value;
   }
-  return {} as { [P in K]?: V };
+  return fields;
 };
 
 const commonFields = (input: SourceToLockEntryInput) => ({

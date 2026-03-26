@@ -45,6 +45,9 @@ const resolveAnnotations = (ast: SchemaAST.AST): Readonly<Record<string, unknown
   return direct;
 };
 
+const isStringRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
  * Derives column definitions from a Schema's AST annotations.
  *
@@ -69,8 +72,7 @@ export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDe
         key,
         header: typeof header === "string" ? header : key,
         value: (item: T) => {
-          // Assertion needed: T is a struct — we access it as a record to read the property by key
-          const raw = (item as unknown as Record<string, unknown>)[key];
+          const raw = isStringRecord(item) ? item[key] : undefined;
           if (typeof format === "function") return format(raw);
           if (raw == null) return "";
           return String(raw);

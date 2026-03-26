@@ -29,18 +29,24 @@ const makeSkill = (name: string): SkillExtensionRef => ({
 });
 
 const { layer: rendererLayer } = TestRenderer.make();
-const [promptLayer] = makeTestPrompt({
-  multiselectResponses: [[makeSkill("commit"), makeSkill("review-pr")]],
-});
-const TestLayer = Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest());
+const makeTestLayer = (
+  promptConfig: Parameters<typeof makeTestPrompt>[0] = {},
+  envOverrides: Parameters<typeof CliEnvironmentTest>[0] = {},
+) => {
+  const [promptLayer] = makeTestPrompt(promptConfig);
+  return Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest(envOverrides));
+};
 
-type TestR = Layer.Success<typeof TestLayer>;
+type TestR = Layer.Success<ReturnType<typeof makeTestLayer>>;
 
 const provide = <A, E>(effect: Effect.Effect<A, E, TestR>) =>
-  effect.pipe(Effect.provide(TestLayer));
+  effect.pipe(Effect.provide(makeTestLayer()));
 
-const provideWithFlags = (overrides: Parameters<typeof CliEnvironmentTest>[0]) => {
-  const layer = Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest(overrides));
+const provideWith = (
+  promptConfig: Parameters<typeof makeTestPrompt>[0],
+  envOverrides: Parameters<typeof CliEnvironmentTest>[0] = {},
+) => {
+  const layer = makeTestLayer(promptConfig, envOverrides);
   return <A, E>(effect: Effect.Effect<A, E, TestR>) => effect.pipe(Effect.provide(layer));
 };
 
@@ -190,7 +196,7 @@ describe("determineSkillsToInstall", () => {
     );
 
     it.effect("returns all skills with --non-interactive", () =>
-      provideWithFlags({ nonInteractive: true })(
+      provideWith({}, { nonInteractive: true })(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
@@ -202,20 +208,26 @@ describe("determineSkillsToInstall", () => {
       ),
     );
 
-    it.effect("--yes with multiple skills still prompts for selection", () =>
-      provideWithFlags({ nonInteractive: false })(
-        Effect.gen(function* () {
-          // --yes alone does NOT auto-select; falls through to multiselect prompt (rule 4)
-          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
-            requestedSkills: [],
-            all: false,
-          });
+    it.effect("--yes with multiple skills still prompts for selection", () => {
+      const availableSkills = skills("commit", "review-pr");
+      return Effect.gen(function* () {
+        const result = yield* determineSkillsToInstall(availableSkills, {
+          requestedSkills: [],
+          all: false,
+        });
 
-          // The multiselect test layer returns indices [0, 1], so both are selected via prompt
-          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
-        }),
-      ),
-    );
+        expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer(
+            {
+              multiselectResponses: [[...availableSkills]],
+            },
+            { nonInteractive: false },
+          ),
+        ),
+      );
+    });
   });
 
   describe("single skill (rule 3)", () => {
@@ -234,17 +246,22 @@ describe("determineSkillsToInstall", () => {
   });
 
   describe("multiple skills (rule 4)", () => {
-    it.effect("prompts multiselect for multiple skills", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
-            requestedSkills: [],
-            all: false,
-          });
+    it.effect("prompts multiselect for multiple skills", () => {
+      const availableSkills = skills("commit", "review-pr");
+      return Effect.gen(function* () {
+        const result = yield* determineSkillsToInstall(availableSkills, {
+          requestedSkills: [],
+          all: false,
+        });
 
-          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
-        }),
-      ),
-    );
+        expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            multiselectResponses: [[...availableSkills]],
+          }),
+        ),
+      );
+    });
   });
 });

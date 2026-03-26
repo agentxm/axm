@@ -100,6 +100,9 @@ const pad = (str: string, width: number, align: "left" | "right"): string => {
   return align === "right" ? padding + str : str + padding;
 };
 
+const getWidthAt = (widths: ReadonlyArray<number>, index: number, fallback: number): number =>
+  widths[index] ?? fallback;
+
 const formatTable = <T>(
   items: ReadonlyArray<T>,
   columns: ReadonlyArray<ColumnDef<T>>,
@@ -129,7 +132,10 @@ const formatTable = <T>(
   let fillCount = 0;
 
   for (let i = 0; i < columns.length; i++) {
-    const col = columns[i]!;
+    const col = columns[i];
+    if (col === undefined) {
+      continue;
+    }
     if (col.width === "fill") {
       fillCount++;
       colWidths.push(0); // placeholder
@@ -138,7 +144,7 @@ const formatTable = <T>(
       usedWidth += col.width;
     } else {
       // "auto" — use content width
-      const w = contentWidths[i]!;
+      const w = contentWidths[i] ?? col.header.length;
       colWidths.push(w);
       usedWidth += w;
     }
@@ -150,7 +156,7 @@ const formatTable = <T>(
     const remaining = Math.max(0, availableWidth - usedWidth);
     const perFill = Math.max(4, Math.floor(remaining / fillCount));
     for (let i = 0; i < columns.length; i++) {
-      if (columns[i]!.width === "fill") {
+      if (columns[i]?.width === "fill") {
         colWidths[i] = perFill;
       }
     }
@@ -164,20 +170,24 @@ const formatTable = <T>(
   }
 
   // Header row
-  const headerCells = columns.map((col, i) =>
-    pad(truncate(col.header, colWidths[i]!), colWidths[i]!, col.align),
-  );
+  const headerCells = columns.map((col, i) => {
+    const width = getWidthAt(colWidths, i, col.header.length);
+    return pad(truncate(col.header, width), width, col.align);
+  });
   lines.push(guidePrefix + headerCells.join(" ".repeat(colGap)));
 
   // Separator
-  const sepCells = columns.map((_col, i) => "\u2500".repeat(colWidths[i]!));
+  const sepCells = columns.map((col, i) =>
+    "\u2500".repeat(getWidthAt(colWidths, i, col.header.length)),
+  );
   lines.push(guidePrefix + sepCells.join(" ".repeat(colGap)));
 
   // Data rows
   for (const item of items) {
     const cells = columns.map((col, i) => {
       const val = col.value(item);
-      return pad(truncate(val, colWidths[i]!), colWidths[i]!, col.align);
+      const width = getWidthAt(colWidths, i, col.header.length);
+      return pad(truncate(val, width), width, col.align);
     });
     lines.push(guidePrefix + cells.join(" ".repeat(colGap)));
   }
@@ -244,12 +254,18 @@ const formatTree = <T>(
     const children = node.children ?? [];
     const childPrefix = prefix + (isLast ? "   " : "\u2502  "); // "│  "
     for (let i = 0; i < children.length; i++) {
-      renderNode(children[i]!, childPrefix, i === children.length - 1);
+      const child = children[i];
+      if (child !== undefined) {
+        renderNode(child, childPrefix, i === children.length - 1);
+      }
     }
   };
 
   for (let i = 0; i < roots.length; i++) {
-    renderNode(roots[i]!, "", i === roots.length - 1);
+    const root = roots[i];
+    if (root !== undefined) {
+      renderNode(root, "", i === roots.length - 1);
+    }
   }
 
   return lines.join("\n");

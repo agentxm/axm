@@ -161,8 +161,8 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   //    - @profile/{type}/{name}@constraint
   if (input.startsWith("@")) {
     const segments = input.split("/");
-    if (segments.length >= 1 && REGISTRY_NAMESPACE_PATTERN.test(segments[0] ?? "")) {
-      const profile = segments[0]!;
+    const profile = segments.at(0);
+    if (profile !== undefined && REGISTRY_NAMESPACE_PATTERN.test(profile)) {
 
       if (segments.length === 1) {
         return Option.some(
@@ -177,7 +177,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
       }
 
       if (segments.length === 2) {
-        const second = segments[1]!;
+        const second = segments.at(1);
         if (
           second === "skills" ||
           second === "commands" ||
@@ -197,13 +197,14 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
       }
 
       if (segments.length === 3) {
-        const second = segments[1]!;
-        const third = segments[2]!;
+        const second = segments.at(1);
+        const third = segments.at(2);
         if (
-          second === "skills" ||
-          second === "commands" ||
-          second === "mcp-servers" ||
-          second === "packs"
+          third !== undefined &&
+          (second === "skills" ||
+            second === "commands" ||
+            second === "mcp-servers" ||
+            second === "packs")
         ) {
           const parsedName = parseNameAndConstraint(third);
           if (Option.isSome(parsedName)) {
@@ -228,11 +229,16 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   if (input.includes("/")) {
     const segments = input.split("/");
     if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
+      const first = segments.at(0);
+      const second = segments.at(1);
+      if (first === undefined || second === undefined) {
+        return Option.none();
+      }
       return Option.some(
         wrap({
           pattern: "slash-pattern",
-          first: segments[0]!,
-          second: segments[1]!,
+          first,
+          second,
           third: Option.none(),
         }),
       );

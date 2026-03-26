@@ -47,7 +47,7 @@ import { descriptor as trae } from "./trae/index.js";
 import { descriptor as traeCn } from "./trae-cn/index.js";
 import { descriptor as windsurf } from "./windsurf/index.js";
 import { descriptor as zencoder } from "./zencoder/index.js";
-import type { AgentDescriptor, AgentId, AgentRegistry } from "./types.js";
+import { AGENT_IDS, type AgentDescriptor, type AgentId, type AgentRegistry } from "./types.js";
 
 /**
  * Complete registry of all known AI coding agents.
@@ -99,6 +99,8 @@ export const AGENTS: AgentRegistry = {
   zencoder,
 };
 
+const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+
 /**
  * Look up an agent by ID.
  *
@@ -119,7 +121,7 @@ export const AGENTS: AgentRegistry = {
  * @experimental This API is unstable and may change without notice.
  */
 export const getAgentById = (id: string): Option.Option<AgentDescriptor> =>
-  Option.fromUndefinedOr(AGENTS[id as AgentId]);
+  isAgentId(id) ? Option.some(AGENTS[id]) : Option.none();
 
 /**
  * Get all registered agent IDs.
@@ -134,8 +136,7 @@ export const getAgentById = (id: string): Option.Option<AgentDescriptor> =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getAgentIds = (): ReadonlyArray<AgentId> =>
-  Object.keys(AGENTS) as ReadonlyArray<AgentId>;
+export const getAgentIds = (): ReadonlyArray<AgentId> => AGENT_IDS;
 
 /**
  * Get all registered agent descriptors.

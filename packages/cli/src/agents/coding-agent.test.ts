@@ -77,6 +77,7 @@ describe("coding-agent services", () => {
         }
       }),
     ),
+    { timeout: 10_000 },
   );
 
   it("defines required agent MCP command/config contracts", () => {

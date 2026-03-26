@@ -11,8 +11,10 @@
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 // Wrapped in Effect.sync so execution is deferred — no eager module-level I/O.
 import * as os from "node:os";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { envOption } from "@axm.sh/core/unstable/utils";
 
 /**
  * Resolve the user's home directory.
@@ -30,8 +32,8 @@ export const getHome = Effect.sync(() => os.homedir());
  */
 export const getConfigHome = Effect.gen(function* () {
   const p = yield* Path.Path;
-  const env = process.env["XDG_CONFIG_HOME"];
-  if (env) return env;
+  const envOpt = yield* envOption("XDG_CONFIG_HOME");
+  if (Option.isSome(envOpt)) return envOpt.value;
   const home = yield* getHome;
   return p.join(home, ".config");
 });

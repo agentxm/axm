@@ -11,6 +11,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { envOption } from "@axm.sh/core/unstable/utils";
 
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CredentialStore } from "./credential-store.js";
@@ -81,7 +82,8 @@ export const resolveStoredToken = (
  */
 export const resolveAmbientToken = (flagToken?: string) =>
   Effect.gen(function* () {
-    const envToken = process.env["AXM_TOKEN"];
+    const envTokenOpt = yield* envOption("AXM_TOKEN");
+    const envToken = Option.getOrUndefined(envTokenOpt);
     if (envToken !== undefined && envToken.length > 0) {
       yield* emitEnvVarMessage;
       return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));

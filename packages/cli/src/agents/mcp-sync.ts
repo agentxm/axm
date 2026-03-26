@@ -5,8 +5,10 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { envOption } from "@axm.sh/core/unstable/utils";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type {
   AddMcpServerArgs,
@@ -38,7 +40,7 @@ const redactSecrets = (value: string): string =>
 
 const hasPathSeparator = (value: string): boolean => value.includes("/") || value.includes("\\");
 
-const getExecutableCandidates = (command: string): ReadonlyArray<string> => {
+const getExecutableCandidates = (command: string, pathExt: string): ReadonlyArray<string> => {
   if (process.platform !== "win32") {
     return [command];
   }
@@ -49,7 +51,6 @@ const getExecutableCandidates = (command: string): ReadonlyArray<string> => {
     return [command];
   }
 
-  const pathExt = process.env["PATHEXT"] ?? ".EXE;.CMD;.BAT;.COM";
   const extensions = pathExt
     .split(";")
     .map((segment) => segment.trim().toLowerCase())
@@ -68,7 +69,9 @@ const checkExecutableAvailable = (
       return false;
     }
 
-    const directCandidates = getExecutableCandidates(command);
+    const pathExtOpt = yield* envOption("PATHEXT");
+    const pathExt = Option.getOrElse(pathExtOpt, () => ".EXE;.CMD;.BAT;.COM");
+    const directCandidates = getExecutableCandidates(command, pathExt);
     if (path.isAbsolute(command) || hasPathSeparator(command)) {
       const checks = yield* Effect.forEach(
         directCandidates,
@@ -78,7 +81,8 @@ const checkExecutableAvailable = (
       return checks.some(Boolean);
     }
 
-    const rawPath = process.env["PATH"] ?? "";
+    const rawPathOpt = yield* envOption("PATH");
+    const rawPath = Option.getOrElse(rawPathOpt, () => "");
     if (rawPath.trim().length === 0) {
       return false;
     }

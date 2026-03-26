@@ -53,6 +53,7 @@ export default [
       "**/src/main.ts",
       "**/src/config.ts",
       "**/src/runtime.ts",
+      "**/e2e/**",
     ],
     rules: {
       "no-restricted-properties": [

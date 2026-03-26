@@ -18,6 +18,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { isLoopbackAddress } from "@axm.sh/core/unstable/utils";
 import type {
   ExtensionExistsArgs,
   ExtensionExistsResponse,
@@ -1050,10 +1051,7 @@ const buildNetworkHowToFix = (baseUrl: string): string => {
 
   try {
     const parsed = new URL(baseUrl);
-    const isLocalhost =
-      parsed.hostname === "localhost" ||
-      parsed.hostname === "127.0.0.1" ||
-      parsed.hostname === "::1";
+    const isLocalhost = isLoopbackAddress(parsed.hostname);
 
     if (isLocalhost && parsed.protocol === "https:") {
       return "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.";
@@ -1072,10 +1070,7 @@ const buildNetworkHowToFix = (baseUrl: string): string => {
 const buildNetworkDiagnosis = (baseUrl: string): Option.Option<string> => {
   try {
     const parsed = new URL(baseUrl);
-    const isLocalhost =
-      parsed.hostname === "localhost" ||
-      parsed.hostname === "127.0.0.1" ||
-      parsed.hostname === "::1";
+    const isLocalhost = isLoopbackAddress(parsed.hostname);
 
     if (isLocalhost && parsed.protocol === "https:") {
       return Option.some("Diagnosis: Local registry appears HTTP-only while source uses HTTPS.");

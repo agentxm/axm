@@ -9,6 +9,8 @@ export { isPathSafe } from "./path-safety.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export { createSymlink, type SymlinkResult } from "./create-symlink.js";
 export {
+  envOption,
+  envWithDefault,
   isCI,
   isContainer,
   isNonInteractive,
@@ -18,3 +20,4 @@ export {
   nonInteractiveFlag,
 } from "./environment.js";
 export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
+export { isLoopbackAddress } from "./network.js";

@@ -9,8 +9,19 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 
+// eslint-disable-next-line no-restricted-properties -- Centralized env var access point; all callers use these helpers
+const readEnv = (name: string): string | undefined => process.env[name];
+
+/** Read an optional env var. Centralized access point for process.env. */
+export const envOption = (name: string): Effect.Effect<Option.Option<string>> =>
+  Effect.sync(() => Option.fromUndefinedOr(readEnv(name)));
+
+/** Read an env var with a default value. Centralized access point for process.env. */
+export const envWithDefault = (name: string, fallback: string): Effect.Effect<string> =>
+  Effect.sync(() => readEnv(name) ?? fallback);
+
 /** Returns true if CI=true env var is set. */
-export const isCI = (): boolean => process.env["CI"] === "true";
+export const isCI: Effect.Effect<boolean> = Effect.sync(() => readEnv("CI") === "true");
 
 /**
  * Raw --non-interactive global flag. Callers should use {@link isNonInteractive}
@@ -32,12 +43,14 @@ export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
  */
 export const isNonInteractive = Effect.gen(function* () {
   const flag = yield* nonInteractiveFlag;
-  return Option.getOrElse(flag, () => isCI() || process.stdin.isTTY !== true);
+  const ci = yield* isCI;
+  return Option.getOrElse(flag, () => ci || process.stdin.isTTY !== true);
 });
 
 /** Returns true if SSH_CLIENT or SSH_TTY env var is set. */
-export const isSSH = (): boolean =>
-  process.env["SSH_CLIENT"] !== undefined || process.env["SSH_TTY"] !== undefined;
+export const isSSH: Effect.Effect<boolean> = Effect.sync(
+  () => readEnv("SSH_CLIENT") !== undefined || readEnv("SSH_TTY") !== undefined,
+);
 
 /** Returns true if running as root (uid 0). */
 export const isRoot = (): boolean => process.getuid?.() === 0;

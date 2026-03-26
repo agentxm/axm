@@ -17,6 +17,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
+import { envOption } from "@axm.sh/core/unstable/utils";
 
 /**
  * A discovered skill — intermediate result from directory scanning.
@@ -244,7 +245,7 @@ export const discoverSkillsInDir = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const installInternalSkills = Option.fromUndefinedOr(process.env["INSTALL_INTERNAL_SKILLS"]);
+    const installInternalSkills = yield* envOption("INSTALL_INTERNAL_SKILLS");
 
     // Compute effective search root
     const searchRoot = Option.match(subPath, {

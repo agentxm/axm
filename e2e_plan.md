@@ -20,20 +20,19 @@ A new `packages/cli-e2e/` Nx project that tests the **built** `@axm.sh/cli`
 artifact. Same pattern as `cli-spike-e2e` — zero internal source dependencies,
 spawns `packages/cli/dist/src/main.ts` as a subprocess.
 
-### Relationship to co-located E2E tests
+### Migration of co-located E2E tests
 
-The 27 existing co-located E2E tests in `packages/cli/src/` stay where they are.
-They serve a different purpose:
+The 27 existing co-located E2E tests in `packages/cli/src/**/*.e2e.test.ts` will
+be migrated into `cli-e2e`. All E2E tests belong in the dedicated E2E project —
+no co-located E2E tests remain in CLI source packages.
 
-| | Co-located (`packages/cli/src/**/*.e2e.test.ts`) | Distribution (`packages/cli-e2e/`) |
-|---|---|---|
-| Tests | Source via `bun run src/main.ts` | Built artifact via `dist/` |
-| Purpose | Dev-time regression | Pre-release artifact verification |
-| Fixtures | `packages/cli/src/e2e/fixtures/` (relative imports) | Own `fixtures/` dir (self-contained) |
-| Runs | `pnpm test:e2e` (every PR) | `pnpm nx e2e cli-e2e` (pre-release) |
+Benefits of consolidation:
 
-Over time, distribution tests may grow to replace some co-located tests, but
-both levels have value and can coexist.
+- **Single place** for all E2E tests per CLI — no split between two locations
+- **Tests the built artifact** — catches build/bundle failures that source-level
+  tests miss
+- **Decoupled from source** — E2E project has zero imports from CLI internals
+- **Clearer test pyramid** — unit tests in CLI packages, E2E tests in E2E packages
 
 ### Files to create
 
@@ -45,14 +44,15 @@ packages/cli-e2e/
   tsconfig.json
   tsconfig.spec.json
   src/
-    utils.ts              # Spawns cli/dist/src/main.js
-    fixtures/             # Self-contained test fixtures
-      skills-repo/        # Copied from packages/cli/src/e2e/fixtures/skills-repo
+    utils.ts              # Binds @axm.sh/e2e-utils to cli artifact path
+    fixtures/             # Self-contained test fixtures (migrated from cli source)
+      skills-repo/        # From packages/cli/src/e2e/fixtures/skills-repo
         my-skill/SKILL.md
         another-skill/SKILL.md
     smoke.e2e.test.ts     # --help, --version, exit codes, subcommand listing
     init.e2e.test.ts      # Workspace initialization
     skills.e2e.test.ts    # Install, list, uninstall workflows
+    # + migrated tests from packages/cli/src/**/*.e2e.test.ts
 ```
 
 ### `project.json`
@@ -88,7 +88,7 @@ Key: `dependsOn: ["cli:build"]` ensures the artifact exists before tests run.
   "description": "Distribution E2E tests for the axm CLI",
   "type": "module",
   "devDependencies": {
-    "execa": "^9.6.1",
+    "@axm.sh/e2e-utils": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "^2.8.2"
@@ -96,15 +96,25 @@ Key: `dependsOn: ["cli:build"]` ensures the artifact exists before tests run.
 }
 ```
 
-Note: `yaml` is a direct devDependency here (not via `@axm.sh/core`) because
-some tests parse lockfiles to verify structure. This is intentional — E2E
-projects must not depend on internal packages.
+Note: `yaml` is a direct devDependency (not via `@axm.sh/core`) because some
+tests parse lockfiles to verify structure. E2E projects depend only on
+`@axm.sh/e2e-utils` (shared test utilities) — never on production packages.
 
 ### `utils.ts`
 
-Spawns `packages/cli/dist/src/main.js` (the build output). Same shape as
-`cli-spike-e2e/src/utils.ts` but pointed at the main CLI artifact. Includes
-`FIXTURES_PATH` and `copySkillsRepoFixture` for tests that need fixture data.
+Thin wrapper that binds `@axm.sh/e2e-utils` to the `cli` artifact path:
+
+```typescript
+import { createCliRunner, createTempDir } from "@axm.sh/e2e-utils";
+
+export const runCli = createCliRunner("../../cli/dist/src/main.js");
+export { createTempDir };
+
+export const FIXTURES_PATH = new URL("fixtures/", import.meta.url).pathname;
+```
+
+Also exports `FIXTURES_PATH` and `copySkillsRepoFixture` for tests that need
+fixture data.
 
 ---
 
@@ -114,13 +124,13 @@ Spawns `packages/cli/dist/src/main.js` (the build output). Same shape as
 
 ```
 packages/<cli>-e2e/
-  package.json            # Private, devDeps only (execa, vitest, yaml)
+  package.json            # Private, devDeps: @axm.sh/e2e-utils, vitest, yaml
   project.json            # type:e2e tag, e2e target depends on <cli>:build
   vitest.config.ts        # *.e2e.test.ts pattern, 30s timeout
   tsconfig.json           # Three-file pattern (no tsconfig.lib.json)
   tsconfig.spec.json      # Includes src/**/*.ts and vitest.config.ts
   src/
-    utils.ts              # CLI runner + temp dir helpers (CLI-specific)
+    utils.ts              # Binds @axm.sh/e2e-utils to CLI artifact path
     fixtures/             # Self-contained test data (no symlinks to source)
     smoke.e2e.test.ts     # Minimum viable: --help, --version, unknown cmd
     <feature>.e2e.test.ts # One file per feature area, not per subcommand
@@ -134,8 +144,8 @@ packages/<cli>-e2e/
 
 ### Test file granularity
 
-Distribution E2E tests are organized **by feature area**, not by subcommand.
-Each test file covers a user workflow, not a single command in isolation:
+E2E tests are organized **by feature area**, not by subcommand. Each test file
+covers a user workflow, not a single command in isolation:
 
 ```
 smoke.e2e.test.ts       # CLI basics: help, version, unknown commands
@@ -145,9 +155,8 @@ auth.e2e.test.ts        # Login, token, whoami
 output.e2e.test.ts      # Structured output modes (text, json, stream-json)
 ```
 
-This differs from co-located tests (one file per subcommand) because
-distribution tests verify end-to-end workflows rather than individual command
-behavior.
+When migrating co-located tests (previously one file per subcommand), consolidate
+related tests into the appropriate feature-area file.
 
 ### Fixtures are self-contained
 
@@ -165,21 +174,7 @@ is `tsconfig.json` (root references) and `tsconfig.spec.json` (test files).
 
 ---
 
-## 3. Sharing E2E utilities without depending on core
-
-### Problem
-
-Both `cli-e2e` and `cli-spike-e2e` need the same utilities:
-
-- `CliResult` interface
-- `RunCliOptions` interface
-- `TempDirContext` interface
-- `createTempDir()` function
-- `run()` subprocess spawner (the `execa` wrapper)
-- `copyFixture()` pattern
-
-Currently these are duplicated. As more E2E projects appear (e.g., for a future
-`axm-dev` CLI), this duplication grows.
+## 3. Shared E2E utilities — `@axm.sh/e2e-utils`
 
 ### Constraint
 
@@ -188,21 +183,10 @@ library with Effect, platform dependencies, and domain types. E2E utilities are
 plain TypeScript + `execa` — pulling in core would defeat the purpose of testing
 the built artifact in isolation.
 
-### Options
+### Approach
 
-#### a) Duplicate utilities across E2E projects
-
-Keep each E2E project self-contained with its own `utils.ts`. Accept duplication.
-
-- **Pro:** Zero coupling, each project is fully independent
-- **Pro:** Simplest — no new packages, no coordination
-- **Con:** Bug fixes or improvements must be applied to each copy
-- **Con:** Duplication grows linearly with CLI count
-
-#### b) Create `@axm.sh/e2e-utils` — a shared test utilities package
-
-A new `packages/e2e-utils/` package that exports the shared interfaces and
-helpers. E2E projects depend on it instead of duplicating.
+A new `packages/e2e-utils/` package (`@axm.sh/e2e-utils`) provides shared
+interfaces and helpers. E2E projects depend on it instead of duplicating.
 
 ```
 packages/
@@ -225,9 +209,11 @@ packages/
       utils.ts            # const runCli = createCliRunner("../cli-spike/dist/src/main.js")
 ```
 
-The key API: `createCliRunner(artifactPath)` — a factory that returns a
-`runCli` function bound to a specific CLI artifact path. Each E2E project
-calls it once with its artifact path.
+### Key API
+
+`createCliRunner(artifactPath)` — a factory that returns a `runCli` function
+bound to a specific CLI artifact path. Each E2E project calls it once with its
+artifact path.
 
 ```typescript
 // e2e-utils/src/runner.ts
@@ -250,41 +236,124 @@ export const runCli = createCliRunner("../../cli/dist/src/main.js");
 export { createTempDir };
 ```
 
-- **Pro:** Single source of truth for utilities
-- **Pro:** E2E projects stay thin — just artifact path + fixtures
-- **Pro:** No dependency on core, Effect, or any production code
-- **Con:** One more package to maintain
-- **Con:** Coordination overhead (changes to utils affect all E2E projects)
+### Shared utilities
 
-#### c) Workspace-internal `e2e/` directory (not a package)
+| Export | Source file | Purpose |
+|---|---|---|
+| `createCliRunner` | `runner.ts` | Factory returning a `runCli` fn bound to an artifact path |
+| `CliResult` | `types.ts` | Subprocess result: stdout, stderr, exitCode |
+| `RunCliOptions` | `types.ts` | Options: cwd, env, timeout |
+| `TempDirContext` | `temp-dir.ts` | Test context with temp dir path + cleanup |
+| `createTempDir` | `temp-dir.ts` | Creates isolated temp dir, returns `TempDirContext` |
+| `copyFixture` | `fixtures.ts` | Copies a fixture directory into a temp dir |
 
-A shared directory at the repo root (e.g., `e2e/utils/`) that E2E projects
-import via TypeScript path aliases. Not an npm package — just shared source.
+---
 
-- **Pro:** No new package, no publish concerns
-- **Con:** TypeScript path aliases add config complexity
-- **Con:** Nx doesn't track non-package directories well
-- **Con:** Breaks if E2E projects are ever extracted to a separate repo
+## 4. Implementation plan
 
-### Recommendation
+### Phase 1 — Create `@axm.sh/e2e-utils`
 
-**(b) `@axm.sh/e2e-utils`** — but defer creation until `cli-e2e` is built.
+Extract shared utilities from `cli-spike-e2e/src/utils.ts` into a reusable
+package.
 
-Right now there are only two E2E projects. Start by duplicating (option a) when
-creating `cli-e2e`. When the third E2E project appears — or when a non-trivial
-utility change needs to be applied to both — extract the shared code into
-`@axm.sh/e2e-utils` at that point.
+- [ ] Create `packages/e2e-utils/package.json` (private, deps: `execa`)
+- [ ] Create `packages/e2e-utils/project.json` (tags: `type:lib`, `scope:test`)
+- [ ] Create `packages/e2e-utils/tsconfig.json` + `tsconfig.spec.json`
+- [ ] Create `src/types.ts` — `CliResult`, `RunCliOptions` interfaces
+- [ ] Create `src/temp-dir.ts` — `TempDirContext`, `createTempDir()`
+- [ ] Create `src/fixtures.ts` — `copyFixture()` helper
+- [ ] Create `src/runner.ts` — `createCliRunner(artifactPath)` factory
+- [ ] Create `src/index.ts` — barrel export
+- [ ] Verify: `pnpm install` succeeds, `pnpm typecheck` passes
 
-This follows the project's own principle: "Don't create helpers, utilities, or
-abstractions for one-time operations. Don't design for hypothetical future
-requirements."
+### Phase 2 — Migrate `cli-spike-e2e` to `e2e-utils`
 
-### Implementation sequence
+Replace inline utilities with imports from the shared package.
 
-1. Create `cli-e2e` with its own `utils.ts` (duplicate from `cli-spike-e2e`,
-   point at `cli/dist/src/main.js`)
-2. Copy fixtures from `packages/cli/src/e2e/fixtures/` into
-   `packages/cli-e2e/src/fixtures/` (self-contained)
-3. Write smoke tests + key workflow tests
-4. When a third E2E project is needed, extract shared code into
-   `@axm.sh/e2e-utils` using the `createCliRunner` factory pattern
+- [ ] Add `@axm.sh/e2e-utils: "workspace:*"` to `cli-spike-e2e` devDependencies
+- [ ] Remove `execa` from `cli-spike-e2e` devDependencies
+- [ ] Rewrite `cli-spike-e2e/src/utils.ts` to bind `createCliRunner` to
+      `../../cli-spike/dist/src/main.js`
+- [ ] Run `pnpm install`
+- [ ] Verify: `pnpm nx e2e cli-spike-e2e` passes (existing smoke test still works)
+
+### Phase 3 — Create `cli-e2e` project scaffold
+
+Stand up the new E2E project with boilerplate and initial smoke test.
+
+- [ ] Create `packages/cli-e2e/package.json` (devDeps: `@axm.sh/e2e-utils`,
+      `vitest`, `typescript`, `yaml`)
+- [ ] Create `packages/cli-e2e/project.json` (tags: `type:e2e`, `scope:cli`;
+      `e2e` target with `dependsOn: ["cli:build"]`)
+- [ ] Create `packages/cli-e2e/vitest.config.ts` (`*.e2e.test.ts` pattern, 30s
+      timeout)
+- [ ] Create `packages/cli-e2e/tsconfig.json` + `tsconfig.spec.json`
+- [ ] Create `src/utils.ts` — bind `createCliRunner` to
+      `../../cli/dist/src/main.js`, export `FIXTURES_PATH`
+- [ ] Copy `packages/cli/src/e2e/fixtures/` into
+      `packages/cli-e2e/src/fixtures/` (self-contained copy)
+- [ ] Create `src/smoke.e2e.test.ts` — `--help`, `--version`, unknown command,
+      exit codes
+- [ ] Run `pnpm install`
+- [ ] Verify: `pnpm nx e2e cli-e2e` passes smoke tests against built artifact
+
+### Phase 4 — Migrate co-located E2E tests into `cli-e2e`
+
+Move the 27 existing co-located tests, consolidating by feature area. Each
+migrated test must pass against the built artifact before the co-located
+original is removed.
+
+**Smoke & top-level** (→ `smoke.e2e.test.ts`)
+- [ ] Migrate `src/command.e2e.test.ts` (root CLI tests)
+- [ ] Migrate `src/cli-commands/structured-output.e2e.test.ts`
+
+**Init** (→ `init.e2e.test.ts`)
+- [ ] Migrate `src/cli-commands/init/command.e2e.test.ts`
+
+**Skills** (→ `skills.e2e.test.ts`)
+- [ ] Migrate `src/cli-commands/skills/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/install/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/install/preview.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/install/registry-install.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/install/rebuild-lockfile.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/list/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/uninstall/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/uninstall/registry-uninstall.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/update/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/enable/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/disable/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/new/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/rename/command.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/fork/fork.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/fork/registry-guard.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/skills/publish/publish.e2e.test.ts`
+
+**Auth** (→ `auth.e2e.test.ts`)
+- [ ] Migrate `src/cli-commands/auth/auth.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/auth/login/login.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/auth/logout/logout.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/auth/whoami/whoami.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/auth/token/token.e2e.test.ts`
+
+**Packs** (→ `packs.e2e.test.ts`)
+- [ ] Migrate `src/cli-commands/packs/packs.e2e.test.ts`
+- [ ] Migrate `src/cli-commands/packs/publish/publish.e2e.test.ts`
+
+**TUI** (→ `tui.e2e.test.ts`)
+- [ ] Migrate `src/dev-cli-commands/tui/command.e2e.test.ts`
+
+- [ ] Verify: `pnpm nx e2e cli-e2e` passes all migrated tests
+
+### Phase 5 — Remove co-located E2E tests and update scripts
+
+Clean up the CLI package and wire `pnpm test:e2e` to E2E project targets.
+
+- [ ] Delete all `*.e2e.test.ts` files from `packages/cli/src/`
+- [ ] Delete `packages/cli/src/e2e/utils.ts` and `packages/cli/src/e2e/utils.test.ts`
+- [ ] Delete `packages/cli/src/e2e/fixtures/` (now owned by `cli-e2e`)
+- [ ] Remove E2E-related vitest config from `packages/cli/` (if separate)
+- [ ] Update root `pnpm test:e2e` script to run `nx run-many -t e2e` (targets
+      `cli-e2e` and `cli-spike-e2e`)
+- [ ] Verify: `pnpm test:e2e` runs both E2E projects
+- [ ] Verify: `pnpm test` no longer picks up any `*.e2e.test.ts` in CLI packages
+- [ ] Update CLAUDE.md testing section to reflect new E2E structure

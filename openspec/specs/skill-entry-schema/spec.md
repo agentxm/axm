@@ -20,22 +20,6 @@ The `SkillEntrySchema` SHALL be a union of two forms only: a plain string and a 
 - **THEN** settings validation SHALL fail
 - **AND** the failure SHALL indicate the marker-based unmanaged form is unsupported in this model
 
-### Requirement: NormalizedSkillEntry internal representation
-
-Internal workspace and handler logic SHALL treat configured skill settings entries as configured lifecycle inputs (`source: string`, `enabled: boolean`) and SHALL derive unmanaged status from classifier inputs instead of entry markers.
-
-#### Scenario: Configured entry keeps concrete source string
-
-- **WHEN** a configured skill entry is read from settings
-- **THEN** the configured representation SHALL expose `source` as `string`
-- **AND** the representation SHALL NOT include a `managed` boolean
-
-#### Scenario: Unmanaged status is classifier-derived
-
-- **WHEN** a skill appears on disk but has no configured settings entry
-- **THEN** unmanaged status SHALL be derived by classification
-- **AND** settings entry shape SHALL remain unchanged
-
 ### Requirement: Collapse on write
 
 The collapse/write path for skill entries SHALL emit only configured-entry forms: plain source string for enabled defaults, or object form when non-default fields are needed.
@@ -49,24 +33,3 @@ The collapse/write path for skill entries SHALL emit only configured-entry forms
 
 - **WHEN** a configured skill has `source: "github:owner/repo"` and `enabled: false`
 - **THEN** it SHALL collapse to `{ source: "github:owner/repo", enabled: false }`
-
-### Requirement: Workspace service entry access
-
-Workspace service skill getters SHALL expose classifier-consistent lifecycle views, with configured entries from settings and installed entries from configured-plus-implicit classification.
-
-#### Scenario: getConfiguredSkills returns configured entries only
-
-- **WHEN** `getConfiguredSkills()` is called
-- **THEN** it SHALL return only configured settings entries
-- **AND** each returned value SHALL include configured source and enabled state
-
-#### Scenario: getInstalledSkills returns configured plus implicit
-
-- **WHEN** `getInstalledSkills()` is called
-- **THEN** it SHALL return configured and implicit installed entries
-- **AND** it SHALL exclude unmanaged and ignored names
-
-#### Scenario: updateSkillEntry fails for missing configured skill
-
-- **WHEN** `updateSkillEntry(name, updater)` is called with a name not present in configured settings entries
-- **THEN** it SHALL fail with `SKILL_NOT_FOUND`

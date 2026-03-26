@@ -109,11 +109,15 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 ### Project Structure
 
 ```
+nx.json               # Nx workspace config (plugins, target defaults, caching)
+project.json          # Root project (format, lint for root files)
 packages/
   core/             # @axm.sh/core - Shared domain types and schemas
+    project.json    # Nx project config (metadata + tags only — targets inferred)
     src/
       unstable/     # All code lives here — package is highly unstable
   cli/              # @axm.sh/cli - CLI and domain logic
+    project.json    # Nx project config (explicit build + e2e, rest inferred)
     src/
       e2e/          # E2E test utilities and fixtures
         fixtures/

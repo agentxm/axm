@@ -69,8 +69,21 @@ export default [
       ],
       // Ban type assertions (as T) — use type-safe alternatives (warn until existing violations are fixed)
       "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
-      // Ban non-null assertions (value!) — use ?? or assertion functions (warn until existing violations are fixed)
-      "@typescript-eslint/no-non-null-assertion": "warn",
+      // Ban non-null assertions (value!) — use ?? or assertion functions
+      "@typescript-eslint/no-non-null-assertion": "error",
+      // Ban explicit any — use unknown and narrow instead
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
+    files: ["**/*.ts", "**/*.tsx", "**/*.cts", "**/*.mts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
     },
   },
 ];

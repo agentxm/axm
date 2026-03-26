@@ -179,6 +179,10 @@ Example: `handleInit(args: InitArgs)` is the entry point for the `init` command,
 
 ## TypeScript
 
+### TS41 Messages
+
+Address TS41xx diagnostic messages (template literal type errors) when discovered. Do not ignore or suppress them — fix the underlying type issue.
+
 ### Module Exports
 
 One barrel file (`index.ts`) per folder. Each type is exported from exactly one place—no re-exporting across modules.

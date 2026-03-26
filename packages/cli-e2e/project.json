@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli-e2e",
+  "projectType": "application",
+  "root": "packages/cli-e2e",
+  "sourceRoot": "packages/cli-e2e/src",
+  "tags": ["type:e2e", "scope:cli"],
+  "targets": {
+    "e2e": {
+      "dependsOn": ["cli:build"],
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli-e2e/vitest.config.ts"
+      }
+    }
+  }
+}

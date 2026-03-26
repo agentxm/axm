@@ -117,19 +117,17 @@ packages/
     src/
       unstable/     # All code lives here — package is highly unstable
   cli/              # @axm.sh/cli - CLI and domain logic
-    project.json    # Nx project config (explicit build + e2e, rest inferred)
+    project.json    # Nx project config (explicit build, rest inferred)
     src/
-      e2e/          # E2E test utilities and fixtures
-        fixtures/
-        utils.ts
       commands/     # CLI commands (nested by subcommand)
         <command>/
           <subcommand>/
             handler.ts           # Business logic
             handler.test.ts      # Handler tests
             command.ts           # Parser-agnostic command runner
-            command.e2e.test.ts  # CLI contract tests (co-located when useful)
   cli-spike/        # @axm.sh/cli-spike - Effect v4 CLI spike
+  e2e-utils/        # @axm.sh/e2e-utils - Shared helpers for distribution E2E
+  cli-e2e/          # Distribution E2E tests for cli (tests built artifact)
   cli-spike-e2e/    # Distribution E2E tests for cli-spike (tests built artifact)
       lockfile/     # Lockfile feature
         lockfile.ts              # Core logic + LOCKFILE_NAME constant
@@ -702,10 +700,9 @@ const value = Option.getOrThrow(maybeValue); // Throws if None
 - [ ] Implement until tests pass
 - [ ] Bug fix → regression test first
 - [ ] **Unit tests** (`*.test.ts`) for pure functions, handlers, business logic, error paths
-- [ ] **Co-located E2E tests** (`*.e2e.test.ts`) for dev-time CLI behavior verification
-      → Co-located with command handlers, run against source via `bun run src/main.ts`
 - [ ] **Distribution E2E tests** (`packages/<cli>-e2e/`) for verifying built artifacts
       → Separate package, zero internal deps, runs against `dist/` output
+      → Shared subprocess/temp-dir helpers live in `packages/e2e-utils/`
       → Catches build/bundle failures, missing deps, entry point wiring, platform issues
 
 ### Test Organization

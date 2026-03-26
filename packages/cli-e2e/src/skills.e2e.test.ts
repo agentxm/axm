@@ -1,0 +1,16 @@
+import "./cli-commands/skills/command.e2e.js";
+import "./cli-commands/skills/disable/command.e2e.js";
+import "./cli-commands/skills/enable/command.e2e.js";
+import "./cli-commands/skills/fork/fork.e2e.js";
+import "./cli-commands/skills/fork/registry-guard.e2e.js";
+import "./cli-commands/skills/install/command.e2e.js";
+import "./cli-commands/skills/install/preview.e2e.js";
+import "./cli-commands/skills/install/rebuild-lockfile.e2e.js";
+import "./cli-commands/skills/install/registry-install.e2e.js";
+import "./cli-commands/skills/list/command.e2e.js";
+import "./cli-commands/skills/new/command.e2e.js";
+import "./cli-commands/skills/publish/publish.e2e.js";
+import "./cli-commands/skills/rename/command.e2e.js";
+import "./cli-commands/skills/uninstall/command.e2e.js";
+import "./cli-commands/skills/uninstall/registry-uninstall.e2e.js";
+import "./cli-commands/skills/update/command.e2e.js";

@@ -256,46 +256,48 @@ export { createTempDir };
 Extract shared utilities from `cli-spike-e2e/src/utils.ts` into a reusable
 package.
 
-- [ ] Create `packages/e2e-utils/package.json` (private, deps: `execa`)
-- [ ] Create `packages/e2e-utils/project.json` (tags: `type:lib`, `scope:test`)
-- [ ] Create `packages/e2e-utils/tsconfig.json` + `tsconfig.spec.json`
-- [ ] Create `src/types.ts` — `CliResult`, `RunCliOptions` interfaces
-- [ ] Create `src/temp-dir.ts` — `TempDirContext`, `createTempDir()`
-- [ ] Create `src/fixtures.ts` — `copyFixture()` helper
-- [ ] Create `src/runner.ts` — `createCliRunner(artifactPath)` factory
-- [ ] Create `src/index.ts` — barrel export
-- [ ] Verify: `pnpm install` succeeds, `pnpm typecheck` passes
+- [x] Create `packages/e2e-utils/package.json` (private, deps: `execa`)
+- [x] Create `packages/e2e-utils/project.json` (tags: `type:lib`, `scope:test`)
+- [x] Create `packages/e2e-utils/tsconfig.json` + `tsconfig.spec.json`
+- [x] Create `src/types.ts` — `CliResult`, `RunCliOptions` interfaces
+- [x] Create `src/temp-dir.ts` — `TempDirContext`, `createTempDir()`
+- [x] Create `src/fixtures.ts` — `copyFixture()` helper
+- [x] Create `src/runner.ts` — `createCliRunner(artifactPath)` factory
+- [x] Create `src/index.ts` — barrel export
+- [x] Verify: `pnpm install` succeeds, `pnpm typecheck` passes
 
 ### Phase 2 — Migrate `cli-spike-e2e` to `e2e-utils`
 
 Replace inline utilities with imports from the shared package.
 
-- [ ] Add `@axm.sh/e2e-utils: "workspace:*"` to `cli-spike-e2e` devDependencies
-- [ ] Remove `execa` from `cli-spike-e2e` devDependencies
-- [ ] Rewrite `cli-spike-e2e/src/utils.ts` to bind `createCliRunner` to
+- [x] Add `@axm.sh/e2e-utils: "workspace:*"` to `cli-spike-e2e` devDependencies
+- [x] Remove `execa` from `cli-spike-e2e` devDependencies
+- [x] Rewrite `cli-spike-e2e/src/utils.ts` to bind `createCliRunner` to
       `../../cli-spike/dist/src/main.js`
-- [ ] Run `pnpm install`
-- [ ] Verify: `pnpm nx e2e cli-spike-e2e` passes (existing smoke test still works)
+- [x] Run `pnpm install`
+- [x] Verify: `pnpm nx e2e cli-spike-e2e` passes (existing smoke test still works)
 
 ### Phase 3 — Create `cli-e2e` project scaffold
 
 Stand up the new E2E project with boilerplate and initial smoke test.
 
-- [ ] Create `packages/cli-e2e/package.json` (devDeps: `@axm.sh/e2e-utils`,
+Progress note: scaffold is complete and verified. `cli-e2e` now runs successfully against the built CLI artifact.
+
+- [x] Create `packages/cli-e2e/package.json` (devDeps: `@axm.sh/e2e-utils`,
       `vitest`, `typescript`, `yaml`)
-- [ ] Create `packages/cli-e2e/project.json` (tags: `type:e2e`, `scope:cli`;
+- [x] Create `packages/cli-e2e/project.json` (tags: `type:e2e`, `scope:cli`;
       `e2e` target with `dependsOn: ["cli:build"]`)
-- [ ] Create `packages/cli-e2e/vitest.config.ts` (`*.e2e.test.ts` pattern, 30s
+- [x] Create `packages/cli-e2e/vitest.config.ts` (`*.e2e.test.ts` pattern, 30s
       timeout)
-- [ ] Create `packages/cli-e2e/tsconfig.json` + `tsconfig.spec.json`
-- [ ] Create `src/utils.ts` — bind `createCliRunner` to
+- [x] Create `packages/cli-e2e/tsconfig.json` + `tsconfig.spec.json`
+- [x] Create `src/utils.ts` — bind `createCliRunner` to
       `../../cli/dist/src/main.js`, export `FIXTURES_PATH`
-- [ ] Copy `packages/cli/src/e2e/fixtures/` into
+- [x] Copy `packages/cli/src/e2e/fixtures/` into
       `packages/cli-e2e/src/fixtures/` (self-contained copy)
-- [ ] Create `src/smoke.e2e.test.ts` — `--help`, `--version`, unknown command,
+- [x] Create `src/smoke.e2e.test.ts` — `--help`, `--version`, unknown command,
       exit codes
-- [ ] Run `pnpm install`
-- [ ] Verify: `pnpm nx e2e cli-e2e` passes smoke tests against built artifact
+- [x] Run `pnpm install`
+- [x] Verify: `pnpm nx e2e cli-e2e` passes smoke tests against built artifact
 
 ### Phase 4 — Migrate co-located E2E tests into `cli-e2e`
 
@@ -303,57 +305,59 @@ Move the 27 existing co-located tests, consolidating by feature area. Each
 migrated test must pass against the built artifact before the co-located
 original is removed.
 
+Progress note: all 27 source E2E files are copied into `cli-e2e` as non-entry modules, wired through feature-area entry files, and verified against the built artifact.
+
 **Smoke & top-level** (→ `smoke.e2e.test.ts`)
-- [ ] Migrate `src/command.e2e.test.ts` (root CLI tests)
-- [ ] Migrate `src/cli-commands/structured-output.e2e.test.ts`
+- [x] Migrate `src/command.e2e.test.ts` (root CLI tests)
+- [x] Migrate `src/cli-commands/structured-output.e2e.test.ts`
 
 **Init** (→ `init.e2e.test.ts`)
-- [ ] Migrate `src/cli-commands/init/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/init/command.e2e.test.ts`
 
 **Skills** (→ `skills.e2e.test.ts`)
-- [ ] Migrate `src/cli-commands/skills/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/install/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/install/preview.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/install/registry-install.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/install/rebuild-lockfile.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/list/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/uninstall/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/uninstall/registry-uninstall.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/update/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/enable/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/disable/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/new/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/rename/command.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/fork/fork.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/fork/registry-guard.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/skills/publish/publish.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/install/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/install/preview.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/install/registry-install.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/install/rebuild-lockfile.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/list/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/uninstall/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/uninstall/registry-uninstall.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/update/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/enable/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/disable/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/new/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/rename/command.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/fork/fork.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/fork/registry-guard.e2e.test.ts`
+- [x] Migrate `src/cli-commands/skills/publish/publish.e2e.test.ts`
 
 **Auth** (→ `auth.e2e.test.ts`)
-- [ ] Migrate `src/cli-commands/auth/auth.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/auth/login/login.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/auth/logout/logout.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/auth/whoami/whoami.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/auth/token/token.e2e.test.ts`
+- [x] Migrate `src/cli-commands/auth/auth.e2e.test.ts`
+- [x] Migrate `src/cli-commands/auth/login/login.e2e.test.ts`
+- [x] Migrate `src/cli-commands/auth/logout/logout.e2e.test.ts`
+- [x] Migrate `src/cli-commands/auth/whoami/whoami.e2e.test.ts`
+- [x] Migrate `src/cli-commands/auth/token/token.e2e.test.ts`
 
 **Packs** (→ `packs.e2e.test.ts`)
-- [ ] Migrate `src/cli-commands/packs/packs.e2e.test.ts`
-- [ ] Migrate `src/cli-commands/packs/publish/publish.e2e.test.ts`
+- [x] Migrate `src/cli-commands/packs/packs.e2e.test.ts`
+- [x] Migrate `src/cli-commands/packs/publish/publish.e2e.test.ts`
 
 **TUI** (→ `tui.e2e.test.ts`)
-- [ ] Migrate `src/dev-cli-commands/tui/command.e2e.test.ts`
+- [x] Migrate `src/dev-cli-commands/tui/command.e2e.test.ts`
 
-- [ ] Verify: `pnpm nx e2e cli-e2e` passes all migrated tests
+- [x] Verify: `pnpm nx e2e cli-e2e` passes all migrated tests
 
 ### Phase 5 — Remove co-located E2E tests and update scripts
 
 Clean up the CLI package and wire `pnpm test:e2e` to E2E project targets.
 
-- [ ] Delete all `*.e2e.test.ts` files from `packages/cli/src/`
-- [ ] Delete `packages/cli/src/e2e/utils.ts` and `packages/cli/src/e2e/utils.test.ts`
-- [ ] Delete `packages/cli/src/e2e/fixtures/` (now owned by `cli-e2e`)
-- [ ] Remove E2E-related vitest config from `packages/cli/` (if separate)
-- [ ] Update root `pnpm test:e2e` script to run `nx run-many -t e2e` (targets
+- [x] Delete all `*.e2e.test.ts` files from `packages/cli/src/`
+- [x] Delete `packages/cli/src/e2e/utils.ts` and `packages/cli/src/e2e/utils.test.ts`
+- [x] Delete `packages/cli/src/e2e/fixtures/` (now owned by `cli-e2e`)
+- [x] Remove E2E-related vitest config from `packages/cli/` (if separate)
+- [x] Update root `pnpm test:e2e` script to run `nx run-many -t e2e` (targets
       `cli-e2e` and `cli-spike-e2e`)
-- [ ] Verify: `pnpm test:e2e` runs both E2E projects
-- [ ] Verify: `pnpm test` no longer picks up any `*.e2e.test.ts` in CLI packages
-- [ ] Update CLAUDE.md testing section to reflect new E2E structure
+- [x] Verify: `pnpm test:e2e` runs both E2E projects
+- [x] Verify: `pnpm test` no longer picks up any `*.e2e.test.ts` in CLI packages
+- [x] Update CLAUDE.md testing section to reflect new E2E structure

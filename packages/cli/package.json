@@ -75,7 +75,7 @@
     "prepublishOnly": "nx run cli:build",
     "generate:schemas": "nx run cli:generate-schemas",
     "test": "nx run cli:test",
-    "test:e2e": "nx run cli:e2e",
+    "test:e2e": "nx run cli-e2e:e2e",
     "axm": "nx run cli:start",
     "axm:local": "nx run cli:start-local",
     "axm-dev": "nx run cli:dev",
@@ -102,7 +102,6 @@
   "devDependencies": {
     "@types/bun": "catalog:",
     "@types/semver": "^7.5.8",
-    "execa": "^9.6.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

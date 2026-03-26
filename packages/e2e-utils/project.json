@@ -1,0 +1,8 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "e2e-utils",
+  "projectType": "library",
+  "root": "packages/e2e-utils",
+  "sourceRoot": "packages/e2e-utils/src",
+  "tags": ["type:lib", "scope:test"]
+}

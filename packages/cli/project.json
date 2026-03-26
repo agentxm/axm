@@ -40,12 +40,6 @@
         "configFile": "packages/cli/vitest.config.ts"
       }
     },
-    "e2e": {
-      "executor": "@nx/vitest:test",
-      "options": {
-        "configFile": "packages/cli/vitest.e2e.config.ts"
-      }
-    },
     "generate-schemas": {
       "dependsOn": ["build"],
       "executor": "nx:run-commands",

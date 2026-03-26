@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
+import { discoverSkillsInDir } from "../../root/skills/install/discover-skills.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import { fileUrlToPath } from "@axm.sh/core/unstable/sources";

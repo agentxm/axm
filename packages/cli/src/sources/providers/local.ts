@@ -13,7 +13,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
+import { discoverSkillsInDir } from "../../root/skills/install/discover-skills.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
 import type { SourceHostProvider, LocalSource, ExtensionRef } from "@axm.sh/core/unstable/sources";

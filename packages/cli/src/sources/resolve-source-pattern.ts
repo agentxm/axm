@@ -19,7 +19,7 @@ import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import {
   discoverSkillsInDir,
   type DiscoveredSkill,
-} from "../cli-commands/skills/install/discover-skills.js";
+} from "../root/skills/install/discover-skills.js";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";

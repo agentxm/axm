@@ -1,7 +1,7 @@
 import * as Layer from "effect/Layer";
 
-import { InstallMcpServerCommandWorkflowActionsLive } from "../../cli-commands/mcp-servers/install/command-actions.js";
-import { UninstallMcpServerCommandWorkflowActionsLive } from "../../cli-commands/mcp-servers/uninstall/command-actions.js";
+import { InstallMcpServerCommandWorkflowActionsLive } from "../../root/mcp-servers/install/command-actions.js";
+import { UninstallMcpServerCommandWorkflowActionsLive } from "../../root/mcp-servers/uninstall/command-actions.js";
 
 import { McpServerManagerLive } from "./manager.js";
 

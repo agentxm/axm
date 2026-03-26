@@ -11,16 +11,16 @@ import { setRootCommand, showHelpFor } from "./help.js";
 import { axmGlobalFlags, baseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
-import { authCommand } from "./commands/auth/command.js";
-import { loginCommand } from "./commands/auth/login.js";
-import { logoutCommand } from "./commands/auth/logout.js";
-import { whoamiCommand } from "./commands/auth/whoami.js";
-import { tokenCommand } from "./commands/auth/token.js";
-import { initCommand } from "./commands/init/command.js";
-import { skillsCommand } from "./commands/skills/command.js";
-import { packsCommand } from "./commands/packs/command.js";
-import { commandsCommand } from "./commands/commands/command.js";
-import { mcpServersCommand } from "./commands/mcp-servers/command.js";
+import { authCommand } from "./root/auth/command.js";
+import { loginCommand } from "./root/auth/login/command.js";
+import { logoutCommand } from "./root/auth/logout/command.js";
+import { whoamiCommand } from "./root/auth/whoami/command.js";
+import { tokenCommand } from "./root/auth/token/command.js";
+import { initCommand } from "./root/init/command.js";
+import { skillsCommand } from "./root/skills/command.js";
+import { packsCommand } from "./root/packs/command.js";
+import { commandsCommand } from "./root/commands/command.js";
+import { mcpServersCommand } from "./root/mcp-servers/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();

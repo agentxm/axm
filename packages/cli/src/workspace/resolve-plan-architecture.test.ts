@@ -9,8 +9,8 @@ const readCliFile = (relativePath: string): string =>
 
 describe("resolvePlan architecture guardrails", () => {
   it("install command handlers delegate to shared workflows", () => {
-    const skillInstallHandler = readCliFile("cli-commands/skills/install/handler.ts");
-    const packInstallHandler = readCliFile("cli-commands/packs/install/handler.ts");
+    const skillInstallHandler = readCliFile("root/skills/install/handler.ts");
+    const packInstallHandler = readCliFile("root/packs/install/handler.ts");
 
     // Both delegate to shared install command workflow
     expect(skillInstallHandler).toContain("runInstallCommandWorkflow");

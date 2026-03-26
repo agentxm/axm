@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { getTreeSha } from "./operations.js";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError } from "../app-error/index.js";
 
 describe("git", () => {
   let tempDir: string;

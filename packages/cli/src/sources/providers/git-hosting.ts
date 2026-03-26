@@ -15,7 +15,7 @@ import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../../root/skills/install/discover-skills.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { getTreeSha, shallowClone } from "../../git/index.js";
+import { getTreeSha, shallowClone } from "@axm.sh/core/unstable/git";
 import { fileUrlToPath } from "@axm.sh/core/unstable/sources";
 import type {
   SourceHostProvider,

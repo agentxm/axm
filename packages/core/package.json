@@ -105,6 +105,10 @@
     "./unstable/cli-renderer": {
       "types": "./src/unstable/cli-renderer/index.ts",
       "default": "./dist/src/unstable/cli-renderer/index.js"
+    },
+    "./unstable/git": {
+      "types": "./src/unstable/git/index.ts",
+      "default": "./dist/src/unstable/git/index.js"
     }
   },
   "files": [
@@ -128,6 +132,7 @@
     "@clack/prompts": "^1.0.1",
     "picocolors": "^1.1.1",
     "semver": "^7.7.1",
+    "simple-git": "^3.27.0",
     "yaml": "^2.8.2",
     "jsonc-parser": "^3.3.1"
   },

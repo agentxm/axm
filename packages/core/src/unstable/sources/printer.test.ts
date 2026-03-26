@@ -8,7 +8,7 @@ import type { SourceParams } from "./types.js";
 const makeSourceParams = (source: SourceParams): SourceParams => source;
 
 const baseLockFields = {
-  agents: [] as string[],
+  agents: Array<string>(),
   installedAt: new Date("2025-01-01T00:00:00.000Z"),
   updatedAt: new Date("2025-01-01T00:00:00.000Z"),
 };

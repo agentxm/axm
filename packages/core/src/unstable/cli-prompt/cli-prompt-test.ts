@@ -54,8 +54,12 @@ export interface TestPromptState {
 
 const makeQueue = <T>(items: ReadonlyArray<T> | undefined): Array<T> => Array.from(items ?? []);
 
-// Assertion needed: test mock queues store `unknown` but generic methods expect `V`.
-// This is acceptable per conventions — single assertion at mock boundary.
+const erasePromptType = <T>(value: unknown): T => {
+  // Assertion needed: generic prompt values cross a test-only erased boundary.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as T;
+};
+
 const popAs = <T>(queue: Array<unknown>, method: string): Effect.Effect<T> => {
   const value = queue.shift();
   if (value === undefined) {
@@ -66,7 +70,7 @@ const popAs = <T>(queue: Array<unknown>, method: string): Effect.Effect<T> => {
       ),
     );
   }
-  return Effect.succeed(value as T);
+  return Effect.succeed(erasePromptType<T>(value));
 };
 
 export const makeTestPrompt = (
@@ -96,9 +100,8 @@ export const makeTestPrompt = (
   const autocompleteMultiselectQueue = makeQueue(config.autocompleteMultiselectResponses);
   const pathQueue = makeQueue(config.pathResponses);
 
-  // Assertion needed: generic method opts are stored in unknown-typed arrays at mock boundary.
-  const pushOpts = <T>(calls: Array<T>, opts: unknown) => {
-    calls.push(opts as T);
+  const pushOpts = <TStored, TValue>(calls: Array<TStored>, opts: TValue) => {
+    calls.push(erasePromptType<TStored>(opts));
   };
 
   const layer = Layer.succeed(CliPrompt, {
@@ -114,29 +117,29 @@ export const makeTestPrompt = (
       state.confirmCalls.push(opts);
       return popAs<boolean>(confirmQueue, "confirm");
     },
-    select: (opts) => {
+    select: <V>(opts: SelectOpts<V>) => {
       pushOpts(state.selectCalls, opts);
-      return popAs(selectQueue, "select");
+      return popAs<V>(selectQueue, "select");
     },
-    multiselect: (opts) => {
+    multiselect: <V>(opts: MultiselectOpts<V>) => {
       pushOpts(state.multiselectCalls, opts);
-      return popAs(multiselectQueue, "multiselect");
+      return popAs<ReadonlyArray<V>>(multiselectQueue, "multiselect");
     },
-    groupMultiselect: (opts) => {
+    groupMultiselect: <V>(opts: GroupMultiselectOpts<V>) => {
       pushOpts(state.groupMultiselectCalls, opts);
-      return popAs(groupMultiselectQueue, "groupMultiselect");
+      return popAs<ReadonlyArray<V>>(groupMultiselectQueue, "groupMultiselect");
     },
-    selectKey: (opts) => {
+    selectKey: <V extends string>(opts: SelectKeyOpts<V>) => {
       pushOpts(state.selectKeyCalls, opts);
-      return popAs(selectKeyQueue, "selectKey");
+      return popAs<V>(selectKeyQueue, "selectKey");
     },
-    autocomplete: (opts) => {
+    autocomplete: <V>(opts: AutocompleteOpts<V>) => {
       pushOpts(state.autocompleteCalls, opts);
-      return popAs(autocompleteQueue, "autocomplete");
+      return popAs<V>(autocompleteQueue, "autocomplete");
     },
-    autocompleteMultiselect: (opts) => {
+    autocompleteMultiselect: <V>(opts: AutocompleteMultiselectOpts<V>) => {
       pushOpts(state.autocompleteMultiselectCalls, opts);
-      return popAs(autocompleteMultiselectQueue, "autocompleteMultiselect");
+      return popAs<ReadonlyArray<V>>(autocompleteMultiselectQueue, "autocompleteMultiselect");
     },
     path: (opts) => {
       state.pathCalls.push(opts);

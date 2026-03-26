@@ -14,8 +14,16 @@ import type { UninstallPackOperation } from "../../../extensions/packs/operation
 import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { buildUnpackPlan } from "./plan.js";
 
-// Assertion needed: plan builders only produce LegacyPlannedStep
-const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
+const isPlannedStep = <T>(step: { readonly _tag: string }): step is LegacyPlannedStep<T> =>
+  step._tag === "PlannedJobStep";
+
+const planned = <T>(step: { readonly _tag: string }): LegacyPlannedStep<T> => {
+  if (!isPlannedStep<T>(step)) {
+    throw new Error("Expected PlannedJobStep");
+  }
+
+  return step;
+};
 
 type PackUnpackOperation =
   | InstallSkillOperation
@@ -39,6 +47,33 @@ const getSteps = (plan: PackUnpackPlan) => getJob(plan).steps;
 
 const getStep = (steps: ReadonlyArray<PackUnpackStep>, index: number) =>
   getItem(steps, index, "step");
+
+function expectOperation(
+  operation: PackUnpackOperation,
+  name: "install-skill",
+): InstallSkillOperation;
+function expectOperation(
+  operation: PackUnpackOperation,
+  name: "install-command",
+): InstallCommandOperation;
+function expectOperation(
+  operation: PackUnpackOperation,
+  name: "install-mcp-server",
+): InstallMcpServerOperation;
+function expectOperation(
+  operation: PackUnpackOperation,
+  name: "uninstall-pack",
+): UninstallPackOperation;
+function expectOperation(
+  operation: PackUnpackOperation,
+  name: PackUnpackOperation["name"],
+): PackUnpackOperation {
+  if (operation.name !== name) {
+    throw new Error(`Expected operation ${name}, received ${operation.name}`);
+  }
+
+  return operation;
+}
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -353,13 +388,13 @@ describe("buildUnpackPlan", () => {
     });
 
     const steps = getSteps(plan);
-    const skillOp = getStep(steps, 0).operation as InstallSkillOperation;
+    const skillOp = expectOperation(getStep(steps, 0).operation, "install-skill");
     expect(skillOp.args.ref.refType === "registry" && skillOp.args.ref.integrity).toBe("");
 
-    const cmdOp = getStep(steps, 1).operation as InstallCommandOperation;
+    const cmdOp = expectOperation(getStep(steps, 1).operation, "install-command");
     expect(cmdOp.args.ref.refType === "registry" && cmdOp.args.ref.integrity).toBe("");
 
-    const serverOp = getStep(steps, 2).operation as InstallMcpServerOperation;
+    const serverOp = expectOperation(getStep(steps, 2).operation, "install-mcp-server");
     expect(serverOp.args.ref.refType === "registry" && serverOp.args.ref.integrity).toBe("");
   });
 
@@ -377,7 +412,7 @@ describe("buildUnpackPlan", () => {
     });
 
     const steps = getSteps(plan);
-    const skillOp = getStep(steps, 0).operation as InstallSkillOperation;
+    const skillOp = expectOperation(getStep(steps, 0).operation, "install-skill");
     expect(Option.isNone(skillOp.args.skipSettings)).toBe(true);
   });
 });

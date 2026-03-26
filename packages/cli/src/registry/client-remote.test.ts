@@ -16,6 +16,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { createRemoteRegistryClient, mapProblemDetailToAppError } from "./client-remote.js";
 import type { PublishExtensionArgs } from "./client.js";
 import type { VersionEntry } from "./local-schema.js";
+import { expectDefined } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -404,13 +405,15 @@ describe("createRemoteRegistryClient", () => {
           }),
         );
 
-        expect(capturedBody).toBeDefined();
-        const archivePart = capturedBody!.get("archive");
+        const body = expectDefined(capturedBody, "Expected multipart form body");
+        const archivePart = body.get("archive");
         expect(archivePart).toBeInstanceOf(Blob);
-        expect((archivePart as Blob).type).toBe("application/zip");
-        expect((archivePart as Blob).size).toBe(4);
+        if (archivePart instanceof Blob) {
+          expect(archivePart.type).toBe("application/zip");
+          expect(archivePart.size).toBe(4);
+        }
 
-        const integrityField = capturedBody!.get("integrity");
+        const integrityField = body.get("integrity");
         expect(integrityField).toBe("sha512-test-integrity");
       }),
     );

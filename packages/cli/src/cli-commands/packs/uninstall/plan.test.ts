@@ -4,15 +4,14 @@
  * Tests the uninstall-specific plan builder including skill removal steps.
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
-import type { WorkspaceContextService } from "../../../workspace/index.js";
 import { Workspace } from "../../../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
@@ -69,14 +68,11 @@ const makeOp = (name: string) => ({
   args: { packName: name },
 });
 
-const workspaceMock = {} as WorkspaceContextService;
-
 const { layer: RendererTestLayer } = TestRenderer.make();
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
-  Layer.succeed(Workspace, workspaceMock),
-  Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
-  Layer.succeed(Path.Path, {} as Path.Path),
+  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
+  NodeServices.layer,
 );
 
 const runBuildPlan = (args: BuildUninstallPlanArgs) =>
@@ -309,11 +305,19 @@ describe("buildUninstallPlan", () => {
 
     // Orphaned step is ready with run closure (not no-op)
     const steps = getSteps(plan);
-    const orphanedStep = findStep(steps, (step) => step.label === "@acme/skills/orphaned", "orphaned skill step");
+    const orphanedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/skills/orphaned",
+      "orphaned skill step",
+    );
     expect(orphanedStep.readiness).toBe("ready");
 
     // Preserved step is ready no-op
-    const preservedStep = findStep(steps, (step) => step.label === "@acme/skills/code-review", "preserved skill step");
+    const preservedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/skills/code-review",
+      "preserved skill step",
+    );
     expect(preservedStep.readiness).toBe("ready");
     expect(isNoOp(preservedStep, "preserved")).toBe(true);
   });
@@ -505,8 +509,16 @@ describe("buildUninstallPlan", () => {
     );
 
     const steps = getSteps(plan);
-    const orphanedStep = findStep(steps, (step) => step.label === "@acme/commands/orphaned", "orphaned command step");
-    const preservedStep = findStep(steps, (step) => step.label === "@acme/commands/direct-cmd", "preserved command step");
+    const orphanedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/commands/orphaned",
+      "orphaned command step",
+    );
+    const preservedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/commands/direct-cmd",
+      "preserved command step",
+    );
     expect(orphanedStep.readiness).toBe("ready");
     expect(preservedStep.readiness).toBe("ready");
     expect(isNoOp(preservedStep, "preserved")).toBe(true);
@@ -626,7 +638,11 @@ describe("buildUninstallPlan", () => {
     );
 
     const steps = getSteps(plan);
-    const orphanedStep = findStep(steps, (step) => step.label === "@acme/mcp-servers/orphaned", "orphaned mcp-server step");
+    const orphanedStep = findStep(
+      steps,
+      (step) => step.label === "@acme/mcp-servers/orphaned",
+      "orphaned mcp-server step",
+    );
     const preservedStep = findStep(
       steps,
       (step) => step.label === "@acme/mcp-servers/direct-srv",

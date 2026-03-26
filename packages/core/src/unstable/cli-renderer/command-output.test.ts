@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { column, hidden } from "./annotations.js";
 import { columnsFrom, emitMany, emitOne } from "./command-output.js";
 import { CliRenderer } from "./cli-renderer.js";
+import { expectRecord } from "../test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Assertion helper — avoids non-null assertions per project conventions
@@ -164,7 +165,7 @@ describe("columnsFrom", () => {
         column({
           header: "Address",
           format: (v) => {
-            const rec = v as Record<string, unknown>;
+            const rec = expectRecord(v, "Expected address object");
             return `${String(rec["street"])}, ${String(rec["city"])}`;
           },
         }),
@@ -210,9 +211,31 @@ interface MockCall {
   readonly args: ReadonlyArray<unknown>;
 }
 
+const eraseTestType = <T>(value: unknown): T => {
+  // Assertion needed: generic test mock values cross an erased runtime boundary.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as T;
+};
+
+const expectColumns = (value: unknown): ReadonlyArray<{ readonly key: string }> => {
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (column) =>
+        typeof column !== "object" ||
+        column === null ||
+        !("key" in column) ||
+        typeof column.key !== "string",
+    )
+  ) {
+    throw new Error("Expected columns array");
+  }
+
+  return value;
+};
+
 const makeMockRenderer = (resultReturns: boolean) => {
   const calls: MockCall[] = [];
-  // Assertion needed: mock object shape matches CliRenderer but TS cannot verify generic methods
   const service = {
     intro: () => Effect.void,
     outro: () => Effect.void,
@@ -249,8 +272,9 @@ const makeMockRenderer = (resultReturns: boolean) => {
     resultStream: () => Effect.succeed(resultReturns),
     json: () => Effect.void,
     raw: () => Effect.void,
-  } as unknown as ServiceMap.Service.Shape<typeof CliRenderer>;
-  const layer = Layer.succeed(CliRenderer, service);
+  };
+  const typedService = eraseTestType<ServiceMap.Service.Shape<typeof CliRenderer>>(service);
+  const layer = Layer.succeed(CliRenderer, typedService);
   return { calls, layer };
 };
 
@@ -293,7 +317,7 @@ describe("emitMany", () => {
     assertDefined(tableCall, "Expected table() call");
     expect(tableCall.args[0]).toBe(items);
     // Second arg is the columns array
-    const cols = tableCall.args[1] as ReadonlyArray<{ key: string }>;
+    const cols = expectColumns(tableCall.args[1]);
     expect(cols.map((c) => c.key)).toEqual(["name"]);
     // Third arg is the title
     expect(tableCall.args[2]).toBe("Skills");
@@ -348,7 +372,7 @@ describe("emitOne", () => {
     const detailCall = mock.calls.find((c) => c.method === "detail");
     assertDefined(detailCall, "Expected detail() call");
     expect(detailCall.args[0]).toBe(item);
-    const cols = detailCall.args[1] as ReadonlyArray<{ key: string }>;
+    const cols = expectColumns(detailCall.args[1]);
     expect(cols.map((c) => c.key)).toEqual(["name", "version"]);
     expect(detailCall.args[2]).toBe("Skill Info");
   });

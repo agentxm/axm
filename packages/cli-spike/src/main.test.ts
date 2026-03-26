@@ -24,41 +24,59 @@ interface CaptureServer {
   readonly close: () => Promise<void>;
 }
 
-interface TelemetryErrorPayload {
-  readonly message: string;
-  readonly name: string;
-}
-
-interface TelemetryRequestBody {
-  readonly errors: ReadonlyArray<TelemetryErrorPayload>;
+interface ErrorRequestBody {
+  readonly errors: ReadonlyArray<{ readonly message: string; readonly name: string }>;
   readonly level: string;
   readonly handled: boolean;
-  readonly context: {
-    readonly command: string;
-  };
+  readonly context: { readonly command: string };
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isTelemetryErrorPayload = (value: unknown): value is TelemetryErrorPayload =>
-  isRecord(value) && typeof value["message"] === "string" && typeof value["name"] === "string";
-
-const isTelemetryRequestBody = (value: unknown): value is TelemetryRequestBody =>
-  isRecord(value) &&
-  Array.isArray(value["errors"]) &&
-  value["errors"].every(isTelemetryErrorPayload) &&
-  typeof value["level"] === "string" &&
-  typeof value["handled"] === "boolean" &&
-  isRecord(value["context"]) &&
-  typeof value["context"]["command"] === "string";
-
-const parseTelemetryRequestBody = (value: unknown): TelemetryRequestBody => {
-  if (!isTelemetryRequestBody(value)) {
-    throw new Error("Invalid telemetry request body");
+const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Expected telemetry error request body");
   }
 
-  return value;
+  if (
+    !("errors" in value) ||
+    !Array.isArray(value.errors) ||
+    value.errors.some(
+      (entry) =>
+        typeof entry !== "object" ||
+        entry === null ||
+        !("message" in entry) ||
+        typeof entry.message !== "string" ||
+        !("name" in entry) ||
+        typeof entry.name !== "string",
+    )
+  ) {
+    throw new Error("Expected telemetry errors array");
+  }
+
+  if (
+    !("level" in value) ||
+    typeof value.level !== "string" ||
+    !("handled" in value) ||
+    typeof value.handled !== "boolean" ||
+    !("context" in value) ||
+    typeof value.context !== "object" ||
+    value.context === null ||
+    !("command" in value.context) ||
+    typeof value.context.command !== "string"
+  ) {
+    throw new Error("Expected telemetry error metadata");
+  }
+
+  return {
+    errors: value.errors.map((entry) => ({
+      message: entry.message,
+      name: entry.name,
+    })),
+    level: value.level,
+    handled: value.handled,
+    context: {
+      command: value.context.command,
+    },
+  };
 };
 
 const runSpike = (args: ReadonlyArray<string>, env: Record<string, string>): Promise<CliResult> =>
@@ -158,7 +176,7 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      const body = parseTelemetryRequestBody(request.body);
+      const body = expectErrorRequestBody(request.body);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated handled telemetry failure");
@@ -185,7 +203,7 @@ describe("axm-spike telemetry demos", () => {
         AXM_TELEMETRY_ENABLE_IN_TEST: "true",
       });
       const request = await waitForErrorRequest(server);
-      const body = parseTelemetryRequestBody(request.body);
+      const body = expectErrorRequestBody(request.body);
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain("Simulated defect telemetry failure");

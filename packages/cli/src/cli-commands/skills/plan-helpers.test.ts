@@ -5,11 +5,8 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Operation } from "../../workspace/plan.js";
-import type { LegacyPlannedStep } from "../../workspace/plan-bridge.js";
+import { at } from "../../test-helpers.js";
 import { buildSingleStepPlan } from "./plan-helpers.js";
-
-// Assertion needed: plan builders only produce LegacyPlannedStep
-const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -36,7 +33,7 @@ describe("buildSingleStepPlan", () => {
     });
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(1);
+    expect(at(plan.jobs, 0).steps).toHaveLength(1);
   });
 
   it("sets the plan name and description", () => {
@@ -59,7 +56,7 @@ describe("buildSingleStepPlan", () => {
       label: "step-label",
     });
 
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("step-label");
+    expect(at(at(plan.jobs, 0).steps, 0).label).toBe("step-label");
   });
 
   it("sets readiness to ready", () => {
@@ -70,7 +67,7 @@ describe("buildSingleStepPlan", () => {
       label: "lbl",
     });
 
-    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+    expect(at(at(plan.jobs, 0).steps, 0).readiness).toEqual({
       status: "ready",
       message: Option.none(),
     });
@@ -85,7 +82,7 @@ describe("buildSingleStepPlan", () => {
       label: "lbl",
     });
 
-    expect(plan.jobs[0]!.steps[0]!.operation).toBe(op);
+    expect(at(at(plan.jobs, 0).steps, 0).operation).toBe(op);
   });
 
   it("tags the step as PlannedJobStep", () => {
@@ -96,7 +93,7 @@ describe("buildSingleStepPlan", () => {
       label: "lbl",
     });
 
-    expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
+    expect(at(at(plan.jobs, 0).steps, 0)._tag).toBe("PlannedJobStep");
   });
 
   it("sets job concurrency to 1", () => {
@@ -107,6 +104,6 @@ describe("buildSingleStepPlan", () => {
       label: "lbl",
     });
 
-    expect(plan.jobs[0]!.concurrency).toBe(1);
+    expect(at(plan.jobs, 0).concurrency).toBe(1);
   });
 });

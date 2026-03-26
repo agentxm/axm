@@ -14,8 +14,9 @@ import { vi } from "vitest";
 import { McpServerManager, McpServerManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { at } from "../../test-helpers.js";
 import type {
-  McpServerExtensionRef,
+  BuiltinMcpServerRef,
   RegistryMcpServerRef,
   RegistrySource,
 } from "@axm.sh/core/unstable/sources";
@@ -73,7 +74,9 @@ describe("McpServerManager", () => {
   );
 
   it.effect("upsertSettingsEntry delegates to ws.setMcpServer for registry refs", () => {
-    const setMcpServerFn = vi.fn(() => Effect.void);
+    const setMcpServerFn = vi.fn((_args: Parameters<WorkspaceContextService["setMcpServer"]>[0]) =>
+      Effect.void,
+    );
     return Effect.gen(function* () {
       const manager = yield* McpServerManager;
       yield* manager.upsertSettingsEntry({
@@ -81,27 +84,27 @@ describe("McpServerManager", () => {
         versionConstraint: Option.none(),
       });
       expect(setMcpServerFn).toHaveBeenCalledTimes(1);
-      const args = (setMcpServerFn.mock.calls as unknown[][])[0]![0] as {
-        name: string;
-        lockEntry: { resolvedVersion: string };
-      };
-      expect(args.name).toBe("my-server");
-      expect(args.lockEntry.resolvedVersion).toBe("1.0.0");
+      const [args] = at(setMcpServerFn.mock.calls, 0);
+      expect(args).toMatchObject({
+        name: "my-server",
+        lockEntry: { resolvedVersion: "1.0.0" },
+      });
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setMcpServer: setMcpServerFn }))));
   });
 
   it.effect("upsertLockfileEntry delegates to ws.setMcpServerLock for registry refs", () => {
-    const setMcpServerLockFn = vi.fn(() => Effect.void);
+    const setMcpServerLockFn = vi.fn(
+      (_args: Parameters<WorkspaceContextService["setMcpServerLock"]>[0]) => Effect.void,
+    );
     return Effect.gen(function* () {
       const manager = yield* McpServerManager;
       yield* manager.upsertLockfileEntry({ ref: makeRegistryMcpServerRef("my-server") });
       expect(setMcpServerLockFn).toHaveBeenCalledTimes(1);
-      const args = (setMcpServerLockFn.mock.calls as unknown[][])[0]![0] as {
-        name: string;
-        lockEntry: { resolvedVersion: string };
-      };
-      expect(args.name).toBe("my-server");
-      expect(args.lockEntry.resolvedVersion).toBe("1.0.0");
+      const [args] = at(setMcpServerLockFn.mock.calls, 0);
+      expect(args).toMatchObject({
+        name: "my-server",
+        lockEntry: { resolvedVersion: "1.0.0" },
+      });
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setMcpServerLock: setMcpServerLockFn }))));
   });
 
@@ -131,13 +134,12 @@ describe("McpServerManager", () => {
     Effect.gen(function* () {
       const setMcpServerFn = vi.fn(() => Effect.void);
       const manager = yield* McpServerManager;
-      // Simulating a non-registry ref by casting
-      const nonRegistryRef = {
+      const nonRegistryRef: BuiltinMcpServerRef = {
         type: "mcp-server",
         refType: "builtin",
         source: { type: "builtin" },
         server: { name: "builtin-server" },
-      } as unknown as McpServerExtensionRef;
+      };
       yield* manager.upsertSettingsEntry({
         ref: nonRegistryRef,
         versionConstraint: Option.none(),

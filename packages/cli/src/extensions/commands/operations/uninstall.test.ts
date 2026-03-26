@@ -21,27 +21,24 @@ import { uninstallCommand } from "./uninstall.js";
 
 const makeWorkspaceMock = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileCommands: Record<string, any> = {},
+  lockfileCommands: Record<string, CommandLockEntry> = {},
   overrides?: {
     removeCommandFn?: ReturnType<typeof vi.fn>;
   },
 ): WorkspaceContextService => {
-  let commands = { ...lockfileCommands };
+  let commands: Record<string, CommandLockEntry> = { ...lockfileCommands };
+  const removeCommandFn = overrides?.removeCommandFn;
 
   const writeToDisk = () => {
-    const lockfile = { lockfileVersion: 1, commands: {} as Record<string, unknown> };
+    const lockfile: { lockfileVersion: number; commands: Record<string, unknown> } = {
+      lockfileVersion: 1,
+      commands: {},
+    };
     for (const [k, v] of Object.entries(commands)) {
       lockfile.commands[k] = {
-        ...(v as Record<string, unknown>),
-        installedAt:
-          (v as { installedAt: Date }).installedAt instanceof Date
-            ? (v as { installedAt: Date }).installedAt.toISOString()
-            : (v as { installedAt: string }).installedAt,
-        updatedAt:
-          (v as { updatedAt: Date }).updatedAt instanceof Date
-            ? (v as { updatedAt: Date }).updatedAt.toISOString()
-            : (v as { updatedAt: string }).updatedAt,
+        ...v,
+        installedAt: v.installedAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -84,11 +81,11 @@ const makeWorkspaceMock = (
     getPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(commands),
     getLockedCommand: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(commands[name] as CommandLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(commands[name])),
     setCommand: () => Effect.void,
     setCommandLock: () => Effect.void,
-    removeCommand: overrides?.removeCommandFn
-      ? (name: string) => overrides.removeCommandFn!(name)
+    removeCommand: removeCommandFn !== undefined
+      ? (name: string) => removeCommandFn(name)
       : (name: string) =>
           Effect.sync(() => {
             const { [name]: _, ...rest } = commands;
@@ -117,8 +114,7 @@ const makeWorkspaceMock = (
 
 const withServices = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileCommands: Record<string, any> = {},
+  lockfileCommands: Record<string, CommandLockEntry> = {},
   wsOverrides?: {
     removeCommandFn?: ReturnType<typeof vi.fn>;
   },
@@ -159,8 +155,7 @@ const makeRegistryLockEntryYaml = () => ({
 
 const writeLockfileYaml = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  commands: Record<string, any>,
+  commands: Record<string, unknown>,
 ) => {
   const lockfile = { lockfileVersion: 1, commands };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));

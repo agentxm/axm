@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import { Activity } from "./activity.js";
 import { ActivityTest, ActivityTestLayer, makeActivityTestLayer } from "./activity-test.js";
+import { at } from "../test-helpers.js";
 
 class TestError extends Data.TaggedError("TestError")<{ readonly message: string }> {}
 
@@ -278,8 +279,9 @@ describe("ActivityTestLayer", () => {
         yield* group.success("installed");
         const record = yield* (yield* ActivityTest).get;
         expect(record.groups).toHaveLength(1);
-        expect(record.groups[0]!.name).toBe("dependencies");
-        expect(record.groups[0]!.calls).toEqual([
+        const groupRecord = at(record.groups, 0);
+        expect(groupRecord.name).toBe("dependencies");
+        expect(groupRecord.calls).toEqual([
           { method: "message", args: ["installing pkg"] },
           { method: "error", args: ["failed to install"] },
           { method: "success", args: ["installed"] },
@@ -370,7 +372,10 @@ describe("ActivityTestLayer", () => {
             }),
           );
         expect(result).toBeInstanceOf(TestError);
-        expect((result as TestError).message).toBe("boom");
+        if (!(result instanceof TestError)) {
+          throw new Error("Expected TestError");
+        }
+        expect(result.message).toBe("boom");
       }).pipe(Effect.provide(ActivityTestLayer)),
     );
 

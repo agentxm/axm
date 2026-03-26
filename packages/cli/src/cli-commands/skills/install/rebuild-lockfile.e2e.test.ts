@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
+import { expectDefined } from "../../../test-helpers.js";
 
 const TEST_NAMESPACE = "@test";
 
@@ -162,7 +163,9 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
         .readdirSync(axmDir)
         .filter((file) => /^axm-lock\.yaml\.bak\.\d{14}$/.test(file));
       expect(backupFiles).toHaveLength(1);
-      expect(fs.readFileSync(path.join(axmDir, backupFiles[0]!), "utf-8")).toBe(invalidLockfile);
+      expect(fs.readFileSync(path.join(axmDir, expectDefined(backupFiles[0])), "utf-8")).toBe(
+        invalidLockfile,
+      );
 
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
       expect(lock.commands?.["managed-command"]).toBeDefined();

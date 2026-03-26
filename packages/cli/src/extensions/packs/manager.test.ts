@@ -14,6 +14,7 @@ import { vi } from "vitest";
 import { PackManager, PackManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { at } from "../../test-helpers.js";
 import type {
   BuiltinPackRef,
   RegistryPackRef,
@@ -101,7 +102,9 @@ describe("PackManager", () => {
   });
 
   it.effect("upsertSettingsEntry delegates to ws.setPack for registry refs", () => {
-    const setPackFn = vi.fn(() => Effect.void);
+    const setPackFn = vi.fn((_args: Parameters<WorkspaceContextService["setPack"]>[0]) =>
+      Effect.void,
+    );
     return Effect.gen(function* () {
       const manager = yield* PackManager;
       yield* manager.upsertSettingsEntry({
@@ -109,13 +112,11 @@ describe("PackManager", () => {
         versionConstraint: Option.some("^1.0.0"),
       });
       expect(setPackFn).toHaveBeenCalledTimes(1);
-      const args = (setPackFn.mock.calls as unknown[][])[0]![0] as {
-        name: string;
-        resolvedVersion: string;
-        versionConstraint: unknown;
-      };
-      expect(args.name).toBe("my-pack");
-      expect(args.resolvedVersion).toBe("1.0.0");
+      const [args] = at(setPackFn.mock.calls, 0);
+      expect(args).toMatchObject({
+        name: "my-pack",
+        resolvedVersion: "1.0.0",
+      });
       expect(args.versionConstraint).toEqual(Option.some("^1.0.0"));
     }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setPack: setPackFn }))));
   });

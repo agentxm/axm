@@ -4,14 +4,15 @@
  * Tests the uninstall-specific plan builder that diffs operations against installed state.
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
+import { Workspace } from "../../../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { at } from "../../../test-helpers.js";
 import { buildSkillUninstallPlan, type InstalledSkills } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -33,12 +34,9 @@ const installedWithPacks = (entries: Record<string, ReadonlyArray<string>>): Ins
     Object.entries(entries).map(([name, packs]) => [name, { referencingPacks: packs }]),
   );
 
-const workspaceMock = {} as WorkspaceContextService;
-
 const testLayer = Layer.mergeAll(
-  Layer.succeed(Workspace, workspaceMock),
-  Layer.succeed(FileSystem.FileSystem, {} as FileSystem.FileSystem),
-  Layer.succeed(Path.Path, {} as Path.Path),
+  NodeServices.layer,
+  Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
 );
 
 const runBuildPlan = (
@@ -65,14 +63,14 @@ describe("buildSkillUninstallPlan", () => {
     );
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(1);
-    expect(plan.jobs[0]!.steps[0]!.readiness).toBe("ready");
+    expect(at(plan.jobs, 0).steps).toHaveLength(1);
+    expect(at(at(plan.jobs, 0).steps, 0).readiness).toBe("ready");
   });
 
   it("marks skills not installed as ready with no-op run", () => {
     const plan = runBuildPlan([makeOp("commit")], emptyInstalled, "Uninstall", Option.none());
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("ready");
     if (step.readiness === "ready") {
       const result = Effect.runSync(step.run);
@@ -85,7 +83,7 @@ describe("buildSkillUninstallPlan", () => {
     const plan = runBuildPlan([], emptyInstalled, "Uninstall", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(0);
+    expect(at(plan.jobs, 0).steps).toHaveLength(0);
   });
 
   it("derives label from skillName", () => {
@@ -96,8 +94,8 @@ describe("buildSkillUninstallPlan", () => {
       Option.none(),
     );
 
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("commit");
-    expect(plan.jobs[0]!.steps[1]!.label).toBe("review-pr");
+    expect(at(at(plan.jobs, 0).steps, 0).label).toBe("commit");
+    expect(at(at(plan.jobs, 0).steps, 1).label).toBe("review-pr");
   });
 
   it("passes through caller-provided name and description", () => {
@@ -121,7 +119,7 @@ describe("buildSkillUninstallPlan", () => {
     );
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe(1);
+    expect(at(plan.jobs, 0).concurrency).toBe(1);
   });
 
   it("handles mixed ready and error readiness", () => {
@@ -135,14 +133,14 @@ describe("buildSkillUninstallPlan", () => {
       Option.none(),
     );
 
-    const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.readiness).toBe("ready");
-    expect(steps[0]!.label).toBe("commit");
+    const steps = at(plan.jobs, 0).steps;
+    expect(at(steps, 0).readiness).toBe("ready");
+    expect(at(steps, 0).label).toBe("commit");
     // review-pr is not installed: becomes ready no-op
-    expect(steps[1]!.readiness).toBe("ready");
-    expect(steps[1]!.label).toBe("review-pr");
-    expect(steps[2]!.readiness).toBe("ready");
-    expect(steps[2]!.label).toBe("debug");
+    expect(at(steps, 1).readiness).toBe("ready");
+    expect(at(steps, 1).label).toBe("review-pr");
+    expect(at(steps, 2).readiness).toBe("ready");
+    expect(at(steps, 2).label).toBe("debug");
   });
 
   it("marks pack-dependent skill (single pack) as error", () => {
@@ -153,7 +151,7 @@ describe("buildSkillUninstallPlan", () => {
       Option.none(),
     );
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("error");
     if (step.readiness === "error") {
       expect(step.errorMessage).toContain("required by pack my-pack");
@@ -168,7 +166,7 @@ describe("buildSkillUninstallPlan", () => {
       Option.none(),
     );
 
-    const step = plan.jobs[0]!.steps[0]!;
+    const step = at(at(plan.jobs, 0).steps, 0);
     expect(step.readiness).toBe("error");
     if (step.readiness === "error") {
       expect(step.errorMessage).toContain("required by pack pack-a, pack-b");

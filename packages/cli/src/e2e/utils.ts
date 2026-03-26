@@ -66,8 +66,8 @@ async function run(
 
   return {
     exitCode: result.exitCode ?? 1,
-    stdout: result.stdout as string,
-    stderr: result.stderr as string,
+    stdout: typeof result.stdout === "string" ? result.stdout : String(result.stdout),
+    stderr: typeof result.stderr === "string" ? result.stderr : String(result.stderr),
   };
 }
 

@@ -20,6 +20,7 @@ import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleFork, type ForkHandlerArgs } from "./handler.js";
+import { expectDefined, stringArrayProperty, stringProperty } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -265,7 +266,7 @@ describe("fork.handler", () => {
             defaultArgs(sourceDir, { skills: ["nonexistent-*"] }),
           ).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, what: e.what })));
           expect(result).toHaveProperty("error", true);
-          expect((result as { what: string }).what).toContain("No skills matched");
+          expect(stringProperty(result, "what")).toContain("No skills matched");
         }),
       );
     });
@@ -372,7 +373,7 @@ describe("fork.handler", () => {
             Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
           );
           expect(result).toHaveProperty("error", true);
-          expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
+          expect(stringProperty(result, "code")).toBe("NO_SKILLS_MATCHED");
         }),
       );
     });
@@ -489,11 +490,9 @@ describe("fork.handler", () => {
               Effect.succeed({ code: e.code, details: e.details ?? [] }),
             ),
           );
-          if (result === undefined) {
-            throw new Error("Expected AppError for unmatched glob");
-          }
-          expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
-          expect((result as { details: ReadonlyArray<string> }).details).toContain(
+          const error = expectDefined(result, "Expected AppError for unmatched glob");
+          expect(stringProperty(error, "code")).toBe("NO_SKILLS_MATCHED");
+          expect(stringArrayProperty(error, "details")).toContain(
             "Available: alpha-locked, beta-disk, gamma-configured",
           );
         }),
@@ -593,9 +592,9 @@ describe("fork.handler", () => {
             ),
           );
           expect(result).toHaveProperty("error", true);
-          expect((result as { what: string }).what).toContain("Invalid source");
-          expect((result as { code: string }).code).toBe("INVALID_SOURCE");
-          const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
+          expect(stringProperty(result, "what")).toContain("Invalid source");
+          expect(stringProperty(result, "code")).toBe("INVALID_SOURCE");
+          const reason = stringArrayProperty(result, "details").find((d) =>
             d.startsWith("Reason:"),
           );
           expect(reason).toBeDefined();
@@ -621,9 +620,9 @@ describe("fork.handler", () => {
                 Effect.succeed({ code: e.code, details: e.details }),
               ),
             );
-            expect(result).toBeDefined();
-            expect((result as { code: string }).code).toBe("DISCOVER_FAILED");
-            const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
+            const error = expectDefined(result, "Expected AppError for discovery failure");
+            expect(stringProperty(error, "code")).toBe("DISCOVER_FAILED");
+            const reason = stringArrayProperty(error, "details").find((d) =>
               d.startsWith("Reason:"),
             );
             expect(reason).toBeDefined();

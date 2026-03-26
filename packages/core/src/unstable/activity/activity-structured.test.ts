@@ -4,6 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { Activity } from "./activity.js";
 import { ActivityStructured } from "./activity-structured.js";
+import { at } from "../test-helpers.js";
 
 /** Create a Console layer that captures log calls. */
 const makeCaptureConsole = () => {
@@ -106,7 +107,7 @@ describe("ActivityStructured", () => {
         const activity = yield* Activity;
         const handle = yield* activity.startSpinner("Loading...");
         expect(lines.length).toBeGreaterThan(0);
-        const event = JSON.parse(lines[0]!);
+        const event = JSON.parse(at(lines, 0));
         expect(event).toEqual({
           type: "progress",
           phase: "start",
@@ -114,7 +115,7 @@ describe("ActivityStructured", () => {
           message: "Loading...",
         });
         yield* handle.stop("Done");
-        const stopEvent = JSON.parse(lines[lines.length - 1]!);
+        const stopEvent = JSON.parse(at(lines, lines.length - 1));
         expect(stopEvent.type).toBe("progress");
         expect(stopEvent.percent).toBe(100);
       }).pipe(Effect.provide(layer));
@@ -132,14 +133,14 @@ describe("ActivityStructured", () => {
         );
         expect(result).toBe(42);
         expect(lines.length).toBeGreaterThanOrEqual(2);
-        const startEvent = JSON.parse(lines[0]!);
+        const startEvent = JSON.parse(at(lines, 0));
         expect(startEvent).toEqual({
           type: "progress",
           phase: "work",
           percent: 0,
           message: "Working...",
         });
-        const endEvent = JSON.parse(lines[lines.length - 1]!);
+        const endEvent = JSON.parse(at(lines, lines.length - 1));
         expect(endEvent).toEqual({
           type: "progress",
           phase: "work",
@@ -166,7 +167,7 @@ describe("ActivityStructured", () => {
         );
         expect(result).toBe(42);
         expect(lines.length).toBeGreaterThanOrEqual(2);
-        const startEvent = JSON.parse(lines[0]!);
+        const startEvent = JSON.parse(at(lines, 0));
         expect(startEvent).toEqual({
           type: "progress",
           phase: "progress",
@@ -184,7 +185,7 @@ describe("ActivityStructured", () => {
         yield* activity.runTasks([{ title: "Task A", task: () => Effect.succeed("done") }]);
         expect(lines.length).toBeGreaterThan(0);
         const events = lines.map((l) => JSON.parse(l));
-        expect(events[0]).toEqual({
+        expect(at(events, 0)).toEqual({
           type: "progress",
           phase: "work",
           percent: 0,

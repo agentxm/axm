@@ -14,6 +14,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
+import type { LocalSkillRef } from "@axm.sh/core/unstable/sources";
+import { at } from "../../test-helpers.js";
 import { createLocalSourceHostProvider } from "./local.js";
 
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
@@ -111,8 +113,9 @@ describe("createLocalSourceHostProvider", () => {
           },
         );
         expect(refs).toHaveLength(1);
-        if (refs[0]!.type === "skill") {
-          expect(refs[0]!.skill.name).toBe("skill-a");
+        const ref = at(refs, 0);
+        if (ref.type === "skill") {
+          expect(ref.skill.name).toBe("skill-a");
         }
       }).pipe(
         Effect.ensuring(Effect.sync(() => rmSync(dir, { recursive: true })).pipe(Effect.ignore)),
@@ -123,16 +126,17 @@ describe("createLocalSourceHostProvider", () => {
   it("fetch returns the local directory", () => {
     const dir = mkdtempSync(nodePath.join(tmpdir(), "test-local-new-"));
     writeFileSync(nodePath.join(dir, "SKILL.md"), "content");
+    const ref: LocalSkillRef = {
+      type: "skill",
+      refType: "local",
+      skill: { name: "x", description: Option.none(), metadata: Option.none() },
+      source: { type: "local", path: dir },
+      location: `file://${dir}`,
+    };
 
     return runEffect(
       Effect.gen(function* () {
-        const result = yield* provider.fetch({ type: "local", path: dir }, {
-          type: "skill",
-          refType: "local",
-          skill: { name: "x", description: Option.none(), metadata: Option.none() },
-          source: { type: "local", path: dir },
-          location: `file://${dir}`,
-        } as never);
+        const result = yield* provider.fetch({ type: "local", path: dir }, ref);
         expect(result.directory).toBe(dir);
       }).pipe(
         Effect.ensuring(Effect.sync(() => rmSync(dir, { recursive: true })).pipe(Effect.ignore)),

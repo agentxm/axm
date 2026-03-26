@@ -24,27 +24,24 @@ import { uninstallMcpServer } from "./uninstall.js";
 
 const makeWorkspaceMock = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileMcpServers: Record<string, any> = {},
+  lockfileMcpServers: Record<string, McpServerLockEntry> = {},
   overrides?: {
     removeMcpServerFn?: ReturnType<typeof vi.fn>;
   },
 ): WorkspaceContextService => {
-  let mcpServers = { ...lockfileMcpServers };
+  let mcpServers: Record<string, McpServerLockEntry> = { ...lockfileMcpServers };
+  const removeMcpServerFn = overrides?.removeMcpServerFn;
 
   const writeToDisk = () => {
-    const lockfile = { lockfileVersion: 1, mcpServers: {} as Record<string, unknown> };
+    const lockfile: { lockfileVersion: number; mcpServers: Record<string, unknown> } = {
+      lockfileVersion: 1,
+      mcpServers: {},
+    };
     for (const [k, v] of Object.entries(mcpServers)) {
       lockfile.mcpServers[k] = {
-        ...(v as Record<string, unknown>),
-        installedAt:
-          (v as { installedAt: Date }).installedAt instanceof Date
-            ? (v as { installedAt: Date }).installedAt.toISOString()
-            : (v as { installedAt: string }).installedAt,
-        updatedAt:
-          (v as { updatedAt: Date }).updatedAt instanceof Date
-            ? (v as { updatedAt: Date }).updatedAt.toISOString()
-            : (v as { updatedAt: string }).updatedAt,
+        ...v,
+        installedAt: v.installedAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -92,11 +89,11 @@ const makeWorkspaceMock = (
     removeCommand: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed(mcpServers),
     getLockedMcpServer: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(mcpServers[name] as McpServerLockEntry | undefined)),
+      Effect.succeed(Option.fromUndefinedOr(mcpServers[name])),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
-    removeMcpServer: overrides?.removeMcpServerFn
-      ? (name: string) => overrides.removeMcpServerFn!(name)
+    removeMcpServer: removeMcpServerFn !== undefined
+      ? (name: string) => removeMcpServerFn(name)
       : (name: string) =>
           Effect.sync(() => {
             const { [name]: _, ...rest } = mcpServers;
@@ -120,8 +117,7 @@ const makeWorkspaceMock = (
 
 const withServices = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileMcpServers: Record<string, any> = {},
+  lockfileMcpServers: Record<string, McpServerLockEntry> = {},
   wsOverrides?: {
     removeMcpServerFn?: ReturnType<typeof vi.fn>;
   },
@@ -166,8 +162,7 @@ const makeRegistryLockEntryYaml = (name = "my-server") => ({
 
 const writeLockfileYaml = (
   axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  mcpServers: Record<string, any>,
+  mcpServers: Record<string, unknown>,
 ) => {
   const lockfile = { lockfileVersion: 1, mcpServers };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));

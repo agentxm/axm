@@ -10,7 +10,7 @@ import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
-import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import { sanitizeName } from "../utils.js";
 import type { RenameSkillOperation } from "./rename.js";
@@ -20,77 +20,75 @@ import { renameSkill } from "./rename.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
+type SettingsSkillValue =
+  | string
+  | {
+      readonly source?: string | undefined;
+      readonly enabled?: boolean | undefined;
+    };
+
+const getConfiguredSkillSource = (value: SettingsSkillValue): string =>
+  typeof value === "string" ? value : (value.source ?? "");
+
+const isConfiguredSkillEnabled = (value: SettingsSkillValue): boolean =>
+  typeof value === "string" ? true : (value.enabled ?? true);
+
 /** Creates a workspace mock for rename tests. */
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredAgents?: ReadonlyArray<string>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    lockfileSkills?: Record<string, any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    settingsSkills?: Record<string, any>;
+    lockfileSkills?: Record<string, SkillLockEntry>;
+    settingsSkills?: Record<string, SettingsSkillValue>;
     renameSkillFn?: ReturnType<typeof vi.fn>;
     updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
-  const lockfileSkills = opts.lockfileSkills ?? {};
-  const settingsSkills = opts.settingsSkills ?? {};
+  const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
+  const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    resolvePlan: () =>
-      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(
           Object.entries(settingsSkills).map(([k, v]) => [
             k,
             {
-              source: typeof v === "string" ? v : (v?.source ?? ""),
-              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
+              source: getConfiguredSkillSource(v),
+              enabled: isConfiguredSkillEnabled(v),
               packagingKind: "non-native" as const,
               isBuiltIn: false,
             },
           ]),
         ),
       ),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
-    getLockedSkill: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
+      const lockEntry = lockfileSkills[name];
       // Use explicit source if provided, else look up lock entry
       const srcRefType =
         source?.refType ??
-        ((lockfileSkills[name] as SkillLockEntry | undefined)?.type === "registry"
+        (lockEntry?.type === "registry"
           ? "registry"
-          : (lockfileSkills[name] as SkillLockEntry | undefined)?.type === "local"
+          : lockEntry?.type === "local"
             ? "local"
-            : (lockfileSkills[name] as SkillLockEntry | undefined)?.type === "builtin"
+            : lockEntry?.type === "builtin"
               ? "builtin"
               : "git-hosted");
       if (srcRefType === "registry") {
         const profile =
           source?.refType === "registry"
             ? source.profile
-            : "profile" in (lockfileSkills[name] ?? {})
-              ? (lockfileSkills[name] as { profile: string }).profile
+            : lockEntry?.type === "registry"
+              ? lockEntry.profile
               : "@community";
         // Resolve immutable registry name from lock entry, not user-facing name
-        const lockEntry = lockfileSkills[name] as (SkillLockEntry & { name?: string }) | undefined;
-        const dirName = lockEntry?.name ?? name;
+        const dirName = lockEntry?.type === "registry" ? lockEntry.name : name;
         const sanitized = sanitizeName(dirName);
         const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
@@ -99,44 +97,9 @@ const makeWorkspaceMock = (
       const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
     renameSkill: opts.renameSkillFn ?? (() => Effect.void),
     updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? (() => Effect.void),
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */

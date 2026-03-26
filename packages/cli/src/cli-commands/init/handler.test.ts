@@ -24,6 +24,7 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../workspace/index.js";
+import { expectDefined } from "../../test-helpers.js";
 import { handleInit } from "./handler.js";
 
 describe("init.handler", () => {
@@ -369,8 +370,7 @@ describe("init.handler", () => {
 
           // Should have agents from the multiselect (first agent in full list)
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.agents).toBeDefined();
-          expect(settings.agents!.length).toBeGreaterThan(0);
+          expect(expectDefined(settings.agents).length).toBeGreaterThan(0);
         }),
       ),
     );

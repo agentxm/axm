@@ -14,8 +14,16 @@ import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { buildUpdatePlan } from "./plan.js";
 
-// Assertion needed: plan builders only produce LegacyPlannedStep
-const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
+const isPlannedStep = <T>(step: { readonly _tag: string }): step is LegacyPlannedStep<T> =>
+  step._tag === "PlannedJobStep";
+
+const planned = <T>(step: { readonly _tag: string }): LegacyPlannedStep<T> => {
+  if (!isPlannedStep<T>(step)) {
+    throw new Error("Expected PlannedJobStep");
+  }
+
+  return step;
+};
 
 type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
 type UpdatePlan = LegacyPlan<UpdateOperation>;
@@ -195,16 +203,101 @@ const emptyLockfile: Lockfile = {
   skills: {},
 };
 
-// Assertion needed: test helper builds union members from partial overrides
-const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry =>
-  ({
-    type: "local" as const,
-    path: "/installed",
-    agents: [],
-    installedAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  }) as unknown as SkillLockEntry;
+const makeCommonLockFields = (overrides?: Partial<SkillLockEntry>) => ({
+  agents: overrides?.agents ?? [],
+  installedAt: overrides?.installedAt ?? new Date(),
+  updatedAt: overrides?.updatedAt ?? new Date(),
+  ...(overrides?.gitTreeHash !== undefined && { gitTreeHash: overrides.gitTreeHash }),
+  ...(overrides?.retainedByPack !== undefined && { retainedByPack: overrides.retainedByPack }),
+});
+
+const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
+  switch (overrides?.type ?? "local") {
+    case "github": {
+      const githubOverrides = overrides?.type === "github" ? overrides : undefined;
+      return {
+        type: "github",
+        owner: githubOverrides?.owner ?? "o",
+        repo: githubOverrides?.repo ?? "r",
+        ...makeCommonLockFields(githubOverrides),
+        ...(githubOverrides?.ref !== undefined && { ref: githubOverrides.ref }),
+        ...(githubOverrides?.path !== undefined && { path: githubOverrides.path }),
+      };
+    }
+    case "gitlab": {
+      const gitlabOverrides = overrides?.type === "gitlab" ? overrides : undefined;
+      return {
+        type: "gitlab",
+        owner: gitlabOverrides?.owner ?? "o",
+        repo: gitlabOverrides?.repo ?? "r",
+        ...makeCommonLockFields(gitlabOverrides),
+        ...(gitlabOverrides?.ref !== undefined && { ref: gitlabOverrides.ref }),
+        ...(gitlabOverrides?.path !== undefined && { path: gitlabOverrides.path }),
+      };
+    }
+    case "bitbucket": {
+      const bitbucketOverrides = overrides?.type === "bitbucket" ? overrides : undefined;
+      return {
+        type: "bitbucket",
+        owner: bitbucketOverrides?.owner ?? "o",
+        repo: bitbucketOverrides?.repo ?? "r",
+        ...makeCommonLockFields(bitbucketOverrides),
+        ...(bitbucketOverrides?.ref !== undefined && { ref: bitbucketOverrides.ref }),
+        ...(bitbucketOverrides?.path !== undefined && { path: bitbucketOverrides.path }),
+      };
+    }
+    case "azurerepos": {
+      const azureOverrides = overrides?.type === "azurerepos" ? overrides : undefined;
+      return {
+        type: "azurerepos",
+        organization: azureOverrides?.organization ?? "org",
+        project: azureOverrides?.project ?? "proj",
+        repo: azureOverrides?.repo ?? "r",
+        ...makeCommonLockFields(azureOverrides),
+        ...(azureOverrides?.ref !== undefined && { ref: azureOverrides.ref }),
+        ...(azureOverrides?.path !== undefined && { path: azureOverrides.path }),
+      };
+    }
+    case "git": {
+      const gitOverrides = overrides?.type === "git" ? overrides : undefined;
+      return {
+        type: "git",
+        url: gitOverrides?.url ?? "git@example.com:repo.git",
+        ...makeCommonLockFields(gitOverrides),
+        ...(gitOverrides?.ref !== undefined && { ref: gitOverrides.ref }),
+        ...(gitOverrides?.path !== undefined && { path: gitOverrides.path }),
+      };
+    }
+    case "registry": {
+      const registryOverrides = overrides?.type === "registry" ? overrides : undefined;
+      return {
+        type: "registry",
+        profile: registryOverrides?.profile ?? "@axm",
+        name: registryOverrides?.name ?? "skill",
+        resolvedVersion: registryOverrides?.resolvedVersion ?? "0.0.0",
+        integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
+        sourceName: registryOverrides?.sourceName ?? "default",
+        ...makeCommonLockFields(registryOverrides),
+      };
+    }
+    case "builtin": {
+      const builtinOverrides = overrides?.type === "builtin" ? overrides : undefined;
+      return {
+        type: "builtin",
+        ...makeCommonLockFields(builtinOverrides),
+      };
+    }
+    case "local":
+    default: {
+      const localOverrides = overrides?.type === "local" ? overrides : undefined;
+      return {
+        type: "local",
+        path: localOverrides?.path ?? "/installed",
+        ...makeCommonLockFields(localOverrides),
+      };
+    }
+  }
+};
 
 const lockfileWith = (entries: Record<string, SkillLockEntry>): Lockfile => ({
   lockfileVersion: 1,

@@ -11,6 +11,7 @@ import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogout } from "./handler.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -38,12 +39,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 
   const authClientLayer = AuthClientTest({
     revokeToken: opts?.revokeFails
-      ? () =>
-          Effect.fail({
-            _tag: "AppError" as const,
-            code: "AUTH_REVOKE_FAILED",
-            what: "Revoke failed",
-          } as never)
+      ? () => Effect.fail(makeAppError({ code: "AUTH_REVOKE_FAILED", what: "Revoke failed" }))
       : () => Effect.void,
   });
 

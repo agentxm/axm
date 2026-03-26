@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { TelemetryClient, TelemetryClientLive } from "./client.js";
+import { at, expectRecord, property } from "../test-helpers.js";
 
 interface CapturedRequest {
   readonly url: string;
@@ -22,7 +23,7 @@ const makeMockHttpClient = () => {
       captured.push({
         url: request.url,
         method: request.method,
-        body: bodyText.length > 0 ? (JSON.parse(bodyText) as unknown) : undefined,
+        body: bodyText.length > 0 ? JSON.parse(bodyText) : undefined,
       });
 
       return HttpClientResponse.fromWeb(request, new Response("", { status: 202 }));
@@ -71,40 +72,33 @@ describe("TelemetryClientLive", () => {
         yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
-        const req = mock.captured[0]!;
+        const req = at(mock.captured, 0);
         expect(req.url).toBe("https://t.agentxm.ai/v1/events");
         expect(req.method).toBe("POST");
 
-        const body = req.body as {
-          events: ReadonlyArray<{
-            event: string;
-            distinctId: string;
-            timestamp: string;
-            properties: Record<string, string>;
-          }>;
-          sentAt: string;
-          context: {
-            client: { name: string; version: string };
-            os: { name: string; version: string };
-            runtime: { name: string; version: string };
-            device: { arch: string };
-            ci: boolean;
-          };
-        };
-
-        expect(body.events).toHaveLength(1);
-        expect(body.events[0]!.event).toBe("command:start");
-        expect(body.events[0]!.properties).toEqual({ command: "skills install" });
-        expect(typeof body.events[0]!.distinctId).toBe("string");
-        expect(typeof body.events[0]!.timestamp).toBe("string");
-        expect(typeof body.sentAt).toBe("string");
-        expect(body.context.client).toEqual({ name: "cli", version: "1.2.3" });
-        expect(body.context.runtime.name).toBe("bun");
-        expect(typeof body.context.runtime.version).toBe("string");
-        expect(typeof body.context.os.name).toBe("string");
-        expect(typeof body.context.os.version).toBe("string");
-        expect(typeof body.context.device.arch).toBe("string");
-        expect(body.context.ci).toBe(false);
+        const body = expectRecord(req.body);
+        const events = property(body, "events");
+        expect(Array.isArray(events)).toBe(true);
+        if (Array.isArray(events)) {
+          expect(events).toHaveLength(1);
+          const event = expectRecord(at(events, 0));
+          expect(property(event, "event")).toBe("command:start");
+          expect(property(event, "properties")).toEqual({ command: "skills install" });
+          expect(typeof property(event, "distinctId")).toBe("string");
+          expect(typeof property(event, "timestamp")).toBe("string");
+        }
+        expect(typeof property(body, "sentAt")).toBe("string");
+        const context = expectRecord(property(body, "context"));
+        expect(property(context, "client")).toEqual({ name: "cli", version: "1.2.3" });
+        const runtime = expectRecord(property(context, "runtime"));
+        expect(property(runtime, "name")).toBe("bun");
+        expect(typeof property(runtime, "version")).toBe("string");
+        const os = expectRecord(property(context, "os"));
+        expect(typeof property(os, "name")).toBe("string");
+        expect(typeof property(os, "version")).toBe("string");
+        const device = expectRecord(property(context, "device"));
+        expect(typeof property(device, "arch")).toBe("string");
+        expect(property(context, "ci")).toBe(false);
       }),
     );
 
@@ -125,32 +119,29 @@ describe("TelemetryClientLive", () => {
         yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
-        const req = mock.captured[0]!;
+        const req = at(mock.captured, 0);
         expect(req.url).toBe("https://t.agentxm.ai/v1/errors");
         expect(req.method).toBe("POST");
 
-        const body = req.body as {
-          errors: ReadonlyArray<{ message: string; name: string }>;
-          level: string;
-          handled: boolean;
-          tags: { errorCode: string };
-          fingerprint: ReadonlyArray<string>;
-          user: { id: string };
-          sentAt: string;
-          context: Record<string, unknown>;
-        };
-
-        expect(body.errors).toHaveLength(1);
-        expect(body.errors[0]!.name).toBe("WORKSPACE_NOT_FOUND");
-        expect(body.errors[0]!.message).toBe("Workspace not initialized");
-        expect(body.level).toBe("error");
-        expect(body.handled).toBe(true);
-        expect(body.tags.errorCode).toBe("WORKSPACE_NOT_FOUND");
-        expect(body.fingerprint).toEqual(["WORKSPACE_NOT_FOUND"]);
-        expect(typeof body.user.id).toBe("string");
-        expect(typeof body.sentAt).toBe("string");
-        expect(body.context).toHaveProperty("command", "init");
-        expect(body.context).toHaveProperty("client");
+        const body = expectRecord(req.body);
+        const errors = property(body, "errors");
+        expect(Array.isArray(errors)).toBe(true);
+        if (Array.isArray(errors)) {
+          expect(errors).toHaveLength(1);
+          const error = expectRecord(at(errors, 0));
+          expect(property(error, "name")).toBe("WORKSPACE_NOT_FOUND");
+          expect(property(error, "message")).toBe("Workspace not initialized");
+        }
+        expect(property(body, "level")).toBe("error");
+        expect(property(body, "handled")).toBe(true);
+        expect(property(expectRecord(property(body, "tags")), "errorCode")).toBe(
+          "WORKSPACE_NOT_FOUND",
+        );
+        expect(property(body, "fingerprint")).toEqual(["WORKSPACE_NOT_FOUND"]);
+        expect(typeof property(expectRecord(property(body, "user")), "id")).toBe("string");
+        expect(typeof property(body, "sentAt")).toBe("string");
+        expect(expectRecord(property(body, "context"))).toHaveProperty("command", "init");
+        expect(expectRecord(property(body, "context"))).toHaveProperty("client");
       }),
     );
   });
@@ -196,7 +187,7 @@ describe("TelemetryClientLive", () => {
         yield* Effect.yieldNow;
 
         expect(mock.captured).toHaveLength(1);
-        expect(mock.captured[0]!.url).toBe("https://t.agentxm.ai/v1/errors");
+        expect(at(mock.captured, 0).url).toBe("https://t.agentxm.ai/v1/errors");
       }),
     );
   });

@@ -9,75 +9,25 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import { parseInputPattern, type InputParseResult } from "@axm.sh/core/unstable/sources";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
-import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 
-const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
-  ...taxonomyStubs,
-  scope: "project",
-  path: "/tmp/test-workspace",
-  baseDir: "/tmp",
-  resolvePlan: () => Effect.die("not implemented in test"),
-  getConfiguredSources: () => Effect.succeed(sources),
-  getConfiguredSourceByName: (name: string) =>
-    Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
-  getRegistrySourceHosts: () =>
-    Effect.succeed(
-      sources.filter(
-        (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService =>
+  makeBaseWorkspaceMock("/tmp/test-workspace/.axm", {
+    getConfiguredSources: () => Effect.succeed(sources),
+    getConfiguredSourceByName: (name: string) =>
+      Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
+    getRegistrySourceHosts: () =>
+      Effect.succeed(
+        sources.filter(
+          (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+        ),
       ),
-    ),
-  getConfiguredProfile: () => Effect.succeed("@test") as Effect.Effect<string, AppError>,
-  getDefaultProfile: () => Effect.succeed(Option.none()),
-  addConfiguredSource: () => Effect.void,
-  getConfiguredSkills: () => Effect.succeed({}),
-  getInstalledSkills: () => Effect.succeed({}),
-  getConfiguredAgents: () => Effect.succeed([]),
-  getLockedSkills: () => Effect.succeed({}),
-  getLockedSkill: () => Effect.succeed(Option.none()),
-  getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-  setSkill: () => Effect.void,
-  setSkillLock: () => Effect.void,
-  removeSkill: () => Effect.void,
-  removeSkillFromSettings: () => Effect.void,
-  updateSkillEntry: () => Effect.void,
-  setSkillEntry: () => Effect.void,
-  renameSkill: () => Effect.void,
-  updateLockEntryAgents: () => Effect.void,
-  addConfiguredAgent: () => Effect.void,
-  getConfiguredPacks: () => Effect.succeed({}),
-  getInstalledPacks: () => Effect.succeed({}),
-  getLockedPacks: () => Effect.succeed({}),
-  getLockedPack: () => Effect.succeed(Option.none()),
-  setPack: () => Effect.void,
-  removePack: () => Effect.void,
-  getPackDir: () => Effect.succeed({ canonicalPath: "" }),
-  getLockedCommands: () => Effect.succeed({}),
-  getLockedCommand: () => Effect.succeed(Option.none()),
-  setCommand: () => Effect.void,
-  setCommandLock: () => Effect.void,
-  removeCommand: () => Effect.void,
-  getLockedMcpServers: () => Effect.succeed({}),
-  getLockedMcpServer: () => Effect.succeed(Option.none()),
-  setMcpServer: () => Effect.void,
-  setMcpServerLock: () => Effect.void,
-  removeMcpServer: () => Effect.void,
-  removeSkillLock: () => Effect.void,
-  removeCommandSettings: () => Effect.void,
-  removeCommandLock: () => Effect.void,
-  removeMcpServerSettings: () => Effect.void,
-  removeMcpServerLock: () => Effect.void,
-  removePackSettings: () => Effect.void,
-  removePackLock: () => Effect.void,
-  isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-  markDependencyRetainedInLockfile: () => Effect.void,
-  getConfiguredCommands: () => Effect.succeed({}),
-  getConfiguredMcpServers: () => Effect.succeed({}),
-});
+    getConfiguredProfile: () => Effect.succeed("@test"),
+  });
 
 const createSkillIndex = (registryRoot: string, profile: string, name: string) => {
   const skillDir = path.join(registryRoot, "extensions", profile, "skills", name);
@@ -160,6 +110,15 @@ const parseInputOrThrow = (input: string): InputParseResult => {
     throw new Error(`Expected parseable input: ${input}`);
   }
   return parsed.value;
+};
+
+const expectUrlSource = (source: { readonly type: string }): { readonly url: URL } => {
+  const url = "url" in source ? source.url : undefined;
+  if (!(url instanceof URL)) {
+    throw new Error(`Expected hosted source with URL, received ${source.type}`);
+  }
+
+  return { url };
 };
 
 describe("resolveSkillInstallSource", () => {
@@ -532,7 +491,7 @@ describe("resolveSkillUrl", () => {
       expect(resolved.type).toBe("github");
       expect("owner" in resolved && resolved.owner).toBe("vercel-labs");
       expect("repo" in resolved && resolved.repo).toBe("agent-skills");
-      expect("url" in resolved && (resolved.url as URL).href).toBe("https://github.com/");
+      expect(expectUrlSource(resolved).url.href).toBe("https://github.com/");
     });
   });
 
@@ -551,7 +510,7 @@ describe("resolveSkillUrl", () => {
       expect(resolved.type).toBe("gitlab");
       expect("owner" in resolved && resolved.owner).toBe("team");
       expect("repo" in resolved && resolved.repo).toBe("skills");
-      expect("url" in resolved && (resolved.url as URL).href).toBe("https://gitlab.com/");
+      expect(expectUrlSource(resolved).url.href).toBe("https://gitlab.com/");
     });
   });
 
@@ -571,7 +530,7 @@ describe("resolveSkillUrl", () => {
       expect(resolved.type).toBe("github");
       expect("owner" in resolved && resolved.owner).toBe("team");
       expect("repo" in resolved && resolved.repo).toBe("repo");
-      expect("url" in resolved && (resolved.url as URL).href).toBe("https://ghe.corp.com/");
+      expect(expectUrlSource(resolved).url.href).toBe("https://ghe.corp.com/");
     });
   });
 

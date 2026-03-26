@@ -20,6 +20,7 @@ import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { expectRecord } from "../../../test-helpers.js";
 import type { InstallCommandOperation } from "./install.js";
 import { installCommand } from "./install.js";
 
@@ -90,7 +91,7 @@ const makeWorkspaceMock = (
               const lf = readLf();
               if (!lf.commands) lf.commands = {};
               lf.commands[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+                ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);
@@ -110,7 +111,7 @@ const makeWorkspaceMock = (
               const lf = readLf();
               if (!lf.commands) lf.commands = {};
               lf.commands[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+                ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);

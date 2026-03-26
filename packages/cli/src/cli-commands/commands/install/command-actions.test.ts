@@ -15,6 +15,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "../../../workspace/service.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import {
@@ -22,35 +23,26 @@ import {
   InstallCommandCommandWorkflowActionsLive,
 } from "./command-actions.js";
 
-const mockWorkspace = {
+const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
   getConfiguredProfile: () => Effect.succeed("@test-ns"),
-  getRegistrySourceHosts: () => Effect.succeed([]),
-  getLockedCommand: () => Effect.succeed(Option.none()),
-  getLockedSkills: () => Effect.succeed({}),
-  getLockedCommands: () => Effect.succeed({}),
-  getLockedMcpServers: () => Effect.succeed({}),
-  getLockedPacks: () => Effect.succeed({}),
-  getInstalledSkills: () => Effect.succeed({}),
-  getConfiguredSkills: () => Effect.succeed({}),
-  getConfiguredCommands: () => Effect.succeed({}),
-  getConfiguredMcpServers: () => Effect.succeed({}),
-  isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-  markDependencyRetainedInLockfile: () => Effect.void,
-  resolvePlan: () => Effect.void,
-} as unknown as ServiceMap.Service.Shape<typeof Workspace>;
+});
 
 const mockCommandManager = {
-  install: vi.fn(),
-  uninstall: vi.fn(),
-  isInstalled: vi.fn(),
-} as unknown as ServiceMap.Service.Shape<typeof CommandManager>;
+  extensionType: "command",
+  materializeInstall: vi.fn(),
+  materializeUninstall: vi.fn(),
+  upsertSettingsEntry: vi.fn(),
+  removeSettingsEntry: vi.fn(),
+  upsertLockfileEntry: vi.fn(),
+  removeLockfileEntry: vi.fn(),
+} satisfies ServiceMap.Service.Shape<typeof CommandManager>;
 
 const mockSourceHostProviders = {
   find: vi.fn(() => Effect.succeed([])),
   fetch: vi.fn(),
   cloneUrl: vi.fn(),
   origin: vi.fn(() => "test"),
-} as unknown as ServiceMap.Service.Shape<typeof SourceHostProviders>;
+} satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
 const [promptLayer] = makeTestPrompt({
   confirmResponses: [true],

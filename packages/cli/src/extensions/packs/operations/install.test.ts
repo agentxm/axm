@@ -19,11 +19,12 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import type { ExtensionFiles, RegistryPackRef } from "@axm.sh/core/unstable/sources";
+import type { ExtensionFiles, ExtensionRef, RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { installPack, type InstallPackOperation } from "./install.js";
+import { expectRecord, property, recordEntry } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -145,13 +146,13 @@ describe("installPack operation handler", () => {
     const archiveDir = nodePath.join(tempDir, "archive");
     createPackArchive(archiveDir);
 
-    const fetchSpy = vi.fn(() =>
+    const fetchSpy = vi.fn((_ref: ExtensionRef) =>
       Effect.succeed({ directory: archiveDir } satisfies ExtensionFiles),
     );
 
     const mockService: SourceHostProvidersService = {
       find: () => Effect.succeed([]),
-      fetch: fetchSpy as SourceHostProvidersService["fetch"],
+      fetch: (ref) => fetchSpy(ref),
       cloneUrl: () => Option.none(),
       origin: () => "unknown",
     };
@@ -204,19 +205,15 @@ describe("installPack operation handler", () => {
         // Verify lockfile was updated
         const axmDir = nodePath.join(tempDir, ".axm");
         const lockfileContent = fs.readFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "utf-8");
-        const lockfile = YAML.parse(lockfileContent) as {
-          packs?: Record<string, unknown>;
-        };
-        expect(lockfile.packs).toBeDefined();
-        expect(lockfile.packs!["my-pack"]).toBeDefined();
+        const lockfile = expectRecord(YAML.parse(lockfileContent));
+        const packs = expectRecord(property(lockfile, "packs"));
+        expect(recordEntry(packs, "my-pack")).toBeDefined();
 
         // Verify settings was updated
         const settingsContent = fs.readFileSync(nodePath.join(axmDir, "settings.json"), "utf-8");
-        const settings = JSON.parse(settingsContent) as {
-          packs?: Record<string, string>;
-        };
-        expect(settings.packs).toBeDefined();
-        expect(settings.packs!["my-pack"]).toBe("@test/packs/my-pack@^1.0.0");
+        const settings = expectRecord(JSON.parse(settingsContent));
+        const settingsPacks = expectRecord(property(settings, "packs"));
+        expect(recordEntry(settingsPacks, "my-pack")).toBe("@test/packs/my-pack@^1.0.0");
       }),
     );
   });
@@ -248,23 +245,20 @@ describe("installPack operation handler", () => {
         expect(result.result).toBe("success");
 
         const axmDir = nodePath.join(tempDir, ".axm");
-        const lockfile = YAML.parse(
-          fs.readFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "utf-8"),
-        ) as {
-          packs?: Record<
-            string,
-            {
-              resolvedSkills: Record<string, string>;
-              resolvedCommands: Record<string, string>;
-              resolvedMcpServers: Record<string, string>;
-            }
-          >;
-        };
-        const entry = lockfile.packs?.["my-pack"];
-        expect(entry).toBeDefined();
-        expect(entry?.resolvedSkills).toEqual({ "@acme/skills/code-review": "1.2.0" });
-        expect(entry?.resolvedCommands).toEqual({ "@acme/commands/format": "2.0.0" });
-        expect(entry?.resolvedMcpServers).toEqual({ "@acme/mcp-servers/local-tools": "3.0.1" });
+        const lockfile = expectRecord(
+          YAML.parse(fs.readFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "utf-8")),
+        );
+        const packs = expectRecord(property(lockfile, "packs"));
+        const entry = expectRecord(recordEntry(packs, "my-pack"));
+        expect(expectRecord(property(entry, "resolvedSkills"))).toEqual({
+          "@acme/skills/code-review": "1.2.0",
+        });
+        expect(expectRecord(property(entry, "resolvedCommands"))).toEqual({
+          "@acme/commands/format": "2.0.0",
+        });
+        expect(expectRecord(property(entry, "resolvedMcpServers"))).toEqual({
+          "@acme/mcp-servers/local-tools": "3.0.1",
+        });
       }),
     );
   });

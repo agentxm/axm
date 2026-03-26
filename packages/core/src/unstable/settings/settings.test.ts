@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { AppError } from "../app-error/index.js";
+import { expectRecord } from "../test-helpers.js";
 import { createDefaultSettings, readSettings, writeSettings } from "./settings.js";
 import type { Settings } from "./schema.js";
 
@@ -151,7 +152,7 @@ describe("settings", () => {
           yield* writeSettings(axmDir, settings);
 
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-          const keys = Object.keys(JSON.parse(content) as Record<string, unknown>);
+          const keys = Object.keys(expectRecord(JSON.parse(content)));
           expect(keys).toEqual(["profile", "agents", "skills"]);
         }),
       ),

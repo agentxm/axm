@@ -22,6 +22,7 @@ import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { taxonomyStubs } from "../../../workspace/test-stubs.js";
+import { expectRecord } from "../../../test-helpers.js";
 import type { InstallMcpServerOperation } from "./install.js";
 import { installMcpServer } from "./install.js";
 
@@ -97,7 +98,7 @@ const makeWorkspaceMock = (
               const lf = readLf();
               if (!lf.mcpServers) lf.mcpServers = {};
               lf.mcpServers[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+                ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);
@@ -117,7 +118,7 @@ const makeWorkspaceMock = (
               const lf = readLf();
               if (!lf.mcpServers) lf.mcpServers = {};
               lf.mcpServers[args.name] = {
-                ...(args.lockEntry as Record<string, unknown>),
+                ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);

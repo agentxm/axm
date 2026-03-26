@@ -75,18 +75,11 @@ const isOptionConfig = (
 ): config is { options: ReadonlyArray<{ value: unknown }> } =>
   typeof config === "object" && config !== null && "options" in config;
 
-const inputMethods: ReadonlyArray<InputMethod> = [
-  "text",
-  "password",
-  "confirm",
-  "select",
-  "multiselect",
-  "groupMultiselect",
-  "selectKey",
-  "autocomplete",
-  "autocompleteMultiselect",
-  "path",
-];
+const erasePromptType = <T>(value: unknown): T => {
+  // Assertion needed: the test harness returns caller-chosen prompt value types.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as T;
+};
 
 export const makeInputTestLayer = (
   configOrBehavior: InputPromptBehavior | InputTestLayerConfig = defaultBehavior,
@@ -99,12 +92,20 @@ export const makeInputTestLayer = (
 
   const queuedBehaviors = Array.from(resolvedConfig.queuedBehaviors ?? []);
 
-  const queuedBehaviorsByMethod = Object.fromEntries(
-    inputMethods.map((method) => [
-      method,
-      Array.from(resolvedConfig.queuedBehaviorsByMethod?.[method] ?? []),
-    ]),
-  ) as Record<InputMethod, InputPromptBehavior[]>;
+  const queuedBehaviorsByMethod: Record<InputMethod, InputPromptBehavior[]> = {
+    text: Array.from(resolvedConfig.queuedBehaviorsByMethod?.text ?? []),
+    password: Array.from(resolvedConfig.queuedBehaviorsByMethod?.password ?? []),
+    confirm: Array.from(resolvedConfig.queuedBehaviorsByMethod?.confirm ?? []),
+    select: Array.from(resolvedConfig.queuedBehaviorsByMethod?.select ?? []),
+    multiselect: Array.from(resolvedConfig.queuedBehaviorsByMethod?.multiselect ?? []),
+    groupMultiselect: Array.from(resolvedConfig.queuedBehaviorsByMethod?.groupMultiselect ?? []),
+    selectKey: Array.from(resolvedConfig.queuedBehaviorsByMethod?.selectKey ?? []),
+    autocomplete: Array.from(resolvedConfig.queuedBehaviorsByMethod?.autocomplete ?? []),
+    autocompleteMultiselect: Array.from(
+      resolvedConfig.queuedBehaviorsByMethod?.autocompleteMultiselect ?? [],
+    ),
+    path: Array.from(resolvedConfig.queuedBehaviorsByMethod?.path ?? []),
+  };
 
   const resolveBehavior = (method: InputMethod): InputPromptBehavior => {
     const queuedMethodBehaviors = queuedBehaviorsByMethod[method];
@@ -136,7 +137,7 @@ export const makeInputTestLayer = (
       return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
     }
     if (behavior.type === "return") {
-      return Effect.succeed(behavior.value as A);
+      return Effect.succeed(erasePromptType<A>(behavior.value));
     }
     if (behavior.type === "select") {
       if (!isOptionConfig(config)) {
@@ -150,7 +151,7 @@ export const makeInputTestLayer = (
           new Error(`Test setup error: index ${String(behavior.index)} out of bounds`),
         );
       }
-      return Effect.succeed(option.value as A);
+      return Effect.succeed(erasePromptType<A>(option.value));
     }
     // multiselect
     if (!isOptionConfig(config)) {
@@ -159,13 +160,15 @@ export const makeInputTestLayer = (
       );
     }
     return Effect.succeed(
-      behavior.indices.map((index) => {
-        const option = config.options[index];
-        if (!option) {
-          throw new Error(`Test setup error: index ${String(index)} out of bounds`);
-        }
-        return option.value;
-      }) as A,
+      erasePromptType<A>(
+        behavior.indices.map((index) => {
+          const option = config.options[index];
+          if (!option) {
+            throw new Error(`Test setup error: index ${String(index)} out of bounds`);
+          }
+          return option.value;
+        }),
+      ),
     );
   };
 

@@ -14,6 +14,7 @@ import { vi } from "vitest";
 import { SkillManager, SkillManagerLive } from "./manager.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { at } from "../../test-helpers.js";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
 import type { SourceHostProvidersService } from "../../sources/index.js";
@@ -90,18 +91,19 @@ describe("SkillManager", () => {
   it.effect(
     "upsertSettingsEntry delegates to ws.setSkill with lock entry containing agents",
     () => {
-      const setSkillFn = vi.fn(() => Effect.void);
+      const setSkillFn = vi.fn((_args: Parameters<WorkspaceContextService["setSkill"]>[0]) =>
+        Effect.void,
+      );
       return Effect.gen(function* () {
         const manager = yield* SkillManager;
         const ref = makeLocalSkillRef("my-skill");
         yield* manager.upsertSettingsEntry({ ref, versionConstraint: Option.none() });
         expect(setSkillFn).toHaveBeenCalledTimes(1);
-        const args = (setSkillFn.mock.calls as unknown[][])[0]![0] as {
-          name: string;
-          lockEntry: { agents: readonly string[] };
-        };
-        expect(args.name).toBe("my-skill");
-        expect(args.lockEntry.agents).toContain("claude-code");
+        const [args] = at(setSkillFn.mock.calls, 0);
+        expect(args).toMatchObject({
+          name: "my-skill",
+          lockEntry: { agents: ["claude-code"] },
+        });
       }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setSkill: setSkillFn }))));
     },
   );
@@ -109,19 +111,19 @@ describe("SkillManager", () => {
   it.effect(
     "upsertLockfileEntry delegates to ws.setSkillLock with lock entry containing agents",
     () => {
-      const setSkillLockFn = vi.fn(() => Effect.void);
+      const setSkillLockFn = vi.fn(
+        (_args: Parameters<WorkspaceContextService["setSkillLock"]>[0]) => Effect.void,
+      );
       return Effect.gen(function* () {
         const manager = yield* SkillManager;
         const ref = makeLocalSkillRef("my-skill");
         yield* manager.upsertLockfileEntry({ ref });
         expect(setSkillLockFn).toHaveBeenCalledTimes(1);
-        const args = (setSkillLockFn.mock.calls as unknown[][])[0]![0] as {
-          name: string;
-          lockEntry: { agents: readonly string[] };
-          versionConstraint: unknown;
-        };
-        expect(args.name).toBe("my-skill");
-        expect(args.lockEntry.agents).toContain("claude-code");
+        const [args] = at(setSkillLockFn.mock.calls, 0);
+        expect(args).toMatchObject({
+          name: "my-skill",
+          lockEntry: { agents: ["claude-code"] },
+        });
         expect(args.versionConstraint).toEqual(Option.none());
       }).pipe(Effect.provide(buildTestLayer(makeWsMock({ setSkillLock: setSkillLockFn }))));
     },

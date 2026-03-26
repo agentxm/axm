@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import { Activity } from "./activity.js";
 import { ActivityLive } from "./activity-live.js";
+import { at, expectDefined } from "../test-helpers.js";
 
 // Mock @clack/prompts
 vi.mock("@clack/prompts", () => {
@@ -38,7 +39,16 @@ vi.mock("@clack/prompts", () => {
   };
 });
 
-const clack = (await import("@clack/prompts")) as unknown as typeof import("@clack/prompts");
+const clack = await import("@clack/prompts");
+
+const mockResultValue = <Args extends ReadonlyArray<unknown>, T>(
+  mockFn: (...args: Args) => T,
+  index = 0,
+): T =>
+  expectDefined(
+    at(vi.mocked(mockFn).mock.results, index, "Expected mock result"),
+    "Expected mock value",
+  ).value;
 
 describe("ActivityLive", () => {
   describe("startSpinner", () => {
@@ -47,7 +57,7 @@ describe("ActivityLive", () => {
         const activity = yield* Activity;
         const handle = yield* activity.startSpinner("Loading...");
         expect(clack.spinner).toHaveBeenCalled();
-        const spinnerResult = (clack.spinner as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const spinnerResult = mockResultValue(clack.spinner);
         expect(spinnerResult.start).toHaveBeenCalledWith("Loading...");
         yield* handle.stop("Done");
         expect(spinnerResult.stop).toHaveBeenCalledWith("Done");
@@ -65,7 +75,7 @@ describe("ActivityLive", () => {
           "All done",
         );
         expect(result).toBe(42);
-        const spinnerResult = (clack.spinner as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const spinnerResult = mockResultValue(clack.spinner);
         expect(spinnerResult.start).toHaveBeenCalledWith("Working...");
         expect(spinnerResult.stop).toHaveBeenCalledWith("All done");
       }).pipe(Effect.provide(ActivityLive)),
@@ -77,7 +87,7 @@ describe("ActivityLive", () => {
         yield* activity
           .withSpinner("Working...", () => Effect.fail("boom"))
           .pipe(Effect.catch(() => Effect.succeed("recovered")));
-        const spinnerResult = (clack.spinner as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const spinnerResult = mockResultValue(clack.spinner);
         expect(spinnerResult.error).toHaveBeenCalledWith("Working...");
       }).pipe(Effect.provide(ActivityLive)),
     );
@@ -89,7 +99,7 @@ describe("ActivityLive", () => {
         const activity = yield* Activity;
         const handle = yield* activity.startProgress({ max: 100 }, "Downloading...");
         expect(clack.progress).toHaveBeenCalledWith({ max: 100 });
-        const progressResult = (clack.progress as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const progressResult = mockResultValue(clack.progress);
         expect(progressResult.start).toHaveBeenCalledWith("Downloading...");
         yield* handle.advance(50, "Half done");
         expect(progressResult.advance).toHaveBeenCalledWith(50, "Half done");
@@ -108,7 +118,7 @@ describe("ActivityLive", () => {
           "All done",
         );
         expect(result).toBe(42);
-        const progressResult = (clack.progress as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const progressResult = mockResultValue(clack.progress);
         expect(progressResult.start).toHaveBeenCalledWith("Processing...");
         expect(progressResult.stop).toHaveBeenCalledWith("All done");
       }).pipe(Effect.provide(ActivityLive)),
@@ -124,7 +134,7 @@ describe("ActivityLive", () => {
         expect(handle.message).toBeTypeOf("function");
         expect(handle.group).toBeTypeOf("function");
         yield* handle.message("step 1");
-        const taskLogResult = (clack.taskLog as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const taskLogResult = mockResultValue(clack.taskLog);
         expect(taskLogResult.message).toHaveBeenCalledWith("step 1");
       }).pipe(Effect.provide(ActivityLive)),
     );
@@ -136,7 +146,7 @@ describe("ActivityLive", () => {
         const activity = yield* Activity;
         yield* activity.withTaskLog({ title: "Build" }, (handle) => handle.message("compiling"));
         expect(clack.taskLog).toHaveBeenCalledWith({ title: "Build" });
-        const taskLogResult = (clack.taskLog as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+        const taskLogResult = mockResultValue(clack.taskLog);
         expect(taskLogResult.message).toHaveBeenCalledWith("compiling");
       }).pipe(Effect.provide(ActivityLive)),
     );

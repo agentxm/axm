@@ -20,8 +20,6 @@ import type {
   Source,
   PackExtensionRef,
   RefType,
-  RegistryMcpServerRef,
-  RegistryPackRef,
   RegistryRefDetails,
   SelfDescribingSourceHost,
   SkillExtensionRef,
@@ -492,7 +490,7 @@ describe("McpServerExtensionRef", () => {
       integrity: "sha512-def",
     };
     if (ref.refType === "registry") {
-      expect((ref as RegistryMcpServerRef).version).toBe("2.0.0");
+      expect(ref.version).toBe("2.0.0");
       expect(ref.name).toBe("server-pkg");
     }
   });
@@ -519,13 +517,13 @@ describe("PackExtensionRef", () => {
       integrity: "sha512-ghi",
     };
     if (ref.refType === "registry") {
-      expect((ref as RegistryPackRef).version).toBe("1.0.0");
+      expect(ref.version).toBe("1.0.0");
       expect(ref.name).toBe("pack-pkg");
     }
   });
 
   it("BuiltinPackRef has pack name and profile", () => {
-    const ref: PackExtensionRef = {
+    const ref: BuiltinPackRef = {
       type: "pack",
       refType: "builtin",
       profile: "@axm",
@@ -533,7 +531,7 @@ describe("PackExtensionRef", () => {
       source: { type: "builtin" },
     };
     expect(ref.source.type).toBe("builtin");
-    expect((ref as BuiltinPackRef).pack.name).toBe("default");
+    expect(ref.pack.name).toBe("default");
     expect(ref.profile).toBe("@axm");
   });
 });
@@ -577,7 +575,7 @@ describe("ExtensionRef", () => {
       source: { type: "builtin" },
     };
     if (ref.type === "pack") {
-      expect((ref as BuiltinPackRef).pack.name).toBe("p");
+      expect(ref.pack.name).toBe("p");
     }
   });
 

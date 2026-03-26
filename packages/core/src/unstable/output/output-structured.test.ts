@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
+import { at, expectRecord } from "../test-helpers.js";
 import { Output } from "./output.js";
 import { OutputStructured } from "./output-structured.js";
 
@@ -26,7 +27,7 @@ describe("OutputStructured", () => {
         yield* output.info("hello world");
 
         expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(at(lines, 0)));
         expect(parsed).toEqual({ type: "log", level: "info", message: "hello world" });
       }).pipe(Effect.provide(testLayer));
     });
@@ -46,7 +47,7 @@ describe("OutputStructured", () => {
         yield* output.warn("be careful");
 
         expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(at(lines, 0)));
         expect(parsed).toEqual({ type: "log", level: "warn", message: "be careful" });
       }).pipe(Effect.provide(testLayer));
     });
@@ -66,7 +67,7 @@ describe("OutputStructured", () => {
         yield* output.error("something broke");
 
         expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(at(lines, 0)));
         expect(parsed).toEqual({ type: "log", level: "error", message: "something broke" });
       }).pipe(Effect.provide(testLayer));
     });
@@ -104,7 +105,7 @@ describe("OutputStructured", () => {
         yield* output.stream("info", Stream.make("hello ", "world"));
 
         expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(at(lines, 0)));
         expect(parsed).toEqual({ type: "log", level: "info", message: "hello world" });
       }).pipe(Effect.provide(testLayer));
     });
@@ -124,7 +125,7 @@ describe("OutputStructured", () => {
         yield* output.note("body text", "Note Title");
 
         expect(lines).toHaveLength(1);
-        const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+        const parsed = expectRecord(JSON.parse(at(lines, 0)));
         expect(parsed).toEqual({ type: "log", level: "info", message: "Note Title: body text" });
       }).pipe(Effect.provide(testLayer));
     });

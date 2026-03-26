@@ -28,6 +28,11 @@ const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientReque
     Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
   );
 
+const authorizationHeader = (request: HttpClientRequest.HttpClientRequest): string | null => {
+  const header = request.headers["authorization"];
+  return typeof header === "string" ? header : null;
+};
+
 const makeTestLayers = (
   handler: (request: HttpClientRequest.HttpClientRequest) => Response,
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
@@ -93,7 +98,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
@@ -112,7 +117,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       });
 
@@ -131,7 +136,7 @@ describe("AuthMiddleware", () => {
 
       const layers = makeTestLayers(
         (req) => {
-          capturedAuth = (req.headers["authorization"] as string) ?? null;
+          capturedAuth = authorizationHeader(req);
           return new Response("ok", { status: 200 });
         },
         undefined,
@@ -158,7 +163,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       });
 
@@ -176,7 +181,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
@@ -358,7 +363,7 @@ describe("AuthMiddleware", () => {
             { status: 200 },
           );
         }
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       }, storedCredentials(nearExpiry()));
 
@@ -379,7 +384,7 @@ describe("AuthMiddleware", () => {
         if (req.url.includes("/v1/auth/token/refresh")) {
           return new Response("error", { status: 500 });
         }
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       }, storedCredentials(nearExpiry()));
 
@@ -405,7 +410,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const handler = (req: HttpClientRequest.HttpClientRequest) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       };
 
@@ -448,7 +453,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       });
 
@@ -468,7 +473,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       });
 
@@ -487,7 +492,7 @@ describe("AuthMiddleware", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        capturedAuth = (req.headers["authorization"] as string) ?? null;
+        capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       });
 

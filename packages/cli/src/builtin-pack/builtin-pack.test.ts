@@ -7,6 +7,7 @@ import {
   BUILTIN_PACK_SCOPE,
   resolveBuiltinPack,
 } from "./index.js";
+import { expectDefined } from "../test-helpers.js";
 
 describe("builtin-pack", () => {
   it("exports correct identity constants", () => {
@@ -18,15 +19,15 @@ describe("builtin-pack", () => {
   it.effect("resolves builtin pack manifest", () =>
     Effect.gen(function* () {
       const result = yield* resolveBuiltinPack();
+      const skills = expectDefined(result.manifest.skills, "Expected builtin pack skills");
       expect(result.manifest.profile).toBe("@axm");
       expect(result.manifest.type).toBe("pack");
       expect(result.manifest.name).toBe("cli");
-      expect(result.manifest.skills).toBeDefined();
-      expect(Object.keys(result.manifest.skills!)).toHaveLength(4);
-      expect(result.manifest.skills!["@axm/skills/axm-manage-skills"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/skills/axm-manage-packs"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/skills/axm-manage-mcp-servers"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/skills/axm-manage-commands"]).toBeDefined();
+      expect(Object.keys(skills)).toHaveLength(4);
+      expect(skills["@axm/skills/axm-manage-skills"]).toBeDefined();
+      expect(skills["@axm/skills/axm-manage-packs"]).toBeDefined();
+      expect(skills["@axm/skills/axm-manage-mcp-servers"]).toBeDefined();
+      expect(skills["@axm/skills/axm-manage-commands"]).toBeDefined();
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

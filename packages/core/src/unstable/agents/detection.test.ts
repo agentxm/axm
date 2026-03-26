@@ -13,13 +13,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AppError } from "../app-error/index.js";
 import { detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
+import { expectDefined } from "../test-helpers.js";
 
 /** Resolve home dir for use in test path construction. */
 const home = os.homedir();
@@ -33,33 +33,48 @@ const home = os.homedir();
  * Merges with NodePath.layer to provide Path.Path.
  */
 const createMockFileSystem = (existingPaths: Set<string>) =>
-  Layer.merge(
-    Layer.succeed(FileSystem.FileSystem, {
-      exists: (p: string) => Effect.succeed(existingPaths.has(p)),
-      // Other methods are not used by detectAgent/detectAgents
-    } as unknown as FileSystem.FileSystem),
-    NodePath.layer,
-  );
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const overrides = {
+        exists: (path: string) => Effect.succeed(existingPaths.has(path)),
+      } satisfies Pick<FileSystem.FileSystem, "exists">;
+
+      return {
+        ...fileSystem,
+        ...overrides,
+      } satisfies FileSystem.FileSystem;
+    }),
+  ).pipe(Layer.provideMerge(NodeServices.layer));
 
 /**
  * Creates a mock FileSystem layer where `exists` always fails with an error.
  * Merges with NodePath.layer to provide Path.Path.
  */
 const createFailingFileSystem = (errorMessage: string) =>
-  Layer.merge(
-    Layer.succeed(FileSystem.FileSystem, {
-      exists: () =>
-        Effect.fail(
-          new PlatformError.SystemError({
-            _tag: "Unknown",
-            module: "FileSystem",
-            method: "exists",
-            description: errorMessage,
-          }),
-        ),
-    } as unknown as FileSystem.FileSystem),
-    NodePath.layer,
-  );
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const overrides = {
+        exists: () =>
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "Unknown",
+              module: "FileSystem",
+              method: "exists",
+              description: errorMessage,
+            }),
+          ),
+      } satisfies Pick<FileSystem.FileSystem, "exists">;
+
+      return {
+        ...fileSystem,
+        ...overrides,
+      } satisfies FileSystem.FileSystem;
+    }),
+  ).pipe(Layer.provideMerge(NodeServices.layer));
 
 /**
  * Provides real filesystem and path for live tests.
@@ -258,8 +273,12 @@ describe("detectAgent", () => {
           Effect.provide(createFailingFileSystem("I/O error")),
           Effect.flip,
         );
-        expect(error.cause).toBeDefined();
-        expect((error.cause as PlatformError.SystemError).message).toContain("I/O error");
+        const cause = expectDefined(error.cause, "Expected original cause");
+        expect(cause).toBeInstanceOf(PlatformError.PlatformError);
+        if (cause instanceof PlatformError.PlatformError) {
+          expect(cause.reason).toBeInstanceOf(PlatformError.SystemError);
+          expect(cause.message).toContain("I/O error");
+        }
       }),
     );
   });

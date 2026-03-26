@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CliRenderer } from "./cli-renderer.js";
 import { InteractiveRenderer } from "./cli-renderer-interactive.js";
+import { expectRecord } from "../test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Assertion helper
@@ -523,7 +524,7 @@ describe("InteractiveRenderer", () => {
       );
       expect(stdoutWrites).toHaveLength(1);
       assertDefined(stdoutWrites[0], "Expected stdout write from json()");
-      const parsed = JSON.parse(stdoutWrites[0]) as Record<string, unknown>;
+      const parsed = expectRecord(JSON.parse(stdoutWrites[0]));
       expect(parsed).toEqual({ key: "value" });
       // Pretty-printed
       expect(stdoutWrites[0]).toContain("\n");

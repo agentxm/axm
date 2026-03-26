@@ -10,6 +10,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { at } from "../test-helpers.js";
 import { applyPlan } from "./apply-plan.js";
 import type { Plan, PlannedJobStep } from "./plan.js";
 
@@ -127,7 +128,7 @@ describe("applyPlan", () => {
         label: "bad",
         result: { result: "error" },
       });
-      const result = steps[0]!.result;
+      const result = at(steps, 0).result;
       expect(result.result).toBe("error");
       if (result.result === "error") {
         expect(result.error.code).toBe("TEST_OP_FAILED");
@@ -213,19 +214,19 @@ describe("applyPlan", () => {
       );
 
       // Job 1: step-a succeeds, step-b fails
-      const job1Steps = executed.jobs[0]!.steps;
-      expect(job1Steps[0]).toMatchObject({
+      const job1Steps = at(executed.jobs, 0).steps;
+      expect(at(job1Steps, 0)).toMatchObject({
         label: "step-a",
         result: { result: "success" },
       });
-      expect(job1Steps[1]).toMatchObject({
+      expect(at(job1Steps, 1)).toMatchObject({
         label: "step-b",
         result: { result: "error" },
       });
 
       // Job 2: step-c is blocked (promoted to error without execution)
-      const job2Steps = executed.jobs[1]!.steps;
-      expect(job2Steps[0]).toMatchObject({
+      const job2Steps = at(executed.jobs, 1).steps;
+      expect(at(job2Steps, 0)).toMatchObject({
         label: "step-c",
         result: { result: "error" },
       });
@@ -245,13 +246,13 @@ describe("applyPlan", () => {
         }),
       );
 
-      const steps = executed.jobs[0]!.steps;
+      const steps = at(executed.jobs, 0).steps;
       // step-a fails but step-b still runs
-      expect(steps[0]).toMatchObject({
+      expect(at(steps, 0)).toMatchObject({
         label: "step-a",
         result: { result: "error" },
       });
-      expect(steps[1]).toMatchObject({
+      expect(at(steps, 1)).toMatchObject({
         label: "step-b",
         result: { result: "success" },
       });
@@ -279,14 +280,14 @@ describe("applyPlan", () => {
         }),
       );
 
-      expect(executed.jobs[0]!.steps[0]).toMatchObject({
+      expect(at(at(executed.jobs, 0).steps, 0)).toMatchObject({
         result: { result: "error" },
       });
-      expect(executed.jobs[1]!.steps[0]).toMatchObject({
+      expect(at(at(executed.jobs, 1).steps, 0)).toMatchObject({
         label: "blocked-1",
         result: { result: "error" },
       });
-      expect(executed.jobs[2]!.steps[0]).toMatchObject({
+      expect(at(at(executed.jobs, 2).steps, 0)).toMatchObject({
         label: "blocked-2",
         result: { result: "error" },
       });
@@ -315,8 +316,8 @@ describe("applyPlan", () => {
       expect(executed.name).toBe("My plan");
       expect(executed.description).toEqual(Option.some("Description"));
       expect(executed.jobs).toHaveLength(2);
-      expect(executed.jobs[0]!.steps).toHaveLength(1);
-      expect(executed.jobs[1]!.steps).toHaveLength(2);
+      expect(at(executed.jobs, 0).steps).toHaveLength(1);
+      expect(at(executed.jobs, 1).steps).toHaveLength(2);
     }),
   );
 });

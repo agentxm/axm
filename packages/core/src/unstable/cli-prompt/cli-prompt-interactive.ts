@@ -59,9 +59,7 @@ const guardedPrompt = <T>(
 export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliPrompt> =>
   Layer.succeed(CliPrompt, {
     text: (opts) =>
-      guardedPrompt(nonInteractive, opts.defaultValue, opts.message, () =>
-        p.text(asClack(opts)),
-      ),
+      guardedPrompt(nonInteractive, opts.defaultValue, opts.message, () => p.text(asClack(opts))),
     password: (opts) =>
       guardedPrompt(nonInteractive, undefined, opts.message, () => p.password(asClack(opts))),
     confirm: (opts) =>
@@ -69,22 +67,14 @@ export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliP
         p.confirm(asClack(opts)),
       ),
     select: (opts) =>
-      guardedPrompt(nonInteractive, opts.initialValue, opts.message, () =>
-        p.select(asClack(opts)),
-      ),
+      guardedPrompt(nonInteractive, opts.initialValue, opts.message, () => p.select(asClack(opts))),
     multiselect: (opts) =>
-      guardedPrompt(
-        nonInteractive,
-        opts.initialValues,
-        opts.message,
-        () => p.multiselect(asClack(opts)),
+      guardedPrompt(nonInteractive, opts.initialValues, opts.message, () =>
+        p.multiselect(asClack(opts)),
       ),
     groupMultiselect: (opts) =>
-      guardedPrompt(
-        nonInteractive,
-        opts.initialValues,
-        opts.message,
-        () => p.groupMultiselect(asClack(opts)),
+      guardedPrompt(nonInteractive, opts.initialValues, opts.message, () =>
+        p.groupMultiselect(asClack(opts)),
       ),
     selectKey: (opts) =>
       guardedPrompt(nonInteractive, opts.initialValue, opts.message, () =>
@@ -95,14 +85,9 @@ export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliP
         p.autocomplete(asClack(opts)),
       ),
     autocompleteMultiselect: (opts) =>
-      guardedPrompt(
-        nonInteractive,
-        opts.initialValues,
-        opts.message,
-        () => p.autocompleteMultiselect(asClack(opts)),
+      guardedPrompt(nonInteractive, opts.initialValues, opts.message, () =>
+        p.autocompleteMultiselect(asClack(opts)),
       ),
     path: (opts) =>
-      guardedPrompt(nonInteractive, opts.initialValue, opts.message, () =>
-        p.path(asClack(opts)),
-      ),
+      guardedPrompt(nonInteractive, opts.initialValue, opts.message, () => p.path(asClack(opts))),
   });

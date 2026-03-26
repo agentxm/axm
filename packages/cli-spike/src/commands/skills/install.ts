@@ -1,20 +1,19 @@
 // ==========================================================================
-// install.ts — Reference pattern for LONG-RUNNING commands using Activity service
+// install.ts — Reference pattern for LONG-RUNNING commands using CliRenderer
 //
-// Demonstrates how Activity.withSpinner() replaces manual NDJSON streaming:
+// Demonstrates how CliRenderer.withSpinner() replaces manual NDJSON streaming:
 //   - In text mode: shows an interactive spinner with status updates
 //   - In stream-json mode: emits NDJSON progress events automatically
 //   - In json mode: runs silently, only emits final result
 //
 // The handler is completely format-agnostic. No emitEvent(), no format
-// branching. The Activity service handles all format differences.
+// branching. The CliRenderer service handles all format differences.
 // ==========================================================================
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Activity } from "@axm.sh/core/unstable/activity";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withRuntime } from "../../runtime.js";
 
@@ -35,8 +34,8 @@ const renderText = (source: string, installed: ReadonlyArray<string>): string =>
 //
 // Key differences from list.ts:
 //   - withRuntime(..., { isLongRunning: true }) sets pipe default to stream-json
-//   - Activity.withSpinner() wraps the long-running work
-//   - The spinner handle provides .message() for status updates
+//   - CliRenderer.withSpinner() wraps the long-running work
+//   - The spinner handle provides .update() for status updates
 //   - Per-command --yes flag imported from core (demonstrates the pattern)
 // ---------------------------------------------------------------------------
 
@@ -59,29 +58,28 @@ const installConfig = {
 export const installCommand = Command.make("install", installConfig, (config) =>
   withRuntime(
     Effect.gen(function* () {
-      const activity = yield* Activity;
-      const output = yield* Output;
+      const renderer = yield* CliRenderer;
 
-      // Activity.withSpinner handles format differences:
+      // CliRenderer.withSpinner handles format differences:
       //   text        → shows animated spinner with status messages
       //   stream-json → emits NDJSON progress events
       //   json        → runs silently (no output until result)
-      const skills = yield* activity.withSpinner(
+      const skills = yield* renderer.withSpinner(
         `Installing from ${config.source}`,
         (handle) =>
           Effect.gen(function* () {
-            yield* handle.message("Downloading...");
+            yield* handle.update("Downloading...");
             yield* Effect.sleep("200 millis");
-            yield* handle.message("Resolving skills from manifest...");
+            yield* handle.update("Resolving skills from manifest...");
             yield* Effect.sleep("100 millis");
-            yield* handle.message("Installing skills...");
+            yield* handle.update("Installing skills...");
             yield* Effect.sleep("100 millis");
             return ["pr-review", "test-gen", "doc-writer"] as const;
           }),
-        "Installation complete",
+        { successMessage: "Installation complete" },
       );
 
-      yield* output.success(renderText(config.source, skills));
+      yield* renderer.success(renderText(config.source, skills));
     }),
     { command: "skills install", isLongRunning: true },
   ),

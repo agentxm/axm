@@ -14,14 +14,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
-import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
-import { UninstallPackCommandWorkflowActionsLive } from "./command-actions.js";
+import { handleUninstallPack } from "./handler.js";
+import {
+  type UninstallPackHandlerArgs,
+  UninstallPackCommandWorkflowActionsLive,
+} from "./command-actions.js";
 import { PackManagerLive } from "../../../extensions/packs/manager.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 import { CommandManagerLive } from "../../../extensions/commands/manager.js";
@@ -107,26 +109,19 @@ describe("packs uninstall handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: InputPromptBehavior;
-      selectBehavior?: InputPromptBehavior;
-      multiselectBehavior?: InputPromptBehavior;
+      confirmValue?: boolean;
     },
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
-        select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
-        multiselect: tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [tuiConfig?.confirmValue ?? true],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -154,7 +149,9 @@ describe("packs uninstall handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   // ---------------------------------------------------------------------------
@@ -163,7 +160,7 @@ describe("packs uninstall handler", () => {
 
   describe("basic uninstall", () => {
     it.effect("uninstalls a pack and removes from lockfile", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -180,7 +177,7 @@ describe("packs uninstall handler", () => {
           });
 
           // Should show completed step for the pack
-          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
 
           // Check lockfile no longer has the pack
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -191,7 +188,7 @@ describe("packs uninstall handler", () => {
     });
 
     it.effect("no-ops when pack is not installed", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -203,7 +200,7 @@ describe("packs uninstall handler", () => {
           });
 
           // Plan still executes step (no-op since nothing to remove)
-          expect(mockLog.logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
         }),
       );
     });
@@ -215,7 +212,7 @@ describe("packs uninstall handler", () => {
 
   describe("orphan detection", () => {
     it.effect("removes orphaned skills on pack uninstall", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -234,14 +231,14 @@ describe("packs uninstall handler", () => {
           });
 
           // Should show completed steps for pack and orphaned skill
-          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("skill-a"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("skill-a"))).toBe(true);
         }),
       );
     });
 
     it.effect("preserves skills referenced by another pack", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "pack-a": "@acme/packs/pack-a",
@@ -266,15 +263,15 @@ describe("packs uninstall handler", () => {
           });
 
           // shared-skill is retained by pack-b, should not appear as a step
-          expect(mockLog.logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
           // pack-a itself should be uninstalled
-          expect(mockLog.logs.success.some((m) => m.includes("pack-a"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("pack-a"))).toBe(true);
         }),
       );
     });
 
     it.effect("preserves skills that are direct settings entries", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: { "promoted-skill": "@acme/skills/promoted-skill" },
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
@@ -294,9 +291,9 @@ describe("packs uninstall handler", () => {
           });
 
           // promoted-skill is directly configured, so excluded from orphan targets
-          expect(mockLog.logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
           // pack itself should be uninstalled
-          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
         }),
       );
     });
@@ -308,7 +305,7 @@ describe("packs uninstall handler", () => {
 
   describe("glob patterns", () => {
     it.effect("expands glob pattern to match multiple packs", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "acme-tools": "@acme/packs/acme-tools",
@@ -331,8 +328,8 @@ describe("packs uninstall handler", () => {
           });
 
           // Should show completed steps for matched packs
-          expect(mockLog.logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("acme-utils"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("acme-utils"))).toBe(true);
 
           // Check lockfile - acme-tools and acme-utils should be removed, other-pack preserved
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -345,7 +342,7 @@ describe("packs uninstall handler", () => {
     });
 
     it.effect("warns when glob pattern matches nothing", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -356,8 +353,8 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          expect(mockLog.logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
+          expect(logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
         }),
       );
     });

@@ -2,7 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaAST from "effect/SchemaAST";
 
-import { ColumnHeader, ColumnPriority, ColumnAlign, ColumnWidth, DisplayFormat, Hidden } from "./annotations.js";
+import {
+  ColumnHeader,
+  ColumnPriority,
+  ColumnAlign,
+  ColumnWidth,
+  DisplayFormat,
+  Hidden,
+} from "./annotations.js";
 import { CliRenderer, type ColumnDef } from "./cli-renderer.js";
 
 // ---------------------------------------------------------------------------
@@ -21,9 +28,7 @@ import { CliRenderer, type ColumnDef } from "./cli-renderer.js";
  * Union (e.g. from Schema.optional wrapping), traverse its member types
  * and return annotations from the first member that carries a ColumnHeader.
  */
-const resolveAnnotations = (
-  ast: SchemaAST.AST,
-): Readonly<Record<string, unknown>> | undefined => {
+const resolveAnnotations = (ast: SchemaAST.AST): Readonly<Record<string, unknown>> | undefined => {
   const direct = SchemaAST.resolve(ast);
   if (direct?.[ColumnHeader] !== undefined) return direct;
   if (direct?.[Hidden] === true) return direct;

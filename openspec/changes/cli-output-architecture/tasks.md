@@ -275,52 +275,52 @@ These files are called transitively by many handlers and are the reason handler 
 
 > **Parallelization:** 13.1-13.2, 13.3-13.4, 13.5 are independent — launch as parallel subagents.
 
-- [ ] 13.1 Migrate `auth/guard.ts`: replace `yield* Output`, `yield* Input`, `yield* Activity` with `CliRenderer` + `CliPrompt`
-- [ ] 13.2 Update `auth/guard` tests if they exist
-- [ ] 13.3 Migrate `workspace/service.ts`: replace `yield* Output`, `yield* Input` with `CliRenderer` + `CliPrompt`
-- [ ] 13.4 Migrate `workspace/initialization.ts`: replace `yield* Output`, `yield* Input` with `CliRenderer` + `CliPrompt`
-- [ ] 13.5 Migrate `workspace/display-plan.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.1 Migrate `auth/guard.ts`: replace `yield* Output`, `yield* Input`, `yield* Activity` with `CliRenderer` + `CliPrompt`
+- [x] 13.2 Update `auth/guard` tests if they exist
+- [x] 13.3 Migrate `workspace/service.ts`: replace `yield* Output`, `yield* Input` with `CliRenderer` + `CliPrompt`
+- [x] 13.4 Migrate `workspace/initialization.ts`: replace `yield* Output`, `yield* Input` with `CliRenderer` + `CliPrompt`
+- [x] 13.5 Migrate `workspace/display-plan.ts`: replace `yield* Output` with `CliRenderer`
 
 ### 13b. Migrate Extension Operations
 
 > **Parallelization:** All tasks in 13b are independent — launch as parallel subagents.
 
-- [ ] 13.6 Migrate `extensions/skills/operations/install.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.7 Migrate `extensions/packs/operations/install.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.8 Migrate `extensions/packs/operations/uninstall.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.9 Migrate `extensions/mcp-servers/operations/install.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.10 Migrate `extensions/mcp-servers/operations/uninstall.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.11 Migrate `extensions/commands/operations/install.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.6 Migrate `extensions/skills/operations/install.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.7 Migrate `extensions/packs/operations/install.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.8 Migrate `extensions/packs/operations/uninstall.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.9 Migrate `extensions/mcp-servers/operations/install.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.10 Migrate `extensions/mcp-servers/operations/uninstall.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.11 Migrate `extensions/commands/operations/install.ts`: replace `yield* Output` with `CliRenderer`
 
 ### 13c. Remove Adapter Imports from Handler Tests
 
 Once all transitive dependencies are migrated, handler tests no longer need adapter layers. Update all 26 test files to remove `OutputAdapter`, `ActivityAdapter`, and `InputAdapter` imports and layer wiring.
 
-- [ ] 13.12 Remove adapter imports from auth handler tests (`login`, `logout`, `whoami`)
-- [ ] 13.13 Remove adapter imports from init handler tests
-- [ ] 13.14 Remove adapter imports from skills handler tests (`list`, `install`, `uninstall`, `new`, `enable`, `disable`, `fork`, `rename`, `publish`, `select-skills`, `plan`)
-- [ ] 13.15 Remove adapter imports from packs handler tests (`install`, `uninstall`, `new`, `add`, `remove`, `publish`, `unpack`, `plan`)
-- [ ] 13.16 Remove adapter imports from commands/mcp-servers handler tests
+- [x] 13.12 Remove adapter imports from auth handler tests (`login`, `logout`, `whoami`)
+- [x] 13.13 Remove adapter imports from init handler tests
+- [x] 13.14 Remove adapter imports from skills handler tests (`list`, `install`, `uninstall`, `new`, `enable`, `disable`, `fork`, `rename`, `publish`, `select-skills`, `plan`)
+- [x] 13.15 Remove adapter imports from packs handler tests (`install`, `uninstall`, `new`, `add`, `remove`, `publish`, `unpack`, `plan`)
+- [x] 13.16 Remove adapter imports from commands/mcp-servers handler tests
 
 ### 13d. Migrate Dev TUI Commands (Lower Priority)
 
-- [ ] 13.17 Migrate `dev-cli-commands/tui/log/command.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.18 Migrate `dev-cli-commands/tui/note/command.ts`: replace `yield* Output` with `CliRenderer`
-- [ ] 13.19 Migrate `dev-cli-commands/tui/spinner/command.ts`: replace `yield* Activity` with `CliRenderer`
-- [ ] 13.20 Migrate `dev-cli-commands/tui/text-input/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
-- [ ] 13.21 Migrate `dev-cli-commands/tui/password-input/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
-- [ ] 13.22 Migrate `dev-cli-commands/tui/confirm/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
-- [ ] 13.23 Migrate `dev-cli-commands/tui/select/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
-- [ ] 13.24 Migrate `dev-cli-commands/tui/multiselect/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
+- [x] 13.17 Migrate `dev-cli-commands/tui/log/command.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.18 Migrate `dev-cli-commands/tui/note/command.ts`: replace `yield* Output` with `CliRenderer`
+- [x] 13.19 Migrate `dev-cli-commands/tui/spinner/command.ts`: replace `yield* Activity` with `CliRenderer`
+- [x] 13.20 Migrate `dev-cli-commands/tui/text-input/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
+- [x] 13.21 Migrate `dev-cli-commands/tui/password-input/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
+- [x] 13.22 Migrate `dev-cli-commands/tui/confirm/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
+- [x] 13.23 Migrate `dev-cli-commands/tui/select/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
+- [x] 13.24 Migrate `dev-cli-commands/tui/multiselect/command.ts`: replace `yield* Input`, `yield* Output` with `CliPrompt`, `CliRenderer`
 
 ### 13e. Verification
 
-- [ ] 13.25 Verify no remaining `yield* Output`, `yield* Activity`, `yield* Input` in any production `.ts` file (excluding adapters themselves)
-- [ ] 13.26 Run `pnpm typecheck` and fix any errors
-- [ ] 13.27 Run `pnpm lint` and fix any errors
-- [ ] 13.28 Run `pnpm test` and fix any failures
-- [ ] 13.29 Run `pnpm test:e2e` and fix any failures
-- [ ] 13.30 Kill any vitest worker processes
+- [x] 13.25 Verify no remaining `yield* Output`, `yield* Activity`, `yield* Input` in any production `.ts` file (excluding adapters themselves)
+- [x] 13.26 Run `pnpm typecheck` and fix any errors
+- [x] 13.27 Run `pnpm lint` and fix any errors
+- [x] 13.28 Run `pnpm test` and fix any failures
+- [x] 13.29 Run `pnpm test:e2e` and fix any failures
+- [x] 13.30 Kill any vitest worker processes
 
 ## 14. Remove Old Services and Adapters
 
@@ -330,19 +330,19 @@ Depends on: Phase 13 (all consumers of old services must be migrated).
 
 Remove the adapter layers, old service definitions, CliEnvironment, output-format, and old test infrastructure.
 
-- [ ] 14.1 Verify no remaining imports of `Output`, `Activity`, `Input`, or `CliEnvironment` anywhere in the codebase (grep — should only find adapter files and old service definitions)
-- [ ] 14.2 Remove adapter layers created in Phase 7 (`output-adapter.ts`, `activity-adapter.ts`, `input-adapter.ts` and their tests)
+- [x] 14.1 Verify no remaining imports of `Output`, `Activity`, `Input`, or `CliEnvironment` anywhere in the codebase (grep — should only find adapter files and old service definitions)
+- [x] 14.2 Remove adapter layers created in Phase 7 (`output-adapter.ts`, `activity-adapter.ts`, `input-adapter.ts` and their tests)
 - [ ] 14.3 Remove `packages/core/src/unstable/output/` directory (Output service, OutputLive, OutputStructured, output tests)
 - [ ] 14.4 Remove `packages/core/src/unstable/activity/` directory (Activity service, ActivityLive, ActivityStructured, activity tests)
 - [ ] 14.5 Remove `packages/core/src/unstable/input/` directory (Input service, InputLive, InputStructured, input tests)
 - [ ] 14.6 Remove `packages/core/src/unstable/output-format.ts` — relocate any NDJSON event schemas still needed to `cli-renderer/`
 - [ ] 14.7 Remove `CliEnvironment`, `makeCliEnvironmentLayer`, `CliEnvironmentTest` from `packages/core/src/unstable/cli-flags/index.ts`
 - [ ] 14.8 Remove `outputFormatFlag` from `packages/core/src/unstable/cli-flags/index.ts`
-- [ ] 14.9 Remove `makeUiLayer` from `packages/core/src/unstable/cli-runtime/ui-layer.ts`
+- [x] 14.9 Remove `makeUiLayer` from `packages/core/src/unstable/cli-runtime/ui-layer.ts`
 - [ ] 14.10 Remove `resolveFormat`, `resolveCliFormat` from `packages/core/src/unstable/cli-runtime/resolve-format.ts`
 - [ ] 14.11 Remove `packages/cli/src/output.ts` (re-export barrel for output-format)
 - [ ] 14.12 Remove old package.json exports: `./unstable/output-format`, `./unstable/output`, `./unstable/activity`, `./unstable/input`
-- [ ] 14.13 Update `makeFoundationLayer` to stop dual-providing old services — provide only `CliRenderer | CliPrompt | Verbosity`
+- [x] 14.13 Update `makeFoundationLayer` to stop dual-providing old services — provide only `CliRenderer | CliPrompt | Verbosity`
 - [ ] 14.14 Run `pnpm typecheck` and fix any errors
 - [ ] 14.15 Run `pnpm lint` and fix any errors
 - [ ] 14.16 Run `pnpm test` and fix any failures

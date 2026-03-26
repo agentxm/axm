@@ -1,29 +1,22 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
-import { Input, InputLive } from "@axm.sh/core/unstable/input";
-import { Output, OutputLive } from "@axm.sh/core/unstable/output";
+import { CliRenderer, InteractiveRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt, makeInteractivePrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 export const textInputCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
-      const input = yield* Input;
-      const output = yield* Output;
-      const name = yield* input.text({
+      const prompt = yield* CliPrompt;
+      const renderer = yield* CliRenderer;
+      const name = yield* prompt.text({
         message: "What is your name?",
         placeholder: "Enter your name...",
       });
-      yield* output.success(`Hello, ${name}!`);
+      yield* renderer.success(`Hello, ${name}!`);
     });
     return Effect.runPromise(
       program.pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            OutputLive(),
-            Layer.provide(InputLive, Layer.succeed(nonInteractiveFlag, Option.some(false))),
-          ),
-        ),
+        Effect.provide(Layer.mergeAll(InteractiveRenderer(), makeInteractivePrompt(false))),
       ),
     );
   },

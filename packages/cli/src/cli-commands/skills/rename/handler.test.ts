@@ -8,21 +8,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { FileSystem, Path } from "effect";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
-import { CliEnvironment, CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
 import { handleRename, type RenameHandlerArgs } from "./handler.js";
 
@@ -93,8 +88,8 @@ describe("rename.handler", () => {
     const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -105,15 +100,13 @@ describe("rename.handler", () => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Output | Input | Workspace | CliEnvironment
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   // ---------------------------------------------------------------------------
@@ -207,7 +200,7 @@ describe("rename.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves rename plan", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
@@ -229,7 +222,7 @@ describe("rename.handler", () => {
         Effect.gen(function* () {
           yield* handleRename(defaultArgs("my-skill", "new-skill"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Settings should have the new name
           const settingsContent = fs.readFileSync(

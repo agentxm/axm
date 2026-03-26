@@ -14,9 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import {
   Workspace,
@@ -26,8 +25,9 @@ import {
 import type { ExtensionFiles, PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProvidersLive, SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
+import { handleInstallPack } from "./handler.js";
 import {
+  type InstallPackHandlerArgs,
   InstallPackCommandWorkflowActions,
   InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
@@ -108,26 +108,19 @@ describe("packs install handler", () => {
 
   const makeLayers = (
     tuiConfig?: {
-      confirmBehavior?: InputPromptBehavior;
-      selectBehavior?: InputPromptBehavior;
-      multiselectBehavior?: InputPromptBehavior;
+      confirmValue?: boolean;
     },
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: tuiConfig?.confirmBehavior ?? { type: "return", value: true },
-        select: tuiConfig?.selectBehavior ?? { type: "select", index: 0 },
-        multiselect: tuiConfig?.multiselectBehavior ?? { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [tuiConfig?.confirmValue ?? true],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -154,7 +147,9 @@ describe("packs install handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs, rendererState };
   };
 
   const makeLayersWithMockSources = (
@@ -162,19 +157,14 @@ describe("packs install handler", () => {
     flagsOverrides?: Partial<import("@axm.sh/core/unstable/cli-flags").CliEnvironmentService>,
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [true],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -201,7 +191,9 @@ describe("packs install handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs, rendererState };
   };
 
   // ---------------------------------------------------------------------------
@@ -418,7 +410,7 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
@@ -453,11 +445,11 @@ describe("packs install handler", () => {
           });
 
           const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.warn,
-            ...mockLog.logs.success,
-            ...mockLog.logs.error,
+            ...logs.info,
+            ...logs.message,
+            ...logs.warn,
+            ...logs.success,
+            ...logs.error,
           ].join("\n");
           // The shared workflow always builds install plan steps
           expect(allLogs).toContain("my-pack");
@@ -473,8 +465,8 @@ describe("packs install handler", () => {
 
   describe("preview mode", () => {
     it.effect("fails at source resolution when no registry configured", () => {
-      const { provide, mockSpinner } = makeLayers({
-        confirmBehavior: { type: "return", value: false },
+      const { provide, rendererState } = makeLayers({
+        confirmValue: false,
       });
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -487,8 +479,8 @@ describe("packs install handler", () => {
           }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");
           expect((error as AppError).code).toBe("INVALID_SOURCE");
-          expect(mockSpinner.starts).toContain("Parsing source...");
-          expect(mockSpinner.stops).toContain("Failed");
+          expect(rendererState.spinnerMessages).toContain("Parsing source...");
+          expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );
     });
@@ -561,7 +553,7 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -572,11 +564,11 @@ describe("packs install handler", () => {
           });
 
           const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-            ...mockLog.logs.error,
+            ...logs.info,
+            ...logs.message,
+            ...logs.success,
+            ...logs.warn,
+            ...logs.error,
           ].join("\n");
           expect(allLogs).toContain("test-pack");
         }),
@@ -655,7 +647,7 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -666,11 +658,11 @@ describe("packs install handler", () => {
           });
 
           const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-            ...mockLog.logs.error,
+            ...logs.info,
+            ...logs.message,
+            ...logs.success,
+            ...logs.warn,
+            ...logs.error,
           ].join("\n");
           // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
@@ -742,7 +734,7 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -753,7 +745,7 @@ describe("packs install handler", () => {
           });
           expect(attemptedRemote).toBe(true);
           expect(attemptedFile).toBe(true);
-          expect(mockLog.logs.info).toContain("Registry source: local (file:///tmp/reg)");
+          expect(logs.info).toContain("Registry source: local (file:///tmp/reg)");
         }),
       );
     });
@@ -793,7 +785,7 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -803,9 +795,9 @@ describe("packs install handler", () => {
             preview: false,
           });
 
-          expect(mockLog.logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
+          expect(logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
           expect(
-            mockLog.logs.info.some(
+            logs.info.some(
               (line) =>
                 line.includes("Host resolution:") &&
                 line.includes("http://localhost:4300/") &&
@@ -894,7 +886,7 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -905,11 +897,11 @@ describe("packs install handler", () => {
           });
 
           const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-            ...mockLog.logs.error,
+            ...logs.info,
+            ...logs.message,
+            ...logs.success,
+            ...logs.warn,
+            ...logs.error,
           ].join("\n");
           // Plan should include the pack and all extension steps
           expect(allLogs).toContain("multi-pack");
@@ -951,7 +943,7 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -962,11 +954,11 @@ describe("packs install handler", () => {
           });
 
           const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-            ...mockLog.logs.error,
+            ...logs.info,
+            ...logs.message,
+            ...logs.success,
+            ...logs.warn,
+            ...logs.error,
           ].join("\n");
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
@@ -983,7 +975,7 @@ describe("packs install handler", () => {
 
   describe("--force propagation", () => {
     it.effect("--force in workspace options downgrades plan errors to warnings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -1008,7 +1000,7 @@ describe("packs install handler", () => {
           };
           const result = yield* ws.resolvePlan(plan, { yes: true, force: true, preview: false });
           // --force downgrades errors to warnings and proceeds
-          expect(mockLog.logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+          expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
           expect(result._tag).toBe("ExecutedPlan");
         }),
       );

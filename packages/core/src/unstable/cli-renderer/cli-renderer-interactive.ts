@@ -4,7 +4,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 
-import { makeAppError } from "../app-error/index.js";
 import {
   CliRenderer,
   type ColumnDef,
@@ -190,11 +189,7 @@ const formatTable = <T>(
 // Detail formatter — vertical key-value
 // ---------------------------------------------------------------------------
 
-const formatDetail = <T>(
-  item: T,
-  columns: ReadonlyArray<ColumnDef<T>>,
-  title?: string,
-): string => {
+const formatDetail = <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string): string => {
   if (columns.length === 0) return "";
 
   const lines: Array<string> = [];
@@ -275,13 +270,9 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
       s.start(message);
       const handle = makeSpinnerHandle(s);
       const successMessage =
-        typeof options?.successMessage === "string"
-          ? options.successMessage
-          : undefined;
+        typeof options?.successMessage === "string" ? options.successMessage : undefined;
       const successMessageFn =
-        typeof options?.successMessage === "function"
-          ? options.successMessage
-          : undefined;
+        typeof options?.successMessage === "function" ? options.successMessage : undefined;
       const failureMessage = options?.failureMessage;
 
       return Effect.interruptible(f(handle)).pipe(
@@ -318,17 +309,7 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
     box: (message, title, opts) => Effect.sync(() => p.box(message, title, opts)),
     streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
       Stream.runCollect(stream).pipe(
-        Effect.flatMap((arr) =>
-          Effect.tryPromise({
-            try: () => streamMethodMap[level](arr),
-            catch: (error) =>
-              makeAppError({
-                code: "STREAM_RENDER_FAILED",
-                what: "Stream rendering failed",
-                cause: error,
-              }),
-          }).pipe(Effect.orDie),
-        ),
+        Effect.flatMap((arr) => Effect.promise(() => streamMethodMap[level](arr))),
       ),
 
     // Activity — delegate to Clack
@@ -402,32 +383,20 @@ export const InteractiveRenderer = (): Layer.Layer<CliRenderer> => {
             ),
           ),
         { concurrency: 1 },
-      ),
+      ).pipe(Effect.asVoid),
 
     // Data display (stdout) — custom formatters
-    table: <T>(
-      items: ReadonlyArray<T>,
-      columns: ReadonlyArray<ColumnDef<T>>,
-      caption?: string,
-    ) => {
+    table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) => {
       const output = formatTable(items, columns, caption);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
-    detail: <T>(
-      item: T,
-      columns: ReadonlyArray<ColumnDef<T>>,
-      title?: string,
-    ) => {
+    detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) => {
       const output = formatDetail(item, columns, title);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
-    tree: <T>(
-      roots: ReadonlyArray<TreeNode<T>>,
-      def: TreeDef<T>,
-      title?: string,
-    ) => {
+    tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) => {
       const output = formatTree(roots, def, title);
       if (output) return writeStdoutLine(output);
       return Effect.void;

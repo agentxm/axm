@@ -147,7 +147,7 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
-  
+
   const sources = yield* SourceHostProviders;
 
   yield* renderer.info("axm skills fork");

@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
@@ -53,10 +53,8 @@ const mockSourceHostProviders = {
 } as unknown as ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
 const [promptLayer] = makeTestPrompt({
-  methodBehaviors: {
-    confirm: { type: "return", value: true },
-    text: { type: "return", value: "" },
-  },
+  confirmResponses: [true],
+  textResponses: [""],
 });
 
 const testLayer = Layer.mergeAll(

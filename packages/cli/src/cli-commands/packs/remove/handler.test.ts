@@ -15,8 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
@@ -110,8 +110,8 @@ describe("packs-remove.handler", () => {
     const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -125,12 +125,14 @@ describe("packs-remove.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   describe("remove specific extension", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -159,7 +161,7 @@ describe("packs-remove.handler", () => {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });
@@ -167,7 +169,7 @@ describe("packs-remove.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -201,7 +203,7 @@ describe("packs-remove.handler", () => {
           expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
 
           // Preview log message should appear
-          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
         }),
       );
     });

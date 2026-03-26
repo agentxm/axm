@@ -3,22 +3,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { InputStructured, type Input } from "../input/index.js";
-import { InputAdapter } from "../input/input-adapter.js";
-import {
-  CliEnvironment,
-  makeCliEnvironmentLayer,
-  outputFormatFlag,
-} from "../cli-flags/index.js";
+import { CliEnvironment, makeCliEnvironmentLayer, outputFormatFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "../output-format.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../prompt-cancelled.js";
-import type { Activity } from "../activity/activity.js";
-import { ActivityAdapter } from "../activity/activity-adapter.js";
-import type { Output } from "../output/output.js";
-import { OutputAdapter } from "../output/output-adapter.js";
-import { makeUiLayer } from "./ui-layer.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
@@ -31,22 +20,13 @@ import {
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 
-// New services (Phase 6)
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeInteractivePrompt, type CliPrompt } from "../cli-prompt/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../verbosity/index.js";
-import type { TerminalCapabilities } from "../cli-renderer/terminal-capabilities.js";
 import { isNonInteractive } from "../utils/environment.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
-export type CliRuntimeFoundation =
-  | Output
-  | Activity
-  | Input
-  | CliEnvironment
-  | CliRenderer
-  | CliPrompt
-  | Verbosity;
+export type CliRuntimeFoundation = CliEnvironment | CliRenderer | CliPrompt | Verbosity;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? 0 : 1;
@@ -87,12 +67,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Build the foundation layer: Output + Activity + Input + CliEnvironment +
- * CliRenderer + CliPrompt + Verbosity.
- *
- * Old services (Output, Activity, Input, CliEnvironment) are provided for
- * backward compatibility. New services (CliRenderer, CliPrompt, Verbosity)
- * are provided alongside them (dual-provide).
+ * Build the foundation layer: CliEnvironment + CliRenderer + CliPrompt + Verbosity.
  *
  * The returned layer requires the `nonInteractiveFlag` global flag setting
  * in its context (resolved by the Effect CLI framework at command dispatch).
@@ -102,56 +77,27 @@ export const makeFoundationLayer = (
   options?: {
     readonly envVerbose?: boolean | undefined;
     readonly envDebug?: boolean | undefined;
-    readonly json?: boolean | undefined;
-    readonly terminalCapabilities?: TerminalCapabilities | undefined;
     readonly verbosityLevel?: VerbosityLevel | undefined;
   },
 ) => {
-  // CliEnvironment (backward compatibility — still provided directly)
+  // CliEnvironment
   const cliEnvLayer = makeCliEnvironmentLayer({
     envVerbose: options?.envVerbose,
     envDebug: options?.envDebug,
   });
 
-  // New services — the real implementations
-  const json = options?.json ?? false;
-  const rendererLayer: Layer.Layer<CliRenderer> = json
-    ? MachineRenderer()
-    : InteractiveRenderer();
+  // Non-text formats use machine-readable (NDJSON) output
+  const rendererLayer: Layer.Layer<CliRenderer> =
+    format !== "text" ? MachineRenderer() : InteractiveRenderer();
 
   const promptLayer = Layer.unwrap(
-    isNonInteractive.pipe(
-      Effect.map((nonInteractive) => makeInteractivePrompt(nonInteractive)),
-    ),
+    isNonInteractive.pipe(Effect.map((nonInteractive) => makeInteractivePrompt(nonInteractive))),
   );
 
   const verbosityLevel = options?.verbosityLevel ?? "normal";
   const verbosityLayer = makeVerbosityLayer(verbosityLevel);
 
-  // Old services — adapters backed by new services in text mode,
-  // original structured implementations for json/stream-json modes.
-  // The structured implementations have mode-specific behavior (e.g.,
-  // stream-json emits NDJSON on stdout) that the adapters can't replicate
-  // because MachineRenderer always emits to stderr.
-  const oldLayers =
-    format === "text"
-      ? Layer.mergeAll(
-          Layer.provide(OutputAdapter, rendererLayer),
-          Layer.provide(ActivityAdapter, rendererLayer),
-          Layer.provide(InputAdapter, promptLayer),
-        )
-      : Layer.mergeAll(
-          makeUiLayer(format),
-          InputStructured,
-        );
-
-  return Layer.mergeAll(
-    cliEnvLayer,
-    rendererLayer,
-    promptLayer,
-    verbosityLayer,
-    oldLayers,
-  );
+  return Layer.mergeAll(cliEnvLayer, rendererLayer, promptLayer, verbosityLayer);
 };
 
 /**

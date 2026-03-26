@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import type { AgentId } from "@axm.sh/core/unstable/agents";
 import type { CodingAgent, McpServerSyncOutcome } from "../../../agents/coding-agent.js";
 import { DefaultCodingAgentRepository } from "../../../agents/repository.js";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -82,7 +82,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
   readonly serverName: string;
 }) =>
   Effect.gen(function* () {
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const ws = yield* Workspace;
 
     const unknownConfiguredAgentIds =
@@ -99,7 +99,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* output.warn(
+      yield* renderer.warn(
         `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
       );
     }
@@ -171,7 +171,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
           outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
         )
         .join(", ");
-      yield* output.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+      yield* renderer.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
     }
 
     return summarizeAgentSync(outcomes);
@@ -190,7 +190,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
  */
 export const uninstallMcpServer: OperationHandler<
   UninstallMcpServerOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Output
+  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

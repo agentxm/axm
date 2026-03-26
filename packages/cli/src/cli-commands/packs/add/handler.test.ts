@@ -15,8 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { type AppError } from "@axm.sh/core/unstable/app-error";
@@ -136,8 +136,8 @@ describe("packs-add.handler", () => {
     const [promptLayer] = makeTestPrompt();
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -151,12 +151,14 @@ describe("packs-add.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs };
   };
 
   describe("add specific extension by name", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -182,7 +184,7 @@ describe("packs-add.handler", () => {
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });
@@ -190,7 +192,7 @@ describe("packs-add.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -219,7 +221,7 @@ describe("packs-add.handler", () => {
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
 
           // Preview log message should appear
-          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
         }),
       );
     });
@@ -373,7 +375,7 @@ describe("packs-add.handler", () => {
 
   describe("extension already in pack", () => {
     it.effect("reports no-op when extension is already in pack", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
@@ -395,8 +397,8 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
 
-          expect(mockLog.logs.info.some((m) => m.includes("already in pack"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already in pack"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
         }),
       );
     });

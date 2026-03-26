@@ -16,10 +16,6 @@ export {
   type TreeNode,
 } from "./cli-renderer.js";
 export {
-  type TerminalCapabilities,
-  resolveTerminalCapabilities,
-} from "./terminal-capabilities.js";
-export {
   column,
   hidden,
   ColumnHeader,
@@ -29,16 +25,12 @@ export {
   DisplayFormat,
   Hidden,
 } from "./annotations.js";
-export {
-  columnsFrom,
-  emitMany,
-  emitOne,
-  type CommandOutputOpts,
-} from "./command-output.js";
+export { columnsFrom, emitMany, emitOne, type CommandOutputOpts } from "./command-output.js";
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export {
   TestRenderer,
   TestMachineRenderer,
+  logsByTag,
   type TestRendererState,
 } from "./cli-renderer-test.js";

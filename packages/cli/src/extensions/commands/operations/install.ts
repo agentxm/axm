@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { Output } from "@axm.sh/core/unstable/output";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { computeIntegrity, isPathSafe } from "@axm.sh/core/unstable/utils";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { validateExactResolvedVersion } from "@axm.sh/core/unstable/lockfile";
@@ -184,11 +184,11 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
  */
 export const installCommand: OperationHandler<
   InstallCommandOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Output
+  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
@@ -211,7 +211,7 @@ export const installCommand: OperationHandler<
       ? ws.setCommandLock({ name: ref.command.name, lockEntry })
       : ws.setCommand({ name: ref.command.name, lockEntry });
     yield* writeEffect.pipe(
-      Effect.catch((e) => output.warn(`Command update failed: ${String(e)}`)),
+      Effect.catch((e) => renderer.warn(`Command update failed: ${String(e)}`)),
     );
 
     return {

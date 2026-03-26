@@ -19,26 +19,6 @@ export type {
   WarnJobStep,
 } from "./plan.js";
 
-// Legacy plan types (used by non-migrated operation handlers)
-export type { Operation, OperationResult, Readiness } from "./plan.js";
-
-// Plan bridge (legacy compatibility for non-migrated handlers)
-export {
-  bridgeLegacyPlan,
-  makeLegacyStep,
-  type LegacyPlan,
-  type LegacyPlannedStep,
-} from "./plan-bridge.js";
-
-// Plan display
-export { displayPlan } from "./display-plan.js";
-
-// Plan apply
-export { applyPlan, type OperationHandler } from "./apply-plan.js";
-
-// Lockfile state (used by reconciliation)
-export type { LockfileState } from "./service.js";
-
 // Path utilities
 export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
 

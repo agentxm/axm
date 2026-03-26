@@ -4,9 +4,9 @@
 // Stub commands define the CLI interface (args, flags, description) without
 // real business logic. To convert this stub to a real command:
 //   1. Replace Console.log with the standard handler pattern:
-//        const output = yield* Output;
+//        const renderer = yield* CliRenderer;
 //        const result = yield* doWork(config);
-//        yield* output.success(formatResult(result));
+//        yield* renderer.success(formatResult(result));
 //
 // See list.ts (instant) and install.ts (long-running) for complete examples.
 // ---------------------------------------------------------------------------

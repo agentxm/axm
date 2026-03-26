@@ -512,7 +512,9 @@ export const installSkill: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)
       : ws.setSkill(skillArgs);
-    yield* writeEffect.pipe(Effect.catch((e) => renderer.warn(`Skill update failed: ${String(e)}`)));
+    yield* writeEffect.pipe(
+      Effect.catch((e) => renderer.warn(`Skill update failed: ${String(e)}`)),
+    );
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);

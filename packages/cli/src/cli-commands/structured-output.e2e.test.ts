@@ -1,7 +1,7 @@
 /**
  * E2E tests for structured output modes (--output-format json/stream-json).
  *
- * Verifies that Output/Activity/Input services redirect correctly in structured
+ * Verifies that CliRenderer/CliPrompt services redirect correctly in structured
  * output modes:
  * - json: log messages route to stderr, not stdout
  * - stream-json: log messages emit as NDJSON events on stdout
@@ -13,17 +13,17 @@ import { createTempDir, runCli } from "../e2e/utils.js";
 
 describe("structured output modes", () => {
   describe("--output-format json", () => {
-    it("routes Output messages to stderr, not stdout", async () => {
+    it("routes CliRenderer messages to stderr, not stdout", async () => {
       const temp = createTempDir();
       try {
-        // logout with no credentials uses Output.info("Not logged in.")
+        // logout with no credentials uses renderer.info("Not logged in.")
         const result = await runCli(["logout", "--output-format", "json"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "" },
         });
 
         expect(result.exitCode).toBe(0);
-        // In json mode, Output routes to stderr
+        // In json mode, CliRenderer routes to stderr
         expect(result.stderr).toContain("Not logged in");
         // stdout should not contain the log message (would corrupt JSON output)
         expect(result.stdout).not.toContain("Not logged in");
@@ -49,7 +49,7 @@ describe("structured output modes", () => {
   });
 
   describe("--output-format stream-json", () => {
-    it("emits Output messages as NDJSON log events on stdout", async () => {
+    it("emits CliRenderer messages as NDJSON log events on stdout", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(["logout", "--output-format", "stream-json"], {
@@ -59,7 +59,7 @@ describe("structured output modes", () => {
 
         expect(result.exitCode).toBe(0);
 
-        // In stream-json mode, Output emits NDJSON events on stdout
+        // In stream-json mode, CliRenderer emits NDJSON events on stdout
         const lines = result.stdout
           .trim()
           .split("\n")

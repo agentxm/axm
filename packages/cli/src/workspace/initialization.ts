@@ -22,8 +22,8 @@ import {
 } from "@axm.sh/core/unstable/agents";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Input } from "@axm.sh/core/unstable/input";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { LOCKFILE_NAME, writeLockfile } from "@axm.sh/core/unstable/lockfile";
 import {
   createDefaultSettings,
@@ -52,7 +52,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
     // If explicit agents are provided, use those (no detection needed)
     const agents = options.agents ?? Option.none();
     if (Option.isSome(agents) && agents.value.length > 0) {
-      const output = yield* Output;
+      const renderer = yield* CliRenderer;
       const requestedIds = [...agents.value];
       selectedAgents = requestedIds.flatMap((id) => {
         const agent = getAgentById(id);
@@ -60,7 +60,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
       });
       const unrecognized = requestedIds.filter((id) => Option.isNone(getAgentById(id)));
       if (unrecognized.length > 0) {
-        yield* output.warn(
+        yield* renderer.warn(
           `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm init --help' to see available agents.`,
         );
       }
@@ -81,11 +81,11 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
         selectedAgents = detectedAgents;
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
-        const input = yield* Input;
+        const prompt = yield* CliPrompt;
         const allAgents = getAllAgents();
         const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
-        const selectedIds = yield* input.multiselect<string>({
+        const selectedIds = yield* prompt.multiselect<string>({
           message: "Select agents to configure",
           options: allAgents.map((agent) => ({
             value: agent.id,

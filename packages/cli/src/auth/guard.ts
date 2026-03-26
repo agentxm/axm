@@ -96,19 +96,18 @@ const inlineLogin = (registryUrl: string) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
-    const output = yield* Output;
-    const activity = yield* Activity;
+    const renderer = yield* CliRenderer;
 
     // Initiate device flow
     const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
     const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
     // Display URL and code
-    yield* output.step(`Open this URL in your browser: ${verificationUrl}`);
-    yield* output.step(`Enter code: ${deviceFlow.user_code}`);
+    yield* renderer.step(`Open this URL in your browser: ${verificationUrl}`);
+    yield* renderer.step(`Enter code: ${deviceFlow.user_code}`);
 
     // Poll with spinner
-    const token = yield* activity.withSpinner(
+    const token = yield* renderer.withSpinner(
       "Waiting for approval in browser...",
       () => authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
       { successMessage: "Login successful." },
@@ -128,5 +127,5 @@ const inlineLogin = (registryUrl: string) =>
       expires_at: token.expires_at,
     });
 
-    yield* output.success(`Logged in as ${handle}`);
+    yield* renderer.success(`Logged in as ${handle}`);
   });

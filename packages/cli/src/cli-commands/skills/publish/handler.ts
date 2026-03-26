@@ -100,7 +100,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (args: Publis
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
-  
+
   const base = ws.baseDir;
 
   yield* renderer.info("axm skills publish");

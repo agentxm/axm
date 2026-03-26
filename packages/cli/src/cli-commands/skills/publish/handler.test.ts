@@ -14,9 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
@@ -115,13 +114,9 @@ describe("publish.handler", () => {
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [true],
     });
     const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
       version: 1,
@@ -140,9 +135,8 @@ describe("publish.handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
       AuthClientTest(),
       authCredStoreLayer,
@@ -161,12 +155,14 @@ describe("publish.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs, rendererState };
   };
 
   describe("publish with explicit registry", () => {
     it.effect("publishes an extension to a named registry", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "code-review", {
@@ -183,7 +179,7 @@ describe("publish.handler", () => {
             defaultArgs(["@test/skills/code-review"], { registry: Option.some("local") }),
           );
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Registry should have the published extension index
           const registryIndexPath = path.join(
@@ -202,7 +198,7 @@ describe("publish.handler", () => {
 
   describe("publish with default registry", () => {
     it.effect("publishes to the first configured registry when no --registry flag", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "my-skill", {
@@ -217,7 +213,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/my-skill"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Registry should have the published extension
           const registryIndexPath = path.join(
@@ -236,7 +232,7 @@ describe("publish.handler", () => {
 
   describe("bare name profile resolution", () => {
     it.effect("resolves bare name using profile from settings", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       // Create extension under @test profile
@@ -253,7 +249,7 @@ describe("publish.handler", () => {
           // Pass bare name without profile
           yield* handlePublish(defaultArgs(["code-review"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Should have published under @test profile
           const registryIndexPath = path.join(
@@ -304,7 +300,7 @@ describe("publish.handler", () => {
 
   describe("non-installed skill error", () => {
     it.effect("fails when extension directory does not exist in .axm/extensions/", () => {
-      const { provide, mockSpinner } = makeLayers();
+      const { provide, rendererState } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -323,8 +319,8 @@ describe("publish.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Managed extension not found");
           expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
-          expect(mockSpinner.starts).toContain("Validating extensions...");
-          expect(mockSpinner.stops).toContain("Failed");
+          expect(rendererState.spinnerMessages).toContain("Validating extensions...");
+          expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );
     });
@@ -332,7 +328,7 @@ describe("publish.handler", () => {
 
   describe("glob expansion", () => {
     it.effect("expands glob pattern against installed skill names", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -366,7 +362,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Both effect- skills should be published
           expect(
@@ -404,7 +400,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("literal names pass through without glob expansion", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "commit", {
@@ -419,7 +415,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["commit"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
@@ -430,7 +426,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("mixed glob and literal deduplicates", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -459,7 +455,7 @@ describe("publish.handler", () => {
           // effect-basics matches both the glob and the literal
           yield* handlePublish(defaultArgs(["effect-*", "effect-basics", "commit"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -482,7 +478,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("glob matching zero skills warns and exits cleanly", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(
@@ -498,14 +494,14 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["nonexistent-*"]));
 
-          expect(mockLog.logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
+          expect(logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
         }),
       );
     });
 
     it.effect("FQN input bypasses glob expansion", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "code-review", {
@@ -520,7 +516,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/code-review"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "code-review", "index.json"),
@@ -531,7 +527,7 @@ describe("publish.handler", () => {
     });
 
     it.effect("all configured skills included in glob matches", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -553,7 +549,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
           // Only configured skill should be published
           expect(
             fs.existsSync(
@@ -575,7 +571,7 @@ describe("publish.handler", () => {
 
   describe("completion status", () => {
     it.effect("fails when plan contains failed publish steps", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "effect-basics", {
@@ -612,8 +608,8 @@ describe("publish.handler", () => {
             expect(result.details[0]).toContain("PUBLISH_SKILL_PUBLISH_FAILED");
             expect(result.details[0]).not.toContain("Registry URL:");
           }
-          expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );
     });

@@ -9,8 +9,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
@@ -53,16 +53,14 @@ const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceConte
   }) as unknown as WorkspaceContextService;
 
 const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
-  const [outputLayer] = makeOutputTestLayer();
-  const [inputLayer] = makeInputTestLayer({
-    methodBehaviors: {
-      confirm: { type: "return", value: true },
-      multiselect: { type: "return", value: [] },
-    },
+  const { layer: rendererLayer } = TestRenderer.make();
+  const [promptLayer] = makeTestPrompt({
+    confirmResponses: [true],
+    multiselectResponses: [[]],
   });
   return Layer.mergeAll(
-    outputLayer,
-    inputLayer,
+    rendererLayer,
+    promptLayer,
     Workspace.layer(makeMockWorkspace(onResolvePlan)),
     CliEnvironmentTest(),
   );

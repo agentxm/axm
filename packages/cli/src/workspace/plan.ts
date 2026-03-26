@@ -36,13 +36,6 @@ export type OperationResult =
       readonly error: AppError;
     };
 
-/** @deprecated Use Readiness string literals instead. Will be removed in a future phase. */
-export type Readiness =
-  | { readonly status: "ready"; readonly message: Option.Option<string> }
-  | { readonly status: "skip"; readonly message: string }
-  | { readonly status: "warn"; readonly message: string }
-  | { readonly status: "error"; readonly message: string };
-
 // -----------------------------------------------------------------------------
 // Step result types
 // -----------------------------------------------------------------------------

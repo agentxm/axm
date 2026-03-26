@@ -61,7 +61,9 @@ export interface TaskLogHandle {
 
 export interface Task<E, R> {
   readonly title: string;
-  readonly task: (message: (msg: string) => Effect.Effect<void>) => Effect.Effect<string | void, E, R>;
+  readonly task: (
+    message: (msg: string) => Effect.Effect<void>,
+  ) => Effect.Effect<string | void, E, R>;
   readonly enabled?: boolean;
 }
 
@@ -112,7 +114,10 @@ export class CliRenderer extends ServiceMap.Service<
     readonly cancel: (message?: string) => Effect.Effect<void>;
     readonly note: (message: string, title?: string) => Effect.Effect<void>;
     readonly box: (message: string, title?: string, opts?: BoxOptions) => Effect.Effect<void>;
-    readonly streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) => Effect.Effect<void, E, R>;
+    readonly streamLog: <E, R>(
+      level: LogLevel,
+      stream: Stream.Stream<string, E, R>,
+    ) => Effect.Effect<void, E, R>;
     readonly spinner: (message: string) => Effect.Effect<SpinnerHandle>;
     readonly withSpinner: <A, E, R>(
       message: string,
@@ -134,13 +139,28 @@ export class CliRenderer extends ServiceMap.Service<
     readonly runTasks: <E, R>(tasks: ReadonlyArray<Task<E, R>>) => Effect.Effect<void, E, R>;
 
     // Data display (stdout)
-    readonly table: <T>(items: ReadonlyArray<T>, columns: ReadonlyArray<ColumnDef<T>>, caption?: string) => Effect.Effect<void>;
-    readonly detail: <T>(item: T, columns: ReadonlyArray<ColumnDef<T>>, title?: string) => Effect.Effect<void>;
-    readonly tree: <T>(roots: ReadonlyArray<TreeNode<T>>, def: TreeDef<T>, title?: string) => Effect.Effect<void>;
+    readonly table: <T>(
+      items: ReadonlyArray<T>,
+      columns: ReadonlyArray<ColumnDef<T>>,
+      caption?: string,
+    ) => Effect.Effect<void>;
+    readonly detail: <T>(
+      item: T,
+      columns: ReadonlyArray<ColumnDef<T>>,
+      title?: string,
+    ) => Effect.Effect<void>;
+    readonly tree: <T>(
+      roots: ReadonlyArray<TreeNode<T>>,
+      def: TreeDef<T>,
+      title?: string,
+    ) => Effect.Effect<void>;
 
     // Machine data output (stdout)
     readonly result: <T>(data: T, schema: Schema.Schema<T>) => Effect.Effect<boolean>;
-    readonly resultStream: <T>(stream: Stream.Stream<T>, schema: Schema.Schema<T>) => Effect.Effect<boolean>;
+    readonly resultStream: <T>(
+      stream: Stream.Stream<T>,
+      schema: Schema.Schema<T>,
+    ) => Effect.Effect<boolean>;
 
     // Both modes (stdout)
     readonly json: (data: unknown) => Effect.Effect<void>;

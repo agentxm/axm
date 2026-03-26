@@ -15,9 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
-import { makeActivityTestLayer } from "@axm.sh/core/unstable/activity";
-import { makeInputTestLayer } from "@axm.sh/core/unstable/input";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import type { ExtensionFiles, RegistryPackRef } from "@axm.sh/core/unstable/sources";
@@ -115,20 +114,16 @@ describe("installPack operation handler", () => {
   });
 
   const makeLayers = (mockService: SourceHostProvidersService) => {
-    const [outputLayer, mockLog] = makeOutputTestLayer();
-    const [activityLayer] = makeActivityTestLayer();
-    const [inputLayer] = makeInputTestLayer({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [true],
+      selectResponses: [undefined],
+      multiselectResponses: [[]],
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      outputLayer,
-      activityLayer,
-      inputLayer,
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
     );
     const wsOptions: WorkspaceContextOptions = {
@@ -143,7 +138,7 @@ describe("installPack operation handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog };
+    return { provide, rendererState };
   };
 
   it.effect("fetches archive and extracts to managed pack directory", () => {

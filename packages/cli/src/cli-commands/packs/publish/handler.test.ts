@@ -14,9 +14,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer"; import { OutputAdapter } from "@axm.sh/core/unstable/output";
-import { ActivityAdapter } from "@axm.sh/core/unstable/activity";
-import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt"; import { InputAdapter } from "@axm.sh/core/unstable/input";
+import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { AuthClientTest } from "../../../auth/auth-client.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
@@ -128,13 +127,9 @@ describe("packs publish.handler", () => {
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-    
-    const [inputLayer] = makeTestPrompt({
-      methodBehaviors: {
-        confirm: { type: "return", value: true },
-        select: { type: "select", index: 0 },
-        multiselect: { type: "multiselect", indices: [] },
-      },
+
+    const [promptLayer] = makeTestPrompt({
+      confirmResponses: [true],
     });
     const authCredStoreLayer = CredentialStoreTest("encrypted-file", {
       version: 1,
@@ -153,9 +148,8 @@ describe("packs publish.handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
-      rendererLayer, OutputAdapter.pipe(Layer.provide(rendererLayer)),
-      ActivityAdapter.pipe(Layer.provide(rendererLayer)),
-      promptLayer, InputAdapter.pipe(Layer.provide(promptLayer)),
+      rendererLayer,
+      promptLayer,
       CliEnvironmentTest(),
       AuthClientTest(),
       authCredStoreLayer,
@@ -174,12 +168,14 @@ describe("packs publish.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockLog, mockSpinner };
+    const logs = logsByTag(rendererState);
+
+    return { provide, logs, rendererState };
   };
 
   describe("successful publish", () => {
     it.effect("publishes a pack to a named registry", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "frontend-tools", {
@@ -196,7 +192,7 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/frontend-tools", { registry: Option.some("local") }),
           );
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Registry should have the published pack index
           const registryIndexPath = path.join(
@@ -223,7 +219,7 @@ describe("packs publish.handler", () => {
 
   describe("publish with default registry", () => {
     it.effect("publishes to the first configured registry when no --registry flag", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "my-pack", {
@@ -237,7 +233,7 @@ describe("packs publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublishPack(defaultArgs("@test/packs/my-pack"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           const registryIndexPath = path.join(
             registryRoot,
@@ -278,7 +274,7 @@ describe("packs publish.handler", () => {
 
   describe("idempotent publish", () => {
     it.effect("succeeds when publishing the same version with same content", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "idempotent-pack", {
@@ -300,7 +296,7 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/idempotent-pack", { registry: Option.some("local") }),
           );
 
-          expect(mockLog.logs.success.filter((m) => m.includes("Done"))).toHaveLength(2);
+          expect(logs.success.filter((m) => m.includes("Done"))).toHaveLength(2);
         }),
       );
     });
@@ -419,7 +415,7 @@ describe("packs publish.handler", () => {
 
   describe("non-installed pack error", () => {
     it.effect("fails when pack directory does not exist in .axm/extensions/", () => {
-      const { provide, mockSpinner } = makeLayers();
+      const { provide, rendererState } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -438,8 +434,8 @@ describe("packs publish.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Managed pack not found");
           expect((result as { howToFix: string }).howToFix).toContain("axm packs new");
-          expect(mockSpinner.starts).toContain("Validating pack...");
-          expect(mockSpinner.stops).toContain("Failed");
+          expect(rendererState.spinnerMessages).toContain("Validating pack...");
+          expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );
     });
@@ -449,7 +445,7 @@ describe("packs publish.handler", () => {
     it.effect(
       "builds single-step plan when includeDependencies is false (existing behavior)",
       () => {
-        const { provide, mockLog } = makeLayers();
+        const { provide, logs } = makeLayers();
         const registryRoot = path.join(tempDir, "registry");
 
         createManagedPack(tempDir, "@test", "dep-pack", {
@@ -475,7 +471,7 @@ describe("packs publish.handler", () => {
               }),
             );
 
-            expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+            expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
             // Only the pack should be published, not the dependency
             const skillIndexPath = path.join(
@@ -493,7 +489,7 @@ describe("packs publish.handler", () => {
     );
 
     it.effect("publishes local dependencies and pack when includeDependencies is true", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "full-pack", {
@@ -524,7 +520,7 @@ describe("packs publish.handler", () => {
             }),
           );
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Both dependencies should be published
           const skillIndex = path.join(
@@ -561,7 +557,7 @@ describe("packs publish.handler", () => {
     });
 
     it.effect("skips non-local dependencies with a warning", () => {
-      const { provide, mockLog } = makeLayers();
+      const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "mixed-deps-pack", {
@@ -590,7 +586,7 @@ describe("packs publish.handler", () => {
             }),
           );
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
           // Local dependency should be published
           const localSkillIndex = path.join(
@@ -604,9 +600,7 @@ describe("packs publish.handler", () => {
           expect(fs.existsSync(localSkillIndex)).toBe(true);
 
           // Non-local dependency should be skipped with a warning
-          expect(mockLog.logs.warn.some((m) => m.includes("@external/skills/remote-skill"))).toBe(
-            true,
-          );
+          expect(logs.warn.some((m) => m.includes("@external/skills/remote-skill"))).toBe(true);
 
           // Pack should still be published
           const packIndex = path.join(
@@ -625,7 +619,7 @@ describe("packs publish.handler", () => {
     it.effect(
       "produces single-step plan when pack has no dependencies and includeDependencies is true",
       () => {
-        const { provide, mockLog } = makeLayers();
+        const { provide, logs } = makeLayers();
         const registryRoot = path.join(tempDir, "registry");
 
         createManagedPack(tempDir, "@test", "no-deps-pack", {
@@ -644,7 +638,7 @@ describe("packs publish.handler", () => {
               }),
             );
 
-            expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+            expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
             // Pack should be published
             const packIndex = path.join(

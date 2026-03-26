@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
-import { Output, OutputLive } from "@axm.sh/core/unstable/output";
+import { CliRenderer, InteractiveRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 export const noteCommand = {
   handler: () => {
     const program = Effect.gen(function* () {
-      const output = yield* Output;
-      yield* output.note("This is a note with a title.", "Welcome");
-      yield* output.note("This is a note without a title.");
+      const renderer = yield* CliRenderer;
+      yield* renderer.note("This is a note with a title.", "Welcome");
+      yield* renderer.note("This is a note without a title.");
     });
-    return Effect.runPromise(program.pipe(Effect.provide(OutputLive())));
+    return Effect.runPromise(program.pipe(Effect.provide(InteractiveRenderer())));
   },
 };

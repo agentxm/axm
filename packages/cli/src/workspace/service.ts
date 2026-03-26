@@ -76,8 +76,8 @@ import type { WorkspaceScope } from "./scope.js";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Output } from "@axm.sh/core/unstable/output";
-import { Input } from "@axm.sh/core/unstable/input";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
 import type { OperationResult } from "./plan.js";
@@ -206,7 +206,7 @@ import type {
 const augmentPlanWithReconciliation = (
   plan: Plan,
   getLockfileState: () => Effect.Effect<LockfileState, AppError>,
-  output: ServiceMap.Service.Shape<typeof Output>,
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
   baseDir: string,
   workspaceDir: string,
   readSettingsSafe: (dir: string) => Effect.Effect<Settings, AppError>,
@@ -220,10 +220,10 @@ const augmentPlanWithReconciliation = (
     }
 
     if (lockfileState === "invalid") {
-      yield* output.warn("LOCKFILE_INVALID_RECONCILE");
+      yield* renderer.warn("LOCKFILE_INVALID_RECONCILE");
     }
 
-    const reason = lockfileState as "missing" | "invalid";
+    const reason = lockfileState;
     const settings = yield* readSettingsSafe(workspaceDir);
     const reconciliationContext: ReconciliationContext = {
       baseDir,
@@ -312,7 +312,7 @@ export interface WorkspaceContextOptions {
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * Input service is required for agent selection.
+ * CliPrompt service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Effect yielding WorkspaceContextService
@@ -334,8 +334,8 @@ const make = (options: WorkspaceContextOptions) =>
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const output = yield* Output;
-    const input = yield* Input;
+    const renderer = yield* CliRenderer;
+    const prompt = yield* CliPrompt;
     const semaphore = yield* Semaphore.make(1);
 
     const baseDir = path.dirname(workspaceDir);
@@ -614,13 +614,13 @@ const make = (options: WorkspaceContextOptions) =>
       ) {
         const resolvedYes = flags.yes || nonInteractive;
         const showPlan = (targetPlan: Plan | ExecutedPlan) =>
-          displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(Output, output)));
+          displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
 
         // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
         const augmentedPlan = yield* augmentPlanWithReconciliation(
           plan,
           getLockfileState,
-          output,
+          renderer,
           baseDir,
           workspaceDir,
           readSettingsSafe,
@@ -641,7 +641,7 @@ const make = (options: WorkspaceContextOptions) =>
         if (hasErrors) {
           if (flags.force) {
             // --force: downgrade errors to warnings and proceed
-            yield* Effect.forEach(errorMessages, (msg) => output.warn(msg));
+            yield* Effect.forEach(errorMessages, (msg) => renderer.warn(msg));
           } else {
             yield* showPlan(augmentedPlan);
             return yield* makeAppError({
@@ -658,11 +658,11 @@ const make = (options: WorkspaceContextOptions) =>
           const warnMessages = allSteps
             .filter((s) => s.readiness === "warn")
             .map((s) => `${s.label}: ${s.warnMessage}`);
-          yield* Effect.forEach(warnMessages, (msg) => output.warn(msg));
+          yield* Effect.forEach(warnMessages, (msg) => renderer.warn(msg));
         }
 
         if (flags.preview) {
-          yield* output.info("Previewing changes...");
+          yield* renderer.info("Previewing changes...");
           yield* showPlan(augmentedPlan);
 
           // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
@@ -676,9 +676,9 @@ const make = (options: WorkspaceContextOptions) =>
           }
 
           if (!resolvedYes) {
-            const confirmed = yield* input.confirm({ message: "Apply changes?" });
+            const confirmed = yield* prompt.confirm({ message: "Apply changes?" });
             if (!confirmed) {
-              yield* output.success("Cancelled.");
+              yield* renderer.success("Cancelled.");
               return {
                 _tag: "ExecutedPlan",
                 name: augmentedPlan.name,
@@ -1582,7 +1582,7 @@ const make = (options: WorkspaceContextOptions) =>
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * Input service is required for agent selection.
+ * CliPrompt service is required for agent selection.
  *
  * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext

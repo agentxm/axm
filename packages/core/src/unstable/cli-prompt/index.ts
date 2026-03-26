@@ -13,14 +13,6 @@ export {
   type TextOpts,
 } from "./cli-prompt.js";
 export { makeInteractivePrompt } from "./cli-prompt-interactive.js";
-export {
-  makeTestPrompt,
-  type TestPromptConfig,
-  type TestPromptState,
-} from "./cli-prompt-test.js";
+export { makeTestPrompt, type TestPromptConfig, type TestPromptState } from "./cli-prompt-test.js";
 export { autoConfirm, fromFlagOrPrompt } from "./helpers.js";
-export {
-  isCI,
-  nonInteractiveFlag,
-  resolveNonInteractive,
-} from "./resolve-non-interactive.js";
+export { isCI, nonInteractiveFlag, resolveNonInteractive } from "./resolve-non-interactive.js";

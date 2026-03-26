@@ -13,9 +13,6 @@ import {
   type UninstallPackHandlerArgs,
 } from "./command-actions.js";
 
-// Re-export types for backwards compatibility
-export type { UninstallPackHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm packs uninstall` command.
  *

@@ -88,7 +88,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
-  
 
   yield* renderer.info(`axm skills update (${ws.scope})`);
 
@@ -222,7 +221,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             }
           }).pipe(
             Effect.catch((error) => {
-              return output
+              return renderer
                 .warn(`Failed to resolve "${name}": ${String(error)}`)
                 .pipe(Effect.map(() => Option.none<ResolveResult>()));
             }),

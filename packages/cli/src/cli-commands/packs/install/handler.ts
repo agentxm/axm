@@ -13,9 +13,6 @@ import {
   type InstallPackHandlerArgs,
 } from "./command-actions.js";
 
-// Re-export types for backwards compatibility
-export type { InstallPackHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm packs install` command.
  *

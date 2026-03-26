@@ -49,13 +49,13 @@ export type UninstallPackOperation = Operation<"uninstall-pack", UninstallPackOp
  */
 export const uninstallPack: OperationHandler<
   UninstallPackOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Output
+  FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const output = yield* Output;
+    const renderer = yield* CliRenderer;
     const base = ws.baseDir;
 
     // Read pack lock entry
@@ -124,7 +124,7 @@ export const uninstallPack: OperationHandler<
     // Remove pack from settings and lockfile
     yield* ws
       .removePack(op.args.packName)
-      .pipe(Effect.catch((e) => output.warn(`Pack removal from settings failed: ${String(e)}`)));
+      .pipe(Effect.catch((e) => renderer.warn(`Pack removal from settings failed: ${String(e)}`)));
 
     return {
       result: "success",

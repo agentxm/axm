@@ -12,7 +12,6 @@ import { RegistryUrl } from "../../../auth/auth-middleware.js";
 import { CredentialStoreTest } from "../../../auth/credential-store.js";
 import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { OutputAdapter } from "@axm.sh/core/unstable/output";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleWhoami } from "./handler.js";
 
@@ -56,7 +55,6 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    OutputAdapter.pipe(Layer.provide(rendererLayer)),
     CliEnvironmentTest(),
     credStoreLayer,
     authClientLayer,
@@ -92,9 +90,17 @@ describe("auth whoami handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWhoami({ json: false });
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice"))).toBe(true);
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice@example.com"))).toBe(true);
-        expect(rendererState.logs.some((l) => l._tag === "info" && l.message.includes("session"))).toBe(true);
+        expect(
+          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice")),
+        ).toBe(true);
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("alice@example.com"),
+          ),
+        ).toBe(true);
+        expect(
+          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("session")),
+        ).toBe(true);
       }),
     );
   });

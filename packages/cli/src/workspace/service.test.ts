@@ -14,8 +14,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Output, makeOutputTestLayer, type MockOutputService } from "@axm.sh/core/unstable/output";
-import { makeInputTestLayer, type MockInputService } from "@axm.sh/core/unstable/input";
+import {
+  TestRenderer,
+  type TestRendererState,
+  logsByTag,
+} from "@axm.sh/core/unstable/cli-renderer";
+import { makeTestPrompt, type TestPromptState } from "@axm.sh/core/unstable/cli-prompt";
 import YAML from "yaml";
 import { AppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
@@ -25,7 +29,7 @@ import type {
   McpServerLockEntry,
   SkillLockEntry,
 } from "@axm.sh/core/unstable/lockfile";
-import type { OperationResult, Readiness, Operation } from "./plan.js";
+import type { OperationResult, Operation } from "./plan.js";
 import type { LegacyPlan, LegacyPlannedStep } from "./plan-bridge.js";
 import { bridgeLegacyPlan } from "./plan-bridge.js";
 import {
@@ -78,12 +82,10 @@ describe("WorkspaceContextService", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const [testLogLayer] = makeOutputTestLayer();
-  const [testPromptLayer] = makeInputTestLayer({
-    methodBehaviors: {
-      confirm: { type: "return", value: true },
-      multiselect: { type: "return", value: [] },
-    },
+  const { layer: testLogLayer } = TestRenderer.make();
+  const [testPromptLayer] = makeTestPrompt({
+    confirmResponses: [true],
+    multiselectResponses: [[]],
   });
   const BaseLayer = Layer.mergeAll(
     NodeServices.layer,
@@ -98,19 +100,20 @@ describe("WorkspaceContextService", () => {
   const getService = (options: WorkspaceContextOptions) =>
     Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
 
-  const logMessages = (
-    mockLog: MockOutputService,
-    method: "message" | "info" | "success" | "warn" | "error",
-  ): ReadonlyArray<string> =>
-    mockLog.calls
-      .filter((call) => call.method === method)
-      .map((call) => String(call.args[0] ?? ""));
+  const logMessages = (state: TestRendererState, level: keyof ReturnType<typeof logsByTag>) =>
+    logsByTag(state)[level];
 
   const promptConfigs = (
-    mockPrompt: MockInputService,
+    state: TestPromptState,
     method: "confirm" | "multiselect",
-  ): ReadonlyArray<unknown> =>
-    mockPrompt.calls.filter((call) => call.method === method).map((call) => call.config);
+  ): ReadonlyArray<unknown> => {
+    switch (method) {
+      case "confirm":
+        return state.confirmCalls;
+      case "multiselect":
+        return state.multiselectCalls;
+    }
+  };
 
   describe("baseDir", () => {
     it.effect("returns the parent of path", () =>
@@ -147,7 +150,9 @@ describe("WorkspaceContextService", () => {
       ],
     };
 
-    const makePlanWithReadiness = (readiness: Readiness): LegacyPlan<TestOp> => ({
+    const makePlanWithReadiness = (
+      readiness: LegacyPlannedStep<TestOp>["readiness"],
+    ): LegacyPlan<TestOp> => ({
       name: "Test Plan",
       description: Option.none(),
       jobs: [
@@ -177,20 +182,17 @@ describe("WorkspaceContextService", () => {
         force?: boolean;
         preview?: boolean;
       },
-      mockLog: MockOutputService,
       confirmValue = true,
       plan: LegacyPlan<TestOp> = testPlan,
     ) => {
       const { yes = false, force = false, preview = false, ...envFlags } = flags;
-      const logLayer = Layer.succeed(Output, mockLog);
-      const [promptLayer, promptMock] = makeInputTestLayer({
-        methodBehaviors: {
-          confirm: { type: "return", value: confirmValue },
-          multiselect: { type: "return", value: [] },
-        },
+      const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+      const [promptLayer, promptState] = makeTestPrompt({
+        confirmResponses: [confirmValue],
+        multiselectResponses: [[]],
       });
       const flagsLayer = CliEnvironmentTest(envFlags);
-      const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
+      const base = Layer.mergeAll(NodeServices.layer, rendererLayer, promptLayer, flagsLayer);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
@@ -202,19 +204,19 @@ describe("WorkspaceContextService", () => {
             preview,
           });
         }).pipe(Effect.provide(Layer.merge(base, wsLayer))),
-        promptMock,
+        promptState,
+        rendererState,
       };
     };
 
     it.effect("default mode (preview=false) applies without apply confirmation", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect, promptMock } = runResolvePlan({ nonInteractive: false }, mockLog);
+        const { effect, promptState, rendererState } = runResolvePlan({ nonInteractive: false });
         const applied = yield* effect;
 
         // displayPlan logs plan name as info
-        expect(logMessages(mockLog, "info")).toContain("Test Plan");
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(logMessages(rendererState, "info")).toContain("Test Plan");
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // applyPlan returns plan with JobStepResult steps
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -226,14 +228,16 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview prompts then applies when confirmed", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect } = runResolvePlan({ nonInteractive: false, preview: true }, mockLog, true);
+        const { effect, rendererState } = runResolvePlan(
+          { nonInteractive: false, preview: true },
+          true,
+        );
         const applied = yield* effect;
 
         // Should show preview message
-        expect(logMessages(mockLog, "info")).toContainEqual("Previewing changes...");
+        expect(logMessages(rendererState, "info")).toContainEqual("Previewing changes...");
         // displayPlan logs plan name
-        expect(logMessages(mockLog, "info")).toContain("Test Plan");
+        expect(logMessages(rendererState, "info")).toContain("Test Plan");
         // Confirmed preview applies changes
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -243,17 +247,15 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview mode requires apply confirmation", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false, preview: true },
-          mockLog,
           false,
         );
         const applied = yield* effect;
 
         // Should show preview message
-        expect(logMessages(mockLog, "info")).toContainEqual("Previewing changes...");
-        expect(promptConfigs(promptMock, "confirm")).toEqual([{ message: "Apply changes?" }]);
+        expect(logMessages(rendererState, "info")).toContainEqual("Previewing changes...");
+        expect(promptConfigs(promptState, "confirm")).toEqual([{ message: "Apply changes?" }]);
         // Rejected confirmation cancels apply
         expect(applied.jobs).toHaveLength(0);
       }),
@@ -261,15 +263,15 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview with --yes applies without prompt", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect } = runResolvePlan(
-          { nonInteractive: false, preview: true, yes: true },
-          mockLog,
-        );
+        const { effect, rendererState } = runResolvePlan({
+          nonInteractive: false,
+          preview: true,
+          yes: true,
+        });
         const applied = yield* effect;
 
         // Should show preview message
-        expect(logMessages(mockLog, "info")).toContainEqual("Previewing changes...");
+        expect(logMessages(rendererState, "info")).toContainEqual("Previewing changes...");
         // --yes skips apply confirmation in preview mode
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -279,11 +281,10 @@ describe("WorkspaceContextService", () => {
 
     it.effect("preview with nonInteractive is a dry-run (returns empty plan)", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect } = runResolvePlan({ nonInteractive: true, preview: true }, mockLog);
+        const { effect, rendererState } = runResolvePlan({ nonInteractive: true, preview: true });
         const result = yield* effect;
 
-        expect(logMessages(mockLog, "info")).toContainEqual("Previewing changes...");
+        expect(logMessages(rendererState, "info")).toContainEqual("Previewing changes...");
         expect(result.jobs).toEqual([]);
       }),
     );
@@ -294,14 +295,13 @@ describe("WorkspaceContextService", () => {
 
     it.effect("nonInteractive implies yes: preview applies without prompt", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         // nonInteractive=true, yes=false, preview=false
         // Since nonInteractive implies yes, the apply confirmation should be skipped.
-        const { effect, promptMock } = runResolvePlan({ nonInteractive: true }, mockLog);
+        const { effect, promptState } = runResolvePlan({ nonInteractive: true });
         const applied = yield* effect;
 
         // nonInteractive implies yes: no confirmation prompt in default mode
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // Plan should be applied
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -311,12 +311,11 @@ describe("WorkspaceContextService", () => {
 
     it.effect("nonInteractive implies yes: preview with explicit yes applies", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
-        const { effect, promptMock } = runResolvePlan({ nonInteractive: true }, mockLog);
+        const { effect, promptState } = runResolvePlan({ nonInteractive: true });
         const applied = yield* effect;
 
         // Both nonInteractive and yes: preview applies without prompt
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
         expect(steps[0]).toHaveProperty("result");
@@ -329,14 +328,12 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness blocks execution in preview mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
         });
-        const { effect } = runResolvePlan(
+        const { effect, rendererState } = runResolvePlan(
           { nonInteractive: false, preview: true },
-          mockLog,
           true,
           errorPlan,
         );
@@ -347,18 +344,21 @@ describe("WorkspaceContextService", () => {
         // howToFix suggests --force
         expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
         // Plan should have been displayed
-        expect(logMessages(mockLog, "info")).toContain("Test Plan");
+        expect(logMessages(rendererState, "info")).toContain("Test Plan");
       }),
     );
 
     it.effect("error readiness blocks execution in default mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
         });
-        const { effect } = runResolvePlan({ nonInteractive: false }, mockLog, true, errorPlan);
+        const { effect, rendererState } = runResolvePlan(
+          { nonInteractive: false },
+          true,
+          errorPlan,
+        );
         const result = yield* effect.pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
@@ -366,31 +366,29 @@ describe("WorkspaceContextService", () => {
         // howToFix suggests --force
         expect(Option.getOrNull((result as AppError).howToFix)).toMatch(/--force/);
         // Plan should have been displayed even in default mode
-        expect(logMessages(mockLog, "info")).toContain("Test Plan");
+        expect(logMessages(rendererState, "info")).toContain("Test Plan");
       }),
     );
 
     it.effect("error readiness is overridden by --force in default mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false, force: true },
-          mockLog,
           true,
           errorPlan,
         );
         const result = yield* effect;
 
         // Errors are downgraded to warnings
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill is required by pack"),
         );
         // No confirmation prompt (default mode)
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // Plan is applied
         const steps = result.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -400,26 +398,24 @@ describe("WorkspaceContextService", () => {
 
     it.effect("error readiness is overridden by --force in preview mode", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const errorPlan = makePlanWithReadiness({
           status: "error",
           message: "Skill is required by pack",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false, force: true, preview: true },
-          mockLog,
           true,
           errorPlan,
         );
         const result = yield* effect;
 
         // Errors are downgraded to warnings
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill is required by pack"),
         );
         // --force does NOT skip confirmation — preview still prompts
-        expect(promptConfigs(promptMock, "confirm")).toHaveLength(1);
-        expect(promptConfigs(promptMock, "confirm")[0]).toEqual({ message: "Apply changes?" });
+        expect(promptConfigs(promptState, "confirm")).toHaveLength(1);
+        expect(promptConfigs(promptState, "confirm")[0]).toEqual({ message: "Apply changes?" });
         // Plan is applied (confirm returns true)
         const steps = result.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -429,26 +425,24 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in preview displays warnings and prompts only for apply", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false, preview: true },
-          mockLog,
           true,
           warnPlan,
         );
         const applied = yield* effect;
 
         // Warnings are displayed via log.warn, no warn confirmation prompt
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill has dependents"),
         );
         // Only apply prompt (no warn prompt)
-        expect(promptConfigs(promptMock, "confirm")).toHaveLength(1);
-        expect(promptConfigs(promptMock, "confirm")[0]).toEqual({ message: "Apply changes?" });
+        expect(promptConfigs(promptState, "confirm")).toHaveLength(1);
+        expect(promptConfigs(promptState, "confirm")[0]).toEqual({ message: "Apply changes?" });
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
         expect(steps[0]).toHaveProperty("result");
@@ -457,23 +451,21 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in default mode displays warnings and proceeds", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false },
-          mockLog,
           true,
           warnPlan,
         );
         const applied = yield* effect;
 
         // No prompts at all — warnings display and proceed
-        expect(promptConfigs(promptMock, "confirm")).toHaveLength(0);
+        expect(promptConfigs(promptState, "confirm")).toHaveLength(0);
         // Warnings are displayed via log.warn
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill has dependents"),
         );
         // Should apply without confirmation
@@ -484,14 +476,12 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness proceeds regardless of --force", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: false },
-          mockLog,
           true,
           warnPlan,
         );
@@ -499,9 +489,9 @@ describe("WorkspaceContextService", () => {
 
         // --force is irrelevant for warnings — no warn prompt either way
         // --yes skips apply prompt in preview mode
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // Warnings are still displayed
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill has dependents"),
         );
         const steps = applied.jobs.flatMap((j) => j.steps);
@@ -512,25 +502,23 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in non-interactive preview displays warnings and is no-op", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: true, preview: true },
-          mockLog,
           true,
           warnPlan,
         );
         const result = yield* effect;
 
         // Warnings are displayed but don't block
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill has dependents"),
         );
         // No prompts — non-interactive
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // Preview + non-interactive without --yes = display-only (no apply)
         const steps = result.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(0);
@@ -539,25 +527,23 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness in non-interactive default mode proceeds", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Skill has dependents",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           { nonInteractive: true },
-          mockLog,
           true,
           warnPlan,
         );
         const result = yield* effect;
 
         // Warnings are displayed
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Skill has dependents"),
         );
         // No prompts — non-interactive + warnings never block
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
         // Plan is applied
         const steps = result.jobs.flatMap((j) => j.steps);
         expect(steps[0]).toHaveProperty("result");
@@ -566,23 +552,21 @@ describe("WorkspaceContextService", () => {
 
     it.effect("warn readiness without --force in default mode proceeds normally", () =>
       Effect.gen(function* () {
-        const [, mockLog] = makeOutputTestLayer();
         const warnPlan = makePlanWithReadiness({
           status: "warn",
           message: "Version mismatch",
         });
-        const { effect, promptMock } = runResolvePlan(
+        const { effect, promptState, rendererState } = runResolvePlan(
           // force is deliberately omitted (undefined/false)
           { nonInteractive: false },
-          mockLog,
           true,
           warnPlan,
         );
         const result = yield* effect;
 
         // No --force needed for warnings — they never block
-        expect(promptConfigs(promptMock, "confirm")).toEqual([]);
-        expect(logMessages(mockLog, "warn")).toContainEqual(
+        expect(promptConfigs(promptState, "confirm")).toEqual([]);
+        expect(logMessages(rendererState, "warn")).toContainEqual(
           expect.stringContaining("Version mismatch"),
         );
         const steps = result.jobs.flatMap((j) => j.steps);
@@ -1556,18 +1540,11 @@ describe("WorkspaceContextService", () => {
      */
     const getServiceWithInit = (
       flags: Partial<CliEnvironmentService> & { nonInteractive?: boolean },
-      multiselectBehavior?: { type: "return"; indices: readonly number[] } | { type: "cancel" },
     ) => {
-      const [logLayer] = makeOutputTestLayer();
-      const [promptLayer, promptMock] = makeInputTestLayer({
-        methodBehaviors: {
-          confirm: { type: "return", value: true },
-          multiselect: multiselectBehavior
-            ? multiselectBehavior.type === "cancel"
-              ? { type: "cancel" }
-              : { type: "return", value: [] }
-            : { type: "return", value: [] },
-        },
+      const { layer: logLayer } = TestRenderer.make();
+      const [promptLayer, promptState] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
       });
       const flagsLayer = CliEnvironmentTest(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
@@ -1575,22 +1552,21 @@ describe("WorkspaceContextService", () => {
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),
-        promptMock,
+        promptState,
       };
     };
 
     it.effect("interactive mode calls multiselect directly (no select prompt)", () =>
       Effect.gen(function* () {
         removePreCreatedSettings();
-        const { run, promptMock } = getServiceWithInit(
-          { nonInteractive: false },
-          { type: "return", indices: [] },
-        );
+        const { run, promptState } = getServiceWithInit({
+          nonInteractive: false,
+        });
 
         yield* run;
 
         // Should have called multiselect once (no select prompt)
-        const multiselectCalls = promptConfigs(promptMock, "multiselect");
+        const multiselectCalls = promptConfigs(promptState, "multiselect");
         expect(multiselectCalls).toHaveLength(1);
         expect(multiselectCalls[0]).toEqual(
           expect.objectContaining({ message: "Select agents to configure" }),
@@ -1604,7 +1580,7 @@ describe("WorkspaceContextService", () => {
         // Create .claude dir in project to trigger detection
         fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
 
-        const { run, promptMock } = getServiceWithInit({
+        const { run, promptState } = getServiceWithInit({
           nonInteractive: true,
         });
 
@@ -1612,7 +1588,7 @@ describe("WorkspaceContextService", () => {
         const agents = yield* ws.getConfiguredAgents();
 
         // --non-interactive skips prompting entirely
-        expect(promptConfigs(promptMock, "multiselect")).toHaveLength(0);
+        expect(promptConfigs(promptState, "multiselect")).toHaveLength(0);
         // claude-code should be auto-selected via project-level detection
         expect(agents).toContain("claude-code");
       }),
@@ -1624,14 +1600,14 @@ describe("WorkspaceContextService", () => {
         // Create .claude dir in project to trigger detection
         fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
 
-        const { run, promptMock } = getServiceWithInit({
+        const { run, promptState } = getServiceWithInit({
           nonInteractive: false,
         });
 
         yield* run;
 
         // --yes alone does not skip selection prompts
-        expect(promptConfigs(promptMock, "multiselect")).toHaveLength(1);
+        expect(promptConfigs(promptState, "multiselect")).toHaveLength(1);
       }),
     );
   });

@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeOutputTestLayer } from "@axm.sh/core/unstable/output";
+import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type {
   ExtensionRef,
@@ -175,7 +175,7 @@ const withServices = (
   return Layer.mergeAll(
     NodeServices.layer,
     Workspace.layer(mockWs),
-    makeOutputTestLayer()[0],
+    TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
   );
 };

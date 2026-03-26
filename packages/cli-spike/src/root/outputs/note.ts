@@ -8,9 +8,9 @@ export const noteCommand = Command.make("note", {}, () =>
   withRuntime(
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
-      yield* renderer.note("This is a note with a title.", "Welcome");
-      yield* renderer.note("This is a note without a title.");
+      yield* renderer.note("This note has a title attached to it.", "Important");
+      yield* renderer.note("This note has no title.");
     }),
-    { command: "tui note" },
+    { command: "outputs note" },
   ),
-).pipe(Command.withDescription("Demo boxed note"));
+).pipe(Command.withDescription("Demo boxed note output"));

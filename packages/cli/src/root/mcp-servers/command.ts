@@ -1,12 +1,9 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../help.js";
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 
-export const mcpServersCommand = Command.make("mcp-servers", {}, () =>
-  showHelpFor(["axm", "mcp-servers"]),
-).pipe(
+export const mcpServersCommand = Command.make("mcp-servers").pipe(
   Command.withDescription("Install and manage MCP servers"),
   Command.withExamples([
     {

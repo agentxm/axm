@@ -1,12 +1,9 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../help.js";
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 
-export const commandsCommand = Command.make("commands", {}, () =>
-  showHelpFor(["axm", "commands"]),
-).pipe(
+export const commandsCommand = Command.make("commands").pipe(
   Command.withDescription("Install and manage commands"),
   Command.withExamples([
     {

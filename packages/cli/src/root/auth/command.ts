@@ -1,12 +1,11 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../help.js";
-import { loginCommand } from "./login/command.js";
-import { logoutCommand } from "./logout/command.js";
-import { whoamiCommand } from "./whoami/command.js";
-import { tokenCommand } from "./token/command.js";
+import { loginCommand } from "./login.js";
+import { logoutCommand } from "./logout.js";
+import { whoamiCommand } from "./whoami.js";
+import { tokenCommand } from "./token.js";
 
-export const authCommand = Command.make("auth", {}, () => showHelpFor(["axm", "auth"])).pipe(
+export const authCommand = Command.make("auth").pipe(
   Command.withDescription("Manage authentication"),
   Command.withExamples([
     { command: "axm auth login", description: "Sign in to the default registry" },

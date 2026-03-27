@@ -17,11 +17,8 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 import type { ExtensionFiles, PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProvidersLive, SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
@@ -31,11 +28,12 @@ import {
   InstallPackCommandWorkflowActions,
   InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
-import { PackManagerLive } from "../../../extensions/packs/manager.js";
-import { SkillManagerLive } from "../../../extensions/skills/manager.js";
-import { CommandManagerLive } from "../../../extensions/commands/manager.js";
-import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
+import { PackManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { CommandManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { McpServerManagerLive } from "@axm.sh/core/unstable/extension-managers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 import { getAppError } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -133,7 +131,7 @@ describe("packs install handler", () => {
       CommandManagerLive,
       McpServerManagerLive,
     );
-    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const ActionsLayer = Layer.provide(
       InstallPackCommandWorkflowActionsLive,
@@ -177,7 +175,7 @@ describe("packs install handler", () => {
       CommandManagerLive,
       McpServerManagerLive,
     );
-    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const ActionsLayer = Layer.provide(
       InstallPackCommandWorkflowActionsLive,
@@ -984,7 +982,6 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const ws = yield* Workspace;
           const plan = {
             _tag: "Plan" as const,
             name: "test-plan",
@@ -1002,7 +999,7 @@ describe("packs install handler", () => {
               },
             ],
           };
-          const result = yield* ws.resolvePlan(plan, { yes: true, force: true, preview: false });
+          const result = yield* resolvePlan(plan, { yes: true, force: true, preview: false });
           // --force downgrades errors to warnings and proceeds
           expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
           expect(result._tag).toBe("ExecutedPlan");

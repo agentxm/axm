@@ -32,11 +32,7 @@ import type {
   GetExtensionPackageResponse,
   ProfileExistsResponse,
 } from "./client.js";
-import {
-  ExtensionTypeSchema,
-  toAuthor,
-  type ExtensionType,
-} from "../extensions/index.js";
+import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/index.js";
 import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 

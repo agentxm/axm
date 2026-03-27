@@ -12,21 +12,20 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { PackManager } from "../../../extensions/packs/manager.js";
-import { SkillManager } from "../../../extensions/skills/manager.js";
-import { CommandManager } from "../../../extensions/commands/manager.js";
-import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
+import { PackManager } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
+import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
+import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
 import {
   expandPackUninstallTargets,
   type UninstallSettingsContext,
-} from "../../../extensions/packs/expansion.js";
-import { buildUninstallOperation } from "../../../workflows/uninstall-operation/workflow.js";
+} from "@axm.sh/core/unstable/extension-managers";
 import {
+  buildUninstallOperation,
   toLabel,
   type UninstallRetentionPolicy,
-  type PackExtensionTarget,
-  type ExtensionTarget,
-} from "../../../workflows/install-operation/workflow.js";
+} from "@axm.sh/core/unstable/extension-operations";
+import type { PackExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { Workspace } from "../../../workspace/index.js";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { expandGlob } from "@axm.sh/core/unstable/utils";

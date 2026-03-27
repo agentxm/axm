@@ -15,9 +15,7 @@ import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-import { RegistryUrl } from "./auth-middleware.js";
-import { runDeviceLogin } from "./device-login.js";
-import { resolveRequestToken } from "./token-resolution.js";
+import { RegistryUrl, resolveRequestToken, runDeviceLogin } from "@axm.sh/core/unstable/auth";
 
 // -----------------------------------------------------------------------------
 // Constants

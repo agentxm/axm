@@ -5,6 +5,10 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
@@ -97,6 +101,12 @@ const runBuildPlan = ({
     }).pipe(
       Effect.provideService(Workspace, workspaceMock),
       Effect.provideService(SourceHostProviders, sourceProvidersMock),
+      Effect.provideService(CodingAgentRepository, {
+        get: () => Effect.die(new Error("not implemented")),
+        all: Effect.succeed([]),
+        getConfiguredAgents: () => Effect.succeed([]),
+        getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+      } satisfies CodingAgentRepositoryService),
       Effect.provide(testLayer),
     ),
   );

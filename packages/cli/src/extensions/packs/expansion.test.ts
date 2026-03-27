@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type { RegistryPackRef, BuiltinPackRef } from "@axm.sh/core/unstable/sources";
-import type { PackExtensionTarget } from "../../workflows/install-operation/workflow.js";
+import type { PackExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import { at } from "../../test-helpers.js";
 import {

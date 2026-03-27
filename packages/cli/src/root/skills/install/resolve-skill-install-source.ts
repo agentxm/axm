@@ -7,7 +7,7 @@ import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
   routeUrlInput,
-} from "../../../sources/resolve-source.js";
+} from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "../../../workspace/index.js";
 
 export type RegistryLookupProbe = {

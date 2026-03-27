@@ -1,11 +1,15 @@
 /**
  * Workspace module - plan-based orchestration for extension management.
  *
+ * Plan types and pure logic re-exported from @axm.sh/core/unstable/workspace.
+ * CLI-specific modules (resolve-plan, display-plan, service implementation)
+ * remain in this package.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-// Plan types (new readiness-based model)
+// Plan types (re-exported from core)
 export type {
   CompletedJobStep,
   ErrorJobStep,
@@ -17,17 +21,21 @@ export type {
   PlannedJobStep,
   ReadyJobStep,
   WarnJobStep,
-} from "./plan.js";
+} from "@axm.sh/core/unstable/workspace";
 
-// Path utilities
-export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
+// Path utilities (re-exported from core)
+export { getAxmDir, getProjectDir, getUserScopeDir } from "@axm.sh/core/unstable/workspace";
 
-// Scope utilities
-export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
-
-// Workspace context service (for CLI commands)
+// Scope utilities (re-exported from core)
 export {
-  layer,
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+} from "@axm.sh/core/unstable/workspace";
+
+// Workspace context service types (from core)
+export {
+  Workspace,
   type SetCommandArgs,
   type SetMcpServerArgs,
   type SetPackArgs,
@@ -35,21 +43,29 @@ export {
   type WorkspaceContextService,
   type WorkspaceContextError,
   type WorkspaceContextOptions,
-  Workspace as Workspace,
-  // Taxonomy types
-  type ConfiguredSkill,
-  type ImplicitSkill,
-  type UnmanagedSkill,
-  type InstalledSkill,
-  type ClassifiedSkill,
-  type ConfiguredCommand,
-  type ImplicitCommand,
-  type UnmanagedCommand,
-  type InstalledCommand,
-  type ClassifiedCommand,
-  type ConfiguredExtensionRef,
-  type ImplicitExtensionRef,
-  type UnmanagedExtensionRef,
-  type InstalledExtensionRef,
-  type ClassifiedExtensionRef,
-} from "./service.js";
+} from "@axm.sh/core/unstable/workspace";
+
+// Taxonomy types (from core)
+export type {
+  ConfiguredSkill,
+  ImplicitSkill,
+  UnmanagedSkill,
+  InstalledSkill,
+  ClassifiedSkill,
+  ConfiguredCommand,
+  ImplicitCommand,
+  UnmanagedCommand,
+  InstalledCommand,
+  ClassifiedCommand,
+  ConfiguredExtensionRef,
+  ImplicitExtensionRef,
+  UnmanagedExtensionRef,
+  InstalledExtensionRef,
+  ClassifiedExtensionRef,
+} from "@axm.sh/core/unstable/workspace";
+
+// Workspace layer (CLI implementation)
+export { layer } from "./service.js";
+
+// Resolve plan (CLI-only free function)
+export { resolvePlan } from "./resolve-plan.js";

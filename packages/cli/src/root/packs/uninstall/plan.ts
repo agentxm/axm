@@ -14,15 +14,16 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
-import type { UninstallCommandOperation } from "../../../extensions/commands/operations/uninstall.js";
-import type { UninstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/uninstall.js";
-import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
-import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { uninstallPack } from "../../../extensions/packs/operations/uninstall.js";
-import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
-import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
-import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
+import type { UninstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallCommand } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallMcpServer } from "@axm.sh/core/unstable/extension-managers";
 import { Workspace } from "../../../workspace/index.js";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { OperationResult } from "../../../workspace/plan.js";
@@ -130,15 +131,21 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const renderer = yield* CliRenderer;
+    const agentRepo = yield* CodingAgentRepository;
 
     const provideServices = <A, E>(
-      effect: Effect.Effect<A, E, Workspace | FileSystem.FileSystem | Path.Path | CliRenderer>,
+      effect: Effect.Effect<
+        A,
+        E,
+        Workspace | FileSystem.FileSystem | Path.Path | CliRenderer | CodingAgentRepository
+      >,
     ): Effect.Effect<A, E, never> =>
       effect.pipe(
         Effect.provideService(Workspace, workspace),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(CodingAgentRepository, agentRepo),
       );
 
     const toJobStepResult = (result: OperationResult): JobStepResult =>

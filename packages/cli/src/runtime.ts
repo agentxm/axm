@@ -23,7 +23,8 @@ import * as Commands from "./extensions/commands/layers.js";
 import * as McpServers from "./extensions/mcp-servers/layers.js";
 import * as Packs from "./extensions/packs/layers.js";
 import * as Skills from "./extensions/skills/layers.js";
-import { SourceHostProvidersLive } from "./sources/index.js";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "./agents/repository.js";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import { baseLayer } from "./runtime/base-layer.js";
 import {
@@ -95,7 +96,11 @@ const makeWorkspaceProgramLayer = (
     builtInSources: getBuiltInSources(registryUrl),
   });
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
-  const workspaceServiceLayer = Layer.mergeAll(wsLayer, sourceProvidersLayer);
+  const workspaceServiceLayer = Layer.mergeAll(
+    wsLayer,
+    sourceProvidersLayer,
+    CodingAgentRepositoryLive,
+  );
 
   // -- Extensions (per-feature self-wired layers) --
   // Commands, McpServers, Skills are self-contained.

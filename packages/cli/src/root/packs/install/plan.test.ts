@@ -7,12 +7,16 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
-import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { SourceHostProvidersService } from "../../../sources/index.js";
@@ -205,11 +209,18 @@ const sourceHostProvidersStub: SourceHostProvidersService = {
   cloneUrl: () => Option.none(),
   origin: () => "test",
 };
+const defaultAgentRepo: CodingAgentRepositoryService = {
+  get: () => Effect.die(new Error("not implemented")),
+  all: Effect.succeed([]),
+  getConfiguredAgents: () => Effect.succeed([]),
+  getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+};
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
   Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
   Layer.succeed(SourceHostProviders, sourceHostProvidersStub),
   NodeServices.layer,
+  Layer.succeed(CodingAgentRepository, defaultAgentRepo),
 );
 
 const runBuild = (args: Parameters<typeof buildInstallPlan>[0]) =>

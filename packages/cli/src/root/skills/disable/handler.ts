@@ -12,10 +12,11 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
-import type { DisableSkillOperation } from "../../../extensions/skills/operations/disable.js";
-import { disableSkill } from "../../../extensions/skills/operations/disable.js";
+import type { DisableSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { disableSkill } from "@axm.sh/core/unstable/extension-managers";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -76,7 +77,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     label: args.name,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "disable-skill": disableSkill }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "disable-skill": disableSkill }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

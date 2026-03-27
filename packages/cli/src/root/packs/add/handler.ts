@@ -19,14 +19,15 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
 } from "@axm.sh/core/unstable/extensions";
-import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
-import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+import type { AddToPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import { addToPack } from "@axm.sh/core/unstable/extension-managers";
+import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -221,7 +222,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

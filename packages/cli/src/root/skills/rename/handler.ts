@@ -10,10 +10,11 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
-import type { RenameSkillOperation } from "../../../extensions/skills/operations/rename.js";
-import { renameSkill } from "../../../extensions/skills/operations/rename.js";
+import type { RenameSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { renameSkill } from "@axm.sh/core/unstable/extension-managers";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -78,7 +79,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     label: `${args.oldName} -> ${args.newName}`,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

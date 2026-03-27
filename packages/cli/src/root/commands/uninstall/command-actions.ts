@@ -14,13 +14,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { Workspace } from "../../../workspace/service.js";
-import { CommandManager } from "../../../extensions/commands/manager.js";
+import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
 import type { Plan } from "../../../workspace/plan.js";
-import type {
-  CommandExtensionTarget,
-  ExtensionTarget,
-} from "../../../workflows/install-operation/index.js";
-import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
+import type { CommandExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
+import { buildUninstallOperation } from "@axm.sh/core/unstable/extension-operations";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallCommandCommandIntent } from "./intent.js";
 import type { CommandExtensionRef } from "@axm.sh/core/unstable/sources";

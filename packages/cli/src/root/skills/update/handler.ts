@@ -32,12 +32,13 @@ import {
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "../../../extensions/skills/operations/install.js";
-import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
+import { installSkill } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -510,7 +511,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   );
 
   // Step 10: Resolve plan
-  yield* ws.resolvePlan(
+  yield* resolvePlan(
     bridgeLegacyPlan(plan, {
       "install-skill": installSkill,
       "uninstall-skill": uninstallSkill,

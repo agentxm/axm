@@ -28,16 +28,16 @@ import type {
 import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { PackManager } from "../../../extensions/packs/manager.js";
-import { SkillManager } from "../../../extensions/skills/manager.js";
-import { CommandManager } from "../../../extensions/commands/manager.js";
-import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
-import { expandPackInstallRefs } from "../../../extensions/packs/expansion.js";
+import { PackManager } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
+import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
+import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
+import { expandPackInstallRefs } from "@axm.sh/core/unstable/extension-managers";
 import {
   buildInstallOperation,
   targetFromRef,
   toLabel,
-} from "../../../workflows/install-operation/workflow.js";
+} from "@axm.sh/core/unstable/extension-operations";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { InstallPackCommandIntent } from "./intent.js";

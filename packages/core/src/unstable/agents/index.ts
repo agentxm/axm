@@ -17,3 +17,17 @@ export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 // Types and constants
 export { AGENT_IDS } from "./types.js";
 export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";
+
+// Coding agent service contracts (used by extension managers)
+export type {
+  AddMcpServerArgs,
+  CodingAgent,
+  CodingAgentRepositoryService,
+  CodingAgentRepositoryShape,
+  McpServerSyncFallbackSource,
+  McpServerSyncOutcome,
+  RemoveMcpServerArgs,
+  ResolveSkillsDirArgs,
+  ResolveSkillsDirOutcome,
+} from "./coding-agent.js";
+export { CodingAgentRepository } from "./coding-agent.js";

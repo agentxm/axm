@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PackExtensionTarget } from "../../../workflows/install-operation/workflow.js";
+import type { PackExtensionTarget } from "@axm.sh/core/unstable/workspace";
 
 export interface UninstallPackCommandIntent {
   readonly packsToUninstall: ReadonlyArray<PackExtensionTarget>;

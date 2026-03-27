@@ -15,8 +15,8 @@ import * as Option from "effect/Option";
 import type { Record as EffectRecord } from "effect";
 import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/index.js";
-import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
-import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
+import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 
 /** Keyed by skill name. Presence = installed. */
 export type InstalledSkills = EffectRecord.ReadonlyRecord<

@@ -17,7 +17,7 @@ import type {
   ExtensionTarget,
   PackExtensionTarget,
   SkillExtensionTarget,
-} from "../../workflows/install-operation/workflow.js";
+} from "@axm.sh/core/unstable/workspace";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------

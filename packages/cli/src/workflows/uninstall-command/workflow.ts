@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { Plan } from "../../workspace/plan.js";
-import { Workspace } from "../../workspace/service.js";
+import { resolvePlan } from "../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface
@@ -51,6 +51,5 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent);
-    const ws = yield* Workspace;
-    yield* ws.resolvePlan(plan, flags);
+    yield* resolvePlan(plan, flags);
   });

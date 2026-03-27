@@ -11,13 +11,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { formatFqn, PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/extensions";
-import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
-import { newPack } from "../../../extensions/packs/operations/new-pack.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+import type { NewPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import { newPack } from "@axm.sh/core/unstable/extension-managers";
+import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -106,7 +107,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     label: fqn,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

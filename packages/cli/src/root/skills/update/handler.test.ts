@@ -18,6 +18,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { PACK_MANIFEST_FILENAME, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectRecord,
@@ -220,6 +221,7 @@ describe("update.handler — error recovery", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
+      CodingAgentRepositoryLive,
     );
     const provide = makeEffectProvide(FullLayer);
 

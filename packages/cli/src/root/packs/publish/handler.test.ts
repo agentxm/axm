@@ -13,9 +13,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { AuthClientTest } from "../../../auth/auth-client.js";
-import { CredentialStoreTest } from "../../../auth/credential-store.js";
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
+import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
 import type { WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import {

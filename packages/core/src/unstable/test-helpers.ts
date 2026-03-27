@@ -1,4 +1,5 @@
 import * as Option from "effect/Option";
+import { AppError } from "./app-error/index.js";
 
 export const expectDefined = <T>(
   value: T | null | undefined,
@@ -39,6 +40,17 @@ export const property = (value: unknown, key: string, message?: string): unknown
     message ?? `Expected property ${key}`,
   );
 
+export const recordEntry = <T>(
+  value: Readonly<Record<string, T>> | Partial<Record<string, T>> | undefined,
+  key: string,
+  message?: string,
+): T => expectDefined(value?.[key], message ?? `Expected record entry for ${key}`);
+
+export const firstCall = <T>(
+  calls: ReadonlyArray<ReadonlyArray<T>>,
+  message = "Expected mock to be called",
+): ReadonlyArray<T> => at(calls, 0, message);
+
 export const stringProperty = (value: unknown, key: string, message?: string): string => {
   const field = property(value, key, message);
 
@@ -47,4 +59,11 @@ export const stringProperty = (value: unknown, key: string, message?: string): s
   }
 
   return field;
+};
+
+export const getAppError = (error: unknown): AppError => {
+  if (!(error instanceof AppError)) {
+    throw new Error("Expected AppError");
+  }
+  return error;
 };

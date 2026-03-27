@@ -6,9 +6,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthClientTest, type MeResponse } from "../../../auth/auth-client.js";
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { CredentialStore, CredentialStoreTest } from "../../../auth/credential-store.js";
+import {
+  AuthClientTest,
+  type MeResponse,
+  RegistryUrl,
+  CredentialStore,
+  CredentialStoreTest,
+} from "@axm.sh/core/unstable/auth";
 import { AuthLoginInteractionTest } from "../../../auth/login-interaction.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";

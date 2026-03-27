@@ -12,7 +12,12 @@ import * as ServiceMap from "effect/ServiceMap";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { renderAppError } from "@axm.sh/core/unstable/app-error";
-import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
+import type {
+  CompletedJobStep,
+  ExecutedPlan,
+  Plan,
+  PlannedJobStep,
+} from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Implementation

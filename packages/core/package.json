@@ -113,6 +113,26 @@
     "./unstable/registry": {
       "types": "./src/unstable/registry/index.ts",
       "default": "./dist/src/unstable/registry/index.js"
+    },
+    "./unstable/auth": {
+      "types": "./src/unstable/auth/index.ts",
+      "default": "./dist/src/unstable/auth/index.js"
+    },
+    "./unstable/workspace": {
+      "types": "./src/unstable/workspace/index.ts",
+      "default": "./dist/src/unstable/workspace/index.js"
+    },
+    "./unstable/source-resolution": {
+      "types": "./src/unstable/source-resolution/index.ts",
+      "default": "./dist/src/unstable/source-resolution/index.js"
+    },
+    "./unstable/extension-managers": {
+      "types": "./src/unstable/extension-managers/index.ts",
+      "default": "./dist/src/unstable/extension-managers/index.js"
+    },
+    "./unstable/extension-operations": {
+      "types": "./src/unstable/extension-operations/index.ts",
+      "default": "./dist/src/unstable/extension-operations/index.js"
     }
   },
   "files": [
@@ -138,7 +158,8 @@
     "semver": "^7.7.1",
     "simple-git": "^3.27.0",
     "yaml": "^2.8.2",
-    "jsonc-parser": "^3.3.1"
+    "jsonc-parser": "^3.3.1",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

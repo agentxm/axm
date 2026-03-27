@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { type AppError, makeAppError } from "@axm.sh/core/unstable/app-error";
-import { Workspace } from "../workspace/service.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import {
   type CodingAgent,
   CodingAgentRepository,

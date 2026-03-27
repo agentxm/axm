@@ -18,21 +18,22 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "../../../workspace/index.js";
-import { installSkill } from "../../../extensions/skills/operations/install.js";
-import { installCommand } from "../../../extensions/commands/operations/install.js";
-import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
-import { uninstallPack } from "../../../extensions/packs/operations/uninstall.js";
+import { installSkill } from "@axm.sh/core/unstable/extension-managers";
+import { installCommand } from "@axm.sh/core/unstable/extension-managers";
+import { installMcpServer } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 import {
   buildRegistrySkillRef,
   buildRegistryCommandRef,
   buildRegistryMcpServerRef,
-} from "../../../extensions/index.js";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
-import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
+} from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -172,7 +173,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
   });
 
-  yield* ws.resolvePlan(
+  yield* resolvePlan(
     bridgeLegacyPlan(plan, {
       "install-skill": installSkill,
       "install-command": installCommand,

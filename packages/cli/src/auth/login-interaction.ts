@@ -2,6 +2,8 @@
  * Auth login interaction service.
  *
  * Best-effort platform integration for browser launch and clipboard copy.
+ * Provides both the CLI-specific AuthLoginInteraction and the core
+ * DeviceLoginInteraction service (used by core's runDeviceLogin).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -9,6 +11,11 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/ServiceMap";
+
+import {
+  DeviceLoginInteraction,
+  type DeviceLoginInteractionService,
+} from "@axm.sh/core/unstable/auth";
 
 interface CommandInvocation {
   readonly command: string;
@@ -89,10 +96,15 @@ const clipboardCommands = (text: string): ReadonlyArray<CommandInvocation> => {
   }
 };
 
-export const AuthLoginInteractionLive = Layer.succeed(AuthLoginInteraction, {
+const interactionImpl: DeviceLoginInteractionService = {
   openBrowser: (url) => tryCommands(browserCommands(url)),
   copyToClipboard: (text) => tryCommands(clipboardCommands(text)),
-} satisfies AuthLoginInteractionService);
+};
+
+export const AuthLoginInteractionLive = Layer.mergeAll(
+  Layer.succeed(AuthLoginInteraction, interactionImpl satisfies AuthLoginInteractionService),
+  Layer.succeed(DeviceLoginInteraction, interactionImpl),
+);
 
 export interface AuthLoginInteractionTestState {
   readonly openBrowserCalls: Array<string>;
@@ -108,7 +120,7 @@ export const AuthLoginInteractionTest = (overrides?: {
     copyToClipboardCalls: [],
   };
 
-  const layer = Layer.succeed(AuthLoginInteraction, {
+  const impl: DeviceLoginInteractionService = {
     openBrowser: (url) =>
       Effect.gen(function* () {
         state.openBrowserCalls.push(url);
@@ -119,7 +131,12 @@ export const AuthLoginInteractionTest = (overrides?: {
         state.copyToClipboardCalls.push(text);
         return yield* overrides?.copyToClipboard?.(text) ?? Effect.succeed(false);
       }),
-  } satisfies AuthLoginInteractionService);
+  };
+
+  const layer = Layer.mergeAll(
+    Layer.succeed(AuthLoginInteraction, impl satisfies AuthLoginInteractionService),
+    Layer.succeed(DeviceLoginInteraction, impl),
+  );
 
   return { layer, state };
 };

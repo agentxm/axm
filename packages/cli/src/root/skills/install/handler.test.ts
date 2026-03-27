@@ -17,9 +17,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { Workspace } from "../../../workspace/index.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
-import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import {
@@ -200,7 +201,12 @@ describe("skills install handler — error propagation", () => {
     );
     const SMLayer = Layer.provide(
       SkillManagerLive,
-      Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer),
+      Layer.mergeAll(
+        handlerTestContext.baseLayer,
+        handlerTestContext.wsLayer,
+        SPLayer,
+        CodingAgentRepositoryLive,
+      ),
     );
     const ActionsLayer = Layer.provide(
       InstallSkillCommandWorkflowActionsLive,
@@ -359,7 +365,6 @@ describe("skills install handler — error propagation", () => {
 
     return provide(
       Effect.gen(function* () {
-        const ws = yield* Workspace;
         const plan = {
           _tag: "Plan" as const,
           name: "test-plan",
@@ -377,7 +382,7 @@ describe("skills install handler — error propagation", () => {
             },
           ],
         };
-        const result = yield* ws.resolvePlan(plan, { yes: false, force: true, preview: false });
+        const result = yield* resolvePlan(plan, { yes: false, force: true, preview: false });
         // --force downgrades errors to warnings and proceeds
         expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
         expect(result._tag).toBe("ExecutedPlan");

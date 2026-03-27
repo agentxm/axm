@@ -6,7 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { CommandExtensionTarget } from "../../../workflows/install-operation/index.js";
+import type { CommandExtensionTarget } from "@axm.sh/core/unstable/workspace";
 
 /**
  * Intent for uninstalling a command extension.

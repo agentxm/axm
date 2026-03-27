@@ -14,15 +14,16 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { RemoveFromPackOperation } from "../../../extensions/packs/operations/remove-from-pack.js";
-import { removeFromPack } from "../../../extensions/packs/operations/remove-from-pack.js";
+import type { RemoveFromPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import { removeFromPack } from "@axm.sh/core/unstable/extension-managers";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/extensions";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -178,7 +179,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

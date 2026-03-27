@@ -30,23 +30,18 @@ import {
   RawPackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
-import {
-  publishPack,
-  type PublishPackOperation,
-} from "../../../extensions/packs/operations/publish.js";
-import {
-  publishSkill,
-  type PublishSkillOperation,
-} from "../../../extensions/skills/operations/publish.js";
+import { publishPack, type PublishPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import {
   publishCommand,
   type PublishCommandOperation,
-} from "../../../extensions/commands/operations/publish.js";
+} from "@axm.sh/core/unstable/extension-managers";
 import {
   publishMcpServer,
   type PublishMcpServerOperation,
-} from "../../../extensions/mcp-servers/operations/publish.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+} from "@axm.sh/core/unstable/extension-managers";
+import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -331,7 +326,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     jobs,
   };
 
-  yield* ws.resolvePlan(
+  yield* resolvePlan(
     bridgeLegacyPlan(plan, {
       "publish-pack": publishPack,
       "publish-skill": publishSkill,

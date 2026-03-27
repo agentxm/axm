@@ -11,10 +11,11 @@ import type {
   SkillLockEntry,
 } from "@axm.sh/core/unstable/lockfile";
 import { LOCKFILE_NAME, writeLockfile } from "@axm.sh/core/unstable/lockfile";
-import { commandReconciliationAdapter } from "../extensions/commands/reconciliation-adapter.js";
-import { mcpServerReconciliationAdapter } from "../extensions/mcp-servers/reconciliation-adapter.js";
-import { packReconciliationAdapter } from "../extensions/packs/reconciliation-adapter.js";
-import { skillReconciliationAdapter } from "../extensions/skills/reconciliation-adapter.js";
+import { commandReconciliationAdapter } from "@axm.sh/core/unstable/extension-managers";
+import { mcpServerReconciliationAdapter } from "@axm.sh/core/unstable/extension-managers";
+import { packReconciliationAdapter } from "@axm.sh/core/unstable/extension-managers";
+import { skillReconciliationAdapter } from "@axm.sh/core/unstable/extension-managers";
+import { setReconciliationAdapters } from "@axm.sh/core/unstable/workspace";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -30,6 +31,9 @@ const adapters: ReadonlyArray<ReconciliationAdapter> = [
   mcpServerReconciliationAdapter,
   packReconciliationAdapter,
 ];
+
+// Register adapters with core so core's augmentPlanWithReconciliation can use them
+setReconciliationAdapters(adapters);
 
 const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   skills: 0,

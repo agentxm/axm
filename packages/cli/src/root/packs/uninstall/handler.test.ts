@@ -24,10 +24,13 @@ import {
   type UninstallPackHandlerArgs,
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
-import { PackManagerLive } from "../../../extensions/packs/manager.js";
-import { SkillManagerLive } from "../../../extensions/skills/manager.js";
-import { CommandManagerLive } from "../../../extensions/commands/manager.js";
-import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
+import {
+  PackManagerLive,
+  SkillManagerLive,
+  CommandManagerLive,
+  McpServerManagerLive,
+} from "@axm.sh/core/unstable/extension-managers";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -137,7 +140,7 @@ describe("packs uninstall handler", () => {
       CommandManagerLive,
       McpServerManagerLive,
     );
-    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const ActionsLayer = Layer.provide(
       UninstallPackCommandWorkflowActionsLive,

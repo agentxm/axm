@@ -21,10 +21,7 @@ import { sourceToLockEntry } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
 import type { SourceHostProvidersService } from "../../sources/index.js";
-import type {
-  ExtensionManager,
-  SkillExtensionTarget,
-} from "../../workflows/install-operation/workflow.js";
+import type { ExtensionManager, SkillExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { Workspace } from "../../workspace/service.js";
 import { sanitizeName } from "./utils.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";

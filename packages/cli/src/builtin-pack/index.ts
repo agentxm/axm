@@ -12,13 +12,6 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import type { ResolvedBuiltinPack } from "@axm.sh/core/unstable/workspace";
 
-export {
-  BUILTIN_PACK_FQN,
-  BUILTIN_PACK_SCOPE,
-  BUILTIN_PACK_NAME,
-  type ResolvedBuiltinPack,
-} from "@axm.sh/core/unstable/workspace";
-
 // -----------------------------------------------------------------------------
 // Resolution
 // -----------------------------------------------------------------------------

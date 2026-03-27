@@ -3,14 +3,21 @@
  */
 
 import { createHash } from "node:crypto";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { zipSync } from "fflate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import type * as Path from "effect/Path";
+import { afterEach, beforeEach } from "vitest";
 
 import type { VersionEntry } from "./schema.js";
 import { computeIntegrity } from "../utils/index.js";
-import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
+import { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -119,4 +126,76 @@ describe("extensionDir", () => {
     const result = extensionDir("/registry", "@test", "pack", "frontend", join);
     expect(result).toBe("/registry/extensions/@test/packs/frontend");
   });
+});
+
+// -----------------------------------------------------------------------------
+// extractZip
+// -----------------------------------------------------------------------------
+
+const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+  effect.pipe(Effect.provide(NodeServices.layer));
+
+describe("extractZip", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "extract-zip-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it.effect("extracts a valid zip with files", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const encoder = new TextEncoder();
+        const archive = zipSync({
+          "hello.txt": encoder.encode("hello world"),
+          "data.json": encoder.encode('{"key":"value"}'),
+        });
+
+        yield* extractZip(new Uint8Array(archive), tmpDir);
+
+        const helloContent = fs.readFileSync(path.join(tmpDir, "hello.txt"), "utf-8");
+        expect(helloContent).toBe("hello world");
+
+        const dataContent = fs.readFileSync(path.join(tmpDir, "data.json"), "utf-8");
+        expect(dataContent).toBe('{"key":"value"}');
+      }),
+    ),
+  );
+
+  it.effect("creates nested directories", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const encoder = new TextEncoder();
+        const archive = zipSync({
+          "sub/nested/file.txt": encoder.encode("nested content"),
+        });
+
+        yield* extractZip(new Uint8Array(archive), tmpDir);
+
+        const content = fs.readFileSync(path.join(tmpDir, "sub", "nested", "file.txt"), "utf-8");
+        expect(content).toBe("nested content");
+
+        // Verify intermediate directories exist
+        expect(fs.statSync(path.join(tmpDir, "sub")).isDirectory()).toBe(true);
+        expect(fs.statSync(path.join(tmpDir, "sub", "nested")).isDirectory()).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("fails with AppError for invalid zip data", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const invalidData = new Uint8Array([0x00, 0x01, 0x02, 0x03]);
+
+        const result = yield* extractZip(invalidData, tmpDir).pipe(Effect.flip);
+
+        expect(result.code).toBe("SOURCE_FETCH_FAILED");
+        expect(result.what).toContain("decompress");
+      }),
+    ),
+  );
 });

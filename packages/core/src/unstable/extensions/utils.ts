@@ -100,9 +100,3 @@ export const copyExtensionDirectory = (
     const path = yield* Path.Path;
     yield* copyDir(src, dest, fs, path);
   });
-
-/**
- * Alias for backward compatibility.
- * @deprecated Use `copyExtensionDirectory` instead.
- */
-export const copySkillDirectory = copyExtensionDirectory;

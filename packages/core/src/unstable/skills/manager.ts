@@ -24,7 +24,7 @@ import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
-import { copySkillDirectory, sanitizeName } from "../extensions/utils.js";
+import { copyExtensionDirectory, sanitizeName } from "../extensions/utils.js";
 import {
   computeIntegrity,
   createSymlink,
@@ -344,7 +344,7 @@ const preCleanAndCopy = (
   Effect.gen(function* () {
     yield* removeFromAllCanonicalLocations(fs, baseDir, sanitizedName, pathService);
     yield* provide(
-      copySkillDirectory(sourcePath, copyTarget).pipe(
+      copyExtensionDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
           makeAppError({
             code: "INSTALL_SKILL_COPY_FAILED",
@@ -558,7 +558,7 @@ const installForDirectory = (
         link: agentSkillPath,
       }).pipe(
         Effect.catch(() =>
-          copySkillDirectory(canonicalSkillSrcPath, agentSkillPath).pipe(Effect.ignore),
+          copyExtensionDirectory(canonicalSkillSrcPath, agentSkillPath).pipe(Effect.ignore),
         ),
       ),
     );

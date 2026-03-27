@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-// Plan types (new readiness-based model)
+// Plan types
 export type {
   CompletedJobStep,
   ErrorJobStep,
@@ -14,7 +14,6 @@ export type {
   Job,
   JobStepResult,
   Operation,
-  OperationResult,
   Plan,
   PlannedJobStep,
   ReadyJobStep,
@@ -23,14 +22,6 @@ export type {
 
 // Apply plan
 export { applyPlan, type OperationHandler } from "./apply-plan.js";
-
-// Plan bridge
-export {
-  bridgeLegacyPlan,
-  makeLegacyStep,
-  type LegacyPlan,
-  type LegacyPlannedStep,
-} from "./plan-bridge.js";
 
 // Path utilities
 export { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";

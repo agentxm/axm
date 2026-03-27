@@ -5,6 +5,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -16,10 +18,9 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { buildSingleStepPlan } from "./plan-helpers.js";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -110,22 +111,47 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 4. Resolve agents
   const agents = Option.isSome(args.agents) ? args.agents.value : yield* ws.getConfiguredAgents();
 
-  // 5. Build operation
+  // 5. Capture services for run closure
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+
+  // 6. Build operation
   const op = {
     name: "new-skill",
     args: { name: args.name, profile, agents: [...agents] },
   } satisfies NewSkillOperation;
 
-  // 6. Build and resolve single-step plan
+  // 7. Build plan with inline run closure
   const fqn = `${profile}/skills/${args.name}`;
-  const plan = buildSingleStepPlan({
-    operation: op,
-    name: "New skill",
-    description: `Create ${fqn}`,
-    label: fqn,
-  });
 
-  yield* resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }), {
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+  }): JobStepResult =>
+    result.result === "error" && result.error != null
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
+
+  const step: PlannedJobStep = {
+    readiness: "ready",
+    label: fqn,
+    run: newSkill(op).pipe(
+      Effect.map(toJobStepResult),
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
+  };
+
+  const plan: Plan = {
+    _tag: "Plan",
+    name: "New skill",
+    description: Option.some(`Create ${fqn}`),
+    jobs: [{ concurrency: 1 as const, steps: [step] }],
+  };
+
+  yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

@@ -245,20 +245,22 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("server not installed", () => {
-    it.effect("returns no-op when not in lockfile and no files on disk", () =>
-      Effect.gen(function* () {
-        const base = path.join(tmpDir, "project");
-        const axmDir = path.join(base, ".axm");
-        fs.mkdirSync(axmDir, { recursive: true });
-        writeLockfileYaml(axmDir, {});
+    it.effect(
+      "returns success with not-installed message when not in lockfile and no files on disk",
+      () =>
+        Effect.gen(function* () {
+          const base = path.join(tmpDir, "project");
+          const axmDir = path.join(base, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          writeLockfileYaml(axmDir, {});
 
-        const result = yield* uninstallMcpServer(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, {})),
-        );
+          const result = yield* uninstallMcpServer(makeOp()).pipe(
+            Effect.provide(withServices(axmDir, {})),
+          );
 
-        expect(result.result).toBe("no-op");
-        expect(result.message).toBe("not installed");
-      }),
+          expect(result.result).toBe("success");
+          expect(result.message).toBe("not installed");
+        }),
     );
   });
 

@@ -2,7 +2,7 @@
  * Pack-specific unpack plan builder.
  *
  * Accepts pre-built install operations and an UninstallPackOperation,
- * and constructs the full unpack plan:
+ * and constructs the full unpack plan with inline run closures:
  * - InstallSkillOperations for each resolved skill (skipSettings: false)
  * - InstallCommandOperations for each resolved command
  * - InstallMcpServerOperations for each resolved MCP server
@@ -14,16 +14,23 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import { installCommand, type InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import {
-  makeLegacyStep,
-  type LegacyPlan,
-  type LegacyPlannedStep,
-} from "@axm.sh/core/unstable/workspace";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { UninstallPackOperation } from "@axm.sh/core/unstable/packs";
+  installMcpServer,
+  type InstallMcpServerOperation,
+} from "@axm.sh/core/unstable/mcp-servers";
+import { uninstallPack, type UninstallPackOperation } from "@axm.sh/core/unstable/packs";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 
 /**
  * Union of operation types produced by the pack unpack plan builder.
@@ -61,60 +68,133 @@ export interface BuildUnpackPlanArgs {
 /**
  * Build a plan for unpacking a pack into direct settings entries.
  *
+ * Captures workspace services and constructs inline run closures.
  * Order: install ops first (skills, commands, mcp-servers), uninstall-pack last.
  * Extensions already directly configured become no-op steps.
- *
- * Pure function — no Effect needed.
  */
-export const buildUnpackPlan = (args: BuildUnpackPlanArgs): LegacyPlan<PackUnpackOp> => {
-  const {
-    skillOps,
-    commandOps,
-    mcpServerOps,
-    uninstallPackOp,
-    configuredSkillNames,
-    configuredCommandNames,
-    configuredMcpServerNames,
-    name,
-    description,
-  } = args;
+export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>
+  Effect.gen(function* () {
+    const {
+      skillOps,
+      commandOps,
+      mcpServerOps,
+      uninstallPackOp,
+      configuredSkillNames,
+      configuredCommandNames,
+      configuredMcpServerNames,
+      name,
+      description,
+    } = args;
 
-  const steps: ReadonlyArray<LegacyPlannedStep<PackUnpackOp>> = [
-    // Install ops first
-    ...skillOps.map((op) => {
-      const alreadyConfigured = configuredSkillNames.includes(op.args.ref.skill.name);
-      return makeLegacyStep<PackUnpackOp>(
-        op,
-        op.args.ref.skill.name,
-        !alreadyConfigured,
-        "already directly installed",
-      );
-    }),
-    ...commandOps.map((op) => {
-      const alreadyConfigured = configuredCommandNames.includes(op.args.ref.command.name);
-      return makeLegacyStep<PackUnpackOp>(
-        op,
-        op.args.ref.command.name,
-        !alreadyConfigured,
-        "already directly installed",
-      );
-    }),
-    ...mcpServerOps.map((op) => {
-      const alreadyConfigured = configuredMcpServerNames.includes(op.args.ref.server.name);
-      return makeLegacyStep<PackUnpackOp>(
-        op,
-        op.args.ref.server.name,
-        !alreadyConfigured,
-        "already directly installed",
-      );
-    }),
-    // Uninstall-pack last
-    makeLegacyStep<PackUnpackOp>(uninstallPackOp, uninstallPackOp.args.packName, true, ""),
-  ];
+    // Capture services for run closures
+    const workspace = yield* Workspace;
+    const sources = yield* SourceHostProviders;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const renderer = yield* CliRenderer;
+    const agentRepo = yield* CodingAgentRepository;
 
-  return {
-    name,
-    description,
-    jobs: [{ steps, concurrency: 1 }],
-  };
-};
+    const provideServices = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        | Workspace
+        | SourceHostProviders
+        | FileSystem.FileSystem
+        | Path.Path
+        | CliRenderer
+        | CodingAgentRepository
+      >,
+    ): Effect.Effect<A, E, never> =>
+      effect.pipe(
+        Effect.provideService(Workspace, workspace),
+        Effect.provideService(SourceHostProviders, sources),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(CodingAgentRepository, agentRepo),
+      );
+
+    const makeRunClosure = (op: PackUnpackOp): Effect.Effect<JobStepResult, AppError, never> => {
+      const runOperation = (() => {
+        switch (op.name) {
+          case "install-skill":
+            return installSkill(op);
+          case "install-command":
+            return installCommand(op);
+          case "install-mcp-server":
+            return installMcpServer(op);
+          case "uninstall-pack":
+            return uninstallPack(op);
+        }
+      })();
+
+      return provideServices(runOperation).pipe(
+        Effect.map(
+          (result): JobStepResult =>
+            result.result === "error"
+              ? { result: "error", message: result.message, error: result.error }
+              : { result: "success", message: result.message },
+        ),
+      );
+    };
+
+    const steps: ReadonlyArray<PlannedJobStep> = [
+      // Install ops first
+      ...skillOps.map((op): PlannedJobStep => {
+        const alreadyConfigured = configuredSkillNames.includes(op.args.ref.skill.name);
+        if (alreadyConfigured) {
+          return {
+            readiness: "ready",
+            label: op.args.ref.skill.name,
+            run: Effect.succeed<JobStepResult>({
+              result: "success",
+              message: "already directly installed",
+            }),
+          };
+        }
+        return { readiness: "ready", label: op.args.ref.skill.name, run: makeRunClosure(op) };
+      }),
+      ...commandOps.map((op): PlannedJobStep => {
+        const alreadyConfigured = configuredCommandNames.includes(op.args.ref.command.name);
+        if (alreadyConfigured) {
+          return {
+            readiness: "ready",
+            label: op.args.ref.command.name,
+            run: Effect.succeed<JobStepResult>({
+              result: "success",
+              message: "already directly installed",
+            }),
+          };
+        }
+        return { readiness: "ready", label: op.args.ref.command.name, run: makeRunClosure(op) };
+      }),
+      ...mcpServerOps.map((op): PlannedJobStep => {
+        const alreadyConfigured = configuredMcpServerNames.includes(op.args.ref.server.name);
+        if (alreadyConfigured) {
+          return {
+            readiness: "ready",
+            label: op.args.ref.server.name,
+            run: Effect.succeed<JobStepResult>({
+              result: "success",
+              message: "already directly installed",
+            }),
+          };
+        }
+        return { readiness: "ready", label: op.args.ref.server.name, run: makeRunClosure(op) };
+      }),
+      // Uninstall-pack last
+      {
+        readiness: "ready",
+        label: uninstallPackOp.args.packName,
+        run: makeRunClosure(uninstallPackOp),
+      },
+    ];
+
+    return {
+      _tag: "Plan",
+      name,
+      description,
+      jobs: [{ steps, concurrency: 1 as const }],
+    } satisfies Plan;
+  });

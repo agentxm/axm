@@ -14,7 +14,8 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { computePackPaths } from "../paths.js";
@@ -103,11 +104,11 @@ export const uninstallPack: OperationHandler<
           return {
             result: "success",
             message: "Removed pack directory from disk",
-          } satisfies OperationResult;
+          } satisfies JobStepResult;
         }
       }
 
-      return { result: "no-op", message: "not installed" } satisfies OperationResult;
+      return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
     const lockedPack = lockedPackOpt.value;
@@ -129,13 +130,13 @@ export const uninstallPack: OperationHandler<
     return {
       result: "success",
       message: `Uninstalled pack ${op.args.packName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
         message: `Failed to uninstall pack: ${error.what}`,
         error,
-      } satisfies OperationResult),
+      } satisfies JobStepResult),
     ),
   );

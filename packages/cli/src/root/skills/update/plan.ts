@@ -8,9 +8,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
-import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 
@@ -18,7 +20,13 @@ import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 // Types
 // -----------------------------------------------------------------------------
 
-type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
+export type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
+
+/**
+ * A function that creates a run closure for an operation.
+ * The closure must have all services already provided (R = never).
+ */
+export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResult, AppError, never>;
 
 // -----------------------------------------------------------------------------
 // Version comparison
@@ -60,34 +68,6 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
 };
 
 // -----------------------------------------------------------------------------
-// Step builders
-// -----------------------------------------------------------------------------
-
-const buildInstallStep = (
-  op: InstallSkillOperation,
-  lockfile: Lockfile,
-): LegacyPlannedStep<UpdateOperation> => {
-  const entry = lockfile.skills[op.args.ref.skill.name];
-  const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
-
-  return {
-    _tag: "PlannedJobStep",
-    operation: op,
-    readiness: needsUpdate
-      ? { status: "ready", message: Option.none() }
-      : { status: "skip", message: "already up to date" },
-    label: op.args.ref.skill.name,
-  };
-};
-
-const buildUninstallStep = (op: UninstallSkillOperation): LegacyPlannedStep<UpdateOperation> => ({
-  _tag: "PlannedJobStep",
-  operation: op,
-  readiness: { status: "ready", message: Option.none() },
-  label: `${op.args.skillName} (renamed)`,
-});
-
-// -----------------------------------------------------------------------------
 // Plan builder
 // -----------------------------------------------------------------------------
 
@@ -97,22 +77,53 @@ const buildUninstallStep = (op: UninstallSkillOperation): LegacyPlannedStep<Upda
  * Accepts both install operations (compared against lockfile) and uninstall
  * operations (rename cleanup — always marked as success).
  *
- * Pure function -- no Effect needed.
+ * Takes a `makeRunClosure` function that produces service-provided run closures
+ * for each operation.
+ *
+ * Pure function (no Effect needed) — service provision happens in the caller.
  */
 export const buildUpdatePlan = (
   ops: ReadonlyArray<UpdateOperation>,
   lockfile: Lockfile,
   name: string,
   description: Option.Option<string>,
-): LegacyPlan<UpdateOperation> => ({
+  makeRunClosure: MakeRunClosure,
+): Plan => ({
+  _tag: "Plan",
   name,
   description,
   jobs: [
     {
       concurrency: "unbounded",
-      steps: ops.map((op) =>
-        op.name === "install-skill" ? buildInstallStep(op, lockfile) : buildUninstallStep(op),
-      ),
+      steps: ops.map((op): PlannedJobStep => {
+        if (op.name === "uninstall-skill") {
+          return {
+            readiness: "ready",
+            label: `${op.args.skillName} (renamed)`,
+            run: makeRunClosure(op),
+          };
+        }
+        // install-skill
+        const entry = lockfile.skills[op.args.ref.skill.name];
+        const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
+
+        if (!needsUpdate) {
+          return {
+            readiness: "ready",
+            label: op.args.ref.skill.name,
+            run: Effect.succeed<JobStepResult>({
+              result: "success",
+              message: "already up to date",
+            }),
+          };
+        }
+
+        return {
+          readiness: "ready",
+          label: op.args.ref.skill.name,
+          run: makeRunClosure(op),
+        };
+      }),
     },
   ],
 });

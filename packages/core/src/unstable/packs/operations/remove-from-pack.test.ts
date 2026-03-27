@@ -227,7 +227,7 @@ describe("removeFromPack", () => {
       }),
     );
 
-    it.effect("returns no-op when removals list is empty", () =>
+    it.effect("returns success when removals list is empty", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifestWithSkills(base, "@myorg", "my-pack", {
@@ -238,7 +238,7 @@ describe("removeFromPack", () => {
           Effect.provide(withServices(axmDir)),
         );
 
-        expect(result.result).toBe("no-op");
+        expect(result.result).toBe("success");
       }),
     );
   });

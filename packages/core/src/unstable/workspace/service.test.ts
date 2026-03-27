@@ -133,11 +133,6 @@ describe("WorkspaceContextService", () => {
   // nonInteractive resolution is tested in cli-flags/service.test.ts
   // preview flag is now in CliEnvironment, tested there
 
-  // TODO: Move resolvePlan tests to resolve-plan.test.ts (resolvePlan is now a free function)
-  // TODO: resolvePlan tests removed during Phase 4 refactoring.
-  // resolvePlan is now a free function in resolve-plan.ts.
-  // Tests should be migrated to resolve-plan.test.ts.
-
   /** Default options for tests that don't care about prompting/preview. */
   const defaultOptions: WorkspaceContextOptions = {
     scope: "project",

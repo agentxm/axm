@@ -26,11 +26,11 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
 import { publishSkill } from "@axm.sh/core/unstable/skills";
-import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@axm.sh/core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -260,34 +260,51 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     { successMessage: `Validated ${extensionNames.length} extension(s)` },
   );
 
-  // Step 4: Build multi-step plan
-  const steps: LegacyPlannedStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
-    _tag: "PlannedJobStep" as const,
-    operation: {
+  // Step 4: Build multi-step plan with inline run closures
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+  }): JobStepResult =>
+    result.result === "error" && result.error != null
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
+
+  const steps: PlannedJobStep[] = extensionNames.map((extName): PlannedJobStep => {
+    const op = {
       name: "publish-skill",
       args: { name: extName, registryName: targetRegistry.registryName },
-    } satisfies PublishSkillOperation,
-    readiness: { status: "ready" as const, message: Option.none() },
-    label: `Publish ${extName}`,
-  }));
+    } satisfies PublishSkillOperation;
+
+    return {
+      readiness: "ready",
+      label: `Publish ${extName}`,
+      run: publishSkill(op).pipe(
+        Effect.map(toJobStepResult),
+        Effect.provideService(Workspace, ws),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+    };
+  });
 
   const description =
     extensionNames.length === 1
       ? `Publish ${extensionNames[0]} to registry "${targetRegistry.registryName}"`
       : `Publish ${extensionNames.length} skills to registry "${targetRegistry.registryName}"`;
 
-  const plan = {
+  const plan: Plan = {
+    _tag: "Plan",
     name: "Publish skill",
     description: Option.some(description),
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  const resolvedPlan = yield* resolvePlan(
-    bridgeLegacyPlan(plan, {
-      "publish-skill": publishSkill,
-    }),
-    { yes: args.yes, force: args.force, preview: args.preview },
-  );
+  const resolvedPlan = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
 
   const failedStepDetails = resolvedPlan.jobs
     .flatMap((job) => job.steps)

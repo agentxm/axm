@@ -124,7 +124,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
   });
 
   describe("pack folder does not exist on disk or in lockfile", () => {
-    it.effect("returns no-op", () =>
+    it.effect("returns success with not-installed message", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -134,7 +134,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
           Effect.provide(makeLayer(axmDir)),
         );
 
-        expect(result.result).toBe("no-op");
+        expect(result.result).toBe("success");
         expect(result.message).toBe("not installed");
       }),
     );

@@ -12,7 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { parseFqnOrThrow } from "../../extensions/index.js";
 import {
@@ -75,7 +76,7 @@ export const addToPack: OperationHandler<
 
     // 1. Short-circuit if nothing to add
     if (Object.keys(additions).length === 0) {
-      return { result: "no-op", message: "Nothing to add" } satisfies OperationResult;
+      return { result: "success", message: "Nothing to add" } satisfies JobStepResult;
     }
 
     // 2. Read current manifest
@@ -170,5 +171,5 @@ export const addToPack: OperationHandler<
     return {
       result: "success",
       message: `Added ${Object.keys(additions).length} extension(s) to pack`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

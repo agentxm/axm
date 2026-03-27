@@ -66,20 +66,6 @@ export interface ForkHandlerArgs {
   readonly preview: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Plan step helpers
-// ---------------------------------------------------------------------------
-
-/** Convert an OperationResult to a JobStepResult. */
-const toJobStepResult = (result: {
-  readonly result: string;
-  readonly message: string;
-  readonly error?: AppError;
-}): JobStepResult =>
-  result.result === "error" && result.error != null
-    ? { result: "error", message: result.message, error: result.error }
-    : { result: "success", message: result.message };
-
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -310,9 +296,8 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     const targetName = `${profile}/skills/${ref.skill.name}`;
     const extensionRef = ref;
 
-    // Cast run closures to Effect<JobStepResult, AppError, never>: services are
-    // provided in the ambient fiber context when applyPlan executes the closures.
-    // This mirrors the same cast used by bridgeLegacyPlan.
+    // Run closures are Effect<JobStepResult, AppError, never>: services are
+    // provided via the provideRun helper before plan execution.
     const copyStep: PlannedJobStep = {
       readiness: "ready",
       label: `Fork ${ref.skill.name}`,
@@ -320,7 +305,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         copySkill({
           name: "copy-skill",
           args: { ref: extensionRef, targetName },
-        } satisfies CopySkillOperation).pipe(Effect.map(toJobStepResult)),
+        } satisfies CopySkillOperation),
       ),
     };
 
@@ -331,7 +316,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         publishSkill({
           name: "publish-skill",
           args: { name: targetName, registryName },
-        } satisfies PublishSkillOperation).pipe(Effect.map(toJobStepResult)),
+        } satisfies PublishSkillOperation),
       ),
     };
 
@@ -382,7 +367,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
               skipSettings: Option.none(),
               sourceName: Option.some(registryName),
             },
-          } satisfies InstallSkillOperation).pipe(Effect.map(toJobStepResult));
+          } satisfies InstallSkillOperation);
         }),
       ),
     };

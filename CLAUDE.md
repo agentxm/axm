@@ -207,7 +207,7 @@ import { WorkspaceContextService } from "@/types";
 - `as unknown as T` at test boundaries for mocks (one assertion per mock, with comment)
 - `as unknown as T` with an `// Assertion needed:` comment when TypeScript genuinely cannot express the constraint (rare — exhaust other options first)
 
-**Enforced by ESLint:** `@typescript-eslint/consistent-type-assertions` (`assertionStyle: "never"`) and `@typescript-eslint/no-non-null-assertion`. Currently set to `warn` while existing violations are migrated — will escalate to `error`. All new code must be violation-free.
+**Enforced by ESLint:** `@typescript-eslint/consistent-type-assertions` (`assertionStyle: "never"`) and `@typescript-eslint/no-non-null-assertion`. Both rules are set to `error`.
 
 #### Quick Reference
 

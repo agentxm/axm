@@ -13,7 +13,8 @@ import { makeAppError } from "../../app-error/index.js";
 import { formatFqn } from "../../extensions/index.js";
 import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
 
@@ -140,5 +141,5 @@ export const newPack: OperationHandler<
     return {
       result: "success",
       message: `Created pack ${fqn}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

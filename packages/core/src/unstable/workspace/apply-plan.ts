@@ -14,20 +14,20 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import type {
   CompletedJobStep,
   ExecutedPlan,
-  OperationResult,
+  JobStepResult,
   Plan,
   PlannedJobStep,
 } from "./plan.js";
 
 // -----------------------------------------------------------------------------
-// Legacy types (used by non-migrated operation handlers)
-// These will be removed in a future phase.
+// Operation handler type
 // -----------------------------------------------------------------------------
 
-/** @deprecated Will be removed in a future phase. */
-export type OperationHandler<Op, R = never> = (
-  op: Op,
-) => Effect.Effect<OperationResult, AppError, R>;
+/**
+ * Type for operation handler functions that take an operation and return
+ * an Effect producing a JobStepResult.
+ */
+export type OperationHandler<Op, R = never> = (op: Op) => Effect.Effect<JobStepResult, AppError, R>;
 
 // -----------------------------------------------------------------------------
 // Implementation

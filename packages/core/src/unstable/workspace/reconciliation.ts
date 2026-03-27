@@ -18,7 +18,7 @@ import type {
   ReconciliationDeclaration,
   ReconcileExtensionType,
 } from "./reconciliation-types.js";
-import type { OperationResult } from "./plan.js";
+import type { JobStepResult } from "./plan.js";
 
 /**
  * Mutable module-level adapters registry.
@@ -208,7 +208,7 @@ const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<strin
 
 export const runReadRecoverOperation = (
   context: ReconciliationContext,
-): Effect.Effect<OperationResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const snapshot = yield* buildReconciliationSnapshot(context);
     const unresolvedCount = snapshot.unresolved.length;
@@ -224,7 +224,7 @@ export const runReadRecoverOperation = (
     return {
       result: "success",
       message: `Recovered ${reconstructedCount} declaration(s)${suffix}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });
 
 const backupInvalidLockfile = (
@@ -257,7 +257,7 @@ export const runReconcileMaterializeOperation = (
   options?: {
     readonly allowMissingDeclarations?: boolean;
   },
-): Effect.Effect<OperationResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -276,7 +276,7 @@ export const runReconcileMaterializeOperation = (
           what: "Required declaration sources are unreachable during reconciliation",
           details: formatUnresolved(snapshot),
         }),
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     const lockfilePath = path.join(lockfileDir, LOCKFILE_NAME);
@@ -301,11 +301,11 @@ export const runReconcileMaterializeOperation = (
       return {
         result: "success",
         message: `Reconciled lockfile with ${snapshot.unresolved.length} missing declaration(s) deferred to install`,
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     return {
       result: "success",
       message: "Reconciled and materialized lockfile",
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

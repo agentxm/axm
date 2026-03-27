@@ -20,7 +20,8 @@ import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -195,5 +196,5 @@ export const publishSkill: OperationHandler<
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

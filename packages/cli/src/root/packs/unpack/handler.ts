@@ -18,23 +18,15 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { buildRegistrySkillRef, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import {
-  installSkill,
-  buildRegistrySkillRef,
-  type InstallSkillOperation,
-} from "@axm.sh/core/unstable/skills";
-import { uninstallPack } from "@axm.sh/core/unstable/packs";
-import {
-  installCommand,
   buildRegistryCommandRef,
   type InstallCommandOperation,
 } from "@axm.sh/core/unstable/commands";
 import {
-  installMcpServer,
   buildRegistryMcpServerRef,
   type InstallMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
@@ -165,7 +157,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   const configuredMcpServers = yield* ws.getConfiguredMcpServers();
 
   // Build and execute plan
-  const plan = buildUnpackPlan({
+  const plan = yield* buildUnpackPlan({
     skillOps,
     commandOps,
     mcpServerOps,
@@ -177,15 +169,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
   });
 
-  yield* resolvePlan(
-    bridgeLegacyPlan(plan, {
-      "install-skill": installSkill,
-      "install-command": installCommand,
-      "install-mcp-server": installMcpServer,
-      "uninstall-pack": uninstallPack,
-    }),
-    { yes: args.yes, force: args.force, preview: args.preview },
-  );
+  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
   yield* renderer.success("Done");
 });

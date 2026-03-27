@@ -20,9 +20,10 @@ import type { PackExtensionRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory } from "../../extensions/utils.js";
+import { copyExtensionDirectory } from "../../extensions/utils.js";
 import { computePackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------
@@ -117,7 +118,7 @@ export const installPack: OperationHandler<
           ),
         );
 
-        yield* copySkillDirectory(fetched.directory, packDir).pipe(
+        yield* copyExtensionDirectory(fetched.directory, packDir).pipe(
           Effect.mapError((e) =>
             makeAppError({
               code: "PACK_EXTRACT_FAILED",
@@ -149,13 +150,13 @@ export const installPack: OperationHandler<
     return {
       result: "success",
       message: `Installed pack ${op.args.packName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
         message: `Failed to install pack: ${error.what}`,
         error,
-      } satisfies OperationResult),
+      } satisfies JobStepResult),
     ),
   );

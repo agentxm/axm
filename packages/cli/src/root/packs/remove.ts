@@ -12,6 +12,7 @@ import * as crypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -22,8 +23,7 @@ import { computePackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { buildSingleStepPlan } from "../skills/plan-helpers.js";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -176,15 +176,37 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     },
   } satisfies RemoveFromPackOperation;
 
-  // Build and resolve single-step plan
-  const plan = buildSingleStepPlan({
-    operation: op,
-    name: "Remove from pack",
-    description: `Remove ${matchedNames.length} extension(s) from ${args.pack}`,
-    label: args.pack,
-  });
+  // Build Plan directly with inline run closure
+  const provideServices = <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+  ): Effect.Effect<A, E, never> =>
+    effect.pipe(
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
 
-  yield* resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }), {
+  const step: PlannedJobStep = {
+    readiness: "ready",
+    label: args.pack,
+    run: provideServices(removeFromPack(op)).pipe(
+      Effect.map(
+        (result): JobStepResult =>
+          result.result === "error"
+            ? { result: "error", message: result.message, error: result.error }
+            : { result: "success", message: result.message },
+      ),
+    ),
+  };
+
+  const plan: Plan = {
+    _tag: "Plan",
+    name: "Remove from pack",
+    description: Option.some(`Remove ${matchedNames.length} extension(s) from ${args.pack}`),
+    jobs: [{ concurrency: 1 as const, steps: [step] }],
+  };
+
+  yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

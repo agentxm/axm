@@ -16,9 +16,8 @@ import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
-import { makeAppError } from "../../app-error/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 
@@ -204,8 +203,11 @@ const syncConfiguredAgentsOnUninstall = (args: {
  * 2. Remove canonical directory from disk (if exists)
  * 3. Remove lockfile + settings entry
  */
-export const uninstallMcpServer: OperationHandler<
-  UninstallMcpServerOperation,
+export const uninstallMcpServer: (
+  op: UninstallMcpServerOperation,
+) => Effect.Effect<
+  JobStepResult,
+  AppError,
   FileSystem.FileSystem | Path.Path | Workspace | CliRenderer | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
@@ -230,7 +232,7 @@ export const uninstallMcpServer: OperationHandler<
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.serverName);
 
     if (!lockEntry && !installedOnDisk) {
-      return { result: "no-op", message: "not installed" } satisfies OperationResult;
+      return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
     // Determine canonical path from lock entry or scan
@@ -260,7 +262,7 @@ export const uninstallMcpServer: OperationHandler<
     return {
       result: "success",
       message: `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });
 
 // -----------------------------------------------------------------------------

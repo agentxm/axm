@@ -12,7 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import {
   PACK_MANIFEST_FILENAME,
@@ -74,7 +75,7 @@ export const removeFromPack: OperationHandler<
 
     // 1. Short-circuit if nothing to remove
     if (removals.length === 0) {
-      return { result: "no-op", message: "Nothing to remove" } satisfies OperationResult;
+      return { result: "success", message: "Nothing to remove" } satisfies JobStepResult;
     }
 
     // 2. Read current manifest
@@ -157,5 +158,5 @@ export const removeFromPack: OperationHandler<
     return {
       result: "success",
       message: `Removed ${removals.length} extension(s) from pack`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

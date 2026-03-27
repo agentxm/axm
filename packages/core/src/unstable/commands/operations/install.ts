@@ -13,11 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../refs.js";
@@ -182,8 +181,11 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
  * Registry-only: fetch archive, validate integrity, extract to canonical path,
  * then update lockfile/settings.
  */
-export const installCommand: OperationHandler<
-  InstallCommandOperation,
+export const installCommand: (
+  op: InstallCommandOperation,
+) => Effect.Effect<
+  JobStepResult,
+  AppError,
   FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
@@ -217,5 +219,5 @@ export const installCommand: OperationHandler<
     return {
       result: "success",
       message: `Installed ${ref.command.name}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

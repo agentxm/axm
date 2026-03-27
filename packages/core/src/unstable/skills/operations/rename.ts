@@ -15,9 +15,10 @@ import matter from "gray-matter";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createSymlink } from "../../utils/index.js";
-import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
+import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import type { SkillPathSource } from "../paths.js";
 
@@ -144,7 +145,7 @@ export const renameSkill: OperationHandler<
         const agentSkillPath = path.join(base, agent.skills.dir, newSanitized);
         return createSymlink({ target: newPaths.skillSrcPath, link: agentSkillPath }).pipe(
           Effect.catch(() =>
-            copySkillDirectory(newPaths.skillSrcPath, agentSkillPath).pipe(
+            copyExtensionDirectory(newPaths.skillSrcPath, agentSkillPath).pipe(
               Effect.catch(() => Effect.void),
             ),
           ),
@@ -164,7 +165,7 @@ export const renameSkill: OperationHandler<
     return {
       result: "success",
       message: `Renamed ${op.args.oldName} to ${op.args.newName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });
 
 // -----------------------------------------------------------------------------

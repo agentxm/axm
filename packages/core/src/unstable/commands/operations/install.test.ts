@@ -11,7 +11,11 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import type { ExtensionRef, CommandExtensionRef, RegistryCommandRef } from "../../sources/index.js";
+import type {
+  ExtensionRef,
+  CommandExtensionRef,
+  RegistryCommandRef,
+} from "../../extensions/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";

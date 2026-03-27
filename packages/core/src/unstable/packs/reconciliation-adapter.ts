@@ -1,8 +1,5 @@
-import {
-  REGISTRY_EXTENSIONS_DIR,
-  PackManifestSchema,
-  PACK_MANIFEST_FILENAME,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "./manifest-schema.js";
 import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";

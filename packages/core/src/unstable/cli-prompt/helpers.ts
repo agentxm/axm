@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { PromptCancelled } from "../prompt-cancelled.js";
+import type { PromptCancelled } from "./prompt-cancelled.js";
 
 /**
  * If `value` is Some, return it directly. Otherwise, run the prompt to get it.

@@ -16,6 +16,7 @@ import type * as Scope from "effect/Scope";
 import { discoverSkillsInDir } from "../discover-skills.js";
 import { makeAppError } from "../../app-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
+import type { SkillExtensionRef } from "../../extensions/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type {
   SourceHostProvider,
@@ -28,7 +29,6 @@ import type {
   BitbucketSource,
   AzureReposSource,
   GitHostingSourceHost,
-  SkillExtensionRef,
 } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------

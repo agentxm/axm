@@ -15,11 +15,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import {
-  formatFqn,
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-} from "@axm.sh/core/unstable/extensions";
+import { formatFqn } from "@axm.sh/core/unstable/extensions";
+import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
 import { addToPack } from "@axm.sh/core/unstable/packs";
 import { computePackPaths } from "@axm.sh/core/unstable/packs";

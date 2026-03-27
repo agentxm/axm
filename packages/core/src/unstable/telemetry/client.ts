@@ -6,7 +6,8 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as HttpBody from "effect/unstable/http/HttpBody";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import { envWithDefault, isCI } from "../utils/index.js";
+import { isCI } from "../cli-flags/index.js";
+import { envWithDefault } from "../utils/index.js";
 import type { TelemetryMode } from "./mode.js";
 
 export interface TelemetryClientService {

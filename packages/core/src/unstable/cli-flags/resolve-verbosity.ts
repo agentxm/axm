@@ -1,4 +1,4 @@
-import type { VerbosityLevel } from "../verbosity/index.js";
+import type { VerbosityLevel } from "./verbosity.js";
 
 /**
  * Scans raw argv right-to-left to determine verbosity level.

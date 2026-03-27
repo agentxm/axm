@@ -27,10 +27,9 @@ import {
   parseFqn,
   parseFqnOrThrow,
   type Fqn,
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
+import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
 import {
   publishPack,

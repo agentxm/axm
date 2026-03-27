@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
-import type { PromptCancelled } from "../../prompt-cancelled.js";
+import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 import type { Plan } from "../../workspace/plan.js";
 import { resolvePlan } from "../../workspace/resolve-plan.js";
 

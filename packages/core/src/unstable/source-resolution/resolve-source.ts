@@ -17,12 +17,12 @@ import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 
-import * as azurerepos from "../sources/azurerepos/index.js";
-import * as bitbucket from "../sources/bitbucket/index.js";
+import * as azurerepos from "./providers/azurerepos/index.js";
+import * as bitbucket from "./providers/bitbucket/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import * as github from "../sources/github/index.js";
-import * as gitlab from "../sources/gitlab/index.js";
-import { parseLocalPath } from "../sources/local/index.js";
+import * as github from "./providers/github/index.js";
+import * as gitlab from "./providers/gitlab/index.js";
+import { parseLocalPath } from "./providers/local-parser/index.js";
 import { parseInputPattern } from "../sources/index.js";
 import type {
   InputParseResult,

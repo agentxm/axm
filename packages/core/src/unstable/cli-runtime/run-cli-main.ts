@@ -4,7 +4,7 @@ import { handleError } from "./handle-error.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
 import { resolveVerbosityFromArgv } from "../cli-flags/resolve-verbosity.js";
-import type { VerbosityLevel } from "../verbosity/verbosity.js";
+import type { VerbosityLevel } from "../cli-flags/verbosity.js";
 
 export interface CliMainContext {
   readonly verbosityLevel: VerbosityLevel;

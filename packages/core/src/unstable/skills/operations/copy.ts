@@ -16,9 +16,10 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copySkillDirectory } from "./copy-directory.js";
-import { REGISTRY_EXTENSIONS_DIR, MANIFEST_FILENAME, parseFqn } from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
+import type { SkillExtensionRef } from "../../extensions/index.js";
+import { MANIFEST_FILENAME } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
-import type { SkillExtensionRef } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

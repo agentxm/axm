@@ -20,7 +20,7 @@ import type {
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-} from "../../sources/index.js";
+} from "../../extensions/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";

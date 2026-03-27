@@ -35,7 +35,7 @@ import type {
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "@axm.sh/core/unstable/sources";
+} from "@axm.sh/core/unstable/extensions";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------

@@ -14,12 +14,12 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
+import { parseFqnOrThrow } from "../../extensions/index.js";
 import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
   type RawPackManifest,
-  parseFqnOrThrow,
-} from "../../extensions/index.js";
+} from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 

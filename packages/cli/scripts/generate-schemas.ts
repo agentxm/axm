@@ -10,12 +10,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JSONSchema from "effect/JSONSchema";
 import * as Schema from "effect/Schema";
-import {
-  CommandManifestSchema,
-  McpServerManifestSchema,
-  PackManifestSchema,
-  SkillManifestSchema,
-} from "@axm.sh/core/unstable/extensions";
+import { SkillManifestSchema } from "@axm.sh/core/unstable/skills";
+import { CommandManifestSchema } from "@axm.sh/core/unstable/commands";
+import { McpServerManifestSchema } from "@axm.sh/core/unstable/mcp-servers";
+import { PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
 import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 

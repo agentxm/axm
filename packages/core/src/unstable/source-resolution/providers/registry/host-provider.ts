@@ -24,13 +24,13 @@ import type {
 import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import { toAuthor, type Author, type ExtensionType } from "../../../extensions/index.js";
+import type { ExtensionRef } from "../../../extensions/index.js";
 import type {
   ExtensionFiles,
   FindOptions,
   SourceHostProvider,
   RegistrySource,
   RegistrySourceHost,
-  ExtensionRef,
 } from "../../../sources/index.js";
 import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
 

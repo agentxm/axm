@@ -20,7 +20,7 @@ import type { CommandExtensionTarget, ExtensionTarget } from "@axm.sh/core/unsta
 import { buildUninstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
-import type { CommandExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { CommandExtensionRef } from "@axm.sh/core/unstable/extensions";
 
 // -----------------------------------------------------------------------------
 // Handler Args

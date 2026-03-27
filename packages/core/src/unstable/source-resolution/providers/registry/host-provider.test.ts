@@ -30,10 +30,9 @@ import type {
   RegistryMcpServerRef,
   RegistryPackRef,
   RegistrySkillRef,
-  RegistrySource,
   ExtensionRef,
-  FindOptions,
-} from "../../../sources/index.js";
+} from "../../../extensions/index.js";
+import type { RegistrySource, FindOptions } from "../../../sources/index.js";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,

@@ -7,11 +7,11 @@
 
 import * as Option from "effect/Option";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/schema.js";
-import { print as azurereposPrint } from "./azurerepos/index.js";
-import { print as bitbucketPrint } from "./bitbucket/index.js";
-import { print as githubPrint } from "./github/index.js";
-import { print as gitlabPrint } from "./gitlab/index.js";
-import { print as localPrint } from "./local/index.js";
+import { print as azurereposPrint } from "../source-resolution/providers/azurerepos/index.js";
+import { print as bitbucketPrint } from "../source-resolution/providers/bitbucket/index.js";
+import { print as githubPrint } from "../source-resolution/providers/github/index.js";
+import { print as gitlabPrint } from "../source-resolution/providers/gitlab/index.js";
+import { print as localPrint } from "../source-resolution/providers/local-parser/index.js";
 import type { SourceParams } from "./types.js";
 
 type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry;

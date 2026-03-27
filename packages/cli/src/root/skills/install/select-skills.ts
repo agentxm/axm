@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";

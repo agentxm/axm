@@ -8,8 +8,8 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 // Global flag definitions (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
-export { isNonInteractive, nonInteractiveFlag } from "../utils/environment.js";
-import { nonInteractiveFlag } from "../utils/environment.js";
+export { isCI, isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
+import { nonInteractiveFlag } from "./non-interactive.js";
 
 export const outputFormatFlag = GlobalFlag.setting("axm-output-format")({
   flag: Flag.choice("output-format", ["text", "json", "stream-json"] as const).pipe(
@@ -39,6 +39,19 @@ export const quietFlag = GlobalFlag.setting("axm-quiet")({
 });
 
 export { resolveVerbosityFromArgv } from "./resolve-verbosity.js";
+
+// ---------------------------------------------------------------------------
+// Verbosity
+// ---------------------------------------------------------------------------
+
+export {
+  LevelOrder,
+  Verbosity,
+  type VerbosityLevel,
+  makeVerbosityLayer,
+  verbosityToLogLevel,
+} from "./verbosity.js";
+export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Per-command flag definitions — import and include in Command.make() flags

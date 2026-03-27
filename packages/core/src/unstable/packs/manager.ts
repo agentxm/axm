@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import type { PackExtensionRef, RegistryPackRef } from "../sources/index.js";
+import type { PackExtensionRef, RegistryPackRef } from "../extensions/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace, type SetPackArgs } from "../workspace/service-interface.js";

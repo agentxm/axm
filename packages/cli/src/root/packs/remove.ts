@@ -17,7 +17,7 @@ import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { RemoveFromPackOperation } from "@axm.sh/core/unstable/packs";
 import { removeFromPack } from "@axm.sh/core/unstable/packs";
-import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/extensions";
+import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { computePackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";

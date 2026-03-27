@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
 import { getAppError } from "../../../test-helpers.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 

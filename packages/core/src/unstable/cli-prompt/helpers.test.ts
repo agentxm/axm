@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { PromptCancelled } from "../prompt-cancelled.js";
+import { PromptCancelled } from "./prompt-cancelled.js";
 import { autoConfirm, fromFlagOrPrompt } from "./helpers.js";
 
 describe("fromFlagOrPrompt", () => {

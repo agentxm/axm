@@ -16,15 +16,15 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type {
   PackExtensionRef,
-  RegistrySource,
   ExtensionRef,
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
-} from "@axm.sh/core/unstable/sources";
+} from "@axm.sh/core/unstable/extensions";
+import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";

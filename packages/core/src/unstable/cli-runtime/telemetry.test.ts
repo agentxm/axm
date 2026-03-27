@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { makeAppError } from "../app-error/index.js";
-import { PromptCancelled } from "../prompt-cancelled.js";
+import { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
 import {
   reportCliDefect,

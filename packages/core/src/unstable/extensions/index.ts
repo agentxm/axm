@@ -83,30 +83,3 @@ export {
   targetFromRef,
   toLabel,
 } from "./operations.js";
-
-// Manifest schemas (re-exported from feature folders for convenience)
-export {
-  MANIFEST_FILENAME,
-  SkillManifestSchema,
-  type SkillManifest,
-} from "../skills/manifest-schema.js";
-export {
-  COMMAND_MANIFEST_FILENAME,
-  CommandManifestSchema,
-  type CommandManifest,
-} from "../commands/manifest-schema.js";
-export {
-  MCP_SERVER_MANIFEST_FILENAME,
-  McpServerManifestSchema,
-  type McpServerManifest,
-} from "../mcp-servers/manifest-schema.js";
-export {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-  RawPackManifestSchema,
-  type PackManifest,
-  type RawPackManifest,
-} from "../packs/manifest-schema.js";
-
-// Skill types
-export type { Skill } from "../skills/types.js";

@@ -19,10 +19,10 @@ import type * as Scope from "effect/Scope";
 
 import type { AppError } from "../app-error/index.js";
 import { Workspace } from "../workspace/index.js";
+import type { ExtensionRef } from "../extensions/index.js";
 import type {
   ExtensionFiles,
   FindOptions,
-  ExtensionRef,
   GitHostingSource,
   RegistrySource,
   Source,

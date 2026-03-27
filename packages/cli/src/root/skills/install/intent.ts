@@ -5,7 +5,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 
 /**
  * Describes the resolved intent to install one or more skills.

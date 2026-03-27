@@ -20,7 +20,7 @@ import type {
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-} from "../../extensions/index.js";
+} from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
@@ -37,9 +37,8 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory } from "./copy-directory.js";
+import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
-import { sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

@@ -16,22 +16,20 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CliEnvironment } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type {
-  PackExtensionRef,
-  ExtensionRef,
-  SkillExtensionRef,
-  CommandExtensionRef,
-  McpServerExtensionRef,
-} from "@axm.sh/core/unstable/extensions";
+import type { ExtensionRef } from "@axm.sh/core/unstable/extensions";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { SkillManager } from "@axm.sh/core/unstable/skills";
-import { PackManager, expandPackInstallRefs } from "@axm.sh/core/unstable/packs";
-import { CommandManager } from "@axm.sh/core/unstable/commands";
-import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
+import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
+import {
+  PackManager,
+  expandPackInstallRefs,
+  type PackExtensionRef,
+} from "@axm.sh/core/unstable/packs";
+import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
+import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
 import { buildInstallOperation, targetFromRef, toLabel } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";

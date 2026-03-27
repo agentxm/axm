@@ -18,7 +18,8 @@ import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
-import { getSkillFqn, isReferencedByPack, sanitizeName } from "../utils.js";
+import { sanitizeName } from "../../extensions/utils.js";
+import { getSkillFqn, isReferencedByPack } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

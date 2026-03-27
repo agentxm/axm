@@ -21,9 +21,15 @@ export { buildRegistryMcpServerRef } from "./registry-ref-builder.js";
 export type {
   PublishMcpServerOperationArgs,
   PublishMcpServerOperation,
+} from "./operations/publish.js";
+export { publishMcpServer } from "./operations/publish.js";
+export type {
   InstallMcpServerOperationArgs,
   InstallMcpServerOperation,
+} from "./operations/install.js";
+export { installMcpServer } from "./operations/install.js";
+export type {
   UninstallMcpServerOperationArgs,
   UninstallMcpServerOperation,
-} from "./operations/index.js";
-export { publishMcpServer, installMcpServer, uninstallMcpServer } from "./operations/index.js";
+} from "./operations/uninstall.js";
+export { uninstallMcpServer } from "./operations/uninstall.js";

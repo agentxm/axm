@@ -20,30 +20,3 @@ export type ExtensionRef =
   | CommandExtensionRef
   | McpServerExtensionRef
   | PackExtensionRef;
-
-// Re-export all per-type refs for convenience
-export type {
-  GitHostedSkillRef,
-  RegistrySkillRef,
-  LocalSkillRef,
-  BuiltinSkillRef,
-  SkillExtensionRef,
-} from "../skills/refs.js";
-
-export type {
-  GitHostedCommandRef,
-  RegistryCommandRef,
-  LocalCommandRef,
-  BuiltinCommandRef,
-  CommandExtensionRef,
-} from "../commands/refs.js";
-
-export type {
-  GitHostedMcpServerRef,
-  RegistryMcpServerRef,
-  LocalMcpServerRef,
-  BuiltinMcpServerRef,
-  McpServerExtensionRef,
-} from "../mcp-servers/refs.js";
-
-export type { RegistryPackRef, BuiltinPackRef, PackExtensionRef } from "../packs/refs.js";

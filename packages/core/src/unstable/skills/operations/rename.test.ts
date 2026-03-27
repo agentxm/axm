@@ -12,7 +12,7 @@ import type { SkillLockEntry } from "../../lockfile/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
-import { sanitizeName } from "../utils.js";
+import { sanitizeName } from "../../extensions/utils.js";
 import type { RenameSkillOperation } from "./rename.js";
 import { renameSkill } from "./rename.js";
 

@@ -18,8 +18,7 @@ import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory } from "./copy-directory.js";
-import { sanitizeName } from "../utils.js";
+import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

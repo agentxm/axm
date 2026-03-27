@@ -10,7 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import {
   parseInputPattern,
   type InputPattern,

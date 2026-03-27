@@ -12,7 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/index.js";
-import type { ExtensionRef, PackExtensionRef } from "../extensions/index.js";
+import type { ExtensionRef } from "../extensions/index.js";
+import type { PackExtensionRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
 import type {
   ExtensionTarget,

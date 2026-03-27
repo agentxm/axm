@@ -23,19 +23,21 @@ export { parseSkillMd } from "./parse-skill-md.js";
 export { parseManifests } from "./parse-manifests.js";
 
 // Provider implementations
+export { createBuiltinSourceHostProvider } from "./providers/builtin.js";
+export { createGitSourceHostProvider } from "./providers/git.js";
 export {
-  createBuiltinSourceHostProvider,
-  createGitSourceHostProvider,
   createAzureReposSourceHostProvider,
   createBitbucketSourceHostProvider,
   createGitHostingSourceHostProvider,
   createGitHubSourceHostProvider,
   createGitLabSourceHostProvider,
-  createLocalSourceHostProvider,
+} from "./providers/git-hosting.js";
+export { createLocalSourceHostProvider } from "./providers/local.js";
+export {
   createLocalRegistrySourceHostProvider,
   createRegistrySourceHostProviderFromHost,
   createRemoteRegistrySourceHostProvider,
-} from "./providers/index.js";
+} from "./providers/registry/host-provider.js";
 
 // SourceHostProviders service
 export type { SourceHostProvidersService } from "./service.js";

@@ -2,17 +2,17 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { nonInteractiveFlag, resolveNonInteractive } from "./resolve-non-interactive.js";
+import { isNonInteractive, nonInteractiveFlag } from "../cli-flags/non-interactive.js";
 
 /**
- * Run resolveNonInteractive with a given flag value.
+ * Run isNonInteractive with a given flag value.
  * CI and TTY state depend on process environment, so these tests focus on
  * the explicit flag taking priority.
  */
 const resolve = (flag: Option.Option<boolean>) =>
-  resolveNonInteractive.pipe(Effect.provide(Layer.succeed(nonInteractiveFlag, flag)));
+  isNonInteractive.pipe(Effect.provide(Layer.succeed(nonInteractiveFlag, flag)));
 
-describe("resolveNonInteractive", () => {
+describe("isNonInteractive", () => {
   it.effect("explicit true flag resolves to true", () =>
     Effect.gen(function* () {
       const result = yield* resolve(Option.some(true));

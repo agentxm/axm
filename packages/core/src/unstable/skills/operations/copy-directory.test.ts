@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
-import { copySkillDirectory } from "./copy-directory.js";
+import { copySkillDirectory } from "../../extensions/utils.js";
 
 const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));

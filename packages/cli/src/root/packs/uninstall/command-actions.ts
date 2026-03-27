@@ -12,14 +12,15 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { SkillManager } from "@axm.sh/core/unstable/skills";
+import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import {
   PackManager,
   expandPackUninstallTargets,
   type UninstallSettingsContext,
+  type PackExtensionRef,
 } from "@axm.sh/core/unstable/packs";
-import { CommandManager } from "@axm.sh/core/unstable/commands";
-import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
+import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
+import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
 import {
   buildUninstallOperation,
   toLabel,
@@ -30,12 +31,6 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type {
-  PackExtensionRef,
-  SkillExtensionRef,
-  CommandExtensionRef,
-  McpServerExtensionRef,
-} from "@axm.sh/core/unstable/extensions";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------

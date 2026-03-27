@@ -19,7 +19,7 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
-import { sanitizeName } from "../utils.js";
+import { sanitizeName } from "../../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

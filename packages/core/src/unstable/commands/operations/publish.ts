@@ -13,13 +13,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import {
   COMMAND_MANIFEST_FILENAME,
   CommandManifestSchema,
   type CommandManifest,
-  REGISTRY_EXTENSIONS_DIR,
-  parseFqn,
-} from "../../extensions/index.js";
+} from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";

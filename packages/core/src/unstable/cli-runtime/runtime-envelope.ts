@@ -4,10 +4,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CliEnvironment, makeCliEnvironmentLayer, outputFormatFlag } from "../cli-flags/index.js";
-import type { OutputFormat } from "../output-format.js";
+import type { OutputFormat } from "./output-format.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
-import type { PromptCancelled } from "../prompt-cancelled.js";
+import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
@@ -22,8 +22,8 @@ import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeInteractivePrompt, type CliPrompt } from "../cli-prompt/index.js";
-import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../verbosity/index.js";
-import { isNonInteractive } from "../utils/environment.js";
+import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
+import { isNonInteractive } from "../cli-flags/index.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = CliEnvironment | CliRenderer | CliPrompt | Verbosity;

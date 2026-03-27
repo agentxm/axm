@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { McpServerExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { McpServerExtensionRef } from "@axm.sh/core/unstable/extensions";
 
 /**
  * Intent for installing an MCP server extension.

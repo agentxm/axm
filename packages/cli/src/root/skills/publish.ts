@@ -27,11 +27,8 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
 import { publishSkill } from "@axm.sh/core/unstable/skills";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
-import {
-  MANIFEST_FILENAME,
-  REGISTRY_EXTENSIONS_DIR,
-  parseFqn,
-} from "@axm.sh/core/unstable/extensions";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
+import { MANIFEST_FILENAME } from "@axm.sh/core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 

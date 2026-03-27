@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
 import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import { buildUpdatePlan } from "./plan.js";
 

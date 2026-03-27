@@ -10,11 +10,11 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import type { SkillExtensionRef } from "@axm.sh/core/unstable/extensions";
 import {
   parseInputPattern,
   type InputPattern,
   type RegistrySource,
-  type SkillExtensionRef,
 } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import * as Array from "effect/Array";
@@ -26,11 +26,8 @@ import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@axm.sh/core/unstable/extensions";
+import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";

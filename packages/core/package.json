@@ -15,8 +15,8 @@
       "default": "./dist/src/unstable/app-error/index.js"
     },
     "./unstable/prompt-cancelled": {
-      "types": "./src/unstable/prompt-cancelled.ts",
-      "default": "./dist/src/unstable/prompt-cancelled.js"
+      "types": "./src/unstable/cli-prompt/prompt-cancelled.ts",
+      "default": "./dist/src/unstable/cli-prompt/prompt-cancelled.js"
     },
     "./unstable/version-constraints": {
       "types": "./src/unstable/version-constraints/index.ts",
@@ -46,41 +46,9 @@
       "types": "./src/unstable/sources/index.ts",
       "default": "./dist/src/unstable/sources/index.js"
     },
-    "./unstable/sources/github": {
-      "types": "./src/unstable/sources/github/index.ts",
-      "default": "./dist/src/unstable/sources/github/index.js"
-    },
-    "./unstable/sources/gitlab": {
-      "types": "./src/unstable/sources/gitlab/index.ts",
-      "default": "./dist/src/unstable/sources/gitlab/index.js"
-    },
-    "./unstable/sources/bitbucket": {
-      "types": "./src/unstable/sources/bitbucket/index.ts",
-      "default": "./dist/src/unstable/sources/bitbucket/index.js"
-    },
-    "./unstable/sources/azurerepos": {
-      "types": "./src/unstable/sources/azurerepos/index.ts",
-      "default": "./dist/src/unstable/sources/azurerepos/index.js"
-    },
-    "./unstable/sources/local": {
-      "types": "./src/unstable/sources/local/index.ts",
-      "default": "./dist/src/unstable/sources/local/index.js"
-    },
     "./unstable/output-format": {
-      "types": "./src/unstable/output-format.ts",
-      "default": "./dist/src/unstable/output-format.js"
-    },
-    "./unstable/output": {
-      "types": "./src/unstable/output/index.ts",
-      "default": "./dist/src/unstable/output/index.js"
-    },
-    "./unstable/activity": {
-      "types": "./src/unstable/activity/index.ts",
-      "default": "./dist/src/unstable/activity/index.js"
-    },
-    "./unstable/input": {
-      "types": "./src/unstable/input/index.ts",
-      "default": "./dist/src/unstable/input/index.js"
+      "types": "./src/unstable/cli-runtime/output-format.ts",
+      "default": "./dist/src/unstable/cli-runtime/output-format.js"
     },
     "./unstable/cli-flags": {
       "types": "./src/unstable/cli-flags/index.ts",
@@ -93,10 +61,6 @@
     "./unstable/telemetry": {
       "types": "./src/unstable/telemetry/index.ts",
       "default": "./dist/src/unstable/telemetry/index.js"
-    },
-    "./unstable/verbosity": {
-      "types": "./src/unstable/verbosity/index.ts",
-      "default": "./dist/src/unstable/verbosity/index.js"
     },
     "./unstable/cli-prompt": {
       "types": "./src/unstable/cli-prompt/index.ts",

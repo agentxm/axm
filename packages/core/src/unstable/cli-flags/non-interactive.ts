@@ -1,0 +1,39 @@
+/**
+ * Non-interactive flag and resolution — CLI-specific environment detection.
+ *
+ * Resolution chain: explicit --non-interactive flag → CI=true env var → stdin is not a TTY.
+ */
+
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { Flag, GlobalFlag } from "effect/unstable/cli";
+
+// eslint-disable-next-line no-restricted-properties -- Centralized env var access point; all callers use these helpers
+const readEnv = (name: string): string | undefined => process.env[name];
+
+/** Returns true if CI=true env var is set. */
+export const isCI: Effect.Effect<boolean> = Effect.sync(() => readEnv("CI") === "true");
+
+/**
+ * Raw --non-interactive global flag. Callers should use {@link isNonInteractive}
+ * as the source of truth for interactivity — it combines this flag with
+ * environment detection (CI, TTY).
+ */
+export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
+  flag: Flag.boolean("non-interactive").pipe(
+    Flag.optional,
+    Flag.withDescription("Disable all interactive prompts"),
+  ),
+});
+
+/**
+ * Returns true when the process should suppress interactive prompts.
+ *
+ * Resolution chain: explicit --non-interactive flag → CI=true env var → stdin is not a TTY.
+ * When the flag is explicitly set, it wins. Environment detection is the fallback.
+ */
+export const isNonInteractive = Effect.gen(function* () {
+  const flag = yield* nonInteractiveFlag;
+  const ci = yield* isCI;
+  return Option.getOrElse(flag, () => ci || process.stdin.isTTY !== true);
+});

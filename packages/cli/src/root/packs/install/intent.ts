@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/extensions";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackExtensionRef;

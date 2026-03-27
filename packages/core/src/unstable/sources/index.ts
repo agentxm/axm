@@ -1,9 +1,9 @@
 /**
  * Source parsing and identification module for @axm.sh/core.
  *
- * Source providers and parsing utilities. Extension ref types have moved
- * to their respective feature folders (skills/, commands/, mcp-servers/, packs/)
- * and are re-exported from the extensions module.
+ * Source providers and parsing utilities. Extension ref types live in
+ * the extensions module (`extensions/refs.ts`, `extensions/ref-base.ts`)
+ * — import them from `@axm.sh/core/unstable/extensions`.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
@@ -52,42 +52,6 @@ export type {
   RegistrySource,
   Source,
 } from "./types.js";
-
-// Ref base types (re-exported from extensions for backward compat)
-export type {
-  BuiltinRefDetails,
-  GitHostedRefDetails,
-  LocalRefDetails,
-  RegistryRefDetails,
-  ExtensionRefBase,
-  SkillExtensionRefBase,
-  CommandExtensionRefBase,
-  McpServerExtensionRefBase,
-  PackExtensionRefBase,
-} from "../extensions/ref-base.js";
-
-// Extension ref types (re-exported from extensions for backward compat)
-export type {
-  ExtensionRef,
-  GitHostedSkillRef,
-  BuiltinSkillRef,
-  LocalSkillRef,
-  RegistrySkillRef,
-  SkillExtensionRef,
-  GitHostedCommandRef,
-  BuiltinCommandRef,
-  LocalCommandRef,
-  RegistryCommandRef,
-  CommandExtensionRef,
-  GitHostedMcpServerRef,
-  BuiltinMcpServerRef,
-  LocalMcpServerRef,
-  McpServerExtensionRef,
-  RegistryMcpServerRef,
-  BuiltinPackRef,
-  PackExtensionRef,
-  RegistryPackRef,
-} from "../extensions/refs.js";
 
 // Type guards and utilities
 export { fileUrlToPath } from "./utils.js";

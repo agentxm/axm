@@ -1,8 +1,8 @@
 /**
- * Re-exports from environment utilities for backwards compatibility.
+ * Re-exports from cli-flags for backwards compatibility.
  */
 export {
   isCI,
   nonInteractiveFlag,
   isNonInteractive as resolveNonInteractive,
-} from "../utils/environment.js";
+} from "../cli-flags/index.js";

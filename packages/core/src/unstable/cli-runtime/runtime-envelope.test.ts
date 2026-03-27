@@ -6,9 +6,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { CliPrompt } from "../cli-prompt/index.js";
-import { Verbosity } from "../verbosity/index.js";
+import { Verbosity } from "../cli-flags/index.js";
 import { CliEnvironment, verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
-import { nonInteractiveFlag } from "../utils/environment.js";
+import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { makeFoundationLayer } from "./runtime-envelope.js";
 
 // ---------------------------------------------------------------------------

@@ -13,13 +13,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import {
-  SkillManifestSchema,
-  type SkillManifest,
-  REGISTRY_EXTENSIONS_DIR,
-  MANIFEST_FILENAME,
-  parseFqn,
-} from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
+import { SkillManifestSchema, type SkillManifest, MANIFEST_FILENAME } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";

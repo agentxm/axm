@@ -12,12 +12,10 @@ import { describe, expect, it } from "vitest";
 import * as YAML from "yaml";
 import { LockfileSchema } from "../lockfile/index.js";
 import { SettingsSchema } from "../settings/index.js";
-import {
-  SkillManifestSchema,
-  CommandManifestSchema,
-  McpServerManifestSchema,
-  PackManifestSchema,
-} from "./index.js";
+import { SkillManifestSchema } from "../skills/manifest-schema.js";
+import { CommandManifestSchema } from "../commands/manifest-schema.js";
+import { McpServerManifestSchema } from "../mcp-servers/manifest-schema.js";
+import { PackManifestSchema } from "../packs/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
 

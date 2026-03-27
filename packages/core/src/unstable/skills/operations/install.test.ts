@@ -17,9 +17,9 @@ import type {
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
-  Source,
   SkillExtensionRef,
-} from "../../sources/index.js";
+} from "../../extensions/index.js";
+import type { Source } from "../../sources/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {

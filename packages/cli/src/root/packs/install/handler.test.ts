@@ -21,7 +21,8 @@ import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import type { ExtensionFiles, PackExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
 import {
   SourceHostProvidersLive,
   SourceHostProviders,

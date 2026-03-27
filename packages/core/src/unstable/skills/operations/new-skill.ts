@@ -15,7 +15,7 @@ import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { MANIFEST_FILENAME, type SkillManifest } from "../../extensions/index.js";
+import { MANIFEST_FILENAME, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------

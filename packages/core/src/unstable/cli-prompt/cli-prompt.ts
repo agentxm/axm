@@ -1,6 +1,6 @@
 import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
-import type { PromptCancelled } from "../prompt-cancelled.js";
+import type { PromptCancelled } from "./prompt-cancelled.js";
 
 export interface PromptOption<Value> {
   readonly value: Value;

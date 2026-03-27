@@ -12,7 +12,8 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
-import type { LocalSkillRef, RegistrySkillRef, Source } from "@axm.sh/core/unstable/sources";
+import type { LocalSkillRef, RegistrySkillRef } from "@axm.sh/core/unstable/extensions";
+import type { Source } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";

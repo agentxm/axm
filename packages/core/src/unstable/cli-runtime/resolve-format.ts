@@ -1,5 +1,5 @@
 import * as Option from "effect/Option";
-import type { OutputFormat } from "../output-format.js";
+import type { OutputFormat } from "./output-format.js";
 
 /**
  * Resolve output format from raw argv BEFORE Effect runs.

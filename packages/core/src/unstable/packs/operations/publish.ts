@@ -13,12 +13,12 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { parseFqn } from "../../extensions/index.js";
 import {
   PackManifestSchema,
   type PackManifest,
   PACK_MANIFEST_FILENAME,
-  parseFqn,
-} from "../../extensions/index.js";
+} from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";

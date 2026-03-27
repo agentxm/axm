@@ -1,8 +1,5 @@
-import {
-  REGISTRY_EXTENSIONS_DIR,
-  COMMAND_MANIFEST_FILENAME,
-  CommandManifestSchema,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "./manifest-schema.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";

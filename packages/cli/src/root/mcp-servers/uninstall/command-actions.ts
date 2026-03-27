@@ -20,7 +20,7 @@ import type { ExtensionTarget, McpServerExtensionTarget } from "@axm.sh/core/uns
 import { buildUninstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
-import type { McpServerExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { McpServerExtensionRef } from "@axm.sh/core/unstable/extensions";
 
 // -----------------------------------------------------------------------------
 // Handler Args

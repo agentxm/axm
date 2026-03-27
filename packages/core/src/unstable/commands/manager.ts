@@ -19,7 +19,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe } from "../utils/index.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../sources/index.js";
+import type { CommandExtensionRef, RegistryCommandRef } from "../extensions/index.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, CommandExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";

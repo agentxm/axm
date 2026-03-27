@@ -1,5 +1,5 @@
 import { CliError } from "effect/unstable/cli";
-import type { OutputFormat } from "../output-format.js";
+import type { OutputFormat } from "./output-format.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 
 /**

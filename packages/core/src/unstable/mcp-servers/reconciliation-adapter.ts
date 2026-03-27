@@ -1,8 +1,5 @@
-import {
-  REGISTRY_EXTENSIONS_DIR,
-  MCP_SERVER_MANIFEST_FILENAME,
-  McpServerManifestSchema,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "./manifest-schema.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";

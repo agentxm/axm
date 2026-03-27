@@ -18,7 +18,7 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
   type RawPackManifest,
-} from "../../extensions/index.js";
+} from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 

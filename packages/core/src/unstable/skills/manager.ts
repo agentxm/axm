@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { sourceToLockEntry } from "../sources/index.js";
-import type { SkillExtensionRef } from "../sources/index.js";
+import type { SkillExtensionRef } from "../extensions/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";

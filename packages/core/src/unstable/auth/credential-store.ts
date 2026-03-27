@@ -18,7 +18,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { envOption, isCI, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
+import { isCI } from "../cli-flags/index.js";
+import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 

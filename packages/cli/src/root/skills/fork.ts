@@ -17,7 +17,8 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { Source, SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/sources";
+import type { SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/extensions";
+import type { Source } from "@axm.sh/core/unstable/sources";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { resolveSourcePattern, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import * as Array from "effect/Array";

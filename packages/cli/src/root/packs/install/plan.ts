@@ -15,7 +15,7 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
-import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
+import type { PackExtensionRef } from "@axm.sh/core/unstable/extensions";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import { installPack, type InstallPackOperation } from "@axm.sh/core/unstable/packs";

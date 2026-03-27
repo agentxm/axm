@@ -20,7 +20,7 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
-import type { CommandExtensionRef, RegistryCommandRef } from "../../sources/index.js";
+import type { CommandExtensionRef, RegistryCommandRef } from "../../extensions/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 
 // -----------------------------------------------------------------------------

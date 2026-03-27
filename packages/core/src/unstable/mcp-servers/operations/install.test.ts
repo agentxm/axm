@@ -17,7 +17,7 @@ import type {
   ExtensionRef,
   McpServerExtensionRef,
   RegistryMcpServerRef,
-} from "../../sources/index.js";
+} from "../../extensions/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";

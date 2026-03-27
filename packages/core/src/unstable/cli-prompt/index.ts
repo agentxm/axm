@@ -1,3 +1,4 @@
+export { PromptCancelled } from "./prompt-cancelled.js";
 export {
   CliPrompt,
   type AutocompleteMultiselectOpts,

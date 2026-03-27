@@ -8,8 +8,8 @@ import {
   makeTokenizedOptions,
   resolveTokenValue,
   resolveTokenValues,
-} from "../clack-prompt-options.js";
-import { PromptCancelled } from "../prompt-cancelled.js";
+} from "./clack-prompt-options.js";
+import { PromptCancelled } from "./prompt-cancelled.js";
 import {
   CliPrompt,
   type AutocompleteMultiselectOpts,

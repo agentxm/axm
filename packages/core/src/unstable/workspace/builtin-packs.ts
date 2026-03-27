@@ -22,7 +22,7 @@ import { makeAppError } from "../app-error/index.js";
 import { copySkillDirectory } from "../extensions/utils.js";
 import { readLockfile, writeLockfile } from "../lockfile/index.js";
 import { createSymlink } from "../utils/index.js";
-import type { PackManifest } from "../extensions/index.js";
+import type { PackManifest } from "../packs/manifest-schema.js";
 
 /**
  * Resolved builtin pack data — provided by the CLI package.

@@ -25,7 +25,7 @@ import type {
   GetExtensionsByProfileResponse,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
-import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
+import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------

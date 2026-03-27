@@ -17,9 +17,9 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
 import type { Author, ExtensionType } from "../extensions/index.js";
-import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
+import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
-import { createRemoteRegistryClient } from "./client-remote.js";
+import { createRemoteRegistryClient } from "./remote-client.js";
 
 // -----------------------------------------------------------------------------
 // Search Options

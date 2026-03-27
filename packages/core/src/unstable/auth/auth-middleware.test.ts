@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
-import { resetEnvVarMessageFlag } from "./token-resolution.js";
+import { isEnvVarMessageEmitted, resetEnvVarMessageFlag } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -573,9 +573,8 @@ describe("AuthMiddleware", () => {
       });
 
       // The warning is emitted via Effect.logWarning; we verify the flag mechanism
-      // by checking globalThis.__axmEnvVarMessageEmitted
       await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(globalThis.__axmEnvVarMessageEmitted).toBe(true);
+      expect(isEnvVarMessageEmitted()).toBe(true);
     });
   });
 });

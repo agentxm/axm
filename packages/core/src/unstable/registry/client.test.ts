@@ -20,11 +20,11 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { computeIntegrity } from "../utils/index.js";
-import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
+import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import type { GetExtensionsByProfileArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
-import { createRemoteRegistryClient } from "./client-remote.js";
+import { createRemoteRegistryClient } from "./remote-client.js";
 import { at } from "../test-helpers.js";
 
 /** Resolve FileSystem + Path and create a local registry client in one step. */

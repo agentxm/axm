@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { resolveVersionWithConstraint } from "../version-constraints/index.js";
 import type { ExtensionType } from "../extensions/index.js";
-import type { VersionEntry } from "./local-schema.js";
+import type { VersionEntry } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection

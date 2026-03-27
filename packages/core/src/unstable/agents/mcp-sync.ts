@@ -126,7 +126,7 @@ export const runCliInvocation = (
     try: async () => {
       const { spawn } = await import("node:child_process");
 
-      const maybeResult = await new Promise<CliInvocationResult | null>((resolve, reject) => {
+      return new Promise<CliInvocationResult>((resolve, reject) => {
         const child = spawn(invocation.command, [...invocation.args], {
           cwd: invocation.cwd,
           stdio: ["ignore", "pipe", "pipe"],
@@ -160,16 +160,6 @@ export const runCliInvocation = (
           });
         });
       });
-
-      if (maybeResult === null) {
-        return {
-          exitCode: 1,
-          stdout: "",
-          stderr: "Command execution produced no result",
-        } satisfies CliInvocationResult;
-      }
-
-      return maybeResult;
     },
     catch: (error) =>
       makeAppError({
@@ -353,16 +343,16 @@ const cliResultToOutcome = (
 const ensurePlatformSupported = (
   command: string,
   supportedPlatforms: ReadonlyArray<NodePlatform>,
-): McpServerSyncOutcome | null => {
+): Option.Option<McpServerSyncOutcome> => {
   const currentPlatform = process.platform;
   if (supportedPlatforms.includes(currentPlatform)) {
-    return null;
+    return Option.none();
   }
 
-  return {
+  return Option.some({
     _tag: "unsupported",
     reason: `${command} MCP sync is unsupported on ${currentPlatform}; supported platforms: ${supportedPlatforms.join(", ")}`,
-  };
+  });
 };
 
 const replaceTemplate = (value: string, args: AddMcpServerArgs | RemoveMcpServerArgs): string =>
@@ -412,8 +402,8 @@ export const addMcpServerMixed = (
       strategy.cliAdd[0] ?? "cli",
       strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
-    if (platformOutcome !== null) {
-      return platformOutcome;
+    if (Option.isSome(platformOutcome)) {
+      return platformOutcome.value;
     }
 
     const executableAvailable = yield* checkExecutableAvailable(strategy.cliAdd[0] ?? "");
@@ -468,8 +458,8 @@ export const removeMcpServerMixed = (
       strategy.cliRemove[0] ?? "cli",
       strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
-    if (platformOutcome !== null) {
-      return platformOutcome;
+    if (Option.isSome(platformOutcome)) {
+      return platformOutcome.value;
     }
 
     const executableAvailable = yield* checkExecutableAvailable(strategy.cliRemove[0] ?? "");
@@ -544,7 +534,7 @@ const verifyConfigFirst = (
       strategy.verifyCommand[0] ?? "cli",
       strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
-    if (platformOutcome !== null) {
+    if (Option.isSome(platformOutcome)) {
       return { _tag: "success" } as const;
     }
 

@@ -9,8 +9,8 @@
  */
 
 // Schema types and schemas
-export type { ExtensionIndex, VersionEntry } from "./local-schema.js";
-export { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
+export type { ExtensionIndex, VersionEntry } from "./schema.js";
+export { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
 
 // Client types and factory
 export type {
@@ -33,7 +33,7 @@ export { createRegistryClient } from "./client.js";
 export { createLocalRegistryClient } from "./local-client.js";
 
 // Remote client
-export { createRemoteRegistryClient, mapProblemDetailToAppError } from "./client-remote.js";
+export { createRemoteRegistryClient, mapProblemDetailToAppError } from "./remote-client.js";
 
 // Utilities
 export {

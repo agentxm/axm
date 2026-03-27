@@ -43,6 +43,7 @@ export {
   refreshStoredToken,
   resolveAmbientToken,
   resolveRequestToken,
+  isEnvVarMessageEmitted,
   resetEnvVarMessageFlag,
 } from "./token-resolution.js";
 

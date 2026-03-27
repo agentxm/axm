@@ -12,10 +12,8 @@ import { geminiCliMcpStrategy, geminiCliCodingAgent } from "./gemini-cli/service
 import { githubCopilotMcpStrategy } from "./github-copilot/service.js";
 import { opencodeMcpStrategy, opencodeCodingAgent } from "./opencode/service.js";
 
-const makeTestLayer = () => NodeServices.layer;
-
 describe("coding-agent services", () => {
-  const TestLayer = makeTestLayer();
+  const TestLayer = NodeServices.layer;
   const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.provide(TestLayer));
 

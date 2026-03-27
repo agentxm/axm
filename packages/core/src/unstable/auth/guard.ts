@@ -37,10 +37,20 @@ const AUTH_LOGIN_REQUIRED_DECLINED = makeAppError({
 // Auth guard combinator
 // -----------------------------------------------------------------------------
 
-const isRemoteRegistryUrl = (registryUrl: string): boolean => {
-  const protocol = new URL(registryUrl).protocol;
-  return protocol === "http:" || protocol === "https:";
-};
+const isRemoteRegistryUrl = (registryUrl: string) =>
+  Effect.try({
+    try: () => {
+      const protocol = new URL(registryUrl).protocol;
+      return protocol === "http:" || protocol === "https:";
+    },
+    catch: (error) =>
+      makeAppError({
+        code: "AUTH_INVALID_REGISTRY_URL",
+        what: `Invalid registry URL: ${registryUrl}`,
+        howToFix: "Check the registry URL in your settings.",
+        cause: error,
+      }),
+  });
 
 /**
  * Wraps an Effect with a publish-time auth guard.
@@ -61,7 +71,8 @@ export const withAuthGuard = <A, E, R>(
     const targetRegistryUrl = options.registryUrl ?? defaultRegistryUrl;
 
     // Local registries do not require HTTP auth.
-    if (!isRemoteRegistryUrl(targetRegistryUrl)) {
+    const isRemote = yield* isRemoteRegistryUrl(targetRegistryUrl);
+    if (!isRemote) {
       return yield* effect;
     }
 

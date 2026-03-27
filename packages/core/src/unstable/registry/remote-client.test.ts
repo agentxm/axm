@@ -13,9 +13,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { createRemoteRegistryClient, mapProblemDetailToAppError } from "./client-remote.js";
+import { createRemoteRegistryClient, mapProblemDetailToAppError } from "./remote-client.js";
 import type { PublishExtensionArgs } from "./client.js";
-import type { VersionEntry } from "./local-schema.js";
+import type { VersionEntry } from "./schema.js";
 import { expectDefined } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------

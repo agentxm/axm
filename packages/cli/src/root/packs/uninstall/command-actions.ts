@@ -12,19 +12,19 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { PackManager } from "@axm.sh/core/unstable/extension-managers";
-import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
-import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
-import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManager } from "@axm.sh/core/unstable/skills";
 import {
+  PackManager,
   expandPackUninstallTargets,
   type UninstallSettingsContext,
-} from "@axm.sh/core/unstable/extension-managers";
+} from "@axm.sh/core/unstable/packs";
+import { CommandManager } from "@axm.sh/core/unstable/commands";
+import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
 import {
   buildUninstallOperation,
   toLabel,
   type UninstallRetentionPolicy,
-} from "@axm.sh/core/unstable/extension-operations";
+} from "@axm.sh/core/unstable/extensions";
 import type { PackExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";

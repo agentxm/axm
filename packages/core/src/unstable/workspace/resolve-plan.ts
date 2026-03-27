@@ -26,12 +26,10 @@ import { scanPlanReadiness } from "./scan-plan-readiness.js";
 import { setReconciliationAdapters } from "./reconciliation.js";
 import type { ExecutedPlan, Plan } from "./plan.js";
 import { Workspace } from "./service-interface.js";
-import {
-  commandReconciliationAdapter,
-  mcpServerReconciliationAdapter,
-  packReconciliationAdapter,
-  skillReconciliationAdapter,
-} from "../extension-managers/index.js";
+import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
+import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
+import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
+import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { displayPlan } from "./display-plan.js";
 
 // Register reconciliation adapters with core

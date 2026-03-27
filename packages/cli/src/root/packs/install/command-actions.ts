@@ -28,16 +28,11 @@ import type {
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { PackManager } from "@axm.sh/core/unstable/extension-managers";
-import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
-import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
-import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
-import { expandPackInstallRefs } from "@axm.sh/core/unstable/extension-managers";
-import {
-  buildInstallOperation,
-  targetFromRef,
-  toLabel,
-} from "@axm.sh/core/unstable/extension-operations";
+import { SkillManager } from "@axm.sh/core/unstable/skills";
+import { PackManager, expandPackInstallRefs } from "@axm.sh/core/unstable/packs";
+import { CommandManager } from "@axm.sh/core/unstable/commands";
+import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
+import { buildInstallOperation, targetFromRef, toLabel } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";

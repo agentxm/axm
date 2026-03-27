@@ -29,9 +29,9 @@ import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { CommandExtensionRef, RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
+import { CommandManager } from "@axm.sh/core/unstable/commands";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
-import { buildInstallOperation } from "@axm.sh/core/unstable/extension-operations";
+import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
 

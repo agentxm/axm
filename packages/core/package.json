@@ -126,13 +126,21 @@
       "types": "./src/unstable/source-resolution/index.ts",
       "default": "./dist/src/unstable/source-resolution/index.js"
     },
-    "./unstable/extension-managers": {
-      "types": "./src/unstable/extension-managers/index.ts",
-      "default": "./dist/src/unstable/extension-managers/index.js"
+    "./unstable/skills": {
+      "types": "./src/unstable/skills/index.ts",
+      "default": "./dist/src/unstable/skills/index.js"
     },
-    "./unstable/extension-operations": {
-      "types": "./src/unstable/extension-operations/index.ts",
-      "default": "./dist/src/unstable/extension-operations/index.js"
+    "./unstable/packs": {
+      "types": "./src/unstable/packs/index.ts",
+      "default": "./dist/src/unstable/packs/index.js"
+    },
+    "./unstable/commands": {
+      "types": "./src/unstable/commands/index.ts",
+      "default": "./dist/src/unstable/commands/index.js"
+    },
+    "./unstable/mcp-servers": {
+      "types": "./src/unstable/mcp-servers/index.ts",
+      "default": "./dist/src/unstable/mcp-servers/index.js"
     },
     "./unstable/workflows": {
       "types": "./src/unstable/workflows/index.ts",

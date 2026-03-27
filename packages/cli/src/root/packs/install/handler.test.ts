@@ -33,10 +33,10 @@ import {
   InstallPackCommandWorkflowActions,
   InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
-import { PackManagerLive } from "@axm.sh/core/unstable/extension-managers";
-import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
-import { CommandManagerLive } from "@axm.sh/core/unstable/extension-managers";
-import { McpServerManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
+import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
+import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { getAppError } from "../../../test-helpers.js";

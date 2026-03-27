@@ -17,14 +17,13 @@ import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
-import { installSkill } from "@axm.sh/core/unstable/extension-managers";
-import { installCommand } from "@axm.sh/core/unstable/extension-managers";
-import { installMcpServer } from "@axm.sh/core/unstable/extension-managers";
-import { installPack } from "@axm.sh/core/unstable/extension-managers";
+import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import { installPack, type InstallPackOperation } from "@axm.sh/core/unstable/packs";
+import { installCommand, type InstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import {
+  installMcpServer,
+  type InstallMcpServerOperation,
+} from "@axm.sh/core/unstable/mcp-servers";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";

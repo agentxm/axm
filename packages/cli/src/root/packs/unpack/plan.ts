@@ -20,10 +20,10 @@ import {
   type LegacyPlan,
   type LegacyPlannedStep,
 } from "@axm.sh/core/unstable/workspace";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
+import type { UninstallPackOperation } from "@axm.sh/core/unstable/packs";
 
 /**
  * Union of operation types produced by the pack unpack plan builder.

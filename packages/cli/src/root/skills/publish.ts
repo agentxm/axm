@@ -24,8 +24,8 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import { publishSkill } from "@axm.sh/core/unstable/extension-managers";
+import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
+import { publishSkill } from "@axm.sh/core/unstable/skills";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import {
   MANIFEST_FILENAME,

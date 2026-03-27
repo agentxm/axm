@@ -18,19 +18,23 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { installSkill } from "@axm.sh/core/unstable/extension-managers";
-import { installCommand } from "@axm.sh/core/unstable/extension-managers";
-import { installMcpServer } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import {
+  installSkill,
   buildRegistrySkillRef,
+  type InstallSkillOperation,
+} from "@axm.sh/core/unstable/skills";
+import { uninstallPack } from "@axm.sh/core/unstable/packs";
+import {
+  installCommand,
   buildRegistryCommandRef,
+  type InstallCommandOperation,
+} from "@axm.sh/core/unstable/commands";
+import {
+  installMcpServer,
   buildRegistryMcpServerRef,
-} from "@axm.sh/core/unstable/extension-managers";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
+  type InstallMcpServerOperation,
+} from "@axm.sh/core/unstable/mcp-servers";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";

@@ -35,9 +35,9 @@ import {
   type PacksLockMap,
   type RegistryPackLockEntry,
 } from "../lockfile/index.js";
-import { computeSkillPaths } from "../extension-managers/index.js";
-import { computePackPaths } from "../extension-managers/index.js";
-import { sanitizeName } from "../extension-managers/index.js";
+import { computeSkillPaths } from "../skills/paths.js";
+import { computePackPaths } from "../packs/paths.js";
+import { sanitizeName } from "../extensions/utils.js";
 import { AgentIdSchema, formatFqn, type ExtensionType } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {

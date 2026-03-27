@@ -19,7 +19,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";

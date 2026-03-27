@@ -9,12 +9,10 @@ import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import type { Settings } from "../settings/index.js";
 import { setReconciliationAdapters } from "./reconciliation.js";
-import {
-  commandReconciliationAdapter,
-  mcpServerReconciliationAdapter,
-  packReconciliationAdapter,
-  skillReconciliationAdapter,
-} from "../extension-managers/index.js";
+import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
+import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
+import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
+import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 
 // Register adapters for tests
 setReconciliationAdapters([

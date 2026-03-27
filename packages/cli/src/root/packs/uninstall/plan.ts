@@ -16,14 +16,13 @@ import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
-import type { UninstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallCommand } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallMcpServer } from "@axm.sh/core/unstable/extension-managers";
+import { uninstallSkill, type UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import { uninstallPack, type UninstallPackOperation } from "@axm.sh/core/unstable/packs";
+import { uninstallCommand, type UninstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import {
+  uninstallMcpServer,
+  type UninstallMcpServerOperation,
+} from "@axm.sh/core/unstable/mcp-servers";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import type { OperationResult } from "@axm.sh/core/unstable/workspace";

@@ -32,11 +32,11 @@ import {
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@axm.sh/core/unstable/extension-managers";
-import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
+import { installSkill } from "@axm.sh/core/unstable/skills";
+import { uninstallSkill } from "@axm.sh/core/unstable/skills";
 import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import {

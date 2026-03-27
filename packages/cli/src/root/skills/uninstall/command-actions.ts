@@ -15,11 +15,11 @@ import * as Option from "effect/Option";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
-import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
+import { SkillManager } from "@axm.sh/core/unstable/skills";
 import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@axm.sh/core/unstable/extension-operations";
+} from "@axm.sh/core/unstable/extensions";
 import type { SkillExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { AppError } from "@axm.sh/core/unstable/app-error";

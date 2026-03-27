@@ -31,17 +31,20 @@ import {
   RawPackManifestSchema,
   REGISTRY_EXTENSIONS_DIR,
 } from "@axm.sh/core/unstable/extensions";
-import { publishPack, type PublishPackOperation } from "@axm.sh/core/unstable/extension-managers";
-import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
+import {
+  publishPack,
+  type PublishPackOperation,
+  computePackPaths,
+} from "@axm.sh/core/unstable/packs";
 import {
   publishCommand as publishCommandOp,
   type PublishCommandOperation,
-} from "@axm.sh/core/unstable/extension-managers";
+} from "@axm.sh/core/unstable/commands";
 import {
   publishMcpServer,
   type PublishMcpServerOperation,
-} from "@axm.sh/core/unstable/extension-managers";
-import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
+} from "@axm.sh/core/unstable/mcp-servers";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";

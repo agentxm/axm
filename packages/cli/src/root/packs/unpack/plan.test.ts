@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
+import type { UninstallPackOperation } from "@axm.sh/core/unstable/packs";
 import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import { buildUnpackPlan } from "./plan.js";
 

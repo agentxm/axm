@@ -1,0 +1,114 @@
+/**
+ * Base types for extension references.
+ *
+ * Defines the foundational type hierarchy used by all extension types.
+ * Per-type concrete refs live in their respective feature folders
+ * (skills/refs.ts, commands/refs.ts, etc.).
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import type { ExtensionType } from "./common.js";
+import type * as Option from "effect/Option";
+import type * as Record from "effect/Record";
+import type { RefType, Source } from "../sources/types.js";
+
+// -----------------------------------------------------------------------------
+// Ref Detail Interfaces
+// -----------------------------------------------------------------------------
+
+/** Ref details for git-hosted sources (GitHub, GitLab, Bitbucket, AzureRepos, Git). @experimental */
+export interface GitHostedRefDetails {
+  /** file:// URL to cloned directory */
+  readonly location: string;
+  /** Git tree SHA for integrity verification */
+  readonly gitTreeSha: Option.Option<string>;
+}
+
+/** Ref details for registry sources. @experimental */
+export interface RegistryRefDetails {
+  /** Registry profile that owns the published extension */
+  readonly profile: string;
+  /**
+   * Registry package name — the identifier used for registry operations (fetch, version resolution).
+   * This may differ from the extension-specific display name (e.g., skill.name, pack.name,
+   * server.name) which is the user-facing name parsed from the extension's manifest.
+   */
+  readonly name: string;
+  /** Resolved semver version */
+  readonly version: string;
+  /** SRI integrity string in `sha512-<base64>` format */
+  readonly integrity: string;
+}
+
+/** Ref details for local filesystem sources. @experimental */
+export interface LocalRefDetails {
+  /** file:// URL to local directory */
+  readonly location: string;
+}
+
+/** Ref details for builtin sources — no additional fields. @experimental */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type -- intentionally empty: builtin extensions are resolved from bundled data
+export interface BuiltinRefDetails {}
+
+// -----------------------------------------------------------------------------
+// Layer 1: ExtensionRefBase — universal base for all extension refs
+// -----------------------------------------------------------------------------
+
+/** @experimental */
+export interface ExtensionRefBase<
+  TExtensionType extends ExtensionType,
+  TRefType extends RefType,
+  TSource extends Source,
+> {
+  readonly type: TExtensionType;
+  readonly refType: TRefType;
+  readonly source: TSource;
+}
+
+// -----------------------------------------------------------------------------
+// Layer 2: Per-extension-type bases (add extension-specific metadata)
+// -----------------------------------------------------------------------------
+
+/** @experimental */
+export type SkillExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"skill", TRefType, TSource> & {
+  readonly skill: {
+    readonly name: string;
+    readonly description: Option.Option<string>;
+    readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
+  };
+};
+
+/** @experimental */
+export type CommandExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"command", TRefType, TSource> & {
+  readonly command: { readonly name: string };
+};
+
+/** @experimental */
+export type McpServerExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"mcp-server", TRefType, TSource> & {
+  readonly server: { readonly name: string };
+};
+
+/** @experimental */
+export type PackExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"pack", TRefType, TSource> & {
+  readonly profile: string;
+  readonly pack: {
+    readonly name: string;
+    readonly skills: Readonly<Record<string, string>>;
+    readonly commands: Readonly<Record<string, string>>;
+    readonly mcpServers: Readonly<Record<string, string>>;
+  };
+};

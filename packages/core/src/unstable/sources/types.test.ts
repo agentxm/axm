@@ -9,24 +9,28 @@ import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type {
-  BuiltinPackRef,
-  BuiltinRefDetails,
   ConfiguredSourceHost,
-  ExtensionRef,
-  GitHostedRefDetails,
   GitHostingSourceHost,
-  LocalRefDetails,
-  McpServerExtensionRef,
   Source,
-  PackExtensionRef,
   RefType,
-  RegistryRefDetails,
   SelfDescribingSourceHost,
-  SkillExtensionRef,
   SourceHost,
   SourceParams,
   SourceType,
 } from "./types.js";
+import type {
+  BuiltinRefDetails,
+  GitHostedRefDetails,
+  LocalRefDetails,
+  RegistryRefDetails,
+} from "../extensions/ref-base.js";
+import type {
+  BuiltinPackRef,
+  ExtensionRef,
+  McpServerExtensionRef,
+  PackExtensionRef,
+  SkillExtensionRef,
+} from "../extensions/refs.js";
 
 // -----------------------------------------------------------------------------
 // SourceType

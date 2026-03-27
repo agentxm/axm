@@ -16,7 +16,7 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { CommandManager } from "@axm.sh/core/unstable/extension-managers";
+import { CommandManager } from "@axm.sh/core/unstable/commands";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   InstallCommandCommandWorkflowActions,

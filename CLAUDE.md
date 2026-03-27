@@ -26,7 +26,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Commands
 
-All commands use `pnpm` scripts that delegate to Nx. Nx provides caching (repeated runs are instant) and `affected` variants that only operate on packages changed since `main`.
+All commands use `pnpm` scripts. Build/test/lint delegate to Nx for caching and `affected` variants. CLI-running scripts (`pnpm axm`, `pnpm spike`) chain `nx build` (cached) then run `bun` directly — no Nx wrapper around the CLI process.
 
 | Command               | Purpose                                  |
 | --------------------- | ---------------------------------------- |

@@ -1,80 +1,189 @@
-# CLI Cleanup Plan
+# Legacy & Deprecated Code Cleanup Plan
 
-Eliminate duplicative, dead, and re-exported code from `packages/cli/src/`. Move reusable business logic to core. Remove all backward-compatibility re-exports.
+Systematic cleanup of legacy code, deprecated APIs, dead code, and convention violations identified by codebase analysis (2026-03-27).
 
-## 1. Delete dead code
+---
 
-- [ ] Delete `packages/cli/src/output.ts` (pure re-export barrel, zero consumers)
-- [ ] Delete `packages/cli/src/telemetry/client.ts` (unused `TelemetryClientLive`, superseded by core's `CliTelemetryConfigService`)
-- [ ] Delete `packages/cli/src/telemetry/client.test.ts` (tests dead code)
+## Phase 1: Quick Wins
 
-## 2. Inline telemetry/mode.ts and delete telemetry/
+Low-risk, mechanical changes. Single PR.
 
-- [ ] Inline `resolveTelemetryMode` call in `runtime.ts` — already has env values unpacked at lines 86-91, just call core's `resolveTelemetryMode` directly
-- [ ] Inline `resolveTelemetryMode` call in `root/init/handler.ts` — same pattern
-- [ ] Delete `packages/cli/src/telemetry/mode.ts`
-- [ ] Delete `packages/cli/src/telemetry/mode.test.ts`
-- [ ] Delete `packages/cli/src/telemetry/index.ts`
-- [ ] Remove `packages/cli/src/telemetry/` directory
+### 1.1 Delete unused `help.ts`
 
-## 3. Move resolve-plan + display-plan to core
+`packages/cli/src/help.ts` exports `setRootCommand` and `showHelpFor` — neither is imported anywhere.
 
-- [ ] Move `packages/cli/src/workspace/resolve-plan.ts` to `packages/core/src/unstable/workspace/resolve-plan.ts`
-  - Update internal imports to use relative paths within core
-  - The `setReconciliationAdapters` call at module load should remain co-located
-- [ ] Move `packages/cli/src/workspace/display-plan.ts` to `packages/core/src/unstable/workspace/display-plan.ts`
-  - Update internal imports to use relative paths within core
-- [ ] Move `packages/cli/src/workspace/display-plan.test.ts` to core alongside the implementation
-- [ ] Move `packages/cli/src/workspace/resolve-plan-architecture.test.ts` to core alongside the implementation
-- [ ] Export `resolvePlan` and `displayPlan` from `packages/core/src/unstable/workspace/index.ts`
-- [ ] Update all 16 CLI import sites for `resolvePlan` to import from `@axm.sh/core/unstable/workspace`
-- [ ] Update any CLI test imports for `displayPlan` to import from `@axm.sh/core/unstable/workspace`
+- [ ] Delete `packages/cli/src/help.ts`
+- [ ] Remove any barrel export of `help.ts` if present
+- [ ] Verify build passes
 
-## 4. Move workflows to core
+### 1.2 Remove unused `picocolors` dependency
 
-Depends on step 3 (workflows import `resolvePlan`).
+Listed in `packages/core/package.json` but never imported in any source file.
 
-- [ ] Move `packages/cli/src/workflows/install-command/workflow.ts` to `packages/core/src/unstable/workflows/install-command/workflow.ts`
-  - Update `resolvePlan` import to relative path within core
-- [ ] Move `packages/cli/src/workflows/install-command/workflow.test.ts` alongside
-- [ ] Move `packages/cli/src/workflows/uninstall-command/workflow.ts` to `packages/core/src/unstable/workflows/uninstall-command/workflow.ts`
-  - Update `resolvePlan` import to relative path within core
-- [ ] Move `packages/cli/src/workflows/uninstall-command/workflow.test.ts` alongside
-- [ ] Create barrel exports in core (`packages/core/src/unstable/workflows/index.ts`)
-- [ ] Update all 16 CLI handler/command-actions imports to use `@axm.sh/core/unstable/workflows`
-- [ ] Delete `packages/cli/src/workflows/` directory
+- [ ] Remove `picocolors` from `packages/core/package.json` dependencies
+- [ ] Run `pnpm install` to update lockfile
+- [ ] Verify build passes
 
-## 5. Inline workspace/service.ts into runtime.ts
+### 1.3 Rename `copySkillDirectory` to `copyExtensionDirectory`
 
-Depends on step 3 (after resolve-plan moves, service.ts is the last logic file in workspace/).
+`copySkillDirectory` in `extensions/utils.ts:108` is a deprecated alias for `copyExtensionDirectory`. Used in 31 locations.
 
-- [ ] In `runtime.ts`: replace `import { layer as workspaceLayer } from "./workspace/service.js"` with direct call to core's `layer()` passing `resolveBuiltinPack`
-  - Import `layer as coreWorkspaceLayer` from `@axm.sh/core/unstable/workspace`
-  - Import `resolveBuiltinPack` from `./builtin-pack/index.js`
-  - Inline: `coreWorkspaceLayer({ ...options, resolveBuiltinPack: resolveBuiltinPack() })`
-- [ ] Update `test-helpers.ts`: replace `import { layer as workspaceLayer } from "./workspace/service.js"` with same pattern
-- [ ] Update all test files importing `workspaceLayer` from `../workspace/service.js` (5 files) to import from `@axm.sh/core/unstable/workspace` with the same inline pattern
-- [ ] Delete `packages/cli/src/workspace/service.ts` (remove all re-exports — consumers import from core directly)
+- [ ] Replace all imports of `copySkillDirectory` with `copyExtensionDirectory` across core and cli packages
+- [ ] Update `copy-directory.test.ts` to use `copyExtensionDirectory`
+- [ ] Remove the `copySkillDirectory` alias from `extensions/utils.ts`
+- [ ] Remove `copySkillDirectory` from `extensions/index.ts` barrel export
+- [ ] Rebuild to regenerate `.d.ts` barrel exports
+- [ ] Verify tests pass
 
-## 6. Deduplicate builtin-pack constants
+### 1.4 Update stale CLAUDE.md ESLint severity
 
-- [ ] Delete `BUILTIN_PACK_FQN`, `BUILTIN_PACK_SCOPE`, `BUILTIN_PACK_NAME`, and `ResolvedBuiltinPack` type from `packages/cli/src/builtin-pack/index.ts` — all already defined in `packages/core/src/unstable/workspace/builtin-packs.ts`
-- [ ] Update `builtin-pack/index.ts` to import constants/type from `@axm.sh/core/unstable/workspace`
-- [ ] Update any CLI imports of these constants to use core
-- [ ] Update `builtin-pack/builtin-pack.test.ts` to import constants from core
+CLAUDE.md says `consistent-type-assertions` and `no-non-null-assertion` are `warn` — both are already `error`. The migration is complete.
 
-## 7. Clean up workspace/ directory
+- [ ] Update CLAUDE.md: change "Currently set to `warn` while existing violations are migrated — will escalate to `error`" to reflect that both rules are now `error`
+- [ ] Remove the "All new code must be violation-free" caveat (no longer needed since it's enforced)
 
-Depends on steps 3 and 5.
+### 1.5 Remove stale TODO comments
 
-- [ ] Move `packages/cli/src/workspace/test-stubs.ts` to `packages/cli/src/test-stubs.ts` (or co-locate with `test-helpers.ts`)
-- [ ] Update all test imports referencing `workspace/test-stubs.js`
-- [ ] Delete `packages/cli/src/workspace/` directory
+Dead comments referencing completed or removed work.
 
-## 8. Verify
+- [ ] Remove TODO comments at `packages/core/src/unstable/workspace/service.test.ts:136-137` (resolvePlan tests already removed during Phase 4 refactoring)
+
+### 1.6 Verify Phase 1
 
 - [ ] `pnpm build` passes
 - [ ] `pnpm test` passes
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm lint` passes
-- [ ] No remaining imports from deleted paths (grep for `workspace/service.js`, `workspace/resolve-plan.js`, `workspace/display-plan.js`, `./telemetry/`, `./output.js`, `./workflows/`)
+
+---
+
+## Phase 2: Wrap Raw Network Calls (TODO #52)
+
+Four source resolution providers use raw `fetch` instead of Effect HttpClient. Single PR — all four providers follow the same pattern (HTTP HEAD to check repo existence).
+
+> **Test gap:** None of the four `resolve-repo.ts`/`repo-exists.ts` files have unit tests. Tests must be written as part of this phase — wrapping with HttpClient changes the dependency graph and untested code cannot be verified by existing tests alone. Nearby `print.test.ts`/`url.test.ts` files test other concerns.
+
+### 2.1 Wrap all four providers
+
+Batch — identical pattern across providers:
+
+- [ ] Wrap `providers/github/resolve-repo.ts` with Effect HttpClient
+- [ ] Wrap `providers/gitlab/resolve-repo.ts` with Effect HttpClient
+- [ ] Wrap `providers/bitbucket/resolve-repo.ts` with Effect HttpClient
+- [ ] Wrap `providers/azurerepos/repo-exists.ts` with Effect HttpClient
+- [ ] Remove all TODO #52 comments
+
+### 2.2 Add unit tests for each provider
+
+- [ ] Add `providers/github/resolve-repo.test.ts` (mock HttpClient layer)
+- [ ] Add `providers/gitlab/resolve-repo.test.ts`
+- [ ] Add `providers/bitbucket/resolve-repo.test.ts`
+- [ ] Add `providers/azurerepos/repo-exists.test.ts`
+
+### 2.3 Wire HttpClient layer
+
+- [ ] Ensure HttpClient service is provided in the CLI runtime layer
+- [ ] Verify all provider tests pass
+- [ ] Verify E2E tests pass
+
+---
+
+## Phase 3: Replace `unzip` CLI with JS Zip Library (TODO #24, #43)
+
+`packages/core/src/unstable/registry/utils.ts` uses `node:child_process` (`execFileSync`/`execSync`) to call `unzip`. Replace with a JS zip library for portability and convention compliance. Single PR.
+
+- [ ] Choose zip library (fflate or yauzl) and add to core dependencies
+- [ ] Rewrite `extractZip` in `registry/utils.ts` using the JS library
+- [ ] Remove `node:child_process` import
+- [ ] Remove TODO #24, #43 comments
+- [ ] Verify registry download and extraction tests pass
+- [ ] Verify E2E install tests pass (registry installs exercise this path)
+- [ ] Verify extraction works on macOS and Linux (the two CI platforms) — this is the primary portability motivation
+
+---
+
+## Phase 4: Migrate Legacy Plan System
+
+The largest cleanup. The deprecated operation-based plan model (`Operation`, `OperationResult`, `OperationHandler`, `LegacyPlan`, `bridgeLegacyPlan`) is used by every command handler. Migrate to the new readiness-based model with inline run closures.
+
+**PR strategy:** One PR per sub-phase (4.1–4.7). Each PR must pass CI before merging. Sub-phases are ordered by dependency — operations before CLI handlers (handlers depend on operations), shared modules after all consumers are migrated, deletion last.
+
+**Dependency order:** 4.1 → 4.2 → 4.3 → 4.4 → (4.5 can parallel 4.1–4.4) → 4.6 (after all consumers migrated) → 4.7 (deletion, last).
+
+### 4.1 Skills operations (PR 1)
+
+- [ ] Migrate `skills/operations/install.ts` — replace `Operation`/`OperationResult`/`OperationHandler` with inline `PlannedJobStep` run closures
+- [ ] Migrate `skills/operations/uninstall.ts`
+- [ ] Migrate `skills/operations/enable.ts`
+- [ ] Migrate `skills/operations/disable.ts`
+- [ ] Migrate `skills/operations/rename.ts`
+- [ ] Migrate `skills/operations/copy.ts`
+- [ ] Migrate `skills/operations/new-skill.ts`
+- [ ] Migrate `skills/operations/publish.ts`
+- [ ] Update all corresponding tests
+- [ ] CI green
+
+### 4.2 Skills CLI handlers (PR 2, depends on 4.1)
+
+- [ ] Migrate `cli/src/root/skills/rename.ts` — build Plan directly instead of LegacyPlan + bridgeLegacyPlan
+- [ ] Migrate `cli/src/root/skills/new.ts`
+- [ ] Migrate `cli/src/root/skills/enable.ts`
+- [ ] Migrate `cli/src/root/skills/disable.ts`
+- [ ] Migrate `cli/src/root/skills/publish.ts`
+- [ ] Migrate `cli/src/root/skills/update/handler.ts` and `plan.ts`
+- [ ] Migrate `cli/src/root/skills/plan-helpers.ts` — replace `buildSingleStepPlan` with new-model equivalent
+- [ ] Update all corresponding tests
+- [ ] CI green
+
+### 4.3 Packs operations (PR 3)
+
+- [ ] Migrate `packs/operations/install.ts`
+- [ ] Migrate `packs/operations/uninstall.ts`
+- [ ] Migrate `packs/operations/unpack.ts`
+- [ ] Migrate `packs/operations/add-to-pack.ts`
+- [ ] Migrate `packs/operations/remove-from-pack.ts`
+- [ ] Migrate `packs/operations/new-pack.ts`
+- [ ] Migrate `packs/operations/publish.ts`
+- [ ] Update all corresponding tests
+- [ ] CI green
+
+### 4.4 Packs CLI handlers (PR 4, depends on 4.3)
+
+- [ ] Migrate `cli/src/root/packs/add.ts`
+- [ ] Migrate `cli/src/root/packs/remove.ts`
+- [ ] Migrate `cli/src/root/packs/new.ts`
+- [ ] Migrate `cli/src/root/packs/publish.ts`
+- [ ] Migrate `cli/src/root/packs/unpack/handler.ts` and `plan.ts`
+- [ ] Update all corresponding tests
+- [ ] CI green
+
+### 4.5 Commands & MCP Servers operations (PR 5, independent of 4.1–4.4)
+
+- [ ] Migrate `commands/operations/install.ts`
+- [ ] Migrate `commands/operations/uninstall.ts`
+- [ ] Migrate `commands/operations/publish.ts`
+- [ ] Migrate `mcp-servers/operations/install.ts`
+- [ ] Migrate `mcp-servers/operations/uninstall.ts`
+- [ ] Migrate `mcp-servers/operations/publish.ts`
+- [ ] Update all corresponding tests
+- [ ] CI green
+
+### 4.6 Shared workspace modules (PR 6, after 4.1–4.5 merged)
+
+- [ ] Migrate `workspace/reconciliation.ts` — replace `OperationResult` returns with `JobStepResult` in `runReadRecoverOperation` and `runReconcileMaterializeOperation` (2 exported functions, plus internal callers)
+- [ ] Update `workspace/reconciliation.test.ts`
+- [ ] Migrate `workspace/augment-plan.ts` — remove `OperationResult` dependency
+- [ ] Migrate `workspace/apply-plan.ts` — remove deprecated `OperationHandler` type and legacy support code
+- [ ] Update `workspace/apply-plan.test.ts`
+- [ ] CI green
+
+### 4.7 Delete legacy plan infrastructure (PR 7, after 4.6 merged)
+
+Only after all handlers and shared modules are migrated:
+
+- [ ] Delete `workspace/plan-bridge.ts`
+- [ ] Remove `Operation` and `OperationResult` types from `workspace/plan.ts`
+- [ ] Remove legacy exports from `workspace/index.ts`
+- [ ] Delete `cli/src/root/skills/plan-helpers.ts` (including `buildSingleStepPlan`)
+- [ ] Verify full test suite passes
+- [ ] Verify E2E tests pass

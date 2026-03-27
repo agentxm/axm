@@ -17,7 +17,9 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
 import { handleList } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -79,7 +81,10 @@ describe("list.handler", () => {
       agents: Option.none(),
       ...wsOverrides,
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const WsLayer = Layer.provide(
+      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      BaseLayer,
+    );
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper

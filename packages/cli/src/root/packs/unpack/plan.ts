@@ -19,7 +19,7 @@ import {
   makeLegacyStep,
   type LegacyPlan,
   type LegacyPlannedStep,
-} from "../../../workspace/plan-bridge.js";
+} from "@axm.sh/core/unstable/workspace";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";

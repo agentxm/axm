@@ -18,13 +18,13 @@ import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-mana
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { RegistryPackRef } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "../../../sources/index.js";
-import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { Workspace } from "../../../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Helpers

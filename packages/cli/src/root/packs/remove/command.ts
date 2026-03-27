@@ -4,7 +4,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { handlePacksRemove } from "./handler.js";
-import { DEFAULT_WORKSPACE_SCOPE } from "../../../workspace/scope.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 
 const removeConfig = {
   pack: Argument.string("pack").pipe(Argument.withDescription("Name of the pack")),

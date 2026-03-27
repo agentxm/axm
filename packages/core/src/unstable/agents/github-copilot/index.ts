@@ -6,3 +6,4 @@
  */
 
 export { descriptor } from "./descriptor.js";
+export { githubCopilotCodingAgent, githubCopilotMcpStrategy } from "./service.js";

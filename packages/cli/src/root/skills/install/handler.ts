@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { runInstallCommandWorkflow } from "../../../workflows/install-command/workflow.js";
+import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 
 // -----------------------------------------------------------------------------

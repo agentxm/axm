@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
 import type { UninstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { UninstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
@@ -24,9 +24,9 @@ import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
 import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
 import { uninstallCommand } from "@axm.sh/core/unstable/extension-managers";
 import { uninstallMcpServer } from "@axm.sh/core/unstable/extension-managers";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import type { OperationResult } from "../../../workspace/plan.js";
+import type { OperationResult } from "@axm.sh/core/unstable/workspace";
 
 /**
  * Union of operation types produced by the pack uninstall plan builder.

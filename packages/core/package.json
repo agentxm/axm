@@ -133,6 +133,10 @@
     "./unstable/extension-operations": {
       "types": "./src/unstable/extension-operations/index.ts",
       "default": "./dist/src/unstable/extension-operations/index.js"
+    },
+    "./unstable/workflows": {
+      "types": "./src/unstable/workflows/index.ts",
+      "default": "./dist/src/unstable/workflows/index.js"
     }
   },
   "files": [

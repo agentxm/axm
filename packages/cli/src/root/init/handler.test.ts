@@ -23,7 +23,9 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../workspace/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "../../builtin-pack/index.js";
 import { expectDefined } from "../../test-helpers.js";
 import { handleInit } from "./handler.js";
 
@@ -62,7 +64,10 @@ describe("init.handler", () => {
    * Create test layers including WorkspaceContext with the given options.
    */
   const withLayers = (wsOptions: WorkspaceContextOptions) => {
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), TestLayer);
+    const WsLayer = Layer.provide(
+      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      TestLayer,
+    );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     return <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
@@ -205,7 +210,11 @@ describe("init.handler", () => {
         Effect.provide(
           (() => {
             const WsLayer = Layer.provide(
-              workspaceLayer({ ...defaultWsOptions, scope: "user" }),
+              coreWorkspaceLayer({
+                ...defaultWsOptions,
+                scope: "user",
+                resolveBuiltinPack: resolveBuiltinPack(),
+              }),
               TestLayer,
             );
             return Layer.mergeAll(TestLayer, WsLayer);
@@ -259,7 +268,11 @@ describe("init.handler", () => {
         Effect.provide(
           (() => {
             const WsLayer = Layer.provide(
-              workspaceLayer({ ...defaultWsOptions, scope: "user" }),
+              coreWorkspaceLayer({
+                ...defaultWsOptions,
+                scope: "user",
+                resolveBuiltinPack: resolveBuiltinPack(),
+              }),
               TestLayer,
             );
             return Layer.mergeAll(TestLayer, WsLayer);
@@ -294,7 +307,11 @@ describe("init.handler", () => {
         CliEnvironmentTest({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(
-        workspaceLayer({ scope: "project", agents: Option.none() }),
+        coreWorkspaceLayer({
+          scope: "project",
+          agents: Option.none(),
+          resolveBuiltinPack: resolveBuiltinPack(),
+        }),
         InteractiveTestLayer,
       );
       return Effect.gen(function* () {
@@ -340,7 +357,10 @@ describe("init.handler", () => {
         iPromptLayer,
         CliEnvironmentTest({ nonInteractive: false }),
       );
-      const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        BaseLayer,
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
       return <A, E>(effect: Effect.Effect<A, E, any>) =>
         effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
@@ -410,7 +430,10 @@ describe("init.handler", () => {
         iPromptLayer,
         CliEnvironmentTest(),
       );
-      const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        BaseLayer,
+      );
       return Effect.gen(function* () {
         yield* handleInit();
 
@@ -435,7 +458,10 @@ describe("init.handler", () => {
         iPromptLayer,
         CliEnvironmentTest(),
       );
-      const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), BaseLayer);
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        BaseLayer,
+      );
       return Effect.gen(function* () {
         yield* handleInit();
 
@@ -461,7 +487,10 @@ describe("init.handler", () => {
 
   describe("error handling", () => {
     it.effect("returns error when settings file is invalid JSON", () => {
-      const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), TestLayer);
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        TestLayer,
+      );
       return Effect.gen(function* () {
         // Pre-create invalid settings file
         const axmDir = path.join(tempDir, ".axm");

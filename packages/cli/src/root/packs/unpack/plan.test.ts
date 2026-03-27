@@ -11,7 +11,7 @@ import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-mana
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import { buildUnpackPlan } from "./plan.js";
 
 const isPlannedStep = <T>(step: { readonly _tag: string }): step is LegacyPlannedStep<T> =>

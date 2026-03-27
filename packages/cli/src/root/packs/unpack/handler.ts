@@ -17,12 +17,12 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { installSkill } from "@axm.sh/core/unstable/extension-managers";
 import { installCommand } from "@axm.sh/core/unstable/extension-managers";
 import { installMcpServer } from "@axm.sh/core/unstable/extension-managers";
 import { uninstallPack } from "@axm.sh/core/unstable/extension-managers";
-import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import {
   buildRegistrySkillRef,
   buildRegistryCommandRef,
@@ -33,7 +33,7 @@ import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-ma
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

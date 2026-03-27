@@ -14,11 +14,11 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
-import { Workspace } from "../../../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
-import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Helpers

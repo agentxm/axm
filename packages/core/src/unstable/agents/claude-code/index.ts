@@ -6,3 +6,4 @@
  */
 
 export { descriptor } from "./descriptor.js";
+export { claudeCodeCodingAgent, claudeCodeMcpStrategy } from "./service.js";

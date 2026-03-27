@@ -17,8 +17,8 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { PACK_MANIFEST_FILENAME, REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
-import { SourceHostProvidersLive } from "../../../sources/index.js";
-import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectRecord,

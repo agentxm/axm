@@ -13,7 +13,7 @@ import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
 

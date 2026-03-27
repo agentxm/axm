@@ -10,8 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import { Workspace } from "../../../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillUninstallPlan, type InstalledSkills } from "./plan.js";
 

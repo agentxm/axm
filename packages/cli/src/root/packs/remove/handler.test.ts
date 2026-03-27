@@ -12,7 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
 

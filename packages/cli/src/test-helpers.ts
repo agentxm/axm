@@ -12,7 +12,9 @@ import { AppError } from "@axm.sh/core/unstable/app-error";
 import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import { makeTestPrompt, type TestPromptConfig } from "@axm.sh/core/unstable/cli-prompt";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "./workspace/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "./builtin-pack/index.js";
 
 export interface AppErrorResult {
   readonly error: true;
@@ -163,7 +165,10 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     agents: Option.none(),
     ...opts?.wsOptions,
   } satisfies WorkspaceContextOptions;
-  const wsLayer = Layer.provide(workspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const wsLayer = Layer.provide(
+    coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+    cliTestContext.baseLayer,
+  );
   const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer);
 
   return {

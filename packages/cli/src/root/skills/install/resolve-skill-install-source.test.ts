@@ -11,8 +11,8 @@ import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import { parseInputPattern, type InputParseResult } from "@axm.sh/core/unstable/sources";
-import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { Workspace, type WorkspaceContextService } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService =>

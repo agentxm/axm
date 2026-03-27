@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
 import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
 import {
@@ -21,9 +21,9 @@ import {
   type UninstallRetentionPolicy,
 } from "@axm.sh/core/unstable/extension-operations";
 import type { SkillExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
+import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------

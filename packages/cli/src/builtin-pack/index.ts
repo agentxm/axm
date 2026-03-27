@@ -9,25 +9,15 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { PackManifestSchema, type PackManifest } from "@axm.sh/core/unstable/extensions";
+import { PackManifestSchema } from "@axm.sh/core/unstable/extensions";
+import type { ResolvedBuiltinPack } from "@axm.sh/core/unstable/workspace";
 
-// -----------------------------------------------------------------------------
-// Identity Constants
-// -----------------------------------------------------------------------------
-
-export const BUILTIN_PACK_FQN = "@axm/packs/cli";
-export const BUILTIN_PACK_SCOPE = "@axm";
-export const BUILTIN_PACK_NAME = "cli";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-export interface ResolvedBuiltinPack {
-  readonly manifest: PackManifest;
-  readonly version: string;
-  readonly skillsDir: string;
-}
+export {
+  BUILTIN_PACK_FQN,
+  BUILTIN_PACK_SCOPE,
+  BUILTIN_PACK_NAME,
+  type ResolvedBuiltinPack,
+} from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Resolution

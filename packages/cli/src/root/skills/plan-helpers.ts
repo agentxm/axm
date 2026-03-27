@@ -8,7 +8,7 @@
  */
 
 import * as Option from "effect/Option";
-import type { LegacyPlan } from "../../workspace/plan-bridge.js";
+import type { LegacyPlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

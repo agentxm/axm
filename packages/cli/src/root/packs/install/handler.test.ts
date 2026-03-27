@@ -17,11 +17,16 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import type { ExtensionFiles, PackExtensionRef } from "@axm.sh/core/unstable/sources";
-import { SourceHostProvidersLive, SourceHostProviders } from "../../../sources/index.js";
-import type { SourceHostProvidersService } from "../../../sources/index.js";
+import {
+  SourceHostProvidersLive,
+  SourceHostProviders,
+} from "@axm.sh/core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { handleInstallPack } from "./handler.js";
 import {
   type InstallPackHandlerArgs,
@@ -33,7 +38,7 @@ import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
 import { CommandManagerLive } from "@axm.sh/core/unstable/extension-managers";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/extension-managers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { getAppError } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -123,7 +128,10 @@ describe("packs install handler", () => {
       scope: "project",
       agents: Option.none(),
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const WsLayer = Layer.provide(
+      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      BaseLayer,
+    );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
@@ -167,7 +175,10 @@ describe("packs install handler", () => {
       scope: "project",
       agents: Option.none(),
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const WsLayer = Layer.provide(
+      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      BaseLayer,
+    );
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,

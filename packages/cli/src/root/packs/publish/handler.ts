@@ -16,11 +16,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { withAuthGuard } from "../../../auth/index.js";
+import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
-import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import {
   formatFqn,
   parseFqn,
@@ -41,7 +41,7 @@ import {
   type PublishMcpServerOperation,
 } from "@axm.sh/core/unstable/extension-managers";
 import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

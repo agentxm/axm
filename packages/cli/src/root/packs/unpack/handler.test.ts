@@ -14,15 +14,15 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceContextOptions } from "../../../workspace/index.js";
-import { SourceHostProvidersLive } from "../../../sources/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import {
   getErrorResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
-import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers

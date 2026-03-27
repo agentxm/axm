@@ -13,11 +13,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import type { LocalSkillRef, RegistrySkillRef, Source } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "../../../sources/index.js";
-import type { SourceHostProvidersService } from "../../../sources/index.js";
-import { Workspace } from "../../../workspace/index.js";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
 

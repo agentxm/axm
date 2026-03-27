@@ -10,12 +10,12 @@
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { EnableSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import { enableSkill } from "@axm.sh/core/unstable/extension-managers";
 import { buildSingleStepPlan } from "../plan-helpers.js";
-import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

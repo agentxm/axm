@@ -14,10 +14,10 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { Workspace } from "../../../workspace/service.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
-import { SourceHostProviders } from "../../../sources/index.js";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   InstallMcpServerCommandWorkflowActions,
   InstallMcpServerCommandWorkflowActionsLive,

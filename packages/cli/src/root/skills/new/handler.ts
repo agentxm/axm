@@ -11,10 +11,10 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { NewSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import { newSkill } from "@axm.sh/core/unstable/extension-managers";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { buildSingleStepPlan } from "../plan-helpers.js";
-import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Constants

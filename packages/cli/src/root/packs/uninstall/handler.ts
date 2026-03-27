@@ -7,7 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { runUninstallCommandWorkflow } from "../../../workflows/uninstall-command/workflow.js";
+import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
 import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,

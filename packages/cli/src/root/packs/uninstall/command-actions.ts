@@ -26,17 +26,17 @@ import {
   type UninstallRetentionPolicy,
 } from "@axm.sh/core/unstable/extension-operations";
 import type { PackExtensionTarget, ExtensionTarget } from "@axm.sh/core/unstable/workspace";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
-import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
+import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type {
   PackExtensionRef,
   SkillExtensionRef,
   CommandExtensionRef,
   McpServerExtensionRef,
 } from "@axm.sh/core/unstable/sources";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

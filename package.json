@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "axm": "nx run cli:start",
-    "axm:local": "nx run cli:start-local",
-    "spike": "nx run cli-spike:spike",
+    "axm": "nx run cli:start --no-tui",
+    "axm:local": "nx run cli:start-local --no-tui",
+    "spike": "nx run cli-spike:spike --no-tui",
     "build": "nx run-many -t build",
     "build:affected": "nx affected -t build",
     "test": "nx run-many -t test",

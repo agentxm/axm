@@ -5,18 +5,17 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { effectCliExit, runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
-import { setRootCommand, showHelpFor } from "./help.js";
 import { axmGlobalFlags, baseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
 import { authCommand } from "./root/auth/command.js";
-import { loginCommand } from "./root/auth/login/command.js";
-import { logoutCommand } from "./root/auth/logout/command.js";
-import { whoamiCommand } from "./root/auth/whoami/command.js";
-import { tokenCommand } from "./root/auth/token/command.js";
-import { initCommand } from "./root/init/command.js";
+import { loginCommand } from "./root/auth/login.js";
+import { logoutCommand } from "./root/auth/logout.js";
+import { whoamiCommand } from "./root/auth/whoami.js";
+import { tokenCommand } from "./root/auth/token.js";
+import { initCommand } from "./root/init.js";
 import { skillsCommand } from "./root/skills/command.js";
 import { packsCommand } from "./root/packs/command.js";
 import { commandsCommand } from "./root/commands/command.js";
@@ -25,9 +24,7 @@ import { mcpServersCommand } from "./root/mcp-servers/command.js";
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
 
-export const rootCommand = Command.make(ROOT_COMMAND, {}, () =>
-  showHelpFor([ROOT_COMMAND]).pipe(Effect.andThen(Effect.fail(effectCliExit(1)))),
-).pipe(
+export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Open extension manager for AI coding agents."),
   Command.withExamples([
     { command: "axm init", description: "Initialize axm in the current project" },
@@ -62,8 +59,6 @@ export const rootCommand = Command.make(ROOT_COMMAND, {}, () =>
   ]),
   Command.withGlobalFlags(axmGlobalFlags),
 );
-
-setRootCommand(rootCommand);
 
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(

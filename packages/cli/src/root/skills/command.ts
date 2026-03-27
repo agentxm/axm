@@ -1,18 +1,17 @@
 import { Command } from "effect/unstable/cli";
 
-import { showHelpFor } from "../../help.js";
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
-import { listCommand } from "./list/command.js";
-import { newCommand } from "./new/command.js";
-import { forkCommand } from "./fork/command.js";
-import { publishCommand } from "./publish/command.js";
+import { listCommand } from "./list.js";
+import { newCommand } from "./new.js";
+import { forkCommand } from "./fork.js";
+import { publishCommand } from "./publish.js";
 import { updateCommand } from "./update/command.js";
-import { enableCommand } from "./enable/command.js";
-import { disableCommand } from "./disable/command.js";
-import { renameCommand } from "./rename/command.js";
+import { enableCommand } from "./enable.js";
+import { disableCommand } from "./disable.js";
+import { renameCommand } from "./rename.js";
 
-export const skillsCommand = Command.make("skills", {}, () => showHelpFor(["axm", "skills"])).pipe(
+export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Install, update, and manage skills"),
   Command.withExamples([
     {

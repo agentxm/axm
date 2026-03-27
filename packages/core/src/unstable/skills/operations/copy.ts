@@ -15,9 +15,9 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory } from "./copy-directory.js";
+import { copySkillDirectory } from "../../extensions/utils.js";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
-import type { SkillExtensionRef } from "../../extensions/index.js";
+import type { SkillExtensionRef } from "../refs.js";
 import { MANIFEST_FILENAME } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
 

@@ -18,14 +18,13 @@ import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { sourceToLockEntry } from "../sources/index.js";
-import type { SkillExtensionRef } from "../extensions/index.js";
+import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";
-import { sanitizeName } from "./utils.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
-import { copySkillDirectory } from "../extensions/utils.js";
+import { copySkillDirectory, sanitizeName } from "../extensions/utils.js";
 import {
   computeIntegrity,
   createSymlink,

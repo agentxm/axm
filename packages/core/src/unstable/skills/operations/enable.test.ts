@@ -12,7 +12,7 @@ import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import { sanitizeName } from "../utils.js";
+import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 

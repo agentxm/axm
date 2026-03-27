@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { GitHostedSkillRef } from "../extensions/index.js";
+import type { GitHostedSkillRef } from "../skills/index.js";
 import type {
   BuiltinSource,
   GitHubSource,

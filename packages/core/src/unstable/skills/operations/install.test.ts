@@ -11,14 +11,14 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { makeAppError } from "../../app-error/index.js";
+import type { ExtensionRef } from "../../extensions/index.js";
 import type {
   BuiltinSkillRef,
-  ExtensionRef,
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-} from "../../extensions/index.js";
+} from "../refs.js";
 import type { Source } from "../../sources/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
@@ -38,7 +38,7 @@ import {
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill } from "./install.js";
-import { sanitizeName } from "../utils.js";
+import { sanitizeName } from "../../extensions/utils.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (

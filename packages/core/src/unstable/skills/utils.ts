@@ -8,11 +8,8 @@
  */
 
 import type { PacksLockMap } from "../lockfile/index.js";
-import type { SkillExtensionRef } from "../extensions/index.js";
+import type { SkillExtensionRef } from "./refs.js";
 import { stripFileProtocol } from "../utils/index.js";
-
-// Re-export sanitizeName from the shared extensions utils
-export { sanitizeName } from "../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
 // Display Name

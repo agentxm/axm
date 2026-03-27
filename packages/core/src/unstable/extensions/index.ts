@@ -43,32 +43,8 @@ export type {
   BuiltinRefDetails,
 } from "./ref-base.js";
 
-// Extension ref types (union + per-type)
-export type {
-  ExtensionRef,
-  // Skill refs
-  GitHostedSkillRef,
-  RegistrySkillRef,
-  LocalSkillRef,
-  BuiltinSkillRef,
-  SkillExtensionRef,
-  // Command refs
-  GitHostedCommandRef,
-  RegistryCommandRef,
-  LocalCommandRef,
-  BuiltinCommandRef,
-  CommandExtensionRef,
-  // MCP server refs
-  GitHostedMcpServerRef,
-  RegistryMcpServerRef,
-  LocalMcpServerRef,
-  BuiltinMcpServerRef,
-  McpServerExtensionRef,
-  // Pack refs
-  RegistryPackRef,
-  BuiltinPackRef,
-  PackExtensionRef,
-} from "./refs.js";
+// Extension ref union type
+export type { ExtensionRef } from "./refs.js";
 
 // Shared utilities
 export { sanitizeName, copyExtensionDirectory, copySkillDirectory } from "./utils.js";

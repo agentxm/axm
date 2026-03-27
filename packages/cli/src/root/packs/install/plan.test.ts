@@ -17,7 +17,7 @@ import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { RegistryPackRef } from "@axm.sh/core/unstable/extensions";
+import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";

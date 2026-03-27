@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe } from "../utils/index.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../extensions/index.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";

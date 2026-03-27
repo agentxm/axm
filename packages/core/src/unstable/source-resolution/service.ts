@@ -27,13 +27,11 @@ import type {
   RegistrySource,
   Source,
 } from "../sources/index.js";
-import {
-  createBuiltinSourceHostProvider,
-  createGitHostingSourceHostProvider,
-  createGitSourceHostProvider,
-  createLocalSourceHostProvider,
-} from "./providers/index.js";
-import { createRegistrySourceHostProviderFromHost } from "./providers/registry/index.js";
+import { createBuiltinSourceHostProvider } from "./providers/builtin.js";
+import { createGitSourceHostProvider } from "./providers/git.js";
+import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
+import { createLocalSourceHostProvider } from "./providers/local.js";
+import { createRegistrySourceHostProviderFromHost } from "./providers/registry/host-provider.js";
 import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 
 // -----------------------------------------------------------------------------

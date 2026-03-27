@@ -18,12 +18,12 @@ export { commandReconciliationAdapter } from "./reconciliation-adapter.js";
 
 export { buildRegistryCommandRef } from "./registry-ref-builder.js";
 
+export type { PublishCommandOperationArgs, PublishCommandOperation } from "./operations/publish.js";
+export { publishCommand } from "./operations/publish.js";
+export type { InstallCommandOperationArgs, InstallCommandOperation } from "./operations/install.js";
+export { installCommand } from "./operations/install.js";
 export type {
-  PublishCommandOperationArgs,
-  PublishCommandOperation,
-  InstallCommandOperationArgs,
-  InstallCommandOperation,
   UninstallCommandOperationArgs,
   UninstallCommandOperation,
-} from "./operations/index.js";
-export { publishCommand, installCommand, uninstallCommand } from "./operations/index.js";
+} from "./operations/uninstall.js";
+export { uninstallCommand } from "./operations/uninstall.js";

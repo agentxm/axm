@@ -25,13 +25,11 @@ import type {
   GetExtensionsByProfileResponse,
   VersionEntry,
 } from "../../../registry/index.js";
-import type {
-  RegistryCommandRef,
-  RegistryMcpServerRef,
-  RegistryPackRef,
-  RegistrySkillRef,
-  ExtensionRef,
-} from "../../../extensions/index.js";
+import type { ExtensionRef } from "../../../extensions/index.js";
+import type { RegistrySkillRef } from "../../../skills/index.js";
+import type { RegistryCommandRef } from "../../../commands/index.js";
+import type { RegistryMcpServerRef } from "../../../mcp-servers/index.js";
+import type { RegistryPackRef } from "../../../packs/index.js";
 import type { RegistrySource, FindOptions } from "../../../sources/index.js";
 import {
   createLocalRegistrySourceHostProvider,

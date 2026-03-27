@@ -28,7 +28,6 @@ export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./p
 
 // Utilities
 export {
-  sanitizeName,
   getSkillDisplayName,
   getSkillFqn,
   isReferencedByPack,
@@ -62,4 +61,3 @@ export type { RenameSkillOperation } from "./operations/rename.js";
 export { renameSkill } from "./operations/rename.js";
 export type { NewSkillOperationArgs, NewSkillOperation } from "./operations/new-skill.js";
 export { newSkill } from "./operations/new-skill.js";
-export { copySkillDirectory } from "./operations/copy-directory.js";

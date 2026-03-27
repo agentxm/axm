@@ -38,17 +38,20 @@ export {
 export { packReconciliationAdapter } from "./reconciliation-adapter.js";
 
 // Operations
-export type { InstallPackOperationArgs, InstallPackOperation } from "./operations/index.js";
-export { installPack } from "./operations/index.js";
-export type { UninstallPackOperationArgs, UninstallPackOperation } from "./operations/index.js";
-export { uninstallPack } from "./operations/index.js";
-export type { NewPackOperationArgs, NewPackOperation } from "./operations/index.js";
-export { newPack } from "./operations/index.js";
-export type { AddToPackOperationArgs, AddToPackOperation } from "./operations/index.js";
-export { addToPack } from "./operations/index.js";
-export type { RemoveFromPackOperationArgs, RemoveFromPackOperation } from "./operations/index.js";
-export { removeFromPack } from "./operations/index.js";
-export type { PublishPackOperationArgs, PublishPackOperation } from "./operations/index.js";
-export { publishPack } from "./operations/index.js";
-export type { UnpackPackOperationArgs, UnpackPackOperation } from "./operations/index.js";
-export { unpackPack } from "./operations/index.js";
+export type { InstallPackOperationArgs, InstallPackOperation } from "./operations/install.js";
+export { installPack } from "./operations/install.js";
+export type { UninstallPackOperationArgs, UninstallPackOperation } from "./operations/uninstall.js";
+export { uninstallPack } from "./operations/uninstall.js";
+export type { NewPackOperationArgs, NewPackOperation } from "./operations/new-pack.js";
+export { newPack } from "./operations/new-pack.js";
+export type { AddToPackOperationArgs, AddToPackOperation } from "./operations/add-to-pack.js";
+export { addToPack } from "./operations/add-to-pack.js";
+export type {
+  RemoveFromPackOperationArgs,
+  RemoveFromPackOperation,
+} from "./operations/remove-from-pack.js";
+export { removeFromPack } from "./operations/remove-from-pack.js";
+export type { PublishPackOperationArgs, PublishPackOperation } from "./operations/publish.js";
+export { publishPack } from "./operations/publish.js";
+export type { UnpackPackOperationArgs, UnpackPackOperation } from "./operations/unpack.js";
+export { unpackPack } from "./operations/unpack.js";

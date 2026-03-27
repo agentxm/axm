@@ -16,7 +16,7 @@ import type * as Scope from "effect/Scope";
 import { discoverSkillsInDir } from "../discover-skills.js";
 import { makeAppError } from "../../app-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
-import type { SkillExtensionRef } from "../../extensions/index.js";
+import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type {
   SourceHostProvider,

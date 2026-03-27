@@ -24,13 +24,10 @@ import type {
   LocalRefDetails,
   RegistryRefDetails,
 } from "../extensions/ref-base.js";
-import type {
-  BuiltinPackRef,
-  ExtensionRef,
-  McpServerExtensionRef,
-  PackExtensionRef,
-  SkillExtensionRef,
-} from "../extensions/refs.js";
+import type { ExtensionRef } from "../extensions/refs.js";
+import type { SkillExtensionRef } from "../skills/refs.js";
+import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
+import type { PackExtensionRef, BuiltinPackRef } from "../packs/refs.js";
 
 // -----------------------------------------------------------------------------
 // SourceType

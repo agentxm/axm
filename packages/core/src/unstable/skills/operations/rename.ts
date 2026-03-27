@@ -15,12 +15,11 @@ import matter from "gray-matter";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createSymlink } from "../../utils/index.js";
-import { copySkillDirectory } from "./copy-directory.js";
+import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import type { SkillPathSource } from "../paths.js";
-import { sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

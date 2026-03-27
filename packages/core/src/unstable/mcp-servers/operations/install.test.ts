@@ -13,11 +13,8 @@ import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../
 import type { CodingAgent } from "../../agents/coding-agent.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import type {
-  ExtensionRef,
-  McpServerExtensionRef,
-  RegistryMcpServerRef,
-} from "../../extensions/index.js";
+import type { ExtensionRef } from "../../extensions/index.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";

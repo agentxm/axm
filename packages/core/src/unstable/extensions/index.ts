@@ -47,7 +47,7 @@ export type {
 export type { ExtensionRef } from "./refs.js";
 
 // Shared utilities
-export { sanitizeName, copyExtensionDirectory, copySkillDirectory } from "./utils.js";
+export { sanitizeName, copyExtensionDirectory } from "./utils.js";
 
 // Extension operations
 export {

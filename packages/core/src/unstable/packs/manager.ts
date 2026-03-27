@@ -19,7 +19,7 @@ import type { PackExtensionRef, RegistryPackRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace, type SetPackArgs } from "../workspace/service-interface.js";
-import { copySkillDirectory } from "../extensions/utils.js";
+import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { computePackPaths } from "./paths.js";
 import { removeIfExists } from "../utils/index.js";
@@ -141,7 +141,7 @@ export const PackManagerLive = Layer.effect(
               ref.pack.name,
             ).canonicalPath;
             yield* provide(
-              copySkillDirectory(fetched.directory, packDir).pipe(
+              copyExtensionDirectory(fetched.directory, packDir).pipe(
                 Effect.mapError((e) =>
                   makeAppError({
                     code: "PACK_EXTRACT_FAILED",
@@ -194,7 +194,7 @@ export const PackManagerLive = Layer.effect(
             ),
           );
           yield* provide(
-            copySkillDirectory(fetched.directory, packDir).pipe(
+            copyExtensionDirectory(fetched.directory, packDir).pipe(
               Effect.mapError((e) =>
                 makeAppError({
                   code: "PACK_EXTRACT_FAILED",

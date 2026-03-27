@@ -15,8 +15,7 @@ import * as Layer from "effect/Layer";
 import { DEFAULT_PROFILE } from "../settings/index.js";
 import { type AppError } from "../app-error/index.js";
 import type { Settings } from "../settings/index.js";
-import type { JobStepResult, Plan, PlannedJobStep } from "./plan.js";
-import type { OperationResult } from "./plan.js";
+import type { Plan, PlannedJobStep } from "./plan.js";
 import type { ReconciliationContext } from "./reconciliation-types.js";
 import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./reconciliation.js";
 
@@ -72,18 +71,10 @@ export const augmentPlanWithReconciliation = (
       settings,
     };
 
-    const toJobStepResult = (result: OperationResult): JobStepResult =>
-      result.result === "error"
-        ? { result: "error", message: result.message, error: result.error }
-        : { result: "success", message: result.message };
-
     const readRecoverStep: PlannedJobStep = {
       readiness: "ready",
       label: `Recover lockfile (${reason})`,
-      run: runReadRecoverOperation(reconciliationContext).pipe(
-        Effect.map(toJobStepResult),
-        Effect.provide(fsLayer),
-      ),
+      run: runReadRecoverOperation(reconciliationContext).pipe(Effect.provide(fsLayer)),
     };
 
     const materializeStep: PlannedJobStep = {
@@ -91,7 +82,7 @@ export const augmentPlanWithReconciliation = (
       label: `Reconcile lockfile (${reason})`,
       run: runReconcileMaterializeOperation(reconciliationContext, workspaceDir, reason, {
         allowMissingDeclarations: true,
-      }).pipe(Effect.map(toJobStepResult), Effect.provide(fsLayer)),
+      }).pipe(Effect.provide(fsLayer)),
     };
 
     return {

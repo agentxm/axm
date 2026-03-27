@@ -220,7 +220,7 @@ describe("addToPack", () => {
       }),
     );
 
-    it.effect("returns no-op when additions map is empty", () =>
+    it.effect("returns success when additions map is empty", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
@@ -229,7 +229,7 @@ describe("addToPack", () => {
           Effect.provide(withServices(axmDir)),
         );
 
-        expect(result.result).toBe("no-op");
+        expect(result.result).toBe("success");
       }),
     );
   });

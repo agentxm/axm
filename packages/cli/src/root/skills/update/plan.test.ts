@@ -6,28 +6,27 @@
  */
 
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
-import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
-import { buildUpdatePlan } from "./plan.js";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 
-const isPlannedStep = <T>(step: { readonly _tag: string }): step is LegacyPlannedStep<T> =>
-  step._tag === "PlannedJobStep";
+// A stub MakeRunClosure that returns a tagged success result
+const stubRunClosure: MakeRunClosure = (op) =>
+  Effect.succeed<JobStepResult>({
+    result: "success",
+    message: `executed ${op.name}`,
+  });
 
-const planned = <T>(step: { readonly _tag: string }): LegacyPlannedStep<T> => {
-  if (!isPlannedStep<T>(step)) {
-    throw new Error("Expected PlannedJobStep");
-  }
-
-  return step;
+/** Run a step's closure (if present) and return the result message. */
+const runStep = (step: PlannedJobStep) => {
+  if (step.readiness === "error") return "error";
+  return Effect.runSync(step.run).message;
 };
-
-type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
-type UpdatePlan = LegacyPlan<UpdateOperation>;
-type UpdateStep = LegacyPlannedStep<UpdateOperation>;
 
 const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T => {
   const item = items[index];
@@ -37,13 +36,14 @@ const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T =>
   return item;
 };
 
-const getJob = (plan: UpdatePlan) => getItem(plan.jobs, 0, "job");
+const getJob = (plan: Plan) => getItem(plan.jobs, 0, "job");
 
-const getSteps = (plan: UpdatePlan) => getJob(plan).steps;
+const getSteps = (plan: Plan) => getJob(plan).steps;
 
-const getStep = (steps: ReadonlyArray<UpdateStep>, index: number) => getItem(steps, index, "step");
+const getStep = (steps: ReadonlyArray<PlannedJobStep>, index: number) =>
+  getItem(steps, index, "step");
 
-const getFirstStep = (plan: UpdatePlan) => getStep(getSteps(plan), 0);
+const getFirstStep = (plan: Plan) => getStep(getSteps(plan), 0);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -304,6 +304,16 @@ const lockfileWith = (entries: Record<string, SkillLockEntry>): Lockfile => ({
   skills: entries,
 });
 
+/**
+ * Determine if a step uses the stub run closure (operation was dispatched)
+ * vs. a no-op success closure (skipped/already up to date).
+ */
+const isSkipStep = (step: PlannedJobStep): boolean => {
+  if (step.readiness === "error") return false;
+  const result = Effect.runSync(step.run);
+  return result.message === "already up to date";
+};
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
@@ -327,12 +337,10 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
+    expect(runStep(getFirstStep(plan))).toBe("executed install-skill");
   });
 
   it("marks git source as skip when gitTreeHash unchanged", () => {
@@ -349,12 +357,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "skip",
-      message: "already up to date",
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(true);
   });
 
   it("marks git source as ready when lockfile gitTreeHash is missing", () => {
@@ -371,12 +376,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("marks git source as ready when operation gitTreeSha is missing", () => {
@@ -393,12 +395,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("marks git source as ready when both gitTreeHash and gitTreeSha are missing", () => {
@@ -415,12 +414,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("handles gitlab source with git hash comparison", () => {
@@ -437,9 +433,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("handles bitbucket source with git hash comparison", () => {
@@ -456,9 +452,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness.status).toBe("skip");
+    expect(isSkipStep(getFirstStep(plan))).toBe(true);
   });
 
   it("handles azurerepos source with git hash comparison", () => {
@@ -476,9 +472,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("handles generic git source with git hash comparison", () => {
@@ -494,9 +490,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -519,12 +515,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("marks registry source as skip when resolvedVersion unchanged", () => {
@@ -543,12 +536,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "skip",
-      message: "already up to date",
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(true);
   });
 
   // ---------------------------------------------------------------------------
@@ -561,12 +551,9 @@ describe("buildUpdatePlan", () => {
       commit: makeLockEntry({ type: "builtin" }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "skip",
-      message: "already up to date",
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(true);
   });
 
   it("marks builtin source as ready when force is true", () => {
@@ -575,12 +562,9 @@ describe("buildUpdatePlan", () => {
       commit: makeLockEntry({ type: "builtin" }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -593,12 +577,9 @@ describe("buildUpdatePlan", () => {
       commit: makeLockEntry({ type: "local", path: "/installed" }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -620,12 +601,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   it("marks as ready when force is true for registry with same version", () => {
@@ -645,9 +623,9 @@ describe("buildUpdatePlan", () => {
       }),
     });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness.status).toBe("ready");
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -657,12 +635,9 @@ describe("buildUpdatePlan", () => {
   it("marks as ready when skill is not in lockfile", () => {
     const op = makeOp("new-skill", { sourceType: "github", gitTreeSha: Option.some("sha") });
 
-    const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none());
+    const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none(), stubRunClosure);
 
-    expect(planned(getFirstStep(plan)).readiness).toEqual({
-      status: "ready",
-      message: Option.none(),
-    });
+    expect(isSkipStep(getFirstStep(plan))).toBe(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -670,7 +645,7 @@ describe("buildUpdatePlan", () => {
   // ---------------------------------------------------------------------------
 
   it("produces empty steps from empty operations", () => {
-    const plan = buildUpdatePlan([], emptyLockfile, "Update", Option.none());
+    const plan = buildUpdatePlan([], emptyLockfile, "Update", Option.none(), stubRunClosure);
 
     expect(plan.jobs).toHaveLength(1);
     expect(getSteps(plan)).toHaveLength(0);
@@ -682,6 +657,7 @@ describe("buildUpdatePlan", () => {
       emptyLockfile,
       "Update",
       Option.none(),
+      stubRunClosure,
     );
 
     const steps = getSteps(plan);
@@ -695,6 +671,7 @@ describe("buildUpdatePlan", () => {
       emptyLockfile,
       "Update skill(s)",
       Option.some("Update skills from github:owner/repo"),
+      stubRunClosure,
     );
 
     expect(plan.name).toBe("Update skill(s)");
@@ -707,10 +684,23 @@ describe("buildUpdatePlan", () => {
       emptyLockfile,
       "Update",
       Option.none(),
+      stubRunClosure,
     );
 
     expect(plan.jobs).toHaveLength(1);
     expect(getJob(plan).concurrency).toBe("unbounded");
+  });
+
+  it("has _tag Plan", () => {
+    const plan = buildUpdatePlan(
+      [makeOp("a")],
+      emptyLockfile,
+      "Update",
+      Option.none(),
+      stubRunClosure,
+    );
+
+    expect(plan._tag).toBe("Plan");
   });
 
   it("handles mixed ready and skip readiness", () => {
@@ -741,14 +731,14 @@ describe("buildUpdatePlan", () => {
       "local-skill": makeLockEntry({ type: "local", path: "/local" }),
     });
 
-    const plan = buildUpdatePlan(ops, lf, "Update", Option.none());
+    const plan = buildUpdatePlan(ops, lf, "Update", Option.none(), stubRunClosure);
 
     const steps = getSteps(plan);
-    expect(planned(getStep(steps, 0)).readiness.status).toBe("ready");
+    expect(isSkipStep(getStep(steps, 0))).toBe(false);
     expect(getStep(steps, 0).label).toBe("changed");
-    expect(planned(getStep(steps, 1)).readiness.status).toBe("skip");
+    expect(isSkipStep(getStep(steps, 1))).toBe(true);
     expect(getStep(steps, 1).label).toBe("unchanged");
-    expect(planned(getStep(steps, 2)).readiness.status).toBe("ready");
+    expect(isSkipStep(getStep(steps, 2))).toBe(false);
     expect(getStep(steps, 2).label).toBe("local-skill");
   });
 
@@ -763,12 +753,20 @@ describe("buildUpdatePlan", () => {
       args: { skillName: "old-name", agents: [] },
     };
 
-    const plan = buildUpdatePlan([installOp, uninstallOp], emptyLockfile, "Update", Option.none());
+    const plan = buildUpdatePlan(
+      [installOp, uninstallOp],
+      emptyLockfile,
+      "Update",
+      Option.none(),
+      stubRunClosure,
+    );
 
     const steps = getSteps(plan);
     expect(steps).toHaveLength(2);
-    expect(getStep(steps, 0).operation.name).toBe("install-skill");
-    expect(getStep(steps, 1).operation.name).toBe("uninstall-skill");
+    // First step should be install (dispatched to stub closure)
+    expect(runStep(getStep(steps, 0))).toBe("executed install-skill");
+    // Second step should be uninstall (dispatched to stub closure)
+    expect(runStep(getStep(steps, 1))).toBe("executed uninstall-skill");
   });
 
   it("gives UninstallSkillOperation steps a rename cleanup label", () => {
@@ -777,12 +775,17 @@ describe("buildUpdatePlan", () => {
       args: { skillName: "old-name", agents: [] },
     };
 
-    const plan = buildUpdatePlan([uninstallOp], emptyLockfile, "Update", Option.none());
+    const plan = buildUpdatePlan(
+      [uninstallOp],
+      emptyLockfile,
+      "Update",
+      Option.none(),
+      stubRunClosure,
+    );
 
     const step = getFirstStep(plan);
     expect(step.label).toContain("old-name");
     expect(step.label).toContain("renamed");
-    expect(planned(step).readiness.status).toBe("ready");
   });
 
   it("handles mixed install and uninstall operations", () => {
@@ -800,12 +803,13 @@ describe("buildUpdatePlan", () => {
       emptyLockfile,
       "Update skill(s)",
       Option.some("Rename detected"),
+      stubRunClosure,
     );
 
     const steps = getSteps(plan);
     expect(steps).toHaveLength(2);
     expect(getStep(steps, 0).label).toBe("new-skill");
-    expect(planned(getStep(steps, 0)).readiness.status).toBe("ready");
+    expect(isSkipStep(getStep(steps, 0))).toBe(false);
     expect(getStep(steps, 1).label).toContain("old-skill");
     expect(getStep(steps, 1).label).toContain("renamed");
   });

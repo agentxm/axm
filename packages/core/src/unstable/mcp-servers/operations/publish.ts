@@ -22,9 +22,8 @@ import {
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
-import { makeAppError } from "../../app-error/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -64,10 +63,9 @@ export type PublishMcpServerOperation = Operation<
  * 4. Resolve target registry provider by source name
  * 5. Publish version (idempotent: same integrity = no-op, different integrity = error)
  */
-export const publishMcpServer: OperationHandler<
-  PublishMcpServerOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
-> = (op) =>
+export const publishMcpServer: (
+  op: PublishMcpServerOperation,
+) => Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path | Workspace> = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -188,5 +186,5 @@ export const publishMcpServer: OperationHandler<
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

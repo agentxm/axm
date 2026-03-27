@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
@@ -34,7 +35,6 @@ import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@axm.sh/core/unstable/skills";
 import { uninstallSkill } from "@axm.sh/core/unstable/skills";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import {
   detectHoldbackWarnings,
@@ -498,23 +498,52 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     ];
   });
 
-  // Step 9: Build plan
+  // Step 9: Capture services for run closures
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
+
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+  }): import("@axm.sh/core/unstable/workspace").JobStepResult =>
+    result.result === "error" && result.error != null
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
+
+  const makeRunClosure: import("./plan.js").MakeRunClosure = (op) => {
+    if (op.name === "install-skill") {
+      return installSkill(op).pipe(
+        Effect.map(toJobStepResult),
+        Effect.provideService(Workspace, ws),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(SourceHostProviders, sources),
+        Effect.provideService(CodingAgentRepository, agentRepo),
+      );
+    }
+    return uninstallSkill(op).pipe(
+      Effect.map(toJobStepResult),
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+  };
+
+  // Step 10: Build plan
   const lockfile = { lockfileVersion: 1, skills: lockedSkills };
   const plan = buildUpdatePlan(
     ops,
     lockfile,
     "Update skill(s)",
     Option.some("Update installed skills"),
+    makeRunClosure,
   );
 
-  // Step 10: Resolve plan
-  yield* resolvePlan(
-    bridgeLegacyPlan(plan, {
-      "install-skill": installSkill,
-      "uninstall-skill": uninstallSkill,
-    }),
-    { yes: args.yes, force: args.force, preview: args.preview },
-  );
+  // Step 11: Resolve plan
+  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
   yield* renderer.success("Done");
 });

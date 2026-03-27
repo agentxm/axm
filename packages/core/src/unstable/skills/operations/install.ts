@@ -35,9 +35,10 @@ import { makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
+import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 
 // -----------------------------------------------------------------------------
@@ -97,7 +98,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     const ws = yield* Workspace;
 
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, sanitizedName, path);
-    yield* copySkillDirectory(sourcePath, copyTarget).pipe(
+    yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "INSTALL_SKILL_COPY_FAILED",
@@ -297,7 +298,7 @@ const installForDirectory = (opts: {
           }) satisfies InstallResult,
       ),
       Effect.catch(() =>
-        copySkillDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
+        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
           Effect.map(
             () =>
               ({
@@ -401,7 +402,7 @@ export const installSkill: OperationHandler<
           what: message,
           details: unknownConfiguredAgentIds,
         }),
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
@@ -438,7 +439,7 @@ export const installSkill: OperationHandler<
           what: message,
           details,
         }),
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     const skippedByOutcome = Array.filter(
@@ -536,11 +537,11 @@ export const installSkill: OperationHandler<
           what: message,
           details: failedAgents,
         }),
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     return {
       result: "success",
       message: `Installed ${ref.skill.name}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

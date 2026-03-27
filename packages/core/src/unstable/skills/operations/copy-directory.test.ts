@@ -7,12 +7,12 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
-import { copySkillDirectory } from "../../extensions/utils.js";
+import { copyExtensionDirectory } from "../../extensions/utils.js";
 
 const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
-describe("copySkillDirectory", () => {
+describe("copyExtensionDirectory", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe("copySkillDirectory", () => {
         fs.writeFileSync(path.join(src, "SKILL.md"), "# My Skill");
         fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.readFileSync(path.join(dest, "SKILL.md"), "utf-8")).toBe("# My Skill");
         expect(fs.readFileSync(path.join(dest, "prompt.md"), "utf-8")).toBe("prompt content");
@@ -49,7 +49,7 @@ describe("copySkillDirectory", () => {
         fs.writeFileSync(path.join(src, "SKILL.md"), "content");
         fs.writeFileSync(path.join(src, "README.md"), "readme");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.existsSync(path.join(dest, "SKILL.md"))).toBe(true);
         expect(fs.existsSync(path.join(dest, "README.md"))).toBe(false);
@@ -66,7 +66,7 @@ describe("copySkillDirectory", () => {
         fs.writeFileSync(path.join(src, "SKILL.md"), "content");
         fs.writeFileSync(path.join(src, "metadata.json"), "{}");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.existsSync(path.join(dest, "metadata.json"))).toBe(false);
       }),
@@ -84,7 +84,7 @@ describe("copySkillDirectory", () => {
         fs.writeFileSync(path.join(src, "_private", "secret.txt"), "secret");
         fs.writeFileSync(path.join(src, "_hidden.txt"), "hidden");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.existsSync(path.join(dest, "_private"))).toBe(false);
         expect(fs.existsSync(path.join(dest, "_hidden.txt"))).toBe(false);
@@ -102,7 +102,7 @@ describe("copySkillDirectory", () => {
         fs.mkdirSync(path.join(src, ".git"));
         fs.writeFileSync(path.join(src, ".git", "HEAD"), "ref");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.existsSync(path.join(dest, ".git"))).toBe(false);
       }),
@@ -120,7 +120,7 @@ describe("copySkillDirectory", () => {
         fs.mkdirSync(path.join(src, "lib", "nested"));
         fs.writeFileSync(path.join(src, "lib", "nested", "deep.ts"), "deep");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.readFileSync(path.join(dest, "lib", "helper.ts"), "utf-8")).toBe(
           "export const x = 1;",
@@ -141,7 +141,7 @@ describe("copySkillDirectory", () => {
         fs.writeFileSync(realFile, "real content");
         fs.symlinkSync(realFile, path.join(src, "linked.txt"));
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         const destFile = path.join(dest, "linked.txt");
         expect(fs.existsSync(destFile)).toBe(true);
@@ -160,7 +160,7 @@ describe("copySkillDirectory", () => {
         fs.mkdirSync(src);
         fs.writeFileSync(path.join(src, "SKILL.md"), "content");
 
-        yield* copySkillDirectory(src, dest);
+        yield* copyExtensionDirectory(src, dest);
 
         expect(fs.existsSync(dest)).toBe(true);
         expect(fs.readFileSync(path.join(dest, "SKILL.md"), "utf-8")).toBe("content");

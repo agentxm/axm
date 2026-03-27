@@ -7,6 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -16,11 +19,10 @@ import type { EnableSkillOperation } from "@axm.sh/core/unstable/skills";
 import { enableSkill } from "@axm.sh/core/unstable/skills";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
-import { buildSingleStepPlan } from "./plan-helpers.js";
-import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
-import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -44,6 +46,8 @@ export interface EnableHandlerArgs {
 export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
   const ws = yield* Workspace;
   const renderer = yield* CliRenderer;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
   yield* renderer.info("axm skills enable");
 
@@ -73,15 +77,35 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     args: { skillName: args.name },
   } satisfies EnableSkillOperation;
 
-  // Build and resolve single-step plan
-  const plan = buildSingleStepPlan({
-    operation: op,
-    name: "Enable skill",
-    description: `Enable ${args.name}`,
-    label: args.name,
-  });
+  // Build plan with inline run closure
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: import("@axm.sh/core/unstable/app-error").AppError;
+  }): JobStepResult =>
+    result.result === "error" && result.error != null
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
 
-  yield* resolvePlan(bridgeLegacyPlan(plan, { "enable-skill": enableSkill }), {
+  const step: PlannedJobStep = {
+    readiness: "ready",
+    label: args.name,
+    run: enableSkill(op).pipe(
+      Effect.map(toJobStepResult),
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
+  };
+
+  const plan: Plan = {
+    _tag: "Plan",
+    name: "Enable skill",
+    description: Option.some(`Enable ${args.name}`),
+    jobs: [{ concurrency: 1 as const, steps: [step] }],
+  };
+
+  yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

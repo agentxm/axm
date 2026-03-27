@@ -17,11 +17,10 @@ import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agen
 import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
@@ -345,8 +344,11 @@ const syncConfiguredAgentsOnInstall = (args: {
  * Registry-only: fetch archive, validate integrity, extract to canonical path,
  * then update lockfile/settings.
  */
-export const installMcpServer: OperationHandler<
-  InstallMcpServerOperation,
+export const installMcpServer: (
+  op: InstallMcpServerOperation,
+) => Effect.Effect<
+  JobStepResult,
+  AppError,
   FileSystem.FileSystem | Path.Path | Workspace | CliRenderer | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
@@ -390,5 +392,5 @@ export const installMcpServer: OperationHandler<
     return {
       result: "success",
       message: `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

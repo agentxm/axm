@@ -13,9 +13,10 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory } from "../../extensions/utils.js";
+import { copyExtensionDirectory } from "../../extensions/utils.js";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import type { SkillExtensionRef } from "../refs.js";
 import { MANIFEST_FILENAME } from "../manifest-schema.js";
@@ -89,7 +90,7 @@ export const copySkill: OperationHandler<
     const sourcePath = stripFileProtocol(ref.location);
 
     // Copy source files to src/ subdirectory (manifest stays at extension root)
-    yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(
+    yield* copyExtensionDirectory(sourcePath, path.join(targetDir, "src")).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "COPY_SKILL_FAILED",
@@ -121,5 +122,5 @@ export const copySkill: OperationHandler<
     return {
       result: "success",
       message: `Copied ${fqn.name} to ${op.args.targetName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

@@ -14,27 +14,17 @@ import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
 
 // -----------------------------------------------------------------------------
-// Legacy types (used by non-migrated operation handlers)
-// These will be removed in a future phase.
+// Operation type
 // -----------------------------------------------------------------------------
 
-/** @deprecated Use inline types instead. Will be removed in a future phase. */
+/**
+ * Generic operation type used by all extension operation handlers.
+ * Each operation is identified by a string name and carries typed args.
+ */
 export interface Operation<TName extends string, TArgs> {
   readonly name: TName;
   readonly args: TArgs;
 }
-
-/** @deprecated Use JobStepResult instead. Will be removed in a future phase. */
-export type OperationResult =
-  | {
-      readonly result: "no-op" | "success";
-      readonly message: string;
-    }
-  | {
-      readonly result: "error";
-      readonly message: string;
-      readonly error: AppError;
-    };
 
 // -----------------------------------------------------------------------------
 // Step result types

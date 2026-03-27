@@ -14,7 +14,8 @@ import * as Option from "effect/Option";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
@@ -124,7 +125,7 @@ export const uninstallSkill: OperationHandler<
     const installedOnDisk = yield* existsInAnyLocation(fs, base, sanitizedName, path);
 
     if (!lockEntry && !installedOnDisk) {
-      return { result: "no-op", message: "not installed" } satisfies OperationResult;
+      return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
     // Determine which agents to remove from
@@ -173,7 +174,7 @@ export const uninstallSkill: OperationHandler<
         return {
           result: "success",
           message: `Uninstalled ${op.args.skillName} from ${agentList}`,
-        } satisfies OperationResult;
+        } satisfies JobStepResult;
       }
       // Fall through to full uninstall if no agents remain
     }
@@ -190,7 +191,7 @@ export const uninstallSkill: OperationHandler<
       return {
         result: "success",
         message: `Uninstalled ${op.args.skillName}`,
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     // Full uninstall: remove from all known canonical locations
@@ -204,5 +205,5 @@ export const uninstallSkill: OperationHandler<
     return {
       result: "success",
       message: `Uninstalled ${op.args.skillName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

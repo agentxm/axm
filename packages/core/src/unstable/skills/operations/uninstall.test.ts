@@ -431,7 +431,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("skill not installed anywhere", () => {
-    it.effect("returns no-op when not in lockfile and no files on disk", () =>
+    it.effect("returns success when not in lockfile and no files on disk", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -442,7 +442,7 @@ describe("uninstallSkill", () => {
           Effect.provide(withServices(axmDir, {})),
         );
 
-        expect(result.result).toBe("no-op");
+        expect(result.result).toBe("success");
         expect(result.message).toBe("not installed");
       }),
     );

@@ -16,9 +16,10 @@ import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { copySkillDirectory, sanitizeName } from "../../extensions/utils.js";
+import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -71,7 +72,7 @@ export const enableSkill: OperationHandler<
       return {
         result: "success",
         message: `Enabled ${op.args.skillName}`,
-      } satisfies OperationResult;
+      } satisfies JobStepResult;
     }
 
     // Lock-backed path: full enable with symlinks
@@ -99,7 +100,9 @@ export const enableSkill: OperationHandler<
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
           Effect.catch(() =>
-            copySkillDirectory(skillSrcPath, agentSkillPath).pipe(Effect.catch(() => Effect.void)),
+            copyExtensionDirectory(skillSrcPath, agentSkillPath).pipe(
+              Effect.catch(() => Effect.void),
+            ),
           ),
         );
       },
@@ -117,5 +120,5 @@ export const enableSkill: OperationHandler<
     return {
       result: "success",
       message: `Enabled ${op.args.skillName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

@@ -21,7 +21,7 @@ import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
+import type { Job, JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import {
   formatFqn,
   parseFqn,
@@ -171,6 +171,25 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   yield* renderer.info("axm packs publish");
 
+  // Capture services for run closures
+  const provideServices = <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+  ): Effect.Effect<A, E, never> =>
+    effect.pipe(
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: AppError;
+  }): JobStepResult =>
+    result.result === "error" && result.error !== undefined
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
+
   // Step 1: Resolve pack name
   const hasProfile = args.pack.startsWith("@") && args.pack.includes("/");
   const packName = yield* hasProfile
@@ -233,7 +252,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   );
 
   // Step 3: Discover local dependencies (when --include-dependencies)
-  const dependencySteps: LegacyPlannedStep<PackPublishOp>[] = [];
+  const dependencySteps: PlannedJobStep[] = [];
 
   if (args.includeDependencies) {
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -292,7 +311,13 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
 
           if (exists) {
-            const step = yield* makeDependencyStep(parsed, depFqn, targetRegistry.registryName);
+            const step = yield* makeDependencyStep(
+              parsed,
+              depFqn,
+              targetRegistry.registryName,
+              provideServices,
+              toJobStepResult,
+            );
             dependencySteps.push(step);
           } else {
             yield* renderer.warn(`Skipping non-local dependency: ${depFqn}`);
@@ -302,24 +327,22 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
   }
 
-  // Step 4: Build plan
-  const packStep: LegacyPlannedStep<PackPublishOp> = {
-    _tag: "PlannedJobStep",
-    operation: {
-      name: "publish-pack",
-      args: {
-        name: packName,
-        registryName: targetRegistry.registryName,
-      },
-    } satisfies PublishPackOperation,
-    readiness: { status: "ready", message: Option.none() },
-    label: `Publish ${packName}`,
+  // Step 4: Build plan with inline run closures
+  const packOp: PublishPackOperation = {
+    name: "publish-pack",
+    args: {
+      name: packName,
+      registryName: targetRegistry.registryName,
+    },
   };
 
-  const jobs: Array<{
-    readonly steps: ReadonlyArray<LegacyPlannedStep<PackPublishOp>>;
-    readonly concurrency: "unbounded" | 1;
-  }> =
+  const packStep: PlannedJobStep = {
+    readiness: "ready",
+    label: `Publish ${packName}`,
+    run: provideServices(publishPack(packOp)).pipe(Effect.map(toJobStepResult)),
+  };
+
+  const jobs: ReadonlyArray<Job> =
     dependencySteps.length > 0
       ? [
           { steps: dependencySteps, concurrency: "unbounded" as const },
@@ -327,21 +350,14 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         ]
       : [{ steps: [packStep], concurrency: 1 as const }];
 
-  const plan = {
+  const plan: Plan = {
+    _tag: "Plan",
     name: "Publish pack",
     description: Option.some(`Publish ${packName} to registry "${targetRegistry.registryName}"`),
     jobs,
   };
 
-  yield* resolvePlan(
-    bridgeLegacyPlan(plan, {
-      "publish-pack": publishPack,
-      "publish-skill": publishSkill,
-      "publish-command": publishCommandOp,
-      "publish-mcp-server": publishMcpServer,
-    }),
-    { yes: args.yes, force: args.force, preview: args.preview },
-  );
+  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
   yield* renderer.success("Done");
 });
@@ -355,38 +371,51 @@ const makeDependencyStep = (
   parsed: Fqn,
   depFqn: string,
   registryName: string,
-): Effect.Effect<LegacyPlannedStep<PackPublishOp>, AppError> => {
-  const base = {
-    _tag: "PlannedJobStep" as const,
-    readiness: { status: "ready" as const, message: Option.none() },
-    label: `Publish dependency ${depFqn}`,
-  };
+  provideServices: <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Workspace>,
+  ) => Effect.Effect<A, E, never>,
+  toJobStepResult: (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: AppError;
+  }) => JobStepResult,
+): Effect.Effect<PlannedJobStep, AppError> => {
+  const label = `Publish dependency ${depFqn}`;
 
   switch (parsed.type) {
-    case "skills":
+    case "skills": {
+      const op: PublishSkillOperation = {
+        name: "publish-skill",
+        args: { name: depFqn, registryName },
+      };
       return Effect.succeed({
-        ...base,
-        operation: {
-          name: "publish-skill",
-          args: { name: depFqn, registryName },
-        } satisfies PublishSkillOperation,
-      });
-    case "commands":
+        readiness: "ready",
+        label,
+        run: provideServices(publishSkill(op)).pipe(Effect.map(toJobStepResult)),
+      } satisfies PlannedJobStep);
+    }
+    case "commands": {
+      const op: PublishCommandOperation = {
+        name: "publish-command",
+        args: { name: depFqn, registryName },
+      };
       return Effect.succeed({
-        ...base,
-        operation: {
-          name: "publish-command",
-          args: { name: depFqn, registryName },
-        } satisfies PublishCommandOperation,
-      });
-    case "mcp-servers":
+        readiness: "ready",
+        label,
+        run: provideServices(publishCommandOp(op)).pipe(Effect.map(toJobStepResult)),
+      } satisfies PlannedJobStep);
+    }
+    case "mcp-servers": {
+      const op: PublishMcpServerOperation = {
+        name: "publish-mcp-server",
+        args: { name: depFqn, registryName },
+      };
       return Effect.succeed({
-        ...base,
-        operation: {
-          name: "publish-mcp-server",
-          args: { name: depFqn, registryName },
-        } satisfies PublishMcpServerOperation,
-      });
+        readiness: "ready",
+        label,
+        run: provideServices(publishMcpServer(op)).pipe(Effect.map(toJobStepResult)),
+      } satisfies PlannedJobStep);
+    }
     case "packs":
       return Effect.fail(
         makeAppError({

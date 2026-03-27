@@ -11,9 +11,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError } from "../../app-error/index.js";
-import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 
@@ -49,10 +48,9 @@ export type UninstallCommandOperation = Operation<
  * 2. Remove canonical directory from disk (if exists)
  * 3. Remove lockfile + settings entry
  */
-export const uninstallCommand: OperationHandler<
-  UninstallCommandOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
-> = (op) =>
+export const uninstallCommand: (
+  op: UninstallCommandOperation,
+) => Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path | Workspace> = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -74,7 +72,7 @@ export const uninstallCommand: OperationHandler<
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.commandName);
 
     if (!lockEntry && !installedOnDisk) {
-      return { result: "no-op", message: "not installed" } satisfies OperationResult;
+      return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
     // Determine canonical path from lock entry or scan
@@ -98,7 +96,7 @@ export const uninstallCommand: OperationHandler<
     return {
       result: "success",
       message: `Uninstalled ${op.args.commandName}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });
 
 // -----------------------------------------------------------------------------

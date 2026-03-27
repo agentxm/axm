@@ -5,8 +5,8 @@ import {
   BUILTIN_PACK_FQN,
   BUILTIN_PACK_NAME,
   BUILTIN_PACK_SCOPE,
-  resolveBuiltinPack,
-} from "./index.js";
+} from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "./index.js";
 import { expectDefined } from "../test-helpers.js";
 
 describe("builtin-pack", () => {

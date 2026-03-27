@@ -25,7 +25,6 @@ import {
 } from "@axm.sh/core/unstable/mcp-servers";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import type { OperationResult } from "@axm.sh/core/unstable/workspace";
 
 /**
  * Union of operation types produced by the pack uninstall plan builder.
@@ -147,11 +146,6 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
         Effect.provideService(CodingAgentRepository, agentRepo),
       );
 
-    const toJobStepResult = (result: OperationResult): JobStepResult =>
-      result.result === "error"
-        ? { result: "error", message: result.message, error: result.error }
-        : { result: "success", message: result.message };
-
     const lockedPacks = lockfile.packs ?? {};
     const removingNames = new Set(ops.map((op) => op.args.packName));
 
@@ -171,7 +165,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
       return {
         readiness: "ready",
         label: op.args.packName,
-        run: provideServices(uninstallPack(op)).pipe(Effect.map(toJobStepResult)),
+        run: provideServices(uninstallPack(op)),
       };
     });
 
@@ -203,7 +197,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
       return {
         readiness: "ready",
         label: fqn,
-        run: provideServices(uninstallSkill(op)).pipe(Effect.map(toJobStepResult)),
+        run: provideServices(uninstallSkill(op)),
       };
     });
 
@@ -216,7 +210,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
         return {
           readiness: "ready",
           label: fqn,
-          run: provideServices(uninstallCommand(op)).pipe(Effect.map(toJobStepResult)),
+          run: provideServices(uninstallCommand(op)),
         };
       },
     );
@@ -230,7 +224,7 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
         return {
           readiness: "ready",
           label: fqn,
-          run: provideServices(uninstallMcpServer(op)).pipe(Effect.map(toJobStepResult)),
+          run: provideServices(uninstallMcpServer(op)),
         };
       },
     );

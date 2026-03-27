@@ -13,7 +13,8 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import type { SkillLockEntry, CommandLockEntry, McpServerLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/index.js";
 import { parseFqn } from "../../extensions/index.js";
 
@@ -163,5 +164,5 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
     return {
       result: "success",
       message: `Unpacked ${op.args.name}: ${totalCount} extension(s) promoted to direct entries`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

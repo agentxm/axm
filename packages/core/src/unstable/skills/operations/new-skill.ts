@@ -13,7 +13,8 @@ import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
-import type { Operation, OperationResult } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
@@ -168,5 +169,5 @@ export const newSkill: OperationHandler<
     return {
       result: "success",
       message: `Created skill ${fqn}`,
-    } satisfies OperationResult;
+    } satisfies JobStepResult;
   });

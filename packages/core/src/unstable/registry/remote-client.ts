@@ -33,7 +33,7 @@ import type {
   ProfileExistsResponse,
 } from "./client.js";
 import { ExtensionTypeSchema, toAuthor, type ExtensionType } from "../extensions/index.js";
-import { ExtensionIndexSchema } from "./local-schema.js";
+import { ExtensionIndexSchema } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 
 // -----------------------------------------------------------------------------

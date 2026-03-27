@@ -94,29 +94,18 @@ const ensureCredentialsDir = (fs: FileSystem.FileSystem, path: Path.Path, homeDi
           }),
         ),
       );
-      yield* Effect.tryPromise({
-        try: () => import("node:fs/promises").then((fsp) => fsp.chmod(dir, DIR_PERMISSIONS)),
-        catch: () => undefined,
-      }).pipe(Effect.catch(() => Effect.void));
+      yield* fs.chmod(dir, DIR_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
     }
   });
 
-const checkFilePermissions = (filePath: string) =>
-  Effect.tryPromise({
-    try: () =>
-      import("node:fs/promises").then(async (fsp) => {
-        const stat = await fsp.stat(filePath);
+const checkFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
+  fs.stat(filePath).pipe(
+    Effect.map((stat) => (stat.mode & 0o777) > FILE_PERMISSIONS),
+    Effect.catch(() => Effect.succeed(false)),
+  );
 
-        return (stat.mode & 0o777) > FILE_PERMISSIONS;
-      }),
-    catch: () => false,
-  }).pipe(Effect.catch(() => Effect.succeed(false)));
-
-const setFilePermissions = (filePath: string) =>
-  Effect.tryPromise({
-    try: () => import("node:fs/promises").then((fsp) => fsp.chmod(filePath, FILE_PERMISSIONS)),
-    catch: () => undefined,
-  }).pipe(Effect.catch(() => Effect.void));
+const setFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
+  fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
 
 const readCredentialFile = (
   fs: FileSystem.FileSystem,
@@ -128,7 +117,7 @@ const readCredentialFile = (
     const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) return Option.none<CredentialFile>();
 
-    const overly = yield* checkFilePermissions(filePath);
+    const overly = yield* checkFilePermissions(fs, filePath);
     if (overly) {
       yield* Effect.logWarning("Credential file has overly permissive permissions.");
     }
@@ -200,7 +189,7 @@ const writeCredentialFile = (
         }),
       ),
     );
-    yield* setFilePermissions(filePath);
+    yield* setFilePermissions(fs, filePath);
   });
 
 const emptyCredentialFile: CredentialFile = {

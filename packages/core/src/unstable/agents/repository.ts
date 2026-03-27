@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { Workspace } from "../workspace/service-interface.js";
 import {
   type CodingAgent,
@@ -47,7 +47,7 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
     } as const),
 });
 
-const fromId = (id: AgentId): Effect.Effect<CodingAgent, never> => {
+const fromId = (id: AgentId) => {
   switch (id) {
     case "claude-code":
       return Effect.succeed(claudeCodeCodingAgent);
@@ -70,7 +70,7 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, never> => {
   }
 };
 
-const get = (id: AgentId): Effect.Effect<CodingAgent, AppError> =>
+const get = (id: AgentId) =>
   Option.match(getAgentById(id), {
     onNone: () =>
       Effect.fail(
@@ -87,7 +87,7 @@ const all = Effect.forEach(getAgentIds(), (id) => fromId(id));
 const getConfiguredAgentIds = () =>
   Workspace.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
 
-const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, AppError, Workspace> =>
+const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(
     Effect.flatMap((ids) =>
       Effect.forEach(ids, (id) =>
@@ -100,11 +100,7 @@ const getConfiguredAgents = (): Effect.Effect<ReadonlyArray<CodingAgent>, AppErr
     Effect.map(Array.getSomes),
   );
 
-const getUnknownConfiguredAgentIds = (): Effect.Effect<
-  ReadonlyArray<string>,
-  AppError,
-  Workspace
-> =>
+const getUnknownConfiguredAgentIds = () =>
   getConfiguredAgentIds().pipe(
     Effect.map((ids) => ids.filter((id) => Option.isNone(getAgentById(id)))),
   );

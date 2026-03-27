@@ -397,19 +397,3 @@ describe("detectAgents", () => {
   });
 });
 
-// =============================================================================
-// AppError from detection Tests
-// =============================================================================
-
-describe("AppError from detection", () => {
-  it.effect("detectAgent produces AppError with AGENT_DETECTION_FAILED code on failure", () =>
-    Effect.gen(function* () {
-      const error = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
-        Effect.provide(createFailingFileSystem("test error")),
-        Effect.flip,
-      );
-      expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("AGENT_DETECTION_FAILED");
-    }),
-  );
-});

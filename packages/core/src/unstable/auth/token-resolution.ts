@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { envOption } from "../utils/index.js";
 
-import type { AppError } from "../app-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import { type TokenResponse, AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
 import {
@@ -28,22 +28,25 @@ import {
 // AXM_TOKEN stderr message (once per CLI invocation)
 // -----------------------------------------------------------------------------
 
-declare global {
-  var __axmEnvVarMessageEmitted: boolean | undefined;
-}
+let envVarMessageEmitted = false;
 
 const emitEnvVarMessage = Effect.gen(function* () {
-  if (!globalThis.__axmEnvVarMessageEmitted) {
-    globalThis.__axmEnvVarMessageEmitted = true;
+  if (!envVarMessageEmitted) {
+    envVarMessageEmitted = true;
     yield* Effect.logWarning("Authenticating via AXM_TOKEN environment variable");
   }
 });
 
 /**
+ * Check whether the env var message has been emitted. For testing only.
+ */
+export const isEnvVarMessageEmitted = () => envVarMessageEmitted;
+
+/**
  * Reset the env var message flag. For testing only.
  */
 export const resetEnvVarMessageFlag = () => {
-  globalThis.__axmEnvVarMessageEmitted = false;
+  envVarMessageEmitted = false;
 };
 
 // -----------------------------------------------------------------------------
@@ -51,6 +54,18 @@ export const resetEnvVarMessageFlag = () => {
 // -----------------------------------------------------------------------------
 
 const PREFLIGHT_EXPIRY_WINDOW_MS = 5 * 60 * 1000;
+
+const parseOrigin = (url: string) =>
+  Effect.try({
+    try: () => new URL(url).origin,
+    catch: (error) =>
+      makeAppError({
+        code: "AUTH_INVALID_URL",
+        what: `Invalid URL: ${url}`,
+        howToFix: "Check the registry URL in your settings.",
+        cause: error,
+      }),
+  });
 
 type RefreshFailureMode = "fail" | "use-stale";
 
@@ -175,8 +190,8 @@ export const resolveRequestToken = (
   flagToken?: string,
 ): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | AuthClient> =>
   Effect.gen(function* () {
-    const requestOrigin = new URL(requestUrl).origin;
-    const defaultRegistryOrigin = new URL(defaultRegistryUrl).origin;
+    const requestOrigin = yield* parseOrigin(requestUrl);
+    const defaultRegistryOrigin = yield* parseOrigin(defaultRegistryUrl);
 
     if (requestOrigin === defaultRegistryOrigin) {
       const ambient = yield* resolveAmbientToken(flagToken);

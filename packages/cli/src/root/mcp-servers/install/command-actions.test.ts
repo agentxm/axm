@@ -16,7 +16,7 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
+import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   InstallMcpServerCommandWorkflowActions,

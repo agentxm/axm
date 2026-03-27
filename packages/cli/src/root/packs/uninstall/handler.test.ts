@@ -26,12 +26,10 @@ import {
   type UninstallPackHandlerArgs,
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
-import {
-  PackManagerLive,
-  SkillManagerLive,
-  CommandManagerLive,
-  McpServerManagerLive,
-} from "@axm.sh/core/unstable/extension-managers";
+import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
+import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
+import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------

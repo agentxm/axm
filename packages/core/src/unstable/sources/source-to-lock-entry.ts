@@ -10,7 +10,7 @@
 
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
-import type { SkillExtensionRef } from "./types.js";
+import type { SkillExtensionRef } from "../skills/refs.js";
 
 // -----------------------------------------------------------------------------
 // Types

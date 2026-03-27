@@ -14,9 +14,9 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
 import type { RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";

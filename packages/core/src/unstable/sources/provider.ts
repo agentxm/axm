@@ -13,7 +13,8 @@ import type * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/index.js";
-import type { ExtensionRef, Source } from "./types.js";
+import type { ExtensionRef } from "../extensions/refs.js";
+import type { Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria

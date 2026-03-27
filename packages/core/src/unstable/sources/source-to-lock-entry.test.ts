@@ -6,7 +6,7 @@ import type {
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
-} from "./types.js";
+} from "../skills/refs.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
 const agents = ["claude", "cursor"];

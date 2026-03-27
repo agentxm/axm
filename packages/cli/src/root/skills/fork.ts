@@ -33,12 +33,12 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import type { CopySkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import type { PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
-import { copySkill } from "@axm.sh/core/unstable/extension-managers";
-import { installSkill } from "@axm.sh/core/unstable/extension-managers";
-import { publishSkill } from "@axm.sh/core/unstable/extension-managers";
+import type { CopySkillOperation } from "@axm.sh/core/unstable/skills";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
+import { copySkill } from "@axm.sh/core/unstable/skills";
+import { installSkill } from "@axm.sh/core/unstable/skills";
+import { publishSkill } from "@axm.sh/core/unstable/skills";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";

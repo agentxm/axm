@@ -17,8 +17,8 @@ import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { installSkill } from "@axm.sh/core/unstable/extension-managers";
-import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { installSkill } from "@axm.sh/core/unstable/skills";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 
 /**
  * Args for building an install plan.

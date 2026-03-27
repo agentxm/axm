@@ -20,9 +20,9 @@ import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
 } from "@axm.sh/core/unstable/extensions";
-import type { AddToPackOperation } from "@axm.sh/core/unstable/extension-managers";
-import { addToPack } from "@axm.sh/core/unstable/extension-managers";
-import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
+import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
+import { addToPack } from "@axm.sh/core/unstable/packs";
+import { computePackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";

@@ -16,7 +16,7 @@ import type * as Record from "effect/Record";
 import * as ServiceMap from "effect/ServiceMap";
 
 import type { AppError } from "../app-error/index.js";
-import type { ExtensionRef } from "../sources/index.js";
+import type { ExtensionRef } from "../extensions/refs.js";
 import type {
   CommandLockEntry,
   CommandsLockMap,

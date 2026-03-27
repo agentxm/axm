@@ -22,12 +22,10 @@ import {
   verboseFlag,
   debugFlag,
 } from "@axm.sh/core/unstable/cli-flags";
-import {
-  CommandManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  SkillManagerLive,
-} from "@axm.sh/core/unstable/extension-managers";
+import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
+import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
+import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import {

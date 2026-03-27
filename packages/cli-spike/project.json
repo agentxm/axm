@@ -17,14 +17,6 @@
       "options": {
         "configFile": "packages/cli-spike/vitest.config.ts"
       }
-    },
-    "spike": {
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "src/main.ts"],
-        "cwd": "packages/cli-spike"
-      }
     }
   }
 }

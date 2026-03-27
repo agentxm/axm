@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "axm": "nx run cli:start --no-tui",
-    "axm:local": "nx run cli:start-local --no-tui",
-    "spike": "nx run cli-spike:spike --no-tui",
+    "axm": "nx run cli:build --no-tui && bun packages/cli/src/main.ts",
+    "axm:local": "nx run cli:build --no-tui && AXM_REGISTRY_URL=http://localhost:4300 bun packages/cli/src/main.ts",
+    "spike": "nx run cli-spike:build --no-tui && bun packages/cli-spike/src/main.ts",
     "build": "nx run-many -t build",
     "build:affected": "nx affected -t build",
     "test": "nx run-many -t test",

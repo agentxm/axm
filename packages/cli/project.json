@@ -49,25 +49,6 @@
         "cwd": "packages/cli"
       }
     },
-    "start": {
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "src/main.ts"],
-        "cwd": "packages/cli"
-      }
-    },
-    "start-local": {
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "src/main.ts"],
-        "cwd": "packages/cli",
-        "env": {
-          "AXM_REGISTRY_URL": "http://localhost:4300"
-        }
-      }
-    },
     "publish": {
       "cache": false,
       "dependsOn": ["build", "cli-e2e:e2e", "cli-spike-e2e:e2e"],

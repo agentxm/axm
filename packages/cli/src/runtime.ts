@@ -1,3 +1,6 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
@@ -19,21 +22,34 @@ import {
   verboseFlag,
   debugFlag,
 } from "@axm.sh/core/unstable/cli-flags";
-import * as Commands from "./extensions/commands/layers.js";
-import * as McpServers from "./extensions/mcp-servers/layers.js";
-import * as Packs from "./extensions/packs/layers.js";
-import * as Skills from "./extensions/skills/layers.js";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "./agents/repository.js";
-import { resolveTelemetryMode } from "./telemetry/index.js";
-import { baseLayer } from "./runtime/base-layer.js";
 import {
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-  type WorkspaceScope,
-} from "./workspace/index.js";
+  CommandManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  SkillManagerLive,
+} from "@axm.sh/core/unstable/extension-managers";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import {
+  AuthClientLive,
+  AuthLoginInteractionLive,
+  AuthMiddlewareLive,
+  CredentialStoreLive,
+  RegistryUrl,
+} from "@axm.sh/core/unstable/auth";
+import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
+import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
+import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/install/command-actions.js";
+import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcp-servers/uninstall/command-actions.js";
+import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
+import { UninstallPackCommandWorkflowActionsLive } from "./root/packs/uninstall/command-actions.js";
+import { InstallSkillCommandWorkflowActionsLive } from "./root/skills/install/command-actions.js";
+import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstall/command-actions.js";
+import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
+import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
+import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "./builtin-pack/index.js";
 import { loadVersion } from "./version.js";
-import { getBuiltInSources } from "./workspace/source-metadata.js";
 
 export { verboseFlag, debugFlag };
 
@@ -44,7 +60,37 @@ export const axmGlobalFlags = [
   outputFormatFlag,
 ] as const;
 
-export { baseLayer };
+// -- Base layer: platform, auth, logging --
+const RegistryUrlLayer = Layer.orDie(
+  Layer.effect(
+    RegistryUrl,
+    Effect.gen(function* () {
+      return yield* Config.string("AXM_REGISTRY_URL").pipe(
+        Config.withDefault("https://registry.agentxm.ai"),
+      );
+    }),
+  ),
+);
+
+const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+
+const AuthServicesLayer = Layer.provide(
+  Layer.mergeAll(CredentialStoreLive, AuthClientLive, RegistryUrlLayer),
+  PlatformLayer,
+);
+
+const AuthMiddlewareWrappedLayer = Layer.provide(
+  AuthMiddlewareLive,
+  Layer.mergeAll(AuthServicesLayer, PlatformLayer),
+);
+
+const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
+
+export const baseLayer = Layer.mergeAll(
+  AuthLayer,
+  AuthLoginInteractionLive,
+  Logger.layer([], { mergeWithExisting: false }),
+);
 
 interface RuntimeOptions {
   readonly command?: string;
@@ -79,7 +125,7 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
   mode: resolveTelemetryMode(
     {
       doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
-      axmTelemetry: Option.getOrUndefined(envConfig.telemetry),
+      telemetry: Option.getOrUndefined(envConfig.telemetry),
     },
     {},
   ),
@@ -91,9 +137,10 @@ const makeWorkspaceProgramLayer = (
   workspace: Omit<WorkspaceContextOptions, "builtInSources">,
 ) => {
   // -- Workspace foundation --
-  const wsLayer = workspaceLayer({
+  const wsLayer = coreWorkspaceLayer({
     ...workspace,
     builtInSources: getBuiltInSources(registryUrl),
+    resolveBuiltinPack: resolveBuiltinPack(),
   });
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(
@@ -102,11 +149,35 @@ const makeWorkspaceProgramLayer = (
     CodingAgentRepositoryLive,
   );
 
-  // -- Extensions (per-feature self-wired layers) --
-  // Commands, McpServers, Skills are self-contained.
-  // Packs depends on the other features' managers, so it's provided separately.
-  const coreExtensions = Layer.mergeAll(Commands.layer, McpServers.layer, Skills.layer);
-  const extensionsLayer = Layer.provideMerge(Packs.layer, coreExtensions);
+  // Extensions: wire workflow actions with core managers.
+  // Commands, McpServers, Skills are independent. Packs depends on the other managers.
+  const commandsLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallCommandCommandWorkflowActionsLive,
+      UninstallCommandCommandWorkflowActionsLive,
+    ),
+    CommandManagerLive,
+  );
+  const mcpServersLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallMcpServerCommandWorkflowActionsLive,
+      UninstallMcpServerCommandWorkflowActionsLive,
+    ),
+    McpServerManagerLive,
+  );
+  const skillsLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallSkillCommandWorkflowActionsLive,
+      UninstallSkillCommandWorkflowActionsLive,
+    ),
+    SkillManagerLive,
+  );
+  const packsLayer = Layer.provideMerge(
+    Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
+    PackManagerLive,
+  );
+  const coreExtensions = Layer.mergeAll(commandsLayer, mcpServersLayer, skillsLayer);
+  const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
 
   return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
 };

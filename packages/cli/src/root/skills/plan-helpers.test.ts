@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { Operation } from "../../workspace/plan.js";
+import type { Operation } from "@axm.sh/core/unstable/workspace";
 import { at } from "../../test-helpers.js";
 import { buildSingleStepPlan } from "./plan-helpers.js";
 

@@ -21,12 +21,12 @@ import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { McpServerExtensionRef, RegistrySource } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
-import { Workspace } from "../../../workspace/service.js";
+import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
-import type { Plan } from "../../../workspace/plan.js";
+import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extension-operations";
-import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/index.js";
+import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------

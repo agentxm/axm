@@ -8,7 +8,7 @@ import {
   resolveSlashInputSource,
   routeUrlInput,
 } from "@axm.sh/core/unstable/source-resolution";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 
 export type RegistryLookupProbe = {
   readonly location: string;

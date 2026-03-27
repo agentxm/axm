@@ -11,7 +11,7 @@ import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/sources";
-import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import type { LegacyPlan, LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import { buildUpdatePlan } from "./plan.js";
 
 const isPlannedStep = <T>(step: { readonly _tag: string }): step is LegacyPlannedStep<T> =>

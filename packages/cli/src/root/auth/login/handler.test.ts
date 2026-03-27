@@ -8,12 +8,12 @@ import * as Layer from "effect/Layer";
 
 import {
   AuthClientTest,
+  AuthLoginInteractionTest,
   type MeResponse,
   RegistryUrl,
   CredentialStore,
   CredentialStoreTest,
 } from "@axm.sh/core/unstable/auth";
-import { AuthLoginInteractionTest } from "../../../auth/login-interaction.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";

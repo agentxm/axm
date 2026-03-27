@@ -13,8 +13,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Record as EffectRecord } from "effect";
-import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
-import { Workspace } from "../../../workspace/index.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 

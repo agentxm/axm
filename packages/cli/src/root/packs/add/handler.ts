@@ -24,10 +24,10 @@ import { addToPack } from "@axm.sh/core/unstable/extension-managers";
 import { computePackPaths } from "@axm.sh/core/unstable/extension-managers";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
-import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

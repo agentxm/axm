@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

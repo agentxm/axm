@@ -16,7 +16,7 @@ import {
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
   writeWorkspaceFiles,
-} from "../../../workspace/test-stubs.js";
+} from "../../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
 

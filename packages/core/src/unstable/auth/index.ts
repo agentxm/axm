@@ -73,3 +73,17 @@ export {
   DeviceLoginInteractionTest,
   runDeviceLogin,
 } from "./device-login.js";
+
+// Login interaction (platform browser launch and clipboard)
+export type {
+  AuthLoginInteractionService,
+  AuthLoginInteractionTestState,
+} from "./login-interaction.js";
+export {
+  AuthLoginInteraction,
+  AuthLoginInteractionLive,
+  AuthLoginInteractionTest,
+} from "./login-interaction.js";
+
+// Auth guard combinator
+export { withAuthGuard } from "./guard.js";

@@ -14,8 +14,8 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
-import type { WorkspaceContextOptions } from "../../../workspace/index.js";
-import { SourceHostProvidersLive } from "../../../sources/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import {
   getErrorResult,
   makeEffectProvide,

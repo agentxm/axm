@@ -17,11 +17,13 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
-import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { SourceHostProvidersLive } from "../../../sources/index.js";
+import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
+import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
+import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { handleFork, type ForkHandlerArgs } from "./handler.js";
 import { expectDefined, stringArrayProperty, stringProperty } from "../../../test-helpers.js";
-import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -108,7 +110,10 @@ describe("fork.handler", () => {
       agents: Option.none(),
       ...wsOverrides,
     };
-    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const WsLayer = Layer.provide(
+      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      BaseLayer,
+    );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
 

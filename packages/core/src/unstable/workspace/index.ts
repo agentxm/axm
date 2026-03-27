@@ -137,7 +137,7 @@ export {
   type LockfileState,
 } from "./augment-plan.js";
 
-// Workspace service tag and interface (layer implementation remains in CLI)
+// Workspace service tag and interface
 export {
   Workspace,
   type WorkspaceContextService,
@@ -158,3 +158,28 @@ export {
   type CommandExtensionTarget,
   type McpServerExtensionTarget,
 } from "./service-interface.js";
+
+// Workspace service implementation (layer)
+export { layer, type WorkspaceLayerOptions } from "./service.js";
+
+// Builtin packs
+export {
+  materializeBuiltinPack,
+  BUILTIN_PACK_FQN,
+  BUILTIN_PACK_SCOPE,
+  BUILTIN_PACK_NAME,
+  type ResolvedBuiltinPack,
+} from "./builtin-packs.js";
+
+// Initialization
+export {
+  initializeProjectWorkspace,
+  ensureGlobalWorkspaceInitialized,
+  ensureProjectWorkspaceInitialized,
+} from "./initialization.js";
+
+// Plan resolution
+export { resolvePlan } from "./resolve-plan.js";
+
+// Plan display
+export { displayPlan } from "./display-plan.js";

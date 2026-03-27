@@ -12,8 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { envOption } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { resolveTelemetryMode } from "../../telemetry/index.js";
-import { Workspace } from "../../workspace/index.js";
+import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -59,7 +59,7 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
   const telemetryMode = resolveTelemetryMode(
     {
       doNotTrack: Option.getOrUndefined(doNotTrackOpt),
-      axmTelemetry: Option.getOrUndefined(axmTelemetryOpt),
+      telemetry: Option.getOrUndefined(axmTelemetryOpt),
     },
     {},
   );

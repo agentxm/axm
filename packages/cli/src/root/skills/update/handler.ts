@@ -16,7 +16,7 @@ import {
   type RegistrySource,
   type SkillExtensionRef,
 } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
+import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -25,7 +25,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -37,8 +37,8 @@ import type { UninstallSkillOperation } from "@axm.sh/core/unstable/extension-ma
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@axm.sh/core/unstable/extension-managers";
 import { uninstallSkill } from "@axm.sh/core/unstable/extension-managers";
-import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { bridgeLegacyPlan } from "@axm.sh/core/unstable/workspace";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,

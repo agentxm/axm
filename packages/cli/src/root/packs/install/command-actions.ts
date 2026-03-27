@@ -25,8 +25,8 @@ import type {
   CommandExtensionRef,
   McpServerExtensionRef,
 } from "@axm.sh/core/unstable/sources";
-import { resolveSource, SourceHostProviders } from "../../../sources/index.js";
-import { Workspace } from "../../../workspace/index.js";
+import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { PackManager } from "@axm.sh/core/unstable/extension-managers";
 import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
@@ -38,8 +38,8 @@ import {
   targetFromRef,
   toLabel,
 } from "@axm.sh/core/unstable/extension-operations";
-import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------

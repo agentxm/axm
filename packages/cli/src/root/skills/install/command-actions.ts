@@ -19,14 +19,14 @@ import { CliEnvironment, nonInteractiveFlag } from "@axm.sh/core/unstable/cli-fl
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { SkillExtensionRef, Source, InputParseResult } from "@axm.sh/core/unstable/sources";
-import { SourceHostProviders } from "../../../sources/index.js";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extension-operations";
-import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
-import type { Plan } from "../../../workspace/plan.js";
+import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
+import type { Plan } from "@axm.sh/core/unstable/workspace";
 import type { InstallHandlerArgs } from "./handler.js";
 import type { InstallSkillCommandIntent } from "./intent.js";
 import {

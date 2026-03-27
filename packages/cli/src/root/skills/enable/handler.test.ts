@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../workspace/test-stubs.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./handler.js";
 
@@ -76,7 +76,7 @@ describe("enable.handler", () => {
   });
 
   const makeLayers = (
-    wsOverrides?: Partial<import("../../../workspace/index.js").WorkspaceContextOptions>,
+    wsOverrides?: Partial<import("@axm.sh/core/unstable/workspace").WorkspaceContextOptions>,
   ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
 
   // ---------------------------------------------------------------------------

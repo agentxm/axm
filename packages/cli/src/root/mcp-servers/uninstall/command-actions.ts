@@ -13,12 +13,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import { Workspace } from "../../../workspace/service.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
-import type { Plan } from "../../../workspace/plan.js";
+import type { Plan } from "@axm.sh/core/unstable/workspace";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { buildUninstallOperation } from "@axm.sh/core/unstable/extension-operations";
-import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
+import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import type { McpServerExtensionRef } from "@axm.sh/core/unstable/sources";
 

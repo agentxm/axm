@@ -14,13 +14,13 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { Plan } from "../../workspace/plan.js";
-import { Workspace } from "../../workspace/service.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import type { Plan } from "@axm.sh/core/unstable/workspace";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import { makeBaseWorkspaceMock } from "../../test-stubs.js";
 import {
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,
-} from "./workflow.js";
+} from "@axm.sh/core/unstable/workflows";
 
 // -----------------------------------------------------------------------------
 // Test types

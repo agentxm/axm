@@ -14,21 +14,21 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { withAuthGuard } from "../../../auth/index.js";
+import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
-import { Workspace } from "../../../workspace/index.js";
+import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
 import { publishSkill } from "@axm.sh/core/unstable/extension-managers";
-import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
+import { bridgeLegacyPlan, type LegacyPlannedStep } from "@axm.sh/core/unstable/workspace";
 import {
   MANIFEST_FILENAME,
   REGISTRY_EXTENSIONS_DIR,
   parseFqn,
 } from "@axm.sh/core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
-import { resolvePlan } from "../../../workspace/resolve-plan.js";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Types

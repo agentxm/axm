@@ -7,10 +7,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { beforeEach } from "vitest";
 
-import { AuthClientTest } from "../../../auth/auth-client.js";
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { CredentialStoreTest } from "../../../auth/credential-store.js";
-import { resetEnvVarMessageFlag } from "../../../auth/token-resolution.js";
+import {
+  AuthClientTest,
+  RegistryUrl,
+  CredentialStoreTest,
+  resetEnvVarMessageFlag,
+} from "@axm.sh/core/unstable/auth";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { handleWhoami } from "./handler.js";

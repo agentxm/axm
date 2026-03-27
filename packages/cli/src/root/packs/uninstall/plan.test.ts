@@ -7,6 +7,10 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
@@ -69,10 +73,17 @@ const makeOp = (name: string) => ({
 });
 
 const { layer: RendererTestLayer } = TestRenderer.make();
+const defaultAgentRepo: CodingAgentRepositoryService = {
+  get: () => Effect.die(new Error("not implemented")),
+  all: Effect.succeed([]),
+  getConfiguredAgents: () => Effect.succeed([]),
+  getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+};
 const testLayer = Layer.mergeAll(
   RendererTestLayer,
   Layer.succeed(Workspace, makeBaseWorkspaceMock("/tmp/axm")),
   NodeServices.layer,
+  Layer.succeed(CodingAgentRepository, defaultAgentRepo),
 );
 
 const runBuildPlan = (args: BuildUninstallPlanArgs) =>

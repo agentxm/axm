@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { Plan } from "../../workspace/plan.js";
-import { Workspace } from "../../workspace/service.js";
+import { resolvePlan } from "../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface
@@ -63,6 +63,5 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
     const refs = yield* actions.discoverRefs(sourceRequests);
     const intent = yield* actions.finalizeIntent(parsed, refs);
     const plan = yield* actions.buildPlan(intent);
-    const ws = yield* Workspace;
-    yield* ws.resolvePlan(plan, flags);
+    yield* resolvePlan(plan, flags);
   });

@@ -19,8 +19,8 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "../../../workspace/index.js";
-import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
-import { publishSkill } from "../../../extensions/skills/operations/publish.js";
+import type { PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { publishSkill } from "@axm.sh/core/unstable/extension-managers";
 import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import {
   MANIFEST_FILENAME,
@@ -28,6 +28,7 @@ import {
   parseFqn,
 } from "@axm.sh/core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -279,7 +280,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  const resolvedPlan = yield* ws.resolvePlan(
+  const resolvedPlan = yield* resolvePlan(
     bridgeLegacyPlan(plan, {
       "publish-skill": publishSkill,
     }),

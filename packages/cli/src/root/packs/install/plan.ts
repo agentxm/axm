@@ -12,18 +12,19 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { PackExtensionRef } from "@axm.sh/core/unstable/sources";
 import type { JobStepResult, Plan, PlannedJobStep } from "../../../workspace/plan.js";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
-import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
-import type { InstallPackOperation } from "../../../extensions/packs/operations/install.js";
-import { installSkill } from "../../../extensions/skills/operations/install.js";
-import { installCommand } from "../../../extensions/commands/operations/install.js";
-import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
-import { installPack } from "../../../extensions/packs/operations/install.js";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
+import { installSkill } from "@axm.sh/core/unstable/extension-managers";
+import { installCommand } from "@axm.sh/core/unstable/extension-managers";
+import { installMcpServer } from "@axm.sh/core/unstable/extension-managers";
+import { installPack } from "@axm.sh/core/unstable/extension-managers";
 import { Workspace } from "../../../workspace/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -82,12 +83,18 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const renderer = yield* CliRenderer;
+    const agentRepo = yield* CodingAgentRepository;
 
     const provideServices = <A, E>(
       effect: Effect.Effect<
         A,
         E,
-        Workspace | SourceHostProviders | FileSystem.FileSystem | Path.Path | CliRenderer
+        | Workspace
+        | SourceHostProviders
+        | FileSystem.FileSystem
+        | Path.Path
+        | CliRenderer
+        | CodingAgentRepository
       >,
     ): Effect.Effect<A, E, never> =>
       effect.pipe(
@@ -96,6 +103,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
         Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(CodingAgentRepository, agentRepo),
       );
 
     const resolvedSkills = Object.fromEntries(

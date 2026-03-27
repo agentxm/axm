@@ -1,0 +1,12 @@
+{
+  "profile": "@acme",
+  "type": "pack",
+  "name": "fullstack-pack",
+  "version": "1.0.0",
+  "description": "Complete fullstack development toolkit",
+  "keywords": ["fullstack", "web", "development"],
+  "license": "MIT",
+  "skills": { "@acme/skills/code-review": "^1.0.0", "@acme/skills/test-runner": "^1.0.0" },
+  "commands": { "@acme/commands/deploy": "^1.0.0" },
+  "mcp-servers": { "@acme/mcp-servers/database-mcp": "^1.0.0" }
+}

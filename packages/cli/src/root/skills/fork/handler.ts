@@ -18,6 +18,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { Source, SkillExtensionRef, RegistrySkillRef } from "@axm.sh/core/unstable/sources";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { resolveSourcePattern, SourceHostProviders } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -27,16 +28,17 @@ import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "../../../workspace/index.js";
-import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
-import { copySkill } from "../../../extensions/skills/operations/copy.js";
-import { installSkill } from "../../../extensions/skills/operations/install.js";
-import { publishSkill } from "../../../extensions/skills/operations/publish.js";
+import type { CopySkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { PublishSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { copySkill } from "@axm.sh/core/unstable/extension-managers";
+import { installSkill } from "@axm.sh/core/unstable/extension-managers";
+import { publishSkill } from "@axm.sh/core/unstable/extension-managers";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { Plan } from "../../../workspace/plan.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -154,12 +156,14 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const path = yield* Path.Path;
 
   const sources = yield* SourceHostProviders;
+  const agentRepo = yield* CodingAgentRepository;
   const runLayer = Layer.mergeAll(
     Layer.succeed(Workspace, ws),
     Layer.succeed(CliRenderer, renderer),
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(CodingAgentRepository, agentRepo),
   );
   const provideRun = <R>(effect: Effect.Effect<JobStepResult, AppError, R>) =>
     Effect.provide(effect, runLayer);
@@ -387,7 +391,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* ws.resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
+  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
 
   yield* renderer.success("Done");
 });

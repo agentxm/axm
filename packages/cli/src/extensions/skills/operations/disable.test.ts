@@ -35,8 +35,6 @@ const makeWorkspaceMock = (
     scope: "project",
     path: axmDir,
     baseDir: path.dirname(axmDir),
-    resolvePlan: () =>
-      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -429,13 +427,6 @@ describe("disableSkill", () => {
           scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
-          resolvePlan: () =>
-            Effect.succeed({
-              _tag: "ExecutedPlan",
-              name: "mock",
-              description: Option.none(),
-              jobs: [],
-            }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),
@@ -523,13 +514,6 @@ describe("disableSkill", () => {
           scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
-          resolvePlan: () =>
-            Effect.succeed({
-              _tag: "ExecutedPlan",
-              name: "mock",
-              description: Option.none(),
-              jobs: [],
-            }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),
@@ -612,13 +596,6 @@ describe("disableSkill", () => {
           scope: "project",
           path: axmDir,
           baseDir: path.dirname(axmDir),
-          resolvePlan: () =>
-            Effect.succeed({
-              _tag: "ExecutedPlan",
-              name: "mock",
-              description: Option.none(),
-              jobs: [],
-            }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getRegistrySourceHosts: () => Effect.succeed([]),

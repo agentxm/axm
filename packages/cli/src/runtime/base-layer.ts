@@ -5,10 +5,13 @@ import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Effect from "effect/Effect";
 
-import { AuthClientLive } from "../auth/auth-client.js";
+import {
+  AuthClientLive,
+  AuthMiddlewareLive,
+  CredentialStoreLive,
+  RegistryUrl,
+} from "@axm.sh/core/unstable/auth";
 import { AuthLoginInteractionLive } from "../auth/login-interaction.js";
-import { AuthMiddlewareLive, RegistryUrl } from "../auth/auth-middleware.js";
-import { CredentialStoreLive } from "../auth/credential-store.js";
 
 const RegistryUrlLayer = Layer.orDie(
   Layer.effect(

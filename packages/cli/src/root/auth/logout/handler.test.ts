@@ -6,9 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthClientTest } from "../../../auth/auth-client.js";
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { CredentialStoreTest } from "../../../auth/credential-store.js";
+import { AuthClientTest, RegistryUrl, CredentialStoreTest } from "@axm.sh/core/unstable/auth";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";

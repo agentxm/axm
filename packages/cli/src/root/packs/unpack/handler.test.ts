@@ -22,6 +22,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -145,6 +146,7 @@ describe("packs unpack.handler", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
+      CodingAgentRepositoryLive,
     );
     const provide = makeEffectProvide(FullLayer);
 

@@ -21,6 +21,7 @@ import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleFork, type ForkHandlerArgs } from "./handler.js";
 import { expectDefined, stringArrayProperty, stringProperty } from "../../../test-helpers.js";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -109,7 +110,7 @@ describe("fork.handler", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

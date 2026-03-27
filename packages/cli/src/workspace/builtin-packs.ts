@@ -20,7 +20,7 @@ import {
   BUILTIN_PACK_SCOPE,
   resolveBuiltinPack,
 } from "../builtin-pack/index.js";
-import { copySkillDirectory } from "../extensions/skills/operations/copy-directory.js";
+import { copySkillDirectory } from "@axm.sh/core/unstable/extension-managers";
 import { readLockfile, writeLockfile } from "@axm.sh/core/unstable/lockfile";
 import { createSymlink } from "@axm.sh/core/unstable/utils";
 

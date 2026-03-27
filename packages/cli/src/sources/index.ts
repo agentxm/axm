@@ -1,4 +1,13 @@
-// Provider implementations (CLI-specific)
+/**
+ * Source resolution module.
+ *
+ * Re-exports from @axm.sh/core/unstable/source-resolution.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+// Provider implementations
 export {
   createAzureReposSourceHostProvider,
   createBitbucketSourceHostProvider,
@@ -11,16 +20,16 @@ export {
   createLocalRegistrySourceHostProvider,
   createRegistrySourceHostProviderFromHost,
   createRemoteRegistrySourceHostProvider,
-} from "./providers/index.js";
+} from "@axm.sh/core/unstable/source-resolution";
 
-// SourceHostProviders service (CLI-specific)
-export type { SourceHostProvidersService } from "./service.js";
+// SourceHostProviders service
+export type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 export {
   SourceHostProviders,
   SourceHostProvidersLive,
   createRegistryMetaProvider,
-} from "./service.js";
+} from "@axm.sh/core/unstable/source-resolution";
 
-// Source resolver (CLI-specific)
-export { resolveSource } from "./resolve-source.js";
-export { resolveSourcePattern } from "./resolve-source-pattern.js";
+// Source resolver
+export { resolveSource } from "@axm.sh/core/unstable/source-resolution";
+export { resolveSourcePattern } from "@axm.sh/core/unstable/source-resolution";

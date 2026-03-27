@@ -15,12 +15,12 @@ import * as Option from "effect/Option";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlob } from "@axm.sh/core/unstable/utils";
-import { SkillManager } from "../../../extensions/skills/manager.js";
-import { buildUninstallOperation } from "../../../workflows/uninstall-operation/workflow.js";
-import type {
-  SkillExtensionTarget,
-  UninstallRetentionPolicy,
-} from "../../../workflows/install-operation/workflow.js";
+import { SkillManager } from "@axm.sh/core/unstable/extension-managers";
+import {
+  buildUninstallOperation,
+  type UninstallRetentionPolicy,
+} from "@axm.sh/core/unstable/extension-operations";
+import type { SkillExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/workflow.js";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";

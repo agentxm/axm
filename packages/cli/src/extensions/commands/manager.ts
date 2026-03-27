@@ -21,10 +21,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { computeIntegrity, isPathSafe } from "@axm.sh/core/unstable/utils";
 import type { CommandExtensionRef, RegistryCommandRef } from "@axm.sh/core/unstable/sources";
 import type { CommandLockEntry } from "@axm.sh/core/unstable/lockfile";
-import type {
-  ExtensionManager,
-  CommandExtensionTarget,
-} from "../../workflows/install-operation/workflow.js";
+import type { ExtensionManager, CommandExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { Workspace } from "../../workspace/service.js";
 import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient, extractZip } from "@axm.sh/core/unstable/registry";

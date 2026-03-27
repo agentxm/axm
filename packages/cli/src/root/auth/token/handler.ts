@@ -12,8 +12,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { resolveToken } from "../../../auth/token-resolution.js";
+import { RegistryUrl, resolveToken } from "@axm.sh/core/unstable/auth";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 // -----------------------------------------------------------------------------

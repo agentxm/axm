@@ -20,10 +20,10 @@ import {
   type LegacyPlan,
   type LegacyPlannedStep,
 } from "../../../workspace/plan-bridge.js";
-import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
-import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
-import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
-import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
+import type { InstallSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallCommandOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/extension-managers";
+import type { UninstallPackOperation } from "@axm.sh/core/unstable/extension-managers";
 
 /**
  * Union of operation types produced by the pack unpack plan builder.

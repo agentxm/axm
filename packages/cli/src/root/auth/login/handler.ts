@@ -16,9 +16,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { RegistryUrl } from "../../../auth/auth-middleware.js";
-import { CredentialStore } from "../../../auth/credential-store.js";
-import { runDeviceLogin } from "../../../auth/device-login.js";
+import { RegistryUrl, CredentialStore, runDeviceLogin } from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";

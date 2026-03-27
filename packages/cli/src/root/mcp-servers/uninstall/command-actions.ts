@@ -14,13 +14,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { Workspace } from "../../../workspace/service.js";
-import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
+import { McpServerManager } from "@axm.sh/core/unstable/extension-managers";
 import type { Plan } from "../../../workspace/plan.js";
-import type {
-  ExtensionTarget,
-  McpServerExtensionTarget,
-} from "../../../workflows/install-operation/index.js";
-import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
+import type { ExtensionTarget, McpServerExtensionTarget } from "@axm.sh/core/unstable/workspace";
+import { buildUninstallOperation } from "@axm.sh/core/unstable/extension-operations";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import type { McpServerExtensionRef } from "@axm.sh/core/unstable/sources";

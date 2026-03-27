@@ -14,7 +14,8 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
-import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { SkillManagerLive } from "@axm.sh/core/unstable/extension-managers";
+import { CodingAgentRepositoryLive } from "../../../agents/repository.js";
 import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleUninstall, type UninstallHandlerArgs } from "./handler.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
@@ -147,10 +148,13 @@ describe("uninstall.handler", () => {
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const SMLayer = Layer.provide(SkillManagerLive, Layer.mergeAll(BaseLayer, WsLayer, SPLayer));
+    const SMLayer = Layer.provide(
+      SkillManagerLive,
+      Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive),
+    );
     const ActionsLayer = Layer.provide(
       UninstallSkillCommandWorkflowActionsLive,
-      Layer.mergeAll(BaseLayer, WsLayer, SMLayer),
+      Layer.mergeAll(BaseLayer, WsLayer, SMLayer, CodingAgentRepositoryLive),
     );
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
     const provide = makeEffectProvide(FullLayer);

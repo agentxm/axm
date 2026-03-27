@@ -8,12 +8,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
-import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
+import type { NewSkillOperation } from "@axm.sh/core/unstable/extension-managers";
+import { newSkill } from "@axm.sh/core/unstable/extension-managers";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
 import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
+import { resolvePlan } from "../../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -119,7 +120,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     label: fqn,
   });
 
-  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }), {
+  yield* resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }), {
     yes: args.yes,
     force: args.force,
     preview: args.preview,

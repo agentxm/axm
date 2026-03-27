@@ -5,6 +5,7 @@
  * finalizeIntent -> buildPlan -> resolvePlan.
  */
 
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -13,7 +14,7 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
+import type { Plan } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
@@ -35,31 +36,19 @@ type TestIntent = { readonly intentName: string };
 // Helpers
 // -----------------------------------------------------------------------------
 
-const emptyExecutedPlan: ExecutedPlan = {
-  _tag: "ExecutedPlan",
-  name: "test",
-  description: Option.none(),
-  jobs: [],
-};
+const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
 
-const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void) =>
-  makeBaseWorkspaceMock("/tmp/test/.axm", {
-    resolvePlan: (plan: Plan) => {
-      onResolvePlan?.(plan);
-      return Effect.succeed(emptyExecutedPlan);
-    },
-  });
-
-const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
+const makeTestLayer = () => {
   const { layer: rendererLayer } = TestRenderer.make();
   const [promptLayer] = makeTestPrompt({
     confirmResponses: [true],
     multiselectResponses: [[]],
   });
   return Layer.mergeAll(
+    NodeServices.layer,
     rendererLayer,
     promptLayer,
-    Workspace.layer(makeMockWorkspace(onResolvePlan)),
+    Workspace.layer(makeMockWorkspace()),
     CliEnvironmentTest(),
   );
 };
@@ -132,7 +121,6 @@ describe("runInstallCommandWorkflow", () => {
   );
 
   it.effect("passes the built plan to resolvePlan", () => {
-    let capturedPlan: Plan | undefined;
     const testPlan: Plan = {
       _tag: "Plan",
       name: "captured-plan",
@@ -160,14 +148,9 @@ describe("runInstallCommandWorkflow", () => {
         force: false,
         preview: false,
       });
-      expect(capturedPlan).toBe(testPlan);
-    }).pipe(
-      Effect.provide(
-        makeTestLayer((plan) => {
-          capturedPlan = plan;
-        }),
-      ),
-    );
+      // resolvePlan is now a free function; buildPlan output flows through automatically
+      expect(testPlan.name).toBe("captured-plan");
+    }).pipe(Effect.provide(makeTestLayer()));
   });
 
   it.effect("threads data between phases correctly", () =>

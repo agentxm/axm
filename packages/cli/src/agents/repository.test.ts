@@ -2,7 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Workspace, type WorkspaceContextService } from "../workspace/service.js";
+import { Workspace, type WorkspaceContextService } from "@axm.sh/core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { cursorCodingAgent } from "./cursor/service.js";

@@ -1,64 +1,70 @@
 /**
- * Auth feature module.
+ * Auth feature module (CLI layer).
  *
- * Provides credential storage, environment detection, and token source types
- * for CLI authentication.
+ * Re-exports core auth types and provides CLI-specific auth functionality:
+ * login interaction (TUI) and auth guard (command decorator).
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-// Schema types and schemas
-export type {
-  CredentialEntry,
-  CredentialFile,
-  StorageTier,
-  StoredCredentials,
-  TokenSource,
-} from "./schema.js";
+// Re-export everything from core auth
 export {
+  // Schema types and schemas
+  type CredentialEntry,
+  type CredentialFile,
+  type StorageTier,
+  type StoredCredentials,
+  type TokenSource,
   CredentialEntrySchema,
   CredentialFileSchema,
   CredentialStoreTokenSource,
   EnvVarTokenSource,
   FlagTokenSource,
   RegistryAccountsSchema,
-} from "./schema.js";
-
-// Credential store service
-export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";
-export {
+  // Credential store service
+  type CredentialStoreService,
+  type EnvironmentInfo,
   CredentialStore,
   CredentialStoreLive,
   CredentialStoreTest,
   detectEnvironment,
   selectTier,
-} from "./credential-store.js";
-
-// Token resolution
-export {
+  // Token resolution
   resolveToken,
   resolveStoredToken,
   resolveStoredTokenWithRefresh,
   refreshStoredToken,
   resolveAmbientToken,
+  resolveRequestToken,
   resetEnvVarMessageFlag,
-} from "./token-resolution.js";
+  // Auth middleware
+  AuthMiddlewareLive,
+  makeAuthMiddlewareLive,
+  RegistryUrl,
+  // Auth client
+  type AuthClientService,
+  type DeviceFlowResponse,
+  type MeResponse,
+  type PollResult,
+  type TokenResponse,
+  AuthClient,
+  AuthClientLive,
+  AuthClientTest,
+  pollOnce,
+  // OAuth contract
+  type NormalizedTokenResponse,
+  decodeTokenResponse,
+  setOAuthFormBody,
+  // Device login
+  type DeviceLoginInteractionService,
+  type DeviceLoginInteractionTestState,
+  DeviceLoginInteraction,
+  DeviceLoginInteractionTest,
+  runDeviceLogin,
+} from "@axm.sh/core/unstable/auth";
 
-// Auth middleware
-export { AuthMiddlewareLive, makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
-
-// Auth client
-export type {
-  AuthClientService,
-  DeviceFlowResponse,
-  MeResponse,
-  PollResult,
-  TokenResponse,
-} from "./auth-client.js";
-export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-client.js";
-
-// Auth login interaction
+// Auth login interaction (CLI-specific)
 export type {
   AuthLoginInteractionService,
   AuthLoginInteractionTestState,
@@ -69,8 +75,5 @@ export {
   AuthLoginInteractionTest,
 } from "./login-interaction.js";
 
-// Shared device login flow
-export { runDeviceLogin } from "./device-login.js";
-
-// Auth guard
+// Auth guard (CLI-specific)
 export { withAuthGuard } from "./guard.js";

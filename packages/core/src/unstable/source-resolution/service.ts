@@ -1,0 +1,265 @@
+/**
+ * SourceHostProviders Effect service.
+ *
+ * Provides a unified interface for discovering and fetching extensions
+ * across all source types, plus clone URL and source display building.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as Path from "effect/Path";
+import * as ServiceMap from "effect/ServiceMap";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
+
+import type { AppError } from "../app-error/index.js";
+import { Workspace } from "../workspace/index.js";
+import type {
+  ExtensionFiles,
+  FindOptions,
+  ExtensionRef,
+  GitHostingSource,
+  RegistrySource,
+  Source,
+} from "../sources/index.js";
+import {
+  createBuiltinSourceHostProvider,
+  createGitHostingSourceHostProvider,
+  createGitSourceHostProvider,
+  createLocalSourceHostProvider,
+} from "./providers/index.js";
+import { createRegistrySourceHostProviderFromHost } from "./providers/registry/index.js";
+import { buildCloneUrlForSource } from "./providers/git-hosting.js";
+
+// -----------------------------------------------------------------------------
+// Service Interface
+// -----------------------------------------------------------------------------
+
+/**
+ * Service interface for source host providers.
+ *
+ * Dependencies (FileSystem, Path, Workspace) are resolved at layer creation —
+ * callers only see the service, not its implementation details.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SourceHostProvidersService {
+  /** Find extensions matching the given source and search criteria. */
+  readonly find: (
+    source: Source,
+    options: FindOptions,
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, Scope.Scope>;
+  /** Fetch and materialize extension files for a discovered ref. */
+  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, Scope.Scope>;
+  /** Build a git clone URL for this source. Returns None for non-git sources. */
+  readonly cloneUrl: (source: Source) => Option.Option<string>;
+  /** Canonical origin string for display/comparison. */
+  readonly origin: (source: Source) => string;
+}
+
+/**
+ * Effect service tag for source host providers.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class SourceHostProviders extends ServiceMap.Service<
+  SourceHostProviders,
+  SourceHostProvidersService
+>()("@axm.sh/cli/SourceHostProviders") {}
+
+// -----------------------------------------------------------------------------
+// Clone URL Building
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a git clone URL from a source.
+ * Returns Some for git-based hosting sources, None for others.
+ */
+const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+      return Option.some(buildCloneUrlForSource(source));
+    case "git":
+    case "registry":
+    case "local":
+    case "builtin":
+      return Option.none();
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Origin Building
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the canonical source string for display/comparison.
+ * Handles all source types including builtin.
+ */
+const getOriginFromSource = (source: Source): string => {
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "azurerepos":
+      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
+    case "local":
+      return source.path;
+    case "git":
+      return source.url.href;
+    case "registry":
+      return source.location.href;
+    case "builtin":
+      return "builtin";
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Registry Meta-Provider
+// -----------------------------------------------------------------------------
+
+/**
+ * Creates a registry meta-provider that delegates find/fetch to the
+ * resolved registry host encoded in the provided `RegistrySource`.
+ *
+ * @internal
+ */
+export const createRegistryMetaProvider = () => ({
+  type: "registry" as const,
+
+  find: (source: RegistrySource, options: FindOptions) =>
+    Effect.gen(function* () {
+      // Determine profile from explicit option, or infer from @profile/name.
+      const profile = Option.isSome(options.profile)
+        ? options.profile
+        : Option.isSome(source.profile)
+          ? source.profile
+          : options.skillNames.length > 0
+            ? Option.fromNullOr(
+                options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+              )
+            : Option.none<string>();
+
+      const provider = yield* createRegistrySourceHostProviderFromHost(source);
+      const registrySource: RegistrySource = { ...source, profile };
+      return yield* provider.find(registrySource, options);
+    }),
+
+  fetch: (source: RegistrySource, ref: ExtensionRef) =>
+    Effect.flatMap(createRegistrySourceHostProviderFromHost(source), (provider) =>
+      provider.fetch(source, ref),
+    ),
+});
+
+// -----------------------------------------------------------------------------
+// Layer
+// -----------------------------------------------------------------------------
+
+/**
+ * Live layer for SourceHostProviders.
+ *
+ * Constructs the provider registry with all source type providers.
+ * Captures FileSystem, Path, and Workspace at creation time so the
+ * service interface doesn't leak these dependencies.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SourceHostProvidersLive: Layer.Layer<
+  SourceHostProviders,
+  never,
+  FileSystem.FileSystem | Path.Path | Workspace
+> = Layer.effect(
+  SourceHostProviders,
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* Workspace;
+    const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
+
+    const localProvider = createLocalSourceHostProvider();
+    const gitProvider = createGitSourceHostProvider();
+    const builtinProvider = createBuiltinSourceHostProvider();
+    const registryMetaProvider = createRegistryMetaProvider();
+
+    // Captured layer for providing to provider operations
+    const baseDepLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+      Layer.succeed(Workspace, ws),
+    );
+    const depLayer = Option.match(ambientHttpClient, {
+      onNone: () => baseDepLayer,
+      onSome: (client) => Layer.merge(baseDepLayer, Layer.succeed(HttpClient.HttpClient, client)),
+    });
+
+    const findGitHosting = (source: GitHostingSource, options: FindOptions) => {
+      const provider = createGitHostingSourceHostProvider(source);
+      return provider.find(source, options).pipe(Effect.provide(depLayer));
+    };
+
+    const fetchGitHosting = (source: GitHostingSource, ref: ExtensionRef) => {
+      const provider = createGitHostingSourceHostProvider(source);
+      return provider.fetch(source, ref).pipe(Effect.provide(depLayer));
+    };
+
+    const findImpl = (source: Source, options: FindOptions) => {
+      switch (source.type) {
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+          return findGitHosting(source, options);
+        case "local":
+          return localProvider.find(source, options).pipe(Effect.provide(depLayer));
+        case "git":
+          return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
+        case "registry":
+          return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
+        case "builtin":
+          return builtinProvider.find(source, options).pipe(Effect.provide(depLayer));
+      }
+    };
+
+    const fetchImpl = (
+      source: Source,
+      ref: ExtensionRef,
+    ): Effect.Effect<ExtensionFiles, AppError, Scope.Scope> => {
+      switch (source.type) {
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+          return fetchGitHosting(source, ref);
+        case "local":
+          return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "git":
+          return gitProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "registry":
+          return registryMetaProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "builtin":
+          return builtinProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+      }
+    };
+
+    const service: SourceHostProvidersService = {
+      find: (source, options) =>
+        findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
+      fetch: (ref) => {
+        const source = ref.source;
+        return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));
+      },
+      cloneUrl: buildCloneUrlFromSource,
+      origin: getOriginFromSource,
+    };
+
+    return service;
+  }),
+);

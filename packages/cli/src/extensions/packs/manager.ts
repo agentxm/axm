@@ -17,10 +17,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
 import type { PackExtensionRef, RegistryPackRef } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "../../sources/index.js";
-import type {
-  ExtensionManager,
-  PackExtensionTarget,
-} from "../../workflows/install-operation/workflow.js";
+import type { ExtensionManager, PackExtensionTarget } from "@axm.sh/core/unstable/workspace";
 import { Workspace, type SetPackArgs } from "../../workspace/service.js";
 import { copySkillDirectory } from "../skills/operations/copy-directory.js";
 import { sanitizeName } from "../skills/utils.js";

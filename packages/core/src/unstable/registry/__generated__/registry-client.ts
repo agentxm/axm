@@ -1,5 +1,5 @@
 // Generated from specs/registry-openapi.json — do not edit by hand.
-// Regenerate: nx run core:generate-registry-client
+// Regenerate: pnpm generate
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -22,15 +22,24 @@ export const DeviceTokenOAuthError = Schema.Struct({
 });
 export type UserId = string;
 export const UserId = Schema.String.check(
-  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$")),
+  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "User ID",
+    description: "TypeID with prefix `user_` (UUIDv7-based, Crockford base32 encoded).",
+  }),
 );
 export type TokId = string;
 export const TokId = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$")),
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Tok ID",
+    description: "TypeID with prefix `tok_` (UUIDv7-based, Crockford base32 encoded).",
+  }),
 );
 export type ExtId = string;
 export const ExtId = Schema.String.check(
-  Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$")),
+  Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Ext ID",
+    description: "TypeID with prefix `ext_` (UUIDv7-based, Crockford base32 encoded).",
+  }),
 );
 // schemas
 export type MetaGet200 = {
@@ -56,36 +65,58 @@ export type AuthIssueDeviceCode200 = {
   readonly interval: number;
 };
 export const AuthIssueDeviceCode200 = Schema.Struct({
-  device_code: Schema.String,
-  user_code: Schema.String,
-  verification_uri: Schema.String,
-  verification_uri_complete: Schema.String,
-  expires_in: Schema.Number.check(Schema.isInt()),
-  interval: Schema.Number.check(Schema.isInt()),
+  device_code: Schema.String.annotate({
+    description: "Device verification code for the polling client.",
+  }),
+  user_code: Schema.String.annotate({ description: "Short code the user enters in the browser." }),
+  verification_uri: Schema.String.annotate({
+    description: "URI where the user should navigate to enter the user code.",
+    format: "uri",
+  }),
+  verification_uri_complete: Schema.String.annotate({
+    description: "URI with the user code pre-filled, suitable for QR codes or direct links.",
+    format: "uri",
+  }),
+  expires_in: Schema.Number.annotate({
+    description: "Lifetime of the device code in seconds.",
+  }).check(Schema.isInt()),
+  interval: Schema.Number.annotate({ description: "Minimum polling interval in seconds." }).check(
+    Schema.isInt(),
+  ),
+}).annotate({
+  title: "Device Code Response",
+  description: "Response from the OAuth device authorization endpoint (RFC 8628).",
 });
 export type AuthExchangeDeviceCode200 = {
   readonly access_token: string;
   readonly refresh_token: string;
   readonly token_type: "Bearer";
-  readonly expires_in: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
+  readonly expires_in: number;
   readonly expires_at: string;
   readonly scope?: string | null;
 };
 export const AuthExchangeDeviceCode200 = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.String.annotate({
+    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
+  }),
   token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Union([
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt()),
+  expires_at: Schema.String.annotate({
+    description: "ISO 8601 timestamp when the access token expires.",
+    format: "date-time",
+  }),
+  scope: Schema.optionalKey(
     Schema.Union([
-      Schema.Number.check(Schema.isFinite()),
-      Schema.Literal("NaN"),
-      Schema.Literal("Infinity"),
-      Schema.Literal("-Infinity"),
+      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
     ]),
-    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-  ]),
-  expires_at: Schema.String,
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  ),
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
 export type AuthExchangeDeviceCode400 = DeviceTokenOAuthError;
 export const AuthExchangeDeviceCode400 = DeviceTokenOAuthError;
@@ -93,25 +124,32 @@ export type AuthRefreshToken200 = {
   readonly access_token: string;
   readonly refresh_token: string;
   readonly token_type: "Bearer";
-  readonly expires_in: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
+  readonly expires_in: number;
   readonly expires_at: string;
   readonly scope?: string | null;
 };
 export const AuthRefreshToken200 = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.String.annotate({
+    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
+  }),
   token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Union([
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt()),
+  expires_at: Schema.String.annotate({
+    description: "ISO 8601 timestamp when the access token expires.",
+    format: "date-time",
+  }),
+  scope: Schema.optionalKey(
     Schema.Union([
-      Schema.Number.check(Schema.isFinite()),
-      Schema.Literal("NaN"),
-      Schema.Literal("Infinity"),
-      Schema.Literal("-Infinity"),
+      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
     ]),
-    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-  ]),
-  expires_at: Schema.String,
-  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  ),
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
 export type AuthGetMe200 = {
   readonly user: { readonly id: UserId; readonly handle: string; readonly email: string | null };
@@ -140,7 +178,7 @@ export const AuthGetMe200 = Schema.Struct({
     resource_restrictions: Schema.Struct({
       extensions: Schema.Union([Schema.Array(Schema.String), Schema.Null]),
     }),
-    expires_at: Schema.String,
+    expires_at: Schema.String.annotate({ format: "date-time" }),
   }),
 });
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
@@ -182,12 +220,21 @@ export type TokensCreateRequestJson = {
   readonly expires_in: number;
 };
 export const TokensCreateRequestJson = Schema.Struct({
-  name: Schema.String.check(Schema.isMinLength(1)),
+  name: Schema.String.check(
+    Schema.isMinLength(1, { description: "Human-readable name for the token." }),
+  ),
   scopes: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
   expires_in: Schema.Number.check(Schema.isInt())
     .check(Schema.isFinite())
     .check(Schema.isGreaterThanOrEqualTo(3600))
-    .check(Schema.isLessThanOrEqualTo(31536000)),
+    .check(
+      Schema.isLessThanOrEqualTo(31536000, {
+        description: "Token lifetime in seconds (3600–31536000).",
+      }),
+    ),
+}).annotate({
+  title: "Create Token Request",
+  description: "Request body for creating a new personal access token.",
 });
 export type TokensCreate201 = {
   readonly id: TokId;
@@ -199,11 +246,17 @@ export type TokensCreate201 = {
 };
 export const TokensCreate201 = Schema.Struct({
   id: TokId,
-  token: Schema.String,
+  token: Schema.String.annotate({
+    description: "The full token value. Only returned once at creation time.",
+    readOnly: true,
+  }),
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
-  created_at: Schema.String,
-  expires_at: Schema.String,
+  created_at: Schema.String.annotate({ format: "date-time" }),
+  expires_at: Schema.String.annotate({ format: "date-time" }),
+}).annotate({
+  title: "Create Token Response",
+  description: "Newly created personal access token with the plaintext token value.",
 });
 export type ExtensionsListByProfile200 = {
   readonly extensions: ReadonlyArray<{

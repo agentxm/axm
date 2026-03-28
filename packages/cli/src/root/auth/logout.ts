@@ -35,9 +35,11 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const existing = yield* credStore.load(registryUrl);
 
   if (Option.isNone(existing)) {
-    yield* renderer.info("Not logged in.");
+    yield* renderer.success(`Not logged in to ${registryUrl}. Nothing to do.`);
     return;
   }
+
+  const handle = existing.value.handle;
 
   // Step 2: Attempt remote revoke (tolerate failure)
   const revokeResult = yield* authClient
@@ -49,11 +51,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   // Step 4: Display result
   if (Option.isSome(revokeResult)) {
-    yield* renderer.success("Logged out successfully.");
+    yield* renderer.success(`Logged out of ${registryUrl} as ${handle}.`);
   } else {
-    yield* renderer.warn("Signed out locally, but remote revoke failed.");
-    yield* renderer.info(
-      "Your token may still be active on the server. It will expire automatically.",
+    yield* renderer.warn(
+      `Logged out of ${registryUrl} as ${handle} locally. Remote revocation failed — token will expire automatically.`,
     );
   }
 }, Effect.asVoid);

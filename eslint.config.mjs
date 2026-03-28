@@ -16,6 +16,7 @@ export default [
       "**/.wrangler-artifacts/**",
       "**/vite.config.*.timestamp*",
       "**/vitest.config.*.timestamp*",
+      "**/__generated__/**",
     ],
   },
   {

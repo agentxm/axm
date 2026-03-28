@@ -11,34 +11,72 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 // non-recursive definitions
 export type DeviceTokenOAuthError = {
-  readonly _tag: "DeviceTokenOAuthError";
-  readonly error: "authorization_pending" | "slow_down" | "expired_token" | "access_denied";
+  readonly kind: "DeviceTokenOAuthError";
+  readonly error:
+    | "invalid_request"
+    | "authorization_pending"
+    | "slow_down"
+    | "expired_token"
+    | "access_denied";
   readonly error_description: string;
 };
 export const DeviceTokenOAuthError = Schema.Struct({
-  _tag: Schema.Literal("DeviceTokenOAuthError"),
-  error: Schema.Literals(["authorization_pending", "slow_down", "expired_token", "access_denied"]),
+  kind: Schema.Literal("DeviceTokenOAuthError"),
+  error: Schema.Literals([
+    "invalid_request",
+    "authorization_pending",
+    "slow_down",
+    "expired_token",
+    "access_denied",
+  ]),
   error_description: Schema.String,
 });
 export type UserId = string;
 export const UserId = Schema.String.check(
   Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
     title: "User ID",
-    description: "TypeID with prefix `user_` (UUIDv7-based, Crockford base32 encoded).",
+    description:
+      "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+    examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type TokId = string;
-export const TokId = Schema.String.check(
+export type TokenId = string;
+export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Tok ID",
-    description: "TypeID with prefix `tok_` (UUIDv7-based, Crockford base32 encoded).",
+    title: "Token ID",
+    description:
+      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type ExtId = string;
-export const ExtId = Schema.String.check(
+export type TokenId1 = string;
+export const TokenId1 = Schema.String.check(
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Token ID",
+    description:
+      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
+    readOnly: true,
+  }),
+);
+export type TokenId2 = string;
+export const TokenId2 = Schema.String.check(
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Token ID",
+    description:
+      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
+    readOnly: true,
+  }),
+);
+export type ExtensionId = string;
+export const ExtensionId = Schema.String.check(
   Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Ext ID",
-    description: "TypeID with prefix `ext_` (UUIDv7-based, Crockford base32 encoded).",
+    title: "Extension ID",
+    description:
+      "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
+    examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
+    readOnly: true,
   }),
 );
 // schemas
@@ -155,7 +193,7 @@ export type AuthGetMe200 = {
   readonly user: { readonly id: UserId; readonly handle: string; readonly email: string | null };
   readonly orgs: ReadonlyArray<never>;
   readonly token: {
-    readonly id: TokId;
+    readonly id: TokenId;
     readonly type: "session" | "pat" | "oidc";
     readonly name: string | null;
     readonly scopes: ReadonlyArray<string>;
@@ -171,7 +209,7 @@ export const AuthGetMe200 = Schema.Struct({
   }),
   orgs: Schema.Array(Schema.Never),
   token: Schema.Struct({
-    id: TokId,
+    id: TokenId,
     type: Schema.Literals(["session", "pat", "oidc"]),
     name: Schema.Union([Schema.String, Schema.Null]),
     scopes: Schema.Array(Schema.String),
@@ -188,7 +226,7 @@ export const TokensListParams = Schema.Struct({
 });
 export type TokensList200 = {
   readonly tokens: ReadonlyArray<{
-    readonly id: TokId;
+    readonly id: TokenId1;
     readonly name: string | null;
     readonly type: string;
     readonly scopes: ReadonlyArray<string>;
@@ -202,13 +240,16 @@ export type TokensList200 = {
 export const TokensList200 = Schema.Struct({
   tokens: Schema.Array(
     Schema.Struct({
-      id: TokId,
+      id: TokenId1,
       name: Schema.Union([Schema.String, Schema.Null]),
       type: Schema.String,
       scopes: Schema.Array(Schema.String),
-      created_at: Schema.String,
-      expires_at: Schema.String,
-      last_used_at: Schema.Union([Schema.String, Schema.Null]),
+      created_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      expires_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      last_used_at: Schema.Union([
+        Schema.String.annotate({ readOnly: true, format: "date-time" }),
+        Schema.Null,
+      ]),
     }),
   ),
   has_more: Schema.Boolean,
@@ -237,7 +278,7 @@ export const TokensCreateRequestJson = Schema.Struct({
   description: "Request body for creating a new personal access token.",
 });
 export type TokensCreate201 = {
-  readonly id: TokId;
+  readonly id: TokenId2;
   readonly token: string;
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
@@ -245,15 +286,15 @@ export type TokensCreate201 = {
   readonly expires_at: string;
 };
 export const TokensCreate201 = Schema.Struct({
-  id: TokId,
+  id: TokenId2,
   token: Schema.String.annotate({
     description: "The full token value. Only returned once at creation time.",
     readOnly: true,
   }),
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
-  created_at: Schema.String.annotate({ format: "date-time" }),
-  expires_at: Schema.String.annotate({ format: "date-time" }),
+  created_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  expires_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({
   title: "Create Token Response",
   description: "Newly created personal access token with the plaintext token value.",
@@ -262,7 +303,7 @@ export type ExtensionsListByProfile200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
     readonly profile: string;
-    readonly type: string;
+    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
     readonly latestVersion: string;
     readonly description?: string | null;
     readonly repository?: string | null;
@@ -282,7 +323,7 @@ export const ExtensionsListByProfile200 = Schema.Struct({
     Schema.Struct({
       name: Schema.String,
       profile: Schema.String,
-      type: Schema.String,
+      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
       latestVersion: Schema.String,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -299,9 +340,18 @@ export const ExtensionsListByProfile200 = Schema.Struct({
           Schema.Null,
         ]),
       ),
-      visibility: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      deprecated_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      deprecation_notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      visibility: Schema.optionalKey(
+        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+      ),
+      deprecated_at: Schema.optionalKey(
+        Schema.Union([
+          Schema.String.annotate({ readOnly: true, format: "date-time" }),
+          Schema.Null,
+        ]),
+      ),
+      deprecation_notice: Schema.optionalKey(
+        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+      ),
     }),
   ),
 });
@@ -309,7 +359,7 @@ export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
     readonly profile: string;
-    readonly type: string;
+    readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
     readonly latestVersion: string;
     readonly description?: string | null;
     readonly repository?: string | null;
@@ -329,7 +379,7 @@ export const ExtensionsListByType200 = Schema.Struct({
     Schema.Struct({
       name: Schema.String,
       profile: Schema.String,
-      type: Schema.String,
+      type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
       latestVersion: Schema.String,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
       repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -346,9 +396,18 @@ export const ExtensionsListByType200 = Schema.Struct({
           Schema.Null,
         ]),
       ),
-      visibility: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      deprecated_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      deprecation_notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      visibility: Schema.optionalKey(
+        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+      ),
+      deprecated_at: Schema.optionalKey(
+        Schema.Union([
+          Schema.String.annotate({ readOnly: true, format: "date-time" }),
+          Schema.Null,
+        ]),
+      ),
+      deprecation_notice: Schema.optionalKey(
+        Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+      ),
     }),
   ),
 });
@@ -359,7 +418,11 @@ export type ExtensionsGet200 = {
   readonly description?: string | null;
   readonly repository?: string | null;
   readonly license?: string | null;
-  readonly authors?: ReadonlyArray<{ readonly [x: string]: string }> | null;
+  readonly authors?: ReadonlyArray<{
+    readonly name?: string | null;
+    readonly email?: string | null;
+    readonly url?: string | null;
+  }> | null;
   readonly versions: ReadonlyArray<{
     readonly version: string;
     readonly published: string;
@@ -383,13 +446,22 @@ export const ExtensionsGet200 = Schema.Struct({
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   authors: Schema.optionalKey(
-    Schema.Union([Schema.Array(Schema.Record(Schema.String, Schema.String)), Schema.Null]),
+    Schema.Union([
+      Schema.Array(
+        Schema.Struct({
+          name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+      ),
+      Schema.Null,
+    ]),
   ),
   versions: Schema.Array(
     Schema.Struct({
       version: Schema.String,
-      published: Schema.String,
-      integrity: Schema.String,
+      published: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      integrity: Schema.String.annotate({ readOnly: true }),
       dependencies: Schema.optionalKey(
         Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
       ),
@@ -402,14 +474,26 @@ export const ExtensionsGet200 = Schema.Struct({
           Schema.Null,
         ]),
       ),
-      yanked_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      yanked_at: Schema.optionalKey(
+        Schema.Union([
+          Schema.String.annotate({ readOnly: true, format: "date-time" }),
+          Schema.Null,
+        ]),
+      ),
     }),
   ),
   visibility: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["public", "unlisted", "private"]), Schema.Null]),
+    Schema.Union([
+      Schema.Literals(["public", "unlisted", "private"]).annotate({ readOnly: true }),
+      Schema.Null,
+    ]),
   ),
-  deprecated_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  deprecation_notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  deprecated_at: Schema.optionalKey(
+    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
+  ),
+  deprecation_notice: Schema.optionalKey(
+    Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
+  ),
 });
 export type ExtensionsUpdateVisibilityRequestJson = {
   readonly visibility: "public" | "unlisted" | "private";
@@ -418,7 +502,7 @@ export const ExtensionsUpdateVisibilityRequestJson = Schema.Struct({
   visibility: Schema.Literals(["public", "unlisted", "private"]),
 });
 export type ExtensionsUpdateVisibility200 = {
-  readonly id: ExtId;
+  readonly id: ExtensionId;
   readonly profile: string;
   readonly type: string;
   readonly name: string;
@@ -426,12 +510,12 @@ export type ExtensionsUpdateVisibility200 = {
   readonly updatedAt: string;
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
-  id: ExtId,
+  id: ExtensionId,
   profile: Schema.String,
   type: Schema.String,
   name: Schema.String,
   visibility: Schema.String,
-  updatedAt: Schema.String,
+  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
 export type ExtensionsGetVersion200 = {
   readonly name: string;
@@ -444,7 +528,11 @@ export type ExtensionsGetVersion200 = {
   readonly description?: string | null;
   readonly repository?: string | null;
   readonly license?: string | null;
-  readonly authors?: ReadonlyArray<{ readonly [x: string]: string }> | null;
+  readonly authors?: ReadonlyArray<{
+    readonly name?: string | null;
+    readonly email?: string | null;
+    readonly url?: string | null;
+  }> | null;
   readonly capabilities?: {
     readonly required?: ReadonlyArray<string> | null;
     readonly optional?: ReadonlyArray<string> | null;
@@ -458,14 +546,23 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   profile: Schema.String,
   type: Schema.String,
   version: Schema.String,
-  status: Schema.Literals(["pending", "available", "failed"]),
-  published: Schema.String,
-  integrity: Schema.String,
+  status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
+  published: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  integrity: Schema.String.annotate({ readOnly: true }),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   authors: Schema.optionalKey(
-    Schema.Union([Schema.Array(Schema.Record(Schema.String, Schema.String)), Schema.Null]),
+    Schema.Union([
+      Schema.Array(
+        Schema.Struct({
+          name: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          email: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+      ),
+      Schema.Null,
+    ]),
   ),
   capabilities: Schema.optionalKey(
     Schema.Union([
@@ -479,8 +576,12 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   dependencies: Schema.optionalKey(
     Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Null]),
   ),
-  yanked_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  deleted_at: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  yanked_at: Schema.optionalKey(
+    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
+  ),
+  deleted_at: Schema.optionalKey(
+    Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
+  ),
 });
 export type ExtensionsPublishVersionRequestFormData = {
   readonly archive: string;
@@ -505,10 +606,10 @@ export const ExtensionsPublishVersion200 = Schema.Struct({
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
-  integrity: Schema.String,
-  sha256_hex: Schema.String,
-  published_at: Schema.String,
-  publish_status: Schema.String,
+  integrity: Schema.String.annotate({ readOnly: true }),
+  sha256_hex: Schema.String.annotate({ readOnly: true }),
+  published_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  publish_status: Schema.String.annotate({ readOnly: true }),
 });
 export type ExtensionsPublishVersion201 = {
   readonly profile: string;
@@ -525,10 +626,10 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
-  integrity: Schema.String,
-  sha256_hex: Schema.String,
-  published_at: Schema.String,
-  publish_status: Schema.String,
+  integrity: Schema.String.annotate({ readOnly: true }),
+  sha256_hex: Schema.String.annotate({ readOnly: true }),
+  published_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  publish_status: Schema.String.annotate({ readOnly: true }),
 });
 export type ExtensionsGetHandleProfile200 = {
   readonly ok: true;
@@ -561,8 +662,11 @@ export const ExtensionsDeprecate200 = Schema.Struct({
   profile: Schema.String,
   type: Schema.String,
   name: Schema.String,
-  deprecatedAt: Schema.Union([Schema.String, Schema.Null]),
-  deprecationNotice: Schema.Union([Schema.String, Schema.Null]),
+  deprecatedAt: Schema.Union([
+    Schema.String.annotate({ readOnly: true, format: "date-time" }),
+    Schema.Null,
+  ]),
+  deprecationNotice: Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
 });
 export type ExtensionsUndeprecate200 = {
   readonly profile: string;
@@ -590,7 +694,10 @@ export const ExtensionsYankVersion200 = Schema.Struct({
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
-  yankedAt: Schema.Union([Schema.String, Schema.Null]),
+  yankedAt: Schema.Union([
+    Schema.String.annotate({ readOnly: true, format: "date-time" }),
+    Schema.Null,
+  ]),
 });
 export type ExtensionsUnyankVersion200 = {
   readonly profile: string;
@@ -619,8 +726,8 @@ export const CollaboratorsListCollaborators200 = Schema.Struct({
     Schema.Struct({
       userId: UserId,
       role: Schema.String,
-      grantedBy: Schema.Union([UserId, Schema.Null]),
-      createdAt: Schema.String,
+      grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+      createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
     }),
   ),
 });
@@ -639,8 +746,8 @@ export type CollaboratorsUpsertCollaborator200 = {
 export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
   userId: UserId,
   role: Schema.String,
-  grantedBy: Schema.Union([UserId, Schema.Null]),
-  createdAt: Schema.String,
+  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
@@ -650,8 +757,73 @@ export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | nul
 export const HealthGetDeepHealthParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetDeepHealth200 = unknown;
-export const HealthGetDeepHealth200 = Schema.Unknown;
+export type HealthGetDeepHealth200 = {
+  readonly status: "pass" | "warn" | "fail";
+  readonly serviceId?: string | null;
+  readonly version?: string | null;
+  readonly releaseId?: string | null;
+  readonly commit?: string | null;
+  readonly deployedAt?: string | null;
+  readonly environment?: string | null;
+  readonly region?: string | null;
+  readonly checks?: {
+    readonly [x: string]: ReadonlyArray<{
+      readonly componentName: string;
+      readonly componentType: "datastore" | "system" | "component";
+      readonly measurementName: string;
+      readonly status: "pass" | "warn" | "fail";
+      readonly observedValue:
+        | number
+        | "NaN"
+        | "Infinity"
+        | "-Infinity"
+        | "Infinity"
+        | "-Infinity"
+        | "NaN";
+      readonly observedUnit: string;
+      readonly time: string;
+    }>;
+  } | null;
+  readonly output?: string | null;
+};
+export const HealthGetDeepHealth200 = Schema.Struct({
+  status: Schema.Literals(["pass", "warn", "fail"]),
+  serviceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  version: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  releaseId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  commit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  deployedAt: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  environment: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  region: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  checks: Schema.optionalKey(
+    Schema.Union([
+      Schema.Record(
+        Schema.String,
+        Schema.Array(
+          Schema.Struct({
+            componentName: Schema.String,
+            componentType: Schema.Literals(["datastore", "system", "component"]),
+            measurementName: Schema.String,
+            status: Schema.Literals(["pass", "warn", "fail"]),
+            observedValue: Schema.Union([
+              Schema.Union([
+                Schema.Number.check(Schema.isFinite()),
+                Schema.Literal("NaN"),
+                Schema.Literal("Infinity"),
+                Schema.Literal("-Infinity"),
+              ]),
+              Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+            ]),
+            observedUnit: Schema.String,
+            time: Schema.String,
+          }),
+        ),
+      ),
+      Schema.Null,
+    ]),
+  ),
+  output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -660,8 +832,59 @@ export const HealthGetObservabilityVerificationParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   level: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetObservabilityVerification200 = unknown;
-export const HealthGetObservabilityVerification200 = Schema.Unknown;
+export type HealthGetObservabilityVerification200 = {
+  readonly status: "ok" | "error";
+  readonly timestamp: string;
+  readonly serviceId: string;
+  readonly level: "basic" | "standard" | "full";
+  readonly checks: {
+    readonly logging?: { readonly status: "ok" | "error"; readonly correlationId: string } | null;
+    readonly tracing?: { readonly status: "ok" | "error"; readonly traceId?: string | null } | null;
+    readonly metrics?: { readonly status: "ok" | "error"; readonly counter: string } | null;
+    readonly errors?: {
+      readonly status: "ok" | "error";
+      readonly sentryEventId?: string | null;
+    } | null;
+  };
+};
+export const HealthGetObservabilityVerification200 = Schema.Struct({
+  status: Schema.Literals(["ok", "error"]),
+  timestamp: Schema.String,
+  serviceId: Schema.String,
+  level: Schema.Literals(["basic", "standard", "full"]),
+  checks: Schema.Struct({
+    logging: Schema.optionalKey(
+      Schema.Union([
+        Schema.Struct({ status: Schema.Literals(["ok", "error"]), correlationId: Schema.String }),
+        Schema.Null,
+      ]),
+    ),
+    tracing: Schema.optionalKey(
+      Schema.Union([
+        Schema.Struct({
+          status: Schema.Literals(["ok", "error"]),
+          traceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+        Schema.Null,
+      ]),
+    ),
+    metrics: Schema.optionalKey(
+      Schema.Union([
+        Schema.Struct({ status: Schema.Literals(["ok", "error"]), counter: Schema.String }),
+        Schema.Null,
+      ]),
+    ),
+    errors: Schema.optionalKey(
+      Schema.Union([
+        Schema.Struct({
+          status: Schema.Literals(["ok", "error"]),
+          sentryEventId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+        Schema.Null,
+      ]),
+    ),
+  }),
+});
 export type SearchSearchExtensionsParams = { readonly q: string };
 export const SearchSearchExtensionsParams = Schema.Struct({
   q: Schema.String.check(Schema.isMinLength(1)),
@@ -768,7 +991,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -778,7 +1000,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthIssueDeviceCode200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -798,7 +1019,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthRefreshToken200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -808,7 +1028,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "200": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -818,7 +1037,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthGetMe200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -828,7 +1046,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "204": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -842,7 +1059,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(TokensList200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -853,7 +1069,6 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(TokensCreate201),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -863,7 +1078,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "204": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -873,7 +1087,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByProfile200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -883,7 +1096,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByType200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -894,7 +1106,6 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGet200),
             "304": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -905,6 +1116,8 @@ export const make = (
           HttpClientResponse.matchStatus({
             "200": () => Effect.void,
             "400": () => Effect.void,
+            "404": () => Effect.void,
+            "500": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -924,7 +1137,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetVersion200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -945,7 +1157,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "204": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -954,7 +1165,6 @@ export const make = (
       HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -964,7 +1174,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetHandleProfile200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -975,7 +1184,6 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsDeprecate200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -985,7 +1193,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUndeprecate200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -995,7 +1202,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsYankVersion200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1005,7 +1211,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUnyankVersion200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1015,7 +1220,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(CollaboratorsListCollaborators200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1039,7 +1243,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "204": () => Effect.void,
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1049,7 +1252,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1062,7 +1264,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1076,7 +1277,6 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetObservabilityVerification200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -1087,7 +1287,6 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(SearchSearchExtensions200),
-            "400": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),

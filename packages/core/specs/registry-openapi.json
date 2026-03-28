@@ -32,7 +32,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Returns service metadata and documentation entrypoints when docs are enabled.",
         "summary": "Get registry service metadata"
@@ -94,7 +101,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "summary": "Initiate OAuth device authorization flow",
         "requestBody": {
@@ -169,10 +183,15 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DeviceTokenOAuthError | BadRequest",
+            "description": "InvalidRequestError | DeviceTokenOAuthError | DecodeErrorResponse | BadRequest",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/InvalidRequestError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
               },
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DeviceTokenOAuthError" }
@@ -253,7 +272,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "RefreshTokenError",
             "content": {
@@ -291,7 +317,14 @@
         "security": [],
         "responses": {
           "200": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "summary": "Revoke an authentication token",
         "requestBody": {
@@ -337,7 +370,7 @@
                     "token": {
                       "type": "object",
                       "properties": {
-                        "id": { "$ref": "#/components/schemas/TokId" },
+                        "id": { "$ref": "#/components/schemas/TokenId" },
                         "type": { "type": "string", "enum": ["session", "pat", "oidc"] },
                         "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                         "scopes": { "type": "array", "items": { "type": "string" } },
@@ -373,7 +406,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -394,7 +434,14 @@
         "security": [],
         "responses": {
           "204": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "501": {
             "description": "NotImplementedError",
             "content": {
@@ -439,13 +486,26 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": { "$ref": "#/components/schemas/TokId" },
+                          "id": { "$ref": "#/components/schemas/TokenId1" },
                           "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "type": { "type": "string" },
                           "scopes": { "type": "array", "items": { "type": "string" } },
-                          "created_at": { "type": "string" },
-                          "expires_at": { "type": "string" },
-                          "last_used_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                          "created_at": {
+                            "type": "string",
+                            "readOnly": true,
+                            "format": "date-time"
+                          },
+                          "expires_at": {
+                            "type": "string",
+                            "readOnly": true,
+                            "format": "date-time"
+                          },
+                          "last_used_at": {
+                            "anyOf": [
+                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": [
                           "id",
@@ -468,7 +528,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -501,7 +568,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": { "$ref": "#/components/schemas/TokId" },
+                    "id": { "$ref": "#/components/schemas/TokenId2" },
                     "token": {
                       "type": "string",
                       "description": "The full token value. Only returned once at creation time.",
@@ -509,8 +576,8 @@
                     },
                     "name": { "type": "string" },
                     "scopes": { "type": "array", "items": { "type": "string" } },
-                    "created_at": { "type": "string", "format": "date-time" },
-                    "expires_at": { "type": "string", "format": "date-time" }
+                    "created_at": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "expires_at": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
                   "required": ["id", "token", "name", "scopes", "created_at", "expires_at"],
                   "additionalProperties": false,
@@ -520,7 +587,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -594,14 +668,21 @@
           {
             "name": "tokenId",
             "in": "path",
-            "schema": { "$ref": "#/components/schemas/TokId" },
+            "schema": { "$ref": "#/components/schemas/TokenId" },
             "required": true
           }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
           "204": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -634,7 +715,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -650,7 +731,18 @@
                         "properties": {
                           "name": { "type": "string" },
                           "profile": { "type": "string" },
-                          "type": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "skill",
+                              "command",
+                              "mcp-server",
+                              "subagent",
+                              "file",
+                              "rule",
+                              "pack"
+                            ]
+                          },
                           "latestVersion": { "type": "string" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -674,10 +766,17 @@
                               { "type": "null" }
                             ]
                           },
-                          "visibility": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "deprecated_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "visibility": {
+                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                          },
+                          "deprecated_at": {
+                            "anyOf": [
+                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "type": "null" }
+                            ]
+                          },
                           "deprecation_notice": {
-                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
                         },
                         "required": ["name", "profile", "type", "latestVersion"],
@@ -691,7 +790,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "summary": "List profile extensions"
       }
@@ -717,7 +823,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -733,7 +839,18 @@
                         "properties": {
                           "name": { "type": "string" },
                           "profile": { "type": "string" },
-                          "type": { "type": "string" },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "skill",
+                              "command",
+                              "mcp-server",
+                              "subagent",
+                              "file",
+                              "rule",
+                              "pack"
+                            ]
+                          },
                           "latestVersion": { "type": "string" },
                           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -757,10 +874,17 @@
                               { "type": "null" }
                             ]
                           },
-                          "visibility": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "deprecated_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "visibility": {
+                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                          },
+                          "deprecated_at": {
+                            "anyOf": [
+                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "type": "null" }
+                            ]
+                          },
                           "deprecation_notice": {
-                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
                         },
                         "required": ["name", "profile", "type", "latestVersion"],
@@ -774,7 +898,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "summary": "List extensions by profile and type"
       }
@@ -806,26 +937,12 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/NotFoundError" }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/InternalError" }
-              }
-            }
-          }
+          "400": { "description": "DecodeErrorResponse | BadRequest" },
+          "404": { "description": "NotFoundError" },
+          "500": { "description": "InternalError" }
         },
         "summary": "Check whether an extension exists"
       },
@@ -855,7 +972,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -879,7 +996,12 @@
                           "type": "array",
                           "items": {
                             "type": "object",
-                            "additionalProperties": { "type": "string" }
+                            "properties": {
+                              "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         { "type": "null" }
@@ -891,8 +1013,12 @@
                         "type": "object",
                         "properties": {
                           "version": { "type": "string" },
-                          "published": { "type": "string" },
-                          "integrity": { "type": "string" },
+                          "published": {
+                            "type": "string",
+                            "readOnly": true,
+                            "format": "date-time"
+                          },
+                          "integrity": { "type": "string", "readOnly": true },
                           "dependencies": {
                             "anyOf": [
                               { "type": "object", "additionalProperties": { "type": "string" } },
@@ -922,7 +1048,12 @@
                               { "type": "null" }
                             ]
                           },
-                          "yanked_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                          "yanked_at": {
+                            "anyOf": [
+                              { "type": "string", "readOnly": true, "format": "date-time" },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["version", "published", "integrity"],
                         "additionalProperties": false
@@ -930,12 +1061,23 @@
                     },
                     "visibility": {
                       "anyOf": [
-                        { "type": "string", "enum": ["public", "unlisted", "private"] },
+                        {
+                          "type": "string",
+                          "enum": ["public", "unlisted", "private"],
+                          "readOnly": true
+                        },
                         { "type": "null" }
                       ]
                     },
-                    "deprecated_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "deprecation_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "deprecated_at": {
+                      "anyOf": [
+                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "type": "null" }
+                      ]
+                    },
+                    "deprecation_notice": {
+                      "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                    }
                   },
                   "required": ["name", "profile", "type", "versions"],
                   "additionalProperties": false
@@ -944,7 +1086,14 @@
             }
           },
           "304": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "404": {
             "description": "NotFoundError",
             "content": {
@@ -982,7 +1131,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -991,12 +1140,12 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": { "$ref": "#/components/schemas/ExtId" },
+                    "id": { "$ref": "#/components/schemas/ExtensionId" },
                     "profile": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "visibility": { "type": "string" },
-                    "updatedAt": { "type": "string" }
+                    "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
                   "required": ["id", "profile", "type", "name", "visibility", "updatedAt"],
                   "additionalProperties": false
@@ -1005,10 +1154,15 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/InvalidRequestError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
               }
             }
           },
@@ -1083,7 +1237,7 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -1096,9 +1250,13 @@
                     "profile": { "type": "string" },
                     "type": { "type": "string" },
                     "version": { "type": "string" },
-                    "status": { "type": "string", "enum": ["pending", "available", "failed"] },
-                    "published": { "type": "string" },
-                    "integrity": { "type": "string" },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "available", "failed"],
+                      "readOnly": true
+                    },
+                    "published": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "integrity": { "type": "string", "readOnly": true },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "repository": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "license": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1108,7 +1266,12 @@
                           "type": "array",
                           "items": {
                             "type": "object",
-                            "additionalProperties": { "type": "string" }
+                            "properties": {
+                              "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                              "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         { "type": "null" }
@@ -1143,8 +1306,18 @@
                         { "type": "null" }
                       ]
                     },
-                    "yanked_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "deleted_at": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "yanked_at": {
+                      "anyOf": [
+                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "type": "null" }
+                      ]
+                    },
+                    "deleted_at": {
+                      "anyOf": [
+                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "type": "null" }
+                      ]
+                    }
                   },
                   "required": [
                     "name",
@@ -1160,7 +1333,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "404": {
             "description": "NotFoundError",
             "content": {
@@ -1199,10 +1379,17 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "204": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1257,7 +1444,7 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1270,10 +1457,10 @@
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
-                    "integrity": { "type": "string" },
-                    "sha256_hex": { "type": "string" },
-                    "published_at": { "type": "string" },
-                    "publish_status": { "type": "string" }
+                    "integrity": { "type": "string", "readOnly": true },
+                    "sha256_hex": { "type": "string", "readOnly": true },
+                    "published_at": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "publish_status": { "type": "string", "readOnly": true }
                   },
                   "required": [
                     "profile",
@@ -1301,10 +1488,10 @@
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
-                    "integrity": { "type": "string" },
-                    "sha256_hex": { "type": "string" },
-                    "published_at": { "type": "string" },
-                    "publish_status": { "type": "string" }
+                    "integrity": { "type": "string", "readOnly": true },
+                    "sha256_hex": { "type": "string", "readOnly": true },
+                    "published_at": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "publish_status": { "type": "string", "readOnly": true }
                   },
                   "required": [
                     "profile",
@@ -1322,10 +1509,15 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/InvalidRequestError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
               }
             }
           },
@@ -1468,13 +1660,20 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
             "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "404": {
             "description": "NotFoundError",
             "content": {
@@ -1507,7 +1706,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -1534,7 +1733,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Returns the current mock handle profile payload.",
         "summary": "Get handle profile"
@@ -1567,7 +1773,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1579,8 +1785,15 @@
                     "profile": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
-                    "deprecatedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "deprecationNotice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "deprecatedAt": {
+                      "anyOf": [
+                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "type": "null" }
+                      ]
+                    },
+                    "deprecationNotice": {
+                      "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                    }
                   },
                   "required": ["profile", "type", "name", "deprecatedAt", "deprecationNotice"],
                   "additionalProperties": false
@@ -1588,7 +1801,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1654,7 +1874,7 @@
             "required": true
           }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1675,7 +1895,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1732,7 +1959,7 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1745,7 +1972,12 @@
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
-                    "yankedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "yankedAt": {
+                      "anyOf": [
+                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "type": "null" }
+                      ]
+                    }
                   },
                   "required": ["profile", "type", "name", "version", "yankedAt"],
                   "additionalProperties": false
@@ -1753,7 +1985,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1808,7 +2047,7 @@
           },
           { "name": "version", "in": "path", "schema": { "type": "string" }, "required": true }
         ],
-        "security": [{ "bearer": [] }, { "bearer": [] }],
+        "security": [{ "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1829,7 +2068,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1902,9 +2148,13 @@
                           "userId": { "$ref": "#/components/schemas/UserId" },
                           "role": { "type": "string" },
                           "grantedBy": {
-                            "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/UserId" },
+                              { "type": "null" }
+                            ],
+                            "readOnly": true
                           },
-                          "createdAt": { "type": "string" }
+                          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
                         },
                         "required": ["userId", "role", "grantedBy", "createdAt"],
                         "additionalProperties": false
@@ -1917,7 +2167,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -1991,9 +2248,10 @@
                     "userId": { "$ref": "#/components/schemas/UserId" },
                     "role": { "type": "string" },
                     "grantedBy": {
-                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
+                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
+                      "readOnly": true
                     },
-                    "createdAt": { "type": "string" }
+                    "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
                   "required": ["userId", "role", "grantedBy", "createdAt"],
                   "additionalProperties": false
@@ -2002,10 +2260,15 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | BadRequest",
+            "description": "InvalidRequestError | DecodeErrorResponse | BadRequest",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/InvalidRequestError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/InvalidRequestError" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
               }
             }
           },
@@ -2084,7 +2347,14 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "204": { "description": "<No Content>" },
-          "400": { "description": "BadRequest" },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
           "401": {
             "description": "UnauthorizedError",
             "content": {
@@ -2143,7 +2413,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Returns pass/fail status. Public, no auth required.",
         "summary": "Shallow health check"
@@ -2163,8 +2440,85 @@
         ],
         "security": [],
         "responses": {
-          "200": { "description": "Success", "content": { "application/json": { "schema": {} } } },
-          "400": { "description": "BadRequest" }
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+                    "serviceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "releaseId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "commit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "deployedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "environment": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "region": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "checks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "componentName": { "type": "string" },
+                                "componentType": {
+                                  "type": "string",
+                                  "enum": ["datastore", "system", "component"]
+                                },
+                                "measurementName": { "type": "string" },
+                                "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+                                "observedValue": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        { "type": "number" },
+                                        { "type": "string", "enum": ["NaN"] },
+                                        { "type": "string", "enum": ["Infinity"] },
+                                        { "type": "string", "enum": ["-Infinity"] }
+                                      ]
+                                    },
+                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                                  ]
+                                },
+                                "observedUnit": { "type": "string" },
+                                "time": { "type": "string" }
+                              },
+                              "required": [
+                                "componentName",
+                                "componentType",
+                                "measurementName",
+                                "status",
+                                "observedValue",
+                                "observedUnit",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        { "type": "null" }
+                      ]
+                    },
+                    "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  },
+                  "required": ["status"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.",
         "summary": "Deep health check with dependency status"
@@ -2190,8 +2544,96 @@
         ],
         "security": [],
         "responses": {
-          "200": { "description": "Success", "content": { "application/json": { "schema": {} } } },
-          "400": { "description": "BadRequest" }
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok", "error"] },
+                    "timestamp": { "type": "string" },
+                    "serviceId": { "type": "string" },
+                    "level": { "type": "string", "enum": ["basic", "standard", "full"] },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "logging": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "correlationId": { "type": "string" }
+                              },
+                              "required": ["status", "correlationId"],
+                              "additionalProperties": false
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "tracing": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                              },
+                              "required": ["status"],
+                              "additionalProperties": false
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "metrics": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "counter": { "type": "string" }
+                              },
+                              "required": ["status", "counter"],
+                              "additionalProperties": false
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "errors": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": { "type": "string", "enum": ["ok", "error"] },
+                                "sentryEventId": {
+                                  "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                }
+                              },
+                              "required": ["status"],
+                              "additionalProperties": false
+                            },
+                            { "type": "null" }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["status", "timestamp", "serviceId", "level", "checks"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.",
         "summary": "Observability verification"
@@ -2236,7 +2678,14 @@
               }
             }
           },
-          "400": { "description": "BadRequest" }
+          "400": {
+            "description": "DecodeErrorResponse | BadRequest",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
         },
         "description": "Returns the current mock search response for the provided query string.",
         "summary": "Search extensions"
@@ -2245,32 +2694,98 @@
   },
   "components": {
     "schemas": {
+      "DecodeErrorResponse": {
+        "type": "object",
+        "properties": {
+          "_tag": { "type": "string", "enum": ["DecodeErrorResponse"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "code": { "type": "string" },
+          "instance": { "type": "string" }
+        },
+        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
+      },
       "InvalidRequestError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["InvalidRequestError"] },
+          "kind": { "type": "string", "enum": ["InvalidRequestError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "DeviceTokenOAuthError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["DeviceTokenOAuthError"] },
+          "kind": { "type": "string", "enum": ["DeviceTokenOAuthError"] },
           "error": {
             "type": "string",
-            "enum": ["authorization_pending", "slow_down", "expired_token", "access_denied"]
+            "enum": [
+              "invalid_request",
+              "authorization_pending",
+              "slow_down",
+              "expired_token",
+              "access_denied"
+            ]
           },
           "error_description": { "type": "string" }
         },
-        "required": ["_tag", "error", "error_description"],
+        "required": ["kind", "error", "error_description"],
         "additionalProperties": false
       },
       "RefreshTokenError": {
@@ -2294,193 +2809,717 @@
           {
             "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "User ID",
-            "description": "TypeID with prefix `user_` (UUIDv7-based, Crockford base32 encoded)."
+            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
       },
-      "TokId": {
+      "TokenId": {
         "type": "string",
         "allOf": [
           {
             "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Tok ID",
-            "description": "TypeID with prefix `tok_` (UUIDv7-based, Crockford base32 encoded)."
+            "title": "Token ID",
+            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
       },
       "UnauthorizedError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["UnauthorizedError"] },
+          "kind": { "type": "string", "enum": ["UnauthorizedError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["NaN"] },
+                      { "type": "string", "enum": ["Infinity"] },
+                      { "type": "string", "enum": ["-Infinity"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "NotImplementedError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["NotImplementedError"] },
+          "kind": { "type": "string", "enum": ["NotImplementedError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "TokenId1": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Token ID",
+            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"],
+            "readOnly": true
+          }
+        ]
       },
       "ForbiddenError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["ForbiddenError"] },
+          "kind": { "type": "string", "enum": ["ForbiddenError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["NaN"] },
+                      { "type": "string", "enum": ["Infinity"] },
+                      { "type": "string", "enum": ["-Infinity"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
+      },
+      "TokenId2": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Token ID",
+            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"],
+            "readOnly": true
+          }
+        ]
       },
       "UnprocessableEntityError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["UnprocessableEntityError"] },
+          "kind": { "type": "string", "enum": ["UnprocessableEntityError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "NotFoundError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["NotFoundError"] },
+          "kind": { "type": "string", "enum": ["NotFoundError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "InternalError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["InternalError"] },
+          "kind": { "type": "string", "enum": ["InternalError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "ExtId": {
+      "ExtensionId": {
         "type": "string",
         "allOf": [
           {
             "pattern": "^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Ext ID",
-            "description": "TypeID with prefix `ext_` (UUIDv7-based, Crockford base32 encoded)."
+            "title": "Extension ID",
+            "description": "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
+            "examples": ["ext_01h455vb4pexka56gq5w2r7cpc"],
+            "readOnly": true
           }
         ]
       },
       "ConflictError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["ConflictError"] },
+          "kind": { "type": "string", "enum": ["ConflictError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "PayloadTooLargeError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["PayloadTooLargeError"] },
+          "kind": { "type": "string", "enum": ["PayloadTooLargeError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "UnsupportedMediaTypeError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["UnsupportedMediaTypeError"] },
+          "kind": { "type": "string", "enum": ["UnsupportedMediaTypeError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "TooManyRequestsError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["TooManyRequestsError"] },
+          "kind": { "type": "string", "enum": ["TooManyRequestsError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "ServiceUnavailableError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["ServiceUnavailableError"] },
+          "kind": { "type": "string", "enum": ["ServiceUnavailableError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
           "instance": { "type": "string" },
-          "details": {}
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "requiredScope": { "type": "string" },
+                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["requiredScope", "grantedScopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "required_scope": { "type": "string" },
+                  "token_scopes": { "type": "array", "items": { "type": "string" } },
+                  "required_role": { "type": "string" }
+                },
+                "required": ["required_scope", "token_scopes"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "retryable": { "type": "boolean" },
+                  "retryAfterSeconds": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["NaN"] },
+                          { "type": "string", "enum": ["Infinity"] },
+                          { "type": "string", "enum": ["-Infinity"] }
+                        ]
+                      },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["retryable"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       }
     },

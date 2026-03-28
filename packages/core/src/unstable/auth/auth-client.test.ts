@@ -487,8 +487,24 @@ describe("AuthClient.getMe", () => {
     }
   });
 
-  it("fails with AUTH_UNAUTHENTICATED on unexpected status", async () => {
+  it("fails with AUTH_SERVER_ERROR on 5xx status", async () => {
     const layer = makeTestLayer(() => new Response("error", { status: 500 }));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* AuthClient;
+        return yield* client.getMe(REGISTRY_URL, "axm_ses_bad").pipe(Effect.result);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.code).toBe("AUTH_SERVER_ERROR");
+    }
+  });
+
+  it("fails with AUTH_UNAUTHENTICATED on other unexpected status", async () => {
+    const layer = makeTestLayer(() => new Response("not found", { status: 404 }));
 
     const result = await Effect.runPromise(
       Effect.gen(function* () {

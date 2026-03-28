@@ -388,24 +388,14 @@ describe("AuthMiddleware", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Proactive refresh
+  // Near-expiry tokens
   // ---------------------------------------------------------------------------
 
-  describe("proactive refresh", () => {
-    it("proactively refreshes token when near expiry", async () => {
+  describe("near-expiry tokens", () => {
+    it("sends near-expiry token as-is without proactive refresh", async () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
-          return new Response(
-            JSON.stringify({
-              access_token: "axm_ses_proactive",
-              refresh_token: "axm_ref_proactive",
-              expires_at: futureExpiry(),
-            }),
-            { status: 200 },
-          );
-        }
         capturedAuth = authorizationHeader(req);
         return new Response("ok", { status: 200 });
       }, storedCredentials(nearExpiry()));
@@ -417,28 +407,6 @@ describe("AuthMiddleware", () => {
       });
 
       await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_proactive");
-    });
-
-    it("proceeds with current token when proactive refresh fails", async () => {
-      let capturedAuth: string | null = null;
-
-      const layers = makeTestLayers((req) => {
-        if (req.url.includes("/v1/auth/token/refresh")) {
-          return new Response("error", { status: 500 });
-        }
-        capturedAuth = authorizationHeader(req);
-        return new Response("ok", { status: 200 });
-      }, storedCredentials(nearExpiry()));
-
-      const program = Effect.gen(function* () {
-        const client = yield* HttpClient.HttpClient;
-        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      // Falls back to original token
       expect(capturedAuth).toBe("Bearer axm_ses_stored");
     });
   });

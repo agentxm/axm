@@ -6,6 +6,7 @@
     "axm": "bun packages/cli/src/main.ts",
     "axm:local": "AXM_REGISTRY_URL=http://localhost:4300 bun packages/cli/src/main.ts",
     "spike": "bun packages/cli-spike/src/main.ts",
+    "watch": "nx run cli:watch",
     "build": "nx run-many -t build",
     "build:affected": "nx affected -t build",
     "test": "nx run-many -t test",

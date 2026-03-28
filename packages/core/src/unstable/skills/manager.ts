@@ -229,15 +229,18 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       extensionType: "skill",
-      isInstalled: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        Effect.gen(function* () {
-          const installedSkills = yield* ws.getInstalledSkills();
-          if (target.name in installedSkills) {
-            return true;
-          }
+      isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
+        target,
+      }: {
+        readonly target: SkillExtensionTarget;
+      }) {
+        const installedSkills = yield* ws.getInstalledSkills();
+        if (target.name in installedSkills) {
+          return true;
+        }
 
-          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
-        }).pipe(Effect.withSpan("SkillManager.isInstalled")),
+        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+      }),
 
       materializeInstall,
       materializeUninstall,

@@ -231,15 +231,18 @@ export const CommandManagerLive = Layer.effect(
 
     return {
       extensionType: "command",
-      isInstalled: ({ target }: { readonly target: CommandExtensionTarget }) =>
-        Effect.gen(function* () {
-          const installedCommands = yield* ws.getInstalledCommands();
-          if (target.name in installedCommands) {
-            return true;
-          }
+      isInstalled: Effect.fn("CommandManager.isInstalled")(function* ({
+        target,
+      }: {
+        readonly target: CommandExtensionTarget;
+      }) {
+        const installedCommands = yield* ws.getInstalledCommands();
+        if (target.name in installedCommands) {
+          return true;
+        }
 
-          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
-        }).pipe(Effect.withSpan("CommandManager.isInstalled")),
+        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+      }),
 
       materializeInstall,
       materializeUninstall,

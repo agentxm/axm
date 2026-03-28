@@ -227,15 +227,18 @@ export const McpServerManagerLive = Layer.effect(
 
     return {
       extensionType: "mcp-server",
-      isInstalled: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        Effect.gen(function* () {
-          const installedMcpServers = yield* ws.getInstalledMcpServers();
-          if (target.name in installedMcpServers) {
-            return true;
-          }
+      isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
+        target,
+      }: {
+        readonly target: McpServerExtensionTarget;
+      }) {
+        const installedMcpServers = yield* ws.getInstalledMcpServers();
+        if (target.name in installedMcpServers) {
+          return true;
+        }
 
-          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
-        }).pipe(Effect.withSpan("McpServerManager.isInstalled")),
+        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+      }),
 
       materializeInstall,
       materializeUninstall,

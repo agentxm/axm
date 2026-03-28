@@ -15,16 +15,16 @@ export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Install, update, and manage skills"),
   Command.withExamples([
     {
+      command: "axm skills install @acme/skills/code-review",
+      description: "Install a skill from the registry",
+    },
+    {
+      command: "axm skills install @acme/skills/code-review@^1.0.0",
+      description: "Install a specific version from the registry",
+    },
+    {
       command: "axm skills install owner/repo",
       description: "Install skills from a GitHub repository",
-    },
-    {
-      command: "axm skills install owner/repo@v1.0.0",
-      description: "Install skills from a specific version",
-    },
-    {
-      command: "axm skills install ./local/path",
-      description: "Install skills from a local directory",
     },
     { command: "axm skills list", description: "List installed skills" },
   ]),

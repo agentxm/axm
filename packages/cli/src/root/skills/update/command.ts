@@ -42,12 +42,12 @@ export const updateCommand = Command.make(
   Command.withExamples([
     { command: "axm skills update", description: "Update all installed skills" },
     {
-      command: "axm skills update owner/repo",
-      description: "Update skills from a specific source",
+      command: "axm skills update --skill code-review",
+      description: "Update a specific skill by name",
     },
     {
-      command: "axm skills update --skill pr-review",
-      description: "Update a specific skill by name",
+      command: "axm skills update owner/repo",
+      description: "Update only skills from a specific GitHub source",
     },
     {
       command: "axm skills update --yes",

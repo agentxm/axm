@@ -8,7 +8,9 @@ import { handleInstall } from "./handler.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription("GitHub shorthand (owner/repo), local path, or URL"),
+    Argument.withDescription(
+      "Registry reference (@profile/skills/name), GitHub shorthand (owner/repo), local path, or URL",
+    ),
   ),
   scope: scopeFlag,
   skill: Flag.string("skill").pipe(
@@ -31,12 +33,19 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
-  Command.withDescription("Install skills from GitHub or local path"),
+  Command.withDescription("Install skills from a registry, GitHub, or local path"),
   Command.withExamples([
-    { command: "axm skills install owner/repo", description: "Install skills interactively" },
     {
-      command: "axm skills install owner/repo@v1.0.0",
-      description: "Install from a specific tag, branch, or commit",
+      command: "axm skills install @acme/skills/code-review",
+      description: "Install a skill from the registry",
+    },
+    {
+      command: "axm skills install @acme/skills/code-review@^1.0.0",
+      description: "Install a specific version from the registry",
+    },
+    {
+      command: "axm skills install owner/repo",
+      description: "Install skills from a GitHub repository",
     },
     {
       command: "axm skills install ./path/to/skills",
@@ -44,11 +53,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm skills install owner/repo --all --yes",
-      description: "Install all without prompts",
-    },
-    {
-      command: "axm skills install owner/repo --skill pr-review",
-      description: "Target a specific skill",
+      description: "Install all from GitHub without prompts",
     },
   ]),
 );

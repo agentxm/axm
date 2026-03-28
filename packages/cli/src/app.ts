@@ -35,10 +35,13 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withExamples([
     { command: "axm init", description: "Initialize axm in the current project" },
     {
-      command: "axm skills install owner/repo",
-      description: "Install skills from a GitHub repository",
+      command: "axm skills install @acme/skills/code-review",
+      description: "Install a skill from the registry",
     },
-    { command: "axm packs install owner/repo", description: "Install an extension pack" },
+    {
+      command: "axm packs install @acme/packs/frontend-tools",
+      description: "Install an extension pack from the registry",
+    },
     {
       command: "axm commands install @acme/commands/my-cmd",
       description: "Install a command from the registry",

@@ -58,6 +58,8 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
   return { provide, rendererState };
 };
 
+const REGISTRY_HOST = "registry.agentxm.ai";
+
 describe("auth logout handler", () => {
   it.effect("displays success with registry when no credentials", () => {
     const { provide, rendererState } = makeLayers();
@@ -69,7 +71,7 @@ describe("auth logout handler", () => {
             (l) =>
               l._tag === "success" &&
               l.message.includes("Not logged in to") &&
-              l.message.includes(REGISTRY_URL),
+              l.message.includes(REGISTRY_HOST),
           ),
         ).toBe(true);
       }),
@@ -85,7 +87,7 @@ describe("auth logout handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes(REGISTRY_URL) &&
+              l.message.includes(REGISTRY_HOST) &&
               l.message.includes("alice"),
           ),
         ).toBe(true);
@@ -105,7 +107,7 @@ describe("auth logout handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "warn" &&
-              l.message.includes(REGISTRY_URL) &&
+              l.message.includes(REGISTRY_HOST) &&
               l.message.includes("alice") &&
               l.message.includes("token will expire automatically"),
           ),

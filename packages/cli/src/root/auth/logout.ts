@@ -35,11 +35,14 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const existing = yield* credStore.load(registryUrl);
 
   if (Option.isNone(existing)) {
-    yield* renderer.success(`Not logged in to ${registryUrl}. Nothing to do.`);
+    const host = new URL(registryUrl).host;
+    yield* renderer.success(`Not logged in to ${host}. Nothing to do.`);
     return;
   }
 
   const handle = existing.value.handle;
+  const registryHost = new URL(registryUrl).host;
+  const identity = handle === "unknown" ? "" : ` as ${handle}`;
 
   // Step 2: Attempt remote revoke (tolerate failure)
   const revokeResult = yield* authClient
@@ -51,10 +54,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 
   // Step 4: Display result
   if (Option.isSome(revokeResult)) {
-    yield* renderer.success(`Logged out of ${registryUrl} as ${handle}.`);
+    yield* renderer.success(`Logged out of ${registryHost}${identity}.`);
   } else {
     yield* renderer.warn(
-      `Logged out of ${registryUrl} as ${handle} locally. Remote revocation failed — token will expire automatically.`,
+      `Logged out of ${registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
     );
   }
 }, Effect.asVoid);

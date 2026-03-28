@@ -191,8 +191,9 @@ export const pollOnce = (
       Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_LOGIN_FAILED",
-          what: "Device token poll request failed",
-          howToFix: "Check network connectivity and try again.",
+          what: "Lost connection to the registry during login",
+          details: [`Registry: ${registryUrl}`],
+          howToFix: "Verify the registry is running and reachable, then try `axm login` again.",
           cause: error,
         }),
       ),
@@ -259,8 +260,9 @@ export const AuthClientLive = Layer.effect(
         Effect.mapError((error) =>
           makeAppError({
             code: "AUTH_LOGIN_FAILED",
-            what: "Device code request failed",
-            howToFix: "Check network connectivity and try again.",
+            what: "Could not connect to the registry",
+            details: [`Registry: ${registryUrl}`],
+            howToFix: "Verify the registry is running and reachable, then try again.",
             cause: error,
           }),
         ),
@@ -270,9 +272,9 @@ export const AuthClientLive = Layer.effect(
         const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
         return yield* makeAppError({
           code: "AUTH_LOGIN_FAILED",
-          what: `Device code request failed with status ${String(response.status)}`,
-          details: bodyText.length > 0 ? [bodyText] : [],
-          howToFix: "Check network connectivity and try again.",
+          what: `Login failed (registry returned status ${String(response.status)})`,
+          details: [`Registry: ${registryUrl}`, ...(bodyText.length > 0 ? [bodyText] : [])],
+          howToFix: "Try running `axm login` again.",
         });
       }
 
@@ -395,8 +397,9 @@ export const AuthClientLive = Layer.effect(
           Effect.mapError((error) =>
             makeAppError({
               code: "AUTH_UNAUTHENTICATED",
-              what: "Identity request failed",
-              howToFix: "Run `axm login` to authenticate.",
+              what: "Could not connect to the registry",
+              details: [`Registry: ${registryUrl}`],
+              howToFix: "Verify the registry is running and reachable, then try again.",
               cause: error,
             }),
           ),

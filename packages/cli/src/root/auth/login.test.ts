@@ -28,6 +28,7 @@ const makeLayers = (opts?: {
   existingCredentials?: boolean;
   meResponse?: MeResponse;
   confirmValue?: boolean;
+  getMeFails?: boolean;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const [promptLayer, promptState] = makeTestPrompt({
@@ -82,7 +83,9 @@ const makeLayers = (opts?: {
         refresh_token: "axm_ref_new",
         expires_at: "2099-06-01T00:00:00Z",
       }),
-    getMe: () => Effect.succeed(meData),
+    getMe: opts?.getMeFails
+      ? () => Effect.fail(makeAppError({ code: "AUTH_UNAUTHENTICATED", what: "Token invalid" }))
+      : () => Effect.succeed(meData),
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -202,6 +205,24 @@ describe("auth login handler", () => {
         expect(
           rendererState.logs.filter((l) => l._tag === "success" && l.message.includes("Logged in")),
         ).toHaveLength(0);
+      }),
+    );
+  });
+
+  it.effect("proceeds directly to login when stored token is invalid", () => {
+    const { provide, rendererState, promptState } = makeLayers({
+      existingCredentials: true,
+      getMeFails: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin({ yes: false });
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("Already logged in"),
+          ),
+        ).toBe(false);
+        expect(promptState.confirmCalls).toHaveLength(0);
       }),
     );
   });

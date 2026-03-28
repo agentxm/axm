@@ -17,7 +17,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
 
-import { RegistryUrl, CredentialStore, runDeviceLogin } from "@axm.sh/core/unstable/auth";
+import {
+  AuthClient,
+  RegistryUrl,
+  CredentialStore,
+  runDeviceLogin,
+} from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -47,16 +52,23 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
     });
   }
 
-  // Step 2: Check existing auth
+  // Step 2: Check existing auth — validate token against the server
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
-    yield* renderer.info(`Already logged in as ${existing.value.handle}.`);
-    if (!options.yes) {
-      const shouldContinue = yield* prompt.confirm({
-        message: "Log in with a different account?",
-      });
-      if (!shouldContinue) {
-        return;
+    const authClient = yield* AuthClient;
+    const meResult = yield* authClient
+      .getMe(registryUrl, existing.value.access_token)
+      .pipe(Effect.option);
+
+    if (Option.isSome(meResult)) {
+      yield* renderer.info(`Already logged in as ${meResult.value.userHandle}.`);
+      if (!options.yes) {
+        const shouldContinue = yield* prompt.confirm({
+          message: "Log in with a different account?",
+        });
+        if (!shouldContinue) {
+          return;
+        }
       }
     }
   }

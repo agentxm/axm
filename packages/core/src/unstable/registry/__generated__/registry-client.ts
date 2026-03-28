@@ -5,31 +5,83 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type { SchemaError } from "effect/Schema";
 import * as Schema from "effect/Schema";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import * as Stream from "effect/Stream";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 // non-recursive definitions
-export type DeviceTokenOAuthError = {
-  readonly kind: "DeviceTokenOAuthError";
-  readonly error:
-    | "invalid_request"
-    | "authorization_pending"
-    | "slow_down"
-    | "expired_token"
-    | "access_denied";
-  readonly error_description: string;
+export type DecodeErrorResponse = {
+  readonly kind: "DecodeErrorResponse";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
 };
-export const DeviceTokenOAuthError = Schema.Struct({
-  kind: Schema.Literal("DeviceTokenOAuthError"),
-  error: Schema.Literals([
-    "invalid_request",
-    "authorization_pending",
-    "slow_down",
-    "expired_token",
-    "access_denied",
-  ]),
-  error_description: Schema.String,
+export const DecodeErrorResponse = Schema.Struct({
+  kind: Schema.Literal("DecodeErrorResponse"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+});
+export type InvalidRequestError = {
+  readonly kind: "InvalidRequestError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const InvalidRequestError = Schema.Struct({
+  kind: Schema.Literal("InvalidRequestError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type RefreshTokenError = {
+  readonly kind: "RefreshTokenError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: unknown;
+};
+export const RefreshTokenError = Schema.Struct({
+  kind: Schema.Literal("RefreshTokenError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(Schema.Unknown),
 });
 export type UserId = string;
 export const UserId = Schema.String.check(
@@ -49,6 +101,209 @@ export const TokenId = Schema.String.check(
     examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
+export type UnauthorizedError = {
+  readonly kind: "UnauthorizedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+};
+export const UnauthorizedError = Schema.Struct({
+  kind: Schema.Literal("UnauthorizedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+});
+export type NotImplementedError = {
+  readonly kind: "NotImplementedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const NotImplementedError = Schema.Struct({
+  kind: Schema.Literal("NotImplementedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type ForbiddenError = {
+  readonly kind: "ForbiddenError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?:
+    | { readonly requiredScope: string; readonly grantedScopes: ReadonlyArray<string> }
+    | {
+        readonly requiredScope: string;
+        readonly tokenScopes: ReadonlyArray<string>;
+        readonly requiredRole?: string;
+      }
+    | {
+        readonly retryable: boolean;
+        readonly retryAfterSeconds?: number;
+        readonly requiredScope?: string;
+        readonly tokenScopes?: ReadonlyArray<string>;
+        readonly requiredRole?: string | null;
+      };
+};
+export const ForbiddenError = Schema.Struct({
+  kind: Schema.Literal("ForbiddenError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Union([
+      Schema.Struct({ requiredScope: Schema.String, grantedScopes: Schema.Array(Schema.String) }),
+      Schema.Struct({
+        requiredScope: Schema.String,
+        tokenScopes: Schema.Array(Schema.String),
+        requiredRole: Schema.optionalKey(Schema.String),
+      }),
+      Schema.Struct({
+        retryable: Schema.Boolean,
+        retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+        requiredScope: Schema.optionalKey(Schema.String),
+        tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+        requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      }),
+    ]),
+  ),
+});
+export type UnprocessableEntityError = {
+  readonly kind: "UnprocessableEntityError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const UnprocessableEntityError = Schema.Struct({
+  kind: Schema.Literal("UnprocessableEntityError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type NotFoundError = {
+  readonly kind: "NotFoundError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const NotFoundError = Schema.Struct({
+  kind: Schema.Literal("NotFoundError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type InternalError = {
+  readonly kind: "InternalError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const InternalError = Schema.Struct({
+  kind: Schema.Literal("InternalError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
 export type ExtensionId = string;
 export const ExtensionId = Schema.String.check(
   Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -58,6 +313,176 @@ export const ExtensionId = Schema.String.check(
     examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
+export type ConflictError = {
+  readonly kind: "ConflictError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const ConflictError = Schema.Struct({
+  kind: Schema.Literal("ConflictError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type PayloadTooLargeError = {
+  readonly kind: "PayloadTooLargeError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const PayloadTooLargeError = Schema.Struct({
+  kind: Schema.Literal("PayloadTooLargeError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type UnsupportedMediaTypeError = {
+  readonly kind: "UnsupportedMediaTypeError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const UnsupportedMediaTypeError = Schema.Struct({
+  kind: Schema.Literal("UnsupportedMediaTypeError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type TooManyRequestsError = {
+  readonly kind: "TooManyRequestsError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const TooManyRequestsError = Schema.Struct({
+  kind: Schema.Literal("TooManyRequestsError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
+export type ServiceUnavailableError = {
+  readonly kind: "ServiceUnavailableError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const ServiceUnavailableError = Schema.Struct({
+  kind: Schema.Literal("ServiceUnavailableError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
 // schemas
 export type MetaGet200 = {
   readonly ok: true;
@@ -72,6 +497,16 @@ export const MetaGet200 = Schema.Struct({
   message: Schema.String,
   docs: Schema.Union([Schema.String, Schema.Null]),
   openapi: Schema.Union([Schema.String, Schema.Null]),
+});
+export type MetaGet400 = DecodeErrorResponse;
+export const MetaGet400 = DecodeErrorResponse;
+export type AuthIssueDeviceCodeRequestFormUrlEncoded = {
+  readonly client_id: "axm-cli";
+  readonly scope?: string | null;
+};
+export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
+  client_id: Schema.Literal("axm-cli"),
+  scope: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type AuthIssueDeviceCode200 = {
   readonly device_code: string;
@@ -104,6 +539,18 @@ export const AuthIssueDeviceCode200 = Schema.Struct({
   title: "Device Code Response",
   description: "Response from the OAuth device authorization endpoint (RFC 8628).",
 });
+export type AuthIssueDeviceCode400 = DecodeErrorResponse;
+export const AuthIssueDeviceCode400 = DecodeErrorResponse;
+export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
+  readonly grant_type: string;
+  readonly device_code: string;
+  readonly client_id: string;
+};
+export const AuthExchangeDeviceCodeRequestFormUrlEncoded = Schema.Struct({
+  grant_type: Schema.String,
+  device_code: Schema.String,
+  client_id: Schema.String,
+});
 export type AuthExchangeDeviceCode200 = {
   readonly access_token: string;
   readonly refresh_token: string;
@@ -135,8 +582,18 @@ export const AuthExchangeDeviceCode200 = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
-export type AuthExchangeDeviceCode400 = DeviceTokenOAuthError;
-export const AuthExchangeDeviceCode400 = DeviceTokenOAuthError;
+export type AuthExchangeDeviceCode400 = InvalidRequestError | DecodeErrorResponse;
+export const AuthExchangeDeviceCode400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
+export type AuthRefreshTokenRequestFormUrlEncoded = {
+  readonly grant_type: "refresh_token";
+  readonly refresh_token: string;
+  readonly client_id?: string | null;
+};
+export const AuthRefreshTokenRequestFormUrlEncoded = Schema.Struct({
+  grant_type: Schema.Literal("refresh_token"),
+  refresh_token: Schema.String.check(Schema.isMinLength(1)),
+  client_id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
 export type AuthRefreshToken200 = {
   readonly access_token: string;
   readonly refresh_token: string;
@@ -168,6 +625,16 @@ export const AuthRefreshToken200 = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
+export type AuthRefreshToken400 = DecodeErrorResponse;
+export const AuthRefreshToken400 = DecodeErrorResponse;
+export type AuthRefreshToken401 = RefreshTokenError;
+export const AuthRefreshToken401 = RefreshTokenError;
+export type AuthRevokeTokenRequestFormUrlEncoded = { readonly token: string };
+export const AuthRevokeTokenRequestFormUrlEncoded = Schema.Struct({
+  token: Schema.String.check(Schema.isMinLength(1)),
+});
+export type AuthRevokeToken400 = DecodeErrorResponse;
+export const AuthRevokeToken400 = DecodeErrorResponse;
 export type AuthGetMe200 = {
   readonly user: { readonly id: UserId; readonly handle: string; readonly email: string | null };
   readonly orgs: ReadonlyArray<never>;
@@ -198,6 +665,14 @@ export const AuthGetMe200 = Schema.Struct({
     expires_at: Schema.String.annotate({ format: "date-time" }),
   }),
 });
+export type AuthGetMe400 = DecodeErrorResponse;
+export const AuthGetMe400 = DecodeErrorResponse;
+export type AuthGetMe401 = UnauthorizedError;
+export const AuthGetMe401 = UnauthorizedError;
+export type AuthExchangeOidcToken400 = DecodeErrorResponse;
+export const AuthExchangeOidcToken400 = DecodeErrorResponse;
+export type AuthExchangeOidcToken501 = NotImplementedError;
+export const AuthExchangeOidcToken501 = NotImplementedError;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -234,6 +709,12 @@ export const TokensList200 = Schema.Struct({
   has_more: Schema.Boolean,
   cursor: Schema.Union([Schema.String, Schema.Null]),
 });
+export type TokensList400 = DecodeErrorResponse;
+export const TokensList400 = DecodeErrorResponse;
+export type TokensList401 = UnauthorizedError;
+export const TokensList401 = UnauthorizedError;
+export type TokensList403 = ForbiddenError;
+export const TokensList403 = ForbiddenError;
 export type TokensCreateRequestJson = {
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
@@ -278,6 +759,20 @@ export const TokensCreate201 = Schema.Struct({
   title: "Create Token Response",
   description: "Newly created personal access token with the plaintext token value.",
 });
+export type TokensCreate400 = DecodeErrorResponse;
+export const TokensCreate400 = DecodeErrorResponse;
+export type TokensCreate401 = UnauthorizedError;
+export const TokensCreate401 = UnauthorizedError;
+export type TokensCreate403 = ForbiddenError;
+export const TokensCreate403 = ForbiddenError;
+export type TokensCreate422 = UnprocessableEntityError;
+export const TokensCreate422 = UnprocessableEntityError;
+export type TokensDelete400 = DecodeErrorResponse;
+export const TokensDelete400 = DecodeErrorResponse;
+export type TokensDelete401 = UnauthorizedError;
+export const TokensDelete401 = UnauthorizedError;
+export type TokensDelete403 = ForbiddenError;
+export const TokensDelete403 = ForbiddenError;
 export type ExtensionsListByProfile200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
@@ -334,6 +829,8 @@ export const ExtensionsListByProfile200 = Schema.Struct({
     }),
   ),
 });
+export type ExtensionsListByProfile400 = DecodeErrorResponse;
+export const ExtensionsListByProfile400 = DecodeErrorResponse;
 export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
@@ -390,6 +887,8 @@ export const ExtensionsListByType200 = Schema.Struct({
     }),
   ),
 });
+export type ExtensionsListByType400 = DecodeErrorResponse;
+export const ExtensionsListByType400 = DecodeErrorResponse;
 export type ExtensionsGet200 = {
   readonly name: string;
   readonly profile: string;
@@ -474,6 +973,10 @@ export const ExtensionsGet200 = Schema.Struct({
     Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
   ),
 });
+export type ExtensionsGet400 = DecodeErrorResponse;
+export const ExtensionsGet400 = DecodeErrorResponse;
+export type ExtensionsGet404 = NotFoundError;
+export const ExtensionsGet404 = NotFoundError;
 export type ExtensionsUpdateVisibilityRequestJson = {
   readonly visibility: "public" | "unlisted" | "private";
 };
@@ -496,6 +999,17 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   visibility: Schema.String,
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
+export type ExtensionsUpdateVisibility400 = InvalidRequestError | DecodeErrorResponse;
+export const ExtensionsUpdateVisibility400 = Schema.Union([
+  InvalidRequestError,
+  DecodeErrorResponse,
+]);
+export type ExtensionsUpdateVisibility401 = UnauthorizedError;
+export const ExtensionsUpdateVisibility401 = UnauthorizedError;
+export type ExtensionsUpdateVisibility403 = ForbiddenError;
+export const ExtensionsUpdateVisibility403 = ForbiddenError;
+export type ExtensionsUpdateVisibility404 = NotFoundError;
+export const ExtensionsUpdateVisibility404 = NotFoundError;
 export type ExtensionsGetVersion200 = {
   readonly name: string;
   readonly profile: string;
@@ -562,6 +1076,10 @@ export const ExtensionsGetVersion200 = Schema.Struct({
     Schema.Union([Schema.String.annotate({ readOnly: true, format: "date-time" }), Schema.Null]),
   ),
 });
+export type ExtensionsGetVersion400 = DecodeErrorResponse;
+export const ExtensionsGetVersion400 = DecodeErrorResponse;
+export type ExtensionsGetVersion404 = NotFoundError;
+export const ExtensionsGetVersion404 = NotFoundError;
 export type ExtensionsPublishVersionRequestFormData = {
   readonly archive: string;
   readonly integrity?: string | null;
@@ -610,6 +1128,44 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   published_at: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   publish_status: Schema.String.annotate({ readOnly: true }),
 });
+export type ExtensionsPublishVersion400 = InvalidRequestError | DecodeErrorResponse;
+export const ExtensionsPublishVersion400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
+export type ExtensionsPublishVersion401 = UnauthorizedError;
+export const ExtensionsPublishVersion401 = UnauthorizedError;
+export type ExtensionsPublishVersion403 = ForbiddenError;
+export const ExtensionsPublishVersion403 = ForbiddenError;
+export type ExtensionsPublishVersion404 = NotFoundError;
+export const ExtensionsPublishVersion404 = NotFoundError;
+export type ExtensionsPublishVersion409 = ConflictError;
+export const ExtensionsPublishVersion409 = ConflictError;
+export type ExtensionsPublishVersion413 = PayloadTooLargeError;
+export const ExtensionsPublishVersion413 = PayloadTooLargeError;
+export type ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
+export const ExtensionsPublishVersion415 = UnsupportedMediaTypeError;
+export type ExtensionsPublishVersion422 = UnprocessableEntityError;
+export const ExtensionsPublishVersion422 = UnprocessableEntityError;
+export type ExtensionsPublishVersion429 = TooManyRequestsError;
+export const ExtensionsPublishVersion429 = TooManyRequestsError;
+export type ExtensionsPublishVersion500 = InternalError;
+export const ExtensionsPublishVersion500 = InternalError;
+export type ExtensionsPublishVersion501 = NotImplementedError;
+export const ExtensionsPublishVersion501 = NotImplementedError;
+export type ExtensionsPublishVersion503 = ServiceUnavailableError;
+export const ExtensionsPublishVersion503 = ServiceUnavailableError;
+export type ExtensionsDeleteVersion400 = DecodeErrorResponse;
+export const ExtensionsDeleteVersion400 = DecodeErrorResponse;
+export type ExtensionsDeleteVersion401 = UnauthorizedError;
+export const ExtensionsDeleteVersion401 = UnauthorizedError;
+export type ExtensionsDeleteVersion403 = ForbiddenError;
+export const ExtensionsDeleteVersion403 = ForbiddenError;
+export type ExtensionsDeleteVersion404 = NotFoundError;
+export const ExtensionsDeleteVersion404 = NotFoundError;
+export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
+export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
+export type ExtensionsDownloadArchive404 = NotFoundError;
+export const ExtensionsDownloadArchive404 = NotFoundError;
+export type ExtensionsDownloadArchive500 = InternalError;
+export const ExtensionsDownloadArchive500 = InternalError;
 export type ExtensionsGetHandleProfile200 = {
   readonly ok: true;
   readonly mock: true;
@@ -626,6 +1182,8 @@ export const ExtensionsGetHandleProfile200 = Schema.Struct({
   message: Schema.String,
   params: Schema.Struct({ handle: Schema.String }),
 });
+export type ExtensionsGetHandleProfile400 = DecodeErrorResponse;
+export const ExtensionsGetHandleProfile400 = DecodeErrorResponse;
 export type ExtensionsDeprecateRequestJson = { readonly notice?: string | null };
 export const ExtensionsDeprecateRequestJson = Schema.Struct({
   notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -647,6 +1205,14 @@ export const ExtensionsDeprecate200 = Schema.Struct({
   ]),
   deprecationNotice: Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
 });
+export type ExtensionsDeprecate400 = DecodeErrorResponse;
+export const ExtensionsDeprecate400 = DecodeErrorResponse;
+export type ExtensionsDeprecate401 = UnauthorizedError;
+export const ExtensionsDeprecate401 = UnauthorizedError;
+export type ExtensionsDeprecate403 = ForbiddenError;
+export const ExtensionsDeprecate403 = ForbiddenError;
+export type ExtensionsDeprecate404 = NotFoundError;
+export const ExtensionsDeprecate404 = NotFoundError;
 export type ExtensionsUndeprecate200 = {
   readonly profile: string;
   readonly type: string;
@@ -661,6 +1227,14 @@ export const ExtensionsUndeprecate200 = Schema.Struct({
   deprecatedAt: Schema.Null,
   deprecationNotice: Schema.Null,
 });
+export type ExtensionsUndeprecate400 = DecodeErrorResponse;
+export const ExtensionsUndeprecate400 = DecodeErrorResponse;
+export type ExtensionsUndeprecate401 = UnauthorizedError;
+export const ExtensionsUndeprecate401 = UnauthorizedError;
+export type ExtensionsUndeprecate403 = ForbiddenError;
+export const ExtensionsUndeprecate403 = ForbiddenError;
+export type ExtensionsUndeprecate404 = NotFoundError;
+export const ExtensionsUndeprecate404 = NotFoundError;
 export type ExtensionsYankVersion200 = {
   readonly profile: string;
   readonly type: string;
@@ -678,6 +1252,14 @@ export const ExtensionsYankVersion200 = Schema.Struct({
     Schema.Null,
   ]),
 });
+export type ExtensionsYankVersion400 = DecodeErrorResponse;
+export const ExtensionsYankVersion400 = DecodeErrorResponse;
+export type ExtensionsYankVersion401 = UnauthorizedError;
+export const ExtensionsYankVersion401 = UnauthorizedError;
+export type ExtensionsYankVersion403 = ForbiddenError;
+export const ExtensionsYankVersion403 = ForbiddenError;
+export type ExtensionsYankVersion404 = NotFoundError;
+export const ExtensionsYankVersion404 = NotFoundError;
 export type ExtensionsUnyankVersion200 = {
   readonly profile: string;
   readonly type: string;
@@ -692,6 +1274,14 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
   version: Schema.String,
   yankedAt: Schema.Null,
 });
+export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
+export const ExtensionsUnyankVersion400 = DecodeErrorResponse;
+export type ExtensionsUnyankVersion401 = UnauthorizedError;
+export const ExtensionsUnyankVersion401 = UnauthorizedError;
+export type ExtensionsUnyankVersion403 = ForbiddenError;
+export const ExtensionsUnyankVersion403 = ForbiddenError;
+export type ExtensionsUnyankVersion404 = NotFoundError;
+export const ExtensionsUnyankVersion404 = NotFoundError;
 export type CollaboratorsListCollaborators200 = {
   readonly collaborators: ReadonlyArray<{
     readonly userId: UserId;
@@ -710,6 +1300,14 @@ export const CollaboratorsListCollaborators200 = Schema.Struct({
     }),
   ),
 });
+export type CollaboratorsListCollaborators400 = DecodeErrorResponse;
+export const CollaboratorsListCollaborators400 = DecodeErrorResponse;
+export type CollaboratorsListCollaborators401 = UnauthorizedError;
+export const CollaboratorsListCollaborators401 = UnauthorizedError;
+export type CollaboratorsListCollaborators403 = ForbiddenError;
+export const CollaboratorsListCollaborators403 = ForbiddenError;
+export type CollaboratorsListCollaborators404 = NotFoundError;
+export const CollaboratorsListCollaborators404 = NotFoundError;
 export type CollaboratorsUpsertCollaboratorRequestJson = {
   readonly role: "admin" | "write" | "read";
 };
@@ -728,10 +1326,33 @@ export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
   grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
   createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 });
+export type CollaboratorsUpsertCollaborator400 = InvalidRequestError | DecodeErrorResponse;
+export const CollaboratorsUpsertCollaborator400 = Schema.Union([
+  InvalidRequestError,
+  DecodeErrorResponse,
+]);
+export type CollaboratorsUpsertCollaborator401 = UnauthorizedError;
+export const CollaboratorsUpsertCollaborator401 = UnauthorizedError;
+export type CollaboratorsUpsertCollaborator403 = ForbiddenError;
+export const CollaboratorsUpsertCollaborator403 = ForbiddenError;
+export type CollaboratorsUpsertCollaborator404 = NotFoundError;
+export const CollaboratorsUpsertCollaborator404 = NotFoundError;
+export type CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
+export const CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
+export type CollaboratorsDeleteCollaborator401 = UnauthorizedError;
+export const CollaboratorsDeleteCollaborator401 = UnauthorizedError;
+export type CollaboratorsDeleteCollaborator403 = ForbiddenError;
+export const CollaboratorsDeleteCollaborator403 = ForbiddenError;
+export type CollaboratorsDeleteCollaborator404 = NotFoundError;
+export const CollaboratorsDeleteCollaborator404 = NotFoundError;
+export type CollaboratorsDeleteCollaborator409 = ConflictError;
+export const CollaboratorsDeleteCollaborator409 = ConflictError;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
+export type HealthGetShallowHealth400 = DecodeErrorResponse;
+export const HealthGetShallowHealth400 = DecodeErrorResponse;
 export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
 export const HealthGetDeepHealthParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -788,6 +1409,8 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
+export type HealthGetDeepHealth400 = DecodeErrorResponse;
+export const HealthGetDeepHealth400 = DecodeErrorResponse;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -849,6 +1472,8 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
   }),
 });
+export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
+export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
 export type SearchSearchExtensionsParams = { readonly q: string };
 export const SearchSearchExtensionsParams = Schema.Struct({
   q: Schema.String.check(Schema.isMinLength(1)),
@@ -869,6 +1494,8 @@ export const SearchSearchExtensions200 = Schema.Struct({
   message: Schema.String,
   query: Schema.Struct({ q: Schema.String }),
 });
+export type SearchSearchExtensions400 = DecodeErrorResponse;
+export const SearchSearchExtensions400 = DecodeErrorResponse;
 
 export interface OperationConfig {
   /**
@@ -938,6 +1565,15 @@ export const make = (
             )
         : (request) => Effect.flatMap(httpClient.execute(request), withOptionalResponse);
     };
+  const binaryRequest = (
+    request: HttpClientRequest.HttpClientRequest,
+  ): Stream.Stream<Uint8Array, HttpClientError.HttpClientError> =>
+    HttpClient.filterStatusOk(httpClient)
+      .execute(request)
+      .pipe(
+        Effect.map((response) => response.stream),
+        Stream.unwrap,
+      );
   const decodeSuccess =
     <Schema extends Schema.Top>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
@@ -955,22 +1591,26 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
+            "400": decodeError("MetaGet400", MetaGet400),
             orElse: unexpectedStatus,
           }),
         ),
       ),
     AuthIssueDeviceCode: (options) =>
       HttpClientRequest.post(`/v1/auth/device/code`).pipe(
-        withResponse(options?.config)(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthIssueDeviceCode200),
+            "400": decodeError("AuthIssueDeviceCode400", AuthIssueDeviceCode400),
             orElse: unexpectedStatus,
           }),
         ),
       ),
     AuthExchangeDeviceCode: (options) =>
       HttpClientRequest.post(`/v1/auth/device/token`).pipe(
-        withResponse(options?.config)(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthExchangeDeviceCode200),
             "400": decodeError("AuthExchangeDeviceCode400", AuthExchangeDeviceCode400),
@@ -980,17 +1620,22 @@ export const make = (
       ),
     AuthRefreshToken: (options) =>
       HttpClientRequest.post(`/v1/auth/token/refresh`).pipe(
-        withResponse(options?.config)(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthRefreshToken200),
+            "400": decodeError("AuthRefreshToken400", AuthRefreshToken400),
+            "401": decodeError("AuthRefreshToken401", AuthRefreshToken401),
             orElse: unexpectedStatus,
           }),
         ),
       ),
     AuthRevokeToken: (options) =>
       HttpClientRequest.post(`/v1/auth/token/revoke`).pipe(
-        withResponse(options?.config)(
+        HttpClientRequest.bodyUrlParams(options.payload as any),
+        withResponse(options.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("AuthRevokeToken400", AuthRevokeToken400),
             "200": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1001,6 +1646,8 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthGetMe200),
+            "400": decodeError("AuthGetMe400", AuthGetMe400),
+            "401": decodeError("AuthGetMe401", AuthGetMe401),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1009,6 +1656,8 @@ export const make = (
       HttpClientRequest.post(`/v1/auth/oidc/exchange`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("AuthExchangeOidcToken400", AuthExchangeOidcToken400),
+            "501": decodeError("AuthExchangeOidcToken501", AuthExchangeOidcToken501),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1023,6 +1672,9 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(TokensList200),
+            "400": decodeError("TokensList400", TokensList400),
+            "401": decodeError("TokensList401", TokensList401),
+            "403": decodeError("TokensList403", TokensList403),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1033,6 +1685,10 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(TokensCreate201),
+            "400": decodeError("TokensCreate400", TokensCreate400),
+            "401": decodeError("TokensCreate401", TokensCreate401),
+            "403": decodeError("TokensCreate403", TokensCreate403),
+            "422": decodeError("TokensCreate422", TokensCreate422),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1041,6 +1697,9 @@ export const make = (
       HttpClientRequest.delete(`/v1/tokens/${tokenId}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("TokensDelete400", TokensDelete400),
+            "401": decodeError("TokensDelete401", TokensDelete401),
+            "403": decodeError("TokensDelete403", TokensDelete403),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1051,6 +1710,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByProfile200),
+            "400": decodeError("ExtensionsListByProfile400", ExtensionsListByProfile400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1060,6 +1720,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByType200),
+            "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1069,6 +1730,8 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGet200),
+            "400": decodeError("ExtensionsGet400", ExtensionsGet400),
+            "404": decodeError("ExtensionsGet404", ExtensionsGet404),
             "304": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1092,6 +1755,10 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUpdateVisibility200),
+            "400": decodeError("ExtensionsUpdateVisibility400", ExtensionsUpdateVisibility400),
+            "401": decodeError("ExtensionsUpdateVisibility401", ExtensionsUpdateVisibility401),
+            "403": decodeError("ExtensionsUpdateVisibility403", ExtensionsUpdateVisibility403),
+            "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1101,6 +1768,8 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetVersion200),
+            "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
+            "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1112,6 +1781,18 @@ export const make = (
           HttpClientResponse.matchStatus({
             "200": decodeSuccess(ExtensionsPublishVersion200),
             "201": decodeSuccess(ExtensionsPublishVersion201),
+            "400": decodeError("ExtensionsPublishVersion400", ExtensionsPublishVersion400),
+            "401": decodeError("ExtensionsPublishVersion401", ExtensionsPublishVersion401),
+            "403": decodeError("ExtensionsPublishVersion403", ExtensionsPublishVersion403),
+            "404": decodeError("ExtensionsPublishVersion404", ExtensionsPublishVersion404),
+            "409": decodeError("ExtensionsPublishVersion409", ExtensionsPublishVersion409),
+            "413": decodeError("ExtensionsPublishVersion413", ExtensionsPublishVersion413),
+            "415": decodeError("ExtensionsPublishVersion415", ExtensionsPublishVersion415),
+            "422": decodeError("ExtensionsPublishVersion422", ExtensionsPublishVersion422),
+            "429": decodeError("ExtensionsPublishVersion429", ExtensionsPublishVersion429),
+            "500": decodeError("ExtensionsPublishVersion500", ExtensionsPublishVersion500),
+            "501": decodeError("ExtensionsPublishVersion501", ExtensionsPublishVersion501),
+            "503": decodeError("ExtensionsPublishVersion503", ExtensionsPublishVersion503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1120,6 +1801,10 @@ export const make = (
       HttpClientRequest.delete(`/v1/extensions/${handle}/${type}/${name}/${version}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("ExtensionsDeleteVersion400", ExtensionsDeleteVersion400),
+            "401": decodeError("ExtensionsDeleteVersion401", ExtensionsDeleteVersion401),
+            "403": decodeError("ExtensionsDeleteVersion403", ExtensionsDeleteVersion403),
+            "404": decodeError("ExtensionsDeleteVersion404", ExtensionsDeleteVersion404),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1129,15 +1814,23 @@ export const make = (
       HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
+            "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
+            "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
             orElse: unexpectedStatus,
           }),
         ),
+      ),
+    ExtensionsDownloadArchiveStream: (handle, type, name, version) =>
+      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
+        binaryRequest,
       ),
     ExtensionsGetHandleProfile: (handle, options) =>
       HttpClientRequest.get(`/v1/extensions/${handle}/profile`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetHandleProfile200),
+            "400": decodeError("ExtensionsGetHandleProfile400", ExtensionsGetHandleProfile400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1148,6 +1841,10 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsDeprecate200),
+            "400": decodeError("ExtensionsDeprecate400", ExtensionsDeprecate400),
+            "401": decodeError("ExtensionsDeprecate401", ExtensionsDeprecate401),
+            "403": decodeError("ExtensionsDeprecate403", ExtensionsDeprecate403),
+            "404": decodeError("ExtensionsDeprecate404", ExtensionsDeprecate404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1157,6 +1854,10 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUndeprecate200),
+            "400": decodeError("ExtensionsUndeprecate400", ExtensionsUndeprecate400),
+            "401": decodeError("ExtensionsUndeprecate401", ExtensionsUndeprecate401),
+            "403": decodeError("ExtensionsUndeprecate403", ExtensionsUndeprecate403),
+            "404": decodeError("ExtensionsUndeprecate404", ExtensionsUndeprecate404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1166,6 +1867,10 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsYankVersion200),
+            "400": decodeError("ExtensionsYankVersion400", ExtensionsYankVersion400),
+            "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
+            "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
+            "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1175,6 +1880,10 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUnyankVersion200),
+            "400": decodeError("ExtensionsUnyankVersion400", ExtensionsUnyankVersion400),
+            "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
+            "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
+            "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1184,6 +1893,22 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(CollaboratorsListCollaborators200),
+            "400": decodeError(
+              "CollaboratorsListCollaborators400",
+              CollaboratorsListCollaborators400,
+            ),
+            "401": decodeError(
+              "CollaboratorsListCollaborators401",
+              CollaboratorsListCollaborators401,
+            ),
+            "403": decodeError(
+              "CollaboratorsListCollaborators403",
+              CollaboratorsListCollaborators403,
+            ),
+            "404": decodeError(
+              "CollaboratorsListCollaborators404",
+              CollaboratorsListCollaborators404,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1196,6 +1921,22 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(CollaboratorsUpsertCollaborator200),
+            "400": decodeError(
+              "CollaboratorsUpsertCollaborator400",
+              CollaboratorsUpsertCollaborator400,
+            ),
+            "401": decodeError(
+              "CollaboratorsUpsertCollaborator401",
+              CollaboratorsUpsertCollaborator401,
+            ),
+            "403": decodeError(
+              "CollaboratorsUpsertCollaborator403",
+              CollaboratorsUpsertCollaborator403,
+            ),
+            "404": decodeError(
+              "CollaboratorsUpsertCollaborator404",
+              CollaboratorsUpsertCollaborator404,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1206,6 +1947,26 @@ export const make = (
       ).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError(
+              "CollaboratorsDeleteCollaborator400",
+              CollaboratorsDeleteCollaborator400,
+            ),
+            "401": decodeError(
+              "CollaboratorsDeleteCollaborator401",
+              CollaboratorsDeleteCollaborator401,
+            ),
+            "403": decodeError(
+              "CollaboratorsDeleteCollaborator403",
+              CollaboratorsDeleteCollaborator403,
+            ),
+            "404": decodeError(
+              "CollaboratorsDeleteCollaborator404",
+              CollaboratorsDeleteCollaborator404,
+            ),
+            "409": decodeError(
+              "CollaboratorsDeleteCollaborator409",
+              CollaboratorsDeleteCollaborator409,
+            ),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -1216,6 +1977,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
+            "400": decodeError("HealthGetShallowHealth400", HealthGetShallowHealth400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1228,6 +1990,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
+            "400": decodeError("HealthGetDeepHealth400", HealthGetDeepHealth400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1241,6 +2004,10 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetObservabilityVerification200),
+            "400": decodeError(
+              "HealthGetObservabilityVerification400",
+              HealthGetObservabilityVerification400,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1251,6 +2018,7 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(SearchSearchExtensions200),
+            "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1267,23 +2035,29 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof MetaGet200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"MetaGet400", typeof MetaGet400.Type>
   >;
   /**
    * Initiate OAuth device authorization flow
    */
-  readonly AuthIssueDeviceCode: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
+  readonly AuthIssueDeviceCode: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthIssueDeviceCodeRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
     WithOptionalResponse<typeof AuthIssueDeviceCode200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthIssueDeviceCode400", typeof AuthIssueDeviceCode400.Type>
   >;
   /**
    * Exchange device code for access token (RFC 8628 polling)
    */
-  readonly AuthExchangeDeviceCode: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
+  readonly AuthExchangeDeviceCode: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthExchangeDeviceCodeRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
     WithOptionalResponse<typeof AuthExchangeDeviceCode200.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
@@ -1292,20 +2066,27 @@ export interface RegistryClient {
   /**
    * Exchange refresh token for new token pair
    */
-  readonly AuthRefreshToken: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
+  readonly AuthRefreshToken: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthRefreshTokenRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
     WithOptionalResponse<typeof AuthRefreshToken200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthRefreshToken400", typeof AuthRefreshToken400.Type>
+    | RegistryClientError<"AuthRefreshToken401", typeof AuthRefreshToken401.Type>
   >;
   /**
    * Revoke an authentication token
    */
-  readonly AuthRevokeToken: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
+  readonly AuthRevokeToken: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthRevokeTokenRequestFormUrlEncoded.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthRevokeToken400", typeof AuthRevokeToken400.Type>
   >;
   /**
    * Return authenticated user info
@@ -1314,7 +2095,10 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof AuthGetMe200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
+    | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
   >;
   /**
    * Exchange OIDC token (reserved, not implemented)
@@ -1323,7 +2107,10 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"AuthExchangeOidcToken400", typeof AuthExchangeOidcToken400.Type>
+    | RegistryClientError<"AuthExchangeOidcToken501", typeof AuthExchangeOidcToken501.Type>
   >;
   /**
    * List access tokens
@@ -1337,7 +2124,11 @@ export interface RegistryClient {
       | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof TokensList200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"TokensList400", typeof TokensList400.Type>
+    | RegistryClientError<"TokensList401", typeof TokensList401.Type>
+    | RegistryClientError<"TokensList403", typeof TokensList403.Type>
   >;
   /**
    * Create scoped access token
@@ -1347,7 +2138,12 @@ export interface RegistryClient {
     readonly config?: Config | undefined;
   }) => Effect.Effect<
     WithOptionalResponse<typeof TokensCreate201.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"TokensCreate400", typeof TokensCreate400.Type>
+    | RegistryClientError<"TokensCreate401", typeof TokensCreate401.Type>
+    | RegistryClientError<"TokensCreate403", typeof TokensCreate403.Type>
+    | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
   >;
   /**
    * Revoke access token
@@ -1357,7 +2153,11 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"TokensDelete400", typeof TokensDelete400.Type>
+    | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
+    | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
   >;
   /**
    * List profile extensions
@@ -1367,7 +2167,9 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsListByProfile200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsListByProfile400", typeof ExtensionsListByProfile400.Type>
   >;
   /**
    * List extensions by profile and type
@@ -1378,7 +2180,9 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsListByType200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
   >;
   /**
    * Get extension metadata
@@ -1390,7 +2194,10 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsGet200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
+    | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
   >;
   /**
    * Check whether an extension exists
@@ -1417,7 +2224,24 @@ export interface RegistryClient {
     },
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsUpdateVisibility200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility400",
+        typeof ExtensionsUpdateVisibility400.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility401",
+        typeof ExtensionsUpdateVisibility401.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility403",
+        typeof ExtensionsUpdateVisibility403.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility404",
+        typeof ExtensionsUpdateVisibility404.Type
+      >
   >;
   /**
    * Get extension version metadata
@@ -1430,7 +2254,10 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsGetVersion200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
+    | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
   >;
   /**
    * Publish extension version
@@ -1449,7 +2276,20 @@ export interface RegistryClient {
       typeof ExtensionsPublishVersion200.Type | typeof ExtensionsPublishVersion201.Type,
       Config
     >,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsPublishVersion400", typeof ExtensionsPublishVersion400.Type>
+    | RegistryClientError<"ExtensionsPublishVersion401", typeof ExtensionsPublishVersion401.Type>
+    | RegistryClientError<"ExtensionsPublishVersion403", typeof ExtensionsPublishVersion403.Type>
+    | RegistryClientError<"ExtensionsPublishVersion404", typeof ExtensionsPublishVersion404.Type>
+    | RegistryClientError<"ExtensionsPublishVersion409", typeof ExtensionsPublishVersion409.Type>
+    | RegistryClientError<"ExtensionsPublishVersion413", typeof ExtensionsPublishVersion413.Type>
+    | RegistryClientError<"ExtensionsPublishVersion415", typeof ExtensionsPublishVersion415.Type>
+    | RegistryClientError<"ExtensionsPublishVersion422", typeof ExtensionsPublishVersion422.Type>
+    | RegistryClientError<"ExtensionsPublishVersion429", typeof ExtensionsPublishVersion429.Type>
+    | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
+    | RegistryClientError<"ExtensionsPublishVersion501", typeof ExtensionsPublishVersion501.Type>
+    | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
   >;
   /**
    * Hard-delete an extension version
@@ -1462,7 +2302,12 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsDeleteVersion400", typeof ExtensionsDeleteVersion400.Type>
+    | RegistryClientError<"ExtensionsDeleteVersion401", typeof ExtensionsDeleteVersion401.Type>
+    | RegistryClientError<"ExtensionsDeleteVersion403", typeof ExtensionsDeleteVersion403.Type>
+    | RegistryClientError<"ExtensionsDeleteVersion404", typeof ExtensionsDeleteVersion404.Type>
   >;
   /**
    * Download extension archive
@@ -1475,8 +2320,21 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
   >;
+  /**
+   * Download extension archive
+   */
+  readonly ExtensionsDownloadArchiveStream: (
+    handle: string,
+    type: string,
+    name: string,
+    version: string,
+  ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
   /**
    * Returns the current mock handle profile payload.
    */
@@ -1485,7 +2343,12 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsGetHandleProfile200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "ExtensionsGetHandleProfile400",
+        typeof ExtensionsGetHandleProfile400.Type
+      >
   >;
   /**
    * Deprecate an extension
@@ -1500,7 +2363,12 @@ export interface RegistryClient {
     },
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsDeprecate200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsDeprecate400", typeof ExtensionsDeprecate400.Type>
+    | RegistryClientError<"ExtensionsDeprecate401", typeof ExtensionsDeprecate401.Type>
+    | RegistryClientError<"ExtensionsDeprecate403", typeof ExtensionsDeprecate403.Type>
+    | RegistryClientError<"ExtensionsDeprecate404", typeof ExtensionsDeprecate404.Type>
   >;
   /**
    * Un-deprecate an extension
@@ -1512,7 +2380,12 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsUndeprecate200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsUndeprecate400", typeof ExtensionsUndeprecate400.Type>
+    | RegistryClientError<"ExtensionsUndeprecate401", typeof ExtensionsUndeprecate401.Type>
+    | RegistryClientError<"ExtensionsUndeprecate403", typeof ExtensionsUndeprecate403.Type>
+    | RegistryClientError<"ExtensionsUndeprecate404", typeof ExtensionsUndeprecate404.Type>
   >;
   /**
    * Yank an extension version
@@ -1525,7 +2398,12 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsYankVersion200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsYankVersion400", typeof ExtensionsYankVersion400.Type>
+    | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
+    | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
+    | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
   >;
   /**
    * Un-yank an extension version
@@ -1538,7 +2416,12 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsUnyankVersion400", typeof ExtensionsUnyankVersion400.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
   >;
   /**
    * List extension collaborators
@@ -1550,7 +2433,24 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof CollaboratorsListCollaborators200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "CollaboratorsListCollaborators400",
+        typeof CollaboratorsListCollaborators400.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsListCollaborators401",
+        typeof CollaboratorsListCollaborators401.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsListCollaborators403",
+        typeof CollaboratorsListCollaborators403.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsListCollaborators404",
+        typeof CollaboratorsListCollaborators404.Type
+      >
   >;
   /**
    * Add or update collaborator
@@ -1566,7 +2466,24 @@ export interface RegistryClient {
     },
   ) => Effect.Effect<
     WithOptionalResponse<typeof CollaboratorsUpsertCollaborator200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "CollaboratorsUpsertCollaborator400",
+        typeof CollaboratorsUpsertCollaborator400.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsUpsertCollaborator401",
+        typeof CollaboratorsUpsertCollaborator401.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsUpsertCollaborator403",
+        typeof CollaboratorsUpsertCollaborator403.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsUpsertCollaborator404",
+        typeof CollaboratorsUpsertCollaborator404.Type
+      >
   >;
   /**
    * Remove collaborator
@@ -1579,7 +2496,28 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "CollaboratorsDeleteCollaborator400",
+        typeof CollaboratorsDeleteCollaborator400.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsDeleteCollaborator401",
+        typeof CollaboratorsDeleteCollaborator401.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsDeleteCollaborator403",
+        typeof CollaboratorsDeleteCollaborator403.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsDeleteCollaborator404",
+        typeof CollaboratorsDeleteCollaborator404.Type
+      >
+    | RegistryClientError<
+        "CollaboratorsDeleteCollaborator409",
+        typeof CollaboratorsDeleteCollaborator409.Type
+      >
   >;
   /**
    * Returns pass/fail status. Public, no auth required.
@@ -1588,7 +2526,9 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
   >;
   /**
    * Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.
@@ -1602,7 +2542,9 @@ export interface RegistryClient {
       | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
   >;
   /**
    * Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.
@@ -1616,7 +2558,12 @@ export interface RegistryClient {
       | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "HealthGetObservabilityVerification400",
+        typeof HealthGetObservabilityVerification400.Type
+      >
   >;
   /**
    * Returns the current mock search response for the provided query string.
@@ -1626,7 +2573,9 @@ export interface RegistryClient {
     readonly config?: Config | undefined;
   }) => Effect.Effect<
     WithOptionalResponse<typeof SearchSearchExtensions200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
   >;
 }
 

@@ -517,7 +517,7 @@
           "type": { "type": "string" },
           "category": { "type": "string" },
           "message": { "type": "string" },
-          "timestamp": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
           "level": {
             "type": "string",
             "enum": ["fatal", "error", "warning", "info", "debug"],
@@ -618,7 +618,7 @@
             "properties": { "id": { "type": "string" }, "username": { "type": "string" } },
             "additionalProperties": false
           },
-          "sentAt": { "type": "string" },
+          "sentAt": { "type": "string", "format": "date-time" },
           "context": { "$ref": "#/components/schemas/TelemetryErrorContext" }
         },
         "required": ["errors", "context"],

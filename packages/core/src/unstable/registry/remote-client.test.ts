@@ -1,7 +1,7 @@
 /**
  * Tests for RemoteRegistryClient.
  *
- * Phase 1: RFC 7807 error mapping (mapProblemDetailToAppError).
+ * Phase 1: RFC 9457 error mapping (mapProblemDetailToAppError).
  * Phase 2: createRemoteRegistryClient — publish, network errors, stubs.
  */
 

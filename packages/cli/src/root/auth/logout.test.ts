@@ -59,26 +59,34 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 };
 
 describe("auth logout handler", () => {
-  it.effect("displays Not logged in when no credentials", () => {
+  it.effect("displays success with registry when no credentials", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
         expect(
-          rendererState.logs.some((l) => l._tag === "info" && l.message.includes("Not logged in")),
+          rendererState.logs.some(
+            (l) =>
+              l._tag === "success" &&
+              l.message.includes("Not logged in to") &&
+              l.message.includes(REGISTRY_URL),
+          ),
         ).toBe(true);
       }),
     );
   });
 
-  it.effect("revokes token and clears credentials", () => {
+  it.effect("revokes token and shows identity on success", () => {
     const { provide, rendererState } = makeLayers({ existingCredentials: true });
     return provide(
       Effect.gen(function* () {
         yield* handleLogout();
         expect(
           rendererState.logs.some(
-            (l) => l._tag === "success" && l.message.includes("Logged out successfully"),
+            (l) =>
+              l._tag === "success" &&
+              l.message.includes(REGISTRY_URL) &&
+              l.message.includes("alice"),
           ),
         ).toBe(true);
       }),
@@ -97,12 +105,9 @@ describe("auth logout handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "warn" &&
-              l.message.includes("Signed out locally, but remote revoke failed"),
-          ),
-        ).toBe(true);
-        expect(
-          rendererState.logs.some(
-            (l) => l._tag === "info" && l.message.includes("expire automatically"),
+              l.message.includes(REGISTRY_URL) &&
+              l.message.includes("alice") &&
+              l.message.includes("token will expire automatically"),
           ),
         ).toBe(true);
       }),

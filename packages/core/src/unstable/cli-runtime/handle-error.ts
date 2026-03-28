@@ -11,7 +11,9 @@ import { isEffectCliExit } from "./effect-cli-exit.js";
  * - stream-json: error event in NDJSON stream + brief message to stderr
  *
  * Exit codes:
- * - EffectCliExit → custom exit code (e.g., 1 for help display)
+ * - ShowHelp (no errors) → 0 (help successfully displayed)
+ * - ShowHelp (with errors) → 1 (help displayed due to usage error)
+ * - EffectCliExit → custom exit code
  * - CliError → 2 (usage/validation — bad flags, missing args)
  * - Other → 1 (application/runtime)
  */
@@ -21,6 +23,13 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
   }
 
   if (CliError.isCliError(error)) {
+    // ShowHelp is control flow, not an error.
+    // The framework already printed help text before this point.
+    // Exit 0 for clean help, 1 if help was triggered by validation errors.
+    if (error._tag === "ShowHelp") {
+      process.exit(error.errors.length > 0 ? 1 : 0);
+    }
+
     if (format !== "text") {
       // Extract human-readable messages from structured CliError errors
       const message =

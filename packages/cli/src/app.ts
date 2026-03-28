@@ -3,9 +3,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Command } from "effect/unstable/cli";
+import * as Layer from "effect/Layer";
+import { CliOutput, Command } from "effect/unstable/cli";
 
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+
+import { LearnMore, makeAxmFormatter } from "./formatter.js";
 
 import { axmGlobalFlags, baseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
@@ -23,9 +26,12 @@ import { mcpServersCommand } from "./root/mcp-servers/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
+const LEARN_MORE_FOOTER =
+  "LEARN MORE\n  Use 'axm <command> --help' for more information about a command.";
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Open extension manager for AI coding agents."),
+  Command.annotate(LearnMore, LEARN_MORE_FOOTER),
   Command.withExamples([
     { command: "axm init", description: "Initialize axm in the current project" },
     {
@@ -62,7 +68,10 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
 
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
-    (argv) => Command.runWith(rootCommand, { version })(argv).pipe(Effect.provide(baseLayer)),
+    (argv) =>
+      Command.runWith(rootCommand, { version })(argv).pipe(
+        Effect.provide(Layer.merge(baseLayer, CliOutput.layer(makeAxmFormatter()))),
+      ),
     { args },
   );
 };

@@ -127,18 +127,18 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@clack/prompts": "^1.0.1",
-    "@effect/platform-node": "4.0.0-beta.37",
+    "@clack/prompts": "^1.1.0",
+    "@effect/platform-node": "4.0.0-beta.42",
     "effect": "catalog:",
     "fflate": "^0.8.2",
     "gray-matter": "^4.0.3",
     "jsonc-parser": "^3.3.1",
-    "semver": "^7.7.1",
-    "simple-git": "^3.27.0"
+    "semver": "^7.7.4",
+    "simple-git": "^3.33.0"
   },
   "devDependencies": {
-    "@effect/openapi-generator": "4.0.0-beta.37",
-    "@effect/vitest": "4.0.0-beta.37",
+    "@effect/openapi-generator": "4.0.0-beta.42",
+    "@effect/vitest": "4.0.0-beta.42",
     "@types/bun": "catalog:",
     "@types/semver": "^7.5.8",
     "swagger2openapi": "^7.0.8",

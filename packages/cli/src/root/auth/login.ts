@@ -8,7 +8,7 @@
  * 4. Display URL and code for manual browser entry
  * 5. Poll with spinner
  * 6. Persist credentials
- * 7. Fetch identity and display "Logged in as <handle>"
+ * 7. Fetch identity and display "Logged in to <registry> as <handle>"
  *
  * @experimental This API is unstable and may change without notice.
  */

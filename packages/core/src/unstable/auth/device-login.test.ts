@@ -77,17 +77,19 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
+        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
         expect(interactionState.openBrowserCalls).toEqual([
           "https://auth.agentxm.ai/device?code=ABCD-1234",
         ]);
-        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
         expect(logs.step).toContain("Opening browser to sign in...");
+        expect(logs.message).toContain("https://auth.agentxm.ai/device?code=ABCD-1234");
         expect(
           logs.step.some((message) =>
             message.includes("Open this URL in your browser: https://auth.agentxm.ai/device"),
           ),
         ).toBe(false);
-        expect(logs.success).toContain("Logged in as alice");
+        expect(logs.step).toContain("Your verification code: ABCD-1234 (copied to clipboard)");
+        expect(logs.success).toContain("Logged in to registry.agentxm.ai as alice.");
       }),
     );
   });
@@ -101,7 +103,7 @@ describe("runDeviceLogin", () => {
         expect(logs.step).toContain(
           "Open this URL in your browser: https://auth.agentxm.ai/device?code=ABCD-1234",
         );
-        expect(logs.step).toContain("Enter code: ABCD-1234");
+        expect(logs.step).toContain("Your verification code: ABCD-1234 (copied to clipboard)");
       }),
     );
   });
@@ -115,13 +117,64 @@ describe("runDeviceLogin", () => {
       const store = yield* CredentialStore;
       const stored = yield* store.load(REGISTRY_URL);
 
-      expect(logs.success).toContain("Login successful.");
-      expect(logs.success.some((message) => message.includes("Logged in as"))).toBe(false);
+      expect(logs.success).toContain("Logged in to registry.agentxm.ai.");
+      expect(logs.success.some((message) => message.includes("as "))).toBe(false);
       expect(stored._tag).toBe("Some");
       if (stored._tag === "Some") {
         expect(stored.value.handle).toBe("unknown");
         expect(stored.value.access_token).toBe("axm_ses_new");
       }
     }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("omits clipboard hint when clipboard copy fails", () => {
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const interaction = DeviceLoginInteractionTest({
+      openBrowser: () => Effect.succeed(true),
+      copyToClipboard: () => Effect.succeed(false),
+    });
+
+    const authClientLayer = AuthClientTest({
+      initiateDeviceFlow: () =>
+        Effect.succeed({
+          device_code: "dc-123",
+          user_code: "ABCD-1234",
+          verification_uri: "https://auth.agentxm.ai/device",
+          verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+          interval: 5,
+          expires_in: 600,
+        }),
+      pollDeviceToken: () =>
+        Effect.succeed({
+          access_token: "axm_ses_new",
+          refresh_token: "axm_ref_new",
+          expires_at: "2099-06-01T00:00:00Z",
+        }),
+      getMe: () =>
+        Effect.succeed({
+          userId: "user-1",
+          userHandle: "alice",
+          email: "alice@example.com",
+          tokenType: "session",
+          scopes: ["extensions:read"],
+          orgs: [],
+        }),
+    });
+
+    const layer = Layer.mergeAll(
+      rendererLayer,
+      interaction.layer,
+      CredentialStoreTest(),
+      authClientLayer,
+    );
+    const logs = logsByTag(rendererState);
+
+    return runDeviceLogin(REGISTRY_URL).pipe(
+      Effect.provide(layer),
+      Effect.map(() => {
+        expect(logs.step).toContain("Your verification code: ABCD-1234");
+        expect(logs.step.some((m) => m.includes("copied to clipboard"))).toBe(false);
+      }),
+    );
   });
 });

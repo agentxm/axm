@@ -73,7 +73,9 @@ const persistLoginCredentials = (registryUrl: string, token: TokenResponse) =>
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
 
-    const meResult = yield* authClient.getMe(registryUrl, token.access_token).pipe(Effect.option);
+    const meResult = yield* authClient
+      .getMe(registryUrl, token.access_token)
+      .pipe(Effect.retry({ times: 1 }), Effect.option);
     const handle = Option.match(meResult, {
       onNone: () => UNKNOWN_HANDLE,
       onSome: (me) => me.userHandle,
@@ -93,16 +95,19 @@ const presentDeviceFlow = (verificationUrl: string, userCode: string) =>
     const renderer = yield* CliRenderer;
     const interaction = yield* DeviceLoginInteraction;
 
+    // Copy to clipboard first so code is ready before browser loads
+    const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
     const openedBrowser = yield* interaction.openBrowser(verificationUrl);
-    yield* interaction.copyToClipboard(userCode);
 
     if (openedBrowser) {
       yield* renderer.step("Opening browser to sign in...");
+      yield* renderer.message(verificationUrl);
     } else {
       yield* renderer.step(`Open this URL in your browser: ${verificationUrl}`);
     }
 
-    yield* renderer.step(`Enter code: ${userCode}`);
+    const clipboardHint = copiedToClipboard ? " (copied to clipboard)" : "";
+    yield* renderer.step(`Your verification code: ${userCode}${clipboardHint}`);
   });
 
 export const runDeviceLogin = (registryUrl: string) =>
@@ -121,8 +126,9 @@ export const runDeviceLogin = (registryUrl: string) =>
 
     const handle = yield* persistLoginCredentials(registryUrl, token);
 
+    const registryHost = new URL(registryUrl).host;
     yield* Option.match(handle, {
-      onNone: () => renderer.success("Login successful."),
-      onSome: (userHandle) => renderer.success(`Logged in as ${userHandle}`),
+      onNone: () => renderer.success(`Logged in to ${registryHost}.`),
+      onSome: (userHandle) => renderer.success(`Logged in to ${registryHost} as ${userHandle}.`),
     });
   });

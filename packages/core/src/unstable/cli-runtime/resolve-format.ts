@@ -1,6 +1,9 @@
 import * as Option from "effect/Option";
 import type { OutputFormat } from "./output-format.js";
 
+/** Check if running in a TTY. Falls back to stderr when stdout is piped (e.g. through pnpm). */
+const isTTY = (): boolean => Boolean(process.stdout.isTTY || process.stderr.isTTY);
+
 /**
  * Resolve output format from raw argv BEFORE Effect runs.
  *
@@ -14,7 +17,7 @@ export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat
     const value = args[idx + 1];
     if (value === "json" || value === "stream-json" || value === "text") return value;
   }
-  return process.stdout.isTTY ? "text" : "json";
+  return isTTY() ? "text" : "json";
 };
 
 /**
@@ -26,5 +29,5 @@ export const resolveFormat = (
   options?: { readonly isLongRunning?: boolean | undefined },
 ): OutputFormat =>
   Option.getOrElse(explicit, () =>
-    process.stdout.isTTY ? "text" : options?.isLongRunning ? "stream-json" : "json",
+    isTTY() ? "text" : options?.isLongRunning ? "stream-json" : "json",
   );

@@ -16,9 +16,9 @@ After spec and codegen patches, the generated clients now cover most operations 
 
 ### Remaining Codegen Limitations
 
-One codegen-level limitation requires an adapter workaround:
+Both previous codegen-level limitations have been addressed:
 
-1. **`ExtensionsDownloadArchive` has no success handler** — Error statuses (400, 404, 500) are properly decoded, but success responses hit `orElse: unexpectedStatus` because the codegen can't express binary (non-JSON) success bodies. The companion `ExtensionsDownloadArchiveStream` operation handles this via streaming instead.
+~~1. **`ExtensionsDownloadArchive` has no success handler**~~ — Fixed upstream in [Effect-TS/effect-smol#1916](https://github.com/Effect-TS/effect-smol/pull/1916) (issue [#1915](https://github.com/Effect-TS/effect-smol/issues/1915)). The generator now emits a `decodeBinary` handler in `matchStatus` that decodes binary success responses as `Uint8Array` via `response.arrayBuffer`. The non-streaming method returns `Effect<Uint8Array, ...>` while the companion `*Stream` method returns `Stream<Uint8Array>`. Also broadens `isBinaryMediaType` to recognize `application/zip`, `image/*`, etc. Already patched locally in `patches/@effect__openapi-generator.patch`.
 
 ~~2. **`ExtensionsHead` erases status codes**~~ — Fixed upstream in [Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914) (issue [#1913](https://github.com/Effect-TS/effect-smol/issues/1913)). The generator now routes 4xx/5xx void schemas to the error channel as typed `RegistryClientError<"status", undefined>` values. Already patched locally in `patches/@effect__openapi-generator.patch`.
 
@@ -75,7 +75,7 @@ HttpClient (base)
 
 ### 3. Work around remaining codegen limitations
 
-**Archive download** — `ExtensionsDownloadArchive` has no success handler (success hits `orElse: unexpectedStatus`). The adapter uses `ExtensionsDownloadArchiveStream` instead, which returns `Stream<Uint8Array>` via `HttpClient.filterStatusOk`. The adapter collects the stream into a `Uint8Array` to satisfy the `GetExtensionPackageResponse` interface.
+**~~Archive download~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1916](https://github.com/Effect-TS/effect-smol/pull/1916)), `ExtensionsDownloadArchive` now has a `decodeBinary` handler returning `Uint8Array`. The adapter can use either the non-streaming method directly or `ExtensionsDownloadArchiveStream` for large archives.
 
 **~~HEAD status erasure~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914)), `ExtensionsHead` routes 4xx/5xx to typed errors in the error channel. The adapter uses `Effect.catchIf` to handle 404 as `Option.none()` — no `includeResponse` workaround needed.
 
@@ -143,7 +143,7 @@ The existing `mapProblemDetailToAppError` function moves into the registry adapt
 
 ## Risks / Trade-offs
 
-**Archive download codegen limitation forces workaround** — `ExtensionsDownloadArchive` can't express binary success bodies in `matchStatus`. → Mitigated by using `ExtensionsDownloadArchiveStream`. The workaround is isolated in the adapter and replaceable if the codegen improves. (The HEAD status erasure limitation has been fixed upstream.)
+~~**Archive download codegen limitation forces workaround**~~ — No longer applicable. The binary success handler fix ([Effect-TS/effect-smol#1916](https://github.com/Effect-TS/effect-smol/pull/1916)) adds `decodeBinary` to `matchStatus`, so `ExtensionsDownloadArchive` now returns `Uint8Array` on success. (The HEAD status erasure limitation was also fixed upstream in [#1914](https://github.com/Effect-TS/effect-smol/pull/1914).)
 
 **Schema drift between generated and hand-written** — During migration, some code will import from generated clients while other code still uses hand-written schemas. Type mismatches could surface. → Mitigated by replacing hand-written schemas atomically per domain (all auth schemas at once, all registry schemas at once).
 

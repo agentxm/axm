@@ -1574,6 +1574,8 @@ export const make = (
         Effect.map((response) => response.stream),
         Stream.unwrap,
       );
+  const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
+    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
   const decodeSuccess =
     <Schema extends Schema.Top>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
@@ -1818,6 +1820,7 @@ export const make = (
       HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
+            "2xx": decodeBinary,
             "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
             "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
             "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
@@ -2327,7 +2330,7 @@ export interface RegistryClient {
     version: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
+    WithOptionalResponse<Uint8Array, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>

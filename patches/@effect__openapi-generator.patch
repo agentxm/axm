@@ -1,5 +1,5 @@
 diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
-index 868086706d4c6915c22a59db50021276b76a9350..6b27823be326b63ca6731b25a0698971650b1d6c 100644
+index 868086706d4c6915c22a59db50021276b76a9350..e99f81c3ca3c43b987d5a32e3de26077d6f0b35f 100644
 --- a/dist/OpenApiGenerator.js
 +++ b/dist/OpenApiGenerator.js
 @@ -231,6 +231,11 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
@@ -39,7 +39,7 @@ index 868086706d4c6915c22a59db50021276b76a9350..6b27823be326b63ca6731b25a0698971
                continue;
              }
              if (!Predicate.isObject(mediaType) || Predicate.isUndefined(mediaType.schema)) {
-@@ -345,10 +351,17 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -345,10 +351,18 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
              op.sseSchema = addSchema(`${schemaId}${status}Sse`, sseResponseSchema, op);
            }
          }
@@ -55,13 +55,14 @@ index 868086706d4c6915c22a59db50021276b76a9350..6b27823be326b63ca6731b25a0698971
 +              const statusMajorNumber = Number(parsedStatus[0]);
 +              if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
 +                op.binaryResponse = true;
++                op.binarySuccessStatuses.add(parsedStatus.toLowerCase());
 +              }
 +              break;
 +            }
            }
          }
          if (isEmptyResponse) {
-@@ -571,9 +584,18 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
+@@ -571,9 +585,18 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
    const items = value.items;
    return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
  };
@@ -82,10 +83,30 @@ index 868086706d4c6915c22a59db50021276b76a9350..6b27823be326b63ca6731b25a0698971
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab0e1b2a08 100644
+index 4763452e1d500234db28f5cd4f9c11f938e94c9b..d8835ac8f085e5dc13a1cf70ed4cf2ea50aaf28d 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
-@@ -20,6 +20,7 @@ const computeImportRequirements = operations => {
+@@ -6,6 +6,7 @@ export class OpenApiTransformer extends /*#__PURE__*/ServiceMap.Service()("OpenA
+ const computeImportRequirements = operations => {
+   let eventStream = false;
+   let octetStream = false;
++  let binarySuccess = false;
+   for (const op of operations) {
+     if (op.sseSchema) {
+       eventStream = true;
+@@ -13,13 +14,18 @@ const computeImportRequirements = operations => {
+     if (op.binaryResponse) {
+       octetStream = true;
+     }
++    if (op.binarySuccessStatuses.size > 0) {
++      binarySuccess = true;
++    }
+   }
+   return {
+     eventStream,
+-    octetStream
++    octetStream,
++    binarySuccess
    };
  };
  const requiresStreaming = requirements => requirements.eventStream || requirements.octetStream;
@@ -93,7 +114,20 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
  export const makeTransformerSchema = () => {
    const operationsToInterface = (_importName, name, operations) => {
      const methods = [];
-@@ -71,6 +72,11 @@ ${clientErrorSource(name)}`;
+@@ -64,13 +70,22 @@ ${clientErrorSource(name)}`;
+       args.push(`options: { ${options.join("; ")} } | undefined`);
+     }
+     let success = "void";
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values()).map(schema => `typeof ${schema}.Type`).join(" | ");
++    const successTypes = Array.from(operation.successSchemas.values()).map(schema => `typeof ${schema}.Type`);
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array");
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ");
+     }
+     const errors = ["HttpClientError.HttpClientError", "SchemaError"];
      if (operation.errorSchemas.size > 0) {
        Utils.spreadElementsInto(Array.from(operation.errorSchemas.values()).map(schema => `${name}Error<"${schema}", typeof ${schema}.Type>`), errors);
      }
@@ -105,15 +139,18 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      const jsdoc = Utils.toComment(operation.description);
      const methodKey = `readonly "${operation.id}"`;
      const generic = `<Config extends OperationConfig>`;
-@@ -149,6 +155,7 @@ ${clientErrorSource(name)}`;
+@@ -149,6 +164,10 @@ ${clientErrorSource(name)}`;
      if (requirements.octetStream) {
        helpers.push(binaryRequestSource);
      }
++    if (requirements.binarySuccess) {
++      helpers.push(decodeBinarySource);
++    }
 +    const needsVoidError = hasVoidErrors(operations);
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
-@@ -189,7 +196,11 @@ export const make = (
+@@ -189,7 +208,11 @@ export const make = (
          HttpClientResponse.schemaBodyJson(schema)(response),
          (cause) => Effect.fail(${name}Error(tag, cause, response)),
        )
@@ -126,7 +163,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      httpClient,
      ${implMethods.join(",\n    ")}
    }
-@@ -213,6 +224,8 @@ export const make = (
+@@ -213,20 +236,31 @@ export const make = (
      const payloadVarName = "options.payload";
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(${payloadVarName} as any)`);
@@ -135,7 +172,19 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadVarName})`);
      }
-@@ -226,7 +239,11 @@ export const make = (
+     const decodes = [];
+-    const singleSuccessCode = operation.successSchemas.size === 1;
++    const singleSuccessCode = operation.successSchemas.size === 1 && operation.binarySuccessStatuses.size === 0;
+     operation.successSchemas.forEach((schema, status) => {
+       const statusCode = singleSuccessCode && status.startsWith("2") ? "2xx" : status;
+       decodes.push(`"${statusCode}": decodeSuccess(${schema})`);
+     });
++    const singleBinaryCode = operation.binarySuccessStatuses.size === 1 && operation.successSchemas.size === 0;
++    operation.binarySuccessStatuses.forEach(status => {
++      const statusCode = singleBinaryCode && status.startsWith("2") ? "2xx" : status;
++      decodes.push(`"${statusCode}": decodeBinary`);
++    });
+     operation.errorSchemas.forEach((schema, status) => {
        decodes.push(`"${status}": decodeError("${schema}", ${schema})`);
      });
      operation.voidSchemas.forEach(status => {
@@ -148,7 +197,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      });
      decodes.push(`orElse: unexpectedStatus`);
      const configAccessor = resolveConfigAccessor(operation, "options", "config");
-@@ -256,6 +273,8 @@ export const make = (
+@@ -256,6 +290,8 @@ export const make = (
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
@@ -157,7 +206,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
      }
-@@ -283,6 +302,8 @@ export const make = (
+@@ -283,6 +319,8 @@ export const make = (
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
@@ -166,7 +215,22 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
      }
-@@ -365,6 +386,11 @@ ${clientErrorSource(name)}`;
+@@ -356,8 +394,12 @@ ${clientErrorSource(name)}`;
+       args.push(`options: { ${options.join("; ")} } | undefined`);
+     }
+     let success = "void";
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values()).join(" | ");
++    const successTypes = Array.from(operation.successSchemas.values());
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array");
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ");
+     }
+     const errors = ["HttpClientError.HttpClientError"];
+     if (operation.errorSchemas.size > 0) {
+@@ -365,6 +407,11 @@ ${clientErrorSource(name)}`;
          errors.push(`${name}Error<"${schema}", ${schema}>`);
        }
      }
@@ -178,15 +242,18 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      const jsdoc = Utils.toComment(operation.description);
      const methodKey = `readonly "${operation.id}"`;
      const generic = `<Config extends OperationConfig>`;
-@@ -443,6 +469,7 @@ ${clientErrorSource(name)}`;
+@@ -443,6 +490,10 @@ ${clientErrorSource(name)}`;
      if (requirements.octetStream) {
        helpers.push(binaryRequestSourceTs);
      }
++    if (requirements.binarySuccess) {
++      helpers.push(decodeBinarySource);
++    }
 +    const needsVoidError = hasVoidErrors(operations);
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
-@@ -488,9 +515,16 @@ export const make = (
+@@ -488,20 +539,38 @@ export const make = (
          response.json as Effect.Effect<E, HttpClientError.HttpClientError>,
          (cause) => Effect.fail(${name}Error(tag, cause, response)),
        )
@@ -201,25 +268,36 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      successCodes: ReadonlyArray<string>,
 -    errorCodes?: Record<string, string>,
 +    errorCodes?: Record<string, string>,${needsVoidError ? `
-+    voidErrorCodes?: ReadonlyArray<string>,` : ""}
++    voidErrorCodes?: ReadonlyArray<string>,` : ""}${requirements.binarySuccess ? `
++    binaryCodes?: ReadonlyArray<string>,` : ""}
    ) => {
      const cases: any = { orElse: unexpectedStatus }
      for (const code of successCodes) {
-@@ -500,7 +534,12 @@ export const make = (
+       cases[code] = decodeSuccess
+-    }
++    }${requirements.binarySuccess ? `
++    if (binaryCodes) {
++      for (const code of binaryCodes) {
++        cases[code] = decodeBinary
++      }
++    }` : ""}
+     if (errorCodes) {
        for (const [code, tag] of Object.entries(errorCodes)) {
          cases[code] = decodeError(tag)
        }
 -    }
+-    if (successCodes.length === 0) {
 +    }${needsVoidError ? `
 +    if (voidErrorCodes) {
 +      for (const code of voidErrorCodes) {
 +        cases[code] = decodeVoidError(code)
 +      }
 +    }` : ""}
-     if (successCodes.length === 0) {
++    if (successCodes.length === 0${requirements.binarySuccess ? ` && (!binaryCodes || binaryCodes.length === 0)` : ""}) {
        cases["2xx"] = decodeVoid
      }
-@@ -530,6 +569,8 @@ export const make = (
+     return withResponse(config)(HttpClientResponse.matchStatus(cases) as any)
+@@ -530,15 +599,23 @@ export const make = (
      const payloadAccessor = "options.payload";
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(${payloadAccessor} as any)`);
@@ -228,19 +306,24 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadAccessor})`);
      }
-@@ -537,8 +578,10 @@ export const make = (
+     const successCodesRaw = Array.from(operation.successSchemas.keys());
      const successCodes = successCodesRaw.map(_ => JSON.stringify(_)).join(", ");
-     const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2");
+-    const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2");
++    const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2") && operation.binarySuccessStatuses.size === 0;
      const errorCodes = operation.errorSchemas.size > 0 && Object.fromEntries(operation.errorSchemas.entries());
 +    const voidErrorStatuses = Array.from(operation.voidSchemas).filter(Utils.isErrorStatus);
++    const binaryCodesRaw = Array.from(operation.binarySuccessStatuses);
++    const singleBinaryCode = binaryCodesRaw.length === 1 && binaryCodesRaw[0].startsWith("2") && operation.successSchemas.size === 0;
++    const binaryCodes = binaryCodesRaw.map(c => singleBinaryCode ? `"2xx"` : JSON.stringify(c)).join(", ");
      const configAccessor = resolveConfigAccessor(operation, "options", "config");
 -    pipeline.push(`onRequest(${configAccessor})([${singleSuccessCode ? `"2xx"` : successCodes}]${errorCodes ? `, ${JSON.stringify(errorCodes)}` : ""})`);
-+    const onRequestArgs = [`[${singleSuccessCode ? `"2xx"` : successCodes}]`, ...(errorCodes ? [JSON.stringify(errorCodes)] : []), ...(voidErrorStatuses.length > 0 ? [...(errorCodes ? [] : ["undefined"]), JSON.stringify(voidErrorStatuses)] : [])];
++    const hasBinary = binaryCodesRaw.length > 0;
++    const onRequestArgs = [`[${singleSuccessCode ? `"2xx"` : successCodes}]`, ...(errorCodes ? [JSON.stringify(errorCodes)] : []), ...(voidErrorStatuses.length > 0 ? [...(errorCodes ? [] : ["undefined"]), JSON.stringify(voidErrorStatuses)] : []), ...(hasBinary ? [...(!errorCodes && voidErrorStatuses.length === 0 ? ["undefined"] : []), ...(voidErrorStatuses.length === 0 && !errorCodes ? [] : []), `[${binaryCodes}]`] : [])];
 +    pipeline.push(`onRequest(${configAccessor})(${onRequestArgs.join(", ")})`);
      return `"${operation.id}": (${params}) => ` + `HttpClientRequest.${operation.method}(${operation.pathTemplate})` + `.pipe(\n    ${pipeline.join(",\n    ")}\n  )`;
    };
    const operationToSseImpl = operation => {
-@@ -562,6 +605,8 @@ export const make = (
+@@ -562,6 +639,8 @@ export const make = (
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
@@ -249,7 +332,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
      }
-@@ -589,6 +634,8 @@ export const make = (
+@@ -589,6 +668,8 @@ export const make = (
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
@@ -258,8 +341,17 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..c71edfff6c6412d621ba07bc997368ab
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
      }
+@@ -680,6 +761,8 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
+       Effect.map((response) => response.stream),
+       Stream.unwrap
+     )`;
++const decodeBinarySource = `const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
++    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer))`;
+ const clientErrorSource = name => `export interface ${name}Error<Tag extends string, E> {
+   readonly _tag: Tag
+   readonly request: HttpClientRequest.HttpClientRequest
 diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
-index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..4aadbb86580118bd042ef6690514127db06bbbc8 100644
+index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..4698dca7dc2ebe71bb629f8377791c4745aba3f4 100644
 --- a/dist/ParsedOperation.js
 +++ b/dist/ParsedOperation.js
 @@ -23,6 +23,7 @@ export const makeDeepMutable = options => ({
@@ -270,6 +362,16 @@ index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..4aadbb86580118bd042ef6690514127d
    pathSchema: undefined,
    querySchema: undefined,
    querySchemaOptional: true,
+@@ -33,6 +34,7 @@ export const makeDeepMutable = options => ({
+   errorSchemas: new Map(),
+   voidSchemas: new Set(),
+   paramsOptional: true,
+-  binaryResponse: false
++  binaryResponse: false,
++  binarySuccessStatuses: new Set()
+ });
+ //# sourceMappingURL=ParsedOperation.js.map
+\ No newline at end of file
 diff --git a/dist/Utils.js b/dist/Utils.js
 index a50c4ce0f563a52f2641a50e77f08ed51c922405..441b3a5213a31be50cadec39a8e9b89a923174cc 100644
 --- a/dist/Utils.js

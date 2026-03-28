@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CliRenderer } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
@@ -12,10 +12,8 @@ import { MachineRenderer } from "./cli-renderer-machine.js";
 
 let stdoutWrites: Array<string>;
 let stderrWrites: Array<string>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let stdoutWriteSpy: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let stderrWriteSpy: any;
+let stdoutWriteSpy: MockInstance;
+let stderrWriteSpy: MockInstance;
 
 beforeEach(() => {
   stdoutWrites = [];

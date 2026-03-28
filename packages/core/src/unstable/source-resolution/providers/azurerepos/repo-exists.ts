@@ -26,12 +26,10 @@ export const checkAzureReposRepoExists = (
     );
 
     if (response.status < 200 || response.status >= 300) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "SOURCE_PARSE_FAILED",
-          what: `Not found on Azure Repos`,
-          details: [`${organization}/${project}/${repo}`],
-        }),
-      );
+      return yield* makeAppError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Not found on Azure Repos`,
+        details: [`${organization}/${project}/${repo}`],
+      });
     }
   });

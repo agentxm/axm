@@ -249,14 +249,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       const versions = indexOption.value.versions.map((entry) => entry.version);
       const [latestVersion] = versions;
       if (latestVersion === undefined) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "UPDATE_SOURCE_EMPTY",
-            what: `Registry skill "${skillFqn}" has no published versions`,
-            details: [`Source: ${sources.origin(source)}`],
-            howToFix: "Publish a version before running `axm skills update`.",
-          }),
-        );
+        return yield* makeAppError({
+          code: "UPDATE_SOURCE_EMPTY",
+          what: `Registry skill "${skillFqn}" has no published versions`,
+          details: [`Source: ${sources.origin(source)}`],
+          howToFix: "Publish a version before running `axm skills update`.",
+        });
       }
 
       const resolvedVersion = resolveConstrainedVersion(versions, constraints, skillFqn);
@@ -265,14 +263,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           onNone: () => "the configured constraints",
           onSome: (constraint) => `"${constraint}"`,
         });
-        return yield* Effect.fail(
-          makeAppError({
-            code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
-            what: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
-            details: [`Source: ${sources.origin(source)}`],
-            howToFix: "Relax the version constraint or update the dependent pack constraints.",
-          }),
-        );
+        return yield* makeAppError({
+          code: "UPDATE_CONSTRAINT_UNSATISFIABLE",
+          what: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
+          details: [`Source: ${sources.origin(source)}`],
+          howToFix: "Relax the version constraint or update the dependent pack constraints.",
+        });
       }
 
       const exactRefs = yield* findSkillRefs(source, {
@@ -287,14 +283,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           ref.version === resolvedVersion.value.resolvedVersion,
       );
       if (exactRef === undefined) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "UPDATE_RESOLUTION_FAILED",
-            what: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-            details: [`Source: ${sources.origin(source)}`],
-            howToFix: "Verify the registry index and package metadata are consistent.",
-          }),
-        );
+        return yield* makeAppError({
+          code: "UPDATE_RESOLUTION_FAILED",
+          what: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
+          details: [`Source: ${sources.origin(source)}`],
+          howToFix: "Verify the registry index and package metadata are consistent.",
+        });
       }
 
       return Option.some({
@@ -438,13 +432,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   // Step 6: Collect successful resolutions
   const resolved = Array.getSomes(results);
   if (resolved.length === 0) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "UPDATE_FAILED",
-        what: "All source re-resolutions failed. Nothing to update.",
-        howToFix: "Verify the original source paths are still accessible.",
-      }),
-    );
+    return yield* makeAppError({
+      code: "UPDATE_FAILED",
+      what: "All source re-resolutions failed. Nothing to update.",
+      howToFix: "Verify the original source paths are still accessible.",
+    });
   }
 
   // Step 7: Emit resolution warnings

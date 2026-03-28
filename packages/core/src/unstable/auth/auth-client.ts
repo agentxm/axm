@@ -231,13 +231,11 @@ export const pollOnce = (
     }
 
     // Unknown error
-    return yield* Effect.fail(
-      makeAppError({
-        code: "AUTH_LOGIN_FAILED",
-        what: `Device token poll returned unexpected status ${String(response.status)}`,
-        howToFix: "Try running `axm login` again.",
-      }),
-    );
+    return yield* makeAppError({
+      code: "AUTH_LOGIN_FAILED",
+      what: `Device token poll returned unexpected status ${String(response.status)}`,
+      howToFix: "Try running `axm login` again.",
+    });
   });
 
 // -----------------------------------------------------------------------------
@@ -270,14 +268,12 @@ export const AuthClientLive = Layer.effect(
 
       if (response.status !== 200) {
         const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-        return yield* Effect.fail(
-          makeAppError({
-            code: "AUTH_LOGIN_FAILED",
-            what: `Device code request failed with status ${String(response.status)}`,
-            details: bodyText.length > 0 ? [bodyText] : [],
-            howToFix: "Check network connectivity and try again.",
-          }),
-        );
+        return yield* makeAppError({
+          code: "AUTH_LOGIN_FAILED",
+          what: `Device code request failed with status ${String(response.status)}`,
+          details: bodyText.length > 0 ? [bodyText] : [],
+          howToFix: "Check network connectivity and try again.",
+        });
       }
 
       const bodyText = yield* readResponseBody(response, "AUTH_LOGIN_FAILED", "device code");
@@ -318,21 +314,17 @@ export const AuthClientLive = Layer.effect(
             currentInterval += SLOW_DOWN_INCREMENT_MS;
             continue;
           case "AccessDenied":
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_LOGIN_CANCELLED",
-                what: "Login was denied or cancelled",
-                howToFix: "Run `axm login` to try again.",
-              }),
-            );
+            return yield* makeAppError({
+              code: "AUTH_LOGIN_CANCELLED",
+              what: "Login was denied or cancelled",
+              howToFix: "Run `axm login` to try again.",
+            });
           case "ExpiredToken":
-            return yield* Effect.fail(
-              makeAppError({
-                code: "AUTH_LOGIN_FAILED",
-                what: "Login code expired",
-                howToFix: "Run `axm login` to try again.",
-              }),
-            );
+            return yield* makeAppError({
+              code: "AUTH_LOGIN_FAILED",
+              what: "Login code expired",
+              howToFix: "Run `axm login` to try again.",
+            });
         }
       }
     });
@@ -357,14 +349,12 @@ export const AuthClientLive = Layer.effect(
 
         if (response.status !== 200) {
           const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-          return yield* Effect.fail(
-            makeAppError({
-              code: "AUTH_REFRESH_FAILED",
-              what: `Token refresh failed with status ${String(response.status)}`,
-              details: bodyText.length > 0 ? [bodyText] : [],
-              howToFix: "Run `axm login` to re-authenticate.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "AUTH_REFRESH_FAILED",
+            what: `Token refresh failed with status ${String(response.status)}`,
+            details: bodyText.length > 0 ? [bodyText] : [],
+            howToFix: "Run `axm login` to re-authenticate.",
+          });
         }
 
         const bodyText = yield* readResponseBody(response, "AUTH_REFRESH_FAILED", "token refresh");
@@ -413,23 +403,19 @@ export const AuthClientLive = Layer.effect(
         );
 
         if (response.status === 401 || response.status === 403) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "AUTH_UNAUTHENTICATED",
-              what: "Not authenticated or token is invalid",
-              howToFix: "Run `axm login` to re-authenticate.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "AUTH_UNAUTHENTICATED",
+            what: "Not authenticated or token is invalid",
+            howToFix: "Run `axm login` to re-authenticate.",
+          });
         }
 
         if (response.status !== 200) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "AUTH_UNAUTHENTICATED",
-              what: `Identity request failed with status ${String(response.status)}`,
-              howToFix: "Run `axm login` to re-authenticate.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "AUTH_UNAUTHENTICATED",
+            what: `Identity request failed with status ${String(response.status)}`,
+            howToFix: "Run `axm login` to re-authenticate.",
+          });
         }
 
         const bodyText = yield* readResponseBody(response, "AUTH_UNAUTHENTICATED", "identity");

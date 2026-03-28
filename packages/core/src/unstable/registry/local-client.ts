@@ -225,12 +225,10 @@ export const createLocalRegistryClient = (
 
             const selected = selectVersion(index.versions);
             if (Option.isNone(selected)) {
-              return yield* Effect.fail(
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `No versions found for ${profile}/${args.type}/${args.name}`,
-                }),
-              );
+              return yield* makeAppError({
+                code: "REGISTRY_FETCH_FAILED",
+                what: `No versions found for ${profile}/${args.type}/${args.name}`,
+              });
             }
             return selected.value.version;
           }),
@@ -252,12 +250,10 @@ export const createLocalRegistryClient = (
 
             const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
             if (Option.isNone(selected)) {
-              return yield* Effect.fail(
-                makeAppError({
-                  code: "REGISTRY_FETCH_FAILED",
-                  what: `No version matched constraint "${requestedVersion}" for ${profile}/${args.type}/${args.name}`,
-                }),
-              );
+              return yield* makeAppError({
+                code: "REGISTRY_FETCH_FAILED",
+                what: `No version matched constraint "${requestedVersion}" for ${profile}/${args.type}/${args.name}`,
+              });
             }
             return selected.value.version;
           }),
@@ -267,12 +263,10 @@ export const createLocalRegistryClient = (
 
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "REGISTRY_FETCH_FAILED",
-            what: `Archive not found: ${archivePath}`,
-          }),
-        );
+        return yield* makeAppError({
+          code: "REGISTRY_FETCH_FAILED",
+          what: `Archive not found: ${archivePath}`,
+        });
       }
 
       const archive = yield* fs.readFile(archivePath).pipe(
@@ -348,13 +342,11 @@ export const createLocalRegistryClient = (
           if (existingVersion.integrity === args.metadata.integrity) {
             return { published: true } as const; // Idempotent: same version, same integrity -> no-op
           }
-          return yield* Effect.fail(
-            makeAppError({
-              code: "REGISTRY_PUBLISH_FAILED",
-              what: `Version ${args.version} already exists with different integrity`,
-              details: [`Expected ${existingVersion.integrity}, got ${args.metadata.integrity}`],
-            }),
-          );
+          return yield* makeAppError({
+            code: "REGISTRY_PUBLISH_FAILED",
+            what: `Version ${args.version} already exists with different integrity`,
+            details: [`Expected ${existingVersion.integrity}, got ${args.metadata.integrity}`],
+          });
         }
 
         // Prepend new version entry

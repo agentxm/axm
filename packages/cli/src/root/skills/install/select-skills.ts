@@ -53,14 +53,12 @@ export const determineSkillsToInstall = (
       const matched = expandGlobs(args.requestedSkills, allNames);
 
       if (matched.length === 0) {
-        return yield* Effect.fail(
-          makeAppError({
-            code: "NO_SKILLS_MATCHED",
-            what: `No skills matched: ${args.requestedSkills.join(", ")}`,
-            details: [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
-            howToFix: "Check the skill names or patterns and try again.",
-          }),
-        );
+        return yield* makeAppError({
+          code: "NO_SKILLS_MATCHED",
+          what: `No skills matched: ${args.requestedSkills.join(", ")}`,
+          details: [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
+          howToFix: "Check the skill names or patterns and try again.",
+        });
       }
 
       return Array.filter(skills, (s) => matched.includes(s.skill.name));

@@ -101,13 +101,11 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 
     const [defaultRegistry] = registrySources;
     if (defaultRegistry === undefined) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "NO_REGISTRY_CONFIGURED",
-          what: "No registry sources configured",
-          howToFix: "Run the registry guard first.",
-        }),
-      );
+      return yield* makeAppError({
+        code: "NO_REGISTRY_CONFIGURED",
+        what: "No registry sources configured",
+        howToFix: "Run the registry guard first.",
+      });
     }
 
     if (Option.isNone(registry)) {
@@ -128,12 +126,10 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     );
 
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
-          what: `Registry source "${registry.value}" not found or not a registry source`,
-        }),
-      );
+      return yield* makeAppError({
+        code: "PUBLISH_PACK_REGISTRY_NOT_FOUND",
+        what: `Registry source "${registry.value}" not found or not a registry source`,
+      });
     }
 
     return {
@@ -218,15 +214,13 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
         if (!packDirExists) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "EXTENSION_NOT_FOUND",
-              what: `Managed pack not found: ${packName}`,
-              details: [`Expected at: ${packDir}`],
-              howToFix:
-                "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "EXTENSION_NOT_FOUND",
+            what: `Managed pack not found: ${packName}`,
+            details: [`Expected at: ${packDir}`],
+            howToFix:
+              "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+          });
         }
 
         // Validate manifest exists
@@ -236,14 +230,12 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           .pipe(Effect.orElseSucceed(() => false));
 
         if (!manifestExists) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "MISSING_MANIFEST",
-              what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
-              details: [`Expected at: ${manifestPath}`],
-              howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "MISSING_MANIFEST",
+            what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+            details: [`Expected at: ${manifestPath}`],
+            howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
+          });
         }
 
         return manifestPath;

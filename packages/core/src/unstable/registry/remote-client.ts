@@ -550,19 +550,17 @@ const getExtensionIndex = ({
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
-        return yield* Effect.fail(authError);
+        return yield* authError;
       }
     }
 
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
-          what: `Remote discovery failed with status ${String(response.status)}`,
-          details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
+        what: `Remote discovery failed with status ${String(response.status)}`,
+        details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
     const bodyText = yield* readResponseText({
@@ -620,19 +618,17 @@ const getExtensionCollection = ({
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
-        return yield* Effect.fail(authError);
+        return yield* authError;
       }
     }
 
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
-          what: `Remote discovery failed with status ${String(response.status)}`,
-          details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
+        what: `Remote discovery failed with status ${String(response.status)}`,
+        details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
     const bodyText = yield* readResponseText({
@@ -755,19 +751,17 @@ const profileExists = (
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
-        return yield* Effect.fail(authError);
+        return yield* authError;
       }
     }
 
     if (response.status !== 200) {
       const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-          what: `Remote profile check failed with status ${String(response.status)}`,
-          details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
+        what: `Remote profile check failed with status ${String(response.status)}`,
+        details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
     const bodyText = yield* readResponseText({
@@ -815,13 +809,11 @@ const getExtensionPackage = (
     });
 
     if (indexResponse.status === 404) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
-          what: "Remote package index was not found",
-          details: [indexRequestSummary],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
+        what: "Remote package index was not found",
+        details: [indexRequestSummary],
+      });
     }
 
     // Auth error mapping for read operations
@@ -836,19 +828,17 @@ const getExtensionPackage = (
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(indexResponse, problem);
       if (authError !== undefined) {
-        return yield* Effect.fail(authError);
+        return yield* authError;
       }
     }
 
     if (indexResponse.status !== 200) {
       const bodyText = yield* indexResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
-          what: `Remote package index request failed with status ${String(indexResponse.status)}`,
-          details: [indexRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
+        what: `Remote package index request failed with status ${String(indexResponse.status)}`,
+        details: [indexRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
     const indexBodyText = yield* readResponseText({
@@ -878,13 +868,11 @@ const getExtensionPackage = (
     });
 
     if (Option.isNone(resolvedVersion)) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_VERSION_NOT_FOUND",
-          what: "Requested package version is not available in remote index",
-          details: [indexRequestSummary],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_VERSION_NOT_FOUND",
+        what: "Requested package version is not available in remote index",
+        details: [indexRequestSummary],
+      });
     }
 
     const archiveUrl = `${indexUrl}/${resolvedVersion.value}/archive`;
@@ -899,24 +887,20 @@ const getExtensionPackage = (
     });
 
     if (archiveResponse.status === 404) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
-          what: "Remote package archive was not found",
-          details: [archiveRequestSummary],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_PACKAGE_NOT_FOUND",
+        what: "Remote package archive was not found",
+        details: [archiveRequestSummary],
+      });
     }
 
     if (archiveResponse.status !== 200) {
       const bodyText = yield* archiveResponse.text.pipe(Effect.catch(() => Effect.succeed("")));
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
-          what: `Remote package archive request failed with status ${String(archiveResponse.status)}`,
-          details: [archiveRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_REMOTE_PACKAGE_FETCH_FAILED",
+        what: `Remote package archive request failed with status ${String(archiveResponse.status)}`,
+        details: [archiveRequestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
     const arrayBuffer = yield* archiveResponse.arrayBuffer.pipe(
@@ -1033,18 +1017,16 @@ const extensionExists = (
       }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
       const authError = mapReadAuthError(response, problem);
       if (authError !== undefined) {
-        return yield* Effect.fail(authError);
+        return yield* authError;
       }
     }
 
     const bodyText = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")));
-    return yield* Effect.fail(
-      makeAppError({
-        code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
-        what: `Remote extension check failed with status ${String(response.status)}`,
-        details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
-      }),
-    );
+    return yield* makeAppError({
+      code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
+      what: `Remote extension check failed with status ${String(response.status)}`,
+      details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+    });
   });
 
 /**
@@ -1156,12 +1138,10 @@ const publishExtension = (
 
     // Handle 401 — unauthenticated (check before body parsing)
     if (response.status === 401) {
-      return yield* Effect.fail(
-        withRequestContext(
-          mapAuthUnauthenticated(response, "Session expired. Run `axm login` to re-authenticate."),
-          requestSummary,
-          response.status,
-        ),
+      return yield* withRequestContext(
+        mapAuthUnauthenticated(response, "Session expired. Run `axm login` to re-authenticate."),
+        requestSummary,
+        response.status,
       );
     }
 
@@ -1181,36 +1161,32 @@ const publishExtension = (
       const code = problem !== null ? getStringField(problem, "code") : undefined;
       if (code === "quota_exceeded") {
         // Preserve existing quota_exceeded mapping (takes priority)
-        return yield* Effect.fail(
-          withRequestContext(
-            mapProblemDetailToAppError(response.status, problem),
-            requestSummary,
-            response.status,
-          ),
+        return yield* withRequestContext(
+          mapProblemDetailToAppError(response.status, problem),
+          requestSummary,
+          response.status,
         );
       }
-      return yield* Effect.fail(
-        withRequestContext(mapAuthUnauthorized(problem), requestSummary, response.status),
+      return yield* withRequestContext(
+        mapAuthUnauthorized(problem),
+        requestSummary,
+        response.status,
       );
     }
 
     if (problem === null) {
       // Non-JSON error response
-      return yield* Effect.fail(
-        makeAppError({
-          code: "REGISTRY_PUBLISH_FAILED",
-          what: `Publish failed with status ${String(response.status)}`,
-          details: [`Request: ${requestSummary}`, ...(bodyText.length > 0 ? [bodyText] : [])],
-        }),
-      );
+      return yield* makeAppError({
+        code: "REGISTRY_PUBLISH_FAILED",
+        what: `Publish failed with status ${String(response.status)}`,
+        details: [`Request: ${requestSummary}`, ...(bodyText.length > 0 ? [bodyText] : [])],
+      });
     }
 
-    return yield* Effect.fail(
-      withRequestContext(
-        mapProblemDetailToAppError(response.status, problem),
-        requestSummary,
-        response.status,
-      ),
+    return yield* withRequestContext(
+      mapProblemDetailToAppError(response.status, problem),
+      requestSummary,
+      response.status,
     );
   });
 

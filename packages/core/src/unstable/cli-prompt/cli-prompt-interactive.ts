@@ -72,7 +72,7 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>): Effect.Effect<T, Promp
       Effect.catch((error) => Effect.die(error)),
     );
     if (!isPromptValue(result)) {
-      return yield* Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+      return yield* new PromptCancelled({ message: "Operation cancelled." });
     }
     return result;
   });

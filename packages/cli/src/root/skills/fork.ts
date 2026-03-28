@@ -79,14 +79,12 @@ const filterBySkillGlobs = (
     const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
     const matched = expandGlobs(skillPatterns, allNames);
     if (matched.length === 0) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "NO_SKILLS_MATCHED",
-          what: "No skills matched the given patterns",
-          details: [`Patterns: ${skillPatterns.join(", ")}`, `Available: ${allNames.join(", ")}`],
-          howToFix: "Check skill names with `axm skills install --list <source>`.",
-        }),
-      );
+      return yield* makeAppError({
+        code: "NO_SKILLS_MATCHED",
+        what: "No skills matched the given patterns",
+        details: [`Patterns: ${skillPatterns.join(", ")}`, `Available: ${allNames.join(", ")}`],
+        howToFix: "Check skill names with `axm skills install --list <source>`.",
+      });
     }
     return Array.filter(discoveredSkills, (s) => matched.includes(s.skill.name));
   });
@@ -234,14 +232,12 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         );
 
         if (discoveredSkills.length === 0) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "NO_SKILLS_FOUND",
-              what: "No skills found in source",
-              details: [`Source: ${args.source}`],
-              howToFix: noSkillsFoundHowToFix(args.source),
-            }),
-          );
+          return yield* makeAppError({
+            code: "NO_SKILLS_FOUND",
+            what: "No skills found in source",
+            details: [`Source: ${args.source}`],
+            howToFix: noSkillsFoundHowToFix(args.source),
+          });
         }
 
         // Step 3: Filter by --skill globs (if provided)
@@ -264,23 +260,19 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     ),
   );
   if (registrySources.length === 0) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
-      }),
-    );
+    return yield* makeAppError({
+      code: "NO_REGISTRY_CONFIGURED",
+      what: "No registry sources configured",
+      howToFix: "Run the registry guard first.",
+    });
   }
   const [registrySource] = registrySources;
   if (registrySource === undefined) {
-    return yield* Effect.fail(
-      makeAppError({
-        code: "NO_REGISTRY_CONFIGURED",
-        what: "No registry sources configured",
-        howToFix: "Run the registry guard first.",
-      }),
-    );
+    return yield* makeAppError({
+      code: "NO_REGISTRY_CONFIGURED",
+      what: "No registry sources configured",
+      howToFix: "Run the registry guard first.",
+    });
   }
   const registryName = registrySource.name;
 

@@ -72,24 +72,20 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         const lockedPack = yield* ws.getLockedPack(args.name);
 
         if (Option.isNone(lockedPack)) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "PACK_NOT_INSTALLED",
-              what: `Pack "${args.name}" is not installed`,
-              howToFix: "Install the pack first with `axm packs install`.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "PACK_NOT_INSTALLED",
+            what: `Pack "${args.name}" is not installed`,
+            howToFix: "Install the pack first with `axm packs install`.",
+          });
         }
 
         const entry = lockedPack.value;
 
         if (entry.type !== "registry") {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "PACK_UNPACK_UNSUPPORTED",
-              what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
-            }),
-          );
+          return yield* makeAppError({
+            code: "PACK_UNPACK_UNSUPPORTED",
+            what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+          });
         }
 
         return entry;

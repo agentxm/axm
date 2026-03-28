@@ -6,8 +6,8 @@
         "name": "@effect/language-service",
         "diagnosticSeverity": {
           "preferSchemaOverJson": "off",
-          "unnecessaryFailYieldableError": "off",
-          "multipleEffectProvide": "suggestion"
+          "unnecessaryFailYieldableError": "warning",
+          "multipleEffectProvide": "warning"
         }
       }
     ],

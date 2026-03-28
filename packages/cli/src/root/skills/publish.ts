@@ -107,13 +107,11 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 
     const [defaultRegistry] = registrySources;
     if (defaultRegistry === undefined) {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "NO_REGISTRY_CONFIGURED",
-          what: "No registry sources configured",
-          howToFix: "Run the registry guard first.",
-        }),
-      );
+      return yield* makeAppError({
+        code: "NO_REGISTRY_CONFIGURED",
+        what: "No registry sources configured",
+        howToFix: "Run the registry guard first.",
+      });
     }
 
     if (Option.isNone(registry)) {
@@ -134,12 +132,10 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     );
 
     if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
-      return yield* Effect.fail(
-        makeAppError({
-          code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
-          what: `Registry source "${registry.value}" not found or not a registry source`,
-        }),
-      );
+      return yield* makeAppError({
+        code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
+        what: `Registry source "${registry.value}" not found or not a registry source`,
+      });
     }
 
     return {
@@ -228,15 +224,13 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               .pipe(Effect.orElseSucceed(() => false));
 
             if (!extensionDirExists) {
-              return yield* Effect.fail(
-                makeAppError({
-                  code: "EXTENSION_NOT_FOUND",
-                  what: `Managed extension not found: ${extName}`,
-                  details: [`Expected at: ${extensionDir}`],
-                  howToFix:
-                    "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
-                }),
-              );
+              return yield* makeAppError({
+                code: "EXTENSION_NOT_FOUND",
+                what: `Managed extension not found: ${extName}`,
+                details: [`Expected at: ${extensionDir}`],
+                howToFix:
+                  "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
+              });
             }
 
             const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
@@ -245,14 +239,12 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
               .pipe(Effect.orElseSucceed(() => false));
 
             if (!manifestExists) {
-              return yield* Effect.fail(
-                makeAppError({
-                  code: "MISSING_MANIFEST",
-                  what: `Missing manifest: ${MANIFEST_FILENAME}`,
-                  details: [`Expected at: ${manifestPath}`],
-                  howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
-                }),
-              );
+              return yield* makeAppError({
+                code: "MISSING_MANIFEST",
+                what: `Missing manifest: ${MANIFEST_FILENAME}`,
+                details: [`Expected at: ${manifestPath}`],
+                howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
+              });
             }
           });
         });

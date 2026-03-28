@@ -87,7 +87,7 @@ export const withAuthGuard = <A, E, R>(
     const nonInteractive = yield* isNonInteractive;
 
     if (nonInteractive) {
-      return yield* Effect.fail(AUTH_LOGIN_REQUIRED_NON_INTERACTIVE);
+      return yield* AUTH_LOGIN_REQUIRED_NON_INTERACTIVE;
     }
 
     // Interactive: prompt (auto-accept with --yes)
@@ -97,7 +97,7 @@ export const withAuthGuard = <A, E, R>(
         message: "You need to sign in to publish. Sign in now?",
       });
       if (!shouldLogin) {
-        return yield* Effect.fail(AUTH_LOGIN_REQUIRED_DECLINED);
+        return yield* AUTH_LOGIN_REQUIRED_DECLINED;
       }
     }
 

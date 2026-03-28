@@ -137,14 +137,12 @@ export const resolveSourcePattern = (
         const matchedNames = expandGlobs([input], candidates.names);
 
         if (matchedNames.length === 0) {
-          return yield* Effect.fail(
-            makeAppError({
-              code: "NO_SKILLS_MATCHED",
-              what: "No skills matched the given pattern",
-              details: [`Pattern: ${input}`, `Available: ${candidates.names.join(", ")}`],
-              howToFix: "Check installed skill names with `axm skills list`.",
-            }),
-          );
+          return yield* makeAppError({
+            code: "NO_SKILLS_MATCHED",
+            what: "No skills matched the given pattern",
+            details: [`Pattern: ${input}`, `Available: ${candidates.names.join(", ")}`],
+            howToFix: "Check installed skill names with `axm skills list`.",
+          });
         }
 
         return yield* Effect.forEach(

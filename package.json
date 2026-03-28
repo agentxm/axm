@@ -21,7 +21,9 @@
     "lint:fix": "nx run-many -t lint --fix",
     "prepare": "husky && effect-language-service patch",
     "release:patch": "nx run axm:release",
-    "generate": "nx run core:generate-registry-client"
+    "generate": "nx run core:generate-registry-client && nx run core:generate-telemetry-client",
+    "generate:registry": "nx run core:generate-registry-client",
+    "generate:telemetry": "nx run core:generate-telemetry-client"
   },
   "nx": {
     "includedScripts": []

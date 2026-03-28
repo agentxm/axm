@@ -24,6 +24,13 @@
         "command": ["bun", "scripts/generate-registry-client.ts"],
         "cwd": "packages/core"
       }
+    },
+    "generate-telemetry-client": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-telemetry-client.ts"],
+        "cwd": "packages/core"
+      }
     }
   }
 }

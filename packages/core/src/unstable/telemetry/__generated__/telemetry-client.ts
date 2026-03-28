@@ -313,14 +313,7 @@ export type HealthGetDeepHealth200 = {
       readonly componentType: "datastore" | "system" | "component";
       readonly measurementName: string;
       readonly status: "pass" | "warn" | "fail";
-      readonly observedValue:
-        | number
-        | "NaN"
-        | "Infinity"
-        | "-Infinity"
-        | "Infinity"
-        | "-Infinity"
-        | "NaN";
+      readonly observedValue: number;
       readonly observedUnit: string;
       readonly time: string;
     }>;
@@ -346,15 +339,7 @@ export const HealthGetDeepHealth200 = Schema.Struct({
             componentType: Schema.Literals(["datastore", "system", "component"]),
             measurementName: Schema.String,
             status: Schema.Literals(["pass", "warn", "fail"]),
-            observedValue: Schema.Union([
-              Schema.Union([
-                Schema.Number.check(Schema.isFinite()),
-                Schema.Literal("NaN"),
-                Schema.Literal("Infinity"),
-                Schema.Literal("-Infinity"),
-              ]),
-              Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-            ]),
+            observedValue: Schema.Number.check(Schema.isFinite()),
             observedUnit: Schema.String,
             time: Schema.String,
           }),

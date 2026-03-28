@@ -49,26 +49,6 @@ export const TokenId = Schema.String.check(
     examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type TokenId1 = string;
-export const TokenId1 = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Token ID",
-    description:
-      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
-    readOnly: true,
-  }),
-);
-export type TokenId2 = string;
-export const TokenId2 = Schema.String.check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Token ID",
-    description:
-      "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-    examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
-    readOnly: true,
-  }),
-);
 export type ExtensionId = string;
 export const ExtensionId = Schema.String.check(
   Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -76,7 +56,6 @@ export const ExtensionId = Schema.String.check(
     description:
       "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
     examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
-    readOnly: true,
   }),
 );
 // schemas
@@ -226,7 +205,7 @@ export const TokensListParams = Schema.Struct({
 });
 export type TokensList200 = {
   readonly tokens: ReadonlyArray<{
-    readonly id: TokenId1;
+    readonly id: TokenId;
     readonly name: string | null;
     readonly type: string;
     readonly scopes: ReadonlyArray<string>;
@@ -240,7 +219,7 @@ export type TokensList200 = {
 export const TokensList200 = Schema.Struct({
   tokens: Schema.Array(
     Schema.Struct({
-      id: TokenId1,
+      id: TokenId,
       name: Schema.Union([Schema.String, Schema.Null]),
       type: Schema.String,
       scopes: Schema.Array(Schema.String),
@@ -278,7 +257,7 @@ export const TokensCreateRequestJson = Schema.Struct({
   description: "Request body for creating a new personal access token.",
 });
 export type TokensCreate201 = {
-  readonly id: TokenId2;
+  readonly id: TokenId;
   readonly token: string;
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
@@ -286,7 +265,7 @@ export type TokensCreate201 = {
   readonly expires_at: string;
 };
 export const TokensCreate201 = Schema.Struct({
-  id: TokenId2,
+  id: TokenId,
   token: Schema.String.annotate({
     description: "The full token value. Only returned once at creation time.",
     readOnly: true,
@@ -772,14 +751,7 @@ export type HealthGetDeepHealth200 = {
       readonly componentType: "datastore" | "system" | "component";
       readonly measurementName: string;
       readonly status: "pass" | "warn" | "fail";
-      readonly observedValue:
-        | number
-        | "NaN"
-        | "Infinity"
-        | "-Infinity"
-        | "Infinity"
-        | "-Infinity"
-        | "NaN";
+      readonly observedValue: number;
       readonly observedUnit: string;
       readonly time: string;
     }>;
@@ -805,15 +777,7 @@ export const HealthGetDeepHealth200 = Schema.Struct({
             componentType: Schema.Literals(["datastore", "system", "component"]),
             measurementName: Schema.String,
             status: Schema.Literals(["pass", "warn", "fail"]),
-            observedValue: Schema.Union([
-              Schema.Union([
-                Schema.Number.check(Schema.isFinite()),
-                Schema.Literal("NaN"),
-                Schema.Literal("Infinity"),
-                Schema.Literal("-Infinity"),
-              ]),
-              Schema.Literals(["Infinity", "-Infinity", "NaN"]),
-            ]),
+            observedValue: Schema.Number.check(Schema.isFinite()),
             observedUnit: Schema.String,
             time: Schema.String,
           }),

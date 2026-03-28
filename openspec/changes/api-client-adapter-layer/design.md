@@ -26,9 +26,9 @@ Both previous codegen-level limitations have been addressed:
 
 **Goals:**
 
-- Adapter modules that implement the existing domain interfaces (`RegistryClient`, `TelemetryClientService`) using the generated clients as transport
+- Rewrite existing service implementations (`remote-client.ts`, `auth-client.ts`, `client.ts`) to use generated clients as their HTTP transport instead of hand-written requests
 - Generated client errors (`HttpClientError | SchemaError | RegistryClientError`) mapped to `AppError` with per-operation error codes matching the hand-written clients (no granularity loss)
-- RFC 9457 problem detail → `AppError` mapping preserved in the registry adapter
+- RFC 9457 problem detail → `AppError` mapping preserved in the remote registry client
 - Base URL configuration via `HttpClient.mapRequest` with `prependUrl`
 - Auth middleware composition via the `httpClient` parameter (already-wrapped client passed to `make()`)
 - Generated schemas/types imported where they replace hand-written duplicates
@@ -43,24 +43,24 @@ Both previous codegen-level limitations have been addressed:
 
 ## Decisions
 
-### 1. Three adapters: registry, auth, telemetry
+### 1. Three implementations: registry, auth, telemetry
 
-Each domain service gets its own adapter module:
+Each domain service is updated to use the generated client internally:
 
-- **Registry adapter** — implements `RegistryClient` using extension operations from the generated registry client
-- **Auth adapter** — implements `AuthClientService` using auth operations from the generated registry client (device flow, token exchange, refresh, revoke, me). The `AuthClientService` interface is updated to take `registryUrl` at construction time (via service layer / layer construction) instead of per-call, matching how the generated client is constructed with a fixed base URL.
-- **Telemetry adapter** — implements `TelemetryClientService` using the generated telemetry client
+- **Remote registry client** — `registry/remote-client.ts` is rewritten to implement `RegistryClient` using extension operations from the generated registry client
+- **Auth client** — `auth/auth-client.ts` is updated so `AuthClientLive` uses auth operations from the generated registry client (device flow, token exchange, refresh, revoke, me). The `AuthClientService` interface is updated to take `registryUrl` at construction time (via service layer / layer construction) instead of per-call, matching how the generated client is constructed with a fixed base URL.
+- **Telemetry client** — `telemetry/client.ts` is updated so `makeTelemetryClient` uses the generated telemetry client internally
 
-Registry and auth share the same generated `make()` instance and `HttpClient` (with base URL and auth middleware), but are separate adapters because they serve different domain interfaces with different error semantics.
+Registry and auth share the same generated `make()` instance and `HttpClient` (with base URL and auth middleware), but are separate implementations because they serve different domain interfaces with different error semantics.
 
 **Alternatives considered:**
 
-- (a) Two adapters (registry+auth combined, telemetry) — rejected because auth and registry have distinct domain interfaces, error codes, and testing concerns. Combining them would create a large module mixing extension CRUD with OAuth flow logic.
-- (b) One unified adapter — rejected because telemetry and registry are completely independent services with different base URLs and error semantics
+- (a) Two implementations (registry+auth combined, telemetry) — rejected because auth and registry have distinct domain interfaces, error codes, and testing concerns. Combining them would create a large module mixing extension CRUD with OAuth flow logic.
+- (b) One unified implementation — rejected because telemetry and registry are completely independent services with different base URLs and error semantics
 
 ### 2. Base URL via HttpClient.mapRequest
 
-The generated clients use relative paths (`/v1/...`). Rather than string-concatenating base URLs in the adapter, configure the `HttpClient` with `HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))` before passing to `make()`. This keeps URL logic out of the adapter and composes cleanly with auth middleware.
+The generated clients use relative paths (`/v1/...`). Rather than string-concatenating base URLs, configure the `HttpClient` with `HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))` before passing to `make()`. This keeps URL logic out of the service implementation and composes cleanly with auth middleware.
 
 ```
 HttpClient (base)
@@ -71,22 +71,22 @@ HttpClient (base)
 
 **Alternatives considered:**
 
-- (a) Pass base URL to adapter, concatenate per-call — rejected because it duplicates what `make()` already handles and breaks the generated client's relative path convention
+- (a) Pass base URL to implementation, concatenate per-call — rejected because it duplicates what `make()` already handles and breaks the generated client's relative path convention
 - (b) `transformClient` option on `make()` — rejected because `transformClient` runs per-request (unnecessary overhead) and `mapRequest` is simpler for static URL prepending
 
 ### 3. Work around remaining codegen limitations
 
-**~~Archive download~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1916](https://github.com/Effect-TS/effect-smol/pull/1916)), `ExtensionsDownloadArchive` now has a `decodeBinary` handler returning `Uint8Array`. The adapter can use either the non-streaming method directly or `ExtensionsDownloadArchiveStream` for large archives.
+**~~Archive download~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1916](https://github.com/Effect-TS/effect-smol/pull/1916)), `ExtensionsDownloadArchive` now has a `decodeBinary` handler returning `Uint8Array`. The remote registry client can use either the non-streaming method directly or `ExtensionsDownloadArchiveStream` for large archives.
 
-**~~HEAD status erasure~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914)), `ExtensionsHead` routes 4xx/5xx to typed errors in the error channel. The adapter uses `Effect.catchIf` to handle 404 as `Option.none()` — no `includeResponse` workaround needed.
+**~~HEAD status erasure~~** — Fixed. After the local patch ([Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914)), `ExtensionsHead` routes 4xx/5xx to typed errors in the error channel. The implementation uses `Effect.catchIf` to handle 404 as `Option.none()` — no `includeResponse` workaround needed.
 
 ### 4. Error mapping strategy
 
-Each adapter maps generated client errors to `AppError` **per-operation**, preserving the exact error code granularity of the hand-written clients. No error codes are lost or collapsed.
+Each service implementation maps generated client errors to `AppError` **per-operation**, preserving the exact error code granularity of the hand-written clients. No error codes are lost or collapsed.
 
-#### Registry adapter — per-operation error mapping
+#### Remote registry client — per-operation error mapping
 
-Each registry adapter method has its own error mapper. The three error sources are:
+Each method in `remote-client.ts` has its own error mapper. The three error sources are:
 
 - `HttpClientError` — network failures, mapped per-operation with `buildNetworkHowToFix()` diagnostics (localhost+HTTPS detection)
 - `SchemaError` — response decode failures
@@ -136,7 +136,7 @@ Each registry adapter method has its own error mapper. The three error sources a
 | `SchemaError`                                 | decode failure                | `REGISTRY_REMOTE_INVALID_RESPONSE`            |
 | —                                             | version not in index          | `REGISTRY_REMOTE_VERSION_NOT_FOUND`           |
 
-The adapter uses `ExtensionsDownloadArchive` (non-streaming) which returns `Uint8Array` directly, matching `GetExtensionPackageResponse.archive`. The two-step process (fetch index → resolve version → download archive) is preserved in the adapter.
+The implementation uses `ExtensionsDownloadArchive` (non-streaming) which returns `Uint8Array` directly, matching `GetExtensionPackageResponse.archive`. The two-step process (fetch index → resolve version → download archive) is preserved.
 
 **`extensionExists`** (generated: `ExtensionsHead`)
 
@@ -167,9 +167,9 @@ The adapter uses `ExtensionsDownloadArchive` (non-streaming) which returns `Uint
 | `RegistryClientError<"..503">`     | code=`publish_disabled`                  | `REGISTRY_PUBLISH_DISABLED`           |
 | `RegistryClientError<"..other">`   | fallback                                 | `REGISTRY_PUBLISH_FAILED`             |
 
-The generated client's typed error schemas replace the hand-written `mapProblemDetailToAppError` raw JSON extraction. Instead of `getStringField(problem, "code")`, the adapter reads `cause.code` from the typed `InvalidRequestError`, `ConflictError`, etc. The typed `details` fields (`.retryAfterSeconds`, `.requiredScope`, `.tokenScopes`, `.requiredRole`) provide structured access to RFC 9457 problem detail fields.
+The generated client's typed error schemas replace the hand-written `mapProblemDetailToAppError` raw JSON extraction. Instead of `getStringField(problem, "code")`, the implementation reads `cause.code` from the typed `InvalidRequestError`, `ConflictError`, etc. The typed `details` fields (`.retryAfterSeconds`, `.requiredScope`, `.tokenScopes`, `.requiredRole`) provide structured access to RFC 9457 problem detail fields.
 
-#### Auth adapter — per-operation error mapping
+#### Auth client — per-operation error mapping
 
 **`initiateDeviceFlow`** (generated: `AuthIssueDeviceCode`)
 
@@ -189,7 +189,7 @@ The generated client's typed error schemas replace the hand-written `mapProblemD
 | `RegistryClientError<"AuthExchangeDeviceCode400">` | cause.code=`expired_token`         | `AUTH_LOGIN_FAILED`                         |
 | other status                                       | unexpected                         | `AUTH_LOGIN_FAILED`                         |
 
-The polling loop with backoff (`SLOW_DOWN_INCREMENT_MS = 5000`) is preserved in the adapter.
+The polling loop with backoff (`SLOW_DOWN_INCREMENT_MS = 5000`) is preserved in the auth client.
 
 **`refreshToken`** (generated: `AuthRefreshToken`)
 
@@ -215,54 +215,52 @@ The polling loop with backoff (`SLOW_DOWN_INCREMENT_MS = 5000`) is preserved in 
 | `RegistryClientError<"..5xx">`        | 500+          | `AUTH_SERVER_ERROR`    |
 | other status                          | unexpected    | `AUTH_UNAUTHENTICATED` |
 
-#### Telemetry adapter
+#### Telemetry client
 
-All errors swallowed — telemetry is fire-and-forget. The adapter wraps generated operations with the existing `swallowFailure` + `forkDetach` pattern. Mode gating (`"off"` / `"errors"` / `"all"`) and test detection remain in `makeTelemetryClient`, not in the adapter — the adapter only owns HTTP transport mapping.
+All errors swallowed — telemetry is fire-and-forget. The `makeTelemetryClient` function wraps generated operations with the existing `swallowFailure` + `forkDetach` pattern. Mode gating (`"off"` / `"errors"` / `"all"`) and test detection remain in `makeTelemetryClient` alongside the generated client usage — the generated client only owns HTTP transport.
 
-### 5. Adapter file placement and wiring
+### 5. File changes and wiring
 
-Adapters live alongside the domain code they serve, not in a separate `adapters/` directory:
+The generated clients are used directly inside the existing service files — no separate files or indirection layers:
 
 ```
 telemetry/
   __generated__/telemetry-client.ts   # generated (unchanged)
-  client.ts                           # TelemetryClient service + TelemetryClientService interface (unchanged)
-  adapter.ts                          # NEW: implements makeTelemetryClient using generated client
+  client.ts                           # MODIFIED: makeTelemetryClient uses generated client internally
 registry/
   __generated__/registry-client.ts    # generated (unchanged)
-  client.ts                           # RegistryClient interface + factory (MODIFIED)
-  remote-client.ts                    # DELETED: replaced by adapter.ts
-  adapter.ts                          # NEW: implements RegistryClient using generated client
+  client.ts                           # RegistryClient interface + factory (MODIFIED: calls createRemoteRegistryClient)
+  remote-client.ts                    # REWRITTEN: uses generated client instead of hand-written HTTP
+  error-mapping.ts                    # NEW: shared error mapping helpers extracted from remote-client.ts
 auth/
-  auth-client.ts                      # MODIFIED: interface updated (registryUrl at construction)
-  adapter.ts                          # NEW: implements AuthClientService using generated registry client
+  auth-client.ts                      # MODIFIED: interface updated (no per-call registryUrl) + AuthClientLive uses generated client
 ```
 
 **Wiring chain:**
 
 ```
 registry/client.ts::createRegistryClient(location)
-  → http/https? → registry/adapter.ts::createRemoteRegistryAdapter(baseUrl, httpClient)
+  → http/https? → registry/remote-client.ts::createRemoteRegistryClient(baseUrl, httpClient)
                     → make(httpClient.pipe(mapRequest(prependUrl(baseUrl))))
                     → returns RegistryClient implementation
   → file/local? → registry/local-client.ts (unchanged)
 
-auth/adapter.ts::createAuthAdapter(registryUrl, httpClient)
+auth/auth-client.ts::AuthClientLive
   → make(httpClient.pipe(mapRequest(prependUrl(registryUrl))))
-  → returns AuthClientService implementation
+  → implements AuthClientService
 
-telemetry/adapter.ts (called from makeTelemetryClient)
+telemetry/client.ts::makeTelemetryClient(options)
   → make(httpClient.pipe(mapRequest(prependUrl(baseUrl))))
   → wraps generated operations with metadata enrichment + swallowFailure
 ```
 
-The factory in `registry/client.ts` is updated to call `createRemoteRegistryAdapter` instead of `createRemoteRegistryClient`. The old `remote-client.ts` is deleted entirely — the adapter replaces it.
+The factory in `registry/client.ts` continues to call `createRemoteRegistryClient` — the function keeps its name but is rewritten internally to use the generated client. The old hand-written HTTP logic in `remote-client.ts` is replaced entirely.
 
 **Alternatives considered:**
 
 - (a) Central `adapters/` directory — rejected because it violates the project's "group by feature" code organization
-- (b) Inline in existing client files — rejected because it would make the files too large and mix adapter plumbing with domain logic
-- (c) Keep `remote-client.ts` as a thin delegate to `adapter.ts` — rejected because the indirection adds no value; the adapter _is_ the remote client
+- (b) Separate files alongside existing ones (e.g., `registry/generated-transport.ts`) — rejected because the indirection adds no value; the generated client is just an implementation detail of the existing service file
+- (c) Keep hand-written HTTP as a thin delegate to the generated client — rejected because the generated client replaces all the hand-written HTTP logic; there's nothing to delegate
 
 ### 6. Schema import strategy
 
@@ -277,22 +275,22 @@ Replace hand-written schemas with imports from generated clients where they matc
 
 Keep hand-written schemas that don't have generated equivalents (e.g., `ExtensionIndexSchema` in `registry/schema.ts` if it serves a different purpose than the generated extension types).
 
-### 7. Registry adapter handles publish error mapping
+### 7. Remote registry client handles publish error mapping
 
-The existing `mapProblemDetailToAppError` function moves into the registry adapter module, simplified to work with the generated client's typed error schemas. The generated client now decodes error responses into typed `RegistryClientError` values — for publish, these include `InvalidRequestError` with structured `details` (retryable, retryAfterSeconds) and `code` fields. The adapter maps these typed values to `AppError` codes (`REGISTRY_PUBLISH_CONFLICT`, `REGISTRY_PUBLISH_THROTTLED`, etc.) using the `code` field, replacing the raw JSON field extraction in the current implementation.
+The existing `mapProblemDetailToAppError` function moves into `registry/error-mapping.ts`, simplified to work with the generated client's typed error schemas. The generated client now decodes error responses into typed `RegistryClientError` values — for publish, these include `InvalidRequestError` with structured `details` (retryable, retryAfterSeconds) and `code` fields. The remote registry client maps these typed values to `AppError` codes (`REGISTRY_PUBLISH_CONFLICT`, `REGISTRY_PUBLISH_THROTTLED`, etc.) using the `code` field, replacing the raw JSON field extraction in the current implementation.
 
-### 8. Telemetry adapter preserves metadata enrichment and mode gating
+### 8. Telemetry client preserves metadata enrichment and mode gating
 
-The current `makeTelemetryClient` builds a rich context object (OS name/version, runtime version, device architecture, CI detection, SHA256-hashed hostname as `distinctId`, client name/version) and embeds it in every event/error payload. This metadata enrichment is **not** part of the adapter — it stays in `makeTelemetryClient`.
+The current `makeTelemetryClient` builds a rich context object (OS name/version, runtime version, device architecture, CI detection, SHA256-hashed hostname as `distinctId`, client name/version) and embeds it in every event/error payload. This metadata enrichment stays in `makeTelemetryClient` — the generated client is only used for HTTP transport.
 
-The adapter is a thin transport layer: it receives a fully-constructed event/error payload from `makeTelemetryClient` and sends it via the generated `EventsIngest` / `ErrorsIngest` operations. Mode gating (`"off"` / `"errors"` / `"all"`) and test-environment detection also stay in `makeTelemetryClient`.
+The generated client calls are inlined inside `makeTelemetryClient`: it receives a fully-constructed event/error payload and sends it via the generated `EventsIngest` / `ErrorsIngest` operations. Mode gating (`"off"` / `"errors"` / `"all"`) and test-environment detection also stay in `makeTelemetryClient`.
 
 ```
 makeTelemetryClient(options)
   → mode gating (off/errors/all)
   → metadata enrichment (OS, runtime, CI, distinctId)
-  → adapter.trackEvent(enrichedPayload) → generated EventsIngest
-  → adapter.reportError(enrichedPayload) → generated ErrorsIngest
+  → generated client.EventsIngest(enrichedPayload)
+  → generated client.ErrorsIngest(enrichedPayload)
   → swallowFailure + forkDetach wrapping
 ```
 
@@ -320,7 +318,7 @@ interface AuthClientService {
 }
 ```
 
-The `registryUrl` moves to construction time — the auth adapter layer is constructed with a specific registry URL, just like the registry adapter. Callers already know which registry they're targeting when they construct the layer.
+The `registryUrl` moves to construction time — `AuthClientLive` is constructed with a specific registry URL, just like the remote registry client. Callers already know which registry they're targeting when they construct the layer.
 
 For `getMe` and `revokeToken`, the `accessToken` parameter is also a candidate for removal (the auth middleware already injects Bearer tokens), but that's a follow-up concern — this change only removes `registryUrl`.
 
@@ -330,13 +328,13 @@ For `getMe` and `revokeToken`, the `accessToken` parameter is also a candidate f
 
 **Schema drift between generated and hand-written** — During migration, some code will import from generated clients while other code still uses hand-written schemas. Type mismatches could surface. → Mitigated by replacing hand-written schemas atomically per domain (all auth schemas at once, all registry schemas at once).
 
-**Generated client regeneration could break adapters** — If `@effect/openapi-generator` changes its output shape or the API specs change, the adapters break. → Mitigated by the adapter being a thin translation layer with tests that verify the mapping. Generated client changes surface as compile errors in the adapter, not in consumers.
+**Generated client regeneration could break implementations** — If `@effect/openapi-generator` changes its output shape or the API specs change, the service implementations break. → Mitigated by the generated client usage being a thin translation layer with tests that verify the mapping. Generated client changes surface as compile errors in the service files, not in consumers.
 
-~~**`includeResponse: true` couples adapter to generated client internals**~~ — No longer applicable. The HEAD void-collapse fix ([Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914)) eliminates the need for `includeResponse: true` on `ExtensionsHead`.
+~~**`includeResponse: true` couples implementation to generated client internals**~~ — No longer applicable. The HEAD void-collapse fix ([Effect-TS/effect-smol#1914](https://github.com/Effect-TS/effect-smol/pull/1914)) eliminates the need for `includeResponse: true` on `ExtensionsHead`.
 
 ## Resolved Questions
 
-1. ~~**Should the adapter expose the generated client instance for operations not covered by the domain interface?**~~ — **No.** The generated registry client has 33 operations but the `RegistryClient` interface only covers 6. Exposing the raw generated client would bypass error mapping and domain types. Instead, new operations (`TokensList`, `TokensCreate`, `CollaboratorsUpsertCollaborator`, `ExtensionsDeprecate`, `SearchSearchExtensions`, etc.) are added to the domain interfaces in follow-up changes, each with their own adapter method and error mapping.
+1. ~~**Should the service expose the generated client instance for operations not covered by the domain interface?**~~ — **No.** The generated registry client has 33 operations but the `RegistryClient` interface only covers 6. Exposing the raw generated client would bypass error mapping and domain types. Instead, new operations (`TokensList`, `TokensCreate`, `CollaboratorsUpsertCollaborator`, `ExtensionsDeprecate`, `SearchSearchExtensions`, etc.) are added to the domain interfaces in follow-up changes, each with their own method and error mapping.
 
 ## Implementation Sketch
 
@@ -351,19 +349,19 @@ For `getMe` and `revokeToken`, the `accessToken` parameter is also a candidate f
 | `extensionExists`      | `ExtensionsHead`                                   | 200 → `{exists: true}`, 404 → `{exists: false}`              |
 | `publishExtension`     | `ExtensionsPublishVersion`                         | multipart/form-data, typed RFC 9457 error mapping            |
 | `initiateDeviceFlow`   | `AuthIssueDeviceCode`                              | form-urlencoded                                              |
-| `pollDeviceToken`      | `AuthExchangeDeviceCode` (in loop)                 | RFC 8628 state machine preserved in adapter                  |
+| `pollDeviceToken`      | `AuthExchangeDeviceCode` (in loop)                 | RFC 8628 state machine preserved in auth client              |
 | `refreshToken`         | `AuthRefreshToken`                                 | form-urlencoded                                              |
 | `revokeToken`          | `AuthRevokeToken`                                  | errors swallowed                                             |
 | `getMe`                | `AuthGetMe`                                        | transform `AuthGetMe200` → `MeResponse`                      |
 | `trackEvent`           | `EventsIngest`                                     | fire-and-forget via swallowFailure + forkDetach              |
 | `reportError`          | `ErrorsIngest`                                     | fire-and-forget via swallowFailure                           |
 
-### Registry Adapter Structure
+### Remote Registry Client Structure
 
 ```typescript
-// registry/adapter.ts
+// registry/remote-client.ts (rewritten)
 
-export const createRemoteRegistryAdapter = (
+export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
 ): RegistryClient => {
@@ -414,12 +412,12 @@ export const createRemoteRegistryAdapter = (
 };
 ```
 
-### Auth Adapter Structure
+### Auth Client Structure
 
 ```typescript
-// auth/adapter.ts
+// auth/auth-client.ts (AuthClientLive updated)
 
-export const createAuthAdapter = (
+const makeAuthClient = (
   registryUrl: string,
   httpClient: HttpClient.HttpClient,
 ): AuthClientService => {
@@ -462,37 +460,44 @@ export const createAuthAdapter = (
 };
 ```
 
-### Telemetry Adapter Structure
+### Telemetry Client Structure
 
 ```typescript
-// telemetry/adapter.ts
+// telemetry/client.ts (makeTelemetryClient updated)
 
-export const createTelemetryAdapter = (httpClient: HttpClient.HttpClient, baseUrl: string) => {
+export const makeTelemetryClient = (options: TelemetryClientOptions) => {
   const client = GeneratedTelemetryClient.make(
-    httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
+    options.httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(options.baseUrl))),
   );
 
-  // Thin transport — receives fully-enriched payloads from makeTelemetryClient
-  const ingestEvents = (payload: TelemetryEventsRequest) =>
-    fireAndForget(client.EventsIngest({ payload }));
+  // Mode gating, metadata enrichment, etc. remain here
 
-  const ingestErrors = (payload: TelemetryErrorsRequest) =>
-    swallowFailure(client.ErrorsIngest({ payload }));
+  const trackEvent = (event: TelemetryEvent) => {
+    const enrichedPayload = enrichWithMetadata(event);
+    return fireAndForget(client.EventsIngest({ payload: enrichedPayload }));
+  };
 
-  return { ingestEvents, ingestErrors };
+  const reportError = (error: TelemetryError) => {
+    const enrichedPayload = enrichWithMetadata(error);
+    return swallowFailure(client.ErrorsIngest({ payload: enrichedPayload }));
+  };
+
+  // ...
 };
 ```
 
-### Shared Helpers
+### Error Mapping Helpers
 
 ```typescript
+// registry/error-mapping.ts
+
 // Predicate for matching specific RegistryClientError tags
 const isRegistryClientError =
   (tag: string) =>
   (e: unknown): e is RegistryClientError<string, unknown> =>
     Predicate.isTagged(e, tag);
 
-// Network diagnostics (moved from remote-client.ts)
+// Network diagnostics (extracted from remote-client.ts)
 const buildNetworkHowToFix = (baseUrl: string): string => {
   /* ... */
 };
@@ -500,7 +505,7 @@ const buildNetworkDiagnosis = (baseUrl: string): ReadonlyArray<string> => {
   /* ... */
 };
 
-// Auth error helpers (moved from remote-client.ts)
+// Auth error helpers (extracted from remote-client.ts)
 const mapAuthUnauthenticated = (e: RegistryClientError<string, unknown>): AppError => {
   /* ... */
 };

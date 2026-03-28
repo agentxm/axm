@@ -2,7 +2,7 @@
 
 ### Requirement: Usage Event Tracking
 
-The system SHALL track CLI command invocations as usage events. HTTP transport SHALL use the generated telemetry client via the telemetry adapter.
+The system SHALL track CLI command invocations as usage events. HTTP transport SHALL use the generated telemetry client.
 
 #### Scenario: Command event sent on invocation
 
@@ -29,7 +29,7 @@ The system SHALL track CLI command invocations as usage events. HTTP transport S
 
 ### Requirement: Error Reporting
 
-The system SHALL report unhandled errors and defects to the telemetry API. HTTP transport SHALL use the generated telemetry client via the telemetry adapter.
+The system SHALL report unhandled errors and defects to the telemetry API. HTTP transport SHALL use the generated telemetry client.
 
 #### Scenario: AppError reported
 
@@ -71,7 +71,7 @@ The system SHALL report unhandled errors and defects to the telemetry API. HTTP 
 
 ### Requirement: Fire-and-Forget Delivery
 
-Telemetry SHALL never block CLI execution or cause user-visible failures. Delivery is best-effort. The telemetry adapter SHALL wrap generated client calls with `swallowFailure` and `forkDetach`.
+Telemetry SHALL never block CLI execution or cause user-visible failures. Delivery is best-effort. `makeTelemetryClient` SHALL wrap generated client calls with `swallowFailure` and `forkDetach`.
 
 #### Scenario: Telemetry API unreachable
 
@@ -93,17 +93,17 @@ Telemetry SHALL never block CLI execution or cause user-visible failures. Delive
 
 ### Requirement: Metadata enrichment stays in makeTelemetryClient
 
-The `makeTelemetryClient` function SHALL remain responsible for constructing the rich context object included in every telemetry payload. The telemetry adapter SHALL only handle HTTP transport.
+The `makeTelemetryClient` function SHALL remain responsible for constructing the rich context object included in every telemetry payload. The generated client SHALL only handle HTTP transport.
 
-#### Scenario: Metadata built before adapter call
+#### Scenario: Metadata built before generated client call
 
 - **WHEN** a telemetry event or error report is sent
 - **THEN** `makeTelemetryClient` SHALL build the context (OS, runtime, CI, distinctId, client info)
-- **AND** SHALL pass the fully-enriched payload to the telemetry adapter
-- **AND** the adapter SHALL NOT add or modify metadata
+- **AND** SHALL pass the fully-enriched payload to the generated client
+- **AND** the generated client SHALL NOT add or modify metadata
 
-#### Scenario: Mode gating applied before adapter call
+#### Scenario: Mode gating applied before generated client call
 
 - **WHEN** the telemetry mode is `"off"` or `"errors"`
-- **THEN** `makeTelemetryClient` SHALL short-circuit before calling the adapter
-- **AND** the adapter SHALL NOT be invoked for suppressed operations
+- **THEN** `makeTelemetryClient` SHALL short-circuit before calling the generated client
+- **AND** the generated client SHALL NOT be invoked for suppressed operations

@@ -2,7 +2,7 @@
 
 ### Requirement: Auth business logic available from core
 
-The `@axm.sh/core/unstable/auth` module SHALL export: `CredentialStore` (credential persistence service), `AuthClient` (OAuth device flow and token refresh via generated client adapter), auth middleware (Effect HTTP client middleware for Bearer headers), `resolveToken` (token resolution chain), credential schemas, and `OAuthContract` types.
+The `@axm.sh/core/unstable/auth` module SHALL export: `CredentialStore` (credential persistence service), `AuthClient` (OAuth device flow and token refresh via generated client), auth middleware (Effect HTTP client middleware for Bearer headers), `resolveToken` (token resolution chain), credential schemas, and `OAuthContract` types.
 
 #### Scenario: CredentialStore importable from core
 
@@ -40,7 +40,7 @@ The `AuthClientService` interface SHALL accept the registry URL at construction 
 
 #### Scenario: Registry URL provided at layer construction
 
-- **WHEN** the auth adapter layer is constructed
+- **WHEN** the auth client layer is constructed
 - **THEN** the `registryUrl` SHALL be provided as a construction-time parameter
 - **AND** SHALL be used to configure the generated client's HttpClient via `mapRequest(prependUrl(registryUrl))`
 
@@ -52,30 +52,30 @@ The `AuthClientService` interface SHALL accept the registry URL at construction 
 
 ### Requirement: Auth client uses generated schemas
 
-The auth adapter SHALL import response schemas from the generated registry client instead of maintaining hand-written duplicates.
+The auth client SHALL import response schemas from the generated registry client instead of maintaining hand-written duplicates.
 
 #### Scenario: Device flow response uses generated schema
 
-- **WHEN** the auth adapter processes an `AuthIssueDeviceCode` response
+- **WHEN** the auth client processes an `AuthIssueDeviceCode` response
 - **THEN** it SHALL use the generated `AuthIssueDeviceCode200` type
 - **AND** the hand-written `DeviceFlowResponseSchema` SHALL be removed
 
 #### Scenario: Device token error uses generated schema
 
-- **WHEN** the auth adapter processes a device token error response
+- **WHEN** the auth client processes a device token error response
 - **THEN** it SHALL use the generated `AuthExchangeDeviceCode400` typed error
 - **AND** the hand-written `DeviceTokenErrorSchema` SHALL be removed
 
 #### Scenario: Me response uses generated schema
 
-- **WHEN** the auth adapter processes an `AuthGetMe` response
+- **WHEN** the auth client processes an `AuthGetMe` response
 - **THEN** it SHALL use the generated `AuthGetMe200` type
 - **AND** SHALL transform it to the domain `MeResponse` type
 - **AND** the hand-written `RegistryMeResponseSchema` SHALL be removed
 
 #### Scenario: Token response uses generated schema
 
-- **WHEN** the auth adapter processes token exchange or refresh responses
+- **WHEN** the auth client processes token exchange or refresh responses
 - **THEN** it SHALL use the generated `AuthExchangeDeviceCode200` / `AuthRefreshToken200` types
 - **AND** SHALL normalize to the existing `TokenResponse` domain type
 

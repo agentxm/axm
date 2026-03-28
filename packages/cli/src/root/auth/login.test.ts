@@ -127,7 +127,9 @@ describe("auth login handler", () => {
         yield* handleLogin({ yes: false });
         expect(
           rendererState.logs.some(
-            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+            (l) =>
+              l._tag === "success" &&
+              l.message.includes("Logged in to registry.agentxm.ai as alice."),
           ),
         ).toBe(true);
       }),
@@ -164,7 +166,9 @@ describe("auth login handler", () => {
         expect(promptState.confirmCalls.length > 0).toBe(true);
         expect(
           rendererState.logs.some(
-            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+            (l) =>
+              l._tag === "success" &&
+              l.message.includes("Logged in to registry.agentxm.ai as alice."),
           ),
         ).toBe(true);
       }),
@@ -187,7 +191,9 @@ describe("auth login handler", () => {
         expect(promptState.confirmCalls).toHaveLength(0);
         expect(
           rendererState.logs.some(
-            (l) => l._tag === "success" && l.message.includes("Logged in as alice"),
+            (l) =>
+              l._tag === "success" &&
+              l.message.includes("Logged in to registry.agentxm.ai as alice."),
           ),
         ).toBe(true);
       }),
@@ -203,7 +209,9 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false });
         expect(
-          rendererState.logs.filter((l) => l._tag === "success" && l.message.includes("Logged in")),
+          rendererState.logs.filter(
+            (l) => l._tag === "success" && l.message.includes("Logged in to"),
+          ),
         ).toHaveLength(0);
       }),
     );
@@ -274,11 +282,11 @@ describe("auth login handler", () => {
 
       expect(
         rendererState2.logs.some(
-          (l) => l._tag === "success" && l.message.includes("Login successful"),
+          (l) => l._tag === "success" && l.message.includes("Logged in to registry.agentxm.ai."),
         ),
       ).toBe(true);
       expect(
-        rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("Logged in as")),
+        rendererState2.logs.some((l) => l._tag === "success" && l.message.includes("as ")),
       ).toBe(false);
 
       const credStore = yield* CredentialStore;

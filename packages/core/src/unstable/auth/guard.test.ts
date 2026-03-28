@@ -152,7 +152,9 @@ describe("withAuthGuard", () => {
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
-        expect(logs.success.some((m) => m.includes("Logged in as alice"))).toBe(true);
+        expect(logs.success.some((m) => m.includes("Logged in to") && m.includes("as alice"))).toBe(
+          true,
+        );
       }),
     );
   });

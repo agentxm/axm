@@ -190,7 +190,14 @@
                   "anyOf": [
                     { "$ref": "#/components/schemas/InvalidRequestError" },
                     { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
                 }
               },
               "application/json": {
@@ -486,7 +493,7 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": { "$ref": "#/components/schemas/TokenId1" },
+                          "id": { "$ref": "#/components/schemas/TokenId" },
                           "name": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                           "type": { "type": "string" },
                           "scopes": { "type": "array", "items": { "type": "string" } },
@@ -568,7 +575,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": { "$ref": "#/components/schemas/TokenId2" },
+                    "id": { "$ref": "#/components/schemas/TokenId" },
                     "token": {
                       "type": "string",
                       "description": "The full token value. Only returned once at creation time.",
@@ -1161,7 +1168,14 @@
                   "anyOf": [
                     { "$ref": "#/components/schemas/InvalidRequestError" },
                     { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
                 }
               }
             }
@@ -1516,7 +1530,14 @@
                   "anyOf": [
                     { "$ref": "#/components/schemas/InvalidRequestError" },
                     { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
                 }
               }
             }
@@ -2267,7 +2288,14 @@
                   "anyOf": [
                     { "$ref": "#/components/schemas/InvalidRequestError" },
                     { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "InvalidRequestError": "#/components/schemas/InvalidRequestError",
+                      "DecodeErrorResponse": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  }
                 }
               }
             }
@@ -2471,19 +2499,7 @@
                                 },
                                 "measurementName": { "type": "string" },
                                 "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                                "observedValue": {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        { "type": "number" },
-                                        { "type": "string", "enum": ["NaN"] },
-                                        { "type": "string", "enum": ["Infinity"] },
-                                        { "type": "string", "enum": ["-Infinity"] }
-                                      ]
-                                    },
-                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                                  ]
-                                },
+                                "observedValue": { "type": "number" },
                                 "observedUnit": { "type": "string" },
                                 "time": { "type": "string" }
                               },
@@ -2697,7 +2713,7 @@
       "DecodeErrorResponse": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["DecodeErrorResponse"] },
+          "kind": { "type": "string", "enum": ["DecodeErrorResponse"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
@@ -2705,7 +2721,7 @@
           "code": { "type": "string" },
           "instance": { "type": "string" }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "InvalidRequestError": {
@@ -2719,51 +2735,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -2791,7 +2772,7 @@
       "RefreshTokenError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["RefreshTokenError"] },
+          "kind": { "type": "string", "enum": ["RefreshTokenError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
@@ -2800,7 +2781,7 @@
           "instance": { "type": "string" },
           "details": {}
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "UserId": {
@@ -2834,49 +2815,7 @@
           "status": { "type": "integer" },
           "detail": { "type": "string" },
           "code": { "type": "string" },
-          "instance": { "type": "string" },
-          "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["NaN"] },
-                      { "type": "string", "enum": ["Infinity"] },
-                      { "type": "string", "enum": ["-Infinity"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
-          }
+          "instance": { "type": "string" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
@@ -2892,67 +2831,20 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
-      },
-      "TokenId1": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"],
-            "readOnly": true
-          }
-        ]
       },
       "ForbiddenError": {
         "type": "object",
@@ -2978,25 +2870,18 @@
               {
                 "type": "object",
                 "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
+                  "requiredScope": { "type": "string" },
+                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
+                  "requiredRole": { "type": "string" }
                 },
-                "required": ["required_scope", "token_scopes"],
+                "required": ["requiredScope", "tokenScopes"],
                 "additionalProperties": false
               },
               {
                 "type": "object",
                 "properties": {
                   "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["NaN"] },
-                      { "type": "string", "enum": ["Infinity"] },
-                      { "type": "string", "enum": ["-Infinity"] }
-                    ]
-                  },
+                  "retryAfterSeconds": { "type": "number" },
                   "requiredScope": { "type": "string" },
                   "tokenScopes": { "type": "array", "items": { "type": "string" } },
                   "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
@@ -3010,18 +2895,6 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "TokenId2": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"],
-            "readOnly": true
-          }
-        ]
-      },
       "UnprocessableEntityError": {
         "type": "object",
         "properties": {
@@ -3033,51 +2906,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3094,51 +2932,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3155,51 +2958,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3212,8 +2980,7 @@
             "pattern": "^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Extension ID",
             "description": "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
-            "examples": ["ext_01h455vb4pexka56gq5w2r7cpc"],
-            "readOnly": true
+            "examples": ["ext_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
       },
@@ -3228,51 +2995,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3289,51 +3021,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3350,51 +3047,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3411,51 +3073,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
@@ -3472,51 +3099,16 @@
           "code": { "type": "string" },
           "instance": { "type": "string" },
           "details": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "requiredScope": { "type": "string" },
-                  "grantedScopes": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["requiredScope", "grantedScopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "required_scope": { "type": "string" },
-                  "token_scopes": { "type": "array", "items": { "type": "string" } },
-                  "required_role": { "type": "string" }
-                },
-                "required": ["required_scope", "token_scopes"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "retryable": { "type": "boolean" },
-                  "retryAfterSeconds": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          { "type": "number" },
-                          { "type": "string", "enum": ["NaN"] },
-                          { "type": "string", "enum": ["Infinity"] },
-                          { "type": "string", "enum": ["-Infinity"] }
-                        ]
-                      },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  "requiredScope": { "type": "string" },
-                  "tokenScopes": { "type": "array", "items": { "type": "string" } },
-                  "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["retryable"],
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
           }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],

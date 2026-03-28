@@ -114,19 +114,7 @@
                                 },
                                 "measurementName": { "type": "string" },
                                 "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                                "observedValue": {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        { "type": "number" },
-                                        { "type": "string", "enum": ["NaN"] },
-                                        { "type": "string", "enum": ["Infinity"] },
-                                        { "type": "string", "enum": ["-Infinity"] }
-                                      ]
-                                    },
-                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                                  ]
-                                },
+                                "observedValue": { "type": "number" },
                                 "observedUnit": { "type": "string" },
                                 "time": { "type": "string" }
                               },
@@ -368,7 +356,7 @@
       "DecodeErrorResponse": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["DecodeErrorResponse"] },
+          "kind": { "type": "string", "enum": ["DecodeErrorResponse"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
@@ -376,7 +364,7 @@
           "code": { "type": "string" },
           "instance": { "type": "string" }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "TelemetryEvent": {
@@ -479,7 +467,7 @@
       "PayloadTooLargeError": {
         "type": "object",
         "properties": {
-          "_tag": { "type": "string", "enum": ["PayloadTooLargeError"] },
+          "kind": { "type": "string", "enum": ["PayloadTooLargeError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
@@ -487,7 +475,7 @@
           "code": { "type": "string" },
           "instance": { "type": "string" }
         },
-        "required": ["_tag", "type", "title", "status", "detail", "code"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "TelemetryStackFrame": {

@@ -15,7 +15,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 
 import {
   AuthClient,
@@ -80,12 +80,21 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
 // Command
 // -----------------------------------------------------------------------------
 
-const loginConfig = { yes: yesFlag } as const;
+const loginConfig = {
+  yes: yesFlag.pipe(
+    Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
+  ),
+} as const;
 
 export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
   withRuntime(handleLogin({ yes }), { command: "auth login" }),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
-  Command.withExamples([{ command: "axm login", description: "Sign in to the default registry" }]),
+  Command.withExamples([
+    { command: "axm auth login", description: "Sign in to the default registry" },
+    { command: "axm login", description: "Same command via shortcut" },
+    { command: "axm auth login --yes", description: "Skip the browser confirmation" },
+    { command: "", description: "See also: auth whoami, auth logout" },
+  ]),
 );

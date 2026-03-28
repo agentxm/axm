@@ -12,15 +12,21 @@ const installConfig = {
       "Registry reference (@profile/skills/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
   ),
-  scope: scopeFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Install to project (default) or user-level configuration"),
+  ),
   skill: Flag.string("skill").pipe(
-    Flag.withDescription("Install only specified skill(s) by name"),
+    Flag.withDescription("Cherry-pick specific skill(s) from a multi-skill source"),
     Flag.atLeast(0),
   ),
-  all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  all: Flag.boolean("all").pipe(
+    Flag.withDescription("Install every skill found in the source without prompting"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
+  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the skill already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be installed without making changes"),
+  ),
 } as const;
 
 export const installCommand = Command.make(
@@ -37,23 +43,28 @@ export const installCommand = Command.make(
   Command.withExamples([
     {
       command: "axm skills install @acme/skills/code-review",
-      description: "Install a skill from the registry",
+      description: "Add a code review skill to your agents",
     },
     {
       command: "axm skills install @acme/skills/code-review@^1.0.0",
-      description: "Install a specific version from the registry",
+      description: "Pin to a specific version range",
     },
     {
       command: "axm skills install owner/repo",
-      description: "Install skills from a GitHub repository",
+      description: "Install from a GitHub repository",
     },
     {
       command: "axm skills install ./path/to/skills",
-      description: "Install from a local directory",
+      description: "Install from a local directory during development",
     },
     {
       command: "axm skills install owner/repo --all --yes",
-      description: "Install all from GitHub without prompts",
+      description: "CI: install all skills without prompts",
     },
+    {
+      command: "axm skills install @acme/skills/code-review --preview",
+      description: "See what would be installed before committing",
+    },
+    { command: "", description: "See also: skills list, skills update, skills uninstall" },
   ]),
 );

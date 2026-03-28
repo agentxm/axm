@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
@@ -264,9 +264,11 @@ const addConfig = {
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Add without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Add even if the extension is already in the pack")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would change in the manifest without modifying it"),
+  ),
 } as const;
 
 export const addCommand = Command.make(
@@ -286,11 +288,15 @@ export const addCommand = Command.make(
   Command.withExamples([
     {
       command: "axm packs add frontend-tools @acme/skills/code-review",
-      description: "Add a specific extension to a pack",
+      description: "Bundle a skill into your pack",
     },
     {
       command: 'axm packs add my-pack "effect-*"',
-      description: "Add all matching extensions via glob",
+      description: "Add multiple extensions by pattern",
+    },
+    {
+      command: "",
+      description: "See also: packs remove, packs publish",
     },
   ]),
 );

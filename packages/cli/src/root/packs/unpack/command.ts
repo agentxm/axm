@@ -11,9 +11,13 @@ const unpackConfig = {
   strictAgentSync: Flag.boolean("strict-agent-sync").pipe(
     Flag.withDescription("Fail when MCP agent sync has strict-policy failures"),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Eject without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Eject even if it would overwrite existing individual entries"),
+  ),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would change in settings without modifying them"),
+  ),
 } as const;
 
 export const unpackCommand = Command.make(
@@ -33,11 +37,15 @@ export const unpackCommand = Command.make(
   Command.withExamples([
     {
       command: "axm packs unpack @acme/frontend-tools",
-      description: "Eject pack contents into settings",
+      description: "Stop using a pack and manage extensions individually",
     },
     {
       command: "axm packs unpack @acme/frontend-tools --preview",
-      description: "See what would change in settings",
+      description: "See what settings would change first",
+    },
+    {
+      command: "",
+      description: "See also: packs install, packs uninstall",
     },
   ]),
 );

@@ -73,8 +73,13 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
 // -----------------------------------------------------------------------------
 
 const listConfig = {
-  scope: scopeFlag,
-  agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
+  scope: scopeFlag.pipe(
+    Flag.withDescription("List skills from project (default) or user-level configuration"),
+  ),
+  agent: Flag.string("agent").pipe(
+    Flag.withDescription("Show only skills installed for specific agent(s)"),
+    Flag.atLeast(0),
+  ),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
@@ -84,14 +89,15 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),
   Command.withExamples([
-    { command: "axm skills list", description: "List all installed skills" },
+    { command: "axm skills list", description: "See what skills are installed" },
     {
       command: "axm skills list --scope user",
-      description: "List user-scope installed skills",
+      description: "Check user-level skills",
     },
     {
       command: "axm skills list --agent claude-code",
-      description: "List skills for a specific agent",
+      description: "See skills for a specific agent",
     },
+    { command: "", description: "See also: skills install, skills update" },
   ]),
 );

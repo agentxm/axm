@@ -13,16 +13,16 @@ import { LearnMore, makeAxmFormatter } from "./formatter.js";
 import { axmGlobalFlags, baseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
-import { authCommand } from "./root/auth/command.js";
-import { loginCommand } from "./root/auth/login.js";
-import { logoutCommand } from "./root/auth/logout.js";
-import { whoamiCommand } from "./root/auth/whoami.js";
-import { tokenCommand } from "./root/auth/token.js";
 import { initCommand } from "./root/init.js";
 import { skillsCommand } from "./root/skills/command.js";
 import { packsCommand } from "./root/packs/command.js";
 import { commandsCommand } from "./root/commands/command.js";
 import { mcpServersCommand } from "./root/mcp-servers/command.js";
+import { authCommand } from "./root/auth/command.js";
+import { loginCommand } from "./root/auth/login.js";
+import { logoutCommand } from "./root/auth/logout.js";
+import { whoamiCommand } from "./root/auth/whoami.js";
+import { tokenCommand } from "./root/auth/token.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -30,41 +30,32 @@ const LEARN_MORE_FOOTER =
   "LEARN MORE\n  Use 'axm <command> --help' for more information about a command.";
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
-  Command.withDescription("Open extension manager for AI coding agents."),
+  Command.withDescription(
+    "Open extension manager for AI coding agents.\n  Manage skills, commands, MCP servers, and extension packs across your AI coding agents from a single CLI.",
+  ),
   Command.annotate(LearnMore, LEARN_MORE_FOOTER),
   Command.withExamples([
-    { command: "axm init", description: "Initialize axm in the current project" },
+    { command: "axm init", description: "Start managing extensions in your project" },
     {
       command: "axm skills install @acme/skills/code-review",
-      description: "Install a skill from the registry",
+      description: "Add a code review skill to your agents",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools",
-      description: "Install an extension pack from the registry",
+      description: "Install a curated set of extensions at once",
     },
-    {
-      command: "axm commands install @acme/commands/my-cmd",
-      description: "Install a command from the registry",
-    },
-    {
-      command: "axm mcp-servers install @acme/mcp-servers/my-server",
-      description: "Install an MCP server from the registry",
-    },
-    { command: "axm login", description: "Sign in to the default registry" },
-    { command: "axm whoami", description: "Show the current authenticated identity" },
-    { command: "axm token", description: "Output the current auth token to stdout" },
+    { command: "axm whoami", description: "Check who you're authenticated as" },
   ]),
   Command.withSubcommands([
-    initCommand,
-    skillsCommand,
-    packsCommand,
-    commandsCommand,
-    mcpServersCommand,
-    authCommand,
-    loginCommand,
-    logoutCommand,
-    whoamiCommand,
-    tokenCommand,
+    { group: "GETTING STARTED", commands: [initCommand] },
+    {
+      group: "EXTENSIONS",
+      commands: [skillsCommand, packsCommand, commandsCommand, mcpServersCommand],
+    },
+    {
+      group: "AUTHENTICATION",
+      commands: [authCommand, loginCommand, logoutCommand, whoamiCommand, tokenCommand],
+    },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),
 );

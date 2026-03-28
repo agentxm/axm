@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { RemoveFromPackOperation } from "@axm.sh/core/unstable/packs";
 import { removeFromPack } from "@axm.sh/core/unstable/packs";
@@ -224,9 +224,11 @@ const removeConfig = {
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Remove even if it would leave the pack empty")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would change in the manifest without modifying it"),
+  ),
 } as const;
 
 export const removeCommand = Command.make(
@@ -246,11 +248,15 @@ export const removeCommand = Command.make(
   Command.withExamples([
     {
       command: "axm packs remove frontend-tools @acme/skills/code-review",
-      description: "Remove a specific extension from a pack",
+      description: "Remove an extension from a pack",
     },
     {
       command: 'axm packs remove my-pack "@acme/effect-*"',
-      description: "Remove all matching extensions via glob",
+      description: "Remove by pattern",
+    },
+    {
+      command: "",
+      description: "See also: packs add",
     },
   ]),
 );

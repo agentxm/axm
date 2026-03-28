@@ -1,4 +1,4 @@
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -12,10 +12,14 @@ const installConfig = {
       "Registry MCP server reference (@profile/mcp-servers/name or bare name)",
     ),
   ),
-  scope: scopeFlag,
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Install to project (default) or user-level configuration"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
+  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the MCP server already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be installed without making changes"),
+  ),
 } as const;
 
 export const installCommand = Command.make(
@@ -31,11 +35,16 @@ export const installCommand = Command.make(
   Command.withExamples([
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server",
-      description: "Install an MCP server from the registry",
+      description: "Add an MCP server from the registry",
     },
     {
       command: "axm mcp-servers install my-server",
-      description: "Install using the default profile",
+      description: "Install using your default profile",
     },
+    {
+      command: "axm mcp-servers install @acme/mcp-servers/my-server --preview",
+      description: "See what would be installed first",
+    },
+    { command: "", description: "See also: mcp-servers uninstall" },
   ]),
 );

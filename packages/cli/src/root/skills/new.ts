@@ -177,9 +177,11 @@ const newConfig = {
     Flag.atLeast(1),
     Flag.optional,
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Create the skill without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Overwrite if a skill with this name already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what files would be created without creating them"),
+  ),
 } as const;
 
 export const newCommand = Command.make(
@@ -204,10 +206,11 @@ export const newCommand = Command.make(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new skill"),
   Command.withExamples([
-    { command: "axm skills new my-skill", description: "Create a new skill" },
+    { command: "axm skills new my-skill", description: "Scaffold a new skill" },
     {
       command: "axm skills new my-skill --profile @acme",
-      description: "Create with custom profile",
+      description: "Create under a specific profile",
     },
+    { command: "", description: "See also: skills fork, skills publish" },
   ]),
 );

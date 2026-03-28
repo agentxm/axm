@@ -427,16 +427,18 @@ const publishConfig = {
     Argument.withDescription("Pack name (@profile/name or bare name)"),
   ),
   registry: Flag.string("registry").pipe(
-    Flag.withDescription("Named registry source to publish to"),
+    Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
   includeDependencies: Flag.boolean("include-dependencies").pipe(
     Flag.withAlias("d"),
-    Flag.withDescription("Publish locally managed dependency extensions alongside the pack"),
+    Flag.withDescription("Also publish local extensions referenced by the pack"),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Publish even if this version already exists in the registry"),
+  ),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
 
 export const publishCommand = Command.make(
@@ -456,11 +458,19 @@ export const publishCommand = Command.make(
   Command.withExamples([
     {
       command: "axm packs publish @acme/frontend-tools",
-      description: "Publish to the default registry",
+      description: "Share your pack on the registry",
     },
     {
       command: "axm packs publish frontend-tools --registry local",
-      description: "Publish with profile from settings to the local registry",
+      description: "Publish to a specific registry",
+    },
+    {
+      command: "axm packs publish @acme/frontend-tools --include-dependencies",
+      description: "Also publish the pack's local dependency extensions",
+    },
+    {
+      command: "",
+      description: "See also: packs new, packs add",
     },
   ]),
 );

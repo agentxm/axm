@@ -11,18 +11,22 @@ const updateConfig = {
     Argument.withDescription("Filter to skills from a specific source (owner/repo, path, or URL)"),
     Argument.optional,
   ),
-  scope: scopeFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Update skills in project (default) or user-level configuration"),
+  ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only skills for specified agent(s)"),
+    Flag.withDescription("Update only skills installed for specific agent(s)"),
     Flag.atLeast(0),
   ),
   skill: Flag.string("skill").pipe(
-    Flag.withDescription("Update only specified skill(s) by name or glob"),
+    Flag.withDescription("Update only specific skill(s) by name or glob pattern"),
     Flag.atLeast(0),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Update even if version constraints would prevent it"),
+  ),
+  preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
 } as const;
 
 export const updateCommand = Command.make(
@@ -40,18 +44,19 @@ export const updateCommand = Command.make(
   withArgvTracking(updateConfig),
   Command.withDescription("Update installed skills to latest versions"),
   Command.withExamples([
-    { command: "axm skills update", description: "Update all installed skills" },
+    { command: "axm skills update", description: "Update all skills to their latest versions" },
     {
       command: "axm skills update --skill code-review",
-      description: "Update a specific skill by name",
+      description: "Update a specific skill",
     },
     {
       command: "axm skills update owner/repo",
-      description: "Update only skills from a specific GitHub source",
+      description: "Update only skills from a specific source",
     },
     {
-      command: "axm skills update --yes",
-      description: "Update all skills without confirmation",
+      command: "axm skills update --preview",
+      description: "Preview available updates",
     },
+    { command: "", description: "See also: skills install, skills list" },
   ]),
 );

@@ -8,9 +8,12 @@ export const mcpServersCommand = Command.make("mcp-servers").pipe(
   Command.withExamples([
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server",
-      description: "Install an MCP server from the registry",
+      description: "Add an MCP server from the registry",
     },
-    { command: "axm mcp-servers uninstall my-server", description: "Remove an installed server" },
+    {
+      command: "axm mcp-servers uninstall my-server",
+      description: "Remove an MCP server",
+    },
   ]),
   Command.withSubcommands([installCommand, uninstallCommand]),
 );

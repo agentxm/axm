@@ -11,7 +11,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -121,10 +121,12 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
 const disableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to disable")),
-  scope: scopeFlag,
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Disable in project (default) or user-level configuration"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Disable even if other skills depend on it")),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
@@ -137,4 +139,15 @@ export const disableCommand = Command.make(
 ).pipe(
   withArgvTracking(disableConfig),
   Command.withDescription("Disable a skill without uninstalling it"),
+  Command.withExamples([
+    {
+      command: "axm skills disable code-review",
+      description: "Temporarily disable a skill without removing it",
+    },
+    {
+      command: "axm skills disable code-review --scope user",
+      description: "Disable for user-scope configuration",
+    },
+    { command: "", description: "See also: skills enable, skills uninstall" },
+  ]),
 );

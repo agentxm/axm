@@ -11,7 +11,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -184,11 +183,11 @@ describe("skills install handler — error propagation", () => {
     return unavailableRegistry.location;
   };
 
-  const makeLayers = (
-    flagsOverrides?: Partial<CliEnvironmentService> & {
-      nonInteractive?: boolean;
-    },
-  ) => {
+  const makeLayers = (flagsOverrides?: {
+    verbose?: boolean;
+    debug?: boolean;
+    nonInteractive?: boolean;
+  }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],

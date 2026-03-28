@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { CliEnvironment, makeCliEnvironmentLayer, outputFormatFlag } from "../cli-flags/index.js";
+import { outputFormatFlag, debugFlag, verboseFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-format.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
@@ -26,7 +26,7 @@ import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags
 import { isNonInteractive } from "../cli-flags/index.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
-export type CliRuntimeFoundation = CliEnvironment | CliRenderer | CliPrompt | Verbosity;
+export type CliRuntimeFoundation = CliRenderer | CliPrompt | Verbosity;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? 0 : 1;
@@ -67,7 +67,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Build the foundation layer: CliEnvironment + CliRenderer + CliPrompt + Verbosity.
+ * Build the foundation layer: CliRenderer + CliPrompt + Verbosity.
  *
  * The returned layer requires the `nonInteractiveFlag` global flag setting
  * in its context (resolved by the Effect CLI framework at command dispatch).
@@ -80,12 +80,6 @@ export const makeFoundationLayer = (
     readonly verbosityLevel?: VerbosityLevel | undefined;
   },
 ) => {
-  // CliEnvironment
-  const cliEnvLayer = makeCliEnvironmentLayer({
-    envVerbose: options?.envVerbose,
-    envDebug: options?.envDebug,
-  });
-
   // Non-text formats use machine-readable (NDJSON) output
   const rendererLayer: Layer.Layer<CliRenderer> =
     format !== "text" ? MachineRenderer() : InteractiveRenderer();
@@ -94,10 +88,24 @@ export const makeFoundationLayer = (
     isNonInteractive.pipe(Effect.map((nonInteractive) => makeInteractivePrompt(nonInteractive))),
   );
 
-  const verbosityLevel = options?.verbosityLevel ?? "normal";
-  const verbosityLayer = makeVerbosityLayer(verbosityLevel);
+  // Verbosity: use explicit level if provided, otherwise derive from flags + env vars
+  const verbosityLayer = options?.verbosityLevel
+    ? makeVerbosityLayer(options.verbosityLevel)
+    : Layer.unwrap(
+        Effect.gen(function* () {
+          const flagDebug = yield* debugFlag;
+          const flagVerbose = yield* verboseFlag;
+          const envDebug = options?.envDebug ?? false;
+          const envVerbose = options?.envVerbose ?? false;
 
-  return Layer.mergeAll(cliEnvLayer, rendererLayer, promptLayer, verbosityLayer);
+          const level: VerbosityLevel =
+            flagDebug || envDebug ? "debug" : flagVerbose || envVerbose ? "verbose" : "normal";
+
+          return makeVerbosityLayer(level);
+        }),
+      );
+
+  return Layer.mergeAll(rendererLayer, promptLayer, verbosityLayer);
 };
 
 /**

@@ -11,7 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { getAppError } from "../../../test-helpers.js";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -31,10 +31,10 @@ const makeSkill = (name: string): SkillExtensionRef => ({
 const { layer: rendererLayer } = TestRenderer.make();
 const makeTestLayer = (
   promptConfig: Parameters<typeof makeTestPrompt>[0] = {},
-  envOverrides: Parameters<typeof CliEnvironmentTest>[0] = {},
+  envOverrides: Parameters<typeof TestFlagsLayer>[0] = {},
 ) => {
   const [promptLayer] = makeTestPrompt(promptConfig);
-  return Layer.mergeAll(rendererLayer, promptLayer, CliEnvironmentTest(envOverrides));
+  return Layer.mergeAll(rendererLayer, promptLayer, TestFlagsLayer(envOverrides));
 };
 
 type TestR = Layer.Success<ReturnType<typeof makeTestLayer>>;
@@ -44,7 +44,7 @@ const provide = <A, E>(effect: Effect.Effect<A, E, TestR>) =>
 
 const provideWith = (
   promptConfig: Parameters<typeof makeTestPrompt>[0],
-  envOverrides: Parameters<typeof CliEnvironmentTest>[0] = {},
+  envOverrides: Parameters<typeof TestFlagsLayer>[0] = {},
 ) => {
   const layer = makeTestLayer(promptConfig, envOverrides);
   return <A, E>(effect: Effect.Effect<A, E, TestR>) => effect.pipe(Effect.provide(layer));

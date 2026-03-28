@@ -16,7 +16,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
@@ -112,7 +112,7 @@ describe("packs install handler", () => {
     tuiConfig?: {
       confirmValue?: boolean;
     },
-    flagsOverrides?: Partial<CliEnvironmentService>,
+    flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 
@@ -123,7 +123,7 @@ describe("packs install handler", () => {
       NodeServices.layer,
       rendererLayer,
       promptLayer,
-      CliEnvironmentTest(flagsOverrides),
+      TestFlagsLayer(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
@@ -159,7 +159,7 @@ describe("packs install handler", () => {
 
   const makeLayersWithMockSources = (
     mockService: SourceHostProvidersService,
-    flagsOverrides?: Partial<CliEnvironmentService>,
+    flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
 
@@ -170,7 +170,7 @@ describe("packs install handler", () => {
       NodeServices.layer,
       rendererLayer,
       promptLayer,
-      CliEnvironmentTest(flagsOverrides),
+      TestFlagsLayer(flagsOverrides),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

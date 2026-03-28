@@ -13,7 +13,7 @@ import {
   CredentialStoreTest,
   resetEnvVarMessageFlag,
 } from "@axm.sh/core/unstable/auth";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -40,7 +40,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
     credStoreLayer,
     AuthClientTest(),
     registryUrlLayer,

@@ -3,39 +3,25 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
-  CliEnvironment,
-  CliEnvironmentTest,
   debugFlag,
   isNonInteractive,
-  makeCliEnvironmentLayer,
   nonInteractiveFlag,
   verboseFlag,
+  TestFlagsLayer,
+  Verbosity,
 } from "./index.js";
 
 /**
- * Provide the global flags and return the resolved CliEnvironment + nonInteractive.
+ * Provide the global flags and return the resolved nonInteractive.
  */
-const getFlags = (flags: {
-  nonInteractive: Option.Option<boolean>;
-  verbose?: boolean;
-  debug?: boolean;
-  envVerbose?: boolean;
-  envDebug?: boolean;
-}) => {
+const getFlags = (flags: { nonInteractive: Option.Option<boolean> }) => {
   const globalFlagsLayer = Layer.mergeAll(
     Layer.succeed(nonInteractiveFlag, flags.nonInteractive),
-    Layer.succeed(verboseFlag, flags.verbose ?? false),
-    Layer.succeed(debugFlag, flags.debug ?? false),
+    Layer.succeed(verboseFlag, false),
+    Layer.succeed(debugFlag, false),
   );
 
-  const cliEnvironmentLayer = makeCliEnvironmentLayer({
-    envVerbose: flags.envVerbose,
-    envDebug: flags.envDebug,
-  });
-  const fullLayer = Layer.fresh(Layer.provide(cliEnvironmentLayer, globalFlagsLayer));
-
   return Effect.all({
-    env: CliEnvironment.asEffect().pipe(Effect.provide(fullLayer)),
     nonInteractive: isNonInteractive.pipe(Effect.provide(globalFlagsLayer)),
   });
 };
@@ -98,100 +84,40 @@ describe("isNonInteractive resolution chain", () => {
   );
 });
 
-describe("makeCliEnvironmentLayer", () => {
-  describe("verbose/debug resolution", () => {
-    it.effect("verbose flag resolves to verbose true", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-          verbose: true,
-        });
-        expect(env.verbose).toBe(true);
-        expect(env.debug).toBe(false);
-      }),
-    );
-
-    it.effect("envVerbose resolves to verbose true", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-          envVerbose: true,
-        });
-        expect(env.verbose).toBe(true);
-        expect(env.debug).toBe(false);
-      }),
-    );
-
-    it.effect("debug flag implies verbose", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-          debug: true,
-        });
-        expect(env.verbose).toBe(true);
-        expect(env.debug).toBe(true);
-      }),
-    );
-
-    it.effect("envDebug implies verbose", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-          envDebug: true,
-        });
-        expect(env.verbose).toBe(true);
-        expect(env.debug).toBe(true);
-      }),
-    );
-
-    it.effect("verbose flag overrides envVerbose false", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-          verbose: true,
-          envVerbose: false,
-        });
-        expect(env.verbose).toBe(true);
-      }),
-    );
-
-    it.effect("defaults to false when no flag and no env", () =>
-      Effect.gen(function* () {
-        const { env } = yield* getFlags({
-          nonInteractive: Option.some(false),
-        });
-        expect(env.verbose).toBe(false);
-        expect(env.debug).toBe(false);
-      }),
-    );
-  });
-});
-
-describe("CliEnvironmentTest helper", () => {
-  it.effect("defaults to nonInteractive: true, verbose/debug: false", () =>
+describe("TestFlagsLayer helper", () => {
+  it.effect("defaults to nonInteractive: true, verbosity: normal", () =>
     Effect.gen(function* () {
-      const env = yield* CliEnvironment.asEffect().pipe(Effect.provide(CliEnvironmentTest()));
-      const nonInteractive = yield* isNonInteractive.pipe(Effect.provide(CliEnvironmentTest()));
+      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer()));
+      const nonInteractive = yield* isNonInteractive.pipe(Effect.provide(TestFlagsLayer()));
       expect(nonInteractive).toBe(true);
-      expect(env.verbose).toBe(false);
-      expect(env.debug).toBe(false);
+      expect(v.level).toBe("normal");
+      expect(v.isAtLeast("verbose")).toBe(false);
+      expect(v.isAtLeast("debug")).toBe(false);
     }),
   );
 
-  it.effect("accepts verbose and debug overrides", () =>
+  it.effect("accepts verbose override", () =>
     Effect.gen(function* () {
-      const env = yield* CliEnvironment.asEffect().pipe(
-        Effect.provide(CliEnvironmentTest({ verbose: true, debug: true })),
-      );
-      expect(env.verbose).toBe(true);
-      expect(env.debug).toBe(true);
+      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ verbose: true })));
+      expect(v.level).toBe("verbose");
+      expect(v.isAtLeast("verbose")).toBe(true);
+      expect(v.isAtLeast("debug")).toBe(false);
+    }),
+  );
+
+  it.effect("accepts debug override (implies verbose)", () =>
+    Effect.gen(function* () {
+      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ debug: true })));
+      expect(v.level).toBe("debug");
+      expect(v.isAtLeast("verbose")).toBe(true);
+      expect(v.isAtLeast("debug")).toBe(true);
     }),
   );
 
   it.effect("accepts nonInteractive override", () =>
     Effect.gen(function* () {
       const nonInteractive = yield* isNonInteractive.pipe(
-        Effect.provide(CliEnvironmentTest({ nonInteractive: false })),
+        Effect.provide(TestFlagsLayer({ nonInteractive: false })),
       );
       expect(nonInteractive).toBe(false);
     }),

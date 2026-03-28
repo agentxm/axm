@@ -16,7 +16,7 @@ import {
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
 import {
-  CliEnvironment,
+  Verbosity,
   nonInteractiveFlag,
   outputFormatFlag,
   verboseFlag,
@@ -96,8 +96,8 @@ interface RuntimeOptions {
 }
 
 const debugLoggerLayer = Layer.unwrap(
-  Effect.map(CliEnvironment.asEffect(), (flags) =>
-    Logger.layer(flags.debug ? [Logger.consolePretty()] : [], {
+  Effect.map(Verbosity.asEffect(), (v) =>
+    Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
       mergeWithExisting: false,
     }),
   ),

@@ -413,6 +413,15 @@ export const AuthClientLive = Layer.effect(
           });
         }
 
+        if (response.status >= 500) {
+          return yield* makeAppError({
+            code: "AUTH_SERVER_ERROR",
+            what: `Registry returned server error (status ${String(response.status)})`,
+            details: [`Registry: ${registryUrl}`],
+            howToFix: "The registry may be temporarily unavailable. Try again later.",
+          });
+        }
+
         if (response.status !== 200) {
           return yield* makeAppError({
             code: "AUTH_UNAUTHENTICATED",

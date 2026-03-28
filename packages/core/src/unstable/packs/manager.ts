@@ -224,15 +224,18 @@ export const PackManagerLive = Layer.effect(
 
     return {
       extensionType: "pack",
-      isInstalled: ({ target }: { readonly target: PackExtensionTarget }) =>
-        Effect.gen(function* () {
-          const installedPacks = yield* ws.getInstalledPacks();
-          if (target.name in installedPacks) {
-            return true;
-          }
+      isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
+        target,
+      }: {
+        readonly target: PackExtensionTarget;
+      }) {
+        const installedPacks = yield* ws.getInstalledPacks();
+        if (target.name in installedPacks) {
+          return true;
+        }
 
-          return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
-        }).pipe(Effect.withSpan("PackManager.isInstalled")),
+        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+      }),
       materializeInstall,
       materializeUninstall,
 

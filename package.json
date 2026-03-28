@@ -20,7 +20,8 @@
     "lint:affected": "nx affected -t lint",
     "lint:fix": "nx run-many -t lint --fix",
     "prepare": "husky && effect-language-service patch",
-    "release:patch": "nx run axm:release"
+    "release:patch": "nx run axm:release",
+    "generate": "nx run core:generate-registry-client"
   },
   "nx": {
     "includedScripts": []

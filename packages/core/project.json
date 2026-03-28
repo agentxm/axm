@@ -17,6 +17,13 @@
       "options": {
         "configFile": "packages/core/vitest.config.ts"
       }
+    },
+    "generate-registry-client": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-registry-client.ts"],
+        "cwd": "packages/core"
+      }
     }
   }
 }

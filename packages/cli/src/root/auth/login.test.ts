@@ -16,7 +16,7 @@ import {
 } from "@axm.sh/core/unstable/auth";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogin } from "./login.js";
 
@@ -35,7 +35,7 @@ const makeLayers = (opts?: {
   });
   const interactionLayer = AuthLoginInteractionTest().layer;
 
-  const flagsLayer = CliEnvironmentTest({
+  const flagsLayer = TestFlagsLayer({
     nonInteractive: opts?.nonInteractive ?? false,
   });
 
@@ -242,7 +242,7 @@ describe("auth login handler", () => {
       rendererLayer2,
       promptLayer2,
       interactionLayer2,
-      CliEnvironmentTest({ nonInteractive: false }),
+      TestFlagsLayer({ nonInteractive: false }),
       CredentialStoreTest(),
       authClientLayer,
       Layer.succeed(RegistryUrl, REGISTRY_URL),

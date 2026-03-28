@@ -14,7 +14,7 @@ import {
   resetEnvVarMessageFlag,
 } from "@axm.sh/core/unstable/auth";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleWhoami } from "./whoami.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -59,7 +59,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean; machine?: boolean }) => {
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,

@@ -83,7 +83,7 @@ Defined as reusable `Flag` definitions in `cli-flags/index.ts`. Commands that ne
 
 **Severity model:** If important enough to block, it's an error (overridable with `--force`). If not important enough to block, it's a warning (always shown, never blocks).
 
-**Resolution model:** Environment-level flags (`nonInteractive`, `verbose`, `debug`) are resolved once into the `CliEnvironment` Effect service at the `run()` boundary via `makeCliEnvironmentLayer()`. The `nonInteractive` flag follows a resolution chain: explicit `--non-interactive` flag → `CI=true` env var → `!stdin.isTTY`. Both the `Workspace` service and `Input` service depend on `CliEnvironment` — neither resolves flags independently. Per-command flags (`yes`, `force`, `preview`) are passed as explicit parameters through handler args at the command boundary — they are not part of any service.
+**Resolution model:** The `nonInteractive` flag follows a resolution chain: explicit `--non-interactive` flag → `CI=true` env var → `!stdin.isTTY`. Verbosity (`verbose`, `debug`) is resolved into the `Verbosity` service at the `run()` boundary via `makeFoundationLayer()`. Per-command flags (`yes`, `force`, `preview`) are passed as explicit parameters through handler args at the command boundary — they are not part of any service.
 
 ## Code Organization
 

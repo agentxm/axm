@@ -18,7 +18,7 @@ import { TestRenderer } from "../cli-renderer/index.js";
 import { makeTestPrompt, type TestPromptState } from "../cli-prompt/index.js";
 import YAML from "yaml";
 import { AppError } from "../app-error/index.js";
-import { CliEnvironmentTest, type CliEnvironmentService } from "../cli-flags/index.js";
+import { TestFlagsLayer } from "../cli-flags/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import { expectDefined, property, recordEntry, stringProperty } from "../test-helpers.js";
@@ -81,7 +81,7 @@ describe("WorkspaceContextService", () => {
     NodeServices.layer,
     testLogLayer,
     testPromptLayer,
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
   );
 
   const toLayerOptions = (options: WorkspaceContextOptions): WorkspaceLayerOptions => ({
@@ -131,7 +131,7 @@ describe("WorkspaceContextService", () => {
   });
 
   // nonInteractive resolution is tested in cli-flags/service.test.ts
-  // preview flag is now in CliEnvironment, tested there
+  // preview flag is tested in cli-flags
 
   /** Default options for tests that don't care about prompting/preview. */
   const defaultOptions: WorkspaceContextOptions = {
@@ -1104,15 +1104,17 @@ describe("WorkspaceContextService", () => {
      * Helper to create workspace layer with custom TUI behaviors for init testing.
      * Uses multiselect behavior to control which agents are "selected".
      */
-    const getServiceWithInit = (
-      flags: Partial<CliEnvironmentService> & { nonInteractive?: boolean },
-    ) => {
+    const getServiceWithInit = (flags: {
+      verbose?: boolean;
+      debug?: boolean;
+      nonInteractive?: boolean;
+    }) => {
       const { layer: logLayer } = TestRenderer.make();
       const [promptLayer, promptState] = makeTestPrompt({
         confirmResponses: [true],
         multiselectResponses: [[]],
       });
-      const flagsLayer = CliEnvironmentTest(flags);
+      const flagsLayer = TestFlagsLayer(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
       const wsLayer = Layer.provide(workspaceLayer(toLayerOptions(wsOptions)), base);

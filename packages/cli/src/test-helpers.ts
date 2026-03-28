@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { AppError } from "@axm.sh/core/unstable/app-error";
-import { CliEnvironmentTest, type CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeTestPrompt, type TestPromptConfig } from "@axm.sh/core/unstable/cli-prompt";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
@@ -135,7 +135,7 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
 
 export const makeCliTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
-  readonly flags?: (Partial<CliEnvironmentService> & { nonInteractive?: boolean }) | undefined;
+  readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const [promptLayer, promptState] = makeTestPrompt(opts?.prompt);
@@ -143,7 +143,7 @@ export const makeCliTestContext = (opts?: {
     NodeServices.layer,
     rendererLayer,
     promptLayer,
-    CliEnvironmentTest(opts?.flags),
+    TestFlagsLayer(opts?.flags),
   );
 
   return {
@@ -156,7 +156,7 @@ export const makeCliTestContext = (opts?: {
 
 export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
-  readonly flags?: (Partial<CliEnvironmentService> & { nonInteractive?: boolean }) | undefined;
+  readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
   readonly wsOptions?: Partial<WorkspaceContextOptions> | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);

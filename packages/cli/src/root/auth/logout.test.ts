@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 
 import { AuthClientTest, RegistryUrl, CredentialStoreTest } from "@axm.sh/core/unstable/auth";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogout } from "./logout.js";
 
@@ -45,7 +45,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
     credStoreLayer,
     authClientLayer,
     registryUrlLayer,

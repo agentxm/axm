@@ -9,7 +9,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
@@ -68,8 +67,11 @@ describe("skills-new.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (flagsOverrides?: Partial<CliEnvironmentService>) =>
-    makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  const makeLayers = (flagsOverrides?: {
+    verbose?: boolean;
+    debug?: boolean;
+    nonInteractive?: boolean;
+  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {

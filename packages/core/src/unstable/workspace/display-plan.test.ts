@@ -14,11 +14,7 @@ import {
   CliRenderer,
   logsByTag,
 } from "../cli-renderer/index.js";
-import {
-  type CliEnvironment,
-  type CliEnvironmentService,
-  CliEnvironmentTest,
-} from "../cli-flags/index.js";
+import { type Verbosity, TestFlagsLayer } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { Plan, ExecutedPlan } from "./plan.js";
@@ -43,13 +39,13 @@ const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan =
   ...overrides,
 });
 
-/** Creates a fresh renderer + CliEnvironment test layer and runs the effect, returning the state for inspection. */
+/** Creates a fresh renderer + Verbosity test layer and runs the effect, returning the state for inspection. */
 const withOutput = <A, E>(
-  fn: (state: TestRendererState) => Effect.Effect<A, E, CliRenderer | CliEnvironment>,
-  flagsOverrides?: Partial<CliEnvironmentService>,
+  fn: (state: TestRendererState) => Effect.Effect<A, E, CliRenderer | Verbosity>,
+  flagsOverrides?: { verbose?: boolean; debug?: boolean },
 ): Effect.Effect<A, E> => {
   const { layer, state } = TestRenderer.make();
-  return fn(state).pipe(Effect.provide(Layer.mergeAll(layer, CliEnvironmentTest(flagsOverrides))));
+  return fn(state).pipe(Effect.provide(Layer.mergeAll(layer, TestFlagsLayer(flagsOverrides))));
 };
 
 // -----------------------------------------------------------------------------

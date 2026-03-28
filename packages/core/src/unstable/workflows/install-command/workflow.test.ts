@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { makeTestPrompt } from "../../cli-prompt/index.js";
-import { CliEnvironmentTest } from "../../cli-flags/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../workspace/index.js";
 import { Workspace } from "../../workspace/index.js";
@@ -49,7 +49,7 @@ const makeTestLayer = () => {
     rendererLayer,
     promptLayer,
     Workspace.layer(makeMockWorkspace()),
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
   );
 };
 

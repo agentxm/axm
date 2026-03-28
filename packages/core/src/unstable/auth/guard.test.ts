@@ -10,7 +10,7 @@ import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "./index.js";
 import { AuthLoginInteractionTest } from "./login-interaction.js";
 import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
 import { makeTestPrompt } from "../cli-prompt/index.js";
-import { CliEnvironmentTest } from "../cli-flags/index.js";
+import { TestFlagsLayer } from "../cli-flags/index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/index.js";
 
@@ -33,7 +33,7 @@ const makeLayers = (opts?: {
   });
   const interactionLayer = AuthLoginInteractionTest().layer;
 
-  const flagsLayer = CliEnvironmentTest({
+  const flagsLayer = TestFlagsLayer({
     nonInteractive: opts?.nonInteractive ?? false,
   });
 

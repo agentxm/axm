@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { CliEnvironment } from "../cli-flags/index.js";
+import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
 import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 
@@ -21,15 +21,15 @@ import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./pla
 /**
  * Display a plan or executed plan summary via the CliRenderer service.
  *
- * Reads verbosity settings from the `CliEnvironment` service.
+ * Reads verbosity settings from the `Verbosity` service.
  */
 export const displayPlan = (plan: Plan | ExecutedPlan) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const flags = yield* CliEnvironment;
+    const v = yield* Verbosity;
     const verbosity: { readonly verbose: boolean; readonly debug: boolean } = {
-      verbose: flags.verbose,
-      debug: flags.debug,
+      verbose: v.isAtLeast("verbose"),
+      debug: v.isAtLeast("debug"),
     };
 
     // Heading

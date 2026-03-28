@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { CliPrompt } from "../cli-prompt/index.js";
 import { Verbosity } from "../cli-flags/index.js";
-import { CliEnvironment, verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
+import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { makeFoundationLayer } from "./runtime-envelope.js";
 
@@ -36,15 +36,6 @@ const testLayer = (
 // ---------------------------------------------------------------------------
 
 describe("makeFoundationLayer", () => {
-  it.effect("provides CliEnvironment service", () =>
-    Effect.gen(function* () {
-      const env = yield* CliEnvironment.asEffect().pipe(Effect.provide(testLayer("text")));
-      expect(env).toBeDefined();
-      expect(env.verbose).toBe(false);
-      expect(env.debug).toBe(false);
-    }),
-  );
-
   it.effect("provides CliRenderer service in text mode (interactive)", () =>
     Effect.gen(function* () {
       const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("text")));
@@ -126,12 +117,10 @@ describe("makeFoundationLayer", () => {
     Effect.gen(function* () {
       const layer = testLayer("text", { verbosityLevel: "verbose" });
 
-      const cliEnv = yield* CliEnvironment.asEffect().pipe(Effect.provide(layer));
       const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(layer));
       const prompt = yield* CliPrompt.asEffect().pipe(Effect.provide(layer));
       const verbosity = yield* Verbosity.asEffect().pipe(Effect.provide(layer));
 
-      expect(cliEnv).toBeDefined();
       expect(renderer).toBeDefined();
       expect(prompt).toBeDefined();
       expect(verbosity.level).toBe("verbose");

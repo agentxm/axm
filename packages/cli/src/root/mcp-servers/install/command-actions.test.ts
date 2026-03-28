@@ -13,7 +13,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { McpServerManager } from "@axm.sh/core/unstable/mcp-servers";
@@ -56,7 +56,7 @@ const testLayer = Layer.mergeAll(
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   promptLayer,
   NodeServices.layer,
-  CliEnvironmentTest(),
+  TestFlagsLayer(),
 );
 
 const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);
@@ -135,7 +135,7 @@ describe("parseMcpServerInstallArgs", () => {
         Layer.succeed(SourceHostProviders, mockSourceHostProviders),
         promptLayer,
         NodeServices.layer,
-        CliEnvironmentTest(),
+        TestFlagsLayer(),
       ),
     );
     const result = await Effect.gen(function* () {

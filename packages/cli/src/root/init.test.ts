@@ -22,7 +22,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
-import { CliEnvironmentTest } from "@axm.sh/core/unstable/cli-flags";
+import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../builtin-pack/index.js";
@@ -57,7 +57,7 @@ describe("init.handler", () => {
     NodeServices.layer,
     rendererLayer,
     promptLayer,
-    CliEnvironmentTest(),
+    TestFlagsLayer(),
   );
 
   /**
@@ -304,7 +304,7 @@ describe("init.handler", () => {
     it.effect("--yes still prompts for agent selection (does not auto-select)", () => {
       const InteractiveTestLayer = Layer.mergeAll(
         TestLayer,
-        CliEnvironmentTest({ nonInteractive: false }),
+        TestFlagsLayer({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
@@ -355,7 +355,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        CliEnvironmentTest({ nonInteractive: false }),
+        TestFlagsLayer({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
@@ -428,7 +428,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        CliEnvironmentTest(),
+        TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
@@ -456,7 +456,7 @@ describe("init.handler", () => {
         NodeServices.layer,
         iRendererLayer,
         iPromptLayer,
-        CliEnvironmentTest(),
+        TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),

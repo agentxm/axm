@@ -9,7 +9,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import type { CliEnvironmentService } from "@axm.sh/core/unstable/cli-flags";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
@@ -101,8 +100,11 @@ describe("packs-add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (flagsOverrides?: Partial<CliEnvironmentService>) =>
-    makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  const makeLayers = (flagsOverrides?: {
+    verbose?: boolean;
+    debug?: boolean;
+    nonInteractive?: boolean;
+  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
   describe("add specific extension by name", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {

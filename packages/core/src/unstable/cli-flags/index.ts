@@ -1,5 +1,3 @@
-import * as Effect from "effect/Effect";
-import * as ServiceMap from "effect/ServiceMap";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
@@ -76,47 +74,23 @@ export const previewFlag = Flag.boolean("preview").pipe(
 export const jsonFlag = Flag.boolean("json").pipe(Flag.withDescription("Output as JSON"));
 
 // ---------------------------------------------------------------------------
-// Service
-// ---------------------------------------------------------------------------
-
-export interface CliEnvironmentService {
-  readonly verbose: boolean;
-  readonly debug: boolean;
-}
-
-export class CliEnvironment extends ServiceMap.Service<CliEnvironment, CliEnvironmentService>()(
-  "@axm.sh/cli/CliEnvironment",
-) {}
-
-export const makeCliEnvironmentLayer = (options?: {
-  readonly envVerbose?: boolean | undefined;
-  readonly envDebug?: boolean | undefined;
-}) =>
-  Layer.effect(
-    CliEnvironment,
-    Effect.gen(function* () {
-      const debug = (yield* debugFlag) || (options?.envDebug ?? false);
-      const verbose = (yield* verboseFlag) || (options?.envVerbose ?? false) || debug;
-
-      return {
-        verbose,
-        debug,
-      } satisfies CliEnvironmentService;
-    }),
-  );
-
-// ---------------------------------------------------------------------------
 // Test helper
 // ---------------------------------------------------------------------------
 
-export const CliEnvironmentTest = (
-  overrides?: Partial<CliEnvironmentService> & { nonInteractive?: boolean },
-) =>
-  Layer.mergeAll(
-    Layer.succeed(CliEnvironment, {
-      verbose: overrides?.verbose ?? false,
-      debug: overrides?.debug ?? false,
-    }),
+import { makeVerbosityLayer, type VerbosityLevel } from "./verbosity.js";
+
+export const TestFlagsLayer = (overrides?: {
+  verbose?: boolean;
+  debug?: boolean;
+  nonInteractive?: boolean;
+}) => {
+  const level: VerbosityLevel = overrides?.debug
+    ? "debug"
+    : overrides?.verbose
+      ? "verbose"
+      : "normal";
+  return Layer.mergeAll(
+    makeVerbosityLayer(level),
     Layer.succeed(
       nonInteractiveFlag,
       overrides?.nonInteractive === undefined
@@ -124,3 +98,4 @@ export const CliEnvironmentTest = (
         : Option.some(overrides.nonInteractive),
     ),
   );
+};

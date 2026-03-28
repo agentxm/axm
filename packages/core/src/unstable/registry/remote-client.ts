@@ -3,7 +3,7 @@
  *
  * Implements `publishExtension` via multipart PUT to the remote registry API.
  * All read operations fail with "remote registry not yet supported" error.
- * Includes RFC 7807 problem detail error mapping for publish responses.
+ * Includes RFC 9457 problem detail error mapping for publish responses.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -37,11 +37,11 @@ import { ExtensionIndexSchema } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 
 // -----------------------------------------------------------------------------
-// RFC 7807 Problem Detail → AppError Mapping
+// RFC 9457 Problem Detail → AppError Mapping
 // -----------------------------------------------------------------------------
 
 /**
- * Maps an HTTP status code and parsed RFC 7807 problem detail JSON to a `AppError`.
+ * Maps an HTTP status code and parsed RFC 9457 problem detail JSON to a `AppError`.
  *
  * Handles all backend error codes from the remote registry publish API.
  * When the problem detail is null/undefined (non-JSON response), falls back

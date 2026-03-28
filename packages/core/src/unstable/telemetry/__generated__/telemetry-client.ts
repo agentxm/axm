@@ -257,7 +257,7 @@ export const TelemetryErrorsRequest = Schema.Struct({
         type: Schema.optionalKey(Schema.String),
         category: Schema.optionalKey(Schema.String),
         message: Schema.optionalKey(Schema.String),
-        timestamp: Schema.optionalKey(Schema.String),
+        timestamp: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
         level: Schema.optionalKey(
           Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
             title: "Severity Level",
@@ -281,7 +281,7 @@ export const TelemetryErrorsRequest = Schema.Struct({
       username: Schema.optionalKey(Schema.String),
     }),
   ),
-  sentAt: Schema.optionalKey(Schema.String),
+  sentAt: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
   context: TelemetryErrorContext,
 }).annotate({
   title: "Telemetry Errors Request",

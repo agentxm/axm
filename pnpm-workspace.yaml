@@ -10,3 +10,6 @@ catalog:
 onlyBuiltDependencies:
   - esbuild
   - nx
+
+patchedDependencies:
+  "@effect/openapi-generator": patches/@effect__openapi-generator.patch

@@ -329,12 +329,14 @@ const publishConfig = {
     Argument.atLeast(1),
   ),
   registry: Flag.string("registry").pipe(
-    Flag.withDescription("Named registry source to publish to"),
+    Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Publish even if version already exists in the registry"),
+  ),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
 
 export const publishCommand = Command.make(
@@ -354,15 +356,16 @@ export const publishCommand = Command.make(
   Command.withExamples([
     {
       command: "axm skills publish @acme/skills/code-review",
-      description: "Publish a single extension",
+      description: "Publish a skill to the registry",
     },
     {
       command: "axm skills publish effect-* commit",
-      description: "Publish extensions matching patterns",
+      description: "Publish multiple skills matching a pattern",
     },
     {
       command: "axm skills publish code-review --registry local",
-      description: "Publish with profile from settings to the local registry",
+      description: "Publish to a specific registry",
     },
+    { command: "", description: "See also: skills fork, skills new" },
   ]),
 );

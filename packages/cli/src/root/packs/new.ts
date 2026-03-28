@@ -155,9 +155,11 @@ const newConfig = {
     Flag.withDescription("Override the workspace profile (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Create the pack without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Overwrite if a pack with this name already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what files would be created without creating them"),
+  ),
 } as const;
 
 export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, force, preview }) =>
@@ -171,11 +173,15 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
   Command.withExamples([
     {
       command: "axm packs new frontend-tools",
-      description: "Create @<profile>/frontend-tools",
+      description: "Create an empty pack to bundle extensions",
     },
     {
       command: "axm packs new frontend-tools --profile @co",
-      description: "Create @co/frontend-tools",
+      description: "Create under a specific profile",
+    },
+    {
+      command: "",
+      description: "See also: packs add, packs publish",
     },
   ]),
 );

@@ -95,7 +95,9 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
 // -----------------------------------------------------------------------------
 
 const whoamiConfig = {
-  json: Flag.boolean("json").pipe(Flag.withDescription("Output identity as JSON")),
+  json: Flag.boolean("json").pipe(
+    Flag.withDescription("Output identity details as JSON (useful for scripting)"),
+  ),
 } as const;
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, ({ json }) =>
@@ -104,6 +106,9 @@ export const whoamiCommand = Command.make("whoami", whoamiConfig, ({ json }) =>
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
-    { command: "axm whoami", description: "Show current authenticated identity" },
+    { command: "axm auth whoami", description: "Check who you're authenticated as" },
+    { command: "axm whoami", description: "Same command via shortcut" },
+    { command: "axm auth whoami --json", description: "Get identity as JSON for scripts" },
+    { command: "", description: "See also: auth login, auth token" },
   ]),
 );

@@ -13,17 +13,28 @@ export const packsCommand = Command.make("packs").pipe(
   Command.withExamples([
     {
       command: "axm packs install @acme/packs/frontend-tools",
-      description: "Install an extension pack from the registry",
+      description: "Add a curated set of extensions to your agents",
     },
-    { command: "axm packs new my-pack", description: "Create a new extension pack" },
+    {
+      command: "axm packs new my-pack",
+      description: "Create a new pack to bundle your extensions",
+    },
+    {
+      command: "axm packs add my-pack @acme/skills/code-review",
+      description: "Add extensions to your pack",
+    },
+    {
+      command: "axm packs publish @acme/frontend-tools",
+      description: "Share your pack on the registry",
+    },
   ]),
   Command.withSubcommands([
-    addCommand,
     installCommand,
-    newCommand,
-    publishCommand,
-    removeCommand,
     uninstallCommand,
+    newCommand,
+    addCommand,
+    removeCommand,
+    publishCommand,
     unpackCommand,
   ]),
 );

@@ -390,12 +390,14 @@ const forkConfig = {
     ),
   ),
   skill: Flag.string("skill").pipe(
-    Flag.withDescription("Fork only specified skill(s) by name or glob pattern"),
+    Flag.withDescription("Fork only specific skill(s) matching the name or glob"),
     Flag.atLeast(0),
   ),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Fork without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Overwrite if a forked copy already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be forked without making changes"),
+  ),
 } as const;
 
 export const forkCommand = Command.make(
@@ -415,19 +417,20 @@ export const forkCommand = Command.make(
   Command.withExamples([
     {
       command: "axm skills fork my-skill",
-      description: "Fork an installed skill to a managed extension",
+      description: "Customize an installed skill by forking it",
     },
     {
       command: 'axm skills fork "effect-*"',
-      description: "Fork all local skills matching the glob",
+      description: "Fork all Effect-related skills at once",
     },
     {
       command: "axm skills fork github:owner/repo",
-      description: "Fork a skill from a GitHub repo",
+      description: "Fork from a GitHub source",
     },
     {
       command: 'axm skills fork ./local/path --skill "effect-*"',
-      description: "Fork matching skills from a local source",
+      description: "Fork specific skills from a local directory",
     },
+    { command: "", description: "See also: skills new, skills publish, skills install" },
   ]),
 );

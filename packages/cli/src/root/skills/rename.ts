@@ -9,7 +9,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -124,10 +124,16 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
 const renameConfig = {
   oldName: Argument.string("old-name").pipe(Argument.withDescription("Current name of the skill")),
   newName: Argument.string("new-name").pipe(Argument.withDescription("New name for the skill")),
-  scope: scopeFlag,
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Rename in project (default) or user-level configuration"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Rename without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Rename even if the new name conflicts with an existing skill"),
+  ),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be renamed without making changes"),
+  ),
 } as const;
 
 export const renameCommand = Command.make(
@@ -141,10 +147,11 @@ export const renameCommand = Command.make(
   withArgvTracking(renameConfig),
   Command.withDescription("Rename a skill"),
   Command.withExamples([
-    { command: "axm skills rename old-name new-name", description: "Rename a skill" },
+    { command: "axm skills rename old-name new-name", description: "Give a skill a better name" },
     {
       command: "axm skills rename old-name new-name --preview",
-      description: "Preview what would be renamed",
+      description: "Check what would change first",
     },
+    { command: "", description: "See also: skills list, skills disable" },
   ]),
 );

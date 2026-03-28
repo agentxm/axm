@@ -10,7 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -120,10 +120,14 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
 const enableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to enable")),
-  scope: scopeFlag,
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Enable in project (default) or user-level configuration"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Enable even if the skill has unresolved dependencies"),
+  ),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
 export const enableCommand = Command.make(
@@ -136,4 +140,15 @@ export const enableCommand = Command.make(
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled skill"),
+  Command.withExamples([
+    {
+      command: "axm skills enable code-review",
+      description: "Re-enable a skill you previously disabled",
+    },
+    {
+      command: "axm skills enable code-review --preview",
+      description: "Preview the change before enabling",
+    },
+    { command: "", description: "See also: skills disable, skills list" },
+  ]),
 );

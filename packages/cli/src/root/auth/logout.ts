@@ -70,4 +70,12 @@ const logoutConfig = {} as const;
 
 export const logoutCommand = Command.make("logout", logoutConfig, () =>
   withRuntime(handleLogout(), { command: "auth logout" }),
-).pipe(withArgvTracking(logoutConfig), Command.withDescription("Sign out of a registry"));
+).pipe(
+  withArgvTracking(logoutConfig),
+  Command.withDescription("Sign out of a registry"),
+  Command.withExamples([
+    { command: "axm auth logout", description: "Sign out of the current registry" },
+    { command: "axm logout", description: "Same command via shortcut" },
+    { command: "", description: "See also: auth login" },
+  ]),
+);

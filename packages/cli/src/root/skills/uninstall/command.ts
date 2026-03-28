@@ -1,4 +1,4 @@
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
@@ -8,9 +8,13 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 
 const uninstallConfig = {
   skill: Argument.string("skill").pipe(Argument.withDescription("Name of the skill to uninstall")),
-  yes: yesFlag,
-  force: forceFlag,
-  preview: previewFlag,
+  yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Remove even if other extensions depend on this skill"),
+  ),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be removed without making changes"),
+  ),
 } as const;
 
 export const uninstallCommand = Command.make(
@@ -25,14 +29,15 @@ export const uninstallCommand = Command.make(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a skill from agents"),
   Command.withExamples([
-    { command: "axm skills uninstall my-skill", description: "Uninstall a skill" },
+    { command: "axm skills uninstall my-skill", description: "Remove a skill you no longer need" },
     {
       command: "axm skills uninstall my-skill --preview",
-      description: "Preview what would be uninstalled",
+      description: "Check what would be removed first",
     },
     {
       command: "axm skills uninstall my-skill --yes",
-      description: "Uninstall without confirmation prompt",
+      description: "Remove without confirmation (scripts/CI)",
     },
+    { command: "", description: "See also: skills install, skills disable, skills list" },
   ]),
 );

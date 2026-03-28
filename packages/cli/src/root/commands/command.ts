@@ -8,9 +8,12 @@ export const commandsCommand = Command.make("commands").pipe(
   Command.withExamples([
     {
       command: "axm commands install @acme/commands/my-cmd",
-      description: "Install a command from the registry",
+      description: "Add a command from the registry",
     },
-    { command: "axm commands uninstall my-cmd", description: "Remove an installed command" },
+    {
+      command: "axm commands uninstall my-cmd",
+      description: "Remove a command",
+    },
   ]),
   Command.withSubcommands([installCommand, uninstallCommand]),
 );

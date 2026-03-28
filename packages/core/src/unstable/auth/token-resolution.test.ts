@@ -7,13 +7,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { makeAppError } from "../app-error/index.js";
 import { AuthClientTest } from "./auth-client.js";
-import { CredentialStore, CredentialStoreTest } from "./credential-store.js";
+import { CredentialStoreTest } from "./credential-store.js";
 import {
   resolveToken,
   resolveStoredToken,
-  resolveStoredTokenWithRefresh,
   resolveAmbientToken,
   resolveRequestToken,
   resetEnvVarMessageFlag,
@@ -164,89 +162,29 @@ describe("resolveToken", () => {
     expect(Option.isNone(result)).toBe(true);
   });
 
-  it("refreshes near-expiry stored credentials before returning them", async () => {
-    const layer = makeRuntimeLayer(
-      {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_old",
-                refresh_token: "axm_ref_old",
-                expires_at: nearExpiry(),
-                active: true,
-              },
+  it("returns near-expiry stored credentials without proactive refresh", async () => {
+    const layer = makeRuntimeLayer({
+      version: 1,
+      registries: {
+        [REGISTRY_URL]: {
+          accounts: {
+            alice: {
+              access_token: "axm_ses_old",
+              refresh_token: "axm_ref_old",
+              expires_at: nearExpiry(),
+              active: true,
             },
           },
         },
       },
-      AuthClientTest({
-        refreshToken: () =>
-          Effect.succeed({
-            access_token: "axm_ses_refreshed",
-            refresh_token: "axm_ref_refreshed",
-            expires_at: futureExpiry(),
-          }),
-      }),
-    );
+    });
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const token = yield* resolveToken(REGISTRY_URL);
-        const store = yield* CredentialStore;
-        const stored = yield* store.load(REGISTRY_URL);
-        return { token, stored };
-      }).pipe(Effect.provide(layer)),
-    );
+    const result = await Effect.runPromise(resolveToken(REGISTRY_URL).pipe(Effect.provide(layer)));
 
-    expect(Option.isSome(result.token)).toBe(true);
-    if (Option.isSome(result.token)) {
-      expect(result.token.value._tag).toBe("CredentialStore");
-      expect(result.token.value.token).toBe("axm_ses_refreshed");
-    }
-    expect(result.stored._tag).toBe("Some");
-    if (result.stored._tag === "Some") {
-      expect(result.stored.value.access_token).toBe("axm_ses_refreshed");
-      expect(result.stored.value.refresh_token).toBe("axm_ref_refreshed");
-    }
-  });
-
-  it("fails with AUTH_REFRESH_FAILED when refresh of near-expiry credentials fails", async () => {
-    const layer = makeRuntimeLayer(
-      {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_old",
-                refresh_token: "axm_ref_old",
-                expires_at: nearExpiry(),
-                active: true,
-              },
-            },
-          },
-        },
-      },
-      AuthClientTest({
-        refreshToken: () =>
-          Effect.fail(
-            makeAppError({
-              code: "AUTH_REFRESH_FAILED",
-              what: "Token refresh request failed",
-            }),
-          ),
-      }),
-    );
-
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL).pipe(Effect.provide(layer), Effect.result),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_REFRESH_FAILED");
+    expect(Option.isSome(result)).toBe(true);
+    if (Option.isSome(result)) {
+      expect(result.value._tag).toBe("CredentialStore");
+      expect(result.value.token).toBe("axm_ses_old");
     }
   });
 });
@@ -299,49 +237,6 @@ describe("resolveStoredToken", () => {
     // Should return none — env var is not checked by resolveStoredToken
     expect(Option.isNone(result)).toBe(true);
     delete process.env["AXM_TOKEN"];
-  });
-});
-
-describe("resolveStoredTokenWithRefresh", () => {
-  it("uses the stale stored token when configured to tolerate refresh failure", async () => {
-    const layer = makeRuntimeLayer(
-      {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_stale",
-                refresh_token: "axm_ref_stale",
-                expires_at: nearExpiry(),
-                active: true,
-              },
-            },
-          },
-        },
-      },
-      AuthClientTest({
-        refreshToken: () =>
-          Effect.fail(
-            makeAppError({
-              code: "AUTH_REFRESH_FAILED",
-              what: "Token refresh request failed",
-            }),
-          ),
-      }),
-    );
-
-    const result = await Effect.runPromise(
-      resolveStoredTokenWithRefresh(REGISTRY_URL, {
-        onRefreshFailure: "use-stale",
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_stale");
-    }
   });
 });
 
@@ -492,34 +387,23 @@ describe("resolveRequestToken", () => {
     }
   });
 
-  it("uses the stale stored token when request-time proactive refresh fails", async () => {
+  it("returns near-expiry stored credentials without proactive refresh", async () => {
     const otherRegistryUrl = "https://other-registry.example.com";
-    const layer = makeRuntimeLayer(
-      {
-        version: 1,
-        registries: {
-          [otherRegistryUrl]: {
-            accounts: {
-              bob: {
-                access_token: "axm_ses_stale",
-                refresh_token: "axm_ref_stale",
-                expires_at: nearExpiry(),
-                active: true,
-              },
+    const layer = makeRuntimeLayer({
+      version: 1,
+      registries: {
+        [otherRegistryUrl]: {
+          accounts: {
+            bob: {
+              access_token: "axm_ses_near_expiry",
+              refresh_token: "axm_ref_near_expiry",
+              expires_at: nearExpiry(),
+              active: true,
             },
           },
         },
       },
-      AuthClientTest({
-        refreshToken: () =>
-          Effect.fail(
-            makeAppError({
-              code: "AUTH_REFRESH_FAILED",
-              what: "Token refresh request failed",
-            }),
-          ),
-      }),
-    );
+    });
 
     const result = await Effect.runPromise(
       resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL).pipe(
@@ -530,7 +414,7 @@ describe("resolveRequestToken", () => {
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_stale");
+      expect(result.value.token).toBe("axm_ses_near_expiry");
     }
   });
 });

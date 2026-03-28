@@ -1,8 +1,8 @@
 /**
  * Auth middleware — HttpClient wrapping layer.
  *
- * Intercepts outgoing HTTP requests to inject Bearer tokens, handle
- * automatic refresh on 401, and proactive refresh for near-expiry tokens.
+ * Intercepts outgoing HTTP requests to inject Bearer tokens and handle
+ * automatic refresh on 401.
  *
  * Layer composition: wraps the base HttpClient so all downstream consumers
  * get auth headers automatically for registry URLs.
@@ -36,8 +36,8 @@ export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()(
 // -----------------------------------------------------------------------------
 
 /**
- * Creates an auth middleware layer that wraps HttpClient with token injection,
- * proactive refresh, and automatic 401 retry.
+ * Creates an auth middleware layer that wraps HttpClient with token injection
+ * and automatic refresh on 401.
  *
  * The `flagToken` parameter allows per-command --token flag injection.
  */

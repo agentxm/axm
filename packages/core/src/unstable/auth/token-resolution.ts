@@ -53,8 +53,6 @@ export const resetEnvVarMessageFlag = () => {
 // Token resolution
 // -----------------------------------------------------------------------------
 
-const PREFLIGHT_EXPIRY_WINDOW_MS = 5 * 60 * 1000;
-
 const parseOrigin = (url: string) =>
   Effect.try({
     try: () => new URL(url).origin,
@@ -67,8 +65,6 @@ const parseOrigin = (url: string) =>
       }),
   });
 
-type RefreshFailureMode = "fail" | "use-stale";
-
 const makeStoredTokenSource = (
   registryUrl: string,
   credentials: Pick<StoredCredentials, "access_token" | "refresh_token" | "expires_at">,
@@ -79,11 +75,6 @@ const makeStoredTokenSource = (
     expires_at: credentials.expires_at,
     registryUrl,
   });
-
-const isNearExpiry = (expiresAt: string): boolean => {
-  const expiryTime = new Date(expiresAt).getTime();
-  return expiryTime - Date.now() < PREFLIGHT_EXPIRY_WINDOW_MS;
-};
 
 const persistRefreshedCredentials = (registryUrl: string, token: TokenResponse) =>
   Effect.gen(function* () {
@@ -117,42 +108,15 @@ export const resolveStoredToken = (
     return Option.map(stored, (credentials) => makeStoredTokenSource(origin, credentials));
   });
 
-export const refreshStoredToken = (
-  tokenSource: CredentialStoreTokenSource,
-  options?: { readonly onFailure?: RefreshFailureMode },
-) =>
+export const refreshStoredToken = (tokenSource: CredentialStoreTokenSource) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
-    const mode = options?.onFailure ?? "fail";
 
-    return yield* authClient.refreshToken(tokenSource.registryUrl, tokenSource.refresh_token).pipe(
-      Effect.matchEffect({
-        onFailure: (error) =>
-          mode === "use-stale" ? Effect.succeed(tokenSource) : Effect.fail(error),
-        onSuccess: (token) => persistRefreshedCredentials(tokenSource.registryUrl, token),
-      }),
+    const token = yield* authClient.refreshToken(
+      tokenSource.registryUrl,
+      tokenSource.refresh_token,
     );
-  });
-
-export const resolveStoredTokenWithRefresh = (
-  origin: string,
-  options?: { readonly onRefreshFailure?: RefreshFailureMode },
-): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | AuthClient> =>
-  Effect.gen(function* () {
-    const stored = yield* resolveStoredToken(origin);
-    if (Option.isNone(stored)) {
-      return Option.none<TokenSource>();
-    }
-
-    if (!isNearExpiry(stored.value.expires_at)) {
-      return Option.some<TokenSource>(stored.value);
-    }
-
-    const refreshed = yield* Option.match(Option.fromUndefinedOr(options?.onRefreshFailure), {
-      onNone: () => refreshStoredToken(stored.value),
-      onSome: (onFailure) => refreshStoredToken(stored.value, { onFailure }),
-    });
-    return Option.some<TokenSource>(refreshed);
+    return yield* persistRefreshedCredentials(tokenSource.registryUrl, token);
   });
 
 /**
@@ -188,7 +152,7 @@ export const resolveRequestToken = (
   requestUrl: string,
   defaultRegistryUrl: string,
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | AuthClient> =>
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore> =>
   Effect.gen(function* () {
     const requestOrigin = yield* parseOrigin(requestUrl);
     const defaultRegistryOrigin = yield* parseOrigin(defaultRegistryUrl);
@@ -200,9 +164,7 @@ export const resolveRequestToken = (
       }
     }
 
-    return yield* resolveStoredTokenWithRefresh(requestOrigin, {
-      onRefreshFailure: "use-stale",
-    });
+    return yield* resolveStoredToken(requestOrigin);
   });
 
 /**
@@ -213,14 +175,19 @@ export const resolveRequestToken = (
  * 2. --token flag (passed as `flagToken` parameter)
  * 3. CredentialStore lookup by registry URL
  *
+ * Returns the stored token as-is without proactive refresh. Callers should
+ * handle 401 responses from the server (e.g., prompt re-login). The auth
+ * middleware handles automatic refresh on 401 for requests going through
+ * HttpClient.
+ *
  * Returns `Option.none()` when no token is available from any source.
  */
 export const resolveToken = (
   registryUrl: string,
   flagToken?: string,
-): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore | AuthClient> =>
+): Effect.Effect<Option.Option<TokenSource>, AppError, CredentialStore> =>
   Effect.gen(function* () {
     const ambient = yield* resolveAmbientToken(flagToken);
     if (Option.isSome(ambient)) return ambient;
-    return yield* resolveStoredTokenWithRefresh(registryUrl, { onRefreshFailure: "fail" });
+    return yield* resolveStoredToken(registryUrl);
   });

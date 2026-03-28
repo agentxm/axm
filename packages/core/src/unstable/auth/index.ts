@@ -39,7 +39,6 @@ export {
 export {
   resolveToken,
   resolveStoredToken,
-  resolveStoredTokenWithRefresh,
   refreshStoredToken,
   resolveAmbientToken,
   resolveRequestToken,

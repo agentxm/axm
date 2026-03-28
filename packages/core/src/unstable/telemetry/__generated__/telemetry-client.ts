@@ -28,6 +28,24 @@ export const TelemetryMetaResponse = Schema.Struct({
   description:
     "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
 });
+export type DecodeErrorResponse = {
+  readonly kind: "DecodeErrorResponse";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+};
+export const DecodeErrorResponse = Schema.Struct({
+  kind: Schema.Literal("DecodeErrorResponse"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+});
 export type TelemetryEvent = {
   readonly event: string;
   readonly distinctId: string;
@@ -63,6 +81,24 @@ export const TelemetryClientContext = Schema.Struct({
 }).annotate({
   title: "Telemetry Client Context",
   description: "Identifies the client emitting telemetry, including its name and version.",
+});
+export type PayloadTooLargeError = {
+  readonly kind: "PayloadTooLargeError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+};
+export const PayloadTooLargeError = Schema.Struct({
+  kind: Schema.Literal("PayloadTooLargeError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
 });
 export type TelemetryContext = {
   readonly client: TelemetryClientContext;
@@ -290,10 +326,14 @@ export const TelemetryErrorsRequest = Schema.Struct({
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
 export const MetaGet200 = TelemetryMetaResponse;
+export type MetaGet400 = DecodeErrorResponse;
+export const MetaGet400 = DecodeErrorResponse;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
+export type HealthGetShallowHealth400 = DecodeErrorResponse;
+export const HealthGetShallowHealth400 = DecodeErrorResponse;
 export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
 export const HealthGetDeepHealthParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -350,6 +390,8 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
+export type HealthGetDeepHealth400 = DecodeErrorResponse;
+export const HealthGetDeepHealth400 = DecodeErrorResponse;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -411,10 +453,18 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
   }),
 });
+export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
+export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
 export type EventsIngestRequestJson = TelemetryEventsRequest;
 export const EventsIngestRequestJson = TelemetryEventsRequest;
+export type EventsIngest400 = DecodeErrorResponse;
+export const EventsIngest400 = DecodeErrorResponse;
+export type EventsIngest413 = PayloadTooLargeError;
+export const EventsIngest413 = PayloadTooLargeError;
 export type ErrorsIngestRequestJson = TelemetryErrorsRequest;
 export const ErrorsIngestRequestJson = TelemetryErrorsRequest;
+export type ErrorsIngest400 = DecodeErrorResponse;
+export const ErrorsIngest400 = DecodeErrorResponse;
 
 export interface OperationConfig {
   /**
@@ -488,6 +538,12 @@ export const make = (
     <Schema extends Schema.Top>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
       HttpClientResponse.schemaBodyJson(schema)(response);
+  const decodeError =
+    <const Tag extends string, Schema extends Schema.Top>(tag: Tag, schema: Schema) =>
+    (response: HttpClientResponse.HttpClientResponse) =>
+      Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)(response), (cause) =>
+        Effect.fail(TelemetryClientError(tag, cause, response)),
+      );
   return {
     httpClient,
     MetaGet: (options) =>
@@ -495,6 +551,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
+            "400": decodeError("MetaGet400", MetaGet400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -504,6 +561,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
+            "400": decodeError("HealthGetShallowHealth400", HealthGetShallowHealth400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -516,6 +574,7 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
+            "400": decodeError("HealthGetDeepHealth400", HealthGetDeepHealth400),
             orElse: unexpectedStatus,
           }),
         ),
@@ -529,6 +588,10 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetObservabilityVerification200),
+            "400": decodeError(
+              "HealthGetObservabilityVerification400",
+              HealthGetObservabilityVerification400,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -538,6 +601,8 @@ export const make = (
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("EventsIngest400", EventsIngest400),
+            "413": decodeError("EventsIngest413", EventsIngest413),
             "202": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -548,6 +613,7 @@ export const make = (
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
+            "400": decodeError("ErrorsIngest400", ErrorsIngest400),
             "202": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -565,7 +631,9 @@ export interface TelemetryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof MetaGet200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
   >;
   /**
    * Returns pass/fail status. Public, no auth required.
@@ -574,7 +642,9 @@ export interface TelemetryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
   >;
   /**
    * Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.
@@ -588,7 +658,9 @@ export interface TelemetryClient {
       | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
   >;
   /**
    * Exercises observability pipelines and returns correlation identifiers. Requires X-Health-Key header.
@@ -602,7 +674,12 @@ export interface TelemetryClient {
       | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<
+        "HealthGetObservabilityVerification400",
+        typeof HealthGetObservabilityVerification400.Type
+      >
   >;
   /**
    * Accepts a JSON batch of telemetry events. Content-Type must be application/json. Payloads exceeding 64 KB are rejected with 413.
@@ -612,7 +689,10 @@ export interface TelemetryClient {
     readonly config?: Config | undefined;
   }) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
+    | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
   >;
   /**
    * Accepts telemetry error reports as JSON.
@@ -636,7 +716,9 @@ export interface TelemetryClient {
     readonly config?: Config | undefined;
   }) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
   >;
 }
 

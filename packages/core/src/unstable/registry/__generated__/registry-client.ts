@@ -1584,6 +1584,10 @@ export const make = (
       Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)(response), (cause) =>
         Effect.fail(RegistryClientError(tag, cause, response)),
       );
+  const decodeVoidError =
+    <const Tag extends string>(tag: Tag) =>
+    (response: HttpClientResponse.HttpClientResponse) =>
+      Effect.fail(RegistryClientError(tag, undefined, response));
   return {
     httpClient,
     MetaGet: (options) =>
@@ -1742,9 +1746,9 @@ export const make = (
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "200": () => Effect.void,
-            "400": () => Effect.void,
-            "404": () => Effect.void,
-            "500": () => Effect.void,
+            "400": decodeVoidError("400"),
+            "404": decodeVoidError("404"),
+            "500": decodeVoidError("500"),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2209,7 +2213,11 @@ export interface RegistryClient {
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<void, Config>,
-    HttpClientError.HttpClientError | SchemaError
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"400", undefined>
+    | RegistryClientError<"404", undefined>
+    | RegistryClientError<"500", undefined>
   >;
   /**
    * Update extension visibility

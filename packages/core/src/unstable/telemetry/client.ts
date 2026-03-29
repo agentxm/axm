@@ -3,11 +3,11 @@ import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/ServiceMap";
-import * as HttpBody from "effect/unstable/http/HttpBody";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { isCI } from "../cli-flags/index.js";
 import { envWithDefault } from "../utils/index.js";
+import * as GeneratedTelemetryClient from "./__generated__/telemetry-client.js";
 import type { TelemetryMode } from "./mode.js";
 
 export interface TelemetryClientService {
@@ -88,11 +88,15 @@ export const makeTelemetryClient = (
     const distinctId = createHash("sha256").update(os.hostname()).digest("hex");
     const baseUrl = yield* readBaseUrl;
 
+    const client = GeneratedTelemetryClient.make(
+      httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
+    );
+
     const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) => {
       if (options.mode === "errors") return Effect.void;
 
       const now = new Date().toISOString();
-      const body = {
+      const payload = {
         events: [
           {
             event,
@@ -105,20 +109,14 @@ export const makeTelemetryClient = (
         context,
       };
 
-      return fireAndForget(
-        httpClient
-          .execute(
-            HttpClientRequest.post(`${baseUrl}/v1/events`).pipe(
-              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
-            ),
-          )
-          .pipe(Effect.asVoid),
-      ).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
+      return fireAndForget(client.EventsIngest({ payload })).pipe(
+        Effect.withSpan("TelemetryClient.trackEvent"),
+      );
     };
 
     const reportError: TelemetryClientService["reportError"] = (error) => {
       const now = new Date().toISOString();
-      const body = {
+      const payload = {
         errors: [{ message: error.message, name: error.name }],
         level: error.level,
         handled: error.handled,
@@ -129,15 +127,9 @@ export const makeTelemetryClient = (
         context: { ...context, command: error.command || options.command },
       };
 
-      return swallowFailure(
-        httpClient
-          .execute(
-            HttpClientRequest.post(`${baseUrl}/v1/errors`).pipe(
-              HttpClientRequest.setBody(HttpBody.jsonUnsafe(body)),
-            ),
-          )
-          .pipe(Effect.asVoid),
-      ).pipe(Effect.withSpan("TelemetryClient.reportError"));
+      return swallowFailure(client.ErrorsIngest({ payload })).pipe(
+        Effect.withSpan("TelemetryClient.reportError"),
+      );
     };
 
     return { trackEvent, reportError };

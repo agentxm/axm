@@ -11,7 +11,6 @@
  */
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -20,16 +19,9 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
+import { RegistryUrl } from "./registry-url.js";
 import type { TokenSource } from "./schema.js";
 import { refreshStoredToken, resolveRequestToken } from "./token-resolution.js";
-
-// -----------------------------------------------------------------------------
-// RegistryUrl service — configures which URLs are registry URLs
-// -----------------------------------------------------------------------------
-
-export class RegistryUrl extends ServiceMap.Service<RegistryUrl, string>()(
-  "@axm.sh/core/RegistryUrl",
-) {}
 
 // -----------------------------------------------------------------------------
 // AuthMiddleware layer

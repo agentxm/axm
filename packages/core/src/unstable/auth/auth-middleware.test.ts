@@ -15,7 +15,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
-import { makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
+import { makeAuthMiddlewareLive } from "./auth-middleware.js";
+import { RegistryUrl } from "./registry-url.js";
 import { isEnvVarMessageEmitted, resetEnvVarMessageFlag } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
@@ -41,8 +42,11 @@ const makeTestLayers = (
 ) => {
   const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
   const credStoreLayer = CredentialStoreTest("restricted-file", credentialData);
-  const authClientLayer = Layer.provide(AuthClientLive, baseClientLayer);
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const authClientLayer = Layer.provide(
+    AuthClientLive,
+    Layer.mergeAll(baseClientLayer, registryUrlLayer),
+  );
 
   // Auth middleware depends on HttpClient, CredentialStore, AuthClient, RegistryUrl
   const middlewareLayer = Layer.provide(
@@ -251,15 +255,17 @@ describe("AuthMiddleware", () => {
         requestCount++;
         const url = req.url;
 
-        // Refresh endpoint
+        // Refresh endpoint — response must match generated AuthRefreshToken200 schema
         if (url.includes("/v1/auth/token/refresh")) {
           return new Response(
             JSON.stringify({
               access_token: "axm_ses_refreshed",
               refresh_token: "axm_ref_refreshed",
+              token_type: "Bearer",
+              expires_in: 3600,
               expires_at: futureExpiry(),
             }),
-            { status: 200 },
+            { status: 200, headers: { "content-type": "application/json" } },
           );
         }
 
@@ -362,9 +368,11 @@ describe("AuthMiddleware", () => {
             JSON.stringify({
               access_token: "axm_ses_refreshed",
               refresh_token: "axm_ref_refreshed",
+              token_type: "Bearer",
+              expires_in: 3600,
               expires_at: futureExpiry(),
             }),
-            { status: 200 },
+            { status: 200, headers: { "content-type": "application/json" } },
           );
         }
         mainRequestCount++;
@@ -442,7 +450,10 @@ describe("AuthMiddleware", () => {
         },
       });
       const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-      const authClientLayer = Layer.provide(AuthClientLive, baseClientLayer);
+      const authClientLayer = Layer.provide(
+        AuthClientLive,
+        Layer.mergeAll(baseClientLayer, registryUrlLayer),
+      );
 
       const middlewareLayer = Layer.provide(
         makeAuthMiddlewareLive(),

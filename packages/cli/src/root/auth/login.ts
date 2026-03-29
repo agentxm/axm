@@ -56,9 +56,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
-    const meResult = yield* authClient
-      .getMe(registryUrl, existing.value.access_token)
-      .pipe(Effect.option);
+    const meResult = yield* authClient.getMe(existing.value.access_token).pipe(Effect.option);
 
     if (Option.isSome(meResult)) {
       yield* renderer.info(`Already logged in as ${meResult.value.userHandle}.`);

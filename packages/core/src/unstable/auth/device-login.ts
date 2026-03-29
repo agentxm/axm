@@ -74,7 +74,7 @@ const persistLoginCredentials = (registryUrl: string, token: TokenResponse) =>
     const credStore = yield* CredentialStore;
 
     const meResult = yield* authClient
-      .getMe(registryUrl, token.access_token)
+      .getMe(token.access_token)
       .pipe(Effect.retry({ times: 1 }), Effect.option);
     const handle = Option.match(meResult, {
       onNone: () => UNKNOWN_HANDLE,
@@ -115,13 +115,13 @@ export const runDeviceLogin = (registryUrl: string) =>
     const authClient = yield* AuthClient;
     const renderer = yield* CliRenderer;
 
-    const deviceFlow = yield* authClient.initiateDeviceFlow(registryUrl);
+    const deviceFlow = yield* authClient.initiateDeviceFlow();
     const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
 
     yield* presentDeviceFlow(verificationUrl, deviceFlow.user_code);
 
     const token = yield* renderer.withSpinner("Waiting for approval in browser...", () =>
-      authClient.pollDeviceToken(registryUrl, deviceFlow.device_code, deviceFlow.interval),
+      authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
     );
 
     const handle = yield* persistLoginCredentials(registryUrl, token);

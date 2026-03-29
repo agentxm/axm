@@ -65,7 +65,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
   }
 
   // Step 2: Call getMe
-  const me = yield* authClient.getMe(registryUrl, maybeToken.value.token);
+  const me = yield* authClient.getMe(maybeToken.value.token);
   const identity = {
     userId: me.userId,
     userHandle: me.userHandle,

@@ -112,10 +112,7 @@ export const refreshStoredToken = (tokenSource: CredentialStoreTokenSource) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
 
-    const token = yield* authClient.refreshToken(
-      tokenSource.registryUrl,
-      tokenSource.refresh_token,
-    );
+    const token = yield* authClient.refreshToken(tokenSource.refresh_token);
     return yield* persistRefreshedCredentials(tokenSource.registryUrl, token);
   });
 

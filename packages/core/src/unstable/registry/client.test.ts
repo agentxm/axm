@@ -765,7 +765,9 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              extensions: [{ profile: "@test", type: "skill", name: "my-skill" }],
+              extensions: [
+                { profile: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+              ],
             }),
             { status: 200 },
           ),
@@ -777,7 +779,9 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              extensions: [{ profile: "@test", type: "skill", name: "my-skill" }],
+              extensions: [
+                { profile: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+              ],
             }),
             { status: 200 },
           ),
@@ -785,6 +789,10 @@ describe("RemoteRegistryClient", () => {
       }
 
       if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+        // HEAD requests for extensionExists
+        if (request.method === "HEAD") {
+          return HttpClientResponse.fromWeb(request, new Response(null, { status: 200 }));
+        }
         return HttpClientResponse.fromWeb(
           request,
           new Response(
@@ -850,7 +858,19 @@ describe("RemoteRegistryClient", () => {
         Effect.sync(() =>
           HttpClientResponse.fromWeb(
             request,
-            new Response(JSON.stringify({ publish_status: "created" }), { status: 201 }),
+            new Response(
+              JSON.stringify({
+                profile: "@test",
+                type: "skill",
+                name: "my-skill",
+                version: "1.0.0",
+                integrity: "sha512-AAAA==",
+                sha256_hex: "aaaa",
+                published_at: "2025-01-01T00:00:00Z",
+                publish_status: "created",
+              }),
+              { status: 201 },
+            ),
           ),
         ),
       );
@@ -954,7 +974,19 @@ describe("createRegistryClient", () => {
           requestCount += 1;
           return HttpClientResponse.fromWeb(
             request,
-            new Response(JSON.stringify({ published: true }), { status: 201 }),
+            new Response(
+              JSON.stringify({
+                profile: "@test",
+                type: "skill",
+                name: "my-skill",
+                version: "1.0.0",
+                integrity: "sha512-AAAA==",
+                sha256_hex: "aaaa",
+                published_at: "2025-01-01T00:00:00Z",
+                publish_status: "created",
+              }),
+              { status: 201 },
+            ),
           );
         }),
       ),

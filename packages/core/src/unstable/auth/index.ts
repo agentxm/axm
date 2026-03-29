@@ -46,8 +46,11 @@ export {
   resetEnvVarMessageFlag,
 } from "./token-resolution.js";
 
+// Registry URL service
+export { RegistryUrl } from "./registry-url.js";
+
 // Auth middleware
-export { AuthMiddlewareLive, makeAuthMiddlewareLive, RegistryUrl } from "./auth-middleware.js";
+export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";
 
 // Auth client
 export type {
@@ -61,7 +64,6 @@ export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-cli
 
 // OAuth contract
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
-export { decodeTokenResponse, setOAuthFormBody } from "./oauth-contract.js";
 
 // Device login orchestration
 export type {

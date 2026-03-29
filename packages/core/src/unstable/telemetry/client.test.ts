@@ -1,4 +1,5 @@
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -214,8 +215,46 @@ describe("TelemetryClientLive", () => {
     );
   });
 
+  describe("generated client delegation", () => {
+    it.effect("trackEvent delegates to generated EventsIngest via POST /v1/events", () =>
+      Effect.gen(function* () {
+        const mock = makeMockHttpClient();
+        const telemetry = yield* getTelemetry("all", "skills install", mock);
+
+        yield* telemetry.trackEvent("command:start", { command: "skills install" });
+        yield* Effect.yieldNow;
+
+        expect(mock.captured).toHaveLength(1);
+        const req = at(mock.captured, 0);
+        expect(req.url).toBe("https://t.agentxm.ai/v1/events");
+        expect(req.method).toBe("POST");
+      }),
+    );
+
+    it.effect("reportError delegates to generated ErrorsIngest via POST /v1/errors", () =>
+      Effect.gen(function* () {
+        const mock = makeMockHttpClient();
+        const telemetry = yield* getTelemetry("all", "init", mock);
+
+        yield* telemetry.reportError({
+          name: "ERR",
+          message: "msg",
+          level: "error",
+          handled: true,
+          command: "init",
+        });
+        yield* Effect.yieldNow;
+
+        expect(mock.captured).toHaveLength(1);
+        const req = at(mock.captured, 0);
+        expect(req.url).toBe("https://t.agentxm.ai/v1/errors");
+        expect(req.method).toBe("POST");
+      }),
+    );
+  });
+
   describe("API failure resilience", () => {
-    it.effect("silently swallows HTTP failures", () =>
+    it.effect("silently swallows HTTP defects", () =>
       Effect.gen(function* () {
         const failingClient = HttpClient.make(() => Effect.die("network failure"));
         const telemetryLayer = Layer.provide(
@@ -225,6 +264,117 @@ describe("TelemetryClientLive", () => {
             client: { name: "cli", version: "1.2.3" },
           }),
           Layer.succeed(HttpClient.HttpClient, failingClient),
+        );
+        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+
+        yield* telemetry.trackEvent("command:start");
+        yield* telemetry.reportError({
+          name: "ERR",
+          message: "msg",
+          level: "error",
+          handled: true,
+          command: "init",
+        });
+        yield* Effect.yieldNow;
+
+        expect(true).toBe(true);
+      }),
+    );
+
+    it.effect("silently swallows HttpClientError (status code errors)", () =>
+      Effect.gen(function* () {
+        const errorClient = HttpClient.make((request) =>
+          Effect.succeed(
+            HttpClientResponse.fromWeb(request, new Response("Bad Request", { status: 400 })),
+          ),
+        );
+        const telemetryLayer = Layer.provide(
+          TelemetryClientLive({
+            mode: "all",
+            command: "init",
+            client: { name: "cli", version: "1.2.3" },
+          }),
+          Layer.succeed(HttpClient.HttpClient, errorClient),
+        );
+        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+
+        yield* telemetry.trackEvent("command:start");
+        yield* telemetry.reportError({
+          name: "ERR",
+          message: "msg",
+          level: "error",
+          handled: true,
+          command: "init",
+        });
+        yield* Effect.yieldNow;
+
+        expect(true).toBe(true);
+      }),
+    );
+
+    it.effect("silently swallows HttpClientError (transport errors)", () =>
+      Effect.gen(function* () {
+        const transportErrorClient = HttpClient.make((request) =>
+          Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: new HttpClientError.TransportError({
+                request,
+                error: new Error("ECONNREFUSED"),
+              }),
+            }),
+          ),
+        );
+        const telemetryLayer = Layer.provide(
+          TelemetryClientLive({
+            mode: "all",
+            command: "init",
+            client: { name: "cli", version: "1.2.3" },
+          }),
+          Layer.succeed(HttpClient.HttpClient, transportErrorClient),
+        );
+        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+
+        yield* telemetry.trackEvent("command:start");
+        yield* telemetry.reportError({
+          name: "ERR",
+          message: "msg",
+          level: "error",
+          handled: true,
+          command: "init",
+        });
+        yield* Effect.yieldNow;
+
+        expect(true).toBe(true);
+      }),
+    );
+
+    it.effect("silently swallows TelemetryClientError (400 decode error)", () =>
+      Effect.gen(function* () {
+        const error400Client = HttpClient.make((request) =>
+          Effect.succeed(
+            HttpClientResponse.fromWeb(
+              request,
+              new Response(
+                JSON.stringify({
+                  kind: "DecodeErrorResponse",
+                  type: "about:blank",
+                  title: "Bad Request",
+                  status: 400,
+                  detail: "Invalid payload",
+                  code: "validation_error",
+                }),
+                { status: 400, headers: { "content-type": "application/json" } },
+              ),
+            ),
+          ),
+        );
+        const telemetryLayer = Layer.provide(
+          TelemetryClientLive({
+            mode: "all",
+            command: "init",
+            client: { name: "cli", version: "1.2.3" },
+          }),
+          Layer.succeed(HttpClient.HttpClient, error400Client),
         );
         const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
 

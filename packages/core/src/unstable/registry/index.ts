@@ -33,7 +33,24 @@ export { createRegistryClient } from "./client.js";
 export { createLocalRegistryClient } from "./local-client.js";
 
 // Remote client
-export { createRemoteRegistryClient, mapProblemDetailToAppError } from "./remote-client.js";
+export { createRemoteRegistryClient } from "./remote-client.js";
+
+// Error mapping helpers
+export {
+  buildNetworkHowToFix,
+  buildNetworkDiagnosis,
+  isRegistryClientError,
+  isHttpClientError,
+  isSchemaError,
+  mapAuthUnauthenticated,
+  mapAuthUnauthorized,
+  mapNetworkError,
+  mapSchemaError,
+  mapUnexpectedStatusError,
+  getErrorCode,
+  buildErrorDetails,
+  getRetryAfterSeconds,
+} from "./error-mapping.js";
 
 // Utilities
 export {

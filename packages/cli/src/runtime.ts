@@ -72,9 +72,9 @@ const RegistryUrlLayer = Layer.orDie(
 
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
 
-const AuthServicesLayer = Layer.provide(
-  Layer.mergeAll(CredentialStoreLive, AuthClientLive, RegistryUrlLayer),
-  PlatformLayer,
+const AuthServicesLayer = Layer.provideMerge(
+  Layer.mergeAll(CredentialStoreLive, AuthClientLive),
+  Layer.mergeAll(PlatformLayer, RegistryUrlLayer),
 );
 
 const AuthMiddlewareWrappedLayer = Layer.provide(

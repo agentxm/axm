@@ -6,7 +6,7 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
            op.payloadFormData = true;
            requestSchemaNames.set("multipart/form-data", op.payload);
          }
-+        // #1909 / PR #1910: Support form-url-encoded request bodies
++        // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910: Support form-url-encoded request bodies
 +        if (Predicate.isNotUndefined(content["application/x-www-form-urlencoded"]?.schema)) {
 +          op.payload = addSchema(`${schemaId}RequestFormUrlEncoded`, content["application/x-www-form-urlencoded"].schema, op);
 +          op.payloadFormUrlEncoded = true;
@@ -20,7 +20,7 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
          const representable = [];
          let jsonSchemaName;
 -        const jsonResponseSchema = content?.["application/json"]?.schema;
-+        // #1911 / PR #1912: Detect +json types (e.g. application/problem+json)
++        // Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Detect +json types (e.g. application/problem+json)
 +        const jsonResponseEntry = findContentByMediaType(content, isJsonMediaType);
 +        const jsonResponseSchema = jsonResponseEntry?.[1]?.schema;
          if (Predicate.isNotUndefined(jsonResponseSchema)) {
@@ -49,8 +49,8 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
 -          const statusMajorNumber = Number(parsedStatus[0]);
 -          if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
 -            op.binaryResponse = true;
-+        // #1911 / PR #1912: Iterate all content types for binary detection (not just application/octet-stream)
-+        // #1915 / PR #1916: Track binary success statuses for decodeBinary handler in matchStatus
++        // Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Iterate all content types for binary detection (not just application/octet-stream)
++        // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916: Track binary success statuses for decodeBinary handler in matchStatus
 +        if (!op.binaryResponse && Predicate.isNotUndefined(content)) {
 +          for (const [contentType, mediaType] of Object.entries(content)) {
 +            const schema = Predicate.isObject(mediaType) ? mediaType.schema : undefined;
@@ -70,7 +70,7 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
    const items = value.items;
    return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
  };
-+// #1911 / PR #1912: Search content entries by media type predicate
++// Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Search content entries by media type predicate
 +const findContentByMediaType = (content, predicate) => {
 +  if (Predicate.isUndefined(content)) return undefined;
 +  for (const [contentType, mediaType] of Object.entries(content)) {
@@ -83,7 +83,7 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
  const isJsonMediaType = contentType => contentType === "application/json" || contentType.startsWith("application/") && contentType.endsWith("+json");
  const isTextMediaType = contentType => contentType.startsWith("text/");
 -const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
-+// #1911 / PR #1912: Broadened to recognize zip, gzip, pdf, image/*, audio/*, video/*
++// Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Broadened to recognize zip, gzip, pdf, image/*, audio/*, video/*
 +const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType === "application/zip" || contentType === "application/gzip" || contentType === "application/pdf" || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
  const getRequestMediaTypeEncoding = contentType => {
    const normalized = contentType.toLowerCase();
@@ -96,7 +96,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
  const computeImportRequirements = operations => {
    let eventStream = false;
    let octetStream = false;
-+  let binarySuccess = false; // #1915 / PR #1916
++  let binarySuccess = false; // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
    for (const op of operations) {
      if (op.sseSchema) {
        eventStream = true;
@@ -116,7 +116,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
    };
  };
  const requiresStreaming = requirements => requirements.eventStream || requirements.octetStream;
-+// #1913 / PR #1914: Route 4xx/5xx void statuses to error channel
++// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: Route 4xx/5xx void statuses to error channel
 +const hasVoidErrors = operations => operations.some(op => Array.from(op.voidSchemas).some(Utils.isErrorStatus));
  export const makeTransformerSchema = () => {
    const operationsToInterface = (_importName, name, operations) => {
@@ -150,10 +150,10 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      if (requirements.octetStream) {
        helpers.push(binaryRequestSource);
      }
-+    if (requirements.binarySuccess) { // #1915 / PR #1916
++    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
 +      helpers.push(decodeBinarySource);
 +    }
-+    const needsVoidError = hasVoidErrors(operations); // #1913 / PR #1914
++    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
@@ -174,7 +174,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      const payloadVarName = "options.payload";
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(${payloadVarName} as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(${payloadVarName} as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadVarName})`);
@@ -208,7 +208,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
@@ -217,7 +217,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormData(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
@@ -253,10 +253,10 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      if (requirements.octetStream) {
        helpers.push(binaryRequestSourceTs);
      }
-+    if (requirements.binarySuccess) { // #1915 / PR #1916
++    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
 +      helpers.push(decodeBinarySource);
 +    }
-+    const needsVoidError = hasVoidErrors(operations); // #1913 / PR #1914
++    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
@@ -308,7 +308,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      const payloadAccessor = "options.payload";
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(${payloadAccessor} as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(${payloadAccessor} as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadAccessor})`);
@@ -334,7 +334,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
@@ -343,7 +343,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      }
      if (operation.payloadFormData) {
        pipeline.push(`HttpClientRequest.bodyFormDataRecord(options.payload as any)`);
-+    } else if (operation.payloadFormUrlEncoded) { // #1909 / PR #1910
++    } else if (operation.payloadFormUrlEncoded) { // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
 +      pipeline.push(`HttpClientRequest.bodyUrlParams(options.payload as any)`);
      } else if (operation.payload) {
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(options.payload)`);
@@ -352,7 +352,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
        Effect.map((response) => response.stream),
        Stream.unwrap
      )`;
-+// #1915 / PR #1916: Decode binary success responses as Uint8Array
++// Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916: Decode binary success responses as Uint8Array
 +const decodeBinarySource = `const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
 +    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer))`;
  const clientErrorSource = name => `export interface ${name}Error<Tag extends string, E> {
@@ -366,7 +366,7 @@ index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..fce9116333c99e8f2b36c580fc3fce17
    headers: [],
    cookies: [],
    payloadFormData: false,
-+  payloadFormUrlEncoded: false, // #1909 / PR #1910
++  payloadFormUrlEncoded: false, // Effect-TS/effect-smol#1909 / Effect-TS/effect-smol#1910
    pathSchema: undefined,
    querySchema: undefined,
    querySchemaOptional: true,
@@ -376,7 +376,7 @@ index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..fce9116333c99e8f2b36c580fc3fce17
    paramsOptional: true,
 -  binaryResponse: false
 +  binaryResponse: false,
-+  binarySuccessStatuses: new Set() // #1915 / PR #1916
++  binarySuccessStatuses: new Set() // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
  });
  //# sourceMappingURL=ParsedOperation.js.map
 \ No newline at end of file
@@ -388,7 +388,7 @@ index a50c4ce0f563a52f2641a50e77f08ed51c922405..d31b3d35f8e79c5c2e86e1d1c6dc50ef
      destination.push(source[i]);
    }
  };
-+// #1913 / PR #1914: Classify 4xx/5xx as error statuses
++// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: Classify 4xx/5xx as error statuses
 +export const isErrorStatus = status => {
 +  const major = Number(status[0]);
 +  return !Number.isNaN(major) && major >= 4;

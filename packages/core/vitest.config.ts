@@ -7,5 +7,9 @@ export default defineConfig({
   root: projectRoot,
   test: {
     include: ["src/**/*.test.ts"],
+    ...(process.env["CI"] && {
+      reporters: ["default", "junit"],
+      outputFile: { junit: "../../test-results/core/junit.xml" },
+    }),
   },
 });

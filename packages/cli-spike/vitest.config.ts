@@ -7,5 +7,9 @@ export default defineConfig({
   root: projectRoot,
   test: {
     passWithNoTests: true,
+    ...(process.env["CI"] && {
+      reporters: ["default", "junit"],
+      outputFile: { junit: "../../test-results/cli-spike/junit.xml" },
+    }),
   },
 });

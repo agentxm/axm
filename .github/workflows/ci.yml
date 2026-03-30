@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  checks: write
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -31,3 +35,20 @@ jobs:
       - name: Run affected checks
         if: github.event_name == 'pull_request'
         run: pnpm nx affected -t build typecheck test e2e lint format-check
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Report test results
+        uses: mikepenz/action-junit-report@v6
+        if: always()
+        with:
+          report_paths: "test-results/**/junit.xml"
+          check_name: Test Results
+          include_passed: true

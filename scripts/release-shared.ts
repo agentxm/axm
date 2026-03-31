@@ -6,6 +6,12 @@ import * as path from "node:path";
 
 export type BumpType = "patch" | "minor" | "major";
 
+export const RELEASE_PACKAGE_JSON_PATHS = [
+  "packages/utils/package.json",
+  "packages/core/package.json",
+  "packages/cli/package.json",
+] as const;
+
 type GitHubRun = {
   databaseId: number;
   status: string;
@@ -138,16 +144,34 @@ export const requireHeadAtOriginMain = () => {
   }
 };
 
-export const requireMatchingPackageVersions = (): string => {
-  const coreVersion = readPackageVersion("packages/core/package.json");
-  const cliVersion = readPackageVersion("packages/cli/package.json");
+const requireMatchingVersions = (
+  versions: ReadonlyArray<readonly [path: string, version: string]>,
+  source: string,
+): string => {
+  const firstVersion = versions[0]?.[1] ?? fail(`No release packages configured for ${source}.`);
+  const hasMismatch = versions.some(([, version]) => version !== firstVersion);
 
-  if (coreVersion !== cliVersion) {
-    fail(`Version mismatch: core=${coreVersion}, cli=${cliVersion}. Fix before releasing.`);
+  if (hasMismatch) {
+    const details = versions.map(([filePath, version]) => `${filePath}=${version}`).join(", ");
+    fail(`Version mismatch in ${source}: ${details}.`);
   }
 
-  return coreVersion;
+  return firstVersion;
 };
+
+export const requireMatchingReleasePackageVersions = (): string =>
+  requireMatchingVersions(
+    RELEASE_PACKAGE_JSON_PATHS.map((filePath) => [filePath, readPackageVersion(filePath)] as const),
+    "working tree",
+  );
+
+export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
+  requireMatchingVersions(
+    RELEASE_PACKAGE_JSON_PATHS.map(
+      (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
+    ),
+    ref,
+  );
 
 export const requireReleaseCommitMessage = (tag: string) => {
   const subject = git("log", "-1", "--pretty=%s");

@@ -9,16 +9,17 @@
  *   bun scripts/release-prepare.ts minor --dry-run
  */
 
+import { releaseVersion as nxReleaseVersion } from "nx/release/index.js";
+
 import {
   currentHeadSha,
   fetchOriginMain,
   fail,
   parseBumpType,
-  previewVersionBump,
   releaseTagFromVersion,
   requireCleanWorkingTree,
   requireMainBranch,
-  requireMatchingPackageVersions,
+  requireMatchingReleasePackageVersions,
   requireNotBehindOriginMain,
   run,
 } from "./release-shared.js";
@@ -54,7 +55,7 @@ const preflight = () => {
   fetchOriginMain();
   requireNotBehindOriginMain();
 
-  const version = requireMatchingPackageVersions();
+  const version = requireMatchingReleasePackageVersions();
   console.log(`  Branch: main`);
   console.log(`  Current version: ${version}`);
   console.log(`  Bump type: ${bumpType}`);
@@ -68,28 +69,29 @@ const verify = () => {
   run("pnpm", ["verify"]);
 };
 
-const bumpVersions = () => {
-  console.log("\n==> Phase 2: Bump versions");
-  run("pnpm", [
-    "--filter",
-    "@axm.sh/core",
-    "exec",
-    "npm",
-    "version",
-    bumpType,
-    "--no-git-tag-version",
-  ]);
-  run("pnpm", [
-    "--filter",
-    "@axm.sh/cli",
-    "exec",
-    "npm",
-    "version",
-    bumpType,
-    "--no-git-tag-version",
-  ]);
+const requireWorkspaceVersion = (workspaceVersion: string | null | undefined): string =>
+  workspaceVersion ?? fail("Expected Nx Release to produce a fixed workspace version.");
 
-  const version = requireMatchingPackageVersions();
+const bumpVersions = async () => {
+  console.log("\n==> Phase 2: Bump versions");
+  const { workspaceVersion } = await nxReleaseVersion({
+    specifier: bumpType,
+    dryRun,
+    stageChanges: !dryRun,
+    gitCommit: !dryRun,
+    gitCommitMessage: "release: cli-v{version}",
+    gitTag: false,
+    gitPush: false,
+  });
+
+  const version = requireWorkspaceVersion(workspaceVersion);
+  if (!dryRun) {
+    const appliedVersion = requireMatchingReleasePackageVersions();
+    if (appliedVersion !== version) {
+      fail(`Nx Release reported ${version}, but package versions on disk are ${appliedVersion}.`);
+    }
+  }
+
   const tag = releaseTagFromVersion(version);
   console.log(`  Version: ${version}`);
   console.log(`  Tag: ${tag}`);
@@ -97,9 +99,7 @@ const bumpVersions = () => {
 };
 
 const pushReleaseCommit = (tag: string) => {
-  console.log("\n==> Phase 3: Commit and push");
-  run("git", ["add", "packages/core/package.json", "packages/cli/package.json"]);
-  run("git", ["commit", "-m", `release: ${tag}`]);
+  console.log("\n==> Phase 3: Push");
   run("git", ["push", "origin", "main"]);
 
   const sha = currentHeadSha();
@@ -111,20 +111,17 @@ const pushReleaseCommit = (tag: string) => {
   console.log(`  Next: wait for CI on ${sha} to pass, then run pnpm release:publish ${tag}`);
 };
 
-const main = () => {
+const main = async () => {
   preflight();
   verify();
 
+  const { tag } = await bumpVersions();
   if (dryRun) {
-    const version = previewVersionBump(requireMatchingPackageVersions(), bumpType);
-    console.log(
-      `\nDry run complete. Would prepare ${releaseTagFromVersion(version)} (${bumpType}).`,
-    );
+    console.log(`\nDry run complete. Would prepare ${tag} (${bumpType}).`);
     return;
   }
 
-  const { tag } = bumpVersions();
   pushReleaseCommit(tag);
 };
 
-main();
+void main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

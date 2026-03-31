@@ -15,8 +15,8 @@ import {
   RELEASE_REPO,
   releaseCommitOnOriginMain,
   releaseVersionFromTag,
-  readPackageVersionAtRef,
   requireCleanWorkingTree,
+  requireMatchingReleasePackageVersionsAtRef,
   requireNoExistingGitHubRelease,
   requireSuccessfulCiRun,
   run,
@@ -54,14 +54,10 @@ const preflight = () => {
   requireNoExistingGitHubRelease(tag);
 
   const sha = releaseCommitOnOriginMain(tag);
-  const coreVersion = readPackageVersionAtRef(sha, "packages/core/package.json");
-  const cliVersion = readPackageVersionAtRef(sha, "packages/cli/package.json");
-  if (coreVersion !== cliVersion) {
-    fail(`Release commit ${sha} has mismatched versions: core=${coreVersion}, cli=${cliVersion}.`);
-  }
+  const releaseVersion = requireMatchingReleasePackageVersionsAtRef(sha);
 
-  if (cliVersion !== version) {
-    fail(`Release commit ${sha} has version ${cliVersion}, but requested tag is ${tag}.`);
+  if (releaseVersion !== version) {
+    fail(`Release commit ${sha} has version ${releaseVersion}, but requested tag is ${tag}.`);
   }
 
   const ciRun = requireSuccessfulCiRun(sha);

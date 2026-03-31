@@ -48,5 +48,16 @@
       "inputs": ["default", "^production"]
     }
   },
+  "release": {
+    "projects": ["utils", "core", "cli"],
+    "projectsRelationship": "fixed",
+    "releaseTag": {
+      "pattern": "cli-v{version}",
+      "requireSemver": true
+    },
+    "version": {
+      "currentVersionResolver": "disk"
+    }
+  },
   "analytics": false
 }

@@ -57,7 +57,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 
 ## Releasing
 
-Releases are published from GitHub Actions. Local version bumps prepare the manifests; the GitHub Release workflow publishes npm packages, release binaries, and Homebrew updates.
+Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to bump versions locally; the GitHub Release workflow publishes npm packages, release binaries, and Homebrew updates.
 
 ### Versioning
 
@@ -73,23 +73,6 @@ Version source of truth:
 - `packages/cli/package.json`
 
 Those two package versions must always match for a release. The release tag does not define the version; it must match the package manifests.
-
-### Version Bump Helpers
-
-Use the root helper scripts only when you need a manual manifest bump outside the normal release flow:
-
-- `pnpm version:patch`
-- `pnpm version:minor`
-- `pnpm version:major`
-
-These scripts:
-
-- verify `core` and `cli` are currently on the same version
-- bump both manifests with `npm version --no-git-tag-version`
-- do not create a commit
-- do not create a git tag
-- do not publish anything
-- are not the canonical release path; use `pnpm release:prepare` for normal releases
 
 ### Release Flow
 

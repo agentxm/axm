@@ -2,8 +2,8 @@
 
 Testing strategy for this project: unit tests for pure functions, handler tests
 with Effect test layers, and E2E tests for CLI commands. Covers test quality
-principles, when to use each level, and Effect-specific patterns like service
-mocking and layer construction.
+principles, when to use each level, and Effect-specific patterns like injected
+test seams, small fakes, and layer construction.
 
 > [Testing](../../CLAUDE.md#testing) — workflow and quality checklist
 
@@ -40,14 +40,14 @@ test helpers from `packages/e2e-utils/`, and spawn the compiled output from
 `dist/`. These catch build/bundle failures, missing deps, entry point wiring
 issues, and platform-specific problems that unit tests cannot.
 
-| Aspect           | Unit Tests                    | Distribution E2E                 |
-| ---------------- | ----------------------------- | -------------------------------- |
-| **Scope**        | Single function or handler    | Full CLI command                 |
-| **Speed**        | Milliseconds                  | Seconds                          |
-| **Dependencies** | Mocked or test layers         | Real file system, built artifact |
-| **Location**     | Colocated with source         | `packages/<cli>-e2e/`            |
-| **Tests what**   | Logic correctness, edge cases | Build integrity, CLI behavior    |
-| **Runs**         | `pnpm test`                   | `pnpm test:e2e`                  |
+| Aspect           | Unit Tests                            | Distribution E2E                 |
+| ---------------- | ------------------------------------- | -------------------------------- |
+| **Scope**        | Single function or handler            | Full CLI command                 |
+| **Speed**        | Milliseconds                          | Seconds                          |
+| **Dependencies** | Test layers, fakes, or targeted mocks | Real file system, built artifact |
+| **Location**     | Colocated with source                 | `packages/<cli>-e2e/`            |
+| **Tests what**   | Logic correctness, edge cases         | Build integrity, CLI behavior    |
+| **Runs**         | `pnpm test`                           | `pnpm test:e2e`                  |
 
 ---
 
@@ -65,6 +65,10 @@ tests define behavior, implementation follows.
 
 When a change can affect shipped CLI behavior, run both `pnpm test` and
 `pnpm test:e2e`.
+
+Prefer constructor or function seams and Effect test layers over module mocks.
+Use targeted mocks mainly at third-party boundaries where introducing an
+explicit seam would add noise without improving the design.
 
 ---
 
@@ -88,6 +92,14 @@ Desiderata framework helps navigate trade-offs:
   the verbosity
 
 The CLAUDE.md quality checklist provides the full set of properties to evaluate.
+
+Prefer tests that exercise observable behavior over tests that only restate
+static declarations, source layout, or configuration structure. If a rule is
+purely structural, prefer linting or static analysis unless the runtime effect
+is what matters.
+
+For new Effect tests, prefer `@effect/vitest` helpers such as `it.effect`,
+`it.scoped`, and `it.layer` over manual `Effect.runPromise` wiring.
 
 ---
 

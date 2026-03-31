@@ -1,3 +1,13 @@
+## 0.0.42 (2026-03-31)
+
+### 🩹 Fixes
+
+- Metadata-only patch release to validate release workflow. ([29f49642](https://github.com/agentxm/axm/commit/29f49642))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.41 (2026-03-31)
 
 ### 🩹 Fixes

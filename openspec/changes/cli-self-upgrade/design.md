@@ -82,9 +82,9 @@ The self-update flow for `script`-installed binaries:
 
    Any unrecognized platform or architecture is an error — print supported targets and exit
 
-5. Verify the download succeeded (non-zero size, executable on Unix)
-6. Replace the current binary: on Unix, rename the temp file over the current binary (atomic). On Windows, rename the running binary to a `.old` suffix first (Windows allows renaming a running exe but not overwriting it), then rename the new binary into place. The `.old` file is cleaned up on the next successful run. If the rename fails with a permission error, print "Permission denied writing to {path}. Check directory permissions or re-run the install script." and exit
-7. Run `axm --version` on the new binary to verify, print success message
+5. Verify the download succeeded (non-zero size, executable on Unix). The download step uses `Effect.onInterrupt` to delete the temp file if the user interrupts (Ctrl+C) during download
+6. Replace the current binary: on Unix, rename the temp file over the current binary (atomic). On Windows, rename the running binary to a `.old` suffix first (Windows allows renaming a running exe but not overwriting it), then rename the new binary into place. The `.old` file is cleaned up on the next successful run. If the rename fails with a permission error, print "Permission denied writing to {path}. Check directory permissions or re-run the install script." and exit. Note: the rename is the critical section — on Unix it is atomic (single syscall). On Windows, the rename-old → rename-new sequence has a brief window; if interrupted between the two renames, the user can recover by re-running `axm upgrade` or the install script
+7. Run the new binary with `--version` and verify it exits with code 0. Print success message
 8. Update `install-meta.json` with the current timestamp (`installedAt`) to reflect the latest binary placement
 
 **Placing the temp file in the same directory** ensures the rename is atomic (same filesystem). The old binary is not deleted separately — `rename` overwrites it.
@@ -99,7 +99,7 @@ The self-update flow for `script`-installed binaries:
 A lightweight version check runs early in the CLI startup path. It operates in two phases:
 
 1. **Compare (synchronous):** Read `update-check.json`. If the cache exists and contains a `latestVersion` newer than the local version, queue a notification to print to stderr after the command completes. If the cache does not exist (e.g., first run), no notification is shown for this invocation.
-2. **Refresh (fire-and-forget):** If the cache is missing or `checkedAt` is more than 24 hours ago, spawn a non-blocking fiber to fetch the latest version from the GitHub Releases API (using `AXM_INSTALL_GITHUB_REPO` if set) and write the result to the cache file. This fiber does not block command execution. If the request fails or times out (3-second timeout), it is silently ignored and the cache is not updated.
+2. **Refresh (detached fiber):** If the cache is missing or `checkedAt` is more than 24 hours ago, spawn a detached fiber via `Effect.forkDetach` to fetch the latest version from the GitHub Releases API (using `AXM_INSTALL_GITHUB_REPO` if set) and write the result to the cache file. The detached fiber outlives the main command effect, so the process stays alive until the fiber completes or the 3-second network timeout expires. If the request fails or times out, it is silently ignored and the cache is not updated.
 
 This means the first-ever CLI run produces no notification — it only warms the cache. Subsequent runs display the notification based on the cached value.
 
@@ -115,6 +115,7 @@ This means the first-ever CLI run produces no notification — it only warms the
 - `AXM_NO_UPDATE_CHECK=1` environment variable is set
 - The command being run is `axm upgrade` (it will check anyway)
 - Non-interactive mode is active
+- stderr is not a TTY (e.g., output is being captured by a script or CI log)
 
 **Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1.
 

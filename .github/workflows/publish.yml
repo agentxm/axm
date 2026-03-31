@@ -1,5 +1,10 @@
 name: Release
-run-name: Release - ${{ github.event.release.tag_name }}
+run-name: >-
+  ${{
+    github.run_attempt > 1 &&
+    format('Release - {0} - rerun {1}', github.event.release.tag_name, github.run_attempt) ||
+    format('Release - {0}', github.event.release.tag_name)
+  }}
 
 on:
   release:

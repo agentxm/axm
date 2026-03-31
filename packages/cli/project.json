@@ -77,6 +77,17 @@
         "cwd": "packages/cli"
       }
     },
+    "compile": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist/bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts"],
+        "cwd": "packages/cli"
+      }
+    },
     "publish": {
       "cache": false,
       "dependsOn": ["build", "cli-e2e:e2e", "cli-spike-e2e:e2e"],

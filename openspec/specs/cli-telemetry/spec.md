@@ -72,12 +72,12 @@ Environment variables SHALL override the settings file, following a precedence c
 
 ### Requirement: Usage Event Tracking
 
-The system SHALL track CLI command invocations as usage events.
+The system SHALL track CLI command invocations as usage events. HTTP transport SHALL use the generated telemetry client.
 
 #### Scenario: Command event sent on invocation
 
 - **WHEN** a CLI command is invoked and telemetry mode is `"all"`
-- **THEN** the system SHALL send a `POST /events` request to the telemetry API
+- **THEN** the system SHALL send a `POST /v1/events` request to the telemetry API via the generated `EventsIngest` operation
 
 #### Scenario: No usage events in errors-only mode
 
@@ -87,7 +87,7 @@ The system SHALL track CLI command invocations as usage events.
 #### Scenario: Event payload format
 
 - **WHEN** a usage event is sent
-- **THEN** the payload SHALL conform to the `POST /events` schema in `api-1.json`
+- **THEN** the payload SHALL conform to the generated `EventsIngest` request schema
 - **AND** SHALL include `event` name, `distinctId` (hashed hostname), and `timestamp` (ISO-8601)
 - **AND** SHALL include `context` with `client` (name: `cli`, version), `os` (name, version), `runtime` (name: `bun`, version), `device` (arch), and `ci` flag
 
@@ -99,17 +99,17 @@ The system SHALL track CLI command invocations as usage events.
 
 ### Requirement: Error Reporting
 
-The system SHALL report unhandled errors and defects to the telemetry API.
+The system SHALL report unhandled errors and defects to the telemetry API. HTTP transport SHALL use the generated telemetry client.
 
 #### Scenario: AppError reported
 
 - **WHEN** a `AppError` reaches the runtime boundary and telemetry mode is `"all"` or `"errors"`
-- **THEN** the system SHALL send a `POST /errors` request with the error details
+- **THEN** the system SHALL send a `POST /v1/errors` request via the generated `ErrorsIngest` operation
 
 #### Scenario: Defect reported
 
 - **WHEN** an unhandled defect reaches the runtime boundary and telemetry mode is `"all"` or `"errors"`
-- **THEN** the system SHALL send a `POST /errors` request with the defect information
+- **THEN** the system SHALL send a `POST /v1/errors` request via the generated `ErrorsIngest` operation
 
 #### Scenario: No error reports when disabled
 
@@ -141,7 +141,7 @@ The system SHALL report unhandled errors and defects to the telemetry API.
 
 ### Requirement: Fire-and-Forget Delivery
 
-Telemetry SHALL never block CLI execution or cause user-visible failures. Delivery is best-effort.
+Telemetry SHALL never block CLI execution or cause user-visible failures. Delivery is best-effort. `makeTelemetryClient` SHALL wrap generated client calls with `swallowFailure` and `forkDetach`.
 
 #### Scenario: Telemetry API unreachable
 
@@ -160,6 +160,23 @@ Telemetry SHALL never block CLI execution or cause user-visible failures. Delive
 - **WHEN** a command completes in less time than the telemetry HTTP request needs to send
 - **THEN** the telemetry event MAY be lost
 - **AND** this is acceptable behavior for best-effort analytics
+
+### Requirement: Metadata enrichment stays in makeTelemetryClient
+
+The `makeTelemetryClient` function SHALL remain responsible for constructing the rich context object included in every telemetry payload. The generated client SHALL only handle HTTP transport.
+
+#### Scenario: Metadata built before generated client call
+
+- **WHEN** a telemetry event or error report is sent
+- **THEN** `makeTelemetryClient` SHALL build the context (OS, runtime, CI, distinctId, client info)
+- **AND** SHALL pass the fully-enriched payload to the generated client
+- **AND** the generated client SHALL NOT add or modify metadata
+
+#### Scenario: Mode gating applied before generated client call
+
+- **WHEN** the telemetry mode is `"off"` or `"errors"`
+- **THEN** `makeTelemetryClient` SHALL short-circuit before calling the generated client
+- **AND** the generated client SHALL NOT be invoked for suppressed operations
 
 ### Requirement: Anonymous Machine Identifier
 

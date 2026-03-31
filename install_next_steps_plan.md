@@ -2,7 +2,7 @@
 
 Phased plan for standalone binary distribution, cross-platform CI, and Homebrew automation.
 
-**Current state:** npm-only distribution, single-platform CI (Ubuntu), no binary compilation.
+**Current state:** npm distribution plus local standalone binary compilation, single-platform CI (Ubuntu), no CI artifact publishing or release automation yet.
 
 **Target state:** Standalone binaries for 4 platforms, cross-platform E2E, automated Homebrew formula updates.
 
@@ -12,15 +12,15 @@ Phased plan for standalone binary distribution, cross-platform CI, and Homebrew 
 
 Set up `bun build --compile` to produce self-contained executables from the CLI package.
 
-- [ ] 1.1 Add a `compile` target to `packages/cli/project.json` that runs `bun build --compile` against the built JS entry point (`dist/src/main.js`)
-- [ ] 1.2 Produce binaries for all 4 platform/arch targets:
+- [x] 1.1 Add a `compile` target to `packages/cli/project.json` that runs `bun build --compile` against the built JS entry point (`dist/src/main.js`)
+- [x] 1.2 Produce binaries for all 4 platform/arch targets:
   - `axm-darwin-arm64`
   - `axm-darwin-x64`
   - `axm-linux-arm64`
   - `axm-linux-x64`
   - `axm-windows-x64.exe`
-- [ ] 1.3 Verify compiled binaries run `axm --version` and `axm --help` correctly on the local platform
-- [ ] 1.4 Document the compile step in the CLI package README or CLAUDE.md (build prerequisites, output locations)
+- [x] 1.3 Verify compiled binaries run `axm --version` and `axm --help` correctly on the local platform
+- [x] 1.4 Document the compile step in the CLI package README or CLAUDE.md (build prerequisites, output locations)
 
 ---
 
@@ -77,15 +77,29 @@ Automate versioned releases with binary assets and npm publish.
 
 ---
 
-## Phase 4: Homebrew Formula Automation
+## Phase 4: Homebrew Formula Completion & Automation
 
-Automate formula updates after each release.
+Complete the remaining Homebrew formula work, then automate updates after each release.
 
-- [ ] 4.1 Add a post-release CI step that runs `scripts/update-homebrew-formula.sh` to update the homebrew-tap repo
-- [ ] 4.2 Set up a deploy key or PAT secret (`HOMEBREW_TAP_TOKEN`) in the axm repo with push access to `agentxm/homebrew-tap`
-- [ ] 4.3 CI step: clone homebrew-tap, run the update script with the release version, push the commit
-- [ ] 4.4 Verify the updated formula: `brew audit --strict` and `brew install` on a macOS runner (optional but high-confidence)
-- [ ] 4.5 Remove `PLACEHOLDER` SHA256s from the formula once the first real release is published
+### 4a. Complete Outstanding Quickstart-Docs Formula Tasks
+
+- [ ] 4.1 Update the formula in `agentxm/homebrew-tap` to download prebuilt binaries from `github.com/agentxm/axm` releases for:
+  - `axm-darwin-arm64`
+  - `axm-darwin-x64`
+  - `axm-linux-arm64`
+  - `axm-linux-x64`
+- [ ] 4.2 Ensure the formula includes the correct metadata (`name`, description, homepage `https://axm.sh`, license), a `test` block that runs `axm --version`, and supports:
+  - `brew install axm-sh/tap/axm`
+  - explicit `brew tap` + `brew install`
+  - upgrade and uninstall flows
+- [ ] 4.3 Verify the formula with `brew audit --strict` and `brew test` (locally if feasible, otherwise on CI)
+
+### 4b. Automate Formula Updates
+
+- [ ] 4.4 Add a post-release CI step that runs `scripts/update-homebrew-formula.sh` to update the homebrew-tap repo
+- [ ] 4.5 Set up a deploy key or PAT secret (`HOMEBREW_TAP_TOKEN`) in the axm repo with push access to `agentxm/homebrew-tap`
+- [ ] 4.6 CI step: clone homebrew-tap, run the update script with the release version, push the commit
+- [ ] 4.7 Remove `PLACEHOLDER` SHA256s from the formula once the first real release is published
 
 ---
 

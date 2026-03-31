@@ -1,3 +1,13 @@
+## 0.0.39 (2026-03-31)
+
+### 🩹 Fixes
+
+- Fix installer verification on Windows and skip unnecessary local compile steps. ([ff516d6e](https://github.com/agentxm/axm/commit/ff516d6e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.38 (2026-03-31)
 
 ### 🩹 Fixes

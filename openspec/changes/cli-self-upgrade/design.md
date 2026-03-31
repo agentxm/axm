@@ -36,13 +36,13 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 
 **Detection precedence:** Path-based detection runs first against the running binary. The metadata file is only consulted when path detection returns `unknown`. This ensures that a user who installs via one method and later installs via another gets the correct behavior for the binary they are actually running.
 
-| Priority | Signal                                                                  | Inferred method |
-| -------- | ----------------------------------------------------------------------- | --------------- |
-| 1        | `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\`        | `script`        |
-| 2        | Resolved `process.execPath` contains `/Cellar/` (Homebrew install path) | `homebrew`      |
-| 3        | `import.meta.url` resolves inside a `node_modules` path                 | `npm`           |
-| 4        | `install-meta.json` exists and contains a known method                  | value from file |
-| 5        | None of the above                                                       | `unknown`       |
+| Priority | Signal                                                                                                                                                     | Inferred method |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1        | `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\`                                                                                           | `script`        |
+| 2        | `fs.realpath(process.execPath)` contains `/Cellar/` (Homebrew install path; realpath is required because macOS does not resolve symlinks in the exec path) | `homebrew`      |
+| 3        | `import.meta.url` resolves inside a `node_modules` path                                                                                                    | `npm`           |
+| 4        | `install-meta.json` exists and contains a known method                                                                                                     | value from file |
+| 5        | None of the above                                                                                                                                          | `unknown`       |
 
 **Alternatives considered:**
 
@@ -55,7 +55,7 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 | Detected method | `axm upgrade` behavior                                                                           |
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `script`        | Download latest binary from GitHub Releases, verify integrity, atomic-replace the running binary |
-| `homebrew`      | Print `Run: brew upgrade axm-sh/tap/axm` and exit with code 0                                    |
+| `homebrew`      | Print `Run: brew upgrade agentxm/tap/axm` and exit with code 0                                   |
 | `npm`           | Print `Run: npm update -g @axm.sh/cli` and exit with code 0                                      |
 | `unknown`       | Print install script URL as fallback, suggest re-installing                                      |
 
@@ -87,6 +87,47 @@ The self-update flow for `script`-installed binaries:
 7. Run the new binary with `--version` and verify it exits with code 0. Print success message
 8. Update `install-meta.json` with the current timestamp (`installedAt`) to reflect the latest binary placement
 
+**Output sketches** for `axm upgrade` (script installs):
+
+Successful upgrade:
+
+```
+◆  axm upgrade
+│
+●  Upgrading: 0.0.34 → 0.1.0
+◇  Downloading axm-darwin-arm64...
+│
+◆  Upgraded to 0.1.0
+```
+
+Already up to date:
+
+```
+◆  axm upgrade
+│
+●  Already up to date (0.1.0)
+```
+
+Already up to date with `--force`:
+
+```
+◆  axm upgrade --force
+│
+●  Reinstalling 0.1.0
+◇  Downloading axm-darwin-arm64...
+│
+◆  Reinstalled 0.1.0
+```
+
+Delegated installs (homebrew/npm/unknown):
+
+```
+◆  axm upgrade
+│
+●  Installed via Homebrew
+│  Run: brew upgrade agentxm/tap/axm
+```
+
 **Placing the temp file in the same directory** ensures the rename is atomic (same filesystem). The old binary is not deleted separately — `rename` overwrites it.
 
 **Alternatives considered:**
@@ -117,14 +158,21 @@ This means the first-ever CLI run produces no notification — it only warms the
 - Non-interactive mode is active
 - stderr is not a TTY (e.g., output is being captured by a script or CI log)
 
-**Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1.
+**Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1. Rendered using `renderer.warn()` so it appears as a yellow warning with the standard Clack `▲` marker, visually distinct from the command's own output.
 
-| Detected method | Notification                                                            |
-| --------------- | ----------------------------------------------------------------------- |
-| `script`        | `Update available: 0.0.34 → 0.1.0  Run `axm upgrade` to update.`        |
-| `homebrew`      | `Update available: 0.0.34 → 0.1.0  Run `brew upgrade axm-sh/tap/axm`.`  |
-| `npm`           | `Update available: 0.0.34 → 0.1.0  Run `npm update -g @axm.sh/cli`.`    |
-| `unknown`       | `Update available: 0.0.34 → 0.1.0  Run `axm upgrade` for instructions.` |
+```
+▲  Update available: 0.0.34 → 0.1.0
+│  Run: axm upgrade
+```
+
+The second line varies by detected method:
+
+| Detected method | Second line                         |
+| --------------- | ----------------------------------- |
+| `script`        | `Run: axm upgrade`                  |
+| `homebrew`      | `Run: brew upgrade agentxm/tap/axm` |
+| `npm`           | `Run: npm update -g @axm.sh/cli`    |
+| `unknown`       | `Run: axm upgrade`                  |
 
 **Alternatives considered:**
 
@@ -135,23 +183,25 @@ This means the first-ever CLI run produces no notification — it only warms the
 
 ### 5. Command placement and flags
 
-`axm upgrade` is a root-level command in a new "SYSTEM" command group, alongside the existing groups (GETTING STARTED, EXTENSIONS, AUTHENTICATION).
+`axm upgrade` is a root-level command in the "AUTH AND CONFIG" command group (renamed from the existing "AUTHENTICATION" group). The three root-level groups become: GETTING STARTED, EXTENSIONS, AUTH AND CONFIG.
 
 **Flags:**
 
 | Flag      | Description                                                   |
 | --------- | ------------------------------------------------------------- |
 | `--force` | Re-download and replace even if already on the latest version |
-| `--yes`   | Skip the confirmation prompt before replacing the binary      |
 
-These flags apply only when the detected method is `script`. For other methods (`homebrew`, `npm`, `unknown`), if either flag is passed, print a note that the flag has no effect for the detected installation method before showing the delegate message.
+This flag applies only when the detected method is `script`. For other methods (`homebrew`, `npm`, `unknown`), if the flag is passed, print a note that it has no effect for the detected installation method before showing the delegate message.
+
+**No confirmation prompt.** The user explicitly invoked `axm upgrade` — that is the intent signal. The command prints the version transition (e.g., `Upgrading: 0.0.34 → 0.1.0`) and proceeds directly to download. This matches `rustup update`, `deno upgrade`, `bun upgrade`, and every other peer CLI with self-update.
 
 No `--version` flag to pin a target version (non-goal: downgrading/pinning).
 
 **Alternatives considered:**
 
 - (a) `axm self-update` — rejected in favor of the shorter, more common `upgrade`. Matches `brew upgrade`, `pip install --upgrade`.
-- (b) Nested under `axm system upgrade` — rejected as unnecessary nesting for a single command. Can add the `system` group later if more system commands emerge.
+- (b) Nested under `axm system upgrade` — rejected as unnecessary nesting for a single command.
+- (c) New "SYSTEM" command group — rejected because a dedicated group for a single command adds noise to the help output. The AUTH AND CONFIG group is a natural home for operational commands alongside authentication.
 
 ### 6. Service design
 

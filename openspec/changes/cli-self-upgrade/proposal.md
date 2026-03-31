@@ -18,6 +18,7 @@ Users who installed axm via native install scripts (bash, PowerShell, CMD) have 
 
 ### Modified Capabilities
 
+- `cli`: AUTHENTICATION command group renamed to AUTH AND CONFIG to accommodate the upgrade command
 - `install-script-bash`: Install script writes install metadata file after placing the binary
 - `install-script-powershell`: Install script writes install metadata file after placing the binary
 - `install-script-cmd`: Install script writes install metadata file after placing the binary

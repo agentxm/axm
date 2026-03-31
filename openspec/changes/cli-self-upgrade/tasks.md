@@ -57,11 +57,11 @@ Implements the `UpdateCheck` service for cached version checks and notifications
 
 Implements the `axm upgrade` CLI command. Depends on Phases 1–4.
 
-- [ ] 5.1 Write tests for the upgrade handler: self-update flow (download, atomic replace, verify), delegation messages for homebrew/npm/unknown, `--force` override, `--yes` skip confirmation, flags ignored for non-script installs, unsupported platform error, download timeout, permission denied error, interrupted download cleanup
-- [ ] 5.2 Create `packages/cli/src/root/upgrade/` directory with command definition (`upgrade.ts`) — root-level command in SYSTEM group, `--force` and `--yes` flags
+- [ ] 5.1 Write tests for the upgrade handler: self-update flow (download, atomic replace, verify), delegation messages for homebrew/npm/unknown, `--force` override, force flag ignored for non-script installs, unsupported platform error, download timeout, permission denied error, interrupted download cleanup
+- [ ] 5.2 Create `packages/cli/src/root/upgrade/` directory with command definition (`upgrade.ts`) — root-level command in AUTH AND CONFIG group, `--force` flag
 - [ ] 5.3 Implement upgrade handler: detect install method, branch on method (self-update for script, delegate for homebrew/npm/unknown), download platform-appropriate binary, atomic replace, verify with `--version`, update install metadata
 - [ ] 5.4 Verify typecheck passes (`pnpm typecheck`)
-- [ ] 5.5 Wire the upgrade command into the root CLI app (`packages/cli/src/app.ts`) under a SYSTEM command group
+- [ ] 5.5 Wire the upgrade command into the root CLI app (`packages/cli/src/app.ts`) — add to the AUTH AND CONFIG group (rename the existing AUTHENTICATION group) alongside the auth commands
 - [ ] 5.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` — fix any failures
 - [ ] 5.7 Kill any lingering vitest worker processes
 
@@ -98,5 +98,5 @@ Updates the three native install scripts to write `install-meta.json`. No depend
 End-to-end verification across all changes. Depends on all prior phases.
 
 - [ ] 8.1 Run full CI pipeline: `pnpm run ci` — fix any failures
-- [ ] 8.2 Verify `axm upgrade --help` shows correct flags and SYSTEM group placement
+- [ ] 8.2 Verify `axm upgrade --help` shows correct flags and AUTH AND CONFIG group placement
 - [ ] 8.3 Kill any lingering vitest worker processes

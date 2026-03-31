@@ -60,15 +60,10 @@ When the detected method is `script`, the command SHALL download the latest bina
 - **WHEN** the `--force` flag is passed AND the detected method is `script`
 - **THEN** the command SHALL re-download and replace the binary even if the local version matches the latest release
 
-#### Scenario: Confirmation prompt before replace
+#### Scenario: Version transition displayed before download
 
-- **WHEN** the detected method is `script` AND a newer version is available AND `--yes` is not passed
-- **THEN** the command SHALL prompt the user for confirmation before replacing the binary
-
-#### Scenario: Yes flag skips confirmation
-
-- **WHEN** the `--yes` flag is passed AND the detected method is `script`
-- **THEN** the command SHALL skip the confirmation prompt and proceed directly to download
+- **WHEN** the detected method is `script` AND a newer version is available
+- **THEN** the command SHALL print the version transition (e.g., `Upgrading: 0.0.34 → 0.1.0`) and proceed directly to download without prompting
 
 #### Scenario: Local version unknown
 
@@ -82,7 +77,7 @@ When the detected method is `homebrew` or `npm`, the command SHALL print the app
 #### Scenario: Homebrew installation detected
 
 - **WHEN** the detected method is `homebrew`
-- **THEN** the command SHALL print `Run: brew upgrade axm-sh/tap/axm` and exit with code 0
+- **THEN** the command SHALL print `Run: brew upgrade agentxm/tap/axm` and exit with code 0
 
 #### Scenario: npm installation detected
 
@@ -94,9 +89,9 @@ When the detected method is `homebrew` or `npm`, the command SHALL print the app
 - **WHEN** the detected method is `unknown`
 - **THEN** the command SHALL print the install script URL as a fallback and suggest re-installing
 
-#### Scenario: Flags ignored for non-script installs
+#### Scenario: Force flag ignored for non-script installs
 
-- **WHEN** the detected method is `homebrew`, `npm`, or `unknown` AND `--force` or `--yes` is passed
+- **WHEN** the detected method is `homebrew`, `npm`, or `unknown` AND `--force` is passed
 - **THEN** the command SHALL print a note that the flag has no effect for the detected installation method before showing the delegate message
 
 ### Requirement: Self-update downloads platform-appropriate binary
@@ -204,25 +199,20 @@ The command SHALL fetch the latest CLI release version from the GitHub Releases 
 - **WHEN** the `AXM_INSTALL_GITHUB_REPO` environment variable is set
 - **THEN** the command SHALL use that repo for the GitHub Releases API request instead of the default
 
-### Requirement: Upgrade command is in the SYSTEM command group
+### Requirement: Upgrade command is in the AUTH AND CONFIG command group
 
-The `axm upgrade` command SHALL be a root-level command in a "SYSTEM" command group.
+The `axm upgrade` command SHALL be a root-level command in the "AUTH AND CONFIG" command group (the existing AUTHENTICATION group, renamed).
 
 #### Scenario: Command appears in help
 
 - **WHEN** the user runs `axm --help`
-- **THEN** the output SHALL show `upgrade` under a "SYSTEM" group heading
+- **THEN** the output SHALL show `upgrade` under an "AUTH AND CONFIG" group heading
 
 ### Requirement: Upgrade command flags
 
-The command SHALL accept `--force` and `--yes` flags.
+The command SHALL accept a `--force` flag.
 
 #### Scenario: Force flag
 
 - **WHEN** `--force` is passed
 - **THEN** the command SHALL re-download and replace even if already on the latest version (script installs only)
-
-#### Scenario: Yes flag
-
-- **WHEN** `--yes` is passed
-- **THEN** the command SHALL skip the confirmation prompt before replacing the binary (script installs only)

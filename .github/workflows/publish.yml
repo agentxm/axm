@@ -1,4 +1,5 @@
 name: Release
+run-name: Release - ${{ github.event.release.tag_name }}
 
 on:
   release:
@@ -20,24 +21,30 @@ concurrency:
 
 jobs:
   release:
+    name: Publish Release Assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v6.1.0
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v6.1.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - uses: pnpm/action-setup@v5
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
 
-      - uses: oven-sh/setup-bun@v2.0.2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2.0.2
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Resolve release metadata
+      - name: Resolve release tag and commit
         id: release_meta
         run: |
           tag="${{ github.event.release.tag_name }}"
@@ -47,29 +54,29 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Download CI binaries
+      - name: Download release binaries from CI
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/download-ci-binaries.sh "${{ steps.release_meta.outputs.sha }}" release-assets
 
-      - name: Validate release assets
+      - name: Validate release asset set
         run: scripts/validate-release-assets.sh release-assets
 
-      - name: Upload release assets
+      - name: Attach binaries to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
       # Temporary: disable npm publishing while npmjs is unavailable.
       # Keep the step intact so re-enabling it is just removing this guard.
-      - name: Publish npm packages
+      - name: Publish npm packages (disabled)
         if: ${{ false }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
         run: pnpm exec nx release publish --outputStyle=static
 
-      - name: Update Homebrew tap
+      - name: Update Homebrew formula
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
@@ -87,6 +94,7 @@ jobs:
           scripts/update-homebrew-formula.sh "${{ steps.release_meta.outputs.version }}"
 
   install-verify:
+    name: Installer Verification - ${{ matrix.os }} - ${{ matrix.mode }}
     needs: release
     if: ${{ needs.release.result == 'success' }}
     continue-on-error: true
@@ -104,25 +112,30 @@ jobs:
             mode: cmd
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6.0.1
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.1
 
-      - uses: actions/setup-node@v6.1.0
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v6.1.0
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v5
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
 
-      - uses: oven-sh/setup-bun@v2.0.2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2.0.2
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Verify install script
+      - name: Run installer verification
         env:
           AXM_INSTALL_TEST_MODE: ${{ matrix.mode }}
           AXM_INSTALL_BASE_URL: https://github.com/agentxm/axm/releases/latest/download
         run: pnpm exec nx run cli-e2e:install-verification
 
-      - name: Upload install verification results
+      - name: Upload installer verification artifacts
         uses: actions/upload-artifact@v7.0.0
         if: always()
         with:
@@ -132,12 +145,13 @@ jobs:
           retention-days: 14
 
   brew-verify:
+    name: Verify Homebrew Install
     needs: release
     if: ${{ needs.release.result == 'success' }}
     continue-on-error: true
     runs-on: macos-latest
     steps:
-      - name: Clean existing install
+      - name: Remove existing Homebrew install
         run: |
           brew uninstall axm || true
           brew untap agentxm/tap || true
@@ -145,10 +159,10 @@ jobs:
       - name: Install from Homebrew tap
         run: brew install agentxm/tap/axm
 
-      - name: Verify Homebrew install
+      - name: Verify installed axm version
         run: axm --version
 
-      - name: Cleanup Homebrew install
+      - name: Clean up Homebrew install
         if: always()
         run: |
           brew uninstall axm || true

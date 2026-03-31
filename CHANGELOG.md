@@ -1,3 +1,13 @@
+## 0.0.38 (2026-03-31)
+
+### 🩹 Fixes
+
+- Improve release workflow status, gating, and local toolchain setup. ([d18ff954](https://github.com/agentxm/axm/commit/d18ff954))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.37 (2026-03-31)
 
 ### 🩹 Fixes

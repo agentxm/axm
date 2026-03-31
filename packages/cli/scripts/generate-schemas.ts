@@ -8,7 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as JSONSchema from "effect/JSONSchema";
+import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
 import { SkillManifestSchema } from "@axm.sh/core/unstable/skills";
 import { CommandManifestSchema } from "@axm.sh/core/unstable/commands";
@@ -62,7 +62,7 @@ const schemas: SchemaConfig[] = [
 let count = 0;
 
 const toDraft07SchemaFile = (schema: Schema.Top) => {
-  const document = JSONSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
+  const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
 
   return {
     $schema: "http://json-schema.org/draft-07/schema#",

@@ -31,6 +31,15 @@
         "command": ["bun", "scripts/generate-telemetry-client.ts"],
         "cwd": "packages/core"
       }
+    },
+    "publish": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm publish --provenance --access public --no-git-checks",
+        "cwd": "packages/core"
+      }
     }
   }
 }

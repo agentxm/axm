@@ -4,7 +4,11 @@ setlocal
 rem Install script for axm — the extension manager for AI coding agents.
 rem Usage: install.cmd
 
-set "BINARY_URL=https://github.com/agentxm/axm/releases/latest/download/axm-windows-x64.exe"
+if defined AXM_INSTALL_BASE_URL (
+    set "BINARY_URL=%AXM_INSTALL_BASE_URL%/axm-windows-x64.exe"
+) else (
+    set "BINARY_URL=https://github.com/agentxm/axm/releases/latest/download/axm-windows-x64.exe"
+)
 set "INSTALL_DIR=%LOCALAPPDATA%\axm"
 set "INSTALL_PATH=%INSTALL_DIR%\axm.exe"
 

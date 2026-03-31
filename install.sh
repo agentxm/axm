@@ -5,8 +5,8 @@ set -e
 
 INSTALL_DIR="$HOME/.axm/bin"
 BINARY_NAME="axm"
-GITHUB_REPO="agentxm/axm"
-BASE_URL="https://github.com/${GITHUB_REPO}/releases/latest/download"
+GITHUB_REPO="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"
+BASE_URL="${AXM_INSTALL_BASE_URL:-https://github.com/${GITHUB_REPO}/releases/latest/download}"
 
 main() {
   detect_platform

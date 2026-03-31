@@ -18,6 +18,7 @@
 - 2026-03-31: `cli-v0.0.39` failed in CI on `nx format:check` after the release commit had already been pushed, even though the local pre-commit hook passed. The current hook stack does not guarantee that staged TypeScript matches Prettier’s formatting rules before a release commit is cut.
 - 2026-03-31: The `nx format:check` failure output in CI was terse: it only surfaced `packages/cli-e2e/src/install-verification-runner.e2e.test.ts` before exiting. That was enough to locate the issue, but not enough context to distinguish quickly between formatting, lint, or test failure without pulling the full job log.
 - 2026-03-31: This release sequence required multiple follow-up patch releases (`0.0.38` -> `0.0.39` -> `0.0.40` -> `0.0.41`) to repair issues that were only visible after publish-time verification. That is a sign the pre-publish checklist is still weaker than the actual release workflow.
+- 2026-03-31: When `release:prepare` failed inside the `preVersionCommand`, it had already updated package versions, edited `CHANGELOG.md`, and staged deletion of the version plan. Recovering for another attempt required manual git cleanup to restore the pre-release state before any real fix could be committed.
 
 ## Other Application or Build Issues
 
@@ -25,3 +26,4 @@
 - 2026-03-31: `packages/cli-e2e/scripts/run-install-verification.ts` initially failed the pre-commit ESLint project-service check because `packages/cli-e2e/tsconfig.spec.json` only included `src/**/*.ts`. Adding a typed helper under `scripts/` in this package currently requires remembering to extend the package tsconfig include set.
 - 2026-03-31: The first `install-verification` runner fix changed the target from Nx-managed commands to a direct `vitest` invocation. In release CI that bypassed the `utils:build` dependency, so `@axm.sh/utils/unstable/interaction` resolved to a missing `dist` file and installer verification failed before the scripts ran.
 - 2026-03-31: The same runner used `Bun.spawnSync(["pnpm", ...])`, which worked locally on Unix but failed on Windows GitHub runners with `ENOENT` because the executable there is `pnpm.cmd`.
+- 2026-03-31: After rebasing onto the current `origin/main`, the release prepare run failed in `core:test` because `packages/core/src/unstable/agents/coding-agent.test.ts` timed out its `opencode` MCP sync case at 10s under the full parallel CI load, even though the same suite passed in isolation and Nx marked it as flaky.

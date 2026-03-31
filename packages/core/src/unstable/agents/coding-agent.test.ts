@@ -12,6 +12,8 @@ import { geminiCliMcpStrategy, geminiCliCodingAgent } from "./gemini-cli/service
 import { githubCopilotMcpStrategy } from "./github-copilot/service.js";
 import { opencodeMcpStrategy, opencodeCodingAgent } from "./opencode/service.js";
 
+const opencodeMcpSyncTimeoutMs = 20_000;
+
 describe("coding-agent services", () => {
   const TestLayer = NodeServices.layer;
   const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -77,7 +79,7 @@ describe("coding-agent services", () => {
           }
         }),
       ),
-    { timeout: 10_000 },
+    { timeout: opencodeMcpSyncTimeoutMs },
   );
 
   it("defines required agent MCP command/config contracts", () => {

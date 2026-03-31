@@ -2,4 +2,4 @@
 __default__: patch
 ---
 
-Fix installer verification so release validation uses the right Nx dependencies and works on Windows runners.
+Fix release validation by restoring installer verification dependencies and hardening the flaky opencode MCP sync test.

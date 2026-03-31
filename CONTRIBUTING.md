@@ -104,7 +104,7 @@ pnpm release minor --dry-run  # verify only, no version bump or publish
 The script (`scripts/release.ts`) runs all steps end-to-end:
 
 1. **Preflight** — checks you're on `main`, working tree is clean, up to date with remote, and `core`/`cli` versions match.
-2. **Verify** — runs `nx format:check` then `nx run-many -t lint typecheck build test e2e --nxBail` with `NX_TUI=false`.
+2. **Verify** — runs `nx format:check`, then `nx run-many -t lint typecheck build test --nxBail`, then `nx run-many -t e2e --nxBail --parallel=1` with `NX_TUI=false`.
 3. **Bump** — bumps both `core` and `cli` manifests via `npm version --no-git-tag-version`.
 4. **Publish** — commits the version bump, pushes to `origin/main`, and creates a GitHub Release (`cli-v{VERSION}`).
 5. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which publishes npm packages, release binaries, and Homebrew updates.

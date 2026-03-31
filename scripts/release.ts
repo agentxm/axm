@@ -94,7 +94,8 @@ const preflight = () => {
 const verify = () => {
   console.log("\n==> Phase 1: Verify");
   runNx("format:check");
-  runNx("run-many", "-t", "lint", "typecheck", "build", "test", "e2e", "--nxBail");
+  runNx("run-many", "-t", "lint", "typecheck", "build", "test", "--nxBail");
+  runNx("run-many", "-t", "e2e", "--nxBail", "--parallel=1");
 };
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ permissions:
 
 env:
   NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: "static"
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
 
 jobs:
   verify:

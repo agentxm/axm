@@ -9,6 +9,11 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: "static"
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+
 concurrency:
   group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false

@@ -94,7 +94,9 @@ export NX_DEFAULT_OUTPUT_STYLE=static       # Buffer each task's output and prin
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (older Nx fallback for same issue as TUI)
 ```
 
-Do not bake them into checked-in scripts.
+- Agents should export them in their shell before invoking Nx-backed commands.
+- CI may set them in workflow or job `env`.
+- Prefer not to rewrite checked-in repo scripts just to inject them.
 
 ## CLI Conventions
 

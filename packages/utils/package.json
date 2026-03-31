@@ -1,0 +1,25 @@
+{
+  "name": "@axm.sh/utils",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared primitive utilities for axm workspaces",
+  "type": "module",
+  "exports": {
+    "./unstable/env": {
+      "types": "./src/unstable/env/index.ts",
+      "default": "./src/unstable/env/index.ts"
+    },
+    "./unstable/interaction": {
+      "types": "./src/unstable/interaction/index.ts",
+      "default": "./src/unstable/interaction/index.ts"
+    }
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -21,7 +21,7 @@ import {
   requireSuccessfulCiRun,
   run,
   validateReleaseTag,
-} from "./release-shared";
+} from "./release-shared.js";
 
 const args = process.argv.slice(2);
 
@@ -41,11 +41,8 @@ if (positionalArgs.length !== 1) {
   fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
 }
 
-const requestedTag = positionalArgs[0];
-if (requestedTag == null) {
-  fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
-}
-
+const requestedTag =
+  positionalArgs[0] ?? fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
 const tag = validateReleaseTag(requestedTag);
 const version = releaseVersionFromTag(tag);
 

@@ -133,6 +133,7 @@
     "simple-git": "^3.33.0"
   },
   "devDependencies": {
+    "@axm.sh/utils": "workspace:*",
     "@effect/openapi-generator": "4.0.0-beta.42",
     "@effect/vitest": "4.0.0-beta.42",
     "@types/bun": "catalog:",

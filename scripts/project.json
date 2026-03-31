@@ -1,0 +1,44 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "scripts",
+  "projectType": "library",
+  "root": "scripts",
+  "sourceRoot": "scripts",
+  "tags": ["type:lib", "scope:scripts"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,cts,mts,js,jsx,cjs,mjs}"]
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "pnpm exec vitest run --config scripts/vitest.config.ts",
+        "cwd": "."
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default"],
+      "options": {
+        "command": "tsc -p tsconfig.json --noEmit",
+        "cwd": "scripts"
+      }
+    },
+    "verify-e2e-boundaries": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": ["bun", "verify-e2e-boundaries.ts"],
+        "cwd": "scripts"
+      }
+    }
+  }
+}

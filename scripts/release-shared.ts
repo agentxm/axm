@@ -1,5 +1,8 @@
+import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 
 export type BumpType = "patch" | "minor" | "major";
 
@@ -16,11 +19,22 @@ const NX_ENV = {
   NX_DEFAULT_OUTPUT_STYLE: "static",
 };
 
-export const RELEASE_REPO = process.env.GITHUB_REPOSITORY ?? "agentxm/axm";
+const RELEASE_PREVIEW_PACKAGE_NAME = "axm-release-version-preview";
+const RELEASE_TAG_PREFIX = "cli-v";
+const SEMVER_IDENTIFIER_PATTERN = "[0-9A-Za-z-]+";
+const SEMVER_VERSION_REGEX = new RegExp(
+  `^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-(?:${SEMVER_IDENTIFIER_PATTERN})(?:\\.${SEMVER_IDENTIFIER_PATTERN})*)?(?:\\+(?:${SEMVER_IDENTIFIER_PATTERN})(?:\\.${SEMVER_IDENTIFIER_PATTERN})*)?$`,
+);
+
+const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
+  value != null && typeof value === "object";
+
+export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
 
 export const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
+  throw new Error("Unreachable");
 };
 
 export const printCommand = (command: string, args: readonly string[]) => {
@@ -71,13 +85,13 @@ export const runNx = (...args: readonly string[]) =>
 
 const readVersionFromJson = (content: string, source: string): string => {
   const parsed: unknown = JSON.parse(content);
-  if (parsed == null || typeof parsed !== "object") {
-    fail(`Expected ${source} to contain a JSON object.`);
+  if (!isRecord(parsed)) {
+    return fail(`Expected ${source} to contain a JSON object.`);
   }
 
   const version = Reflect.get(parsed, "version");
   if (typeof version !== "string") {
-    fail(`Expected ${source} to contain a string version field.`);
+    return fail(`Expected ${source} to contain a string version field.`);
   }
 
   return version;
@@ -148,32 +162,67 @@ export const parseBumpType = (value: string | undefined): BumpType => {
     return value;
   }
 
-  fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
+  return fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
 };
 
-export const releaseTagFromVersion = (version: string): string => `cli-v${version}`;
-
-export const validateReleaseTag = (tag: string): string => {
-  if (/^cli-v\d+\.\d+\.\d+$/.test(tag)) {
-    return tag;
+export const validateReleaseVersion = (version: string, source: string = version): string => {
+  if (SEMVER_VERSION_REGEX.test(version)) {
+    return version;
   }
 
-  fail(`Release tag must use the cli-vX.Y.Z format (received ${tag}).`);
+  return fail(`Release tag version is not valid semver: ${source}`);
+};
+
+export const releaseTagFromVersion = (version: string): string =>
+  `${RELEASE_TAG_PREFIX}${validateReleaseVersion(version)}`;
+
+export const validateReleaseTag = (tag: string): string => {
+  if (!tag.startsWith(RELEASE_TAG_PREFIX)) {
+    return fail(`Release tag must use the ${RELEASE_TAG_PREFIX}{VERSION} format: ${tag}`);
+  }
+
+  validateReleaseVersion(tag.slice(RELEASE_TAG_PREFIX.length), tag);
+  return tag;
 };
 
 export const releaseVersionFromTag = (tag: string): string =>
-  validateReleaseTag(tag).replace("cli-v", "");
+  validateReleaseVersion(validateReleaseTag(tag).slice(RELEASE_TAG_PREFIX.length), tag);
+
+export const previewVersionBump = (version: string, bumpType: BumpType): string => {
+  const currentVersion = validateReleaseVersion(version);
+  const tempDir = mkdtempSync(path.join(tmpdir(), "axm-release-version-"));
+  const packageJsonPath = path.join(tempDir, "package.json");
+
+  try {
+    writeFileSync(
+      packageJsonPath,
+      JSON.stringify({ name: RELEASE_PREVIEW_PACKAGE_NAME, version: currentVersion }, null, 2),
+    );
+    execFileSync("npm", ["version", bumpType, "--no-git-tag-version"], {
+      cwd: tempDir,
+      env: process.env,
+      stdio: "ignore",
+    });
+    return readPackageVersion(packageJsonPath);
+  } catch (error) {
+    return fail(
+      `Failed to preview ${bumpType} version bump from ${currentVersion}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+};
 
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
 const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed)) {
-    fail("Unexpected gh run list response.");
+    return fail("Unexpected gh run list response.");
   }
 
-  return parsed.flatMap((item) => {
-    if (item == null || typeof item !== "object") {
+  return parsed.flatMap((item: unknown) => {
+    if (!isRecord(item)) {
       return [];
     }
 
@@ -223,20 +272,21 @@ export const requireSuccessfulCiRun = (sha: string): GitHubRun => {
     return successfulRun;
   }
 
-  const latestRun = runs[0];
-  if (latestRun == null) {
+  const latestRun =
+    runs[0] ??
     fail(
       `No CI workflow run found for commit ${sha}. Push the release commit to origin/main first.`,
     );
-  }
 
   if (latestRun.status !== "completed" || latestRun.conclusion == null) {
-    fail(
+    return fail(
       `CI workflow for commit ${sha} has not completed successfully yet. Wait for it to finish: ${latestRun.url}`,
     );
   }
 
-  fail(`CI workflow for commit ${sha} concluded with ${latestRun.conclusion}: ${latestRun.url}`);
+  return fail(
+    `CI workflow for commit ${sha} concluded with ${latestRun.conclusion}: ${latestRun.url}`,
+  );
 };
 
 export const requireNoExistingGitHubRelease = (tag: string) => {
@@ -269,10 +319,5 @@ export const releaseCommitOnOriginMain = (tag: string): string => {
     fail(`Multiple release commits found on origin/main for ${tag}. Resolve the ambiguity first.`);
   }
 
-  const [sha] = matches;
-  if (sha == null) {
-    fail(`No release commit found on origin/main for ${tag}.`);
-  }
-
-  return sha;
+  return matches[0] ?? fail(`No release commit found on origin/main for ${tag}.`);
 };

@@ -28,6 +28,9 @@ importers:
 
   .:
     devDependencies:
+      '@axm.sh/utils':
+        specifier: workspace:*
+        version: link:packages/utils
       '@effect/eslint-plugin':
         specifier: ^0.3.2
         version: 0.3.2
@@ -205,6 +208,9 @@ importers:
         specifier: ^3.33.0
         version: 3.33.0
     devDependencies:
+      '@axm.sh/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@effect/openapi-generator':
         specifier: 4.0.0-beta.42
         version: 4.0.0-beta.42(patch_hash=0dcfdfce05d01215ccc57d5b5e85cee2b1a6da20d48077b799b1cfc69dd6cbcc)(@effect/platform-node@4.0.0-beta.42(effect@4.0.0-beta.42)(ioredis@5.10.1))(effect@4.0.0-beta.42)
@@ -232,10 +238,25 @@ importers:
 
   packages/e2e-utils:
     dependencies:
+      '@axm.sh/utils':
+        specifier: workspace:*
+        version: link:../utils
       execa:
         specifier: ^9.6.1
         version: 9.6.1
     devDependencies:
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.2(@types/node@25.1.0)(vite@8.0.3(@types/node@25.1.0)(esbuild@0.27.2)(yaml@2.8.3))
+
+  packages/utils:
+    devDependencies:
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.11
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
       vitest:
         specifier: 'catalog:'
         version: 4.1.2(@types/node@25.1.0)(vite@8.0.3(@types/node@25.1.0)(esbuild@0.27.2)(yaml@2.8.3))

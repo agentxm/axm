@@ -2,7 +2,7 @@
 
 ### Requirement: Password input collects masked text
 
-The password-input capability SHALL be provided by `Input.password` from `src/input/`. It SHALL accept `message` with optional `mask` and optional `validate`, and return `Effect<string, AppError | PromptCancelled>`.
+The password input prompt SHALL collect masked text from the user. It SHALL display a required message and MAY allow a custom mask character or validation feedback.
 
 #### Scenario: Basic password input
 
@@ -10,7 +10,7 @@ The password-input capability SHALL be provided by `Input.password` from `src/in
 - **AND** the user types `abc123`
 - **THEN** terminal display SHALL show masked characters
 - **WHEN** the user submits
-- **THEN** the effect SHALL succeed with `"abc123"`
+- **THEN** the prompt SHALL return `"abc123"`
 
 #### Scenario: Custom mask character
 
@@ -21,4 +21,4 @@ The password-input capability SHALL be provided by `Input.password` from `src/in
 #### Scenario: Password input cancelled
 
 - **WHEN** the user presses Escape or Ctrl+C during password input
-- **THEN** the effect SHALL fail with `PromptCancelled`
+- **THEN** the prompt SHALL cancel cleanly

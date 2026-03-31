@@ -9,8 +9,7 @@ dist
 .axm/cache/
 .claude/settings.local.json
 .claude/worktrees/
-.nx/cache/
-.nx/workspace-data/
+.nx/
 tmp/
 
 # Test results (JUnit XML reports)

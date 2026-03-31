@@ -14,14 +14,14 @@ import {
   fetchOriginMain,
   fail,
   parseBumpType,
+  previewVersionBump,
   releaseTagFromVersion,
   requireCleanWorkingTree,
   requireMainBranch,
   requireMatchingPackageVersions,
   requireNotBehindOriginMain,
   run,
-  runNx,
-} from "./release-shared";
+} from "./release-shared.js";
 
 const args = process.argv.slice(2);
 
@@ -41,7 +41,10 @@ if (positionalArgs.length !== 1) {
   fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
 }
 
-const bumpType = parseBumpType(positionalArgs[0]);
+const bumpType = parseBumpType(
+  positionalArgs[0] ??
+    fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]"),
+);
 
 const preflight = () => {
   console.log("==> Preflight checks");
@@ -62,9 +65,7 @@ const preflight = () => {
 
 const verify = () => {
   console.log("\n==> Phase 1: Verify");
-  runNx("format:check");
-  runNx("run-many", "-t", "lint", "typecheck", "build", "test", "--nxBail");
-  runNx("run-many", "-t", "e2e", "--nxBail", "--parallel=1");
+  run("pnpm", ["verify"]);
 };
 
 const bumpVersions = () => {
@@ -115,7 +116,7 @@ const main = () => {
   verify();
 
   if (dryRun) {
-    const version = requireMatchingPackageVersions();
+    const version = previewVersionBump(requireMatchingPackageVersions(), bumpType);
     console.log(
       `\nDry run complete. Would prepare ${releaseTagFromVersion(version)} (${bumpType}).`,
     );

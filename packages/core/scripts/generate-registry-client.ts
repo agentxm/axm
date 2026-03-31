@@ -9,6 +9,7 @@
  * `src/unstable/registry/__generated__/registry-client.ts`.
  */
 
+import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as childProcess from "node:child_process";
@@ -19,7 +20,7 @@ const SPEC_PATH = path.join(SPEC_DIR, "registry-openapi.json");
 const OUTPUT_DIR = path.join(ROOT, "src/unstable/registry/__generated__");
 const OUTPUT_PATH = path.join(OUTPUT_DIR, "registry-client.ts");
 const CLIENT_NAME = "RegistryClient";
-const REGISTRY_URL = process.env["AXM_REGISTRY_URL"] ?? "http://localhost:4300";
+const REGISTRY_URL = readEnvWithDefault(process.env, "AXM_REGISTRY_URL", "http://localhost:4300");
 const SPEC_URL = `${REGISTRY_URL.replace(/\/+$/, "")}/v1/openapi.json`;
 
 // --- Fetch spec ---

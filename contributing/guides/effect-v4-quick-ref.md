@@ -1,0 +1,81 @@
+# Effect v4 Quick Reference
+
+Short migration reference for the Effect v4 APIs used in this repo. Use it when
+you encounter older examples, outdated blog posts, or code copied from v3-era
+projects.
+
+> [Effect](../../AGENTS.md#effect) - critical guidance
+>
+> [Effect](../../CLAUDE.md#effect) - duplicate agent copy
+
+## Key Resources
+
+- [Effect Guide](./effect.md) - Main Effect orientation for this repo
+- [Effect Option Guide](./effect-option.md) - Option and nullable boundaries
+- [effect-smol MIGRATION](../../.reference/effect-smol/MIGRATION.md) - Local
+  migration reference
+
+---
+
+## Services
+
+`Context.Tag` became `ServiceMap.Service`.
+
+```typescript
+// v3
+class Database extends Context.Tag("Database")<Database, Shape>() {}
+
+// v4
+class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
+```
+
+---
+
+## Error Catching
+
+| v3                      | v4                   |
+| ----------------------- | -------------------- |
+| `Effect.catchAll`       | `Effect.catch`       |
+| `Effect.catchAllCause`  | `Effect.catchCause`  |
+| `Effect.catchAllDefect` | `Effect.catchDefect` |
+| `Effect.catchSome`      | `Effect.catchFilter` |
+
+---
+
+## Forking and Yieldables
+
+| v3                  | v4                  |
+| ------------------- | ------------------- |
+| `Effect.fork`       | `Effect.forkChild`  |
+| `Effect.forkDaemon` | `Effect.forkDetach` |
+
+`Ref`, `Deferred`, and `Fiber` are no longer yieldable Effects.
+
+```typescript
+const value = yield * Ref.get(myRef);
+yield * Deferred.await(myDeferred);
+const result = yield * Fiber.join(myFiber);
+```
+
+---
+
+## Imports
+
+Platform modules moved into the `effect` package namespace.
+
+```typescript
+// old
+import { FileSystem } from "@effect/platform/FileSystem";
+import { Path } from "@effect/platform/Path";
+
+// v4
+import { FileSystem } from "effect/FileSystem";
+import { Path } from "effect/Path";
+```
+
+---
+
+## See Also
+
+- [Effect Guide](./effect.md) - Service, error, and runtime patterns
+- [TypeScript Style Guide](./typescript-style.md) - Narrowing and assertions

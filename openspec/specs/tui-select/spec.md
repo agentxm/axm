@@ -2,14 +2,14 @@
 
 ### Requirement: Select prompt collects single selection from a list
 
-The select capability SHALL be provided by `Input.select` from `src/input/`. It SHALL accept `message` and `options: ReadonlyArray<InputOption<V>>`, and return `Effect<V, AppError | PromptCancelled>`.
+The select prompt SHALL let the user choose one option from a list. It SHALL display a required message and a navigable list of options.
 
 #### Scenario: Basic select
 
 - **WHEN** a handler calls `input.select({ message: "Template?", options })`
 - **THEN** the prompt SHALL render the message and a navigable option list
 - **WHEN** the user selects the second option and presses Enter
-- **THEN** the effect SHALL succeed with that option's `value`
+- **THEN** the prompt SHALL return that option's value
 
 #### Scenario: Select with hints
 
@@ -19,4 +19,4 @@ The select capability SHALL be provided by `Input.select` from `src/input/`. It 
 #### Scenario: Select cancelled
 
 - **WHEN** the user presses Escape or Ctrl+C during selection
-- **THEN** the effect SHALL fail with `PromptCancelled`
+- **THEN** the prompt SHALL cancel cleanly

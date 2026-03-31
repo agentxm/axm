@@ -70,9 +70,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "scripts": {
-    "prepublishOnly": "nx run cli:build"
-  },
   "nx": {
     "includedScripts": []
   },

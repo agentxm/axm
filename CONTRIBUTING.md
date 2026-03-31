@@ -57,7 +57,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 
 ## Releasing
 
-Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to bump versions locally; the GitHub Release workflow publishes npm packages, release binaries, and Homebrew updates.
+Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to cut a release commit locally; the GitHub Release workflow publishes npm packages, uploads release binaries, and updates Homebrew.
 
 ### Versioning
 
@@ -69,20 +69,30 @@ We follow [semver](https://semver.org/):
 
 Version source of truth:
 
+- pending version plans in `.nx/version-plans/*.md`
+- `packages/utils/package.json`
 - `packages/core/package.json`
 - `packages/cli/package.json`
 
-Those two package versions must always match for a release. The release tag does not define the version; it must match the package manifests.
+Those three package versions must always match for a release. The release tag does not define the version; it must match the package manifests.
 
 ### Release Flow
 
-The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes `@axm.sh/core` and `@axm.sh/cli` to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
+Create or update a version plan in the PR for any releasable change:
+
+```bash
+pnpm release:plan
+```
+
+CI enforces version plans for touched release projects with `pnpm release:plan:check`.
+
+The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes the npm packages through `nx release publish` with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
 Prepare the release commit:
 
 ```bash
-pnpm release:prepare minor            # patch | minor | major
-pnpm release:prepare minor --dry-run  # verify only, no version bump or push
+pnpm release:prepare
+pnpm release:prepare --dry-run
 ```
 
 Publish the GitHub Release after CI succeeds for that commit:
@@ -96,19 +106,20 @@ pnpm release:publish cli-v0.1.0 --dry-run
 
 The safe release flow is:
 
-1. **Preflight** — checks you're on `main`, working tree is clean, up to date with remote, and `core`/`cli` versions match.
-2. **Verify** — runs `pnpm verify`, including the E2E boundary checks in `scripts/`.
-3. **Bump** — bumps both `core` and `cli` manifests via `npm version --no-git-tag-version`.
-4. **Push** — commits the version bump and pushes it to `origin/main` with subject `release: cli-v{VERSION}`.
-5. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
-6. **Publish** — run `pnpm release:publish cli-v{VERSION}` only after CI is green.
-7. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which publishes npm packages, release binaries, and Homebrew updates.
+1. **Plan** — create or update a version plan in the PR with `pnpm release:plan`.
+2. **Preflight** — `pnpm release:prepare` checks you're on `main`, working tree is clean, up to date with remote, and release package versions match.
+3. **Verify** — Nx runs `pnpm verify` via the release `preVersionCommand`.
+4. **Version** — Nx consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, and deletes the consumed plan files.
+5. **Push** — `pnpm release:prepare` commits the release artifacts and pushes them to `origin/main` with subject `release: cli-v{VERSION}`.
+6. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
+7. **Publish** — run `pnpm release:publish cli-v{VERSION}` only after CI is green.
+8. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which uploads binaries, publishes npm packages, and updates Homebrew.
 
 ### Notes
 
 - Release tags must use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
 - If the tag version and package manifest versions do not match, the Release workflow fails fast.
-- Run `gh release create ...` only after the release commit has been pushed and the CI workflow for that commit has completed successfully.
+- Do not create GitHub Releases manually. Use `pnpm release:publish cli-v{VERSION}` after CI is green.
 - Do not publish packages locally as the normal release path; GitHub Actions is the canonical publisher.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in `agentxm/axm`.
 

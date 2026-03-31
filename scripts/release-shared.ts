@@ -1,22 +1,11 @@
 import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import * as path from "node:path";
-
-export type BumpType = "patch" | "minor" | "major";
+import { readFileSync } from "node:fs";
 
 export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/utils/package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
-] as const;
-export const RELEASE_CHANGELOG_PATH = "CHANGELOG.md";
-export const RELEASE_LOCKFILE_PATH = "pnpm-lock.yaml";
-export const RELEASE_COMMIT_PATHS = [
-  ...RELEASE_PACKAGE_JSON_PATHS,
-  RELEASE_LOCKFILE_PATH,
-  RELEASE_CHANGELOG_PATH,
 ] as const;
 
 type GitHubRun = {
@@ -32,7 +21,6 @@ const NX_ENV = {
   NX_DEFAULT_OUTPUT_STYLE: "static",
 };
 
-const RELEASE_PREVIEW_PACKAGE_NAME = "axm-release-version-preview";
 const RELEASE_TAG_PREFIX = "cli-v";
 const SEMVER_IDENTIFIER_PATTERN = "[0-9A-Za-z-]+";
 const SEMVER_VERSION_REGEX = new RegExp(
@@ -188,14 +176,6 @@ export const requireReleaseCommitMessage = (tag: string) => {
   }
 };
 
-export const parseBumpType = (value: string | undefined): BumpType => {
-  if (value === "patch" || value === "minor" || value === "major") {
-    return value;
-  }
-
-  return fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
-};
-
 export const validateReleaseVersion = (version: string, source: string = version): string => {
   if (SEMVER_VERSION_REGEX.test(version)) {
     return version;
@@ -218,31 +198,6 @@ export const validateReleaseTag = (tag: string): string => {
 
 export const releaseVersionFromTag = (tag: string): string =>
   validateReleaseVersion(validateReleaseTag(tag).slice(RELEASE_TAG_PREFIX.length), tag);
-
-export const previewVersionBump = (version: string, bumpType: BumpType): string => {
-  const currentVersion = validateReleaseVersion(version);
-  const tempDir = mkdtempSync(path.join(tmpdir(), "axm-release-version-"));
-  const packageJsonPath = path.join(tempDir, "package.json");
-
-  try {
-    writeFileSync(
-      packageJsonPath,
-      JSON.stringify({ name: RELEASE_PREVIEW_PACKAGE_NAME, version: currentVersion }, null, 2),
-    );
-    execFileSync("npm", ["version", bumpType, "--no-git-tag-version"], {
-      cwd: tempDir,
-      env: process.env,
-      stdio: "ignore",
-    });
-    return readPackageVersion(packageJsonPath);
-  } catch (error) {
-    return fail(
-      `Failed to preview ${bumpType} version bump from ${currentVersion}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  } finally {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
-};
 
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 

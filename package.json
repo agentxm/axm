@@ -25,6 +25,8 @@
     "verify:affected": "nx sync:check && nx format:check && nx affected -t lint typecheck build test e2e --batch --nxBail --outputStyle=static && nx run scripts:verify-e2e-boundaries",
     "prepare": "husky && effect-language-service patch",
     "release": "bun scripts/release-prepare.ts",
+    "release:plan": "nx release plan --only-touched",
+    "release:plan:check": "nx release plan:check",
     "release:prepare": "bun scripts/release-prepare.ts",
     "release:publish": "bun scripts/release-publish.ts",
     "generate": "nx run core:generate-registry-client && nx run core:generate-telemetry-client",

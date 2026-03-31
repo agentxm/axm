@@ -9,20 +9,15 @@
     "build": {
       "cache": true,
       "dependsOn": ["^build"],
-      "executor": "nx:run-commands",
+      "executor": "@nx/js:tsc",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"],
       "options": {
-        "cwd": "packages/core",
-        "parallel": false,
-        "commands": [
-          {
-            "command": "rm -rf dist"
-          },
-          {
-            "command": "pnpm exec tsc --build tsconfig.lib.json --force"
-          }
-        ]
+        "main": "packages/core/src/unstable/app-error/index.ts",
+        "outputPath": "packages/core/dist",
+        "tsConfig": "packages/core/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
       }
     },
     "check-build-outputs": {

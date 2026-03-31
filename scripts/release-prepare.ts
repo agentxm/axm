@@ -9,13 +9,17 @@
  *   bun scripts/release-prepare.ts minor --dry-run
  */
 
-import { releaseVersion as nxReleaseVersion } from "nx/release/index.js";
+import {
+  releaseChangelog as nxReleaseChangelog,
+  releaseVersion as nxReleaseVersion,
+} from "nx/release/index.js";
 
 import {
   currentHeadSha,
   fetchOriginMain,
   fail,
   parseBumpType,
+  RELEASE_COMMIT_PATHS,
   releaseTagFromVersion,
   requireCleanWorkingTree,
   requireMainBranch,
@@ -72,19 +76,31 @@ const verify = () => {
 const requireWorkspaceVersion = (workspaceVersion: string | null | undefined): string =>
   workspaceVersion ?? fail("Expected Nx Release to produce a fixed workspace version.");
 
-const bumpVersions = async () => {
+const prepareReleaseArtifacts = async () => {
   console.log("\n==> Phase 2: Bump versions");
-  const { workspaceVersion } = await nxReleaseVersion({
+  const { workspaceVersion, projectsVersionData, releaseGraph } = await nxReleaseVersion({
     specifier: bumpType,
     dryRun,
-    stageChanges: !dryRun,
-    gitCommit: !dryRun,
-    gitCommitMessage: "release: cli-v{version}",
+    stageChanges: false,
+    gitCommit: false,
     gitTag: false,
     gitPush: false,
   });
 
   const version = requireWorkspaceVersion(workspaceVersion);
+  console.log("\n==> Phase 3: Update changelog");
+  await nxReleaseChangelog({
+    version,
+    versionData: projectsVersionData,
+    releaseGraph,
+    dryRun,
+    createRelease: false,
+    stageChanges: false,
+    gitCommit: false,
+    gitTag: false,
+    gitPush: false,
+  });
+
   if (!dryRun) {
     const appliedVersion = requireMatchingReleasePackageVersions();
     if (appliedVersion !== version) {
@@ -98,8 +114,14 @@ const bumpVersions = async () => {
   return { version, tag };
 };
 
+const commitReleaseArtifacts = (tag: string) => {
+  console.log("\n==> Phase 4: Commit");
+  run("git", ["add", ...RELEASE_COMMIT_PATHS]);
+  run("git", ["commit", "-m", `release: ${tag}`]);
+};
+
 const pushReleaseCommit = (tag: string) => {
-  console.log("\n==> Phase 3: Push");
+  console.log("\n==> Phase 5: Push");
   run("git", ["push", "origin", "main"]);
 
   const sha = currentHeadSha();
@@ -115,12 +137,13 @@ const main = async () => {
   preflight();
   verify();
 
-  const { tag } = await bumpVersions();
+  const { tag } = await prepareReleaseArtifacts();
   if (dryRun) {
     console.log(`\nDry run complete. Would prepare ${tag} (${bumpType}).`);
     return;
   }
 
+  commitReleaseArtifacts(tag);
   pushReleaseCommit(tag);
 };
 

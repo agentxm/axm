@@ -1,2 +1,2 @@
 pnpm exec lint-staged --no-stash
-pnpm nx affected -t typecheck build test
+pnpm nx affected -t typecheck build test --batch

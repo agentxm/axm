@@ -30,6 +30,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Sync check
+        run: pnpm sync:check
+
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5.0.1
 
@@ -69,6 +72,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2.0.2
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Sync check
+        run: pnpm sync:check
 
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5.0.1

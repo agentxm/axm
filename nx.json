@@ -55,6 +55,13 @@
       "pattern": "cli-v{version}",
       "requireSemver": true
     },
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github"
+      },
+      "projectChangelogs": false,
+      "automaticFromRef": true
+    },
     "version": {
       "currentVersionResolver": "disk"
     }

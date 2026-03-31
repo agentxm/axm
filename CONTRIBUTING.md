@@ -36,6 +36,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 | `pnpm lint:fix`        | Lint and auto-fix                        |
 | `pnpm run ci`          | Run the full CI pipeline locally         |
 | `pnpm run ci:affected` | Run CI pipeline for affected packages    |
+| `pnpm release:status`  | Show the latest prepared release status  |
 | `pnpm build:affected`  | Build only packages changed since `main` |
 | `pnpm test:affected`   | Test only packages changed since `main`  |
 | `pnpm lint:affected`   | Lint only packages changed since `main`  |
@@ -107,7 +108,9 @@ The safe release flow is:
 
    Purpose: verify the exact release commit is green before creating the GitHub Release.
 
-   Outcome: the release commit has a successful CI run and the build artifacts for that commit are available for publishing.
+   Outcome: the release commit has a successful CI run, including cross-platform compiled-binary smoke validation on `main`, and the build artifacts for that commit are available for publishing.
+
+   Use `pnpm release:status` to confirm the latest prepared release commit, CI result, tag state, and GitHub release state before publishing.
 
 4. **Publish** — publish the GitHub Release only after CI is green.
 

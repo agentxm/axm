@@ -7,11 +7,29 @@ export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/cli/package.json",
 ] as const;
 
-type GitHubRun = {
+export type GitHubRun = {
   databaseId: number;
   status: string;
   conclusion: string | null;
   url: string;
+};
+
+export type GitHubRelease = {
+  tagName: string;
+  url: string;
+  isDraft: boolean;
+  isPrerelease: boolean;
+  publishedAt: string | null;
+};
+
+export type GitHubReleaseLookup =
+  | { kind: "present"; release: GitHubRelease }
+  | { kind: "absent" }
+  | { kind: "unknown"; error: string };
+
+export type PreparedReleaseCommit = {
+  sha: string;
+  tag: string;
 };
 
 const NX_ENV = {
@@ -200,6 +218,37 @@ export const releaseVersionFromTag = (tag: string): string =>
 
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
+const isValidReleaseTag = (tag: string): boolean =>
+  tag.startsWith(RELEASE_TAG_PREFIX) &&
+  SEMVER_VERSION_REGEX.test(tag.slice(RELEASE_TAG_PREFIX.length));
+
+export const parsePreparedReleaseCommits = (value: string): ReadonlyArray<PreparedReleaseCommit> =>
+  value.split("\n").flatMap((line) => {
+    if (line.length === 0) {
+      return [];
+    }
+
+    const separatorIndex = line.indexOf("\t");
+    if (separatorIndex <= 0) {
+      return [];
+    }
+
+    const sha = line.slice(0, separatorIndex);
+    const subject = line.slice(separatorIndex + 1);
+    const prefix = "release: ";
+
+    if (!subject.startsWith(prefix)) {
+      return [];
+    }
+
+    const tag = subject.slice(prefix.length);
+    if (!isValidReleaseTag(tag)) {
+      return [];
+    }
+
+    return [{ sha, tag }];
+  });
+
 const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed)) {
@@ -229,6 +278,58 @@ const parseGitHubRuns = (value: string): GitHubRun[] => {
   });
 };
 
+const parseGitHubRelease = (value: string): GitHubRelease => {
+  const parsed: unknown = JSON.parse(value);
+  if (!isRecord(parsed)) {
+    return fail("Unexpected gh release view response.");
+  }
+
+  const tagName = Reflect.get(parsed, "tagName");
+  const url = Reflect.get(parsed, "url");
+  const isDraft = Reflect.get(parsed, "isDraft");
+  const isPrerelease = Reflect.get(parsed, "isPrerelease");
+  const publishedAt = Reflect.get(parsed, "publishedAt");
+
+  if (
+    typeof tagName === "string" &&
+    typeof url === "string" &&
+    typeof isDraft === "boolean" &&
+    typeof isPrerelease === "boolean" &&
+    (typeof publishedAt === "string" || publishedAt === null)
+  ) {
+    return { tagName, url, isDraft, isPrerelease, publishedAt };
+  }
+
+  return fail("Unexpected gh release view response.");
+};
+
+const isMissingGitHubReleaseError = (stderr: string): boolean => {
+  const message = stderr.toLowerCase();
+  return (
+    message.includes("release not found") ||
+    message.includes("http 404") ||
+    message.includes("could not find release")
+  );
+};
+
+export const listPreparedReleaseCommitsOnOriginMain = (): ReadonlyArray<PreparedReleaseCommit> => {
+  const output = git(
+    "log",
+    "origin/main",
+    "--format=%H%x09%s",
+    "--perl-regexp",
+    "--grep",
+    `^release: ${escapeRegex(RELEASE_TAG_PREFIX)}.*$`,
+    "-n",
+    "20",
+  );
+
+  return parsePreparedReleaseCommits(output);
+};
+
+export const latestPreparedReleaseCommitOnOriginMain = (): PreparedReleaseCommit | undefined =>
+  listPreparedReleaseCommitsOnOriginMain()[0];
+
 export const listCiRunsForCommit = (sha: string): GitHubRun[] => {
   const output = capture("gh", [
     "run",
@@ -249,6 +350,9 @@ export const listCiRunsForCommit = (sha: string): GitHubRun[] => {
 
   return parseGitHubRuns(output);
 };
+
+export const latestCiRunForCommit = (sha: string): GitHubRun | undefined =>
+  listCiRunsForCommit(sha)[0];
 
 export const requireSuccessfulCiRun = (sha: string): GitHubRun => {
   const runs = listCiRunsForCommit(sha);
@@ -280,6 +384,31 @@ export const requireNoExistingGitHubRelease = (tag: string) => {
     fail(`GitHub release ${tag} already exists.`);
   }
 };
+
+export const lookupGitHubReleaseByTag = (tag: string): GitHubReleaseLookup => {
+  const result = tryCapture("gh", [
+    "release",
+    "view",
+    tag,
+    "--repo",
+    RELEASE_REPO,
+    "--json",
+    "tagName,url,isDraft,isPrerelease,publishedAt",
+  ]);
+
+  if (result.ok) {
+    return { kind: "present", release: parseGitHubRelease(result.stdout) };
+  }
+
+  if (isMissingGitHubReleaseError(result.stderr)) {
+    return { kind: "absent" };
+  }
+
+  return { kind: "unknown", error: result.stderr };
+};
+
+export const remoteTagExists = (tag: string): boolean =>
+  git("ls-remote", "--tags", "origin", `refs/tags/${tag}`).length > 0;
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

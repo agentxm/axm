@@ -60,7 +60,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
+      # Temporary: disable npm publishing while npmjs is unavailable.
+      # Keep the step intact so re-enabling it is just removing this guard.
       - name: Publish npm packages
+        if: ${{ false }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"

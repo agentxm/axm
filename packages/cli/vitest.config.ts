@@ -8,9 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     exclude: ["src/**/*.e2e.test.ts"],
-    ...(process.env["CI"] && {
-      reporters: ["default", "junit"],
-      outputFile: { junit: "../../test-results/cli/junit.xml" },
-    }),
+    reporters: ["default", "junit"],
+    outputFile: { junit: "../../test-results/cli/junit.xml" },
   },
 });

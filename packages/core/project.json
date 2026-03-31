@@ -13,9 +13,11 @@
       }
     },
     "test": {
-      "executor": "@nx/vitest:test",
+      "executor": "nx:run-commands",
+      "cache": true,
       "options": {
-        "configFile": "packages/core/vitest.config.ts"
+        "command": "pnpm exec vitest run",
+        "cwd": "packages/core"
       }
     },
     "generate-registry-client": {

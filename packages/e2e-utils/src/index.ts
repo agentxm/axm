@@ -9,6 +9,13 @@ export {
   parseNdjsonOutput,
 } from "./assertions.js";
 export { copyFixture } from "./fixtures.js";
+export {
+  isAgent,
+  isCI,
+  isHumanInteractive,
+  isInteractive,
+  type InteractionEnvOptions,
+} from "./interaction.js";
 export { createBinaryRunner, createCliRunner, runCommand } from "./runner.js";
 export { createTempDir } from "./temp-dir.js";
 export type { CliResult, RunCliOptions, TempDirContext } from "./types.js";

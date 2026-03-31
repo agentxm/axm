@@ -31,8 +31,7 @@
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.e2e.test.ts",
       "!{projectRoot}/**/*.spec.ts",
-      "!{projectRoot}/vitest.config.ts",
-      "!{projectRoot}/vitest.e2e.config.ts"
+      "!{projectRoot}/vitest*.config.ts"
     ]
   },
   "targetDefaults": {
@@ -43,7 +42,7 @@
       },
       "inputs": ["default", "^production", "{workspaceRoot}/eslint.config.mjs"]
     },
-    "@nx/vitest:test": {
+    "test": {
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["default", "^production"]

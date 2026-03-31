@@ -1,19 +1,12 @@
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { createBinaryRunner, createTempDir, runCommand } from "@axm.sh/e2e-utils";
 import { afterAll, describe, expect, it } from "vitest";
+import { binaryDir, repoRoot, resolveInstallMode } from "./distribution-targets.js";
 
-const installMode = process.env["AXM_INSTALL_TEST_MODE"];
-
-if (installMode !== "bash" && installMode !== "powershell" && installMode !== "cmd") {
-  throw new Error("AXM_INSTALL_TEST_MODE must be one of: bash, powershell, cmd");
-}
-
-const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)), "..");
-const binaryDir = path.join(repoRoot, "packages", "cli", "dist", "bin");
+const installMode = resolveInstallMode();
 
 const artifactNames = new Set([
   "axm-darwin-arm64",

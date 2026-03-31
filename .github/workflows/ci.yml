@@ -9,6 +9,9 @@ permissions:
   checks: write
   contents: read
 
+env:
+  NX_TUI: "false"
+
 jobs:
   validate:
     runs-on: ubuntu-latest

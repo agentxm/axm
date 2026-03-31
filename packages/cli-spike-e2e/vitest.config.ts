@@ -8,9 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.e2e.test.ts"],
     testTimeout: 30000,
-    ...(process.env["CI"] && {
-      reporters: ["default", "junit"],
-      outputFile: { junit: "../../test-results/cli-spike-e2e/junit.xml" },
-    }),
+    reporters: ["default", "junit"],
+    outputFile: { junit: "../../test-results/cli-spike-e2e/junit.xml" },
   },
 });

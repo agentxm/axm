@@ -94,24 +94,20 @@ These scripts:
 
 The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes `@axm.sh/core` and `@axm.sh/cli` to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
-Normal release steps:
+Release using the automated script:
 
 ```bash
-pnpm verify
-pnpm version:minor
-git add packages/core/package.json packages/cli/package.json
-git commit -m "release: cli-v0.2.0"
-git push origin main
-gh release create cli-v0.2.0 --title "cli v0.2.0" --generate-notes
+pnpm release minor            # patch | minor | major
+pnpm release minor --dry-run  # verify only, no version bump or publish
 ```
 
-What happens in that flow:
+The script (`scripts/release.ts`) runs all steps end-to-end:
 
-1. `pnpm version:minor` updates both package manifests locally.
-2. The release commit captures the version bump in git.
-3. `gh release create cli-v0.2.0 ...` creates the `cli-v0.2.0` tag if it does not already exist and publishes a GitHub Release for it.
-4. Publishing that GitHub Release triggers the Release workflow.
-5. The workflow validates that the tag version matches both package manifests, then publishes npm packages, GitHub release assets, and Homebrew updates.
+1. **Preflight** — checks you're on `main`, working tree is clean, up to date with remote, and `core`/`cli` versions match.
+2. **Verify** — runs `nx format:check` then `nx run-many -t lint typecheck build test e2e --nxBail` with `NX_TUI=false`.
+3. **Bump** — bumps both `core` and `cli` manifests via `npm version --no-git-tag-version`.
+4. **Publish** — commits the version bump, pushes to `origin/main`, and creates a GitHub Release (`cli-v{VERSION}`).
+5. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which publishes npm packages, release binaries, and Homebrew updates.
 
 ### Notes
 

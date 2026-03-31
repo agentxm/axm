@@ -8,9 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/install-verification.e2e.test.ts"],
     testTimeout: 60000,
-    ...(process.env["CI"] && {
-      reporters: ["default", "junit"],
-      outputFile: { junit: "../../test-results/cli-e2e-install/junit.xml" },
-    }),
+    reporters: ["default", "junit"],
+    outputFile: { junit: "../../test-results/cli-e2e-install/junit.xml" },
   },
 });

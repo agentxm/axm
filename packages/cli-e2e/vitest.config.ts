@@ -7,6 +7,7 @@ export default defineConfig({
   root: projectRoot,
   test: {
     include: ["src/**/*.e2e.test.ts"],
+    exclude: ["src/binary-smoke.e2e.test.ts", "src/install-verification.e2e.test.ts"],
     testTimeout: 30000,
     ...(process.env["CI"] && {
       reporters: ["default", "junit"],

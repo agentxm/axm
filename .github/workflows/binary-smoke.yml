@@ -79,5 +79,4 @@ jobs:
       - name: Smoke test compiled binary
         env:
           AXM_BINARY_PATH: ${{ github.workspace }}/binaries/${{ matrix.binary_name }}
-        working-directory: packages/cli-e2e
-        run: pnpm exec vitest run --config vitest.binary.config.ts
+        run: pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static

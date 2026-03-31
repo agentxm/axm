@@ -35,6 +35,7 @@
       }
     },
     "generate-registry-client": {
+      "dependsOn": ["utils:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/generate-registry-client.ts"],
@@ -42,6 +43,7 @@
       }
     },
     "generate-telemetry-client": {
+      "dependsOn": ["utils:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/generate-telemetry-client.ts"],

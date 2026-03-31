@@ -16,7 +16,6 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["^build"],
       "inputs": ["default", "^production"],
       "options": {
         "command": "pnpm exec vitest run --config scripts/vitest.config.ts",
@@ -26,7 +25,6 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["^build"],
       "inputs": ["default"],
       "options": {
         "command": "tsc -p tsconfig.json --noEmit",

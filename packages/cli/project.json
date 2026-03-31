@@ -81,7 +81,7 @@
     },
     "compile": {
       "cache": true,
-      "dependsOn": ["build", "^build"],
+      "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist/bin"],
@@ -92,7 +92,7 @@
     },
     "compile-host": {
       "cache": true,
-      "dependsOn": ["build", "^build"],
+      "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist/bin"],
@@ -101,9 +101,14 @@
         "cwd": "packages/cli"
       }
     },
+    "release-verify": {
+      "cache": false,
+      "dependsOn": ["cli-e2e:e2e", "cli-spike-e2e:e2e"],
+      "executor": "nx:noop"
+    },
     "nx-release-publish": {
       "cache": false,
-      "dependsOn": ["build", "cli-e2e:e2e", "cli-spike-e2e:e2e", "^nx-release-publish"],
+      "dependsOn": ["build", "^nx-release-publish"],
       "executor": "@nx/js:release-publish"
     }
   }

@@ -6,17 +6,20 @@ import { fail, RELEASE_REPO, requireSuccessfulCiRun } from "./release-shared.js"
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: bun scripts/download-ci-binaries.ts <commit-sha> <output-dir>");
+  console.log("Usage: pnpm exec nx run scripts:download-ci-binaries -- <commit-sha> <output-dir>");
   process.exit(0);
 }
 
 if (args.length !== 2) {
-  fail("Usage: bun scripts/download-ci-binaries.ts <commit-sha> <output-dir>");
+  fail("Usage: pnpm exec nx run scripts:download-ci-binaries -- <commit-sha> <output-dir>");
 }
 
-const sha = args[0] ?? fail("Usage: bun scripts/download-ci-binaries.ts <commit-sha> <output-dir>");
+const sha =
+  args[0] ??
+  fail("Usage: pnpm exec nx run scripts:download-ci-binaries -- <commit-sha> <output-dir>");
 const outputDir =
-  args[1] ?? fail("Usage: bun scripts/download-ci-binaries.ts <commit-sha> <output-dir>");
+  args[1] ??
+  fail("Usage: pnpm exec nx run scripts:download-ci-binaries -- <commit-sha> <output-dir>");
 const artifactName = `axm-binaries-${sha}`;
 const ciRun = requireSuccessfulCiRun(sha);
 

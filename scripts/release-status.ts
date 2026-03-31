@@ -2,7 +2,7 @@
  * Show the latest prepared release commit on origin/main and whether it is ready to publish.
  *
  * Usage:
- *   bun scripts/release-status.ts
+ *   pnpm release:status
  */
 
 import {
@@ -16,12 +16,12 @@ import {
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: bun scripts/release-status.ts");
+  console.log("Usage: pnpm release:status");
   process.exit(0);
 }
 
 if (args.length > 0) {
-  console.error("Usage: bun scripts/release-status.ts");
+  console.error("Usage: pnpm release:status");
   process.exit(1);
 }
 

@@ -90,16 +90,23 @@ process.exit(1);
 const runReleaseStatus = (fixture: Fixture): string => {
   const { binDir, fixturePath } = createStubBin(fixture);
 
-  return execFileSync("bun", ["scripts/release-status.ts"], {
-    cwd: process.cwd(),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      GITHUB_REPOSITORY: "agentxm/axm",
-      PATH: `${binDir}:${process.env["PATH"] ?? ""}`,
-      RELEASE_STATUS_FIXTURE: fixturePath,
+  return execFileSync(
+    "pnpm",
+    ["exec", "nx", "run", "scripts:release-status", "--outputStyle=stream-without-prefixes"],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GITHUB_REPOSITORY: "agentxm/axm",
+        NX_TUI: "false",
+        NX_DEFAULT_OUTPUT_STYLE: "stream-without-prefixes",
+        NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+        PATH: `${binDir}:${process.env["PATH"] ?? ""}`,
+        RELEASE_STATUS_FIXTURE: fixturePath,
+      },
     },
-  });
+  );
 };
 
 afterEach(() => {

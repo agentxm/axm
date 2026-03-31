@@ -53,21 +53,18 @@ jobs:
 
       - name: Resolve release tag and commit
         id: release_meta
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
-          version="$(scripts/validate-release-tag.sh "$tag")"
-          sha="$(git rev-list -n 1 "$tag")"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          pnpm exec nx run scripts:resolve-release-meta --outputStyle=static
 
       - name: Download release binaries from CI
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/download-ci-binaries.sh "${{ steps.release_meta.outputs.sha }}" release-assets
+        run: pnpm exec nx run scripts:download-ci-binaries --outputStyle=static -- "${{ steps.release_meta.outputs.sha }}" release-assets
 
       - name: Validate release asset set
-        run: scripts/validate-release-assets.sh release-assets
+        run: pnpm exec nx run scripts:validate-release-assets --outputStyle=static -- release-assets
 
       - name: Attach binaries to GitHub release
         env:
@@ -98,7 +95,7 @@ jobs:
             ../homebrew-tap
 
           HOMEBREW_TAP_DIR=../homebrew-tap \
-          scripts/update-homebrew-formula.sh "${{ steps.release_meta.outputs.version }}"
+          pnpm exec nx run scripts:update-homebrew-formula --outputStyle=static -- "${{ steps.release_meta.outputs.version }}"
 
   install-verify:
     name: Installer Verification - ${{ matrix.os }} - ${{ matrix.mode }}

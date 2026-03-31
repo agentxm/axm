@@ -4,12 +4,12 @@ set -euo pipefail
 # Update the Homebrew formula in agentxm/homebrew-tap with new version and SHA256s.
 #
 # Usage:
-#   ./scripts/update-homebrew-formula.sh <version>
+#   pnpm exec nx run scripts:update-homebrew-formula -- <version>
 #
 # Examples:
-#   ./scripts/update-homebrew-formula.sh 0.2.0
-#   HOMEBREW_TAP_DIR=/path/to/homebrew-tap ./scripts/update-homebrew-formula.sh 0.2.0
-#   RELEASE_ASSET_DIR=/path/to/binaries DRY_RUN=1 ./scripts/update-homebrew-formula.sh 0.2.0
+#   pnpm exec nx run scripts:update-homebrew-formula -- 0.2.0
+#   HOMEBREW_TAP_DIR=/path/to/homebrew-tap pnpm exec nx run scripts:update-homebrew-formula -- 0.2.0
+#   RELEASE_ASSET_DIR=/path/to/binaries DRY_RUN=1 pnpm exec nx run scripts:update-homebrew-formula -- 0.2.0
 #
 # Environment:
 #   HOMEBREW_TAP_DIR  — path to local homebrew-tap clone (default: ../homebrew-tap)

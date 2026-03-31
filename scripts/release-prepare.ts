@@ -2,11 +2,11 @@
  * Automated release preparation pipeline: preflight -> version -> changelog -> commit -> push.
  *
  * Usage:
- *   bun scripts/release-prepare.ts [--dry-run]
+ *   pnpm release:prepare -- [--dry-run]
  *
  * Examples:
- *   bun scripts/release-prepare.ts
- *   bun scripts/release-prepare.ts --dry-run
+ *   pnpm release:prepare
+ *   pnpm release:prepare -- --dry-run
  */
 
 import {
@@ -29,7 +29,7 @@ import { run } from "./release-command.js";
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: bun scripts/release-prepare.ts [--dry-run]");
+  console.log("Usage: pnpm release:prepare -- [--dry-run]");
   process.exit(0);
 }
 
@@ -41,7 +41,7 @@ if (unknownFlags.length > 0) {
 
 const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
 if (positionalArgs.length !== 0) {
-  fail("Usage: bun scripts/release-prepare.ts [--dry-run]");
+  fail("Usage: pnpm release:prepare -- [--dry-run]");
 }
 
 const preflight = () => {

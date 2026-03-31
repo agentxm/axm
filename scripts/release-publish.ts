@@ -2,11 +2,11 @@
  * Publish a GitHub release after CI succeeds for the release commit.
  *
  * Usage:
- *   bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]
+ *   pnpm release:publish -- <cli-vX.Y.Z> [--dry-run]
  *
  * Examples:
- *   bun scripts/release-publish.ts cli-v0.1.0
- *   bun scripts/release-publish.ts cli-v0.1.0 --dry-run
+ *   pnpm release:publish -- cli-v0.1.0
+ *   pnpm release:publish -- cli-v0.1.0 --dry-run
  */
 
 import { ReleaseClient } from "nx/release/index.js";
@@ -26,7 +26,7 @@ import {
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
+  console.log("Usage: pnpm release:publish -- <cli-vX.Y.Z> [--dry-run]");
   process.exit(0);
 }
 
@@ -38,11 +38,11 @@ if (unknownFlags.length > 0) {
 
 const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
 if (positionalArgs.length !== 1) {
-  fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
+  fail("Usage: pnpm release:publish -- <cli-vX.Y.Z> [--dry-run]");
 }
 
 const requestedTag =
-  positionalArgs[0] ?? fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
+  positionalArgs[0] ?? fail("Usage: pnpm release:publish -- <cli-vX.Y.Z> [--dry-run]");
 const tag = validateReleaseTag(requestedTag);
 const version = releaseVersionFromTag(tag);
 const releaseClient = new ReleaseClient(

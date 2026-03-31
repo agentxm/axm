@@ -97,7 +97,7 @@ The safe release flow is:
 
    ```bash
    pnpm release:prepare
-   pnpm release:prepare --dry-run
+   pnpm release:prepare -- --dry-run
    ```
 
    Purpose: validate repo state, apply the pending version plan, and cut the release commit from `main`.
@@ -115,8 +115,8 @@ The safe release flow is:
 4. **Publish** — publish the GitHub Release only after CI is green.
 
    ```bash
-   pnpm release:publish cli-v0.1.0
-   pnpm release:publish cli-v0.1.0 --dry-run
+   pnpm release:publish -- cli-v0.1.0
+   pnpm release:publish -- cli-v0.1.0 --dry-run
    ```
 
    Purpose: create the GitHub Release from the validated release commit.

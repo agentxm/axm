@@ -1,3 +1,13 @@
+## 0.0.41 (2026-03-31)
+
+### 🩹 Fixes
+
+- Fix release validation by restoring installer verification dependencies and hardening the flaky opencode MCP sync test. ([9e98cd87](https://github.com/agentxm/axm/commit/9e98cd87))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.40 (2026-03-31)
 
 ### 🩹 Fixes

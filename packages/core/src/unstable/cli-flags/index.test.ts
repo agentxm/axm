@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import {
   debugFlag,
   jsonFlag,
+  quietFlag,
   isNonInteractive,
   nonInteractiveFlag,
   verboseFlag,
@@ -21,6 +22,7 @@ const getFlags = (flags: { nonInteractive: Option.Option<boolean> }) => {
     Layer.succeed(jsonFlag, Option.none()),
     Layer.succeed(verboseFlag, false),
     Layer.succeed(debugFlag, false),
+    Layer.succeed(quietFlag, false),
   );
 
   return Effect.all({
@@ -131,6 +133,14 @@ describe("TestFlagsLayer helper", () => {
         return yield* jsonFlag;
       }).pipe(Effect.provide(TestFlagsLayer({ json: true })));
       expect(Option.getOrElse(json, () => false)).toBe(true);
+    }),
+  );
+
+  it.effect("accepts quiet override", () =>
+    Effect.gen(function* () {
+      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ quiet: true })));
+      expect(v.level).toBe("quiet");
+      expect(v.isAtLeast("normal")).toBe(false);
     }),
   );
 });

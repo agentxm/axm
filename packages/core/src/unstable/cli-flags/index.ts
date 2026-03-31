@@ -11,6 +11,7 @@ import { nonInteractiveFlag } from "./non-interactive.js";
 
 export const jsonFlag = GlobalFlag.setting("axm-json")({
   flag: Flag.boolean("json").pipe(
+    Flag.withAlias("j"),
     Flag.withDescription("Output machine-readable JSON"),
     Flag.optional,
   ),
@@ -80,6 +81,7 @@ import { makeVerbosityLayer, type VerbosityLevel } from "./verbosity.js";
 export const TestFlagsLayer = (overrides?: {
   verbose?: boolean;
   debug?: boolean;
+  quiet?: boolean;
   nonInteractive?: boolean;
   json?: boolean;
 }) => {
@@ -87,7 +89,9 @@ export const TestFlagsLayer = (overrides?: {
     ? "debug"
     : overrides?.verbose
       ? "verbose"
-      : "normal";
+      : overrides?.quiet
+        ? "quiet"
+        : "normal";
   return Layer.mergeAll(
     makeVerbosityLayer(level),
     Layer.succeed(
@@ -100,5 +104,6 @@ export const TestFlagsLayer = (overrides?: {
       jsonFlag,
       overrides?.json === undefined ? Option.none() : Option.some(overrides.json),
     ),
+    Layer.succeed(quietFlag, overrides?.quiet ?? false),
   );
 };

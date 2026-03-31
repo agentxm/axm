@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { jsonFlag, debugFlag, verboseFlag } from "../cli-flags/index.js";
+import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
@@ -95,11 +95,18 @@ export const makeFoundationLayer = (
         Effect.gen(function* () {
           const flagDebug = yield* debugFlag;
           const flagVerbose = yield* verboseFlag;
+          const flagQuiet = yield* quietFlag;
           const envDebug = options?.envDebug ?? false;
           const envVerbose = options?.envVerbose ?? false;
 
           const level: VerbosityLevel =
-            flagDebug || envDebug ? "debug" : flagVerbose || envVerbose ? "verbose" : "normal";
+            flagDebug || envDebug
+              ? "debug"
+              : flagVerbose || envVerbose
+                ? "verbose"
+                : flagQuiet
+                  ? "quiet"
+                  : "normal";
 
           return makeVerbosityLayer(level);
         }),

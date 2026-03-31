@@ -21,6 +21,7 @@ import {
   jsonFlag,
   verboseFlag,
   debugFlag,
+  quietFlag,
 } from "@axm.sh/core/unstable/cli-flags";
 import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { PackManagerLive } from "@axm.sh/core/unstable/packs";
@@ -51,7 +52,13 @@ import { loadVersion } from "./version.js";
 
 export { verboseFlag, debugFlag };
 
-export const axmGlobalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, jsonFlag] as const;
+export const axmGlobalFlags = [
+  nonInteractiveFlag,
+  verboseFlag,
+  debugFlag,
+  quietFlag,
+  jsonFlag,
+] as const;
 
 // -- Base layer: platform, auth, logging --
 const RegistryUrlLayer = Layer.orDie(

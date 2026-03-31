@@ -15,6 +15,7 @@ import {
   jsonFlag,
   verboseFlag,
   debugFlag,
+  quietFlag,
 } from "@axm.sh/core/unstable/cli-flags";
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
@@ -24,7 +25,7 @@ import { telemetryCommand } from "./root/telemetry/command.js";
 import { outputsCommand } from "./root/outputs/command.js";
 import { promptsCommand } from "./root/prompts/command.js";
 
-const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, jsonFlag] as const;
+const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, quietFlag, jsonFlag] as const;
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Effect v4 CLI spike — proving out idiomatic command/flag patterns."),

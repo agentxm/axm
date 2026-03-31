@@ -60,7 +60,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withGlobalFlags(axmGlobalFlags),
 );
 
-const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean => args.includes("--json");
+const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
+  args.includes("--json") || args.includes("-j");
 
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(

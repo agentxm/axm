@@ -9,6 +9,7 @@ import {
   jsonFlag,
   verboseFlag,
   debugFlag,
+  quietFlag,
 } from "../cli-flags/index.js";
 
 // ---------------------------------------------------------------------------
@@ -64,12 +65,14 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
   const json = yield* jsonFlag;
   const verbose = yield* verboseFlag;
   const debug = yield* debugFlag;
+  const quiet = yield* quietFlag;
 
   return {
     "cli.global.non_interactive": String(Option.getOrElse(nonInteractive, () => false)),
     "cli.global.json": String(Option.getOrElse(json, () => false)),
     "cli.global.verbose": String(verbose),
     "cli.global.debug": String(debug),
+    "cli.global.quiet": String(quiet),
   };
 });
 

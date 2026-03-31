@@ -64,9 +64,11 @@
       }
     },
     "test": {
-      "executor": "@nx/vitest:test",
+      "executor": "nx:run-commands",
+      "cache": true,
       "options": {
-        "configFile": "packages/cli/vitest.config.ts"
+        "command": "pnpm exec vitest run",
+        "cwd": "packages/cli"
       }
     },
     "generate-schemas": {

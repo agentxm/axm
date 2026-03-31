@@ -6,9 +6,8 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   root: projectRoot,
   test: {
-    include: ["src/binary-smoke.e2e.test.ts"],
-    testTimeout: 30000,
+    include: ["src/**/*.test.ts"],
     reporters: ["default", "junit"],
-    outputFile: { junit: "../../test-results/cli-e2e-binary/junit.xml" },
+    outputFile: { junit: "../../test-results/e2e-utils/junit.xml" },
   },
 });

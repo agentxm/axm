@@ -1,11 +1,9 @@
 import { createBinaryRunner, createTempDir } from "@axm.sh/e2e-utils";
 import { describe, expect, it } from "vitest";
 
-const binaryPath = process.env["AXM_BINARY_PATH"];
+import { resolveBinaryPath } from "./distribution-targets.js";
 
-if (binaryPath === undefined || binaryPath.length === 0) {
-  throw new Error("AXM_BINARY_PATH is required for binary smoke tests");
-}
+const binaryPath = resolveBinaryPath();
 
 const runBinary = createBinaryRunner(binaryPath);
 

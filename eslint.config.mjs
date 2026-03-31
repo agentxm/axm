@@ -17,6 +17,7 @@ export default [
       "**/vite.config.*.timestamp*",
       "**/vitest.config.*.timestamp*",
       "**/__generated__/**",
+      "scripts/**",
     ],
   },
   {
@@ -56,6 +57,7 @@ export default [
       "**/src/config.ts",
       "**/src/runtime.ts",
       "**/e2e/**",
+      "**/*-e2e/**",
     ],
     rules: {
       "no-restricted-properties": [
@@ -126,9 +128,9 @@ export default [
       "@typescript-eslint/consistent-type-assertions": "off",
     },
   },
-  // Root config files are not part of any tsconfig project — disable type-aware linting
+  // Config files are not part of any tsconfig project — disable type-aware linting
   {
-    files: ["vitest.config.ts"],
+    files: ["vitest.config.ts", "**/vitest*.config.ts"],
     languageOptions: {
       parserOptions: {
         projectService: false,

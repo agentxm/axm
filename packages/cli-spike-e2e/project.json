@@ -8,9 +8,10 @@
   "targets": {
     "e2e": {
       "dependsOn": ["cli-spike:build"],
-      "executor": "@nx/vitest:test",
+      "executor": "nx:run-commands",
       "options": {
-        "configFile": "packages/cli-spike-e2e/vitest.config.ts"
+        "command": "pnpm exec vitest run",
+        "cwd": "packages/cli-spike-e2e"
       }
     }
   }

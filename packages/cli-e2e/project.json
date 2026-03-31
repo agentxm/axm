@@ -6,23 +6,49 @@
   "sourceRoot": "packages/cli-e2e/src",
   "tags": ["type:e2e", "scope:cli"],
   "targets": {
-    "e2e": {
+    "e2e-main": {
       "dependsOn": ["cli:build"],
-      "executor": "@nx/vitest:test",
+      "executor": "nx:run-commands",
       "options": {
-        "configFile": "packages/cli-e2e/vitest.config.ts"
+        "command": "pnpm exec vitest run",
+        "cwd": "packages/cli-e2e"
+      }
+    },
+    "e2e": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "parallel": false,
+        "commands": [
+          {
+            "command": "pnpm exec nx run cli-e2e:e2e-main",
+            "forwardAllArgs": true
+          },
+          {
+            "command": "pnpm exec nx run cli-e2e:binary-smoke",
+            "forwardAllArgs": true
+          },
+          {
+            "command": "pnpm exec nx run cli-e2e:install-verification",
+            "forwardAllArgs": true
+          }
+        ]
       }
     },
     "binary-smoke": {
-      "executor": "@nx/vitest:test",
+      "dependsOn": ["cli:compile"],
+      "executor": "nx:run-commands",
       "options": {
-        "configFile": "packages/cli-e2e/vitest.binary.config.ts"
+        "command": "pnpm exec vitest run --config vitest.binary.config.ts",
+        "cwd": "packages/cli-e2e"
       }
     },
     "install-verification": {
-      "executor": "@nx/vitest:test",
+      "dependsOn": ["cli:compile"],
+      "executor": "nx:run-commands",
       "options": {
-        "configFile": "packages/cli-e2e/vitest.install.config.ts"
+        "command": "pnpm exec vitest run --config vitest.install.config.ts",
+        "cwd": "packages/cli-e2e"
       }
     }
   }

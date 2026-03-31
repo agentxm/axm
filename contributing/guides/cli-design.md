@@ -16,9 +16,11 @@ are thin clients.
 > [Handlers](../../CLAUDE.md#handlers) — critical guidance
 >
 > **Current output contract:** use global `--json` for explicit machine-readable
-> output. `--output-format` and `stream-json` were removed. Any lingering
-> references below are historical and should be read as `--json` plus NDJSON
-> diagnostics on stderr.
+> output. `--output-format` and `stream-json` were removed. Under Effect CLI's
+> public APIs, `--json` is guaranteed for command results plus explicit
+> `--help` / `--version`, while parse and usage failures remain human-oriented
+> diagnostics on stderr. Any lingering references below are historical and
+> should be read as `--json` plus NDJSON diagnostics on stderr.
 
 ## Key Resources
 
@@ -253,6 +255,12 @@ machine consumption from day one.
 
 **Auto-detection:** When `--json` is not specified, default based on TTY. If
 stdout/stderr is a TTY → `text`. If both are non-TTY → `json`.
+
+**Built-in help/version:** If the user explicitly passes `--json`, the
+formatter should also make built-in `--help` and `--version` machine-readable.
+Do not try to force parse/usage failures into a single stdout JSON envelope
+without replacing `Command.runWith()`; with Effect CLI's public APIs those
+failures should stay human-oriented on stderr.
 
 ```typescript
 const resolveOutputMode = (explicitJson: Option.Option<boolean>): "text" | "json" =>

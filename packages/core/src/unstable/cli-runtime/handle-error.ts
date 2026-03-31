@@ -22,7 +22,7 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
 
   if (CliError.isCliError(error)) {
     // ShowHelp is control flow, not an error.
-    // The framework already printed help text before this point.
+    // The framework already printed help output before this point.
     // Exit 0 for clean help, 1 if help was triggered by validation errors.
     if (error._tag === "ShowHelp") {
       process.exit(error.errors.length > 0 ? 1 : 0);

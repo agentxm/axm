@@ -1,8 +1,9 @@
 /**
  * E2E tests for structured output via global --json.
  *
- * Machine-readable results stay on stdout while renderer chrome is emitted as
- * NDJSON events on stderr.
+ * Explicit --json makes command results and built-in help/version output
+ * machine-readable on stdout, while renderer chrome stays on stderr as NDJSON.
+ * Parse and usage failures still report human diagnostics on stderr.
  */
 
 import { describe, expect, it } from "vitest";
@@ -13,6 +14,8 @@ const getJsonLines = (output: string): ReadonlyArray<string> =>
     .trim()
     .split("\n")
     .filter((line) => line.startsWith("{"));
+
+const parseJson = (output: string): Record<string, unknown> => JSON.parse(output);
 
 describe("structured output (--json)", () => {
   it("routes CliRenderer messages to NDJSON log events on stderr", async () => {
@@ -52,10 +55,30 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout)).toEqual({ token: "test-json-token" });
+      expect(parseJson(result.stdout)).toEqual({ token: "test-json-token" });
     } finally {
       temp.cleanup();
     }
+  });
+
+  it("formats built-in --help as JSON when explicitly requested", async () => {
+    const result = await runCli(["--help", "--json"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(parseJson(result.stdout)).toMatchObject({
+      type: "help",
+      usage: "axm <subcommand> [flags]",
+    });
+  });
+
+  it("formats built-in --version as JSON when explicitly requested", async () => {
+    const result = await runCli(["--version", "--json"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(parseJson(result.stdout)).toMatchObject({
+      type: "version",
+      name: "axm",
+    });
   });
 
   describe("error routing", () => {
@@ -68,7 +91,7 @@ describe("structured output (--json)", () => {
         });
 
         expect(result.exitCode).toBe(1);
-        expect(JSON.parse(result.stdout)).toMatchObject({
+        expect(parseJson(result.stdout)).toMatchObject({
           type: "error",
           code: "AUTH_LOGIN_REQUIRED",
         });
@@ -78,22 +101,27 @@ describe("structured output (--json)", () => {
       }
     });
 
-    it("still shows help text for usage errors in json mode", async () => {
+    it("keeps usage diagnostics on stderr in json mode", async () => {
       const result = await runCli(["token", "--nonexistent-flag", "--json"]);
-      const output = `${result.stdout}\n${result.stderr}`;
 
       expect(result.exitCode).toBe(1);
-      expect(output).toContain("axm token [flags]");
-      expect(output).toContain("Unrecognized flag: --nonexistent-flag");
-      expect(getJsonLines(output)).toHaveLength(0);
+      expect(parseJson(result.stdout)).toMatchObject({
+        type: "help",
+        usage: "axm token [flags]",
+      });
+      expect(result.stderr).toContain("Unrecognized flag: --nonexistent-flag");
+      expect(getJsonLines(result.stderr)).toHaveLength(0);
     });
   });
 
-  it("parent commands still show help and exit 0 in json mode", async () => {
+  it("parent commands still show structured help and exit 0 in json mode", async () => {
     const result = await runCli(["auth", "--json"]);
 
     expect(result.exitCode).toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain("axm auth <subcommand>");
+    expect(parseJson(result.stdout)).toMatchObject({
+      type: "help",
+      usage: "axm auth <subcommand> [flags]",
+    });
   });
 
   it("works with --non-interactive and --json", async () => {
@@ -105,7 +133,7 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout)).toEqual({ token: "ci-json-token" });
+      expect(parseJson(result.stdout)).toEqual({ token: "ci-json-token" });
     } finally {
       temp.cleanup();
     }

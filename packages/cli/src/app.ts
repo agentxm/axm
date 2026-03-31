@@ -60,11 +60,20 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withGlobalFlags(axmGlobalFlags),
 );
 
+const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean => args.includes("--json");
+
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
     (argv) =>
       Command.runWith(rootCommand, { version })(argv).pipe(
-        Effect.provide(Layer.merge(baseLayer, CliOutput.layer(makeAxmFormatter()))),
+        // Built-in --help / --version output is formatter-driven, so explicit
+        // --json has to be reflected here before Effect CLI starts rendering.
+        Effect.provide(
+          Layer.merge(
+            baseLayer,
+            CliOutput.layer(makeAxmFormatter({ json: hasExplicitJsonFlag(argv) })),
+          ),
+        ),
       ),
     { args },
   );

@@ -3,8 +3,9 @@
  * and appends a "learn more" footer from command annotations.
  */
 
+import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
 /**
@@ -40,6 +41,104 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
   return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
 };
 
+const getLearnMore = (doc: HelpDoc): string =>
+  ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
+
+const getAdjustedHelpDoc = (doc: HelpDoc): HelpDoc => {
+  const visibleGlobalFlags = getVisibleGlobalFlags(doc);
+  return {
+    ...doc,
+    ...(visibleGlobalFlags !== undefined && { globalFlags: visibleGlobalFlags }),
+  };
+};
+
+type JsonFlagDoc = {
+  readonly name: string;
+  readonly aliases: ReadonlyArray<string>;
+  readonly type: string;
+  readonly required: boolean;
+  readonly description?: string | undefined;
+};
+
+type JsonArgDoc = {
+  readonly name: string;
+  readonly type: string;
+  readonly required: boolean;
+  readonly variadic: boolean;
+  readonly description?: string | undefined;
+};
+
+type JsonSubcommandDoc = {
+  readonly name: string;
+  readonly alias?: string | undefined;
+  readonly shortDescription?: string | undefined;
+  readonly description?: string | undefined;
+};
+
+type JsonSubcommandGroupDoc = {
+  readonly group?: string | undefined;
+  readonly commands: ReadonlyArray<JsonSubcommandDoc>;
+};
+
+type JsonExampleDoc = {
+  readonly command: string;
+  readonly description?: string | undefined;
+};
+
+type JsonHelpDoc = {
+  readonly type: "help";
+  readonly description: string;
+  readonly usage: string;
+  readonly flags: ReadonlyArray<JsonFlagDoc>;
+  readonly globalFlags?: ReadonlyArray<JsonFlagDoc> | undefined;
+  readonly args?: ReadonlyArray<JsonArgDoc> | undefined;
+  readonly subcommands?: ReadonlyArray<JsonSubcommandGroupDoc> | undefined;
+  readonly examples?: ReadonlyArray<JsonExampleDoc> | undefined;
+  readonly learnMore?: string | undefined;
+};
+
+const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
+  name: flag.name,
+  aliases: flag.aliases,
+  type: flag.type,
+  required: flag.required,
+  description: Option.getOrUndefined(flag.description),
+});
+
+const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
+  const adjusted = getAdjustedHelpDoc(doc);
+  const learnMore = getLearnMore(doc);
+
+  return {
+    type: "help",
+    description: adjusted.description,
+    usage: adjusted.usage,
+    flags: adjusted.flags.map(toJsonFlagDoc),
+    globalFlags: adjusted.globalFlags?.map(toJsonFlagDoc),
+    args: adjusted.args?.map((arg) => ({
+      name: arg.name,
+      type: arg.type,
+      required: arg.required,
+      variadic: arg.variadic,
+      description: Option.getOrUndefined(arg.description),
+    })),
+    subcommands: adjusted.subcommands?.map((group) => ({
+      group: group.group,
+      commands: group.commands.map((command) => ({
+        name: command.name,
+        alias: command.alias,
+        shortDescription: command.shortDescription,
+        description: command.description,
+      })),
+    })),
+    examples: adjusted.examples?.map((example) => ({
+      command: example.command,
+      description: example.description,
+    })),
+    ...(learnMore !== "" && { learnMore }),
+  };
+};
+
 /**
  * Creates a custom CLI output formatter that wraps the Effect default
  * formatter with two enhancements:
@@ -47,27 +146,40 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
  * 1. Global flag suppression on subcommand help output
  * 2. "Learn more" footer appended from the `LearnMore` command annotation
  */
-export const makeAxmFormatter = (): CliOutput.Formatter => {
+export const makeAxmFormatter = (options?: {
+  readonly json?: boolean | undefined;
+}): CliOutput.Formatter => {
   const base = CliOutput.defaultFormatter();
+  const json = options?.json === true;
 
   return {
     ...base,
 
     formatHelpDoc: (doc: HelpDoc): string => {
-      const visibleGlobalFlags = getVisibleGlobalFlags(doc);
-      const adjusted: HelpDoc = {
-        ...doc,
-        ...(visibleGlobalFlags !== undefined && { globalFlags: visibleGlobalFlags }),
-      };
+      if (json) {
+        return JSON.stringify(toJsonHelpDoc(doc), null, 2);
+      }
+
+      const adjusted = getAdjustedHelpDoc(doc);
 
       let output = base.formatHelpDoc(adjusted);
 
-      const learnMore = ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
+      const learnMore = getLearnMore(doc);
       if (learnMore !== "") {
         output += "\n\n" + learnMore;
       }
 
       return output;
     },
+
+    formatVersion: (name: string, version: string): string =>
+      json
+        ? JSON.stringify({ type: "version", name, version }, null, 2)
+        : base.formatVersion(name, version),
+
+    // Keep usage failures human-oriented on stderr even when --json is set.
+    // Effect CLI owns the parse/help path, so this is the cleanest contract
+    // we can provide without replacing Command.runWith().
+    formatErrors: (errors) => base.formatErrors(errors),
   };
 };

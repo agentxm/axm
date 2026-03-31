@@ -20,7 +20,11 @@ if (!BUMP_TYPE || !["patch", "minor", "major"].includes(BUMP_TYPE)) {
   process.exit(1);
 }
 
-const NX_ENV = { ...process.env, NX_TUI: "false" };
+const NX_ENV = {
+  ...process.env,
+  NX_TUI: "false",
+  NX_DEFAULT_OUTPUT_STYLE: "static",
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,6 +34,9 @@ const run = (command: string, args: readonly string[], env?: NodeJS.ProcessEnv) 
   console.log(`\n==> ${command} ${args.join(" ")}`);
   execFileSync(command, [...args], { stdio: "inherit", env: env ?? process.env });
 };
+
+const runNx = (...args: readonly string[]) =>
+  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], NX_ENV);
 
 const readPackageVersion = (path: string): string => {
   const pkg = JSON.parse(readFileSync(path, "utf8")) as { version: string };
@@ -86,12 +93,8 @@ const preflight = () => {
 
 const verify = () => {
   console.log("\n==> Phase 1: Verify");
-  run("pnpm", ["exec", "nx", "format:check"], NX_ENV);
-  run(
-    "pnpm",
-    ["exec", "nx", "run-many", "-t", "lint", "typecheck", "build", "test", "e2e", "--nxBail"],
-    NX_ENV,
-  );
+  runNx("format:check");
+  runNx("run-many", "-t", "lint", "typecheck", "build", "test", "e2e", "--nxBail");
 };
 
 // ---------------------------------------------------------------------------

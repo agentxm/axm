@@ -9,13 +9,6 @@
       "options": {
         "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
       }
-    },
-    "release": {
-      "cache": false,
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bash scripts/release.sh"
-      }
     }
   }
 }

@@ -55,7 +55,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 
 ## Releasing
 
-Releases are published to npm as `@axm.sh/cli`. You can publish locally or via CI.
+Releases are published from GitHub Actions. Local version bumps prepare the manifests; the GitHub Release workflow publishes npm packages, release binaries, and Homebrew updates.
 
 ### Versioning
 
@@ -65,31 +65,13 @@ We follow [semver](https://semver.org/):
 - **minor** (0.1.1 → 0.2.0) — new features, backward-compatible changes
 - **major** (0.2.0 → 1.0.0) — breaking changes to CLI flags, config format, or public API
 
-### Publishing Locally
-
-Requires `npm login` with publish access to the `@axm.sh` scope.
-
-```bash
-pnpm nx run-many -t build typecheck test e2e lint
-pnpm --filter @axm.sh/core exec npm version patch --no-git-tag-version
-pnpm --filter @axm.sh/cli exec npm version patch --no-git-tag-version
-pnpm nx run core:publish
-pnpm nx run cli:publish
-git add packages/core/package.json packages/cli/package.json
-git commit -m "release: cli-v0.1.1"
-git tag cli-v0.1.1
-git push origin main --tags
-gh release create cli-v0.1.1 --title "cli v0.1.1" --generate-notes  # optional
-```
-
-### Publishing via CI
+### Release Flow
 
 The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes `@axm.sh/core` and `@axm.sh/cli` to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
 ```bash
 pnpm nx run-many -t build typecheck test e2e lint
-pnpm --filter @axm.sh/core exec npm version minor --no-git-tag-version
-pnpm --filter @axm.sh/cli exec npm version minor --no-git-tag-version
+pnpm version:minor
 git add packages/core/package.json packages/cli/package.json
 git commit -m "release: cli-v0.2.0"
 git push origin main
@@ -99,7 +81,7 @@ gh release create cli-v0.2.0 --title "cli v0.2.0" --generate-notes
 ### Notes
 
 - Tags must match the version in both package manifests with a `cli-v` prefix (e.g., `cli-v0.1.0`).
-- Use `patch`, `minor`, or `major` with `npm version` per [semver](https://semver.org/).
+- Use `pnpm version:patch`, `pnpm version:minor`, or `pnpm version:major` to keep `core` and `cli` aligned.
 
 ## License
 

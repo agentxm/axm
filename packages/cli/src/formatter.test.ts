@@ -15,25 +15,25 @@ const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
 
 describe("makeAxmFormatter", () => {
   const formatter = makeAxmFormatter();
+  const jsonFormatter = makeAxmFormatter({ json: true });
+  const globalFlags = [
+    {
+      name: "verbose",
+      aliases: [],
+      type: "boolean",
+      description: Option.none(),
+      required: false,
+    },
+    {
+      name: "json",
+      aliases: [],
+      type: "boolean",
+      description: Option.none(),
+      required: false,
+    },
+  ];
 
   describe("global flag suppression", () => {
-    const globalFlags = [
-      {
-        name: "verbose",
-        aliases: [],
-        type: "boolean",
-        description: Option.none(),
-        required: false,
-      },
-      {
-        name: "json",
-        aliases: [],
-        type: "boolean",
-        description: Option.none(),
-        required: false,
-      },
-    ];
-
     it("preserves global flags on root command help", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
@@ -89,6 +89,59 @@ describe("makeAxmFormatter", () => {
       const lines = output.split("\n");
       const lastNonEmpty = lines.filter((l) => l.trim() !== "").pop() ?? "";
       expect(lastNonEmpty).not.toBe("");
+    });
+  });
+
+  describe("json mode", () => {
+    it("serializes help docs as plain JSON", () => {
+      const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
+      const annotations = ServiceMap.make(LearnMore, footerText);
+      const doc = makeHelpDoc({
+        usage: "axm skills install [flags]",
+        annotations,
+        globalFlags,
+        flags: [
+          {
+            name: "scope",
+            aliases: ["s"],
+            type: "string",
+            description: Option.some("Scope to install into"),
+            required: false,
+          },
+        ],
+      });
+
+      const output = JSON.parse(jsonFormatter.formatHelpDoc(doc));
+      expect(output).toMatchObject({
+        type: "help",
+        usage: "axm skills install [flags]",
+        learnMore: footerText,
+        flags: [
+          {
+            name: "scope",
+            aliases: ["s"],
+            type: "string",
+            required: false,
+            description: "Scope to install into",
+          },
+        ],
+        globalFlags: [
+          {
+            name: "json",
+            aliases: [],
+            type: "boolean",
+            required: false,
+          },
+        ],
+      });
+    });
+
+    it("serializes version output as JSON", () => {
+      expect(JSON.parse(jsonFormatter.formatVersion("axm", "1.2.3"))).toEqual({
+        type: "version",
+        name: "axm",
+        version: "1.2.3",
+      });
     });
   });
 });

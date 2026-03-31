@@ -6,6 +6,20 @@
   "sourceRoot": "packages/cli-spike/src",
   "tags": ["type:app", "scope:spike"],
   "targets": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "executor": "@nx/js:tsc",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "main": "packages/cli-spike/src/main.ts",
+        "outputPath": "packages/cli-spike/dist",
+        "tsConfig": "packages/cli-spike/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {

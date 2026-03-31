@@ -4,6 +4,8 @@ axm is distributed via multiple installation methods: native install scripts (ba
 
 The CLI already resolves its own version at startup via `__AXM_VERSION__` (build-time constant) with a `package.json` fallback. Install scripts download prebuilt binaries from GitHub Releases to well-known paths (`~/.axm/bin/axm` on Unix, `%LOCALAPPDATA%\axm\axm.exe` on Windows). The `~/.axm/` directory is the established user-scope data directory.
 
+**Data directory convention:** All file paths in this design that reference `~/.axm/` use `%LOCALAPPDATA%\axm\` on Windows. This mapping applies to every file placed in the data directory and is not repeated per file.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -30,19 +32,17 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 { "method": "script", "installedAt": "2026-03-31T12:00:00Z" }
 ```
 
-**Location:** `~/.axm/install-meta.json` (Unix), `%LOCALAPPDATA%\axm\install-meta.json` (Windows).
+**Location:** `~/.axm/install-meta.json`.
 
 **Detection precedence:** Path-based detection runs first against the running binary. The metadata file is only consulted when path detection returns `unknown`. This ensures that a user who installs via one method and later installs via another gets the correct behavior for the binary they are actually running.
 
-| Priority | Signal                                                           | Inferred method |
-| -------- | ---------------------------------------------------------------- | --------------- |
-| 1        | `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\` | `script`        |
-| 2        | `process.execPath` inside a Homebrew prefix                      | `homebrew`      |
-| 3        | `import.meta.url` resolves inside a `node_modules` path          | `npm`           |
-| 4        | `install-meta.json` exists and contains a known method           | value from file |
-| 5        | None of the above                                                | `unknown`       |
-
-Note: `process.execPath` returns the runtime binary (e.g., `/usr/local/bin/node`), not the script location. For npm global installs, `import.meta.url` correctly resolves to the script path inside `node_modules`.
+| Priority | Signal                                                                  | Inferred method |
+| -------- | ----------------------------------------------------------------------- | --------------- |
+| 1        | `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\`        | `script`        |
+| 2        | Resolved `process.execPath` contains `/Cellar/` (Homebrew install path) | `homebrew`      |
+| 3        | `import.meta.url` resolves inside a `node_modules` path                 | `npm`           |
+| 4        | `install-meta.json` exists and contains a known method                  | value from file |
+| 5        | None of the above                                                       | `unknown`       |
 
 **Alternatives considered:**
 
@@ -67,13 +67,25 @@ Note: `process.execPath` returns the runtime binary (e.g., `/usr/local/bin/node`
 
 The self-update flow for `script`-installed binaries:
 
-1. Fetch the latest release from the GitHub Releases API (`GET /repos/agentxm/axm/releases/latest`). Extract the semver version by stripping the `cli-v` prefix from `tag_name` (e.g., `cli-v0.1.0` → `0.1.0`)
+1. Fetch the latest release from the GitHub Releases API (`GET /repos/{repo}/releases/latest`), where `{repo}` defaults to `agentxm/axm` but is overridden by the `AXM_INSTALL_GITHUB_REPO` environment variable (same env var the install scripts use). If `tag_name` has a `cli-v` prefix, strip it to extract the semver version (e.g., `cli-v0.1.0` → `0.1.0`). If the prefix is missing (e.g., a non-CLI release), fall back to listing recent releases (`GET /repos/{repo}/releases`) and use the first whose `tag_name` starts with `cli-v`
 2. Compare the remote version against the local version using semver. If the local version is `"unknown"` (neither `__AXM_VERSION__` nor `package.json` resolved), treat it as always-stale and proceed to download
 3. If already up to date, print a message and exit
-4. Download the platform-appropriate binary to a temporary file in the same directory as the target. The download URL follows the pattern `https://github.com/agentxm/axm/releases/download/cli-v{VERSION}/axm-{platform}-{arch}[.exe]`. Platform and arch are determined at runtime via `process.platform` and `process.arch`. The `.exe` suffix is appended only on Windows. Print a spinner or progress indicator during download
+4. Download the platform-appropriate binary to a temporary file in the same directory as the target. The download URL follows the pattern `https://github.com/{repo}/releases/download/cli-v{VERSION}/axm-{platform}-{arch}[.exe]` (where `{repo}` respects `AXM_INSTALL_GITHUB_REPO`). The download has a 60-second timeout; if exceeded, print "Download timed out. Check your connection and try again." and exit. Print a spinner or progress indicator during download. Platform and arch are mapped from Node/Bun runtime values to the binary naming convention:
+
+   | `process.platform` | Binary platform | `process.arch` | Binary arch | Suffix |
+   | ------------------ | --------------- | -------------- | ----------- | ------ |
+   | `darwin`           | `darwin`        | `arm64`        | `arm64`     |        |
+   | `darwin`           | `darwin`        | `x64`          | `x64`       |        |
+   | `linux`            | `linux`         | `arm64`        | `arm64`     |        |
+   | `linux`            | `linux`         | `x64`          | `x64`       |        |
+   | `win32`            | `windows`       | `x64`          | `x64`       | `.exe` |
+
+   Any unrecognized platform or architecture is an error — print supported targets and exit
+
 5. Verify the download succeeded (non-zero size, executable on Unix)
-6. Replace the current binary: on Unix, rename the temp file over the current binary (atomic). On Windows, rename the running binary to a `.old` suffix first (Windows allows renaming a running exe but not overwriting it), then rename the new binary into place. The `.old` file is cleaned up on the next successful run
+6. Replace the current binary: on Unix, rename the temp file over the current binary (atomic). On Windows, rename the running binary to a `.old` suffix first (Windows allows renaming a running exe but not overwriting it), then rename the new binary into place. The `.old` file is cleaned up on the next successful run. If the rename fails with a permission error, print "Permission denied writing to {path}. Check directory permissions or re-run the install script." and exit
 7. Run `axm --version` on the new binary to verify, print success message
+8. Update `install-meta.json` with the current timestamp (`installedAt`) to reflect the latest binary placement
 
 **Placing the temp file in the same directory** ensures the rename is atomic (same filesystem). The old binary is not deleted separately — `rename` overwrites it.
 
@@ -84,7 +96,12 @@ The self-update flow for `script`-installed binaries:
 
 ### 4. Update check notification
 
-A lightweight version check runs early in the CLI startup path. It compares the cached latest version against the local version. If a newer version is available, it prints a single-line notice to stderr after the command completes.
+A lightweight version check runs early in the CLI startup path. It operates in two phases:
+
+1. **Compare (synchronous):** Read `update-check.json`. If the cache exists and contains a `latestVersion` newer than the local version, queue a notification to print to stderr after the command completes. If the cache does not exist (e.g., first run), no notification is shown for this invocation.
+2. **Refresh (fire-and-forget):** If the cache is missing or `checkedAt` is more than 24 hours ago, spawn a non-blocking fiber to fetch the latest version from the GitHub Releases API (using `AXM_INSTALL_GITHUB_REPO` if set) and write the result to the cache file. This fiber does not block command execution. If the request fails or times out (3-second timeout), it is silently ignored and the cache is not updated.
+
+This means the first-ever CLI run produces no notification — it only warms the cache. Subsequent runs display the notification based on the cached value.
 
 **Cache file:** `~/.axm/update-check.json`
 
@@ -92,15 +109,12 @@ A lightweight version check runs early in the CLI startup path. It compares the 
 { "latestVersion": "0.1.0", "checkedAt": "2026-03-31T12:00:00Z" }
 ```
 
-**Check cadence:** At most once per 24 hours. The check is skipped if:
+**Skip conditions:** The entire check (both phases) is skipped if:
 
-- The cache file exists and `checkedAt` is less than 24 hours ago
 - `--json` flag is set
 - `AXM_NO_UPDATE_CHECK=1` environment variable is set
 - The command being run is `axm upgrade` (it will check anyway)
 - Non-interactive mode is active
-
-**Network request:** When a check is needed, it runs as a fire-and-forget fiber that does not block command execution. If the request fails or times out (3-second timeout), it is silently ignored and the cache is not updated.
 
 **Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1.
 
@@ -129,6 +143,8 @@ A lightweight version check runs early in the CLI startup path. It compares the 
 | `--force` | Re-download and replace even if already on the latest version |
 | `--yes`   | Skip the confirmation prompt before replacing the binary      |
 
+These flags apply only when the detected method is `script`. For other methods (`homebrew`, `npm`, `unknown`), if either flag is passed, print a note that the flag has no effect for the detected installation method before showing the delegate message.
+
 No `--version` flag to pin a target version (non-goal: downgrading/pinning).
 
 **Alternatives considered:**
@@ -138,17 +154,20 @@ No `--version` flag to pin a target version (non-goal: downgrading/pinning).
 
 ### 6. Service design
 
-Two new services in `@axm.sh/core/unstable/`:
+Three new services in `@axm.sh/core/unstable/`:
 
-**`InstallMeta`** — reads and writes `install-meta.json`. Provides `getMethod()` returning the detected install method as a tagged union (`Script | Homebrew | Npm | Unknown`). Falls back to path-based detection when the file is missing.
+**`InstallMethod`** — determines how axm was installed. Provides `detect()` returning a tagged union (`Script | Homebrew | Npm | Unknown`) using the precedence chain from Decision 1 (path-based detection first, metadata file fallback). Both the upgrade command and the update check notification depend on this service.
 
-**`UpdateCheck`** — manages the cached update check. Provides `getLatestVersion()` (reads cache or fetches from GitHub), `isUpdateAvailable()`, and `writeCache()`. Uses `effect/HttpClient` for the GitHub API request.
+**`InstallMeta`** — reads and writes `install-meta.json`. Depends on `InstallMethod` for detection; owns only the metadata file I/O.
 
-Both services depend on `Path` and `FileSystem` from Effect's platform layer. The upgrade handler additionally depends on `CliRenderer` and `CliPrompt`.
+**`UpdateCheck`** — manages the cached update check. Provides `getLatestVersion()` (reads cache or fetches from GitHub), `isUpdateAvailable()`, and `writeCache()`. Depends on `InstallMethod` to produce method-aware notification messages. Uses `effect/HttpClient` for the GitHub API request.
+
+All three services depend on `Path` and `FileSystem` from Effect's platform layer. The upgrade handler additionally depends on `CliRenderer` and `CliPrompt`.
 
 **Alternatives considered:**
 
-- (a) Single combined service — rejected because the update check runs on every CLI invocation (lightweight, read-only) while install metadata is only needed by the upgrade command. Separating them keeps the hot path minimal.
+- (a) Single combined service — rejected because the update check runs on every CLI invocation (lightweight, read-only) while install metadata write is only needed by the upgrade command and install scripts. Separating them keeps the hot path minimal.
+- (b) Two services with detection inlined in `InstallMeta` — rejected because `UpdateCheck` also needs method detection for the notification message, which would create a dependency from `UpdateCheck` to `InstallMeta` and conflate file I/O with detection logic. A standalone `InstallMethod` service keeps detection reusable and each service focused.
 
 ## Risks / Trade-offs
 

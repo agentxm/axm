@@ -19,6 +19,8 @@
     "lint": "nx run-many -t lint",
     "lint:affected": "nx affected -t lint",
     "lint:fix": "nx run-many -t lint --fix",
+    "verify": "nx format:check && nx run-many -t lint typecheck build test e2e",
+    "verify:affected": "nx format:check && nx affected -t lint typecheck build test e2e",
     "prepare": "husky && effect-language-service patch",
     "version:patch": "bash scripts/bump-version.sh patch",
     "version:minor": "bash scripts/bump-version.sh minor",

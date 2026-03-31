@@ -24,26 +24,28 @@ pnpm test                # run tests
 
 All commands delegate to Nx for caching and dependency-aware orchestration.
 
-| Command               | Purpose                                  |
-| --------------------- | ---------------------------------------- |
-| `pnpm build`          | Build all packages                       |
-| `pnpm test`           | Run all tests                            |
-| `pnpm test:e2e`       | Run E2E tests only                       |
-| `pnpm typecheck`      | Type-check without emitting              |
-| `pnpm format`         | Format code and markdown                 |
-| `pnpm format:check`   | Check formatting without writing         |
-| `pnpm lint`           | Lint with ESLint                         |
-| `pnpm lint:fix`       | Lint and auto-fix                        |
-| `pnpm build:affected` | Build only packages changed since `main` |
-| `pnpm test:affected`  | Test only packages changed since `main`  |
-| `pnpm lint:affected`  | Lint only packages changed since `main`  |
+| Command                | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `pnpm build`           | Build all packages                       |
+| `pnpm test`            | Run all tests                            |
+| `pnpm test:e2e`        | Run E2E tests only                       |
+| `pnpm typecheck`       | Type-check without emitting              |
+| `pnpm format`          | Format code and markdown                 |
+| `pnpm format:check`    | Check formatting without writing         |
+| `pnpm lint`            | Lint with ESLint                         |
+| `pnpm lint:fix`        | Lint and auto-fix                        |
+| `pnpm verify`          | Run the full pre-PR / pre-release checks |
+| `pnpm verify:affected` | Run affected-only verification           |
+| `pnpm build:affected`  | Build only packages changed since `main` |
+| `pnpm test:affected`   | Test only packages changed since `main`  |
+| `pnpm lint:affected`   | Lint only packages changed since `main`  |
 
 ## Making Changes
 
 1. Fork the repo and create a branch from `main`.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Ensure CI passes: `pnpm nx run-many -t build typecheck test e2e lint format-check`.
+4. Ensure CI passes locally: `pnpm verify`.
 5. Open a pull request against `main`.
 
 ### Code Style
@@ -65,12 +67,37 @@ We follow [semver](https://semver.org/):
 - **minor** (0.1.1 → 0.2.0) — new features, backward-compatible changes
 - **major** (0.2.0 → 1.0.0) — breaking changes to CLI flags, config format, or public API
 
+Version source of truth:
+
+- `packages/core/package.json`
+- `packages/cli/package.json`
+
+Those two package versions must always match for a release. The release tag does not define the version; it must match the package manifests.
+
+### Version Bump Helpers
+
+Use the root helper scripts to bump both package versions together:
+
+- `pnpm version:patch`
+- `pnpm version:minor`
+- `pnpm version:major`
+
+These scripts:
+
+- verify `core` and `cli` are currently on the same version
+- bump both manifests with `npm version --no-git-tag-version`
+- do not create a commit
+- do not create a git tag
+- do not publish anything
+
 ### Release Flow
 
 The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes `@axm.sh/core` and `@axm.sh/cli` to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
+Normal release steps:
+
 ```bash
-pnpm nx run-many -t build typecheck test e2e lint
+pnpm verify
 pnpm version:minor
 git add packages/core/package.json packages/cli/package.json
 git commit -m "release: cli-v0.2.0"
@@ -78,10 +105,21 @@ git push origin main
 gh release create cli-v0.2.0 --title "cli v0.2.0" --generate-notes
 ```
 
+What happens in that flow:
+
+1. `pnpm version:minor` updates both package manifests locally.
+2. The release commit captures the version bump in git.
+3. `gh release create cli-v0.2.0 ...` creates the `cli-v0.2.0` tag if it does not already exist and publishes a GitHub Release for it.
+4. Publishing that GitHub Release triggers the Release workflow.
+5. The workflow validates that the tag version matches both package manifests, then publishes npm packages, GitHub release assets, and Homebrew updates.
+
 ### Notes
 
-- Tags must match the version in both package manifests with a `cli-v` prefix (e.g., `cli-v0.1.0`).
-- Use `pnpm version:patch`, `pnpm version:minor`, or `pnpm version:major` to keep `core` and `cli` aligned.
+- Release tags must use the `cli-vX.Y.Z` format, for example `cli-v0.1.0`.
+- If the tag version and package manifest versions do not match, the Release workflow fails fast.
+- Run `gh release create ...` only after the release commit has been pushed.
+- Do not publish packages locally as the normal release path; GitHub Actions is the canonical publisher.
+- Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in `agentxm/axm`.
 
 ## License
 

@@ -28,22 +28,24 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 All commands use `pnpm` scripts. Build/test/lint delegate to Nx for caching and `affected` variants. CLI-running scripts (`pnpm axm`, `pnpm spike`) chain `nx build` (cached) then run `bun` directly — no Nx wrapper around the CLI process.
 
-| Command               | Purpose                                  |
-| --------------------- | ---------------------------------------- |
-| `pnpm build`          | Build all packages                       |
-| `pnpm test`           | Run all tests (Vitest)                   |
-| `pnpm test:e2e`       | Run E2E tests only                       |
-| `pnpm typecheck`      | Type check without emitting              |
-| `pnpm format`         | Format code (Nx built-in)                |
-| `pnpm format:check`   | Check formatting (Nx built-in)           |
-| `pnpm lint`           | Lint with ESLint                         |
-| `pnpm lint:fix`       | Lint and auto-fix                        |
-| `pnpm build:affected` | Build only packages changed since `main` |
-| `pnpm test:affected`  | Test only packages changed since `main`  |
-| `pnpm lint:affected`  | Lint only packages changed since `main`  |
-| `pnpm version:patch`  | Bump `core` and `cli` patch versions     |
-| `pnpm version:minor`  | Bump `core` and `cli` minor versions     |
-| `pnpm version:major`  | Bump `core` and `cli` major versions     |
+| Command                | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `pnpm build`           | Build all packages                       |
+| `pnpm test`            | Run all tests (Vitest)                   |
+| `pnpm test:e2e`        | Run E2E tests only                       |
+| `pnpm typecheck`       | Type check without emitting              |
+| `pnpm format`          | Format code (Nx built-in)                |
+| `pnpm format:check`    | Check formatting (Nx built-in)           |
+| `pnpm lint`            | Lint with ESLint                         |
+| `pnpm lint:fix`        | Lint and auto-fix                        |
+| `pnpm verify`          | Run full verification before release/PR  |
+| `pnpm verify:affected` | Run affected-only verification           |
+| `pnpm build:affected`  | Build only packages changed since `main` |
+| `pnpm test:affected`   | Test only packages changed since `main`  |
+| `pnpm lint:affected`   | Lint only packages changed since `main`  |
+| `pnpm version:patch`   | Bump `core` and `cli` patch versions     |
+| `pnpm version:minor`   | Bump `core` and `cli` minor versions     |
+| `pnpm version:major`   | Bump `core` and `cli` major versions     |
 
 ### Nx
 

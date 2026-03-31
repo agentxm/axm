@@ -11,6 +11,13 @@ export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/core/package.json",
   "packages/cli/package.json",
 ] as const;
+export const RELEASE_CHANGELOG_PATH = "CHANGELOG.md";
+export const RELEASE_LOCKFILE_PATH = "pnpm-lock.yaml";
+export const RELEASE_COMMIT_PATHS = [
+  ...RELEASE_PACKAGE_JSON_PATHS,
+  RELEASE_LOCKFILE_PATH,
+  RELEASE_CHANGELOG_PATH,
+] as const;
 
 type GitHubRun = {
   databaseId: number;

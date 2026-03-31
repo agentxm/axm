@@ -9,17 +9,17 @@
  *   bun scripts/release-publish.ts cli-v0.1.0 --dry-run
  */
 
+import { ReleaseClient } from "nx/release/index.js";
+
 import {
   fetchOriginMain,
   fail,
-  RELEASE_REPO,
   releaseCommitOnOriginMain,
   releaseVersionFromTag,
   requireCleanWorkingTree,
   requireMatchingReleasePackageVersionsAtRef,
   requireNoExistingGitHubRelease,
   requireSuccessfulCiRun,
-  run,
   validateReleaseTag,
 } from "./release-shared.js";
 
@@ -45,6 +45,18 @@ const requestedTag =
   positionalArgs[0] ?? fail("Usage: bun scripts/release-publish.ts <cli-vX.Y.Z> [--dry-run]");
 const tag = validateReleaseTag(requestedTag);
 const version = releaseVersionFromTag(tag);
+const releaseClient = new ReleaseClient(
+  {
+    changelog: {
+      workspaceChangelog: {
+        createRelease: "github",
+        file: false,
+      },
+      projectChangelogs: false,
+    },
+  },
+  false,
+);
 
 const preflight = () => {
   console.log("==> Publish checks");
@@ -73,24 +85,24 @@ const preflight = () => {
   return { version, tag, sha };
 };
 
-const publish = (version: string, tag: string, sha: string) => {
+const publish = async (version: string, tag: string, sha: string) => {
   console.log("\n==> Create GitHub Release");
-  run("gh", [
-    "release",
-    "create",
-    tag,
-    "--repo",
-    RELEASE_REPO,
-    "--target",
-    sha,
-    "--title",
-    `cli v${version}`,
-    "--generate-notes",
-  ]);
+  const { workspaceChangelog } = await releaseClient.releaseChangelog({
+    version,
+    to: sha,
+    dryRun: false,
+    stageChanges: false,
+    gitCommit: false,
+    gitTag: false,
+    gitPush: false,
+  });
+  const postGitTask =
+    workspaceChangelog?.postGitTask ?? fail("Nx Release did not provide a GitHub release task.");
+  await postGitTask(sha);
   console.log(`\nReleased ${tag}`);
 };
 
-const main = () => {
+const main = async () => {
   const { version, tag, sha } = preflight();
 
   if (dryRun) {
@@ -98,7 +110,7 @@ const main = () => {
     return;
   }
 
-  publish(version, tag, sha);
+  await publish(version, tag, sha);
 };
 
-main();
+void main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

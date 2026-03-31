@@ -23,8 +23,8 @@ import {
   requireMainBranch,
   requireMatchingReleasePackageVersions,
   requireNotBehindOriginMain,
-  run,
 } from "./release-shared.js";
+import { run } from "./release-command.js";
 
 const args = process.argv.slice(2);
 

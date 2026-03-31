@@ -1,5 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
+
+import { capture, run, tryCapture } from "./release-command.js";
 
 export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/utils/package.json",
@@ -36,6 +38,7 @@ const NX_ENV = {
   ...process.env,
   NX_TUI: "false",
   NX_DEFAULT_OUTPUT_STYLE: "static",
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
 };
 
 const RELEASE_TAG_PREFIX = "cli-v";
@@ -47,55 +50,12 @@ const SEMVER_VERSION_REGEX = new RegExp(
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   value != null && typeof value === "object";
 
-export const RELEASE_REPO = process.env["GITHUB_REPOSITORY"] ?? "agentxm/axm";
+export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
 
 export const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
   throw new Error("Unreachable");
-};
-
-export const printCommand = (command: string, args: readonly string[]) => {
-  console.log(`\n==> ${command} ${args.join(" ")}`);
-};
-
-export const run = (command: string, args: readonly string[], env?: NodeJS.ProcessEnv) => {
-  printCommand(command, args);
-  execFileSync(command, [...args], {
-    stdio: "inherit",
-    env: env ?? process.env,
-  });
-};
-
-export const capture = (
-  command: string,
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-): string =>
-  execFileSync(command, [...args], {
-    encoding: "utf8",
-    env: env ?? process.env,
-  }).trim();
-
-export const tryCapture = (
-  command: string,
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-): { ok: true; stdout: string } | { ok: false; stderr: string } => {
-  try {
-    return {
-      ok: true,
-      stdout: capture(command, args, env),
-    };
-  } catch (error) {
-    const stderr =
-      error instanceof Error && "stderr" in error && typeof error.stderr === "string"
-        ? error.stderr.trim()
-        : error instanceof Error
-          ? error.message
-          : String(error);
-    return { ok: false, stderr };
-  }
 };
 
 export const runNx = (...args: readonly string[]) =>

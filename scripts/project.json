@@ -5,6 +5,7 @@
   "root": "scripts",
   "sourceRoot": "scripts",
   "tags": ["type:lib", "scope:scripts"],
+  "implicitDependencies": ["utils"],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint",

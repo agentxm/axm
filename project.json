@@ -9,6 +9,52 @@
       "options": {
         "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
       }
+    },
+    "ci": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+      }
+    },
+    "verify": {
+      "executor": "nx:run-commands",
+      "options": {
+        "parallel": false,
+        "commands": [
+          {
+            "command": "pnpm exec nx sync:check"
+          },
+          {
+            "command": "pnpm exec nx format:check"
+          },
+          {
+            "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run scripts:verify-e2e-boundaries --outputStyle=static"
+          }
+        ]
+      }
+    },
+    "verify-affected": {
+      "executor": "nx:run-commands",
+      "options": {
+        "parallel": false,
+        "commands": [
+          {
+            "command": "pnpm exec nx sync:check"
+          },
+          {
+            "command": "pnpm exec nx format:check"
+          },
+          {
+            "command": "pnpm exec nx affected -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run scripts:verify-e2e-boundaries --outputStyle=static"
+          }
+        ]
+      }
     }
   }
 }

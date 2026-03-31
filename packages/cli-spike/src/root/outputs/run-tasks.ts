@@ -51,6 +51,6 @@ export const runTasksCommand = Command.make("run-tasks", {}, () =>
         },
       ]);
     }),
-    { command: "outputs run-tasks", isLongRunning: true },
+    { command: "outputs run-tasks" },
   ),
 ).pipe(Command.withDescription("Demo multi-task runner"));

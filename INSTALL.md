@@ -138,7 +138,7 @@ axm init --non-interactive --yes
 axm skills install @acme/skills/code-review --yes --non-interactive
 
 # See what's installed
-axm skills list --output-format json
+axm skills list --json
 ```
 
 ## Troubleshooting

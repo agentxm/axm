@@ -29,6 +29,17 @@ const isSubcommandDoc = (doc: HelpDoc): boolean => {
   return tokens.length > 1;
 };
 
+const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
+  if (!isSubcommandDoc(doc)) {
+    return doc.globalFlags;
+  }
+
+  // Subcommand help stays focused, but `--json` is worth keeping visible
+  // because it materially changes output shape and is expected on leaf commands.
+  const globalFlags = doc.globalFlags?.filter((flag) => flag.name === "json");
+  return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
+};
+
 /**
  * Creates a custom CLI output formatter that wraps the Effect default
  * formatter with two enhancements:
@@ -43,8 +54,11 @@ export const makeAxmFormatter = (): CliOutput.Formatter => {
     ...base,
 
     formatHelpDoc: (doc: HelpDoc): string => {
-      const { globalFlags: _globalFlags, ...rest } = doc;
-      const adjusted: HelpDoc = isSubcommandDoc(doc) ? rest : doc;
+      const visibleGlobalFlags = getVisibleGlobalFlags(doc);
+      const adjusted: HelpDoc = {
+        ...doc,
+        ...(visibleGlobalFlags !== undefined && { globalFlags: visibleGlobalFlags }),
+      };
 
       let output = base.formatHelpDoc(adjusted);
 

@@ -1,15 +1,13 @@
 import { CliError } from "effect/unstable/cli";
-import type { OutputFormat } from "./output-format.js";
+import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 
 /**
- * Three-channel error routing based on output format.
+ * Error routing based on output mode.
  *
  * Channel routing per format:
  * - text:        human-readable to stderr only (no stdout pollution)
  * - json:        typed error JSON to stdout + brief message to stderr
- * - stream-json: error event in NDJSON stream + brief message to stderr
- *
  * Exit codes:
  * - ShowHelp (no errors) → 0 (help successfully displayed)
  * - ShowHelp (with errors) → 1 (help displayed due to usage error)

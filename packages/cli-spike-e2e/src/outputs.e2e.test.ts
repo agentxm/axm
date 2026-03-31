@@ -174,18 +174,4 @@ describe("outputs commands", () => {
       skills: ["pr-review", "test-gen", "doc-writer"],
     });
   });
-
-  // --output-format json is a GLOBAL flag that sets machine-readable output mode.
-  // In non-TTY (E2E), the MachineRenderer is already active — the global flag
-  // explicitly confirms it. Without --json, result uses log methods (stderr).
-  it("outputs result --output-format json emits structured JSON via global flag", async () => {
-    const result = await runCli(["outputs", "result", "--output-format", "json"]);
-    expectExitCode(result, 0);
-    expectStderr(result, "pr-review");
-  });
-
-  it("outputs table --output-format json emits table data as JSON", async () => {
-    const result = await runCli(["outputs", "table", "--output-format", "json"]);
-    expectExitCode(result, 0);
-  });
 });

@@ -28,6 +28,6 @@ export const spinnerCommand = Command.make("spinner", spinnerConfig, (config) =>
       };
       yield* renderer.withSpinner("Loading something...", () => Effect.sleep("2 seconds"), opts);
     }),
-    { command: "outputs spinner", isLongRunning: true },
+    { command: "outputs spinner" },
   ),
 ).pipe(Command.withDescription("Demo spinner animation"));

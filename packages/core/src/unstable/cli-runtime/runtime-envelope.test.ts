@@ -55,16 +55,6 @@ describe("makeFoundationLayer", () => {
     }),
   );
 
-  it.effect("provides CliRenderer as MachineRenderer in stream-json mode", () =>
-    Effect.gen(function* () {
-      const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("stream-json")));
-      expect(renderer).toBeDefined();
-      // stream-json defaults json=true, selecting MachineRenderer
-      const emitted = yield* renderer.result("test", Schema.String);
-      expect(emitted).toBe(true);
-    }),
-  );
-
   it.effect("provides CliRenderer as InteractiveRenderer when format is text", () =>
     Effect.gen(function* () {
       const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("text")));

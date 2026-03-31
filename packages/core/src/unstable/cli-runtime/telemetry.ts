@@ -6,7 +6,7 @@ import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import {
   nonInteractiveFlag,
-  outputFormatFlag,
+  jsonFlag,
   verboseFlag,
   debugFlag,
 } from "../cli-flags/index.js";
@@ -61,13 +61,13 @@ export const trackCliCommandCompleted = (
 
 export const readGlobalFlagProperties = Effect.gen(function* () {
   const nonInteractive = yield* nonInteractiveFlag;
-  const outputFormat = yield* outputFormatFlag;
+  const json = yield* jsonFlag;
   const verbose = yield* verboseFlag;
   const debug = yield* debugFlag;
 
   return {
     "cli.global.non_interactive": String(Option.getOrElse(nonInteractive, () => false)),
-    "cli.global.output_format": Option.getOrElse(outputFormat, () => "none"),
+    "cli.global.json": String(Option.getOrElse(json, () => false)),
     "cli.global.verbose": String(verbose),
     "cli.global.debug": String(debug),
   };

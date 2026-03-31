@@ -17,6 +17,14 @@ describe("axm token", () => {
     expect(result.stderr).toBe("");
   });
 
+  it("outputs structured JSON when --json is set", async () => {
+    const result = await runCli(["token", "--json"], {
+      env: { AXM_TOKEN: "test-token-value" },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ token: "test-token-value" });
+  });
+
   it("fails with AUTH_LOGIN_REQUIRED when no credentials available", async () => {
     const result = await runCli(["token"], {
       env: { AXM_TOKEN: "" },

@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { outputFormatFlag, debugFlag, verboseFlag } from "../cli-flags/index.js";
-import type { OutputFormat } from "./output-format.js";
+import { jsonFlag, debugFlag, verboseFlag } from "../cli-flags/index.js";
+import type { OutputFormat } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
 import { renderAppError } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
@@ -80,7 +80,7 @@ export const makeFoundationLayer = (
     readonly verbosityLevel?: VerbosityLevel | undefined;
   },
 ) => {
-  // Non-text formats use machine-readable (NDJSON) output
+  // Json mode uses machine-readable output.
   const rendererLayer: Layer.Layer<CliRenderer> =
     format !== "text" ? MachineRenderer() : InteractiveRenderer();
 
@@ -111,11 +111,10 @@ export const makeFoundationLayer = (
 /**
  * Resolve the output format from the global flag + options.
  */
-export const resolveCliFormat = (options?: { readonly isLongRunning?: boolean | undefined }) =>
-  Effect.gen(function* () {
-    const explicit = yield* outputFormatFlag;
-    return resolveFormat(explicit, options);
-  });
+export const resolveCliFormat = Effect.gen(function* () {
+  const explicit = yield* jsonFlag;
+  return resolveFormat(explicit);
+});
 
 /**
  * Wrap a pre-provided program in CLI error handling + telemetry.
@@ -215,7 +214,6 @@ export const withCliErrorHandling = <A, R>(
 
 export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
-  readonly isLongRunning?: boolean | undefined;
   readonly telemetryConfig: CliTelemetryConfigService;
 }
 
@@ -224,7 +222,7 @@ export const withCliRuntime = <A, R>(
   options: WithCliRuntimeOptions,
 ) =>
   Effect.gen(function* () {
-    const format = yield* resolveCliFormat({ isLongRunning: options.isLongRunning });
+    const format = yield* resolveCliFormat;
     const foundationLayer = makeFoundationLayer(format);
     const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 

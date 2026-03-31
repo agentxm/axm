@@ -12,7 +12,7 @@ import { Command } from "effect/unstable/cli";
 
 import {
   nonInteractiveFlag,
-  outputFormatFlag,
+  jsonFlag,
   verboseFlag,
   debugFlag,
 } from "@axm.sh/core/unstable/cli-flags";
@@ -24,7 +24,7 @@ import { telemetryCommand } from "./root/telemetry/command.js";
 import { outputsCommand } from "./root/outputs/command.js";
 import { promptsCommand } from "./root/prompts/command.js";
 
-const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, outputFormatFlag] as const;
+const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, jsonFlag] as const;
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription("Effect v4 CLI spike — proving out idiomatic command/flag patterns."),

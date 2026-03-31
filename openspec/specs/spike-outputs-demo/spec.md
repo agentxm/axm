@@ -67,7 +67,7 @@ The `outputs box` subcommand SHALL invoke `CliRenderer.box()` with flags that ma
 
 ### Requirement: spinner output demo
 
-The `outputs spinner` subcommand SHALL invoke `CliRenderer.withSpinner()` with flags that map to `SpinnerOptions`. The command SHALL use `isLongRunning: true` in `withRuntime`.
+The `outputs spinner` subcommand SHALL invoke `CliRenderer.withSpinner()` with flags that map to `SpinnerOptions`.
 
 #### Scenario: spinner completes successfully
 
@@ -86,7 +86,7 @@ The `outputs spinner` subcommand SHALL invoke `CliRenderer.withSpinner()` with f
 
 ### Requirement: progress output demo
 
-The `outputs progress` subcommand SHALL invoke `CliRenderer.withProgress()` with flags that map to `ProgressConfig`. The command SHALL use `isLongRunning: true` in `withRuntime`.
+The `outputs progress` subcommand SHALL invoke `CliRenderer.withProgress()` with flags that map to `ProgressConfig`.
 
 #### Scenario: progress with default style
 
@@ -105,7 +105,7 @@ The `outputs progress` subcommand SHALL invoke `CliRenderer.withProgress()` with
 
 ### Requirement: task-log output demo
 
-The `outputs task-log` subcommand SHALL invoke `CliRenderer.withTaskLog()` with flags that map to `TaskLogConfig`. The command SHALL use `isLongRunning: true` in `withRuntime`.
+The `outputs task-log` subcommand SHALL invoke `CliRenderer.withTaskLog()` with flags that map to `TaskLogConfig`.
 
 #### Scenario: task-log with default options
 
@@ -175,7 +175,7 @@ The `outputs tree` subcommand SHALL invoke `CliRenderer.tree()` with a sample wo
 
 ### Requirement: stream-log output demo
 
-The `outputs stream-log` subcommand SHALL invoke `CliRenderer.streamLog()` with a simulated streaming build log at a fixed log level. No flags. The command SHALL use `isLongRunning: true` in `withRuntime`.
+The `outputs stream-log` subcommand SHALL invoke `CliRenderer.streamLog()` with a simulated streaming build log at a fixed log level. No flags.
 
 #### Scenario: stream-log produces output
 
@@ -184,7 +184,7 @@ The `outputs stream-log` subcommand SHALL invoke `CliRenderer.streamLog()` with 
 
 ### Requirement: result output demo
 
-The `outputs result` subcommand SHALL invoke `CliRenderer.result()` and `CliRenderer.resultStream()` with a flag to switch between human-readable and machine-readable modes.
+The `outputs result` subcommand SHALL invoke `CliRenderer.result()` and `CliRenderer.resultStream()`. Human-readable output is the default; machine-readable output uses the global `--json` flag.
 
 #### Scenario: result in human mode
 
@@ -196,14 +196,14 @@ The `outputs result` subcommand SHALL invoke `CliRenderer.result()` and `CliRend
 - **WHEN** user runs `axm-spike outputs result --json`
 - **THEN** the command SHALL emit valid JSON on stdout
 
-#### Scenario: result with global output-format flag
+#### Scenario: result with global json flag
 
-- **WHEN** user runs `axm-spike outputs result --output-format json`
+- **WHEN** user runs `axm-spike outputs result --json`
 - **THEN** the command SHALL emit structured JSON output via the global flag
 
 ### Requirement: raw output demo
 
-The `outputs raw` subcommand SHALL invoke `CliRenderer.raw()` and `CliRenderer.json()` with a flag to switch between modes.
+The `outputs raw` subcommand SHALL invoke `CliRenderer.raw()` and `CliRenderer.json()`. Machine-readable output uses the global `--json` flag.
 
 #### Scenario: raw text output
 
@@ -234,9 +234,9 @@ Each output subcommand SHALL have a single-line imperative description via `Comm
 - **THEN** the command description SHALL be a single-line imperative sentence
 - **THEN** each flag SHALL have its own description in the flags section
 
-### Requirement: async output demos use isLongRunning
+### Requirement: async output demos await completion
 
-Output subcommands that use `Effect.sleep` for simulation (spinner, progress, task-log, stream-log, run-tasks) SHALL set `isLongRunning: true` in `withRuntime`.
+Output subcommands that use `Effect.sleep` for simulation (spinner, progress, task-log, stream-log, run-tasks) SHALL remain active until the simulated work completes.
 
 #### Scenario: spinner does not exit prematurely
 

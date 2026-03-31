@@ -91,18 +91,6 @@ describe("handleError — ShowHelp", () => {
     expect(exit.code).toBe(0);
     expect(stdoutWriteCalls).toHaveLength(0);
   });
-
-  it("never emits JSON for ShowHelp even in stream-json format", () => {
-    const showHelp = new CliError.ShowHelp({
-      commandPath: ["axm"],
-      errors: [],
-    });
-
-    const exit = callHandleError(showHelp, "stream-json");
-
-    expect(exit.code).toBe(0);
-    expect(stdoutWriteCalls).toHaveLength(0);
-  });
 });
 
 // ---------------------------------------------------------------------------

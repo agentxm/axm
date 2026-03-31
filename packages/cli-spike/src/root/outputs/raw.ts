@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
-import { Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
+import { Command } from "effect/unstable/cli";
 
+import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withRuntime } from "../../runtime.js";
 
@@ -10,16 +12,15 @@ const sampleData = {
   skills: ["pr-review", "test-gen", "doc-writer"],
 };
 
-const rawConfig = {
-  json: Flag.boolean("json").pipe(Flag.withDescription("Output as JSON")),
-} as const;
+const rawConfig = {} as const;
 
-export const rawCommand = Command.make("raw", rawConfig, (config) =>
+export const rawCommand = Command.make("raw", rawConfig, () =>
   withRuntime(
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
+      const json = Option.getOrElse(yield* jsonFlag, () => false);
 
-      if (config.json) {
+      if (json) {
         yield* renderer.json(sampleData);
       } else {
         yield* renderer.raw(

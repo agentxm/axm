@@ -5,7 +5,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { vi, afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 
 import {
   AuthClientTest,
@@ -13,12 +13,17 @@ import {
   CredentialStoreTest,
   resetEnvVarMessageFlag,
 } from "@axm.sh/core/unstable/auth";
+import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeLayers = (opts?: { hasCredentials?: boolean }) => {
+const makeLayers = (opts?: { hasCredentials?: boolean; machine?: boolean; json?: boolean }) => {
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
+
   const credStoreLayer = opts?.hasCredentials
     ? CredentialStoreTest("restricted-file", {
         version: 1,
@@ -40,7 +45,8 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
-    TestFlagsLayer(),
+    rendererLayer,
+    TestFlagsLayer({ ...(opts?.json !== undefined && { json: opts.json }) }),
     credStoreLayer,
     AuthClientTest(),
     registryUrlLayer,
@@ -50,7 +56,7 @@ const makeLayers = (opts?: { hasCredentials?: boolean }) => {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide };
+  return { provide, rendererState };
 };
 
 describe("auth token handler", () => {
@@ -82,30 +88,48 @@ describe("auth token handler", () => {
   });
 
   it.effect("outputs token from credential store to stdout", () => {
-    const { provide } = makeLayers({ hasCredentials: true });
-    const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    const { provide, rendererState } = makeLayers({ hasCredentials: true });
 
     return provide(
       Effect.gen(function* () {
         yield* handleToken();
-        const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
-        expect(output).toBe("axm_ses_mytoken\n");
-        writeSpy.mockRestore();
+        expect(rendererState.logs).toContainEqual({
+          _tag: "message",
+          message: "axm_ses_mytoken\n",
+        });
+      }),
+    );
+  });
+
+  it.effect("outputs structured JSON when --json is explicitly requested", () => {
+    const { provide, rendererState } = makeLayers({
+      hasCredentials: true,
+      machine: true,
+      json: true,
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleToken();
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          token: "axm_ses_mytoken",
+        });
       }),
     );
   });
 
   it.effect("outputs token from AXM_TOKEN env var", () => {
     process.env["AXM_TOKEN"] = "axm_env_test_token";
-    const { provide } = makeLayers();
-    const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    const { provide, rendererState } = makeLayers();
 
     return provide(
       Effect.gen(function* () {
         yield* handleToken();
-        const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
-        expect(output).toBe("axm_env_test_token\n");
-        writeSpy.mockRestore();
+        expect(rendererState.logs).toContainEqual({
+          _tag: "message",
+          message: "axm_env_test_token\n",
+        });
       }),
     );
   });

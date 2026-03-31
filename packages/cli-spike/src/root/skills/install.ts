@@ -3,8 +3,7 @@
 //
 // Demonstrates how CliRenderer.withSpinner() replaces manual NDJSON streaming:
 //   - In text mode: shows an interactive spinner with status updates
-//   - In stream-json mode: emits NDJSON progress events automatically
-//   - In json mode: runs silently, only emits final result
+//   - In json mode: emits NDJSON progress events on stderr
 //
 // The handler is completely format-agnostic. No emitEvent(), no format
 // branching. The CliRenderer service handles all format differences.
@@ -33,7 +32,6 @@ const renderText = (source: string, installed: ReadonlyArray<string>): string =>
 // Command
 //
 // Key differences from list.ts:
-//   - withRuntime(..., { isLongRunning: true }) sets pipe default to stream-json
 //   - CliRenderer.withSpinner() wraps the long-running work
 //   - The spinner handle provides .update() for status updates
 //   - Per-command --yes flag imported from core (demonstrates the pattern)
@@ -62,8 +60,7 @@ export const installCommand = Command.make("install", installConfig, (config) =>
 
       // CliRenderer.withSpinner handles format differences:
       //   text        → shows animated spinner with status messages
-      //   stream-json → emits NDJSON progress events
-      //   json        → runs silently (no output until result)
+      //   json        → emits NDJSON progress events on stderr
       const skills = yield* renderer.withSpinner(
         `Installing from ${config.source}`,
         (handle) =>
@@ -81,7 +78,7 @@ export const installCommand = Command.make("install", installConfig, (config) =>
 
       yield* renderer.success(renderText(config.source, skills));
     }),
-    { command: "skills install", isLongRunning: true },
+    { command: "skills install" },
   ),
 ).pipe(
   withArgvTracking(installConfig),

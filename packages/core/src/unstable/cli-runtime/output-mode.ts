@@ -5,14 +5,14 @@ import * as Schema from "effect/Schema";
 // Output format
 // ---------------------------------------------------------------------------
 
-export type OutputFormat = "text" | "json" | "stream-json";
+export type OutputFormat = "text" | "json";
 
 // ---------------------------------------------------------------------------
-// NDJSON stream event schemas — typed contract for stream-json mode
+// NDJSON event schemas — typed contract for machine-mode stderr events
 //
-// In stream-json mode, stdout carries a sequence of independently-parseable
-// JSON lines (NDJSON). Each line has a "type" discriminator so consumers can
-// route events without buffering the full stream:
+// Machine mode emits a sequence of independently-parseable JSON lines (NDJSON)
+// on stderr. Each line has a "type" discriminator so consumers can route
+// events without buffering the full stream:
 //
 //   progress → drive progress bars (phase, percent, message)
 //   log      → informational messages at different severity levels
@@ -46,7 +46,7 @@ export type ErrorEvent = typeof ErrorEventSchema.Type;
 export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent;
 
 // ---------------------------------------------------------------------------
-// Event emitter — writes a single NDJSON line to stdout
+// Event emitter — writes a single NDJSON line to stderr
 // ---------------------------------------------------------------------------
 
-export const emitEvent = (event: StreamEvent) => Console.log(JSON.stringify(event));
+export const emitEvent = (event: StreamEvent) => Console.error(JSON.stringify(event));

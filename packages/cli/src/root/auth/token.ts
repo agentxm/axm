@@ -4,17 +4,20 @@
  * Flow:
  * 1. Resolve token via resolveToken (no interactive fallback)
  * 2. If no token: fail with AUTH_LOGIN_REQUIRED
- * 3. Output raw token to stdout with trailing newline
+ * 3. Output raw token to stdout, or JSON when explicitly requested
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { RegistryUrl, resolveToken } from "@axm.sh/core/unstable/auth";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
@@ -23,8 +26,14 @@ import { withRuntime } from "../../runtime.js";
 // Handler
 // -----------------------------------------------------------------------------
 
+const TokenResultSchema = Schema.Struct({
+  token: Schema.String,
+});
+
 export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const registryUrl = yield* RegistryUrl;
+  const renderer = yield* CliRenderer;
+  const json = Option.getOrElse(yield* jsonFlag, () => false);
 
   // Step 1: Resolve token
   const maybeToken = yield* resolveToken(registryUrl);
@@ -37,8 +46,13 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
     });
   }
 
-  // Step 2: Output raw token to stdout
-  yield* Effect.sync(() => process.stdout.write(maybeToken.value.token + "\n"));
+  // Step 2: Output raw token to stdout, unless --json was explicitly requested
+  if (json) {
+    yield* renderer.result({ token: maybeToken.value.token }, TokenResultSchema);
+    return;
+  }
+
+  yield* renderer.raw(maybeToken.value.token + "\n");
 }, Effect.asVoid);
 
 // -----------------------------------------------------------------------------
@@ -58,6 +72,7 @@ export const tokenCommand = Command.make("token", tokenConfig, () =>
       description: "Print your auth token (e.g., for piping to another tool)",
     },
     { command: "axm token", description: "Same command via shortcut" },
+    { command: "axm auth token --json", description: "Get the token as structured JSON" },
     { command: "", description: "See also: auth login, auth whoami" },
   ]),
 );

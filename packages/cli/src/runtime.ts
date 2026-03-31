@@ -18,7 +18,7 @@ import {
 import {
   Verbosity,
   nonInteractiveFlag,
-  outputFormatFlag,
+  jsonFlag,
   verboseFlag,
   debugFlag,
 } from "@axm.sh/core/unstable/cli-flags";
@@ -51,12 +51,7 @@ import { loadVersion } from "./version.js";
 
 export { verboseFlag, debugFlag };
 
-export const axmGlobalFlags = [
-  nonInteractiveFlag,
-  verboseFlag,
-  debugFlag,
-  outputFormatFlag,
-] as const;
+export const axmGlobalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, jsonFlag] as const;
 
 // -- Base layer: platform, auth, logging --
 const RegistryUrlLayer = Layer.orDie(
@@ -92,7 +87,6 @@ export const baseLayer = Layer.mergeAll(
 
 interface RuntimeOptions {
   readonly command?: string;
-  readonly isLongRunning?: boolean;
 }
 
 const debugLoggerLayer = Layer.unwrap(
@@ -215,7 +209,7 @@ export const withRuntime = <A, R>(
 ) =>
   Effect.gen(function* () {
     const config = yield* resolveRuntimeConfig();
-    const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
+    const format = yield* resolveCliFormat;
     const foundationLayer = makeFoundationLayer(format, {
       envVerbose: config.envVerbose,
       envDebug: config.envDebug,

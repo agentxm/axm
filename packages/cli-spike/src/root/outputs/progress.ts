@@ -39,6 +39,6 @@ export const progressCommand = Command.make("progress", progressConfig, (config)
         ),
       );
     }),
-    { command: "outputs progress", isLongRunning: true },
+    { command: "outputs progress" },
   ),
 ).pipe(Command.withDescription("Demo progress bar"));

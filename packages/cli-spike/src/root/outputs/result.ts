@@ -1,8 +1,10 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
 
+import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withRuntime } from "../../runtime.js";
 
@@ -26,16 +28,15 @@ const sampleStreamData = [
   { name: "doc-writer", version: "0.5.1", source: "local/path", enabled: false },
 ];
 
-const resultConfig = {
-  json: Flag.boolean("json").pipe(Flag.withDescription("Output as structured JSON")),
-} as const;
+const resultConfig = {} as const;
 
-export const resultCommand = Command.make("result", resultConfig, (config) =>
+export const resultCommand = Command.make("result", resultConfig, () =>
   withRuntime(
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
+      const json = Option.getOrElse(yield* jsonFlag, () => false);
 
-      if (config.json) {
+      if (json) {
         yield* renderer.result(sampleData, SkillResult);
         yield* renderer.resultStream(Stream.fromIterable(sampleStreamData), SkillResult);
       } else {

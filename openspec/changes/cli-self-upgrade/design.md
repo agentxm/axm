@@ -24,7 +24,7 @@ The CLI already resolves its own version at startup via `__AXM_VERSION__` (build
 
 ### 1. Install metadata file
 
-Install scripts write `install-meta.json` to the axm data directory after placing the binary. The upgrade command reads this file to determine the installation method.
+Install scripts write `install-meta.json` to the axm data directory after placing the binary.
 
 ```json
 { "method": "script", "installedAt": "2026-03-31T12:00:00Z" }
@@ -32,19 +32,23 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 
 **Location:** `~/.axm/install-meta.json` (Unix), `%LOCALAPPDATA%\axm\install-meta.json` (Windows).
 
-**Detection fallback when file is missing:**
+**Detection precedence:** Path-based detection runs first against the running binary. The metadata file is only consulted when path detection returns `unknown`. This ensures that a user who installs via one method and later installs via another gets the correct behavior for the binary they are actually running.
 
-| Signal                                                           | Inferred method |
-| ---------------------------------------------------------------- | --------------- |
-| `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\` | `script`        |
-| `process.execPath` inside a Homebrew prefix                      | `homebrew`      |
-| `process.execPath` inside a `node_modules` path                  | `npm`           |
-| None of the above                                                | `unknown`       |
+| Priority | Signal                                                           | Inferred method |
+| -------- | ---------------------------------------------------------------- | --------------- |
+| 1        | `process.execPath` inside `~/.axm/bin/` or `%LOCALAPPDATA%\axm\` | `script`        |
+| 2        | `process.execPath` inside a Homebrew prefix                      | `homebrew`      |
+| 3        | `import.meta.url` resolves inside a `node_modules` path          | `npm`           |
+| 4        | `install-meta.json` exists and contains a known method           | value from file |
+| 5        | None of the above                                                | `unknown`       |
+
+Note: `process.execPath` returns the runtime binary (e.g., `/usr/local/bin/node`), not the script location. For npm global installs, `import.meta.url` correctly resolves to the script path inside `node_modules`.
 
 **Alternatives considered:**
 
 - (a) Embed the install method in the binary at build time — rejected because the same binary is used across all install methods.
-- (b) Rely solely on path-based detection — rejected as fragile; the metadata file is cheap and explicit. Path detection is kept as a fallback for installs that predate the metadata file.
+- (b) Rely solely on path-based detection — rejected as fragile; the metadata file provides a fallback for installs that predate path detection or use non-standard paths.
+- (c) Metadata file overrides path detection — rejected because the metadata file is global and sticky. A user who installs via bash then later via Homebrew would have a stale metadata file that disagrees with the running binary, causing `axm upgrade` to self-update the wrong binary.
 
 ### 2. Upgrade behavior per installation method
 
@@ -63,12 +67,12 @@ Install scripts write `install-meta.json` to the axm data directory after placin
 
 The self-update flow for `script`-installed binaries:
 
-1. Fetch the latest release tag from the GitHub Releases API (`GET /repos/agentxm/axm/releases/latest`)
-2. Compare the remote version against the local version using semver
+1. Fetch the latest release from the GitHub Releases API (`GET /repos/agentxm/axm/releases/latest`). Extract the semver version by stripping the `cli-v` prefix from `tag_name` (e.g., `cli-v0.1.0` → `0.1.0`)
+2. Compare the remote version against the local version using semver. If the local version is `"unknown"` (neither `__AXM_VERSION__` nor `package.json` resolved), treat it as always-stale and proceed to download
 3. If already up to date, print a message and exit
-4. Download the platform-appropriate binary to a temporary file in the same directory as the target
+4. Download the platform-appropriate binary to a temporary file in the same directory as the target. The download URL follows the pattern `https://github.com/agentxm/axm/releases/download/cli-v{VERSION}/axm-{platform}-{arch}[.exe]`. Platform and arch are determined at runtime via `process.platform` and `process.arch`. The `.exe` suffix is appended only on Windows. Print a spinner or progress indicator during download
 5. Verify the download succeeded (non-zero size, executable on Unix)
-6. Atomic replace: rename the temp file over the current binary (`rename` on Unix, temp+rename on Windows)
+6. Replace the current binary: on Unix, rename the temp file over the current binary (atomic). On Windows, rename the running binary to a `.old` suffix first (Windows allows renaming a running exe but not overwriting it), then rename the new binary into place. The `.old` file is cleaned up on the next successful run
 7. Run `axm --version` on the new binary to verify, print success message
 
 **Placing the temp file in the same directory** ensures the rename is atomic (same filesystem). The old binary is not deleted separately — `rename` overwrites it.
@@ -91,7 +95,6 @@ A lightweight version check runs early in the CLI startup path. It compares the 
 **Check cadence:** At most once per 24 hours. The check is skipped if:
 
 - The cache file exists and `checkedAt` is less than 24 hours ago
-- `--quiet` flag is set
 - `--json` flag is set
 - `AXM_NO_UPDATE_CHECK=1` environment variable is set
 - The command being run is `axm upgrade` (it will check anyway)
@@ -99,17 +102,21 @@ A lightweight version check runs early in the CLI startup path. It compares the 
 
 **Network request:** When a check is needed, it runs as a fire-and-forget fiber that does not block command execution. If the request fails or times out (3-second timeout), it is silently ignored and the cache is not updated.
 
-**Notification format** (printed to stderr after the command output):
+**Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1.
 
-```
-Update available: 0.0.34 → 0.1.0  Run `axm upgrade` to update.
-```
+| Detected method | Notification                                                            |
+| --------------- | ----------------------------------------------------------------------- |
+| `script`        | `Update available: 0.0.34 → 0.1.0  Run `axm upgrade` to update.`        |
+| `homebrew`      | `Update available: 0.0.34 → 0.1.0  Run `brew upgrade axm-sh/tap/axm`.`  |
+| `npm`           | `Update available: 0.0.34 → 0.1.0  Run `npm update -g @axm.sh/cli`.`    |
+| `unknown`       | `Update available: 0.0.34 → 0.1.0  Run `axm upgrade` for instructions.` |
 
 **Alternatives considered:**
 
 - (a) Check on every invocation without caching — rejected for latency and rate-limit concerns.
 - (b) Print the notice before command output — rejected because it adds visual noise before the user sees what they asked for. After-output placement is less disruptive.
 - (c) Use a background process that persists after the CLI exits — rejected as overly complex for a simple cache-and-check.
+- (d) Always show `Run `axm upgrade`` regardless of method — rejected because it creates an unnecessary extra hop for Homebrew and npm users who would just be redirected to the package manager command.
 
 ### 5. Command placement and flags
 
@@ -145,7 +152,7 @@ Both services depend on `Path` and `FileSystem` from Effect's platform layer. Th
 
 ## Risks / Trade-offs
 
-**[Risk] Binary replacement fails mid-write on Windows** → Mitigation: Download to a temp file in the same directory, then use atomic rename. On Windows, if the running binary is locked, the rename will fail with a clear error message suggesting the user close other axm processes and retry.
+**[Risk] Binary replacement fails mid-write on Windows** → Mitigation: Download to a temp file in the same directory. On Windows, rename the running binary to a `.old` suffix before placing the new binary (Windows allows renaming a running exe but not overwriting it). The `.old` file is cleaned up on the next successful run. If the rename-aside fails, print a clear error suggesting the user close other axm processes and retry.
 
 **[Risk] GitHub API rate limiting on unauthenticated requests** → Mitigation: The 24-hour cache TTL means at most one request per day per machine. GitHub's unauthenticated rate limit is 60 requests/hour, well above this cadence. The check also has a 3-second timeout and fails silently.
 

@@ -14,7 +14,7 @@ Users who installed axm via native install scripts (bash, PowerShell, CMD) have 
 ### New Capabilities
 
 - `cli-upgrade`: The `axm upgrade` command — detects installation method, self-updates for native installs, delegates to package managers otherwise
-- `cli-update-check`: Periodic background version check and update notification displayed on CLI startup
+- `cli-update-check`: Periodic background version check and update notification displayed after command output
 
 ### Modified Capabilities
 

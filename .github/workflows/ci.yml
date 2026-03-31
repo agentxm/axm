@@ -173,6 +173,8 @@ jobs:
 
       - uses: pnpm/action-setup@v5
 
+      - uses: oven-sh/setup-bun@v2.0.2
+
       - run: pnpm install --frozen-lockfile
 
       - name: Download binaries

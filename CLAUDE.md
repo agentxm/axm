@@ -49,7 +49,9 @@ All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate t
 | `pnpm run ci:affected`    | Run CI pipeline for affected packages only               |
 | `pnpm generate`           | Generate registry and telemetry clients                  |
 
-Release and publishing workflow lives in `CONTRIBUTING.md`.
+### Releasing
+
+For a new version release, follow `CONTRIBUTING.md#releasing` exactly. Do not invent or restate a separate release flow here.
 
 ## Guides Index
 

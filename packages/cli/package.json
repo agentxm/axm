@@ -1,6 +1,6 @@
 {
   "name": "@axm.sh/cli",
-  "version": "0.0.43",
+  "version": "0.0.44",
   "description": "Open agent extension manager for skills and more",
   "type": "module",
   "license": "MIT",

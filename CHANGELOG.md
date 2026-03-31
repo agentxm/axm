@@ -1,3 +1,13 @@
+## 0.0.44 (2026-03-31)
+
+### 🩹 Fixes
+
+- Raise scripts test timeout for release tooling ([02e3f528](https://github.com/agentxm/axm/commit/02e3f528))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.43 (2026-03-31)
 
 ### 🩹 Fixes

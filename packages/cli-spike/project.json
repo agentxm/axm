@@ -33,6 +33,17 @@
         "command": "pnpm exec vitest run",
         "cwd": "packages/cli-spike"
       }
+    },
+    "compile": {
+      "cache": true,
+      "dependsOn": ["build", "^build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist/bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts"],
+        "cwd": "packages/cli-spike"
+      }
     }
   }
 }

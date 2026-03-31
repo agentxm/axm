@@ -8,6 +8,15 @@ export const runCli = createCliRunner(new URL("../../cli/dist/src/main.js", impo
 export { createTempDir };
 
 export const FIXTURES_PATH = fileURLToPath(new URL("./fixtures/", import.meta.url));
-export const SKILLS_REPO_FIXTURE = path.join(FIXTURES_PATH, "skills-repo");
+const skillsRepoFixtureSource = path.join(FIXTURES_PATH, "skills-repo");
 
-export const copySkillsRepoFixture = () => copyFixture(SKILLS_REPO_FIXTURE);
+// Give each Vitest worker its own mutable copy so parallel E2E files cannot interfere.
+const sharedSkillsRepoFixture = copyFixture(skillsRepoFixtureSource, "axm-skills-repo-");
+
+process.once("exit", () => {
+  sharedSkillsRepoFixture.cleanup();
+});
+
+export const SKILLS_REPO_FIXTURE = sharedSkillsRepoFixture.path;
+
+export const copySkillsRepoFixture = () => copyFixture(skillsRepoFixtureSource);

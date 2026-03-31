@@ -16,22 +16,15 @@
     },
     "e2e": {
       "cache": false,
+      "dependsOn": ["cli:compile"],
       "executor": "nx:run-commands",
       "options": {
+        "cwd": "packages/cli-e2e",
         "parallel": false,
         "commands": [
-          {
-            "command": "pnpm exec nx run cli-e2e:e2e-main",
-            "forwardAllArgs": true
-          },
-          {
-            "command": "pnpm exec nx run cli-e2e:binary-smoke",
-            "forwardAllArgs": true
-          },
-          {
-            "command": "pnpm exec nx run cli-e2e:install-verification",
-            "forwardAllArgs": true
-          }
+          "pnpm exec vitest run",
+          "pnpm exec vitest run --config vitest.binary.config.ts",
+          "pnpm exec vitest run --config vitest.install.config.ts"
         ]
       }
     },

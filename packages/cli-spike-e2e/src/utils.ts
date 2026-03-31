@@ -1,4 +1,8 @@
-import { createCliRunner, createTempDir } from "@axm.sh/e2e-utils";
+import { createBinaryRunner, createTempDir } from "@axm.sh/e2e-utils";
 
-export const runCli = createCliRunner(new URL("../../cli-spike/dist/src/main.js", import.meta.url));
+const binaryName = process.platform === "win32" ? "axm-spike.exe" : "axm-spike";
+
+export const runCli = createBinaryRunner(
+  new URL(`../../cli-spike/dist/bin/${binaryName}`, import.meta.url),
+);
 export { createTempDir };

@@ -81,7 +81,7 @@
     },
     "compile": {
       "cache": true,
-      "dependsOn": ["build"],
+      "dependsOn": ["build", "^build"],
       "executor": "nx:run-commands",
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist/bin"],

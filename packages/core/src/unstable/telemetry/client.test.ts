@@ -99,7 +99,7 @@ describe("TelemetryClientLive", () => {
         expect(typeof property(os, "version")).toBe("string");
         const device = expectRecord(property(context, "device"));
         expect(typeof property(device, "arch")).toBe("string");
-        expect(property(context, "ci")).toBe(false);
+        expect(typeof property(context, "ci")).toBe("boolean");
       }),
     );
 

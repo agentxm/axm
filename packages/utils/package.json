@@ -1,6 +1,6 @@
 {
   "name": "@axm.sh/utils",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "description": "Shared primitive utilities for axm workspaces",
   "type": "module",
   "license": "MIT",

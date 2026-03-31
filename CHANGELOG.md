@@ -1,3 +1,13 @@
+## 0.0.37 (2026-03-31)
+
+### 🩹 Fixes
+
+- Refine release guidance and fix cli-self-upgrade design gaps. ([1975bebd](https://github.com/agentxm/axm/commit/1975bebd))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.36 (2026-03-31)
 
 ### 🩹 Fixes

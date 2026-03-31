@@ -6,15 +6,15 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 18
-- [Bun](https://bun.sh/) (used as the dev runtime)
-- [pnpm](https://pnpm.io/) (installed via corepack)
+- [mise](https://mise.jdx.dev/) (manages Node.js 22.x, pnpm 10.29.3, and Bun 1.3.5 from `mise.toml`)
 - [Nx](https://nx.dev/) (installed as a devDependency — no global install needed)
 
 ### Setup
 
+After installing and activating `mise` in your shell, run:
+
 ```bash
-corepack enable          # activates pnpm via Node's corepack
+mise install             # install Node.js, Bun, and pnpm from mise.toml
 pnpm install             # install all workspace dependencies
 pnpm build               # build all packages
 pnpm test                # run tests

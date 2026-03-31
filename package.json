@@ -2,6 +2,9 @@
   "name": "axm",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",
     "axm:local": "AXM_REGISTRY_URL=http://localhost:4300 bun packages/cli/src/main.ts",

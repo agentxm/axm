@@ -25,7 +25,9 @@
     "version:patch": "bash scripts/bump-version.sh patch",
     "version:minor": "bash scripts/bump-version.sh minor",
     "version:major": "bash scripts/bump-version.sh major",
-    "release": "bun scripts/release.ts",
+    "release": "bun scripts/release-prepare.ts",
+    "release:prepare": "bun scripts/release-prepare.ts",
+    "release:publish": "bun scripts/release-publish.ts",
     "generate": "nx run core:generate-registry-client && nx run core:generate-telemetry-client",
     "generate:registry": "nx run core:generate-registry-client",
     "generate:telemetry": "nx run core:generate-telemetry-client"

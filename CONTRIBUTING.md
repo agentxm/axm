@@ -34,8 +34,8 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 | `pnpm format:check`    | Check formatting without writing         |
 | `pnpm lint`            | Lint with ESLint                         |
 | `pnpm lint:fix`        | Lint and auto-fix                        |
-| `pnpm verify`          | Run the full pre-PR / pre-release checks |
-| `pnpm verify:affected` | Run affected-only verification           |
+| `pnpm run ci`          | Run the full CI pipeline locally         |
+| `pnpm run ci:affected` | Run CI pipeline for affected packages    |
 | `pnpm build:affected`  | Build only packages changed since `main` |
 | `pnpm test:affected`   | Test only packages changed since `main`  |
 | `pnpm lint:affected`   | Lint only packages changed since `main`  |
@@ -45,7 +45,7 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 1. Fork the repo and create a branch from `main`.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Ensure CI passes locally: `pnpm verify`.
+4. Ensure CI passes locally: `pnpm run ci`.
 5. Open a pull request against `main`.
 
 ### Code Style
@@ -101,7 +101,7 @@ The safe release flow is:
 
    Purpose: validate repo state, apply the pending version plan, and cut the release commit from `main`.
 
-   Outcome: `pnpm release:prepare --dry-run` previews the release version and artifact changes; `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm verify` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes `release: cli-v{VERSION}` to `origin/main`.
+   Outcome: `pnpm release:prepare --dry-run` previews the release version and artifact changes; `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm run ci` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes `release: cli-v{VERSION}` to `origin/main`.
 
 3. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
 

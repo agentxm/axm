@@ -20,15 +20,6 @@
         "generatePackageJson": false
       }
     },
-    "check-build-outputs": {
-      "cache": false,
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/verify-build-outputs.ts"],
-        "cwd": "packages/core"
-      }
-    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {

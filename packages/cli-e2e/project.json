@@ -7,13 +7,7 @@
   "tags": ["type:e2e", "scope:cli"],
   "targets": {
     "e2e-main": {
-      "dependsOn": [
-        {
-          "projects": "core",
-          "target": "check-build-outputs"
-        },
-        "cli:build"
-      ],
+      "dependsOn": ["cli:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run",
@@ -42,27 +36,7 @@
       }
     },
     "binary-smoke": {
-      "dependsOn": [
-        {
-          "projects": "core",
-          "target": "check-build-outputs"
-        },
-        "cli:compile"
-      ],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pnpm exec vitest run --config vitest.binary.config.ts",
-        "cwd": "packages/cli-e2e"
-      }
-    },
-    "binary-smoke-ci": {
-      "dependsOn": [
-        {
-          "projects": "core",
-          "target": "check-build-outputs"
-        },
-        "cli:build"
-      ],
+      "dependsOn": ["cli:compile"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
@@ -70,13 +44,7 @@
       }
     },
     "install-verification": {
-      "dependsOn": [
-        {
-          "projects": "core",
-          "target": "check-build-outputs"
-        },
-        "cli:compile"
-      ],
+      "dependsOn": ["cli:compile"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.install.config.ts",

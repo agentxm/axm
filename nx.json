@@ -65,7 +65,7 @@
     },
     "version": {
       "currentVersionResolver": "disk",
-      "preVersionCommand": "pnpm verify"
+      "preVersionCommand": "pnpm run ci"
     }
   },
   "analytics": false

@@ -81,7 +81,7 @@ describe("auth whoami handler", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleWhoami({ json: false }).pipe(
+        const result = yield* handleWhoami().pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
@@ -93,7 +93,7 @@ describe("auth whoami handler", () => {
     const { provide, rendererState } = makeLayers({ hasCredentials: true });
     return provide(
       Effect.gen(function* () {
-        yield* handleWhoami({ json: false });
+        yield* handleWhoami();
         expect(
           rendererState.logs.some((l) => l._tag === "info" && l.message.includes("alice")),
         ).toBe(true);
@@ -109,28 +109,12 @@ describe("auth whoami handler", () => {
     );
   });
 
-  it.effect("outputs JSON when --json flag is set", () => {
-    const { provide, rendererState } = makeLayers({ hasCredentials: true });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleWhoami({ json: true });
-        expect(rendererState.results).toHaveLength(1);
-        expect(rendererState.results[0]?.data).toMatchObject({
-          userHandle: "alice",
-          email: "alice@example.com",
-          tokenType: "session",
-        });
-      }),
-    );
-  });
-
   it.effect("emits machine-readable output through CliRenderer in machine mode", () => {
     const { provide, rendererState } = makeLayers({ hasCredentials: true, machine: true });
 
     return provide(
       Effect.gen(function* () {
-        yield* handleWhoami({ json: false });
+        yield* handleWhoami();
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           userHandle: "alice",

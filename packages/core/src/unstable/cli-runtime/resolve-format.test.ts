@@ -43,19 +43,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("resolveFormatFromArgv", () => {
-  it("returns explicit --output-format json regardless of TTY", () => {
+  it("returns explicit --json regardless of TTY", () => {
     setTTY(true, true);
-    expect(resolveFormatFromArgv(["--output-format", "json"])).toBe("json");
-  });
-
-  it("returns explicit --output-format text regardless of TTY", () => {
-    setTTY(false, false);
-    expect(resolveFormatFromArgv(["--output-format", "text"])).toBe("text");
-  });
-
-  it("returns explicit --output-format stream-json regardless of TTY", () => {
-    setTTY(true, true);
-    expect(resolveFormatFromArgv(["--output-format", "stream-json"])).toBe("stream-json");
+    expect(resolveFormatFromArgv(["--json"])).toBe("json");
   });
 
   it("returns text when stdout is a TTY", () => {
@@ -73,14 +63,9 @@ describe("resolveFormatFromArgv", () => {
     expect(resolveFormatFromArgv([])).toBe("json");
   });
 
-  it("ignores --output-format without a following value", () => {
-    setTTY(true, false);
-    expect(resolveFormatFromArgv(["--output-format"])).toBe("text");
-  });
-
-  it("ignores --output-format with an invalid value", () => {
+  it("ignores other flags when resolving format", () => {
     setTTY(false, false);
-    expect(resolveFormatFromArgv(["--output-format", "yaml"])).toBe("json");
+    expect(resolveFormatFromArgv(["--verbose"])).toBe("json");
   });
 });
 
@@ -91,17 +76,12 @@ describe("resolveFormatFromArgv", () => {
 describe("resolveFormat", () => {
   it("returns explicit json regardless of TTY", () => {
     setTTY(true, true);
-    expect(resolveFormat(Option.some("json"))).toBe("json");
+    expect(resolveFormat(Option.some(true))).toBe("json");
   });
 
-  it("returns explicit text regardless of TTY", () => {
-    setTTY(false, false);
-    expect(resolveFormat(Option.some("text"))).toBe("text");
-  });
-
-  it("returns explicit stream-json regardless of TTY", () => {
-    setTTY(false, false);
-    expect(resolveFormat(Option.some("stream-json"))).toBe("stream-json");
+  it("treats explicit false as auto-detect", () => {
+    setTTY(true, true);
+    expect(resolveFormat(Option.some(false))).toBe("text");
   });
 
   it("auto-detects text when stdout is a TTY", () => {
@@ -119,13 +99,13 @@ describe("resolveFormat", () => {
     expect(resolveFormat(Option.none())).toBe("json");
   });
 
-  it("auto-detects stream-json for long-running commands when not a TTY", () => {
+  it("auto-detects json when not a TTY", () => {
     setTTY(false, false);
-    expect(resolveFormat(Option.none(), { isLongRunning: true })).toBe("stream-json");
+    expect(resolveFormat(Option.none())).toBe("json");
   });
 
-  it("auto-detects text for long-running commands when stderr is a TTY", () => {
+  it("auto-detects text when stderr is a TTY", () => {
     setTTY(false, true);
-    expect(resolveFormat(Option.none(), { isLongRunning: true })).toBe("text");
+    expect(resolveFormat(Option.none())).toBe("text");
   });
 });

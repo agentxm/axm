@@ -46,10 +46,6 @@
       "types": "./src/unstable/sources/index.ts",
       "default": "./dist/src/unstable/sources/index.js"
     },
-    "./unstable/output-format": {
-      "types": "./src/unstable/cli-runtime/output-format.ts",
-      "default": "./dist/src/unstable/cli-runtime/output-format.js"
-    },
     "./unstable/cli-flags": {
       "types": "./src/unstable/cli-flags/index.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"

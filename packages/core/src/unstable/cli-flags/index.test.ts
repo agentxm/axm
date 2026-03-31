@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
   debugFlag,
+  jsonFlag,
   isNonInteractive,
   nonInteractiveFlag,
   verboseFlag,
@@ -17,6 +18,7 @@ import {
 const getFlags = (flags: { nonInteractive: Option.Option<boolean> }) => {
   const globalFlagsLayer = Layer.mergeAll(
     Layer.succeed(nonInteractiveFlag, flags.nonInteractive),
+    Layer.succeed(jsonFlag, Option.none()),
     Layer.succeed(verboseFlag, false),
     Layer.succeed(debugFlag, false),
   );
@@ -120,6 +122,15 @@ describe("TestFlagsLayer helper", () => {
         Effect.provide(TestFlagsLayer({ nonInteractive: false })),
       );
       expect(nonInteractive).toBe(false);
+    }),
+  );
+
+  it.effect("accepts json override", () =>
+    Effect.gen(function* () {
+      const json = yield* Effect.gen(function* () {
+        return yield* jsonFlag;
+      }).pipe(Effect.provide(TestFlagsLayer({ json: true })));
+      expect(Option.getOrElse(json, () => false)).toBe(true);
     }),
   );
 });

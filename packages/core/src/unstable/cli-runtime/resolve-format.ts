@@ -1,5 +1,5 @@
 import * as Option from "effect/Option";
-import type { OutputFormat } from "./output-format.js";
+import type { OutputFormat } from "./output-mode.js";
 
 /** Check if running in a TTY. Falls back to stderr when stdout is piped (e.g. through pnpm). */
 const isTTY = (): boolean => Boolean(process.stdout.isTTY || process.stderr.isTTY);
@@ -12,10 +12,8 @@ const isTTY = (): boolean => Boolean(process.stdout.isTTY || process.stderr.isTT
  * Raw argv scanning is the only reliable approach here.
  */
 export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
-  const idx = args.indexOf("--output-format");
-  if (idx !== -1 && idx + 1 < args.length) {
-    const value = args[idx + 1];
-    if (value === "json" || value === "stream-json" || value === "text") return value;
+  if (args.includes("--json")) {
+    return "json";
   }
   return isTTY() ? "text" : "json";
 };
@@ -24,10 +22,5 @@ export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat
  * Resolve output format from an Effect Option (from the global flag)
  * with TTY-based auto-detection fallback.
  */
-export const resolveFormat = (
-  explicit: Option.Option<OutputFormat>,
-  options?: { readonly isLongRunning?: boolean | undefined },
-): OutputFormat =>
-  Option.getOrElse(explicit, () =>
-    isTTY() ? "text" : options?.isLongRunning ? "stream-json" : "json",
-  );
+export const resolveFormat = (explicitJson: Option.Option<boolean>): OutputFormat =>
+  Option.getOrElse(explicitJson, () => false) ? "json" : isTTY() ? "text" : "json";

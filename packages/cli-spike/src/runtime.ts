@@ -35,7 +35,6 @@ const spikeCliTelemetryConfig = {
 
 interface RuntimeOptions {
   readonly command?: string;
-  readonly isLongRunning?: boolean;
 }
 
 export const withRuntime = <A, R>(
@@ -43,7 +42,7 @@ export const withRuntime = <A, R>(
   options?: RuntimeOptions,
 ) =>
   Effect.gen(function* () {
-    const format = yield* resolveCliFormat({ isLongRunning: options?.isLongRunning });
+    const format = yield* resolveCliFormat;
     const foundationLayer = makeFoundationLayer(format);
     const appLayer = Layer.provideMerge(FakeSkillsManagerLive, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);

@@ -4,13 +4,8 @@ export type {
   LogEvent,
   ErrorEvent,
   StreamEvent,
-} from "./output-format.js";
-export {
-  ProgressEventSchema,
-  LogEventSchema,
-  ErrorEventSchema,
-  emitEvent,
-} from "./output-format.js";
+} from "./output-mode.js";
+export { ProgressEventSchema, LogEventSchema, ErrorEventSchema, emitEvent } from "./output-mode.js";
 export { type EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError } from "./handle-error.js";

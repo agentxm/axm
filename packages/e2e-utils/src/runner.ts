@@ -23,7 +23,7 @@ export const runCommand = async (
   const result = await execa(command, [...args], {
     cwd,
     // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
-    env: { ...process.env, ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
+    env: { ...process.env, CI: "", ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
     timeout,
     reject: false,
   });

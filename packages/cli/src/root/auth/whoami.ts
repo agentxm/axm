@@ -5,7 +5,7 @@
  * 1. Resolve token via resolveToken
  * 2. If no token: fail with AUTH_LOGIN_REQUIRED
  * 3. Call AuthClient.getMe
- * 4. Display identity (or JSON with --json flag)
+ * 4. Display identity
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,7 +13,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, resolveToken } from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -25,10 +25,6 @@ import { withRuntime } from "../../runtime.js";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
-
-export interface WhoamiHandlerArgs {
-  readonly json: boolean;
-}
 
 const WhoamiResultSchema = Schema.Struct({
   userId: Schema.String,
@@ -48,7 +44,7 @@ const WhoamiResultSchema = Schema.Struct({
 // Handler
 // -----------------------------------------------------------------------------
 
-export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: WhoamiHandlerArgs) {
+export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const authClient = yield* AuthClient;
   const renderer = yield* CliRenderer;
   const registryUrl = yield* RegistryUrl;
@@ -76,11 +72,6 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
   };
 
   // Step 3: Display result
-  if (args.json) {
-    yield* renderer.json(identity);
-    return;
-  }
-
   if (yield* renderer.result(identity, WhoamiResultSchema)) {
     return;
   }
@@ -94,14 +85,10 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* (args: Whoa
 // Command
 // -----------------------------------------------------------------------------
 
-const whoamiConfig = {
-  json: Flag.boolean("json").pipe(
-    Flag.withDescription("Output identity details as JSON (useful for scripting)"),
-  ),
-} as const;
+const whoamiConfig = {} as const;
 
-export const whoamiCommand = Command.make("whoami", whoamiConfig, ({ json }) =>
-  withRuntime(handleWhoami({ json }), { command: "auth whoami" }),
+export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
+  withRuntime(handleWhoami(), { command: "auth whoami" }),
 ).pipe(
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),

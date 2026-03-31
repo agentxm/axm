@@ -14,6 +14,11 @@ interactive prompts, and configuration. The CLI is the source of truth — GUIs
 are thin clients.
 
 > [Handlers](../../CLAUDE.md#handlers) — critical guidance
+>
+> **Current output contract:** use global `--json` for explicit machine-readable
+> output. `--output-format` and `stream-json` were removed. Any lingering
+> references below are historical and should be read as `--json` plus NDJSON
+> diagnostics on stderr.
 
 ## Key Resources
 
@@ -169,10 +174,10 @@ Effect CLI provides `--help` and `--version` automatically through
 
 Applied to every command via `Command.withGlobalFlags()`:
 
-| Flag                | Short | Type    | Purpose                                    |
-| ------------------- | ----- | ------- | ------------------------------------------ |
-| `--non-interactive` |       | boolean | Disable all interactive prompts            |
-| `--output-format`   |       | choice  | Output mode: `text`, `json`, `stream-json` |
+| Flag                | Short | Type    | Purpose                            |
+| ------------------- | ----- | ------- | ---------------------------------- |
+| `--non-interactive` |       | boolean | Disable all interactive prompts    |
+| `--json`            |       | boolean | Force machine-readable JSON output |
 
 ### Per-Command Flags
 
@@ -189,7 +194,7 @@ Reusable `Flag` definitions in `cli-flags/service.ts`. Import and include in `Co
 const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
   flag: Flag.boolean("non-interactive").pipe(Flag.optional, Flag.withDescription("...")),
 });
-const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
+const globalFlags = [nonInteractiveFlag, jsonFlag] as const;
 Command.withGlobalFlags(globalFlags);
 
 // Per-command flags — reusable Flag definitions (not GlobalFlag)
@@ -227,7 +232,7 @@ if (flags.yes) { /* ... */ }
 - [ ] **--non-interactive** — Disables all prompts, errors if required input missing
 - [ ] **--force/-f** — Overrides constraints, does not imply `--yes`
 - [ ] **--preview** — Display-only; requires `--yes` to auto-apply
-- [ ] **--output-format** — Explicit output mode; overrides TTY auto-detection
+- [ ] **--json** — Explicit machine-readable output; overrides TTY auto-detection
 - [ ] **Reserved letters honored** — No conflicts with `-h`, `-v`, `-q`, `-y`, `-f`
 - [ ] **--quiet suppression** — Suppresses spinners and status; preserves results, errors, and stdout
 
@@ -239,27 +244,22 @@ The CLI is the programmatic backbone for desktop apps. Structured output is a
 versioned contract — not a formatted view of human output. Design output for
 machine consumption from day one.
 
-### Output Format Modes
+### Output Modes
 
-| Mode          | When                     | stdout                   | stderr      |
-| ------------- | ------------------------ | ------------------------ | ----------- |
-| `text`        | Interactive terminal     | Human-readable, colored  | Diagnostics |
-| `json`        | Instant commands, piping | Single JSON object/array | Diagnostics |
-| `stream-json` | Long-running operations  | NDJSON (one object/line) | Diagnostics |
+| Mode   | When                    | stdout                  | stderr             |
+| ------ | ----------------------- | ----------------------- | ------------------ |
+| `text` | Interactive terminal    | Human-readable, colored | Diagnostics        |
+| `json` | Explicit flag or piping | Structured JSON result  | NDJSON diagnostics |
 
-**Auto-detection:** When `--output-format` is not specified, default based on
-TTY. If stdout is a TTY → `text`. If stdout is a pipe → `json` for instant
-commands, `stream-json` for long-running operations.
+**Auto-detection:** When `--json` is not specified, default based on TTY. If
+stdout/stderr is a TTY → `text`. If both are non-TTY → `json`.
 
 ```typescript
-// Resolve output format once in the CliFlags service
-const resolveOutputFormat = (
-  explicit: Option.Option<"text" | "json" | "stream-json">,
-  isLongRunning: boolean,
-): "text" | "json" | "stream-json" =>
-  Option.getOrElse(explicit, () =>
-    process.stdout.isTTY ? "text" : isLongRunning ? "stream-json" : "json",
-  );
+const resolveOutputMode = (explicitJson: Option.Option<boolean>): "text" | "json" =>
+  Option.match(explicitJson, {
+    onNone: () => (process.stdout.isTTY ? "text" : "json"),
+    onSome: () => "json",
+  });
 ```
 
 ### JSON Output Shape
@@ -270,11 +270,11 @@ evolution.
 
 ```typescript
 // Single resource — bare object
-// axm skills info owner/repo --output-format json
+// axm skills info owner/repo --json
 {"_version": 1, "name": "my-skill", "source": "owner/repo", "version": "1.2.0"}
 
 // List — bare array
-// axm skills list --output-format json
+// axm skills list --json
 [
   {"_version": 1, "name": "my-skill", "source": "owner/repo", "version": "1.2.0"},
   {"_version": 1, "name": "other-skill", "source": "local", "version": "0.1.0"}

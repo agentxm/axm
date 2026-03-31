@@ -15,10 +15,10 @@ function getOutput(result: { stdout: string; stderr: string }): string {
 
 describe("axm (root command)", () => {
   describe("without arguments", () => {
-    it("exits with code 1", async () => {
+    it("exits with code 0", async () => {
       const result = await runCli([]);
 
-      expect(result.exitCode).toBe(1);
+      expect(result.exitCode).toBe(0);
     });
 
     it("displays available commands", async () => {
@@ -55,7 +55,7 @@ describe("main CLI help", () => {
     const result = await runCli([]);
     const output = getOutput(result);
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(0);
     expect(output).toContain("Open extension manager for AI coding agents.");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
@@ -71,8 +71,8 @@ describe("main CLI help", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain("EXAMPLES");
     expect(output).toContain("axm init");
-    expect(output).toContain("axm skills install owner/repo");
-    expect(output).toContain("axm login");
+    expect(output).toContain("axm skills install @acme/skills/code-review");
+    expect(output).toContain("axm whoami");
   });
 
   it.each([

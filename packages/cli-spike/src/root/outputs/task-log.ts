@@ -38,6 +38,6 @@ export const taskLogCommand = Command.make("task-log", taskLogConfig, (config) =
         }),
       );
     }),
-    { command: "outputs task-log", isLongRunning: true },
+    { command: "outputs task-log" },
   ),
 ).pipe(Command.withDescription("Demo task log output"));

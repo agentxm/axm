@@ -30,6 +30,6 @@ export const streamLogCommand = Command.make("stream-log", {}, () =>
       );
       yield* renderer.streamLog("info", logStream);
     }),
-    { command: "outputs stream-log", isLongRunning: true },
+    { command: "outputs stream-log" },
   ),
 ).pipe(Command.withDescription("Demo streaming log output"));

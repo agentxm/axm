@@ -25,6 +25,13 @@ describe("makeAxmFormatter", () => {
         description: Option.none(),
         required: false,
       },
+      {
+        name: "json",
+        aliases: [],
+        type: "boolean",
+        description: Option.none(),
+        required: false,
+      },
     ];
 
     it("preserves global flags on root command help", () => {
@@ -36,22 +43,26 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("GLOBAL FLAGS");
     });
 
-    it("suppresses global flags on subcommand help", () => {
+    it("suppresses non-json global flags on subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm init [flags]",
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      expect(output).not.toContain("GLOBAL FLAGS");
+      expect(output).toContain("GLOBAL FLAGS");
+      expect(output).toContain("--json");
+      expect(output).not.toContain("--verbose");
     });
 
-    it("suppresses global flags on nested subcommand help", () => {
+    it("preserves --json on nested subcommand help", () => {
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      expect(output).not.toContain("GLOBAL FLAGS");
+      expect(output).toContain("GLOBAL FLAGS");
+      expect(output).toContain("--json");
+      expect(output).not.toContain("--verbose");
     });
   });
 

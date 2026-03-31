@@ -51,6 +51,7 @@
   "release": {
     "projects": ["utils", "core", "cli"],
     "projectsRelationship": "fixed",
+    "versionPlans": true,
     "releaseTag": {
       "pattern": "cli-v{version}",
       "requireSemver": true
@@ -63,7 +64,8 @@
       "automaticFromRef": true
     },
     "version": {
-      "currentVersionResolver": "disk"
+      "currentVersionResolver": "disk",
+      "preVersionCommand": "pnpm verify"
     }
   },
   "analytics": false

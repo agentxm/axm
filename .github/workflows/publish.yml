@@ -55,20 +55,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
-      - name: Publish @axm.sh/utils
+      - name: Publish npm packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm exec nx run utils:publish
-
-      - name: Publish @axm.sh/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm exec nx run core:publish
-
-      - name: Publish @axm.sh/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm exec nx run cli:publish
+          NPM_CONFIG_PROVENANCE: "true"
+        run: pnpm exec nx release publish --outputStyle=static
 
       - name: Update Homebrew tap
         env:

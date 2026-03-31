@@ -9,7 +9,9 @@ dist
 .axm/cache/
 .claude/settings.local.json
 .claude/worktrees/
-.nx/
+.nx/*
+!.nx/version-plans/
+!.nx/version-plans/**/*.md
 tmp/
 
 # Test results (JUnit XML reports)

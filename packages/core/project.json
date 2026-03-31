@@ -57,14 +57,10 @@
         "cwd": "packages/core"
       }
     },
-    "publish": {
+    "nx-release-publish": {
       "cache": false,
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pnpm publish --provenance --access public --no-git-checks",
-        "cwd": "packages/core"
-      }
+      "dependsOn": ["build", "^nx-release-publish"],
+      "executor": "@nx/js:release-publish"
     }
   }
 }

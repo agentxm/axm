@@ -1,12 +1,12 @@
 /**
- * Automated release preparation pipeline: verify -> bump -> commit -> push.
+ * Automated release preparation pipeline: preflight -> version -> changelog -> commit -> push.
  *
  * Usage:
- *   bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]
+ *   bun scripts/release-prepare.ts [--dry-run]
  *
  * Examples:
- *   bun scripts/release-prepare.ts patch
- *   bun scripts/release-prepare.ts minor --dry-run
+ *   bun scripts/release-prepare.ts
+ *   bun scripts/release-prepare.ts --dry-run
  */
 
 import {
@@ -18,8 +18,6 @@ import {
   currentHeadSha,
   fetchOriginMain,
   fail,
-  parseBumpType,
-  RELEASE_COMMIT_PATHS,
   releaseTagFromVersion,
   requireCleanWorkingTree,
   requireMainBranch,
@@ -31,7 +29,7 @@ import {
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
+  console.log("Usage: bun scripts/release-prepare.ts [--dry-run]");
   process.exit(0);
 }
 
@@ -42,14 +40,9 @@ if (unknownFlags.length > 0) {
 }
 
 const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
-if (positionalArgs.length !== 1) {
-  fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]");
+if (positionalArgs.length !== 0) {
+  fail("Usage: bun scripts/release-prepare.ts [--dry-run]");
 }
-
-const bumpType = parseBumpType(
-  positionalArgs[0] ??
-    fail("Usage: bun scripts/release-prepare.ts <patch|minor|major> [--dry-run]"),
-);
 
 const preflight = () => {
   console.log("==> Preflight checks");
@@ -62,25 +55,22 @@ const preflight = () => {
   const version = requireMatchingReleasePackageVersions();
   console.log(`  Branch: main`);
   console.log(`  Current version: ${version}`);
-  console.log(`  Bump type: ${bumpType}`);
   if (dryRun) {
     console.log("  Mode: dry-run");
   }
 };
 
-const verify = () => {
-  console.log("\n==> Phase 1: Verify");
-  run("pnpm", ["verify"]);
-};
-
 const requireWorkspaceVersion = (workspaceVersion: string | null | undefined): string =>
-  workspaceVersion ?? fail("Expected Nx Release to produce a fixed workspace version.");
+  workspaceVersion ??
+  fail(
+    "Expected Nx Release to resolve a fixed workspace version from pending version plans. Run `pnpm release:plan` first.",
+  );
 
 const prepareReleaseArtifacts = async () => {
-  console.log("\n==> Phase 2: Bump versions");
+  console.log("\n==> Phase 1: Version pending release plans");
   const { workspaceVersion, projectsVersionData, releaseGraph } = await nxReleaseVersion({
-    specifier: bumpType,
     dryRun,
+    deleteVersionPlans: true,
     stageChanges: false,
     gitCommit: false,
     gitTag: false,
@@ -88,7 +78,7 @@ const prepareReleaseArtifacts = async () => {
   });
 
   const version = requireWorkspaceVersion(workspaceVersion);
-  console.log("\n==> Phase 3: Update changelog");
+  console.log("\n==> Phase 2: Update changelog");
   await nxReleaseChangelog({
     version,
     versionData: projectsVersionData,
@@ -115,13 +105,13 @@ const prepareReleaseArtifacts = async () => {
 };
 
 const commitReleaseArtifacts = (tag: string) => {
-  console.log("\n==> Phase 4: Commit");
-  run("git", ["add", ...RELEASE_COMMIT_PATHS]);
+  console.log("\n==> Phase 3: Commit");
+  run("git", ["add", "--all"]);
   run("git", ["commit", "-m", `release: ${tag}`]);
 };
 
 const pushReleaseCommit = (tag: string) => {
-  console.log("\n==> Phase 5: Push");
+  console.log("\n==> Phase 4: Push");
   run("git", ["push", "origin", "main"]);
 
   const sha = currentHeadSha();
@@ -135,11 +125,10 @@ const pushReleaseCommit = (tag: string) => {
 
 const main = async () => {
   preflight();
-  verify();
 
   const { tag } = await prepareReleaseArtifacts();
   if (dryRun) {
-    console.log(`\nDry run complete. Would prepare ${tag} (${bumpType}).`);
+    console.log(`\nDry run complete. Would prepare ${tag} from pending version plans.`);
     return;
   }
 

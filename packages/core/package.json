@@ -116,9 +116,6 @@
   "engines": {
     "node": ">=18"
   },
-  "scripts": {
-    "prepublishOnly": "nx run core:build"
-  },
   "nx": {
     "includedScripts": []
   },

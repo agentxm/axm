@@ -36,6 +36,10 @@ jobs:
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5.0.1
 
+      - name: Release plan check
+        if: github.event_name == 'pull_request'
+        run: pnpm release:plan:check
+
       - name: Format check
         run: pnpm format:check
 

@@ -26,9 +26,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - uses: oven-sh/setup-bun@v2.0.2
+      - uses: pnpm/action-setup@v5
 
-      - run: corepack enable
+      - uses: oven-sh/setup-bun@v2.0.2
 
       - run: pnpm install --frozen-lockfile
 
@@ -106,9 +106,9 @@ jobs:
         with:
           node-version: 22
 
-      - uses: oven-sh/setup-bun@v2.0.2
+      - uses: pnpm/action-setup@v5
 
-      - run: corepack enable
+      - uses: oven-sh/setup-bun@v2.0.2
 
       - run: pnpm install --frozen-lockfile
 

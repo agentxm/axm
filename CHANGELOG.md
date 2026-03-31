@@ -1,3 +1,13 @@
+## 0.0.43 (2026-03-31)
+
+### 🩹 Fixes
+
+- Route release workflow scripts through Nx targets ([f345da8b](https://github.com/agentxm/axm/commit/f345da8b))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.42 (2026-03-31)
 
 ### 🩹 Fixes

@@ -1,3 +1,13 @@
+## 0.0.33 (2026-03-31)
+
+### 🩹 Fixes
+
+- Fix binary smoke CI and complete patch release ([7391b8f6](https://github.com/agentxm/axm/commit/7391b8f6))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.32 (2026-03-31)
 
 ### 🩹 Fixes

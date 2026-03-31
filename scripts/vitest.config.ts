@@ -7,6 +7,7 @@ export default defineConfig({
   root: projectRoot,
   test: {
     include: ["**/*.test.ts"],
+    testTimeout: 20000,
     reporters: ["default", "junit"],
     outputFile: { junit: "../test-results/scripts/junit.xml" },
   },

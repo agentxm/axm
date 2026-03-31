@@ -84,6 +84,7 @@ Nx orchestrates the monorepo. Configuration lives in `nx.json` (workspace-level)
 - **Target defaults** — `nx.json` `targetDefaults` set caching, inputs, and dependency ordering for shared targets like `lint` and `test`.
 - **Named inputs** — `default` and `production` input sets control cache invalidation. Test files and vitest configs are excluded from `production`.
 - **Module boundaries** — `@nx/enforce-module-boundaries` ESLint rule enforces dependency constraints via project tags (`type:app` can depend on `type:lib`, not vice versa).
+- For agent-run Nx commands, prefer `NX_TUI=false` for readable logs. Do not bake it into checked-in scripts.
 
 ## CLI Conventions
 
@@ -269,6 +270,9 @@ See [Testing Guide](contributing/guides/testing.md) and
 - Bug fix means regression test first
 - Unit tests live beside the code they cover
 - Distribution E2E tests live in `packages/<cli>-e2e/` and run against `dist/`
+- Prefer seams and test layers over mocks; mock third-party boundaries only when an explicit seam is impractical
+- Avoid tests that only restate declarations or source structure; test observable behavior or enforce the rule with static analysis
+- Prefer `@effect/vitest` helpers like `it.effect`, `it.scoped`, and `it.layer` for new Effect tests
 
 ### Test Organization
 

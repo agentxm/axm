@@ -3,15 +3,50 @@ dist
 .DS_Store
 *.tsbuildinfo
 *.tgz
-.idea
+
+# JetBrains: keep shareable project settings, ignore local/generated files.
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/aws.xml
+.idea/**/contentModel.xml
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+.idea/**/gradle.xml
+.idea/**/libraries
+.idea/**/mongoSettings.xml
+.idea/replstate.xml
+.idea/sonarlint/
+.idea/sonarlint.xml
+.idea/httpRequests
+.idea/caches/build_file_checksums.ser
+.idea/.cache/.Apifox_Helper
+.idea/ApifoxUploaderProjectSetting.xml
+.idea/**/copilot.data.migration.*.xml
+cmake-build-*/
+*.iws
+out/
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+http-client.private.env.json
 
 .reference/
 .axm/cache/
 .claude/settings.local.json
 .claude/worktrees/
-.nx/*
-!.nx/version-plans/
-!.nx/version-plans/**/*.md
+.nx/cache/
+.nx/workspace-data/
 tmp/
 
 # Test results (JUnit XML reports)

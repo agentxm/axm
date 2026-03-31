@@ -1,18 +1,35 @@
 {
   "name": "@axm.sh/utils",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.30",
   "description": "Shared primitive utilities for axm workspaces",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/utils"
+  },
   "exports": {
     "./unstable/env": {
       "types": "./src/unstable/env/index.ts",
-      "default": "./src/unstable/env/index.ts"
+      "default": "./dist/src/unstable/env/index.js"
     },
     "./unstable/interaction": {
       "types": "./src/unstable/interaction/index.ts",
-      "default": "./src/unstable/interaction/index.ts"
+      "default": "./dist/src/unstable/interaction/index.js"
     }
+  },
+  "files": [
+    "dist/src/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prepublishOnly": "nx run utils:build"
   },
   "nx": {
     "includedScripts": []

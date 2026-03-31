@@ -30,6 +30,15 @@
         "command": "pnpm exec vitest run",
         "cwd": "packages/utils"
       }
+    },
+    "publish": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm publish --provenance --access public --no-git-checks",
+        "cwd": "packages/utils"
+      }
     }
   }
 }

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-The `axm init` command for initializing workspaces. Acts as a thin wrapper around WorkspaceContext creation.
+The `axm init` command initializes axm in a project or user scope.
 
 ## Requirements
 
 ### Requirement: Init Command
 
-The CLI SHALL provide an `init` command that creates WorkspaceContext to trigger initialization.
+The CLI SHALL provide an `init` command that initializes axm state for the selected scope.
 
 #### Scenario: First-time project initialization
 
@@ -24,7 +24,7 @@ The CLI SHALL provide an `init` command that creates WorkspaceContext to trigger
 #### Scenario: First-time user-scope initialization
 
 - **WHEN** the user runs `axm init --scope user` without `~/.axm/`
-- **THEN** the CLI creates WorkspaceContext layer which creates empty settings and lockfile
+- **THEN** the CLI SHALL create user-scope axm settings and lockfile state
 - **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 - **AND** SHALL display the telemetry notice
 
@@ -65,37 +65,24 @@ The CLI SHALL support flags for controlling initialization behavior.
 #### Scenario: Scope flag
 
 - **WHEN** the user runs `axm init --scope user`
-- **THEN** WorkspaceContext is created with `global=true`
+- **THEN** axm SHALL initialize the user scope instead of the current project
 
 #### Scenario: Yes flag
 
 - **WHEN** the user runs `axm init --yes`
-- **THEN** WorkspaceContext is created with `yes=true`
+- **THEN** confirmation prompts SHALL be skipped
 
 #### Scenario: Non-interactive flag
 
 - **WHEN** the user runs `axm init --non-interactive`
-- **THEN** WorkspaceContext is created with `nonInteractive=true`
+- **THEN** the command SHALL not prompt
+- **AND** SHALL use defaults or explicit flags for required choices
 
 #### Scenario: Agent flag
 
 - **WHEN** the user runs `axm init --agent claude-code cursor`
-- **THEN** WorkspaceContext is created with specified agents without detection or prompting
-
-### Requirement: Reusable Init Logic
-
-The init logic SHALL be provided by WorkspaceContext factory.
-
-#### Scenario: Init as WorkspaceContext creation
-
-- **WHEN** implementing the init functionality
-- **THEN** it SHALL be a thin wrapper that yields WorkspaceContext and displays result
-
-#### Scenario: No duplicate init logic
-
-- **WHEN** init command runs
-- **THEN** it SHALL NOT contain agent detection, selection, or file creation logic
-- **AND** all such logic SHALL be in WorkspaceContext.make()
+- **THEN** only the specified agents SHALL be configured
+- **AND** agent auto-detection and agent prompts SHALL be skipped
 
 ### Requirement: Agent Detection
 

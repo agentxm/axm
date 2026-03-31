@@ -4,30 +4,30 @@
 
 Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestFields` with additional fields:
 
-- `name`: fully qualified `@profile/name`
+- `name`: fully qualified `@profile/packs/name`
 - `version`: semver string
 - `description`: optional
 - `license`: optional
 - `authors`: array of `{name, email?, url?}`
-- `skills`: optional record of `@profile/name` to semver range
-- `commands`: optional record of `@profile/name` to semver range
-- `mcp-servers`: optional record of `@profile/name` to semver range
+- `skills`: optional record of `@profile/skills/name` to semver range
+- `commands`: optional record of `@profile/commands/name` to semver range
+- `mcp-servers`: optional record of `@profile/mcp-servers/name` to semver range
 
-All extension entries in the manifest SHALL be version-specifier maps (`"@profile/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
+All extension entries in the manifest SHALL use three-segment fully qualified names and version-specifier maps (`"@profile/type-plural/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
 
 #### Scenario: Valid pack manifest with skills and commands
 
-- **WHEN** `axm-pack.json` contains `name: "@acme/frontend-pack"`, `version: "1.0.0"`, `skills: { "@acme/code-review": "^1.0.0" }`, `commands: { "@acme/formatter": "^1.0.0" }`
+- **WHEN** `axm-pack.json` contains `name: "@acme/packs/frontend-pack"`, `version: "1.0.0"`, `skills: { "@acme/skills/code-review": "^1.0.0" }`, `commands: { "@acme/commands/formatter": "^1.0.0" }`
 - **THEN** manifest validation succeeds
 
 #### Scenario: Empty extension sections are valid
 
-- **WHEN** `axm-pack.json` contains `name: "@acme/empty-pack"`, `version: "1.0.0"` with no `skills`, `commands`, or `mcp-servers` fields
+- **WHEN** `axm-pack.json` contains `name: "@acme/packs/empty-pack"`, `version: "1.0.0"` with no `skills`, `commands`, or `mcp-servers` fields
 - **THEN** manifest validation succeeds
 
 #### Scenario: Invalid entry format rejected
 
-- **WHEN** `axm-pack.json` contains `skills: { "@acme/code-review": { "source": "@acme/code-review" } }`
+- **WHEN** `axm-pack.json` contains `skills: { "@acme/skills/code-review": { "source": "@acme/skills/code-review" } }`
 - **THEN** manifest validation fails (entries must be version-specifier strings, not objects)
 
 ### Requirement: Pack directory structure
@@ -44,7 +44,7 @@ Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
 
 #### Scenario: Pack installed to managed location
 
-- **WHEN** installing `@acme/frontend-pack` from a registry
+- **WHEN** installing `@acme/packs/frontend-pack` from a registry
 - **THEN** the manifest resides at `.axm/extensions/@acme/packs/frontend-pack/axm-pack.json`
 
 #### Scenario: No agent symlinks for packs
@@ -73,24 +73,20 @@ Packs SHALL only support registry sources. GitHub, git, and local path sources S
 
 ### Requirement: Transitive skill visibility
 
-`getInstalledSkills()` SHALL return both direct (settings.json) and transitive (pack-provided) skills. Direct entries SHALL take precedence over transitive entries when both exist for the same skill.
-
-Transitive skills SHALL be derived from installed packs' `resolvedSkills` in the lockfile.
-
-`getConfiguredSkills()` SHALL remain unchanged — returning only skills explicitly in settings.json.
+Skills provided by installed packs SHALL still appear as installed skills in user-visible skill views. Skills explicitly listed in settings SHALL take precedence over pack-provided entries with the same name.
 
 #### Scenario: Pack-provided skill visible in installed skills
 
-- **WHEN** pack `@acme/frontend-pack` is installed with `resolvedSkills: { "@acme/code-review": "1.2.0" }`
-- **AND** `@acme/code-review` has no direct entry in settings.json
-- **THEN** `getInstalledSkills()` includes `@acme/code-review`
-- **AND** `getConfiguredSkills()` does NOT include `@acme/code-review`
+- **WHEN** pack `@acme/packs/frontend-pack` is installed with `resolvedSkills: { "@acme/skills/code-review": "1.2.0" }`
+- **AND** `@acme/skills/code-review` has no direct entry in settings.json
+- **THEN** installed skills SHALL include `@acme/skills/code-review`
+- **AND** configured skills SHALL NOT include `@acme/skills/code-review`
 
 #### Scenario: Direct entry takes precedence over transitive
 
-- **WHEN** pack `@acme/frontend-pack` provides `@acme/code-review` transitively
-- **AND** settings.json contains `"code-review": { "source": "@acme/code-review", "enabled": false }`
-- **THEN** `getInstalledSkills()` returns the direct entry with `enabled: false`
+- **WHEN** pack `@acme/packs/frontend-pack` provides `@acme/skills/code-review` transitively
+- **AND** settings.json contains `"code-review": { "source": "@acme/skills/code-review", "enabled": false }`
+- **THEN** installed skills SHALL use the direct entry with `enabled: false`
 
 ### Requirement: Direct entry promotion on disable
 
@@ -98,15 +94,15 @@ When a user disables a skill that only exists transitively (via a pack), the sys
 
 #### Scenario: Disable transitive skill creates direct entry
 
-- **WHEN** `@acme/code-review` is installed only via pack (no direct settings entry)
-- **AND** user runs `axm skills disable @acme/code-review`
-- **THEN** settings.json gains entry `"code-review": { "source": "@acme/code-review", "enabled": false }`
+- **WHEN** `@acme/skills/code-review` is installed only via pack (no direct settings entry)
+- **AND** user runs `axm skills disable @acme/skills/code-review`
+- **THEN** settings.json gains entry `"code-review": { "source": "@acme/skills/code-review", "enabled": false }`
 
 #### Scenario: Promoted skill survives pack uninstall
 
-- **WHEN** `@acme/code-review` was promoted to direct (via disable)
+- **WHEN** `@acme/skills/code-review` was promoted to direct (via disable)
 - **AND** the pack that originally provided it is uninstalled
-- **THEN** `@acme/code-review` is NOT orphaned (direct entry exists)
+- **THEN** `@acme/skills/code-review` is NOT orphaned (direct entry exists)
 - **AND** the skill remains installed
 
 ### Requirement: Orphan detection for pack uninstall
@@ -121,22 +117,22 @@ Orphaned extensions SHALL be included in the uninstall plan for removal.
 
 #### Scenario: Extension orphaned after pack uninstall
 
-- **WHEN** pack `@acme/pack-a` is uninstalled
-- **AND** `@acme/code-review` is in `pack-a`'s `resolvedSkills`
-- **AND** `@acme/code-review` has no direct settings entry
-- **AND** no other installed pack references `@acme/code-review`
-- **THEN** `@acme/code-review` is included in the uninstall plan as orphaned
+- **WHEN** pack `@acme/packs/pack-a` is uninstalled
+- **AND** `@acme/skills/code-review` is in `pack-a`'s `resolvedSkills`
+- **AND** `@acme/skills/code-review` has no direct settings entry
+- **AND** no other installed pack references `@acme/skills/code-review`
+- **THEN** `@acme/skills/code-review` is included in the uninstall plan as orphaned
 
 #### Scenario: Extension shared by two packs is not orphaned
 
-- **WHEN** pack `@acme/pack-a` is uninstalled
-- **AND** `@acme/code-review` is in both `pack-a` and `pack-b`'s `resolvedSkills`
-- **AND** `pack-b` is still installed
-- **THEN** `@acme/code-review` is NOT orphaned
+- **WHEN** pack `@acme/packs/pack-a` is uninstalled
+- **AND** `@acme/skills/code-review` is in both `pack-a` and `pack-b`'s `resolvedSkills`
+- **AND** `@acme/packs/pack-b` is still installed
+- **THEN** `@acme/skills/code-review` is NOT orphaned
 
 #### Scenario: Extension with direct entry is not orphaned
 
-- **WHEN** pack `@acme/pack-a` is uninstalled
-- **AND** `@acme/code-review` is in `pack-a`'s `resolvedSkills`
-- **AND** `@acme/code-review` has a direct entry in settings.json
-- **THEN** `@acme/code-review` is NOT orphaned
+- **WHEN** pack `@acme/packs/pack-a` is uninstalled
+- **AND** `@acme/skills/code-review` is in `pack-a`'s `resolvedSkills`
+- **AND** `@acme/skills/code-review` has a direct entry in settings.json
+- **THEN** `@acme/skills/code-review` is NOT orphaned

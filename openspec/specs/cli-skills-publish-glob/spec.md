@@ -2,7 +2,7 @@
 
 ### Requirement: Expand glob patterns against installed skill names
 
-When any positional argument contains `*`, the publish handler SHALL expand it against installed skill names from `Workspace.getInstalledSkills()`, where installed names are taxonomy-derived (`Configured ∪ Implicit`) and excluded names follow ignored-pattern rules.
+When any positional argument contains `*`, `axm skills publish` SHALL expand it against installed skill names, including direct user installs and pack-provided installs. Ignored names SHALL be excluded from expansion.
 
 #### Scenario: Glob matches installed configured and implicit skills
 

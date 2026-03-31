@@ -76,7 +76,7 @@ Those two package versions must always match for a release. The release tag does
 
 ### Version Bump Helpers
 
-Use the root helper scripts to bump both package versions together:
+Use the root helper scripts only when you need a manual manifest bump outside the normal release flow:
 
 - `pnpm version:patch`
 - `pnpm version:minor`
@@ -89,6 +89,7 @@ These scripts:
 - do not create a commit
 - do not create a git tag
 - do not publish anything
+- are not the canonical release path; use `pnpm release:prepare` for normal releases
 
 ### Release Flow
 
@@ -113,7 +114,7 @@ pnpm release:publish cli-v0.1.0 --dry-run
 The safe release flow is:
 
 1. **Preflight** — checks you're on `main`, working tree is clean, up to date with remote, and `core`/`cli` versions match.
-2. **Verify** — runs `nx format:check`, then `nx run-many -t lint typecheck build test --nxBail`, then `nx run-many -t e2e --nxBail --parallel=1` with `NX_TUI=false`.
+2. **Verify** — runs `pnpm verify`, including the E2E boundary checks in `scripts/`.
 3. **Bump** — bumps both `core` and `cli` manifests via `npm version --no-git-tag-version`.
 4. **Push** — commits the version bump and pushes it to `origin/main` with subject `release: cli-v{VERSION}`.
 5. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
@@ -122,7 +123,7 @@ The safe release flow is:
 
 ### Notes
 
-- Release tags must use the `cli-vX.Y.Z` format, for example `cli-v0.1.0`.
+- Release tags must use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
 - If the tag version and package manifest versions do not match, the Release workflow fails fast.
 - Run `gh release create ...` only after the release commit has been pushed and the CI workflow for that commit has completed successfully.
 - Do not publish packages locally as the normal release path; GitHub Actions is the canonical publisher.

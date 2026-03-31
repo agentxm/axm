@@ -6,6 +6,34 @@
   "sourceRoot": "packages/core/src",
   "tags": ["type:lib", "scope:core"],
   "targets": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "cwd": "packages/core",
+        "parallel": false,
+        "commands": [
+          {
+            "command": "rm -rf dist"
+          },
+          {
+            "command": "pnpm exec tsc --build tsconfig.lib.json --force"
+          }
+        ]
+      }
+    },
+    "check-build-outputs": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/verify-build-outputs.ts"],
+        "cwd": "packages/core"
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {

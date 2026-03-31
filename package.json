@@ -19,8 +19,8 @@
     "lint": "nx run-many -t lint",
     "lint:affected": "nx affected -t lint",
     "lint:fix": "nx run-many -t lint --fix",
-    "verify": "nx format:check && nx run-many -t lint typecheck build test --nxBail && nx run-many -t e2e --nxBail --parallel=1",
-    "verify:affected": "nx format:check && nx affected -t lint typecheck build test --nxBail && nx affected -t e2e --nxBail --parallel=1",
+    "verify": "nx format:check && nx run-many -t lint typecheck build test --nxBail && nx run-many -t e2e --nxBail --parallel=1 && nx run scripts:verify-e2e-boundaries",
+    "verify:affected": "nx format:check && nx affected -t lint typecheck build test --nxBail && nx affected -t e2e --nxBail --parallel=1 && nx run scripts:verify-e2e-boundaries",
     "prepare": "husky && effect-language-service patch",
     "version:patch": "bash scripts/bump-version.sh patch",
     "version:minor": "bash scripts/bump-version.sh minor",
@@ -41,6 +41,7 @@
   },
   "packageManager": "pnpm@10.29.3",
   "devDependencies": {
+    "@axm.sh/utils": "workspace:*",
     "@types/bun": "catalog:",
     "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "^0.84.1",

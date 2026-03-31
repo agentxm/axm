@@ -24,7 +24,10 @@ archiving completed changes.
 
 ## Key Resources
 
-- [OpenSpec Agent Instructions](../../openspec/AGENTS.md) — Complete OpenSpec reference
+- `openspec/specs/*/spec.md` — Accepted capability specs
+- `openspec/changes/<change-id>/proposal.md` — Active change proposal
+- `openspec/changes/<change-id>/design.md` — Active change design
+- `openspec/changes/<change-id>/.openspec.yaml` — Change metadata
 
 ---
 
@@ -46,5 +49,6 @@ archiving completed changes.
 
 ## See Also
 
-- [OpenSpec AGENTS.md](../../openspec/AGENTS.md) — Full OpenSpec reference
+- [Feature Delivery Guide](./feature-delivery.md) — Delivery checks that
+  complement the OpenSpec workflow
 - [What Makes a Good Spec?](https://addyosmani.com/blog/good-spec/) — Addy Osmani on spec quality

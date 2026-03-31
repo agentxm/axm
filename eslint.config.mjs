@@ -17,7 +17,6 @@ export default [
       "**/vite.config.*.timestamp*",
       "**/vitest.config.*.timestamp*",
       "**/__generated__/**",
-      "scripts/**",
     ],
   },
   {
@@ -40,6 +39,12 @@ export default [
             {
               sourceTag: "type:e2e",
               onlyDependOnLibsWithTags: ["type:lib"],
+              notDependOnLibsWithTags: ["scope:core"],
+            },
+            {
+              sourceTag: "scope:test",
+              onlyDependOnLibsWithTags: ["type:lib"],
+              notDependOnLibsWithTags: ["scope:core"],
             },
           ],
         },

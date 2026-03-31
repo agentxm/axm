@@ -3,5 +3,10 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["**/*"]
+  "include": ["**/*"],
+  "references": [
+    {
+      "path": "../../utils/tsconfig.lib.json"
+    }
+  ]
 }

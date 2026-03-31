@@ -17,14 +17,11 @@ configuration.
 
 ## Skills
 
-| Skill                                                            | Command | Description                                        |
-| ---------------------------------------------------------------- | ------- | -------------------------------------------------- |
-| [testing-basics](../../.claude/skills/testing-basics/SKILL.md)   | —       | Test quality principles and test level guidance    |
-| [testing-unit](../../.claude/skills/testing-unit/SKILL.md)       | —       | Unit test patterns for pure functions              |
-| [testing-handler](../../.claude/skills/testing-handler/SKILL.md) | —       | Handler test patterns with Effect test layers      |
-| [axm-testing-e2e](../../.claude/skills/axm-testing-e2e/SKILL.md) | —       | E2E test patterns for CLI commands                 |
-| [effect-testing](../../.claude/skills/effect-testing/SKILL.md)   | —       | Effect testing with @effect/vitest                 |
-| [effect-service](../../.claude/skills/effect-service/SKILL.md)   | —       | Service patterns including test layer construction |
+| Skill                                                                           | Command | Description                                        |
+| ------------------------------------------------------------------------------- | ------- | -------------------------------------------------- |
+| [axm-testing-e2e](../../.claude/skills/axm-testing-e2e/SKILL.md)                | —       | E2E test patterns for CLI commands                 |
+| [effect-testing](../../.axm/extensions/@axm/skills/effect-testing/src/SKILL.md) | —       | Effect testing with @effect/vitest                 |
+| [effect-service](../../.axm/extensions/@axm/skills/effect-service/src/SKILL.md) | —       | Service patterns including test layer construction |
 
 ---
 
@@ -96,5 +93,7 @@ The CLAUDE.md quality checklist provides the full set of properties to evaluate.
 
 ## See Also
 
+- [Feature Delivery Guide](./feature-delivery.md) — Proposal to verification
+  checks
 - [Test Desiderata](https://kentbeck.github.io/TestDesiderata/) — Kent Beck's
   framework for evaluating test quality trade-offs

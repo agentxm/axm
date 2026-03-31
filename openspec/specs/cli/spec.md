@@ -72,7 +72,7 @@ The CLI SHALL register `login`, `logout`, `whoami`, and `token` as top-level com
 
 ### Requirement: Standard Flags
 
-The CLI SHALL support standard global flags for controlling output, interactivity, and execution behavior. The flags `--yes` (`-y`), `--non-interactive`, `--force` (`-f`), and `--preview` SHALL be defined once globally in the root yargs configuration. Individual commands SHALL NOT redefine these flags.
+The CLI SHALL support standard global flags for controlling output, interactivity, and execution behavior. Global flags available across the CLI SHALL include `--yes` (`-y`), `--non-interactive`, `--force` (`-f`), `--preview`, `-q` / `--quiet`, `-v` / `--verbose`, and `-vv` / `--debug`. The `--json` flag SHALL appear only on commands that support machine-readable output.
 
 #### Scenario: JSON flag outputs machine-readable format
 
@@ -104,11 +104,27 @@ The CLI SHALL support standard global flags for controlling output, interactivit
 - **THEN** the CLI displays the execution plan
 - **AND** the CLI requires `--yes` or interactive confirmation to apply
 
-#### Scenario: Non-interactive flag has no default
+#### Scenario: Quiet flag suppresses non-essential output
 
-- **WHEN** `--non-interactive` is not passed by the user
-- **THEN** the parsed argv value SHALL be `undefined`
-- **AND** the `CliFlags` service SHALL apply auto-detection (CI env, TTY)
+- **WHEN** the user runs any command with `-q` or `--quiet`
+- **THEN** informational output SHALL be suppressed
+- **AND** warnings and errors SHALL remain visible
+
+#### Scenario: Verbose flag shows additional detail
+
+- **WHEN** the user runs any command with `-v` or `--verbose`
+- **THEN** the CLI SHALL include detail that is hidden at the normal output level
+
+#### Scenario: Debug flag shows maximal detail
+
+- **WHEN** the user runs any command with `-vv` or `--debug`
+- **THEN** the CLI SHALL include the most detailed diagnostic output level
+
+#### Scenario: JSON flag absent on commands without machine output
+
+- **WHEN** the user runs a command that does not support `--json`
+- **THEN** the command help SHALL NOT list `--json`
+- **AND** passing `--json` SHALL fail as an unrecognized flag
 
 #### Scenario: Global flags appear in all command help
 
@@ -118,7 +134,75 @@ The CLI SHALL support standard global flags for controlling output, interactivit
 #### Scenario: Commands do not redefine global flags
 
 - **WHEN** a command builder is defined
-- **THEN** it SHALL NOT call `.option()` for `yes`, `non-interactive`, `force`, or `preview`
+- **THEN** the command SHALL preserve the shared meaning of the standard global flags
+
+### Requirement: Interactive mode detection
+
+When the user does not pass `--non-interactive`, the CLI SHALL auto-detect whether prompting is allowed from the runtime environment.
+
+#### Scenario: Explicit non-interactive flag wins
+
+- **WHEN** the user passes `--non-interactive`
+- **THEN** the CLI SHALL behave as non-interactive regardless of terminal detection or CI environment
+
+#### Scenario: CI defaults to non-interactive
+
+- **WHEN** `CI=true`
+- **AND** the user does not explicitly opt back into interactivity
+- **THEN** the CLI SHALL behave as non-interactive
+
+#### Scenario: Non-TTY stdin defaults to non-interactive
+
+- **WHEN** stdin is not a TTY
+- **AND** the user does not explicitly opt back into interactivity
+- **THEN** the CLI SHALL behave as non-interactive
+
+#### Scenario: Interactive terminal remains interactive
+
+- **WHEN** stdin is a TTY
+- **AND** `CI` is not forcing non-interactive behavior
+- **AND** the user does not pass `--non-interactive`
+- **THEN** the CLI SHALL prompt normally
+
+### Requirement: Output modes
+
+The CLI SHALL keep machine-readable results separate from human-oriented status output.
+
+#### Scenario: JSON output stays machine-readable
+
+- **WHEN** the user runs a command with `--json`
+- **THEN** machine-readable result data SHALL be written to stdout
+- **AND** progress, notes, and other human status output SHALL NOT pollute stdout
+
+#### Scenario: Human-readable lists and details remain readable by default
+
+- **WHEN** the user runs a list or detail command without `--json`
+- **THEN** the CLI SHALL render human-readable output suitable for terminal use
+
+### Requirement: Telemetry Preferences
+
+The CLI SHALL let the user control telemetry with environment variables and settings. Telemetry SHALL never block commands or surface telemetry delivery failures to the user.
+
+#### Scenario: Do Not Track disables telemetry
+
+- **WHEN** `DO_NOT_TRACK=1`
+- **THEN** the CLI SHALL send no usage or error telemetry
+
+#### Scenario: Errors-only mode reports failures only
+
+- **WHEN** telemetry is set to `errors` through configuration or `AXM_TELEMETRY=errors`
+- **THEN** the CLI SHALL send error reports
+- **AND** SHALL NOT send usage events
+
+#### Scenario: Environment overrides settings
+
+- **WHEN** both environment variables and settings define telemetry behavior
+- **THEN** environment variables SHALL win
+
+#### Scenario: Telemetry failures are silent
+
+- **WHEN** telemetry delivery fails
+- **THEN** the command's output and exit code SHALL remain unchanged
 
 ### Requirement: --yes does not supply selection defaults
 
@@ -154,24 +238,24 @@ Commands with selection prompts SHALL NOT use `--yes` to auto-select defaults. S
 
 ### Requirement: Error Message Format
 
-The CLI SHALL provide actionable error messages with recovery guidance. All errors reaching the runtime boundary SHALL be either `AppError` (expected errors) or `PromptCancelled` (user cancellation). Any other error reaching the boundary SHALL be treated as a defect.
+The CLI SHALL provide actionable error messages with recovery guidance. Expected command failures and explicit user cancellation SHALL be handled cleanly. Unexpected failures SHALL be treated as defects.
 
 #### Scenario: Expected error exits with code 1
 
-- **WHEN** a `AppError` reaches the runtime boundary
-- **THEN** the CLI SHALL render it using `renderAppError`
+- **WHEN** an expected command failure reaches the runtime boundary
+- **THEN** the CLI SHALL print an actionable error message
 - **AND** exit with code 1
 
 #### Scenario: User cancellation exits cleanly
 
-- **WHEN** a `PromptCancelled` reaches the runtime boundary
+- **WHEN** the user cancels an interactive prompt
 - **THEN** the CLI SHALL exit with code 0
 - **AND** SHALL NOT print an error message
 
 #### Scenario: Defect exits with code 2
 
-- **WHEN** an unhandled error (not `AppError` or `PromptCancelled`) reaches the runtime boundary
-- **THEN** the CLI SHALL render it using `renderDefect`
+- **WHEN** an unexpected unhandled failure reaches the runtime boundary
+- **THEN** the CLI SHALL print a defect-style failure message
 - **AND** exit with code 2
 
 #### Scenario: Error includes what happened

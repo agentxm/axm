@@ -2,14 +2,14 @@
 
 ### Requirement: Multiselect prompt collects multiple selections from a list
 
-The multiselect capability SHALL be provided by `Input.multiselect` from `src/input/`. It SHALL accept `message`, `options: ReadonlyArray<InputOption<V>>`, optional `initialValues`, and optional `required`, and return `Effect<ReadonlyArray<V>, AppError | PromptCancelled>`.
+The multiselect prompt SHALL let the user choose multiple options from a list. It SHALL display a required message and MAY pre-select values or require at least one selection.
 
 #### Scenario: Basic multiselect
 
 - **WHEN** a handler calls `input.multiselect({ message: "Skills?", options })`
 - **THEN** the prompt SHALL render with toggleable selections
 - **WHEN** the user selects two options and submits
-- **THEN** the effect SHALL succeed with an array of the selected option `value` entries
+- **THEN** the prompt SHALL return the selected option values
 
 #### Scenario: Multiselect with initial values
 
@@ -24,4 +24,4 @@ The multiselect capability SHALL be provided by `Input.multiselect` from `src/in
 #### Scenario: Multiselect cancelled
 
 - **WHEN** the user presses Escape or Ctrl+C during multiselect
-- **THEN** the effect SHALL fail with `PromptCancelled`
+- **THEN** the prompt SHALL cancel cleanly

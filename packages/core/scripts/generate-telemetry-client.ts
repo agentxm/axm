@@ -9,6 +9,7 @@
  * `src/unstable/telemetry/__generated__/telemetry-client.ts`.
  */
 
+import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as childProcess from "node:child_process";
@@ -19,7 +20,7 @@ const SPEC_PATH = path.join(SPEC_DIR, "telemetry-openapi.json");
 const OUTPUT_DIR = path.join(ROOT, "src/unstable/telemetry/__generated__");
 const OUTPUT_PATH = path.join(OUTPUT_DIR, "telemetry-client.ts");
 const CLIENT_NAME = "TelemetryClient";
-const TELEMETRY_URL = process.env["AXM_TELEMETRY_URL"] ?? "http://localhost:4301";
+const TELEMETRY_URL = readEnvWithDefault(process.env, "AXM_TELEMETRY_URL", "http://localhost:4301");
 const SPEC_URL = `${TELEMETRY_URL.replace(/\/+$/, "")}/v1/openapi.json`;
 
 // --- Fetch spec ---

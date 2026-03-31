@@ -10,6 +10,10 @@ programs.
 
 ## Key Resources
 
+- [Effect Option Guide](./effect-option.md) — Option versus nullable guidance for
+  this repo
+- [Effect v4 Quick Reference](./effect-v4-quick-ref.md) — Common migration
+  patterns used here
 - [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
   Official service and layer documentation
 - [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
@@ -23,20 +27,19 @@ programs.
 
 ## Skills
 
-| Skill                                                                  | Command | Description                                                |
-| ---------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-| [effect-basics](../../.claude/skills/effect-basics/SKILL.md)           | —       | Core patterns, when to use functions vs services           |
-| [effect-errors](../../.claude/skills/effect-errors/SKILL.md)           | —       | Error modeling, TaggedError, defects, recovery strategies  |
-| [effect-service](../../.claude/skills/effect-service/SKILL.md)         | —       | Service definition, interface design, error types, retries |
-| [effect-layers](../../.claude/skills/effect-layers/SKILL.md)           | —       | Layer construction, composition, provision, memoization    |
-| [effect-option](../../.claude/skills/effect-option/SKILL.md)           | —       | Option vs nullable types, conversion at boundaries         |
-| [effect-collections](../../.claude/skills/effect-collections/SKILL.md) | —       | Arrays, Chunks, Records, HashMaps: when to use each        |
-| [effect-iteration](../../.claude/skills/effect-iteration/SKILL.md)     | —       | Loops, forEach, all, Schedule, retries and polling         |
-| [effect-stream](../../.claude/skills/effect-stream/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences   |
-| [effect-schema](../../.claude/skills/effect-schema/SKILL.md)           | —       | Schema naming conventions and type inference               |
-| [effect-wrapping](../../.claude/skills/effect-wrapping/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions            |
-| [effect-filesystem](../../.claude/skills/effect-filesystem/SKILL.md)   | —       | FileSystem and Path services, never use node:fs/node:path  |
-| [effect-testing](../../.claude/skills/effect-testing/SKILL.md)         | —       | Testing patterns for Effect programs                       |
+| Skill                                                                                   | Command | Description                                                |
+| --------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
+| [effect-basics](../../.axm/extensions/@axm/skills/effect-basics/src/SKILL.md)           | —       | Core patterns, when to use functions vs services           |
+| [effect-service](../../.axm/extensions/@axm/skills/effect-service/src/SKILL.md)         | —       | Service definition, interface design, error types, retries |
+| [effect-layers](../../.claude/skills/effect-layers/SKILL.md)                            | —       | Layer construction, composition, provision, memoization    |
+| [effect-option](../../.axm/extensions/@axm/skills/effect-option/src/SKILL.md)           | —       | Option vs nullable types, conversion at boundaries         |
+| [effect-collections](../../.axm/extensions/@axm/skills/effect-collections/src/SKILL.md) | —       | Arrays, Chunks, Records, HashMaps: when to use each        |
+| [effect-iteration](../../.axm/extensions/@axm/skills/effect-iteration/src/SKILL.md)     | —       | Loops, forEach, all, Schedule, retries and polling         |
+| [effect-stream](../../.axm/extensions/@axm/skills/effect-stream/src/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences   |
+| [effect-schema](../../.axm/extensions/@axm/skills/effect-schema/src/SKILL.md)           | —       | Schema naming conventions and type inference               |
+| [effect-wrapping](../../.axm/extensions/@axm/skills/effect-wrapping/src/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions            |
+| [effect-filesystem](../../.axm/extensions/@axm/skills/effect-filesystem/src/SKILL.md)   | —       | FileSystem and Path services, never use node:fs/node:path  |
+| [effect-testing](../../.axm/extensions/@axm/skills/effect-testing/src/SKILL.md)         | —       | Testing patterns for Effect programs                       |
 
 ---
 

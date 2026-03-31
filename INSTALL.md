@@ -20,8 +20,64 @@ across all your AI agents from a single CLI.
 
 ## Step 1: Install
 
+Choose one installation method. Agents typically run in Node.js environments, so
+npx is the recommended default.
+
+### Option A: npx (recommended for agents)
+
+Requires Node.js. No global install needed.
+
 ```bash
-npm install -g @axm.sh/cli
+npx @axm.sh/cli --version
+```
+
+Prefix all axm commands with `npx @axm.sh/cli` instead of `axm`:
+
+```bash
+npx @axm.sh/cli auth login
+npx @axm.sh/cli whoami
+```
+
+### Option B: Native install scripts
+
+For environments without Node.js. Downloads a standalone binary.
+
+**macOS / Linux (bash):**
+
+```bash
+curl -fsSL https://axm.sh/install.sh | sh
+```
+
+Installs to `~/.axm/bin/axm`. If `axm` is not found after install, add to PATH:
+
+```bash
+export PATH="$HOME/.axm/bin:$PATH"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://axm.sh/install.ps1 | iex
+```
+
+Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
+if `axm` is not recognized.
+
+**Windows (CMD):**
+
+Download and run `install.cmd` from `https://axm.sh/install.cmd`:
+
+```cmd
+curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
+```
+
+Installs to `%LOCALAPPDATA%\axm\axm.exe`. Follow the printed PATH instructions
+if `axm` is not recognized.
+
+### Option C: Homebrew (macOS / Linux)
+
+```bash
+brew install axm-sh/tap/axm
 ```
 
 **Verify:**
@@ -29,12 +85,6 @@ npm install -g @axm.sh/cli
 ```bash
 axm --version
 # Expected: axm version X.Y.Z
-```
-
-If `axm: command not found`, ensure your global npm bin directory is on PATH:
-
-```bash
-export PATH="$(npm config get prefix)/bin:$PATH"
 ```
 
 ## Step 2: Authenticate
@@ -95,9 +145,25 @@ axm skills list --output-format json
 
 **`axm: command not found`**
 
-```bash
-export PATH="$(npm config get prefix)/bin:$PATH"
-```
+The fix depends on how you installed:
+
+- **npx:** Use `npx @axm.sh/cli` instead of `axm`. Ensure Node.js is installed.
+- **Install script (macOS/Linux):** Add `~/.axm/bin` to PATH:
+  ```bash
+  export PATH="$HOME/.axm/bin:$PATH"
+  ```
+  Add the line above to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to
+  persist across sessions.
+- **Install script (Windows):** Add `%LOCALAPPDATA%\axm` to your PATH via
+  System Environment Variables, or run:
+  ```powershell
+  $env:Path = "$env:LOCALAPPDATA\axm;$env:Path"
+  ```
+- **Homebrew:** Run `brew link axm` or check `brew --prefix axm`.
+- **npm (legacy):** Ensure your global npm bin directory is on PATH:
+  ```bash
+  export PATH="$(npm config get prefix)/bin:$PATH"
+  ```
 
 **Not authenticated / `AUTH_LOGIN_REQUIRED`**
 

@@ -1,3 +1,4 @@
+export NX_TUI=false
 pnpm sync
 
 if ! git diff --quiet --exit-code; then

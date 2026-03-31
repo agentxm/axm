@@ -12,7 +12,7 @@ Release axm through the canonical GitHub Release workflow.
 1. **Verify**
 
    ```bash
-   pnpm verify
+   pnpm run ci
    ```
 
    Stop if anything fails.

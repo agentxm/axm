@@ -28,26 +28,26 @@ Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md in
 
 All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
 
-| Command                   | Purpose                                          |
-| ------------------------- | ------------------------------------------------ |
-| `pnpm axm`                | Run the main CLI from source                     |
-| `pnpm spike`              | Run the CLI spike from source                    |
-| `pnpm watch`              | Rebuild `cli` on changes                         |
-| `pnpm build`              | Build all packages                               |
-| `pnpm build:affected`     | Build only packages changed since `main`         |
-| `pnpm test`               | Run package test targets                         |
-| `pnpm test:affected`      | Run tests only for packages changed since `main` |
-| `pnpm test:e2e`           | Run E2E targets only                             |
-| `pnpm typecheck`          | Type check all packages                          |
-| `pnpm typecheck:affected` | Type check only packages changed since `main`    |
-| `pnpm format`             | Write formatting changes                         |
-| `pnpm format:check`       | Check formatting                                 |
-| `pnpm lint`               | Lint all packages                                |
-| `pnpm lint:affected`      | Lint only packages changed since `main`          |
-| `pnpm lint:fix`           | Lint and auto-fix                                |
-| `pnpm verify`             | Run full verification before release/PR          |
-| `pnpm verify:affected`    | Run affected-only verification                   |
-| `pnpm generate`           | Generate registry and telemetry clients          |
+| Command                   | Purpose                                                  |
+| ------------------------- | -------------------------------------------------------- |
+| `pnpm axm`                | Run the main CLI from source                             |
+| `pnpm spike`              | Run the CLI spike from source                            |
+| `pnpm watch`              | Rebuild `cli` on changes                                 |
+| `pnpm build`              | Build all packages                                       |
+| `pnpm build:affected`     | Build only packages changed since `main`                 |
+| `pnpm test`               | Run package test targets                                 |
+| `pnpm test:affected`      | Run tests only for packages changed since `main`         |
+| `pnpm test:e2e`           | Run E2E targets only                                     |
+| `pnpm typecheck`          | Type check all packages                                  |
+| `pnpm typecheck:affected` | Type check only packages changed since `main`            |
+| `pnpm format`             | Write formatting changes                                 |
+| `pnpm format:check`       | Check formatting                                         |
+| `pnpm lint`               | Lint all packages                                        |
+| `pnpm lint:affected`      | Lint only packages changed since `main`                  |
+| `pnpm lint:fix`           | Lint and auto-fix                                        |
+| `pnpm run ci`             | Run full CI pipeline (lint, typecheck, build, test, e2e) |
+| `pnpm run ci:affected`    | Run CI pipeline for affected packages only               |
+| `pnpm generate`           | Generate registry and telemetry clients                  |
 
 Release and publishing workflow lives in `CONTRIBUTING.md`.
 
@@ -84,7 +84,7 @@ Nx orchestrates the monorepo. Configuration lives in `nx.json` (workspace-level)
 - **Target defaults** — `nx.json` `targetDefaults` set caching, inputs, and dependency ordering for shared targets like `lint` and `test`.
 - **Named inputs** — `default` and `production` input sets control cache invalidation. Test files and vitest configs are excluded from `production`.
 - **Module boundaries** — `@nx/enforce-module-boundaries` ESLint rule enforces dependency constraints via project tags (`type:app` can depend on `type:lib`, not vice versa).
-- For agent-run Nx commands, prefer `NX_TUI=false` for readable logs. Do not bake it into checked-in scripts.
+- **Always** set `NX_TUI=false` before running any `pnpm` script or `nx` command (e.g. `NX_TUI=false pnpm test`). Do not bake it into checked-in scripts.
 
 ## CLI Conventions
 

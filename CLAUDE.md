@@ -43,9 +43,8 @@ All commands use `pnpm` scripts. Build/test/lint delegate to Nx for caching and 
 | `pnpm build:affected`  | Build only packages changed since `main` |
 | `pnpm test:affected`   | Test only packages changed since `main`  |
 | `pnpm lint:affected`   | Lint only packages changed since `main`  |
-| `pnpm version:patch`   | Bump `core` and `cli` patch versions     |
-| `pnpm version:minor`   | Bump `core` and `cli` minor versions     |
-| `pnpm version:major`   | Bump `core` and `cli` major versions     |
+
+Release and publishing workflow lives in `CONTRIBUTING.md`.
 
 ### Nx
 

@@ -12,10 +12,12 @@ export const withGracefulShutdown = <A, E, R>(
   program: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
+    const services = yield* Effect.services<R>();
     const fiber = yield* Effect.forkChild(program);
+    const runFork = Effect.runForkWith(services);
 
     const interruptAndExit = (exitCode: number) => {
-      Effect.runFork(
+      runFork(
         Fiber.interrupt(fiber).pipe(
           Effect.timeout("5 seconds"),
           Effect.ensuring(Effect.sync(() => process.exit(exitCode))),

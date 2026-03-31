@@ -78,42 +78,39 @@ Those three package versions must always match for a release. The release tag do
 
 ### Release Flow
 
-Create or update a version plan in the PR for any releasable change:
-
-```bash
-pnpm release:plan
-```
-
-CI enforces version plans for touched release projects with `pnpm release:plan:check`.
-
 The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes the npm packages through `nx release publish` with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
-
-Prepare the release commit:
-
-```bash
-pnpm release:prepare
-pnpm release:prepare --dry-run
-```
-
-Publish the GitHub Release after CI succeeds for that commit:
-
-```bash
-pnpm release:publish cli-v0.1.0
-pnpm release:publish cli-v0.1.0 --dry-run
-```
-
-`pnpm release` remains an alias for `pnpm release:prepare`.
 
 The safe release flow is:
 
-1. **Plan** — create or update a version plan in the PR with `pnpm release:plan`.
-2. **Preflight** — `pnpm release:prepare` checks you're on `main`, working tree is clean, up to date with remote, and release package versions match.
-3. **Verify** — Nx runs `pnpm verify` via the release `preVersionCommand`.
-4. **Version** — Nx consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, and deletes the consumed plan files.
-5. **Push** — `pnpm release:prepare` commits the release artifacts and pushes them to `origin/main` with subject `release: cli-v{VERSION}`.
-6. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
-7. **Publish** — run `pnpm release:publish cli-v{VERSION}` only after CI is green.
-8. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which uploads binaries, publishes npm packages, and updates Homebrew.
+1. **Plan** — create or update a version plan in the PR for any releasable change.
+
+   ```bash
+   pnpm release:plan
+   ```
+
+   CI enforces version plans for touched release projects with `pnpm release:plan:check`.
+
+2. **Prepare** — run the release prep from `main`.
+
+   ```bash
+   pnpm release:prepare
+   pnpm release:prepare --dry-run
+   ```
+
+   `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm verify` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes them to `origin/main`.
+
+3. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
+
+4. **Publish** — publish the GitHub Release only after CI is green.
+
+   ```bash
+   pnpm release:publish cli-v0.1.0
+   pnpm release:publish cli-v0.1.0 --dry-run
+   ```
+
+5. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which uploads binaries, publishes npm packages, and updates Homebrew.
+
+`pnpm release` remains an alias for `pnpm release:prepare`.
 
 ### Notes
 

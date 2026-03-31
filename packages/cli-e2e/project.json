@@ -45,10 +45,9 @@
       }
     },
     "install-verification": {
-      "dependsOn": ["cli:compile"],
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec vitest run --config vitest.install.config.ts",
+        "command": ["bun", "scripts/run-install-verification.ts"],
         "cwd": "packages/cli-e2e"
       }
     }

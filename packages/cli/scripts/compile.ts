@@ -6,6 +6,10 @@ const distDir = path.join(packageDir, "dist");
 const entrypoint = path.join(distDir, "src", "main.js");
 const outputDir = path.join(distDir, "bin");
 const packageJsonPath = path.join(packageDir, "package.json");
+const args = process.argv.slice(2);
+const hostOnly = args.includes("--host-only");
+const unknownFlags = args.filter((arg) => arg.startsWith("--") && arg !== "--host-only");
+const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
 
 const targets = [
   { target: "bun-darwin-arm64", output: "axm-darwin-arm64" },
@@ -14,6 +18,57 @@ const targets = [
   { target: "bun-linux-x64", output: "axm-linux-x64" },
   { target: "bun-windows-x64", output: "axm-windows-x64.exe" },
 ] as const;
+
+if (unknownFlags.length > 0 || positionalArgs.length > 0) {
+  throw new Error("Usage: bun scripts/compile.ts [--host-only]");
+}
+
+const requireCompileTarget = (targetName: (typeof targets)[number]["target"]) => {
+  const compileTarget = targets.find(({ target }) => target === targetName);
+
+  if (compileTarget === undefined) {
+    throw new Error(`Unknown compile target ${targetName}`);
+  }
+
+  return compileTarget;
+};
+
+const resolveHostTarget = () => {
+  switch (process.platform) {
+    case "darwin":
+      if (process.arch === "arm64") {
+        return requireCompileTarget("bun-darwin-arm64");
+      }
+
+      if (process.arch === "x64") {
+        return requireCompileTarget("bun-darwin-x64");
+      }
+
+      break;
+
+    case "linux":
+      if (process.arch === "arm64") {
+        return requireCompileTarget("bun-linux-arm64");
+      }
+
+      if (process.arch === "x64") {
+        return requireCompileTarget("bun-linux-x64");
+      }
+
+      break;
+
+    case "win32":
+      if (process.arch === "x64") {
+        return requireCompileTarget("bun-windows-x64");
+      }
+
+      break;
+  }
+
+  throw new Error(`No compile target for host platform ${process.platform}/${process.arch}`);
+};
+
+const requestedTargets = hostOnly ? [resolveHostTarget()] : targets;
 
 const packageJson: unknown = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 const version =
@@ -35,7 +90,7 @@ if (!fs.existsSync(entrypoint)) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 
-for (const { target, output } of targets) {
+for (const { target, output } of requestedTargets) {
   const outfile = path.join(outputDir, output);
   console.log(`Compiling ${output} (${target})`);
 
@@ -63,4 +118,6 @@ for (const { target, output } of targets) {
   }
 }
 
-console.log(`Compiled ${targets.length} binaries to ${path.relative(packageDir, outputDir)}`);
+console.log(
+  `Compiled ${requestedTargets.length} ${requestedTargets.length === 1 ? "binary" : "binaries"} to ${path.relative(packageDir, outputDir)}`,
+);

@@ -90,6 +90,17 @@
         "cwd": "packages/cli"
       }
     },
+    "compile-host": {
+      "cache": true,
+      "dependsOn": ["build", "^build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist/bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts", "--host-only"],
+        "cwd": "packages/cli"
+      }
+    },
     "nx-release-publish": {
       "cache": false,
       "dependsOn": ["build", "cli-e2e:e2e", "cli-spike-e2e:e2e", "^nx-release-publish"],

@@ -1,3 +1,13 @@
+## 0.0.40 (2026-03-31)
+
+### 🩹 Fixes
+
+- Fix Windows installer verification and align the release follow-up with CI formatting checks. ([b8c9f84e](https://github.com/agentxm/axm/commit/b8c9f84e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.39 (2026-03-31)
 
 ### 🩹 Fixes

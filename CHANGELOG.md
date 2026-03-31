@@ -26,7 +26,7 @@
 
 ### ❤️ Thank You
 
-- Test @songkang666
+- Craig Smitham
 
 ## 0.0.33 (2026-03-31)
 
@@ -46,7 +46,7 @@
 
 ### ❤️ Thank You
 
-- Test @songkang666
+- Craig Smitham
 
 ## 0.0.31 (2026-03-31)
 
@@ -56,4 +56,4 @@
 
 ### ❤️ Thank You
 
-- Test @songkang666
+- Craig Smitham

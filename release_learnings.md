@@ -14,6 +14,8 @@
 - 2026-03-31: `pnpm release:publish cli-v0.0.38` still generated the generic GitHub release body `This was a version bump only, there were no code changes.` even though `CHANGELOG.md` had a real `0.0.38` entry. The workspace changelog and GitHub release-note paths are still out of sync.
 - 2026-03-31: The `Release` workflow reported overall `success` for `cli-v0.0.38` even though both Windows installer verification jobs failed, because those verification jobs run with `continue-on-error`. That makes the top-level release signal look healthier than the post-publish validation actually was.
 - 2026-03-31: The release workflow currently skips npm publication entirely via `Publish npm packages (disabled)`. That avoids the earlier npm-auth failure mode, but it also means a published GitHub release and Homebrew update no longer imply npm packages were published.
+- 2026-03-31: `cli-v0.0.39` failed in CI on `nx format:check` after the release commit had already been pushed, even though the local pre-commit hook passed. The current hook stack does not guarantee that staged TypeScript matches Prettier’s formatting rules before a release commit is cut.
+- 2026-03-31: The `nx format:check` failure output in CI was terse: it only surfaced `packages/cli-e2e/src/install-verification-runner.e2e.test.ts` before exiting. That was enough to locate the issue, but not enough context to distinguish quickly between formatting, lint, or test failure without pulling the full job log.
 
 ## Other Application or Build Issues
 

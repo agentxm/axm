@@ -34,7 +34,9 @@ describe("install verification runner", () => {
 
   it("skips local compile when install base url is configured", () => {
     expect(
-      createInstallVerificationCommandPlan("https://github.com/agentxm/axm/releases/latest/download"),
+      createInstallVerificationCommandPlan(
+        "https://github.com/agentxm/axm/releases/latest/download",
+      ),
     ).toEqual([
       {
         command: "pnpm",

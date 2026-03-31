@@ -4,7 +4,11 @@ import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { findBoundaryViolations, formatViolation, type BoundaryRule } from "./verify-e2e-boundaries-lib.js";
+import {
+  findBoundaryViolations,
+  formatViolation,
+  type BoundaryRule,
+} from "./verify-e2e-boundaries-lib.js";
 
 const tempRoots: string[] = [];
 
@@ -49,7 +53,10 @@ describe("findBoundaryViolations", () => {
         },
       }),
       "packages/example-e2e/tsconfig.json": JSON.stringify({
-        references: [{ path: "../utils/tsconfig.lib.json" }, { path: "../e2e-utils/tsconfig.json" }],
+        references: [
+          { path: "../utils/tsconfig.lib.json" },
+          { path: "../e2e-utils/tsconfig.json" },
+        ],
       }),
     });
 

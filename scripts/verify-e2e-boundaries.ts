@@ -8,7 +8,11 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { DEFAULT_BOUNDARY_RULES, findBoundaryViolations, formatViolation } from "./verify-e2e-boundaries-lib.js";
+import {
+  DEFAULT_BOUNDARY_RULES,
+  findBoundaryViolations,
+  formatViolation,
+} from "./verify-e2e-boundaries-lib.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");

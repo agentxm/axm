@@ -77,7 +77,9 @@ const getInternalDependencyViolations = (
   const packageJson = readJsonFile(packageJsonPath);
 
   if (!isRecord(packageJson)) {
-    throw new Error(`${normalizePath(path.relative(repoRoot, packageJsonPath))} must contain an object`);
+    throw new Error(
+      `${normalizePath(path.relative(repoRoot, packageJsonPath))} must contain an object`,
+    );
   }
 
   const violations: PackageDependencyViolation[] = [];
@@ -165,7 +167,9 @@ const getTsconfigReferenceViolations = (
     const tsconfig = readJsonFile(tsconfigPath);
 
     if (!isRecord(tsconfig)) {
-      throw new Error(`${normalizePath(path.relative(repoRoot, tsconfigPath))} must contain an object`);
+      throw new Error(
+        `${normalizePath(path.relative(repoRoot, tsconfigPath))} must contain an object`,
+      );
     }
 
     const references = tsconfig["references"];

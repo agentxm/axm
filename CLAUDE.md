@@ -86,7 +86,15 @@ Nx orchestrates the monorepo. Configuration lives in `nx.json` (workspace-level)
 - **Target defaults** — `nx.json` `targetDefaults` set caching, inputs, and dependency ordering for shared targets like `lint` and `test`.
 - **Named inputs** — `default` and `production` input sets control cache invalidation. Test files and vitest configs are excluded from `production`.
 - **Module boundaries** — `@nx/enforce-module-boundaries` ESLint rule enforces dependency constraints via project tags (`type:app` can depend on `type:lib`, not vice versa).
-- **Always** set `NX_TUI=false` before running any `pnpm` script or `nx` command (e.g. `NX_TUI=false pnpm test`). Do not bake it into checked-in scripts.
+- **Always** set these before running any `pnpm` script or `nx` command:
+
+```bash
+export NX_TUI=false                         # Disable interactive terminal UI (requires human input, produces unparseable ANSI output)
+export NX_DEFAULT_OUTPUT_STYLE=static       # Buffer each task's output and print as a clean block (prevents interleaving during parallel execution)
+export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (older Nx fallback for same issue as TUI)
+```
+
+Do not bake them into checked-in scripts.
 
 ## CLI Conventions
 

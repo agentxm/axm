@@ -1,3 +1,13 @@
+## 0.0.35 (2026-03-31)
+
+### 🩹 Fixes
+
+- Fix release tooling bootstrap in clean checkouts and document release process friction. ([d8e83363](https://github.com/agentxm/axm/commit/d8e83363))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.34 (2026-03-31)
 
 ### 🩹 Fixes

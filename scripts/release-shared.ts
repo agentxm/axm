@@ -1,4 +1,3 @@
-import { readEnvWithDefault } from "@axm.sh/utils/unstable/env";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -30,7 +29,7 @@ const SEMVER_VERSION_REGEX = new RegExp(
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   value != null && typeof value === "object";
 
-export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
+export const RELEASE_REPO = process.env["GITHUB_REPOSITORY"] ?? "agentxm/axm";
 
 export const fail = (message: string): never => {
   console.error(message);

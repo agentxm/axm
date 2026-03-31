@@ -12,6 +12,18 @@
       "options": {
         "configFile": "packages/cli-e2e/vitest.config.ts"
       }
+    },
+    "binary-smoke": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli-e2e/vitest.binary.config.ts"
+      }
+    },
+    "install-verification": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "configFile": "packages/cli-e2e/vitest.install.config.ts"
+      }
     }
   }
 }

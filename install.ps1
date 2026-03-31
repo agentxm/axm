@@ -2,8 +2,13 @@
 # Usage: irm https://axm.sh/install.ps1 | iex
 $ErrorActionPreference = 'Stop'
 
-$GITHUB_REPO = "agentxm/axm"
-$BASE_URL = "https://github.com/$GITHUB_REPO/releases/latest/download"
+$GITHUB_REPO = if ($env:AXM_INSTALL_GITHUB_REPO) { $env:AXM_INSTALL_GITHUB_REPO } else { "agentxm/axm" }
+$BASE_URL = if ($env:AXM_INSTALL_BASE_URL) {
+    $env:AXM_INSTALL_BASE_URL
+}
+else {
+    "https://github.com/$GITHUB_REPO/releases/latest/download"
+}
 
 function Detect-Architecture {
     $arch = $env:PROCESSOR_ARCHITECTURE

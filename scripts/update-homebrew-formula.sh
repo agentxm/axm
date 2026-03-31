@@ -9,10 +9,12 @@ set -euo pipefail
 # Examples:
 #   ./scripts/update-homebrew-formula.sh 0.2.0
 #   HOMEBREW_TAP_DIR=/path/to/homebrew-tap ./scripts/update-homebrew-formula.sh 0.2.0
+#   RELEASE_ASSET_DIR=/path/to/binaries DRY_RUN=1 ./scripts/update-homebrew-formula.sh 0.2.0
 #
 # Environment:
 #   HOMEBREW_TAP_DIR  — path to local homebrew-tap clone (default: ../homebrew-tap)
 #   GITHUB_REPO       — GitHub repo for releases (default: agentxm/axm)
+#   RELEASE_ASSET_DIR — local directory containing release binaries; skips downloads when set
 #   DRY_RUN           — set to "1" to print changes without committing/pushing
 
 VERSION="${1:-}"
@@ -24,8 +26,9 @@ fi
 
 GITHUB_REPO="${GITHUB_REPO:-agentxm/axm}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOMEBREW_TAP_DIR="${HOMEBREW_TAP_DIR:-$(cd "$SCRIPT_DIR/../../homebrew-tap" && pwd)}"
+HOMEBREW_TAP_DIR="${HOMEBREW_TAP_DIR:-${SCRIPT_DIR}/../../homebrew-tap}"
 FORMULA="${HOMEBREW_TAP_DIR}/Formula/axm.rb"
+RELEASE_ASSET_DIR="${RELEASE_ASSET_DIR:-}"
 DRY_RUN="${DRY_RUN:-0}"
 
 BASE_URL="https://github.com/${GITHUB_REPO}/releases/download/cli-v${VERSION}"
@@ -41,16 +44,30 @@ fi
 TMPDIR_PATH="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_PATH"' EXIT
 
-echo "==> Downloading binaries for v${VERSION}..."
+if [ -n "$RELEASE_ASSET_DIR" ]; then
+  echo "==> Using local release binaries from ${RELEASE_ASSET_DIR}..."
+else
+  echo "==> Downloading binaries for v${VERSION}..."
+fi
+
 for artifact in $ARTIFACTS; do
-  url="${BASE_URL}/${artifact}"
   dest="${TMPDIR_PATH}/${artifact}"
 
   echo "    ${artifact}"
-  if ! curl -fsSL --output "$dest" "$url"; then
-    echo "Error: Failed to download ${url}"
-    echo "Ensure the release exists: https://github.com/${GITHUB_REPO}/releases/tag/cli-v${VERSION}"
-    exit 1
+
+  if [ -n "$RELEASE_ASSET_DIR" ]; then
+    if [ ! -f "${RELEASE_ASSET_DIR}/${artifact}" ]; then
+      echo "Error: Missing local release binary ${RELEASE_ASSET_DIR}/${artifact}"
+      exit 1
+    fi
+    cp "${RELEASE_ASSET_DIR}/${artifact}" "$dest"
+  else
+    url="${BASE_URL}/${artifact}"
+    if ! curl -fsSL --output "$dest" "$url"; then
+      echo "Error: Failed to download ${url}"
+      echo "Ensure the release exists: https://github.com/${GITHUB_REPO}/releases/tag/cli-v${VERSION}"
+      exit 1
+    fi
   fi
 
   sha="$(shasum -a 256 "$dest" | cut -d' ' -f1)"
@@ -85,16 +102,30 @@ rm -f "${FORMULA}.bak"
 echo "    Updated ${FORMULA}"
 echo ""
 
+cd "$HOMEBREW_TAP_DIR"
+
+if git diff --quiet -- Formula/axm.rb; then
+  echo "==> No formula changes detected."
+  exit 0
+fi
+
 if [ "$DRY_RUN" = "1" ]; then
   echo "==> Dry run — changes not committed. Diff:"
-  cd "$HOMEBREW_TAP_DIR"
   git diff Formula/axm.rb
   exit 0
 fi
 
 # Commit and push
 echo "==> Committing and pushing..."
-cd "$HOMEBREW_TAP_DIR"
+
+if ! git config user.name >/dev/null; then
+  git config user.name "github-actions[bot]"
+fi
+
+if ! git config user.email >/dev/null; then
+  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+fi
+
 git add Formula/axm.rb
 git commit -m "axm ${VERSION}"
 git push

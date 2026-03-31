@@ -71,32 +71,34 @@ Requires `npm login` with publish access to the `@axm.sh` scope.
 
 ```bash
 pnpm nx run-many -t build typecheck test e2e lint
+pnpm --filter @axm.sh/core exec npm version patch --no-git-tag-version
 pnpm --filter @axm.sh/cli exec npm version patch --no-git-tag-version
-pnpm nx run cli:build
+pnpm nx run core:publish
 pnpm nx run cli:publish
-git add packages/cli/package.json
-git commit -m "release: v0.1.1"
-git tag v0.1.1
+git add packages/core/package.json packages/cli/package.json
+git commit -m "release: cli-v0.1.1"
+git tag cli-v0.1.1
 git push origin main --tags
-gh release create v0.1.1 --title "v0.1.1" --generate-notes  # optional
+gh release create cli-v0.1.1 --title "cli v0.1.1" --generate-notes  # optional
 ```
 
 ### Publishing via CI
 
-The [publish workflow](/.github/workflows/publish.yml) publishes automatically when a GitHub Release is created, with npm [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC. The workflow runs `nx run-many` to verify all checks, then `nx run cli:publish` which builds and publishes with provenance.
+The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes `@axm.sh/core` and `@axm.sh/cli` to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
 ```bash
 pnpm nx run-many -t build typecheck test e2e lint
+pnpm --filter @axm.sh/core exec npm version minor --no-git-tag-version
 pnpm --filter @axm.sh/cli exec npm version minor --no-git-tag-version
-git add packages/cli/package.json
-git commit -m "release: v0.2.0"
+git add packages/core/package.json packages/cli/package.json
+git commit -m "release: cli-v0.2.0"
 git push origin main
-gh release create v0.2.0 --title "v0.2.0" --generate-notes
+gh release create cli-v0.2.0 --title "cli v0.2.0" --generate-notes
 ```
 
 ### Notes
 
-- Tags must match the version in `packages/cli/package.json` with a `v` prefix (e.g., `v0.1.0`).
+- Tags must match the version in both package manifests with a `cli-v` prefix (e.g., `cli-v0.1.0`).
 - Use `patch`, `minor`, or `major` with `npm version` per [semver](https://semver.org/).
 
 ## License

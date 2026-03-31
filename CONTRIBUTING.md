@@ -78,8 +78,6 @@ Those three package versions must always match for a release. The release tag do
 
 ### Release Flow
 
-The [release workflow](/.github/workflows/publish.yml) runs automatically when a GitHub Release is published. It validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes the npm packages through `nx release publish` with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
-
 The safe release flow is:
 
 1. **Plan** — create or update a version plan in the PR for any releasable change.
@@ -87,6 +85,10 @@ The safe release flow is:
    ```bash
    pnpm release:plan
    ```
+
+   Purpose: record the intended semver bump and changelog entry before cutting the release.
+
+   Outcome: a pending plan file exists in `.nx/version-plans/` for the fixed release group, and CI can enforce that requirement with `pnpm release:plan:check`.
 
    CI enforces version plans for touched release projects with `pnpm release:plan:check`.
 
@@ -97,9 +99,15 @@ The safe release flow is:
    pnpm release:prepare --dry-run
    ```
 
-   `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm verify` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes them to `origin/main`.
+   Purpose: validate repo state, apply the pending version plan, and cut the release commit from `main`.
+
+   Outcome: `pnpm release:prepare --dry-run` previews the release version and artifact changes; `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm verify` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes `release: cli-v{VERSION}` to `origin/main`.
 
 3. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
+
+   Purpose: verify the exact release commit is green before creating the GitHub Release.
+
+   Outcome: the release commit has a successful CI run and the build artifacts for that commit are available for publishing.
 
 4. **Publish** — publish the GitHub Release only after CI is green.
 
@@ -108,7 +116,15 @@ The safe release flow is:
    pnpm release:publish cli-v0.1.0 --dry-run
    ```
 
-5. The GitHub Release triggers the [release workflow](/.github/workflows/publish.yml), which uploads binaries, publishes npm packages, and updates Homebrew.
+   Purpose: create the GitHub Release from the validated release commit.
+
+   Outcome: `pnpm release:publish --dry-run` previews the GitHub release creation; `pnpm release:publish cli-v{VERSION}` creates the GitHub Release for the matching `release: cli-v{VERSION}` commit on `origin/main`.
+
+5. **GitHub Actions** — the GitHub Release triggers the [release workflow](/.github/workflows/publish.yml).
+
+   Purpose: run the canonical publish pipeline in CI instead of publishing packages and assets from a local machine.
+
+   Outcome: the workflow validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes the npm packages through `nx release publish` with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
 
 `pnpm release` remains an alias for `pnpm release:prepare`.
 

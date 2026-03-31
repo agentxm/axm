@@ -1,3 +1,13 @@
+## 0.0.36 (2026-03-31)
+
+### 🩹 Fixes
+
+- Make Binary Smoke depend explicitly on the shared utils build and document the release recovery learnings. ([6732f7e6](https://github.com/agentxm/axm/commit/6732f7e6))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.35 (2026-03-31)
 
 ### 🩹 Fixes

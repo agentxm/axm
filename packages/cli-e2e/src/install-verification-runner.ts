@@ -4,6 +4,17 @@ export type InstallVerificationCommand = {
   readonly cwd: "packageRoot" | "repoRoot";
 };
 
+const resolveCommandExecutable = (
+  command: InstallVerificationCommand["command"],
+  platform: NodeJS.Platform,
+): string => {
+  if (command === "pnpm" && platform === "win32") {
+    return "pnpm.cmd";
+  }
+
+  return command;
+};
+
 const compileHostCommand = {
   command: "pnpm",
   args: ["exec", "nx", "run", "cli:compile-host", "--outputStyle=static"],
@@ -23,3 +34,5 @@ export const createInstallVerificationCommandPlan = (
   installBaseUrl: string | undefined,
 ): ReadonlyArray<InstallVerificationCommand> =>
   hasInstallBaseUrl(installBaseUrl) ? [vitestCommand] : [compileHostCommand, vitestCommand];
+
+export { resolveCommandExecutable };

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createInstallVerificationCommandPlan } from "./install-verification-runner.js";
+import {
+  createInstallVerificationCommandPlan,
+  resolveCommandExecutable,
+} from "./install-verification-runner.js";
 
 describe("install verification runner", () => {
   it("compiles a host-local binary when no install base url is configured", () => {
@@ -44,5 +47,13 @@ describe("install verification runner", () => {
         cwd: "packageRoot",
       },
     ]);
+  });
+
+  it("uses pnpm.cmd on Windows", () => {
+    expect(resolveCommandExecutable("pnpm", "win32")).toBe("pnpm.cmd");
+  });
+
+  it("uses pnpm directly on non-Windows platforms", () => {
+    expect(resolveCommandExecutable("pnpm", "linux")).toBe("pnpm");
   });
 });

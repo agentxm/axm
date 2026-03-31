@@ -1,5 +1,9 @@
 import * as path from "node:path";
-import { createInstallVerificationCommandPlan } from "../src/install-verification-runner.js";
+import {
+  createInstallVerificationCommandPlan,
+  type InstallVerificationCommand,
+  resolveCommandExecutable,
+} from "../src/install-verification-runner.js";
 
 const packageRoot = path.join(import.meta.dirname, "..");
 const repoRoot = path.join(packageRoot, "..", "..");
@@ -7,10 +11,15 @@ const repoRoot = path.join(packageRoot, "..", "..");
 const resolveCwd = (cwd: "packageRoot" | "repoRoot"): string =>
   cwd === "repoRoot" ? repoRoot : packageRoot;
 
-const run = (cwd: string, command: string, args: ReadonlyArray<string>) => {
-  console.log(`==> ${command} ${args.join(" ")}`);
+const run = (
+  cwd: string,
+  command: InstallVerificationCommand["command"],
+  args: ReadonlyArray<string>,
+) => {
+  const executable = resolveCommandExecutable(command, process.platform);
+  console.log(`==> ${executable} ${args.join(" ")}`);
 
-  const result = Bun.spawnSync([command, ...args], {
+  const result = Bun.spawnSync([executable, ...args], {
     cwd,
     env: process.env,
     stdout: "inherit",
@@ -18,7 +27,7 @@ const run = (cwd: string, command: string, args: ReadonlyArray<string>) => {
   });
 
   if (result.exitCode !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.exitCode}`);
+    throw new Error(`${executable} ${args.join(" ")} failed with exit code ${result.exitCode}`);
   }
 };
 

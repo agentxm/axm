@@ -45,6 +45,7 @@
       }
     },
     "install-verification": {
+      "dependsOn": ["utils:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/run-install-verification.ts"],

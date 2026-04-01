@@ -43,10 +43,14 @@
     "*.{js,ts,mjs,cjs}": "eslint --fix",
     "*.md": "prettier --write"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core"
+    ]
+  },
   "packageManager": "pnpm@10.29.3",
   "devDependencies": {
     "@axm.sh/utils": "workspace:*",
-    "@types/bun": "catalog:",
     "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "^0.84.1",
     "@effect/vitest": "4.0.0-beta.42",
@@ -55,6 +59,9 @@
     "@nx/eslint-plugin": "22.6.3",
     "@nx/js": "22.6.3",
     "@nx/vitest": "22.6.3",
+    "@swc-node/register": "^1.11.1",
+    "@swc/core": "^1.15.21",
+    "@types/bun": "catalog:",
     "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.0.0",
     "husky": "^9.1.7",

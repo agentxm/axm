@@ -46,6 +46,14 @@ if %errorlevel% neq 0 (
     echo URL: %BINARY_URL%
     exit /b 1
 )
+
+rem Write install metadata
+set "META_FILE=%INSTALL_DIR%\install-meta.json"
+for /f "tokens=1-6 delims=/:. " %%a in ('wmic os get localdatetime /value ^| find "="') do (
+    for /f "tokens=2 delims==" %%z in ("%%a") do set "DT=%%z"
+)
+set "TIMESTAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%T%DT:~8,2%:%DT:~10,2%:%DT:~12,2%Z"
+echo {"method": "script", "installedAt": "%TIMESTAMP%"}>"%META_FILE%"
 goto :eof
 
 :verify

@@ -118,6 +118,21 @@ const verifyInstalledBinary = async (binaryPath: string) => {
   expect(result.stdout).toMatch(/^axm v\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
 };
 
+const verifyInstallMeta = (metaPath: string) => {
+  expect(fs.existsSync(metaPath)).toBe(true);
+
+  const content = fs.readFileSync(metaPath, "utf-8").trim();
+  const meta = JSON.parse(content) as { method: string; installedAt: string };
+
+  expect(meta.method).toBe("script");
+  expect(meta.installedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+
+  // Verify the timestamp is a valid date and reasonably recent (within last 5 minutes)
+  const parsed = new Date(meta.installedAt);
+  expect(parsed.getTime()).not.toBeNaN();
+  expect(Date.now() - parsed.getTime()).toBeLessThan(5 * 60 * 1000);
+};
+
 describe("install script verification", () => {
   it(`installs axm with ${installMode}`, async () => {
     const temp = createTempDir();
@@ -135,6 +150,7 @@ describe("install script verification", () => {
         expect(getOutput(result)).toContain("Done! Run 'axm auth login' to get started.");
 
         await verifyInstalledBinary(path.join(temp.path, ".axm", "bin", "axm"));
+        verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
         return;
       }
 
@@ -154,6 +170,7 @@ describe("install script verification", () => {
         expect(getOutput(result)).toContain("Done! Run 'axm auth login' to get started.");
 
         await verifyInstalledBinary(path.join(temp.path, "axm", "axm.exe"));
+        verifyInstallMeta(path.join(temp.path, "axm", "install-meta.json"));
         return;
       }
 
@@ -168,6 +185,7 @@ describe("install script verification", () => {
       expect(getOutput(result)).toContain("Done! Run 'axm auth login' to authenticate.");
 
       await verifyInstalledBinary(path.join(temp.path, "axm", "axm.exe"));
+      verifyInstallMeta(path.join(temp.path, "axm", "install-meta.json"));
     } finally {
       temp.cleanup();
     }

@@ -89,6 +89,11 @@ download_binary() {
 
   chmod +x "$target"
   echo "Installed to ${target}"
+
+  # Write install metadata
+  meta_file="$HOME/.axm/install-meta.json"
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf '{"method": "script", "installedAt": "%s"}\n' "$timestamp" > "$meta_file"
 }
 
 verify() {

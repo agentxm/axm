@@ -6,9 +6,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
 
+import { InteractiveRenderer, MachineRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
+import { UpdateCheckLive } from "@axm.sh/core/unstable/update-check";
 
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
+import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
 import { axmGlobalFlags, baseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
@@ -23,6 +27,7 @@ import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
 import { whoamiCommand } from "./root/auth/whoami.js";
 import { tokenCommand } from "./root/auth/token.js";
+import { upgradeCommand } from "./root/upgrade/upgrade.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -53,8 +58,15 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [skillsCommand, packsCommand, commandsCommand, mcpServersCommand],
     },
     {
-      group: "AUTHENTICATION",
-      commands: [authCommand, loginCommand, logoutCommand, whoamiCommand, tokenCommand],
+      group: "AUTH AND CONFIG",
+      commands: [
+        authCommand,
+        loginCommand,
+        logoutCommand,
+        whoamiCommand,
+        tokenCommand,
+        upgradeCommand,
+      ],
     },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),
@@ -63,19 +75,40 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
 
+/** Layer providing UpdateCheck and InstallMethod for the startup update check. */
+const updateCheckServicesLayer = Layer.provide(
+  Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
+  baseLayer,
+);
+
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
-    (argv) =>
-      Command.runWith(rootCommand, { version })(argv).pipe(
+    (argv) => {
+      const isJson = hasExplicitJsonFlag(argv);
+      const commandProgram = Command.runWith(rootCommand, { version })(argv);
+
+      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer();
+
+      return withUpdateCheck(commandProgram, {
+        localVersion: version,
+        inputs: {
+          args: argv,
+          isNonInteractive: resolveNonInteractiveFromArgv(argv),
+          isJsonOutput: isJson,
+        },
+      }).pipe(
         // Built-in --help / --version output is formatter-driven, so explicit
         // --json has to be reflected here before Effect CLI starts rendering.
         Effect.provide(
-          Layer.merge(
+          Layer.mergeAll(
             baseLayer,
-            CliOutput.layer(makeAxmFormatter({ json: hasExplicitJsonFlag(argv) })),
+            updateCheckServicesLayer,
+            rendererLayer,
+            CliOutput.layer(makeAxmFormatter({ json: isJson })),
           ),
         ),
-      ),
+      );
+    },
     { args },
   );
 };

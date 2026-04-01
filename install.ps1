@@ -61,6 +61,13 @@ function Download-Binary {
     }
 
     Write-Host "Installed to $target"
+
+    # Write install metadata
+    $metaFile = Join-Path $installDir "install-meta.json"
+    $timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $metaContent = "{`"method`": `"script`", `"installedAt`": `"$timestamp`"}"
+    Set-Content -Path $metaFile -Value $metaContent -Encoding UTF8
+
     return $installDir
 }
 

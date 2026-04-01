@@ -105,6 +105,22 @@
     "./unstable/workflows": {
       "types": "./src/unstable/workflows/index.ts",
       "default": "./dist/src/unstable/workflows/index.js"
+    },
+    "./unstable/install-method": {
+      "types": "./src/unstable/install-method/index.ts",
+      "default": "./dist/src/unstable/install-method/index.js"
+    },
+    "./unstable/install-meta": {
+      "types": "./src/unstable/install-meta/index.ts",
+      "default": "./dist/src/unstable/install-meta/index.js"
+    },
+    "./unstable/update-check": {
+      "types": "./src/unstable/update-check/index.ts",
+      "default": "./dist/src/unstable/update-check/index.js"
+    },
+    "./unstable/version-resolution": {
+      "types": "./src/unstable/version-resolution/index.ts",
+      "default": "./dist/src/unstable/version-resolution/index.js"
     }
   },
   "files": [

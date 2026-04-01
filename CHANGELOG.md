@@ -1,3 +1,13 @@
+## 0.1.4 (2026-04-01)
+
+### 🩹 Fixes
+
+- Add schema-backed JSON output contracts ([2e77ca8d](https://github.com/agentxm/axm/commit/2e77ca8d))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.1.3 (2026-04-01)
 
 ### 🩹 Fixes

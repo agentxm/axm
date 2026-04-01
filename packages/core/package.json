@@ -1,6 +1,6 @@
 {
   "name": "@axm.sh/core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Core library for the axm agent extension manager",
   "type": "module",
   "license": "MIT",

@@ -69,10 +69,10 @@ Implements the `axm upgrade` CLI command. Depends on Phases 1–4.
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-Wires the update check into the CLI startup path so notifications appear after command output. Depends on Phase 4 (UpdateCheck) and Phase 5 (upgrade command wired).
+Wires the update check into the CLI startup path so notifications appear before command output. Depends on Phase 4 (UpdateCheck) and Phase 5 (upgrade command wired).
 
-- [x] 6.1 Write tests for the CLI integration: notification prints to stderr after command output, notification suppressed under all skip conditions, detached fiber spawned when cache is stale/missing, no notification on first run (cache missing)
-- [x] 6.2 Integrate the update check into the CLI startup path — read cache and queue notification early, spawn detached refresh fiber if stale/missing, print notification to stderr after command completes
+- [x] 6.1 Write tests for the CLI integration: notification prints to stderr before command output, notification suppressed under all skip conditions, detached fiber spawned when cache is stale/missing, no notification on first run (cache missing)
+- [x] 6.2 Integrate the update check into the CLI startup path — read cache and queue notification early, spawn detached refresh fiber if stale/missing, print notification to stderr before command output
 - [x] 6.3 Verify typecheck passes (`pnpm typecheck`)
 - [x] 6.4 Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` — fix any failures
 - [x] 6.5 Kill any lingering vitest worker processes

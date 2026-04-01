@@ -139,7 +139,7 @@ Delegated installs (homebrew/npm/unknown):
 
 A lightweight version check runs early in the CLI startup path. It operates in two phases:
 
-1. **Compare (synchronous):** Read `update-check.json`. If the cache exists and contains a `latestVersion` newer than the local version, queue a notification to print to stderr after the command completes. If the cache does not exist (e.g., first run), no notification is shown for this invocation.
+1. **Compare (synchronous):** Read `update-check.json`. If the cache exists and contains a `latestVersion` newer than the local version, queue a notification to print to stderr before command output. If the cache does not exist (e.g., first run), no notification is shown for this invocation.
 2. **Refresh (detached fiber):** If the cache is missing or `checkedAt` is more than 24 hours ago, spawn a detached fiber via `Effect.forkDetach` to fetch the latest version from the GitHub Releases API (using `AXM_INSTALL_GITHUB_REPO` if set) and write the result to the cache file. The detached fiber outlives the main command effect, so the process stays alive until the fiber completes or the 3-second network timeout expires. If the request fails or times out, it is silently ignored and the cache is not updated.
 
 This means the first-ever CLI run produces no notification — it only warms the cache. Subsequent runs display the notification based on the cached value.
@@ -158,11 +158,12 @@ This means the first-ever CLI run produces no notification — it only warms the
 - Non-interactive mode is active
 - stderr is not a TTY (e.g., output is being captured by a script or CI log)
 
-**Notification format** (printed to stderr after the command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1. Rendered using `renderer.warn()` so it appears as a yellow warning with the standard Clack `▲` marker, visually distinct from the command's own output.
+**Notification format** (printed to stderr before command output). The notification is install-method-aware, showing the appropriate update command for the running binary. Detection uses the same path-based precedence as Decision 1. Rendered using `renderer.note()` so it appears as a titled callout before the command's own output.
 
 ```
-▲  Update available: 0.0.34 → 0.1.0
-│  Run: axm upgrade
+Update Available
+0.0.34 → 0.1.0
+Run: axm upgrade
 ```
 
 The second line varies by detected method:
@@ -177,7 +178,7 @@ The second line varies by detected method:
 **Alternatives considered:**
 
 - (a) Check on every invocation without caching — rejected for latency and rate-limit concerns.
-- (b) Print the notice before command output — rejected because it adds visual noise before the user sees what they asked for. After-output placement is less disruptive.
+- (b) Print the notice after command output — rejected because the update prompt is easier to miss when it trails verbose command output. Before-output placement is more visible.
 - (c) Use a background process that persists after the CLI exits — rejected as overly complex for a simple cache-and-check.
 - (d) Always show `Run `axm upgrade`` regardless of method — rejected because it creates an unnecessary extra hop for Homebrew and npm users who would just be redirected to the package manager command.
 

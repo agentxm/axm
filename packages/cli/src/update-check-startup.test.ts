@@ -1,7 +1,7 @@
 /**
  * Unit tests for the update check CLI startup integration.
  *
- * Covers: notification after command output, skip conditions, detached fiber
+ * Covers: notification before command output, skip conditions, detached fiber
  * spawn on stale/missing cache, no notification on first run (cache missing).
  */
 
@@ -263,11 +263,16 @@ describe("withUpdateCheck", () => {
   // Notification behavior
   // ---------------------------------------------------------------------------
 
-  it.effect("prints notification to stderr after command output when update is available", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandOutput: Array<string> = [];
+  it.effect("prints notification before command output when update is available", () => {
+    const messages: Array<string> = [];
+    const events: Array<string> = [];
+    const printer: NotificationPrinter = (message) =>
+      Effect.sync(() => {
+        events.push("notification");
+        messages.push(message);
+      });
     const commandProgram = Effect.sync(() => {
-      commandOutput.push("command ran");
+      events.push("command");
     });
 
     const layer = makeTestLayers({
@@ -282,13 +287,49 @@ describe("withUpdateCheck", () => {
     }).pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          // Command must have completed before notification
-          expect(commandOutput).toEqual(["command ran"]);
-          // Notification was printed
+          expect(events).toEqual(["notification", "command"]);
           expect(messages.length).toBe(1);
           expect(messages[0]).toContain("Update available");
           expect(messages[0]).toContain(LOCAL_VERSION);
           expect(messages[0]).toContain(REMOTE_VERSION);
+        }),
+      ),
+      Effect.provide(layer),
+    );
+  });
+
+  it.effect("uses note renderer for human notifications", () => {
+    const commandProgram = Effect.void;
+    const cachePath = path.join(tempDir, "update-check.json");
+    fs.writeFileSync(
+      cachePath,
+      JSON.stringify({ latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() }),
+    );
+
+    const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
+    const installMethodLayer = makeMockInstallMethod(new Unknown());
+    const httpClientLayer = makeSuccessHttpClient();
+    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const layer = Layer.mergeAll(
+      updateCheckLayer,
+      installMethodLayer,
+      httpClientLayer,
+      rendererLayer,
+      NodeServices.layer,
+    );
+
+    return withUpdateCheck(commandProgram, {
+      localVersion: LOCAL_VERSION,
+      inputs: baseInputs,
+    }).pipe(
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.notes).toEqual([
+            {
+              message: `${LOCAL_VERSION} \u2192 ${REMOTE_VERSION}\nRun: axm upgrade`,
+              title: "Update Available",
+            },
+          ]);
         }),
       ),
       Effect.provide(layer),

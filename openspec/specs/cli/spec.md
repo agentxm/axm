@@ -70,6 +70,16 @@ The CLI SHALL register `login`, `logout`, `whoami`, and `token` as top-level com
 - **THEN** the commands SHALL work without a workspace context
 - **AND** SHALL NOT require `.axm/settings.json` to exist
 
+### Requirement: Command group naming
+
+The AUTHENTICATION command group SHALL be renamed to AUTH AND CONFIG.
+
+#### Scenario: Auth and config group in help
+
+- **WHEN** the user runs `axm --help`
+- **THEN** the output SHALL show auth commands and `upgrade` under an "AUTH AND CONFIG" group heading
+- **AND** there SHALL NOT be an "AUTHENTICATION" group heading
+
 ### Requirement: Standard Flags
 
 The CLI SHALL support standard global flags for controlling output, interactivity, and execution behavior. Global flags available across the CLI SHALL include `--yes` (`-y`), `--non-interactive`, `--force` (`-f`), `--preview`, `-q` / `--quiet`, `-v` / `--verbose`, and `-vv` / `--debug`. The `--json` flag SHALL appear only on commands that support machine-readable output.

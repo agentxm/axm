@@ -4,7 +4,7 @@
 
 Define the periodic background version check and update notification that informs users when a newer axm version is available.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Update check compares cached version on startup
 
@@ -13,7 +13,7 @@ The CLI SHALL read the update check cache file on startup and queue a notificati
 #### Scenario: Cache contains newer version
 
 - **WHEN** `update-check.json` exists AND `latestVersion` is newer than the local version
-- **THEN** the CLI SHALL queue a notification to print to stderr after the command completes
+- **THEN** the CLI SHALL queue a notification to print to stderr before the command output
 
 #### Scenario: Cache does not exist
 
@@ -95,31 +95,39 @@ The notification message SHALL show the appropriate update command for the detec
 #### Scenario: Script install notification
 
 - **WHEN** the detected method is `script`
-- **THEN** the notification SHALL read `Update available: {current} -> {latest}  Run `axm upgrade` to update.`
+- **THEN** the notification SHALL display the title `Update Available`
+- **AND** the notification body SHALL include `{current} → {latest}`
+- **AND** the notification body SHALL include `Run: axm upgrade`
 
 #### Scenario: Homebrew install notification
 
 - **WHEN** the detected method is `homebrew`
-- **THEN** the notification SHALL read `Update available: {current} -> {latest}  Run `brew upgrade axm-sh/tap/axm`.`
+- **THEN** the notification SHALL display the title `Update Available`
+- **AND** the notification body SHALL include `{current} → {latest}`
+- **AND** the notification body SHALL include `Run: brew upgrade agentxm/tap/axm`
 
 #### Scenario: npm install notification
 
 - **WHEN** the detected method is `npm`
-- **THEN** the notification SHALL read `Update available: {current} -> {latest}  Run `npm update -g @axm.sh/cli`.`
+- **THEN** the notification SHALL display the title `Update Available`
+- **AND** the notification body SHALL include `{current} → {latest}`
+- **AND** the notification body SHALL include `Run: npm update -g @axm.sh/cli`
 
 #### Scenario: Unknown install notification
 
 - **WHEN** the detected method is `unknown`
-- **THEN** the notification SHALL read `Update available: {current} -> {latest}  Run `axm upgrade` for instructions.`
+- **THEN** the notification SHALL display the title `Update Available`
+- **AND** the notification body SHALL include `{current} → {latest}`
+- **AND** the notification body SHALL include `Run: axm upgrade`
 
-### Requirement: Update notification prints to stderr after command output
+### Requirement: Update notification prints to stderr before command output
 
-The notification SHALL be printed to stderr after the command output to avoid disrupting the user's primary output.
+The notification SHALL be printed to stderr before command output so the update prompt is immediately visible.
 
 #### Scenario: Notification placement
 
 - **WHEN** an update notification is queued
-- **THEN** it SHALL be printed to stderr after the command completes its output
+- **THEN** it SHALL be printed to stderr before the command emits its output
 
 ### Requirement: Update check cache file format
 

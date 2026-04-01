@@ -4,7 +4,7 @@
  * Runs early in the CLI lifecycle to:
  * 1. Read cached version info and queue a notification if an update is available
  * 2. Spawn a detached fiber to refresh the cache if stale or missing
- * 3. Print the notification to stderr after the command completes
+ * 3. Print the notification before the command output
  *
  * The entire check is skipped under conditions defined by `UpdateCheck.shouldSkip()`.
  *
@@ -111,6 +111,24 @@ const printAgentNotification: NotificationPrinter = (message) =>
     process.stderr.write(`${message}\n`);
   });
 
+const UPDATE_AVAILABLE_PREFIX = "Update available: ";
+const UPDATE_AVAILABLE_TITLE = "Update Available";
+
+const toHumanUpdateNote = (
+  message: string,
+): { readonly message: string; readonly title: string } => {
+  const [firstLine, ...rest] = message.split("\n");
+  const headline = firstLine?.startsWith(UPDATE_AVAILABLE_PREFIX)
+    ? firstLine.slice(UPDATE_AVAILABLE_PREFIX.length)
+    : (firstLine ?? message);
+  const body = rest.length > 0 ? [headline, ...rest].join("\n") : headline;
+
+  return {
+    message: body,
+    title: UPDATE_AVAILABLE_TITLE,
+  };
+};
+
 // -----------------------------------------------------------------------------
 // Core integration effect
 // -----------------------------------------------------------------------------
@@ -119,8 +137,8 @@ const printAgentNotification: NotificationPrinter = (message) =>
  * Wrap a command program with the update check lifecycle.
  *
  * 1. Before: Read cache, queue notification if update available, spawn refresh fiber if stale
- * 2. Run the command program
- * 3. After: Print notification to stderr if queued
+ * 2. Print notification if queued
+ * 3. Run the command program
  *
  * The notification printer is injectable for testability.
  */
@@ -140,7 +158,10 @@ export const withUpdateCheck = <A, E, R>(
       options.printNotification ??
       (skipContext.isAgentSession
         ? printAgentNotification
-        : (message: string) => renderer.warn(message));
+        : (message: string) => {
+            const note = toHumanUpdateNote(message);
+            return renderer.note(note.message, note.title);
+          });
 
     if (updateCheck.shouldSkip(skipContext)) {
       return yield* program;
@@ -170,13 +191,10 @@ export const withUpdateCheck = <A, E, R>(
       yield* Effect.forkDetach(refreshCache(options.localVersion));
     }
 
-    // Run the command
-    const result = yield* program;
-
-    // Phase 3: Print notification after command completes
+    // Phase 3: Print notification before command output
     if (Option.isSome(notification)) {
       yield* printer(notification.value);
     }
 
-    return result;
+    return yield* program;
   });

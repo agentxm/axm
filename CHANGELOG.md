@@ -1,3 +1,13 @@
+## 0.1.0 (2026-04-01)
+
+### 🚀 Features
+
+- Add self-upgrade command and startup update checks ([51921362](https://github.com/agentxm/axm/commit/51921362))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.0.44 (2026-03-31)
 
 ### 🩹 Fixes

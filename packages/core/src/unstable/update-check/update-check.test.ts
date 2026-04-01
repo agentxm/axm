@@ -36,7 +36,7 @@ const freshTimestamp = () => new Date().toISOString();
 
 const staleTimestamp = () => {
   const d = new Date();
-  d.setTime(d.getTime() - 25 * 60 * 60 * 1000); // 25 hours ago
+  d.setTime(d.getTime() - 61 * 60 * 1000); // 61 minutes ago
   return d.toISOString();
 };
 
@@ -60,9 +60,9 @@ describe("isCacheStale", () => {
     expect(isCacheStale(recent, now)).toBe(false);
   });
 
-  it("returns true for a timestamp older than 24 hours", () => {
+  it("returns true for a timestamp older than 60 minutes", () => {
     const now = new Date();
-    const old = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
+    const old = new Date(now.getTime() - 61 * 60 * 1000).toISOString();
     expect(isCacheStale(old, now)).toBe(true);
   });
 
@@ -70,15 +70,15 @@ describe("isCacheStale", () => {
     expect(isCacheStale("not-a-date", new Date())).toBe(true);
   });
 
-  it("returns false for exactly 24 hours ago (boundary)", () => {
+  it("returns false for exactly 60 minutes ago (boundary)", () => {
     const now = new Date();
-    const boundary = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const boundary = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
     expect(isCacheStale(boundary, now)).toBe(false);
   });
 
-  it("returns true for just over 24 hours ago", () => {
+  it("returns true for just over 60 minutes ago", () => {
     const now = new Date();
-    const justOver = new Date(now.getTime() - 24 * 60 * 60 * 1000 - 1).toISOString();
+    const justOver = new Date(now.getTime() - 60 * 60 * 1000 - 1).toISOString();
     expect(isCacheStale(justOver, now)).toBe(true);
   });
 });
@@ -231,7 +231,7 @@ describe("readCacheFromPath", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("returns None for a stale cache file (older than 24 hours)", () =>
+  it.effect("returns None for a stale cache file (older than 60 minutes)", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
       const data = { latestVersion: "0.2.0", checkedAt: staleTimestamp() };

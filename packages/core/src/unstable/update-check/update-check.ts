@@ -26,7 +26,7 @@ import { resolveAxmDataDir } from "../utils/index.js";
 // -----------------------------------------------------------------------------
 
 const CACHE_FILENAME = "update-check.json";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
 
 // -----------------------------------------------------------------------------
 // Cache schema
@@ -139,7 +139,7 @@ export const notificationMessage = (
 };
 
 /**
- * Check whether the cache is stale (older than 24 hours).
+ * Check whether the cache is stale (older than 60 minutes).
  */
 export const isCacheStale = (checkedAt: string, now: Date): boolean => {
   const checkedDate = new Date(checkedAt);

@@ -9,9 +9,12 @@
  *   pnpm release:publish -- cli-v0.1.0 --dry-run
  */
 
-import { ReleaseClient } from "nx/release/index.js";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
+  RELEASE_REPO,
   fetchOriginMain,
   fail,
   releaseCommitOnOriginMain,
@@ -22,6 +25,8 @@ import {
   requireSuccessfulCiRun,
   validateReleaseTag,
 } from "./release-shared.js";
+import { releaseNotesAtRef } from "./release-notes.js";
+import { run } from "./release-command.js";
 
 const args = process.argv.slice(2);
 
@@ -45,18 +50,6 @@ const requestedTag =
   positionalArgs[0] ?? fail("Usage: pnpm release:publish -- <cli-vX.Y.Z> [--dry-run]");
 const tag = validateReleaseTag(requestedTag);
 const version = releaseVersionFromTag(tag);
-const releaseClient = new ReleaseClient(
-  {
-    changelog: {
-      workspaceChangelog: {
-        createRelease: "github",
-        file: false,
-      },
-      projectChangelogs: false,
-    },
-  },
-  false,
-);
 
 const preflight = () => {
   console.log("==> Publish checks");
@@ -85,20 +78,39 @@ const preflight = () => {
   return { version, tag, sha };
 };
 
+const withNotesFile = <A>(releaseNotes: string, operation: (path: string) => A): A => {
+  const tempDirectory = mkdtempSync(join(tmpdir(), "axm-release-notes-"));
+  const notesPath = join(tempDirectory, "notes.md");
+
+  writeFileSync(notesPath, releaseNotes, "utf8");
+
+  try {
+    return operation(notesPath);
+  } finally {
+    rmSync(tempDirectory, { recursive: true, force: true });
+  }
+};
+
 const publish = async (version: string, tag: string, sha: string) => {
   console.log("\n==> Create GitHub Release");
-  const { workspaceChangelog } = await releaseClient.releaseChangelog({
-    version,
-    to: sha,
-    dryRun: false,
-    stageChanges: false,
-    gitCommit: false,
-    gitTag: false,
-    gitPush: false,
+  const releaseNotes = releaseNotesAtRef(sha, version);
+
+  withNotesFile(releaseNotes, (notesPath) => {
+    run("gh", [
+      "release",
+      "create",
+      tag,
+      "--repo",
+      RELEASE_REPO,
+      "--target",
+      sha,
+      "--title",
+      tag,
+      "--notes-file",
+      notesPath,
+    ]);
   });
-  const postGitTask =
-    workspaceChangelog?.postGitTask ?? fail("Nx Release did not provide a GitHub release task.");
-  await postGitTask(sha);
+
   console.log(`\nReleased ${tag}`);
 };
 

@@ -78,9 +78,12 @@ cli-v{VERSION}` to `origin/main`.
 5. Let GitHub Actions finish the publish.
 
    The GitHub Release triggers `publish.yml`, which validates the tag, downloads
-   the matching CI artifacts, uploads release binaries, publishes npm packages
-   through `nx release publish`, and updates Homebrew when
+   the matching CI artifacts, uploads release binaries, packs npm tarballs with
+   `pnpm`, publishes them with `npm publish --provenance`, and updates Homebrew when
    `HOMEBREW_TAP_TOKEN` is configured.
+
+   If a release needs recovery after the GitHub Release already exists, run
+   `publish.yml` manually with `workflow_dispatch` and the existing release tag.
 
 ---
 

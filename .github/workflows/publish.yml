@@ -28,6 +28,9 @@ jobs:
   release:
     name: Publish Release Assets
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release_meta.outputs.tag }}
+      version: ${{ steps.release_meta.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.1
@@ -132,7 +135,8 @@ jobs:
       - name: Run installer verification
         env:
           AXM_INSTALL_TEST_MODE: ${{ matrix.mode }}
-          AXM_INSTALL_BASE_URL: https://github.com/agentxm/axm/releases/latest/download
+          AXM_INSTALL_BASE_URL: https://github.com/agentxm/axm/releases/download/${{ needs.release.outputs.tag }}
+          AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
         run: pnpm exec nx run cli-e2e:install-verification
 
       - name: Upload installer verification artifacts
@@ -160,7 +164,17 @@ jobs:
         run: brew install agentxm/tap/axm
 
       - name: Verify installed axm version
-        run: axm --version
+        env:
+          AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          actual_version="$(axm --version)"
+          expected_version="axm v${AXM_EXPECTED_VERSION}"
+
+          if [ "$actual_version" != "$expected_version" ]; then
+            echo "Expected $expected_version"
+            echo "Received $actual_version"
+            exit 1
+          fi
 
       - name: Clean up Homebrew install
         if: always()

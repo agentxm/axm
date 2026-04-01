@@ -35,5 +35,7 @@ describe("install-meta.json script content", () => {
     expect(script).toContain("install-meta.json");
     expect(script).toContain('"method": "script"');
     expect(script).toContain('"installedAt":');
+    expect(script).toContain("powershell -NoProfile -Command");
+    expect(script).not.toContain("wmic os get localdatetime");
   });
 });

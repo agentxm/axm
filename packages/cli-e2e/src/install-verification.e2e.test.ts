@@ -89,6 +89,7 @@ afterAll(async () => {
 });
 
 const installBaseUrl = process.env["AXM_INSTALL_BASE_URL"] ?? serverContext?.baseUrl;
+const expectedVersion = process.env["AXM_EXPECTED_VERSION"];
 
 if (installBaseUrl === undefined || installBaseUrl.length === 0) {
   throw new Error("Failed to resolve AXM_INSTALL_BASE_URL for install verification");
@@ -97,6 +98,23 @@ if (installBaseUrl === undefined || installBaseUrl.length === 0) {
 const pathSeparator = process.platform === "win32" ? ";" : ":";
 const getOutput = (result: { readonly stdout: string; readonly stderr: string }): string =>
   result.stdout + result.stderr;
+
+const expectCommandSuccess = (
+  label: string,
+  result: { readonly exitCode: number; readonly stdout: string; readonly stderr: string },
+) => {
+  if (result.exitCode === 0) {
+    return;
+  }
+
+  const output = getOutput(result).trim();
+
+  throw new Error(
+    output.length === 0
+      ? `${label} failed with exit code ${result.exitCode}`
+      : `${label} failed with exit code ${result.exitCode}\n\n${output}`,
+  );
+};
 
 const createBashEnv = (tempPath: string): Readonly<Record<string, string>> => ({
   HOME: tempPath,
@@ -115,7 +133,15 @@ const verifyInstalledBinary = async (binaryPath: string) => {
   const result = await runBinary(["--version"]);
 
   expect(result.exitCode).toBe(0);
-  expect(result.stdout).toMatch(/^axm v\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
+
+  const versionOutput = result.stdout.trim();
+
+  if (expectedVersion !== undefined && expectedVersion.length > 0) {
+    expect(versionOutput).toBe(`axm v${expectedVersion}`);
+    return;
+  }
+
+  expect(versionOutput).toMatch(/^axm v\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
 };
 
 const verifyInstallMeta = (metaPath: string) => {
@@ -145,7 +171,7 @@ describe("install script verification", () => {
           env: createBashEnv(temp.path),
         });
 
-        expect(result.exitCode).toBe(0);
+        expectCommandSuccess("install.sh", result);
         expect(getOutput(result)).toContain("Detected platform:");
         expect(getOutput(result)).toContain("Done! Run 'axm auth login' to get started.");
 
@@ -165,7 +191,7 @@ describe("install script verification", () => {
           },
         );
 
-        expect(result.exitCode).toBe(0);
+        expectCommandSuccess("install.ps1", result);
         expect(getOutput(result)).toContain("Detected platform: windows-x64");
         expect(getOutput(result)).toContain("Done! Run 'axm auth login' to get started.");
 
@@ -180,7 +206,7 @@ describe("install script verification", () => {
         env: createWindowsEnv(temp.path),
       });
 
-      expect(result.exitCode).toBe(0);
+      expectCommandSuccess("install.cmd", result);
       expect(getOutput(result)).toContain("Installing axm...");
       expect(getOutput(result)).toContain("Done! Run 'axm auth login' to authenticate.");
 

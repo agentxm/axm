@@ -48,6 +48,9 @@ function Download-Binary {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
     }
 
+    $previousProgressPreference = $ProgressPreference
+    $ProgressPreference = 'SilentlyContinue'
+
     try {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $target -UseBasicParsing
     }
@@ -58,6 +61,9 @@ function Download-Binary {
         Write-Host ""
         Write-Host "Check that the release exists and your network connection is working."
         exit 1
+    }
+    finally {
+        $ProgressPreference = $previousProgressPreference
     }
 
     Write-Host "Installed to $target"

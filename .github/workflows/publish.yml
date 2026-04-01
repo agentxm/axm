@@ -41,7 +41,6 @@ jobs:
         uses: actions/setup-node@v6.1.0
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v5
@@ -75,7 +74,10 @@ jobs:
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
       - name: Publish npm packages
-        run: pnpm exec nx release publish --outputStyle=static
+        run: |
+          unset NODE_AUTH_TOKEN
+          unset NPM_CONFIG_USERCONFIG
+          pnpm exec nx release publish --outputStyle=static
 
       - name: Update Homebrew formula
         env:

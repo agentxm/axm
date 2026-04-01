@@ -30,7 +30,7 @@ import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
-import { withAuthRuntime } from "../../runtime.js";
+import { authCommandMeta, withCommandRuntime } from "../../command-meta.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -88,9 +88,10 @@ const loginConfig = {
     Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
   ),
 } as const;
+const commandMeta = authCommandMeta("auth login");
 
 export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
-  handleLogin({ yes }).pipe(withAuthRuntime({ command: "auth login" })),
+  handleLogin({ yes }).pipe(withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),

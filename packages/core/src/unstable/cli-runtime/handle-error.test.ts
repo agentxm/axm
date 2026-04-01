@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliError } from "effect/unstable/cli";
 import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
+import { JsonSchemaVersion } from "./json-envelope.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,7 +116,12 @@ describe("handleError — CliError (non-ShowHelp)", () => {
     expect(exit.code).toBe(2);
     expect(stdoutWriteCalls).toHaveLength(1);
     const parsed: unknown = JSON.parse(String(stdoutWriteCalls[0]));
-    expect(parsed).toMatchObject({ type: "error", code: "USAGE_ERROR" });
+    expect(parsed).toMatchObject({
+      schemaVersion: JsonSchemaVersion,
+      type: "error",
+      code: "USAGE_ERROR",
+      exitCode: 2,
+    });
   });
 });
 
@@ -155,6 +161,12 @@ describe("handleError — generic errors", () => {
     expect(exit.code).toBe(1);
     expect(stdoutWriteCalls).toHaveLength(1);
     const parsed: unknown = JSON.parse(String(stdoutWriteCalls[0]));
-    expect(parsed).toMatchObject({ type: "error", code: "UNKNOWN_ERROR", message: "boom" });
+    expect(parsed).toMatchObject({
+      schemaVersion: JsonSchemaVersion,
+      type: "error",
+      code: "UNKNOWN_ERROR",
+      message: "boom",
+      exitCode: 1,
+    });
   });
 });

@@ -7,6 +7,7 @@
 
 // Plan types
 export type {
+  CancelledPlan,
   CompletedJobStep,
   ErrorJobStep,
   ExecutedJob,
@@ -15,7 +16,9 @@ export type {
   JobStepResult,
   Operation,
   Plan,
+  PlanResolution,
   PlannedJobStep,
+  PreviewedPlan,
   ReadyJobStep,
   WarnJobStep,
 } from "./plan.js";

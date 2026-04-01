@@ -1,0 +1,170 @@
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { describe, expect, it } from "vitest";
+
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import type { CancelledPlan, ExecutedPlan, PreviewedPlan } from "@axm.sh/core/unstable/workspace";
+
+import { toPlanResolutionResult } from "./json-output.js";
+
+describe("toPlanResolutionResult", () => {
+  const successfulRun = Effect.succeed({
+    result: "success" as const,
+    message: "",
+  });
+
+  it("maps previewed plans to preview counts", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Install skill",
+      description: Option.some("Install @acme/skills/code-review"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "Install @acme/skills/code-review",
+              run: successfulRun,
+            },
+            {
+              readiness: "warn",
+              label: "Update lockfile",
+              warnMessage: "Lockfile will be regenerated",
+              run: successfulRun,
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toEqual({
+      outcome: "previewed",
+      planName: "Install skill",
+      planDescription: "Install @acme/skills/code-review",
+      totalSteps: 2,
+      readyCount: 1,
+      warningCount: 1,
+      errorCount: 0,
+      appliedCount: 0,
+      failedCount: 0,
+      blockedCount: 0,
+      steps: [
+        { label: "Install @acme/skills/code-review", status: "ready" },
+        {
+          label: "Update lockfile",
+          status: "warning",
+          message: "Lockfile will be regenerated",
+        },
+      ],
+    });
+  });
+
+  it("maps cancelled plans to cancelled outcome", () => {
+    const resolution: CancelledPlan = {
+      _tag: "CancelledPlan",
+      name: "Remove skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "error",
+              label: "Remove code-review",
+              errorMessage: "Blocked by dependent extension",
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toEqual({
+      outcome: "cancelled",
+      planName: "Remove skill",
+      totalSteps: 1,
+      readyCount: 0,
+      warningCount: 0,
+      errorCount: 1,
+      appliedCount: 0,
+      failedCount: 0,
+      blockedCount: 0,
+      steps: [
+        {
+          label: "Remove code-review",
+          status: "error",
+          message: "Blocked by dependent extension",
+        },
+      ],
+    });
+  });
+
+  it("maps executed failures and blocked steps distinctly", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Publish pack",
+      description: Option.some("Publish @acme/packs/frontend-tools"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Publish dependency @acme/skills/code-review",
+              result: {
+                result: "error",
+                message: "Version already exists",
+                error: makeAppError({
+                  code: "PUBLISH_EXISTS",
+                  what: "Version already exists",
+                }),
+              },
+            },
+          ],
+        },
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Publish @acme/packs/frontend-tools",
+              result: {
+                result: "error",
+                message: "blocked by earlier job failure",
+                error: makeAppError({
+                  code: "PLAN_STEP_BLOCKED",
+                  what: "blocked by earlier job failure",
+                }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toEqual({
+      outcome: "applied",
+      planName: "Publish pack",
+      planDescription: "Publish @acme/packs/frontend-tools",
+      totalSteps: 2,
+      readyCount: 0,
+      warningCount: 0,
+      errorCount: 0,
+      appliedCount: 0,
+      failedCount: 1,
+      blockedCount: 1,
+      steps: [
+        {
+          label: "Publish dependency @acme/skills/code-review",
+          status: "failed",
+          message: "Version already exists",
+          code: "PUBLISH_EXISTS",
+        },
+        {
+          label: "Publish @acme/packs/frontend-tools",
+          status: "blocked",
+          message: "blocked by earlier job failure",
+          code: "PLAN_STEP_BLOCKED",
+        },
+      ],
+    });
+  });
+});

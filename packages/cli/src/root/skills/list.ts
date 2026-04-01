@@ -8,11 +8,18 @@
 
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { emitItemsResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -25,6 +32,12 @@ export interface ListHandlerArgs {
   /** Agent names to filter by (empty = show all) */
   readonly agents: readonly string[];
 }
+
+const SkillListItemSchema = Schema.Struct({
+  name: Schema.String,
+  type: Schema.String,
+  agents: Schema.Array(Schema.String),
+});
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -51,6 +64,16 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     args.agents.length > 0
       ? entries.filter(([, entry]) => args.agents.some((agent) => entry.agents.includes(agent)))
       : entries;
+
+  const items = filtered.map(([name, entry]) => ({
+    name,
+    type: entry.type,
+    agents: entry.agents,
+  }));
+
+  if (yield* emitItemsResult("skills.list", items, SkillListItemSchema)) {
+    return;
+  }
 
   if (filtered.length === 0) {
     yield* renderer.info("No skills installed");
@@ -81,14 +104,13 @@ const listConfig = {
     Flag.atLeast(0),
   ),
 } as const;
+const commandMeta = registryCommandMeta("skills list", { json: true });
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
-  handleList({ agents: agent }).pipe(
-    withWorkspace(scope),
-    withRegistryRuntime({ command: "skills list" }),
-  ),
+  handleList({ agents: agent }).pipe(withWorkspace(scope), withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(listConfig),
+  annotateCommandMeta(commandMeta),
   Command.withAlias("ls"),
   Command.withDescription("List installed skills"),
   Command.withExamples([

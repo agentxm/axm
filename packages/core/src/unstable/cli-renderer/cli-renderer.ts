@@ -156,10 +156,13 @@ export class CliRenderer extends ServiceMap.Service<
     ) => Effect.Effect<void>;
 
     // Machine data output (stdout)
-    readonly result: <T>(data: T, schema: Schema.Schema<T>) => Effect.Effect<boolean>;
-    readonly resultStream: <T>(
-      stream: Stream.Stream<T>,
-      schema: Schema.Schema<T>,
+    readonly result: <S extends Schema.Encoder<unknown, never>>(
+      data: S["Type"],
+      schema: S,
+    ) => Effect.Effect<boolean>;
+    readonly resultStream: <S extends Schema.Encoder<unknown, never>>(
+      stream: Stream.Stream<S["Type"]>,
+      schema: S,
     ) => Effect.Effect<boolean>;
 
     // Both modes (stdout)

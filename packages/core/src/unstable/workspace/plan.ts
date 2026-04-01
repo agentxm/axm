@@ -106,3 +106,19 @@ export interface ExecutedPlan {
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<ExecutedJob>;
 }
+
+export interface PreviewedPlan {
+  readonly _tag: "PreviewedPlan";
+  readonly name: string;
+  readonly description: Option.Option<string>;
+  readonly jobs: ReadonlyArray<Job>;
+}
+
+export interface CancelledPlan {
+  readonly _tag: "CancelledPlan";
+  readonly name: string;
+  readonly description: Option.Option<string>;
+  readonly jobs: ReadonlyArray<Job>;
+}
+
+export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan;

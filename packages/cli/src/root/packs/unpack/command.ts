@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
 import { handleUnpack } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Pack name to unpack")),
@@ -19,6 +24,7 @@ const unpackConfig = {
     Flag.withDescription("Show what would change in settings without modifying them"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("packs unpack", { json: true });
 
 export const unpackCommand = Command.make(
   "unpack",
@@ -26,10 +32,11 @@ export const unpackCommand = Command.make(
   ({ name, strictAgentSync, yes, force, preview }) =>
     handleUnpack({ name, strictAgentSync, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "packs unpack" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(unpackConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Eject pack into individual entries"),
   Command.withExamples([
     {

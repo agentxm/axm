@@ -45,10 +45,12 @@ import {
   type PublishMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -349,7 +351,31 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     jobs,
   };
 
-  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
+  const resolvedPlan = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
+
+  if (resolvedPlan._tag === "ExecutedPlan") {
+    const failedStepDetails = resolvedPlan.jobs
+      .flatMap((job) => job.steps)
+      .flatMap((step) =>
+        step.result.result === "error"
+          ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
+          : [],
+      );
+
+    if (failedStepDetails.length > 0) {
+      return yield* makeAppError({
+        code: "PUBLISH_PLAN_FAILED",
+        what: `Failed to publish ${failedStepDetails.length} pack item${failedStepDetails.length === 1 ? "" : "s"}`,
+        details: failedStepDetails,
+      });
+    }
+  }
+
+  yield* emitPlanResolutionResult("packs.publish", resolvedPlan);
 
   yield* renderer.success("Done");
 });
@@ -440,6 +466,7 @@ const publishConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
+const commandMeta = authCommandMeta("packs publish", { json: true });
 
 export const publishCommand = Command.make(
   "publish",
@@ -447,10 +474,11 @@ export const publishCommand = Command.make(
   ({ pack, registry, includeDependencies, yes, force, preview }) =>
     handlePublishPack({ pack, registry, includeDependencies, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime({ command: "packs publish" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(publishConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Publish a pack to a registry"),
   Command.withExamples([
     {

@@ -1,9 +1,13 @@
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
+import { pipe } from "effect/Function";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
+import { JsonSchemaVersion } from "@axm.sh/core/unstable/cli-runtime";
+
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
+import { JsonOutputSupported } from "./json-output.js";
 
 const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
   description: "",
@@ -49,6 +53,16 @@ describe("makeAxmFormatter", () => {
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
+      expect(output).not.toContain("GLOBAL FLAGS");
+    });
+
+    it("preserves --json on supported subcommand help", () => {
+      const doc = makeHelpDoc({
+        usage: "axm init [flags]",
+        globalFlags,
+        annotations: ServiceMap.make(JsonOutputSupported, true),
+      });
+      const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
       expect(output).toContain("--json");
       expect(output).not.toContain("--verbose");
@@ -58,6 +72,7 @@ describe("makeAxmFormatter", () => {
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         globalFlags,
+        annotations: ServiceMap.make(JsonOutputSupported, true),
       });
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("GLOBAL FLAGS");
@@ -93,9 +108,16 @@ describe("makeAxmFormatter", () => {
   });
 
   describe("json mode", () => {
+    it("renders human version output without decoration", () => {
+      expect(formatter.formatVersion("axm", "1.2.3")).toBe("1.2.3");
+    });
+
     it("serializes help docs as plain JSON", () => {
       const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
-      const annotations = ServiceMap.make(LearnMore, footerText);
+      const annotations = pipe(
+        ServiceMap.make(LearnMore, footerText),
+        ServiceMap.add(JsonOutputSupported, true),
+      );
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",
         annotations,
@@ -113,6 +135,7 @@ describe("makeAxmFormatter", () => {
 
       const output = JSON.parse(jsonFormatter.formatHelpDoc(doc));
       expect(output).toMatchObject({
+        schemaVersion: JsonSchemaVersion,
         type: "help",
         usage: "axm skills install [flags]",
         learnMore: footerText,
@@ -138,6 +161,7 @@ describe("makeAxmFormatter", () => {
 
     it("serializes version output as JSON", () => {
       expect(JSON.parse(jsonFormatter.formatVersion("axm", "1.2.3"))).toEqual({
+        schemaVersion: JsonSchemaVersion,
         type: "version",
         name: "axm",
         version: "1.2.3",

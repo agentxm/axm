@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
 import { handleUninstallCommand } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the command to uninstall")),
@@ -16,6 +21,7 @@ const uninstallConfig = {
     Flag.withDescription("Show what would be removed without making changes"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("commands uninstall", { json: true });
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -23,10 +29,11 @@ export const uninstallCommand = Command.make(
   ({ name, yes, force, preview }) =>
     handleUninstallCommand({ commandName: name }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "commands uninstall" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Uninstall a command"),
   Command.withExamples([
     {

@@ -21,7 +21,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -31,6 +31,8 @@ import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "@axm.sh/core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@axm.sh/core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -174,7 +176,18 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
-  if (resolvedNames.length === 0) return;
+  if (resolvedNames.length === 0) {
+    if (
+      yield* emitNoOpResult("skills.publish", {
+        planName: "Publish skill",
+        message: "Nothing to publish.",
+      })
+    ) {
+      return;
+    }
+    yield* renderer.info("Nothing to publish.");
+    return;
+  }
 
   // Step 2: Resolve each name to FQN
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
@@ -298,13 +311,16 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     preview: args.preview,
   });
 
-  const failedStepDetails = resolvedPlan.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) =>
-      step.result.result === "error"
-        ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
-        : [],
-    );
+  const failedStepDetails =
+    resolvedPlan._tag === "ExecutedPlan"
+      ? resolvedPlan.jobs
+          .flatMap((job) => job.steps)
+          .flatMap((step) =>
+            step.result.result === "error"
+              ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
+              : [],
+          )
+      : [];
 
   if (failedStepDetails.length > 0) {
     return yield* makeAppError({
@@ -314,6 +330,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     });
   }
 
+  yield* emitPlanResolutionResult("skills.publish", resolvedPlan);
   yield* renderer.success("Done");
 });
 
@@ -338,6 +355,7 @@ const publishConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
 } as const;
+const commandMeta = authCommandMeta("skills publish", { json: true });
 
 export const publishCommand = Command.make(
   "publish",
@@ -345,10 +363,11 @@ export const publishCommand = Command.make(
   ({ extensions, registry, yes, force, preview }) =>
     handlePublish({ extensions: [...extensions], registry, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime({ command: "skills publish" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(publishConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Publish extensions to a registry"),
   Command.withExamples([
     {

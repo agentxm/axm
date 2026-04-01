@@ -84,7 +84,7 @@ brew install axm-sh/tap/axm
 
 ```bash
 axm --version
-# Expected: axm version X.Y.Z
+# Expected: X.Y.Z
 ```
 
 ## Step 2: Authenticate

@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
 import { CliRenderer } from "./cli-renderer.js";
 import { MachineRenderer } from "./cli-renderer-machine.js";
 
@@ -48,7 +49,11 @@ const parseStderrEvents = () =>
     if (typeof event !== "object" || event === null || Array.isArray(event)) {
       throw new Error("Expected stderr event record");
     }
-    return event;
+    if (event.schemaVersion !== JsonSchemaVersion) {
+      throw new Error("Expected stderr event schemaVersion");
+    }
+    const { schemaVersion: _schemaVersion, ...rest } = event;
+    return rest;
   });
 
 const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));

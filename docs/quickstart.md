@@ -62,7 +62,7 @@ curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd
 axm --version
 ```
 
-You should see output like `axm version X.Y.Z`.
+You should see output like `X.Y.Z`.
 
 ### Authenticate
 

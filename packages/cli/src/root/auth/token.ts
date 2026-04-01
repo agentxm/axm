@@ -20,13 +20,14 @@ import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { withAuthRuntime } from "../../runtime.js";
+import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
+import { emitDataResult } from "../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Handler
 // -----------------------------------------------------------------------------
 
-const TokenResultSchema = Schema.Struct({
+const TokenDataSchema = Schema.Struct({
   token: Schema.String,
 });
 
@@ -46,7 +47,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
   if (json) {
-    yield* renderer.result({ token: token.token }, TokenResultSchema);
+    yield* emitDataResult("auth.token", { token: token.token }, TokenDataSchema);
     return;
   }
 
@@ -58,11 +59,13 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 // -----------------------------------------------------------------------------
 
 const tokenConfig = {} as const;
+const commandMeta = authCommandMeta("auth token", { json: true });
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>
-  handleToken().pipe(withAuthRuntime({ command: "auth token" })),
+  handleToken().pipe(withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(tokenConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([
     {

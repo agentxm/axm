@@ -22,7 +22,13 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 // -----------------------------------------------------------------------------
@@ -67,6 +73,16 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   // Configured skill — check if already disabled (implicit skills are always enabled)
   if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
+    if (
+      yield* emitNoOpResult("skills.disable", {
+        planName: "Disable skill",
+        planDescription: `Disable ${args.name}`,
+        message: `Skill '${args.name}' is already disabled`,
+      })
+    ) {
+      return;
+    }
+
     yield* renderer.info(`Skill '${args.name}' is already disabled`);
     yield* renderer.success("Nothing to do.");
     return;
@@ -106,11 +122,12 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("skills.disable", resolution);
 
   yield* renderer.success("Done");
 });
@@ -128,6 +145,7 @@ const disableConfig = {
   force: forceFlag.pipe(Flag.withDescription("Disable even if other skills depend on it")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
+const commandMeta = registryCommandMeta("skills disable", { json: true });
 
 export const disableCommand = Command.make(
   "disable",
@@ -135,10 +153,11 @@ export const disableCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleDisable({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRegistryRuntime({ command: "skills disable" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(disableConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Disable a skill without uninstalling it"),
   Command.withExamples([
     {

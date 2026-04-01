@@ -19,13 +19,14 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { withAuthRuntime } from "../../runtime.js";
+import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
+import { emitDataResult } from "../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
-const WhoamiResultSchema = Schema.Struct({
+const WhoamiDataSchema = Schema.Struct({
   userId: Schema.String,
   userHandle: Schema.String,
   email: Schema.String,
@@ -69,7 +70,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   };
 
   // Step 3: Display result
-  if (yield* renderer.result(identity, WhoamiResultSchema)) {
+  if (yield* emitDataResult("auth.whoami", identity, WhoamiDataSchema)) {
     return;
   }
 
@@ -83,11 +84,13 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
 // -----------------------------------------------------------------------------
 
 const whoamiConfig = {} as const;
+const commandMeta = authCommandMeta("auth whoami", { json: true });
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  handleWhoami().pipe(withAuthRuntime({ command: "auth whoami" })),
+  handleWhoami().pipe(withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(whoamiConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
     { command: "axm auth whoami", description: "Check who you're authenticated as" },

@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
 import { handleUninstallMcpServer } from "./handler.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
   name: Argument.string("name").pipe(
@@ -18,6 +23,7 @@ const uninstallConfig = {
     Flag.withDescription("Show what would be removed without making changes"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("mcp-servers uninstall", { json: true });
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -25,10 +31,11 @@ export const uninstallCommand = Command.make(
   ({ name, yes, force, preview }) =>
     handleUninstallMcpServer({ serverName: name }, { yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "mcp-servers uninstall" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Uninstall an MCP server"),
   Command.withExamples([
     {

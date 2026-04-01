@@ -24,7 +24,7 @@ import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "./augment-plan.js";
 import { scanPlanReadiness } from "./scan-plan-readiness.js";
 import { setReconciliationAdapters } from "./reconciliation.js";
-import type { ExecutedPlan, Plan } from "./plan.js";
+import type { CancelledPlan, ExecutedPlan, Plan, PreviewedPlan } from "./plan.js";
 import { Workspace } from "./service-interface.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
@@ -126,11 +126,11 @@ export const resolvePlan = Effect.fn("resolvePlan")(function* (
     // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
     if (nonInteractive && !flags.yes) {
       return {
-        _tag: "ExecutedPlan",
+        _tag: "PreviewedPlan",
         name: augmentedPlan.name,
         description: augmentedPlan.description,
-        jobs: [],
-      } satisfies ExecutedPlan;
+        jobs: augmentedPlan.jobs,
+      } satisfies PreviewedPlan;
     }
 
     if (!resolvedYes) {
@@ -138,11 +138,11 @@ export const resolvePlan = Effect.fn("resolvePlan")(function* (
       if (!confirmed) {
         yield* renderer.success("Cancelled.");
         return {
-          _tag: "ExecutedPlan",
+          _tag: "CancelledPlan",
           name: augmentedPlan.name,
           description: augmentedPlan.description,
-          jobs: [],
-        } satisfies ExecutedPlan;
+          jobs: augmentedPlan.jobs,
+        } satisfies CancelledPlan;
       }
     }
   }

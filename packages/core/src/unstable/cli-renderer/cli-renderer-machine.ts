@@ -1,7 +1,7 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type * as Schema from "effect/Schema";
+import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import {
@@ -15,6 +15,7 @@ import {
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
+import { JsonSchemaVersion } from "../cli-runtime/json-envelope.js";
 
 // ---------------------------------------------------------------------------
 // Helpers — NDJSON event emission to stderr
@@ -22,7 +23,7 @@ import {
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify(event) + "\n");
+    process.stderr.write(JSON.stringify({ schemaVersion: JsonSchemaVersion, ...event }) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
@@ -116,6 +117,9 @@ const writeStdoutLine = (content: string) =>
   Effect.sync(() => {
     process.stdout.write(content + "\n");
   });
+
+const encodeJson = <S extends Schema.Encoder<unknown, never>>(data: S["Type"], schema: S) =>
+  Effect.sync(() => Schema.encodeSync(schema)(data));
 
 // ---------------------------------------------------------------------------
 // MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
@@ -294,14 +298,21 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     tree: () => Effect.void,
 
     // Machine data output (stdout)
-    // Data is already typed as T matching the schema — encode via JSON.stringify.
-    // Schema is accepted for contract documentation and future validation but
-    // encoding is deferred to avoid EncodingServices constraints.
-    result: <T>(data: T, _schema: Schema.Schema<T>) =>
-      writeStdoutLine(JSON.stringify(data, null, 2)).pipe(Effect.as(true)),
-    resultStream: <T>(stream: Stream.Stream<T>, _schema: Schema.Schema<T>) =>
+    result: <S extends Schema.Encoder<unknown, never>>(data: S["Type"], schema: S) =>
+      encodeJson(data, schema).pipe(
+        Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
+        Effect.as(true),
+      ),
+    resultStream: <S extends Schema.Encoder<unknown, never>>(
+      stream: Stream.Stream<S["Type"]>,
+      schema: S,
+    ) =>
       stream.pipe(
-        Stream.mapEffect((item) => writeStdoutLine(JSON.stringify(item))),
+        Stream.mapEffect((item) =>
+          encodeJson(item, schema).pipe(
+            Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded))),
+          ),
+        ),
         Stream.runDrain,
         Effect.as(true),
       ),

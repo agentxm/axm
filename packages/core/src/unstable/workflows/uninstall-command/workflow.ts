@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
-import type { Plan } from "../../workspace/plan.js";
+import type { Plan, PlanResolution } from "../../workspace/plan.js";
 import { resolvePlan } from "../../workspace/resolve-plan.js";
 
 // -----------------------------------------------------------------------------
@@ -51,5 +51,5 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent);
-    yield* resolvePlan(plan, flags);
-  });
+    return yield* resolvePlan(plan, flags);
+  }).pipe(Effect.map((resolution): PlanResolution => resolution));

@@ -137,11 +137,11 @@ const verifyInstalledBinary = async (binaryPath: string) => {
   const versionOutput = result.stdout.trim();
 
   if (expectedVersion !== undefined && expectedVersion.length > 0) {
-    expect(versionOutput).toBe(`axm v${expectedVersion}`);
+    expect(versionOutput).toBe(expectedVersion);
     return;
   }
 
-  expect(versionOutput).toMatch(/^axm v\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
+  expect(versionOutput).toMatch(/^\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
 };
 
 const verifyInstallMeta = (metaPath: string) => {

@@ -14,7 +14,8 @@ Each guide is a single markdown file named after its topic:
 - `effect-option.md` — When to use `Option` versus nullable values
 - `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
 - `testing.md` — Testing orientation and skill references
-- `cli-design.md` — CLI architecture and conventions
+- `cli-design.md` — Command design, flags, prompts, and handler conventions
+- `cli-renderer.md` — Renderer boundaries, JSON contracts, and stderr diagnostics
 - `releasing.md` — Release versioning, prepare/publish flow, and status checks
 - `spec-driven-development.md` — SDD workflow with OpenSpec
 - `feature-delivery.md` — Proposal, design, and implementation checks

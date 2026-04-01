@@ -14,6 +14,6 @@ describe("axm whoami", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout + result.stderr).toContain("AUTH_LOGIN_REQUIRED");
-    expect(result.stderr).toContain("Not authenticated");
+    expect(result.stderr).toContain("Authentication required");
   });
 });

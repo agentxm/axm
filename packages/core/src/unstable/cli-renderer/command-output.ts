@@ -92,8 +92,8 @@ export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDe
 // Command output helpers
 // ---------------------------------------------------------------------------
 
-export interface CommandOutputOpts<T> {
-  readonly schema: Schema.Schema<T>;
+export interface CommandOutputOpts<S extends Schema.Encoder<unknown, never>> {
+  readonly schema: S;
   readonly title?: string;
 }
 
@@ -101,7 +101,10 @@ export interface CommandOutputOpts<T> {
  * Emit a collection of items. In machine mode (result returns true),
  * outputs JSON. In interactive mode, renders a table.
  */
-export const emitMany = <T>(items: ReadonlyArray<T>, opts: CommandOutputOpts<T>) =>
+export const emitMany = <S extends Schema.Encoder<unknown, never>>(
+  items: ReadonlyArray<S["Type"]>,
+  opts: CommandOutputOpts<S>,
+) =>
   Effect.gen(function* () {
     const out = yield* CliRenderer;
     if (yield* out.result(items, Schema.Array(opts.schema))) return;
@@ -112,7 +115,10 @@ export const emitMany = <T>(items: ReadonlyArray<T>, opts: CommandOutputOpts<T>)
  * Emit a single item. In machine mode (result returns true),
  * outputs JSON. In interactive mode, renders a detail view.
  */
-export const emitOne = <T>(data: T, opts: CommandOutputOpts<T>) =>
+export const emitOne = <S extends Schema.Encoder<unknown, never>>(
+  data: S["Type"],
+  opts: CommandOutputOpts<S>,
+) =>
   Effect.gen(function* () {
     const out = yield* CliRenderer;
     if (yield* out.result(data, opts.schema)) return;

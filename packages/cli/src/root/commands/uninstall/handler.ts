@@ -8,6 +8,8 @@
 
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+
+import { emitPlanResolutionResult } from "../../../json-output.js";
 import {
   UninstallCommandCommandWorkflowActions,
   type UninstallCommandHandlerArgs,
@@ -26,5 +28,6 @@ export const handleUninstallCommand = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallCommandCommandWorkflowActions;
-    yield* runUninstallCommandWorkflow(args, actions, flags);
+    const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
+    yield* emitPlanResolutionResult("commands.uninstall", resolution);
   });

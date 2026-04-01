@@ -31,7 +31,12 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
+import { withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { CopySkillOperation } from "@axm.sh/core/unstable/skills";
@@ -45,6 +50,7 @@ import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { emitPlanResolutionResult } from "../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -374,7 +380,12 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
+  const resolution = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
+  yield* emitPlanResolutionResult("skills.fork", resolution);
 
   yield* renderer.success("Done");
 });
@@ -399,6 +410,7 @@ const forkConfig = {
     Flag.withDescription("Show what would be forked without making changes"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("skills fork", { json: true });
 
 export const forkCommand = Command.make(
   "fork",
@@ -406,10 +418,11 @@ export const forkCommand = Command.make(
   ({ source, skill, yes, force, preview }) =>
     handleFork({ source, skills: [...skill], yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "skills fork" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(forkConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Fork a skill for customization"),
   Command.withExamples([
     {

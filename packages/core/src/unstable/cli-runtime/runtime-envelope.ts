@@ -24,6 +24,7 @@ import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-r
 import { makeInteractivePrompt, type CliPrompt } from "../cli-prompt/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { isNonInteractive } from "../cli-flags/index.js";
+import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 
 export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = CliRenderer | CliPrompt | Verbosity;
@@ -53,11 +54,11 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
     }
 
     process.stdout.write(
-      JSON.stringify({
-        type: "error",
-        code: error.code,
-        message: error.what,
-      }) + "\n",
+      JSON.stringify(
+        makeJsonErrorEnvelopeFromAppError(error, defaultExitCodeForExpectedError(error)),
+        null,
+        2,
+      ) + "\n",
     );
     console.error(`\u2717 ${error.what}`);
   });

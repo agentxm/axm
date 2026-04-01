@@ -1,26 +1,22 @@
 import * as Option from "effect/Option";
 import type { OutputFormat } from "./output-mode.js";
 
-/** Check if running in a TTY. Falls back to stderr when stdout is piped (e.g. through pnpm). */
-const isTTY = (): boolean => Boolean(process.stdout.isTTY || process.stderr.isTTY);
+const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
+  args.includes("--json") || args.includes("-j");
 
 /**
  * Resolve output format from raw argv BEFORE Effect runs.
  *
- * If CLI parsing itself fails (e.g. unknown flag), Effect never executes —
- * but we still need to know which channel to route the error to.
- * Raw argv scanning is the only reliable approach here.
+ * If CLI parsing itself fails (e.g. unknown flag), Effect never executes, so
+ * raw argv scanning is the only reliable way to preserve explicit --json.
  */
 export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
-  if (args.includes("--json")) {
-    return "json";
-  }
-  return isTTY() ? "text" : "json";
+  return hasExplicitJsonFlag(args) ? "json" : "text";
 };
 
 /**
- * Resolve output format from an Effect Option (from the global flag)
- * with TTY-based auto-detection fallback.
+ * Resolve output format from the global flag.
+ * Text remains the default unless --json was explicitly requested.
  */
 export const resolveFormat = (explicitJson: Option.Option<boolean>): OutputFormat =>
-  Option.getOrElse(explicitJson, () => false) ? "json" : isTTY() ? "text" : "json";
+  Option.getOrElse(explicitJson, () => false) ? "json" : "text";

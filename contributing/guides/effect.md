@@ -51,8 +51,11 @@ dependencies as you compose effects.
 
 - Let Effect infer `Effect<A, E, R>` signatures
 - Avoid tacit (point-free) usage which breaks inference
-- Add explicit annotations only at public API boundaries or when TypeScript
-  requires them (`Effect.async`, recursive functions)
+- Add explicit annotations only at published package boundaries (types
+  consumed by external callers), recursive functions, or when TypeScript
+  requires them (`Effect.async`)
+- Internal monorepo functions do not need return type annotations even if
+  exported across workspace packages
 
 See [CLAUDE.md#type-inference](../../CLAUDE.md#type-inference) for examples.
 

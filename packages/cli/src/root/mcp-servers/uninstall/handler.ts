@@ -8,6 +8,8 @@
 
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+
+import { emitPlanResolutionResult } from "../../../json-output.js";
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
@@ -26,5 +28,6 @@ export const handleUninstallMcpServer = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
-    yield* runUninstallCommandWorkflow(args, actions, flags);
+    const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
+    yield* emitPlanResolutionResult("mcp-servers.uninstall", resolution);
   });

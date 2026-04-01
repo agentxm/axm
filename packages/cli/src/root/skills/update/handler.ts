@@ -42,6 +42,7 @@ import {
   type PackConstraint,
   type SkillConstraints,
 } from "./constraint-resolution.js";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -122,6 +123,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ).pipe(Effect.map(Array.getSomes));
 
   if (skillEntries.length === 0) {
+    if (
+      yield* emitNoOpResult("skills.update", {
+        planName: "Update skill(s)",
+        planDescription: "Update installed skills",
+        message: "No skills installed. Nothing to update.",
+      })
+    ) {
+      return;
+    }
+
     yield* renderer.info("No skills installed. Nothing to update.");
     return;
   }
@@ -169,6 +180,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   })();
   if (args.skills.length > 0) {
     if (filteredEntries.length === 0) {
+      if (
+        yield* emitNoOpResult("skills.update", {
+          planName: "Update skill(s)",
+          planDescription: "Update installed skills",
+          message: "No installed skills match the --skill filter. Nothing to update.",
+        })
+      ) {
+        return;
+      }
+
       yield* renderer.warn("No installed skills match the --skill filter. Nothing to update.");
       return;
     }
@@ -535,7 +556,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   );
 
   // Step 11: Resolve plan
-  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
+  const resolution = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
+  yield* emitPlanResolutionResult("skills.update", resolution);
 
   yield* renderer.success("Done");
 });

@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -22,6 +23,7 @@ import {
   DEFAULT_GITHUB_REPO,
 } from "@axm.sh/core/unstable/version-resolution";
 
+import { emitResultDocument } from "../../json-output.js";
 import { loadVersion } from "../../version.js";
 
 // -----------------------------------------------------------------------------
@@ -31,6 +33,16 @@ import { loadVersion } from "../../version.js";
 export interface UpgradeHandlerArgs {
   readonly force: boolean;
 }
+
+const UpgradeResultSchema = Schema.Struct({
+  status: Schema.Literals(["already-up-to-date", "reinstalled", "upgraded", "delegated"] as const),
+  installMethod: Schema.Literals(["script", "homebrew", "npm", "unknown"] as const),
+  localVersion: Schema.String,
+  targetVersion: Schema.optional(Schema.String),
+  delegatedCommand: Schema.optional(Schema.String),
+  force: Schema.Boolean,
+});
+type UpgradeResult = typeof UpgradeResultSchema.Type;
 
 // -----------------------------------------------------------------------------
 // Platform binary mapping
@@ -231,32 +243,56 @@ const cleanupWindowsOld = (targetPath: string) =>
 const handleHomebrew = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const localVersion = loadVersion();
     if (force) {
       yield* renderer.info("--force has no effect for Homebrew installs.");
     }
     yield* renderer.info("Installed via Homebrew");
     yield* renderer.info("Run: brew upgrade agentxm/tap/axm");
+    return {
+      status: "delegated",
+      installMethod: "homebrew",
+      localVersion,
+      delegatedCommand: "brew upgrade agentxm/tap/axm",
+      force,
+    } satisfies UpgradeResult;
   });
 
 const handleNpm = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const localVersion = loadVersion();
     if (force) {
       yield* renderer.info("--force has no effect for npm installs.");
     }
     yield* renderer.info("Installed via npm");
     yield* renderer.info("Run: npm update -g @axm.sh/cli");
+    return {
+      status: "delegated",
+      installMethod: "npm",
+      localVersion,
+      delegatedCommand: "npm update -g @axm.sh/cli",
+      force,
+    } satisfies UpgradeResult;
   });
 
 const handleUnknown = (force: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const localVersion = loadVersion();
     if (force) {
       yield* renderer.info("--force has no effect for this install method.");
     }
     yield* renderer.info("Install method could not be determined.");
     yield* renderer.info("To install or update, run:");
     yield* renderer.info("  curl -fsSL https://get.agentxm.ai | sh");
+    return {
+      status: "delegated",
+      installMethod: "unknown",
+      localVersion,
+      delegatedCommand: "curl -fsSL https://get.agentxm.ai | sh",
+      force,
+    } satisfies UpgradeResult;
   });
 
 // -----------------------------------------------------------------------------
@@ -279,7 +315,13 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     // Step 2: Check if up to date
     if (!resolution.isStale && !force) {
       yield* renderer.info(`Already up to date (${resolution.localVersion})`);
-      return;
+      return {
+        status: "already-up-to-date",
+        installMethod: "script",
+        localVersion,
+        targetVersion: resolution.remoteVersion,
+        force,
+      } satisfies UpgradeResult;
     }
 
     // Step 3: Resolve platform binary
@@ -347,8 +389,22 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
 
     if (force && !resolution.isStale) {
       yield* renderer.success(`Reinstalled ${targetVersion}`);
+      return {
+        status: "reinstalled",
+        installMethod: "script",
+        localVersion,
+        targetVersion,
+        force,
+      } satisfies UpgradeResult;
     } else {
       yield* renderer.success(`Upgraded to ${targetVersion}`);
+      return {
+        status: "upgraded",
+        installMethod: "script",
+        localVersion,
+        targetVersion,
+        force,
+      } satisfies UpgradeResult;
     }
   });
 
@@ -358,16 +414,27 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
   const installMethod = yield* InstallMethod;
+  const renderer = yield* CliRenderer;
   const method: InstallMethodType = yield* installMethod.detect();
 
-  switch (method._tag) {
-    case "Script":
-      return yield* handleScript(method, args.force);
-    case "Homebrew":
-      return yield* handleHomebrew(args.force);
-    case "Npm":
-      return yield* handleNpm(args.force);
-    case "Unknown":
-      return yield* handleUnknown(args.force);
+  const result = yield* (() => {
+    switch (method._tag) {
+      case "Script":
+        return handleScript(method, args.force);
+      case "Homebrew":
+        return handleHomebrew(args.force);
+      case "Npm":
+        return handleNpm(args.force);
+      case "Unknown":
+        return handleUnknown(args.force);
+    }
+  })();
+
+  if (yield* emitResultDocument("upgrade", result, UpgradeResultSchema)) {
+    return;
+  }
+
+  if (result.status === "delegated") {
+    yield* renderer.success("Done");
   }
 }, Effect.asVoid);

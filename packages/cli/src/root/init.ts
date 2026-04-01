@@ -16,10 +16,25 @@ import { envOption } from "@axm.sh/core/unstable/utils";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
+import { annotateCommandMeta, registryCommandMeta, withCommandRuntime } from "../command-meta.js";
 import { scopeFlag } from "../cli-flags.js";
-import { withRegistryRuntime, withWorkspace } from "../runtime.js";
+import { emitResultDocument } from "../json-output.js";
+import { withWorkspace } from "../runtime.js";
+
+const InitResultSchema = Schema.Struct({
+  scope: Schema.String,
+  agents: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+    }),
+  ),
+  settingsPath: Schema.String,
+  telemetryEnabled: Schema.Boolean,
+});
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -37,29 +52,7 @@ import { withRegistryRuntime, withWorkspace } from "../runtime.js";
 export const handleInit = Effect.fn("Init.handle")(function* () {
   const renderer = yield* CliRenderer;
   const context = yield* Workspace;
-  // Show intro
-  yield* renderer.info(`axm init (${context.scope})`);
-
-  // Display result
   const agentIds = yield* context.getConfiguredAgents();
-  const agentNames = agentIds
-    .map((id) =>
-      Option.getOrElse(
-        Option.map(getAgentById(id), (a) => a.name),
-        () => id,
-      ),
-    )
-    .join(", ");
-
-  if (agentIds.length > 0) {
-    yield* renderer.info(`Agents: ${agentNames}`);
-  }
-  yield* renderer.info(`Settings: ${context.path}/settings.json`);
-  yield* renderer.success(
-    agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
-  );
-
-  // Show telemetry notice (unless telemetry is off)
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode(
@@ -69,6 +62,43 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     },
     {},
   );
+  const agents = agentIds.map((id) => ({
+    id,
+    name: Option.getOrElse(
+      Option.map(getAgentById(id), (a) => a.name),
+      () => id,
+    ),
+  }));
+  const agentNames = agents.map((agent) => agent.name).join(", ");
+  const telemetryEnabled = telemetryMode !== "off";
+  const settingsPath = `${context.path}/settings.json`;
+
+  if (
+    yield* emitResultDocument(
+      "init",
+      {
+        scope: context.scope,
+        agents,
+        settingsPath,
+        telemetryEnabled,
+      },
+      InitResultSchema,
+    )
+  ) {
+    return;
+  }
+
+  // Show intro
+  yield* renderer.info(`axm init (${context.scope})`);
+  if (agentIds.length > 0) {
+    yield* renderer.info(`Agents: ${agentNames}`);
+  }
+  yield* renderer.info(`Settings: ${settingsPath}`);
+  yield* renderer.success(
+    agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
+  );
+
+  // Show telemetry notice (unless telemetry is off)
   if (telemetryMode !== "off") {
     yield* renderer.info("");
     yield* renderer.info("Telemetry is enabled to help improve axm. To disable:");
@@ -90,14 +120,16 @@ const initConfig = {
   force: forceFlag,
   preview: previewFlag,
 } as const;
+const commandMeta = registryCommandMeta("init", { json: true });
 
 export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
   handleInit().pipe(
     withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope),
-    withRegistryRuntime({ command: "init" }),
+    withCommandRuntime(commandMeta),
   ),
 ).pipe(
   withArgvTracking(initConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Set up axm in the current project"),
   Command.withExamples([
     { command: "axm init", description: "Detect installed agents and create .axm/settings.json" },

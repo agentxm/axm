@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstallCommand } from "./handler.js";
+import { withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -19,6 +24,7 @@ const installConfig = {
     Flag.withDescription("Show what would be installed without making changes"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("commands install", { json: true });
 
 export const installCommand = Command.make(
   "install",
@@ -26,12 +32,11 @@ export const installCommand = Command.make(
   ({ source, scope, yes, force, preview }) =>
     handleInstallCommand({ source }, { yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRegistryRuntime({
-        command: "commands install",
-      }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Install a command from a registry"),
   Command.withExamples([
     {

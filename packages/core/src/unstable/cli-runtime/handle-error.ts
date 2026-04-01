@@ -1,6 +1,7 @@
 import { CliError } from "effect/unstable/cli";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
+import { makeJsonErrorEnvelope } from "./json-envelope.js";
 
 /**
  * Error routing based on output mode.
@@ -34,8 +35,17 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
           ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
           : error.message;
-      const errorObj = { type: "error", code: "USAGE_ERROR", message };
-      process.stdout.write(JSON.stringify(errorObj) + "\n");
+      process.stdout.write(
+        JSON.stringify(
+          makeJsonErrorEnvelope({
+            code: "USAGE_ERROR",
+            message,
+            exitCode: 2,
+          }),
+          null,
+          2,
+        ) + "\n",
+      );
     }
     process.exit(2);
   }
@@ -46,8 +56,17 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
   if (format === "text") {
     console.error(`\u2717 ${message}`);
   } else {
-    const errorObj = { type: "error", code, message };
-    process.stdout.write(JSON.stringify(errorObj) + "\n");
+    process.stdout.write(
+      JSON.stringify(
+        makeJsonErrorEnvelope({
+          code,
+          message,
+          exitCode: 1,
+        }),
+        null,
+        2,
+      ) + "\n",
+    );
     console.error(`\u2717 ${message}`);
   }
 

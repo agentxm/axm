@@ -8,6 +8,8 @@
 
 import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+
+import { emitPlanResolutionResult } from "../../../json-output.js";
 import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
@@ -24,5 +26,6 @@ export const handleInstallPack = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallPackCommandWorkflowActions;
-    yield* runInstallCommandWorkflow(args, actions, flags);
+    const resolution = yield* runInstallCommandWorkflow(args, actions, flags);
+    yield* emitPlanResolutionResult("packs.install", resolution);
   });

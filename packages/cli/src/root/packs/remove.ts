@@ -25,10 +25,16 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -206,11 +212,12 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("packs.remove", resolution);
 
   yield* renderer.success("Done");
 });
@@ -230,6 +237,7 @@ const removeConfig = {
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("packs remove", { json: true });
 
 export const removeCommand = Command.make(
   "remove",
@@ -237,10 +245,11 @@ export const removeCommand = Command.make(
   ({ pack, extension, yes, force, preview }) =>
     handlePacksRemove({ pack, extension, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "packs remove" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(removeConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Remove an extension from a pack manifest"),
   Command.withExamples([
     {

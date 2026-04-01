@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleUpdate } from "./handler.js";
+import { withWorkspace } from "../../../runtime.js";
 
 const updateConfig = {
   source: Argument.string("source").pipe(
@@ -28,6 +33,7 @@ const updateConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
 } as const;
+const commandMeta = registryCommandMeta("skills update", { json: true });
 
 export const updateCommand = Command.make(
   "update",
@@ -35,10 +41,11 @@ export const updateCommand = Command.make(
   ({ source, scope, agent, skill, yes, force, preview }) =>
     handleUpdate({ source, agents: agent, skills: skill, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRegistryRuntime({ command: "skills update" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(updateConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Update installed skills to latest versions"),
   Command.withExamples([
     { command: "axm skills update", description: "Update all skills to their latest versions" },

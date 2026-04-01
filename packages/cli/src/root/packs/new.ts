@@ -20,10 +20,16 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -134,11 +140,12 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("packs.new", resolution);
 
   yield* renderer.success(`Created pack ${fqn}`);
 });
@@ -161,14 +168,16 @@ const newConfig = {
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("packs new", { json: true });
 
 export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, force, preview }) =>
   handlePacksNew({ name, profile, yes, force, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRegistryRuntime({ command: "packs new" }),
+    withCommandRuntime(commandMeta),
   ),
 ).pipe(
   withArgvTracking(newConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Create a new empty extension pack"),
   Command.withExamples([
     {

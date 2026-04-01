@@ -18,8 +18,16 @@ import { Command } from "effect/unstable/cli";
 import { AuthClient, RegistryUrl, CredentialStore } from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import * as Schema from "effect/Schema";
 
-import { withAuthRuntime } from "../../runtime.js";
+import { authCommandMeta, annotateCommandMeta, withCommandRuntime } from "../../command-meta.js";
+import { emitResultDocument } from "../../json-output.js";
+
+const LogoutResultSchema = Schema.Struct({
+  status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
+  registryHost: Schema.String,
+  handle: Schema.optional(Schema.String),
+});
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -30,19 +38,28 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const credStore = yield* CredentialStore;
   const renderer = yield* CliRenderer;
   const registryUrl = yield* RegistryUrl;
+  const registryHost = new URL(registryUrl).host;
 
   // Step 1: Load credentials
   const existing = yield* credStore.load(registryUrl);
 
   if (Option.isNone(existing)) {
-    const host = new URL(registryUrl).host;
-    yield* renderer.success(`Not logged in to ${host}. Nothing to do.`);
+    if (
+      yield* emitResultDocument(
+        "auth.logout",
+        { status: "not-logged-in", registryHost },
+        LogoutResultSchema,
+      )
+    ) {
+      return;
+    }
+    yield* renderer.success(`Not logged in to ${registryHost}. Nothing to do.`);
     return;
   }
 
   const handle = existing.value.handle;
-  const registryHost = new URL(registryUrl).host;
   const identity = handle === "unknown" ? "" : ` as ${handle}`;
+  const optionalHandle = handle !== "unknown" ? { handle } : {};
 
   // Step 2: Attempt remote revoke (tolerate failure)
   const revokeResult = yield* authClient
@@ -52,7 +69,14 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   // Step 3: Clear local credentials
   yield* credStore.clear(registryUrl);
 
-  // Step 4: Display result
+  // Step 4: Build result and render
+  const status = Option.isSome(revokeResult) ? "logged-out" : "logged-out-local-only";
+  const result = { status, registryHost, ...optionalHandle } as const;
+
+  if (yield* emitResultDocument("auth.logout", result, LogoutResultSchema)) {
+    return;
+  }
+
   if (Option.isSome(revokeResult)) {
     yield* renderer.success(`Logged out of ${registryHost}${identity}.`);
   } else {
@@ -67,11 +91,13 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 // -----------------------------------------------------------------------------
 
 const logoutConfig = {} as const;
+const commandMeta = authCommandMeta("auth logout", { json: true });
 
 export const logoutCommand = Command.make("logout", logoutConfig, () =>
-  handleLogout().pipe(withAuthRuntime({ command: "auth logout" })),
+  handleLogout().pipe(withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(logoutConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Sign out of a registry"),
   Command.withExamples([
     { command: "axm auth logout", description: "Sign out of the current registry" },

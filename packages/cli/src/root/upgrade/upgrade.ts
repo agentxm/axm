@@ -15,7 +15,11 @@ import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
 import { InstallMetaLive } from "@axm.sh/core/unstable/install-meta";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { withRegistryRuntime } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
 import { handleUpgrade } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -33,13 +37,13 @@ const upgradeConfig = {
     Flag.withDescription("Re-download even if already up to date (script installs only)"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("upgrade", { json: true });
 
 export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ force }) =>
-  Effect.provide(handleUpgrade({ force }), upgradeLayer).pipe(
-    withRegistryRuntime({ command: "upgrade" }),
-  ),
+  Effect.provide(handleUpgrade({ force }), upgradeLayer).pipe(withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(upgradeConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Update axm to the latest version"),
   Command.withExamples([
     { command: "axm upgrade", description: "Download and install the latest version" },

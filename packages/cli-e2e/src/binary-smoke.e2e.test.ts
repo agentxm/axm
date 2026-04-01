@@ -15,7 +15,7 @@ describe("compiled binary smoke", () => {
     const result = await runBinary(["--version"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/^axm v\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
+    expect(result.stdout).toMatch(/^\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
   });
 
   it("exits 0 with --help and prints usage", async () => {
@@ -31,7 +31,7 @@ describe("compiled binary smoke", () => {
 
     expect(result.exitCode).toBe(1);
     expect(getOutput(result)).toContain("AUTH_LOGIN_REQUIRED");
-    expect(getOutput(result)).toContain("No token available");
+    expect(getOutput(result)).toContain("Authentication required");
   });
 
   it("exits non-zero for skills disable on a missing skill", async () => {

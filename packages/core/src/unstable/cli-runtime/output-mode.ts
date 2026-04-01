@@ -1,6 +1,8 @@
 import * as Console from "effect/Console";
 import * as Schema from "effect/Schema";
 
+import { JsonSchemaVersion, JsonSchemaVersionSchema } from "./json-envelope.js";
+
 // ---------------------------------------------------------------------------
 // Output format
 // ---------------------------------------------------------------------------
@@ -21,6 +23,7 @@ export type OutputFormat = "text" | "json";
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
+  schemaVersion: JsonSchemaVersionSchema,
   type: Schema.Literal("progress"),
   phase: Schema.String,
   percent: Schema.Number,
@@ -29,6 +32,7 @@ export const ProgressEventSchema = Schema.Struct({
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
 export const LogEventSchema = Schema.Struct({
+  schemaVersion: JsonSchemaVersionSchema,
   type: Schema.Literal("log"),
   level: Schema.Literals(["info", "warn", "error"] as const),
   message: Schema.String,
@@ -36,10 +40,13 @@ export const LogEventSchema = Schema.Struct({
 export type LogEvent = typeof LogEventSchema.Type;
 
 export const ErrorEventSchema = Schema.Struct({
+  schemaVersion: JsonSchemaVersionSchema,
   type: Schema.Literal("error"),
   code: Schema.String,
   message: Schema.String,
   details: Schema.optional(Schema.Array(Schema.String)),
+  howToFix: Schema.optional(Schema.String),
+  exitCode: Schema.optional(Schema.Number),
 });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
@@ -50,3 +57,5 @@ export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent;
 // ---------------------------------------------------------------------------
 
 export const emitEvent = (event: StreamEvent) => Console.error(JSON.stringify(event));
+
+export { JsonSchemaVersion };

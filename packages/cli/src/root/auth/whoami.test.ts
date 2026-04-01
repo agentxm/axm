@@ -137,9 +137,13 @@ describe("auth whoami handler", () => {
         yield* handleWhoami();
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          userHandle: "alice",
-          email: "alice@example.com",
-          tokenType: "session",
+          schemaVersion: 1,
+          command: "auth.whoami",
+          data: {
+            userHandle: "alice",
+            email: "alice@example.com",
+            tokenType: "session",
+          },
         });
         expect(rendererState.logs).toHaveLength(0);
       }),

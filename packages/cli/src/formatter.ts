@@ -4,9 +4,14 @@
  */
 
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
+
+import { JsonSchemaVersion, JsonSchemaVersionSchema } from "@axm.sh/core/unstable/cli-runtime";
+
+import { JsonOutputSupported } from "./json-output.js";
 
 /**
  * Annotation key for "learn more" footer text.
@@ -35,9 +40,10 @@ const getVisibleGlobalFlags = (doc: HelpDoc): HelpDoc["globalFlags"] => {
     return doc.globalFlags;
   }
 
-  // Subcommand help stays focused, but `--json` is worth keeping visible
-  // because it materially changes output shape and is expected on leaf commands.
-  const globalFlags = doc.globalFlags?.filter((flag) => flag.name === "json");
+  const supportsJsonOutput = ServiceMap.getReferenceUnsafe(doc.annotations, JsonOutputSupported);
+  const globalFlags = supportsJsonOutput
+    ? doc.globalFlags?.filter((flag) => flag.name === "json")
+    : undefined;
   return globalFlags !== undefined && globalFlags.length > 0 ? globalFlags : undefined;
 };
 
@@ -45,11 +51,13 @@ const getLearnMore = (doc: HelpDoc): string =>
   ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
 
 const getAdjustedHelpDoc = (doc: HelpDoc): HelpDoc => {
+  if (!isSubcommandDoc(doc)) {
+    return doc;
+  }
+
   const visibleGlobalFlags = getVisibleGlobalFlags(doc);
-  return {
-    ...doc,
-    ...(visibleGlobalFlags !== undefined && { globalFlags: visibleGlobalFlags }),
-  };
+  const { globalFlags: _globalFlags, ...rest } = doc;
+  return visibleGlobalFlags === undefined ? rest : { ...rest, globalFlags: visibleGlobalFlags };
 };
 
 type JsonFlagDoc = {
@@ -86,6 +94,7 @@ type JsonExampleDoc = {
 };
 
 type JsonHelpDoc = {
+  readonly schemaVersion: typeof JsonSchemaVersion;
   readonly type: "help";
   readonly description: string;
   readonly usage: string;
@@ -96,6 +105,59 @@ type JsonHelpDoc = {
   readonly examples?: ReadonlyArray<JsonExampleDoc> | undefined;
   readonly learnMore?: string | undefined;
 };
+
+const JsonFlagDocSchema = Schema.Struct({
+  name: Schema.String,
+  aliases: Schema.Array(Schema.String),
+  type: Schema.String,
+  required: Schema.Boolean,
+  description: Schema.optional(Schema.String),
+});
+
+const JsonArgDocSchema = Schema.Struct({
+  name: Schema.String,
+  type: Schema.String,
+  required: Schema.Boolean,
+  variadic: Schema.Boolean,
+  description: Schema.optional(Schema.String),
+});
+
+const JsonSubcommandDocSchema = Schema.Struct({
+  name: Schema.String,
+  alias: Schema.optional(Schema.String),
+  shortDescription: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+});
+
+const JsonSubcommandGroupDocSchema = Schema.Struct({
+  group: Schema.optional(Schema.String),
+  commands: Schema.Array(JsonSubcommandDocSchema),
+});
+
+const JsonExampleDocSchema = Schema.Struct({
+  command: Schema.String,
+  description: Schema.optional(Schema.String),
+});
+
+const JsonHelpDocSchema = Schema.Struct({
+  schemaVersion: JsonSchemaVersionSchema,
+  type: Schema.Literal("help"),
+  description: Schema.String,
+  usage: Schema.String,
+  flags: Schema.Array(JsonFlagDocSchema),
+  globalFlags: Schema.optional(Schema.Array(JsonFlagDocSchema)),
+  args: Schema.optional(Schema.Array(JsonArgDocSchema)),
+  subcommands: Schema.optional(Schema.Array(JsonSubcommandGroupDocSchema)),
+  examples: Schema.optional(Schema.Array(JsonExampleDocSchema)),
+  learnMore: Schema.optional(Schema.String),
+});
+
+const JsonVersionDocSchema = Schema.Struct({
+  schemaVersion: JsonSchemaVersionSchema,
+  type: Schema.Literal("version"),
+  name: Schema.String,
+  version: Schema.String,
+});
 
 const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,
@@ -110,6 +172,7 @@ const toJsonHelpDoc = (doc: HelpDoc): JsonHelpDoc => {
   const learnMore = getLearnMore(doc);
 
   return {
+    schemaVersion: JsonSchemaVersion,
     type: "help",
     description: adjusted.description,
     usage: adjusted.usage,
@@ -157,7 +220,7 @@ export const makeAxmFormatter = (options?: {
 
     formatHelpDoc: (doc: HelpDoc): string => {
       if (json) {
-        return JSON.stringify(toJsonHelpDoc(doc), null, 2);
+        return JSON.stringify(Schema.encodeSync(JsonHelpDocSchema)(toJsonHelpDoc(doc)), null, 2);
       }
 
       const adjusted = getAdjustedHelpDoc(doc);
@@ -174,8 +237,17 @@ export const makeAxmFormatter = (options?: {
 
     formatVersion: (name: string, version: string): string =>
       json
-        ? JSON.stringify({ type: "version", name, version }, null, 2)
-        : base.formatVersion(name, version),
+        ? JSON.stringify(
+            Schema.encodeSync(JsonVersionDocSchema)({
+              schemaVersion: JsonSchemaVersion,
+              type: "version",
+              name,
+              version,
+            }),
+            null,
+            2,
+          )
+        : version,
 
     // Keep usage failures human-oriented on stderr even when --json is set.
     // Effect CLI owns the parse/help path, so this is the cleanest contract

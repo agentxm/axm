@@ -73,7 +73,8 @@ the summary here, follow the guide.
 | [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | OpenSpec workflow from proposal through archive                       |
 | [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Proposal, design, implementation, and verification checks             |
 | **Implementation**                                                          |                                                                       |
-| [CLI Design Guide](contributing/guides/cli-design.md)                       | Command shape, flags, output, prompts, and parent command behavior    |
+| [CLI Design Guide](contributing/guides/cli-design.md)                       | Command shape, flags, prompts, handlers, and parent command behavior  |
+| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Machine-readable JSON output, renderer boundaries, and diagnostics    |
 | [Testing Guide](contributing/guides/testing.md)                             | Test levels, E2E scope, and Effect testing references                 |
 | [Effect Guide](contributing/guides/effect.md)                               | Core Effect patterns and skill index                                  |
 | [Effect Option Guide](contributing/guides/effect-option.md)                 | Option vs nullable values and boundary conversions                    |
@@ -107,7 +108,9 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (ol
 ## CLI Conventions
 
 See [CLI Design Guide](contributing/guides/cli-design.md) for command structure,
-flags, output, and prompt behavior.
+flags, and prompt behavior. See
+[CLI Renderer Guide](contributing/guides/cli-renderer.md) for machine-readable
+output and renderer contracts.
 
 ### Global Flags
 
@@ -262,8 +265,10 @@ See [Effect Guide](contributing/guides/effect.md),
 - Prefer inference over explicit return annotations so the `R` parameter tracks
   dependencies automatically
 - Avoid tacit point-free style when it harms inference
-- Add explicit annotations at public APIs, recursive functions, and
-  `Effect.async` boundaries
+- Add explicit annotations at published package boundaries (types consumed
+  by external callers), recursive functions, and `Effect.async` boundaries
+- Internal monorepo functions — even if exported across workspace packages —
+  do not need return type annotations
 
 ### Error Handling Patterns
 

@@ -20,7 +20,13 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 // -----------------------------------------------------------------------------
@@ -108,11 +114,12 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("skills.rename", resolution);
 
   yield* renderer.success("Done");
 });
@@ -135,6 +142,7 @@ const renameConfig = {
     Flag.withDescription("Show what would be renamed without making changes"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("skills rename", { json: true });
 
 export const renameCommand = Command.make(
   "rename",
@@ -142,12 +150,11 @@ export const renameCommand = Command.make(
   ({ oldName, newName, scope, yes, force, preview }) =>
     handleRename({ oldName, newName, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRegistryRuntime({
-        command: "skills rename",
-      }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(renameConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Rename a skill"),
   Command.withExamples([
     { command: "axm skills rename old-name new-name", description: "Give a skill a better name" },

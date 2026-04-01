@@ -49,6 +49,7 @@ import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unsta
 import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "./builtin-pack/index.js";
 import { loadVersion } from "./version.js";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 export { verboseFlag, debugFlag };
 
@@ -96,8 +97,13 @@ export const runtimeBaseLayer = Layer.mergeAll(
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
 
+export interface RuntimeCapabilities {
+  readonly json: boolean;
+}
+
 interface RuntimeOptions {
   readonly command?: string;
+  readonly capabilities?: RuntimeCapabilities;
 }
 
 const debugLoggerLayer = Layer.unwrap(
@@ -231,6 +237,17 @@ export const withRuntime =
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
       const config = yield* resolveRuntimeConfig();
+      const explicitJson = yield* jsonFlag;
+      const jsonRequested = Option.getOrElse(explicitJson, () => false);
+
+      if (jsonRequested && options?.capabilities?.json !== true) {
+        return yield* makeAppError({
+          code: "JSON_OUTPUT_UNSUPPORTED",
+          what: "This command does not support --json output",
+          howToFix: "Use a command with a published JSON schema or omit --json.",
+        });
+      }
+
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format, {
         envVerbose: config.envVerbose,

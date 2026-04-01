@@ -18,7 +18,7 @@ const getJsonLines = (output: string): ReadonlyArray<string> =>
 const parseJson = (output: string): Record<string, unknown> => JSON.parse(output);
 
 describe("structured output (--json)", () => {
-  it("routes CliRenderer messages to NDJSON log events on stderr", async () => {
+  it("logout --json emits a structured result document", async () => {
     const temp = createTempDir();
     try {
       const result = await runCli(["logout", "--json"], {
@@ -27,20 +27,15 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).not.toContain("Not logged in");
-
-      const events = getJsonLines(result.stderr).map((line) => JSON.parse(line));
-      const logEvent = events.find((event: Record<string, unknown>) => {
-        const message = event["message"];
-        return (
-          event["type"] === "log" &&
-          typeof message === "string" &&
-          message.includes("Not logged in")
-        );
+      expect(parseJson(result.stdout)).toEqual({
+        schemaVersion: 1,
+        command: "auth.logout",
+        result: {
+          status: "not-logged-in",
+          registryHost: "registry.agentxm.ai",
+        },
       });
-
-      expect(logEvent).toBeDefined();
-      expect(logEvent).toMatchObject({ type: "log", level: "info" });
+      expect(result.stderr.trim()).toBe("");
     } finally {
       temp.cleanup();
     }
@@ -55,7 +50,11 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toEqual({ token: "test-json-token" });
+      expect(parseJson(result.stdout)).toEqual({
+        schemaVersion: 1,
+        command: "auth.token",
+        data: { token: "test-json-token" },
+      });
     } finally {
       temp.cleanup();
     }
@@ -93,9 +92,10 @@ describe("structured output (--json)", () => {
         expect(result.exitCode).toBe(1);
         expect(parseJson(result.stdout)).toMatchObject({
           type: "error",
+          schemaVersion: 1,
           code: "AUTH_LOGIN_REQUIRED",
         });
-        expect(result.stderr).toContain("No token available");
+        expect(result.stderr).toContain("Authentication required");
       } finally {
         temp.cleanup();
       }
@@ -133,7 +133,11 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toEqual({ token: "ci-json-token" });
+      expect(parseJson(result.stdout)).toEqual({
+        schemaVersion: 1,
+        command: "auth.token",
+        data: { token: "ci-json-token" },
+      });
     } finally {
       temp.cleanup();
     }

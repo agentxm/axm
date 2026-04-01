@@ -21,7 +21,13 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 // -----------------------------------------------------------------------------
@@ -66,6 +72,16 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   // Validate: skill is currently disabled
   if (entry.enabled) {
+    if (
+      yield* emitNoOpResult("skills.enable", {
+        planName: "Enable skill",
+        planDescription: `Enable ${args.name}`,
+        message: `Skill '${args.name}' is already enabled`,
+      })
+    ) {
+      return;
+    }
+
     yield* renderer.info(`Skill '${args.name}' is already enabled`);
     yield* renderer.success("Nothing to do.");
     return;
@@ -105,11 +121,12 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("skills.enable", resolution);
 
   yield* renderer.success("Done");
 });
@@ -129,6 +146,7 @@ const enableConfig = {
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
+const commandMeta = registryCommandMeta("skills enable", { json: true });
 
 export const enableCommand = Command.make(
   "enable",
@@ -136,10 +154,11 @@ export const enableCommand = Command.make(
   ({ name, scope, yes, force, preview }) =>
     handleEnable({ name, yes, force, preview }).pipe(
       withWorkspace(scope),
-      withRegistryRuntime({ command: "skills enable" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(enableConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Enable a previously disabled skill"),
   Command.withExamples([
     {

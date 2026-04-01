@@ -20,7 +20,13 @@ import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -151,11 +157,12 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("skills.new", resolution);
 
   yield* renderer.success(`Created skill ${fqn}`);
 });
@@ -183,6 +190,7 @@ const newConfig = {
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("skills new", { json: true });
 
 export const newCommand = Command.make(
   "new",
@@ -195,9 +203,10 @@ export const newCommand = Command.make(
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRegistryRuntime({ command: "skills new" })),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(newConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Create a new skill"),
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },

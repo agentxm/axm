@@ -30,6 +30,7 @@ import {
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { buildUnpackPlan } from "./plan.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { emitPlanResolutionResult } from "../../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -165,7 +166,12 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
   });
 
-  yield* resolvePlan(plan, { yes: args.yes, force: args.force, preview: args.preview });
+  const resolution = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
+  yield* emitPlanResolutionResult("packs.unpack", resolution);
 
   yield* renderer.success("Done");
 });

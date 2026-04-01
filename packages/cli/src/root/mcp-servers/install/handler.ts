@@ -8,6 +8,8 @@
 
 import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "@axm.sh/core/unstable/workflows";
+
+import { emitPlanResolutionResult } from "../../../json-output.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
@@ -26,5 +28,6 @@ export const handleInstallMcpServer = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallMcpServerCommandWorkflowActions;
-    yield* runInstallCommandWorkflow(args, actions, flags);
+    const resolution = yield* runInstallCommandWorkflow(args, actions, flags);
+    yield* emitPlanResolutionResult("mcp-servers.install", resolution);
   });

@@ -26,10 +26,16 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../command-meta.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { withWorkspace } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -201,6 +207,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   }
 
   if (Object.keys(additions).length === 0) {
+    if (
+      yield* emitNoOpResult("packs.add", {
+        planName: "Add to pack",
+        planDescription: `Add extension(s) to ${args.pack}`,
+        message: "Nothing to do.",
+      })
+    ) {
+      return;
+    }
+
     yield* renderer.success("Nothing to do.");
     return;
   }
@@ -246,11 +262,12 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  yield* resolvePlan(plan, {
+  const resolution = yield* resolvePlan(plan, {
     yes: args.yes,
     force: args.force,
     preview: args.preview,
   });
+  yield* emitPlanResolutionResult("packs.add", resolution);
 
   yield* renderer.success("Done");
 });
@@ -270,6 +287,7 @@ const addConfig = {
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
 } as const;
+const commandMeta = registryCommandMeta("packs add", { json: true });
 
 export const addCommand = Command.make(
   "add",
@@ -277,10 +295,11 @@ export const addCommand = Command.make(
   ({ pack, extension, yes, force, preview }) =>
     handlePacksAdd({ pack, extension, yes, force, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRegistryRuntime({ command: "packs add" }),
+      withCommandRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(addConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Add an extension to a pack manifest"),
   Command.withExamples([
     {

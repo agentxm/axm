@@ -22,7 +22,11 @@ describe("axm token", () => {
       env: { AXM_TOKEN: "test-token-value" },
     });
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ token: "test-token-value" });
+    expect(JSON.parse(result.stdout)).toEqual({
+      schemaVersion: 1,
+      command: "auth.token",
+      data: { token: "test-token-value" },
+    });
   });
 
   it("fails with AUTH_LOGIN_REQUIRED when no credentials available", async () => {
@@ -31,6 +35,6 @@ describe("axm token", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout + result.stderr).toContain("AUTH_LOGIN_REQUIRED");
-    expect(result.stderr).toContain("No token available");
+    expect(result.stderr).toContain("Authentication required");
   });
 });

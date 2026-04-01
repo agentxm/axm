@@ -182,10 +182,13 @@ export const resolveToken = (
  */
 export const resolveRequiredToken = (
   registryUrl: string,
-  flagToken?: string,
+  options?: {
+    readonly flagToken?: string;
+    readonly missingTokenError?: AppError;
+  },
 ): Effect.Effect<TokenSource, AppError, CredentialStore> =>
   Effect.gen(function* () {
-    const token = yield* resolveToken(registryUrl, flagToken);
+    const token = yield* resolveToken(registryUrl, options?.flagToken);
     if (Option.isSome(token)) {
       return token.value;
     }
@@ -195,5 +198,5 @@ export const resolveRequiredToken = (
       return yield* makePersistedCredentialsUnsupportedError();
     }
 
-    return yield* makeLoginRequiredError();
+    return yield* options?.missingTokenError ?? makeLoginRequiredError();
   });

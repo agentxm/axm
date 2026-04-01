@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, resolveRequiredToken } from "@axm.sh/core/unstable/auth";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
@@ -48,7 +49,13 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
-  const token = yield* resolveRequiredToken(registryUrl);
+  const token = yield* resolveRequiredToken(registryUrl, {
+    missingTokenError: makeAppError({
+      code: "AUTH_LOGIN_REQUIRED",
+      what: "Not authenticated",
+      howToFix: "Run `axm login` to sign in.",
+    }),
+  });
 
   // Step 2: Call getMe
   const me = yield* authClient.getMe(token.token);

@@ -80,7 +80,7 @@
     "@axm.sh/core": "workspace:*",
     "@axm.sh/utils": "workspace:*",
     "@clack/prompts": "^1.1.0",
-    "@effect/platform-node": "4.0.0-beta.42",
+    "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",
     "semver": "^7.7.4",

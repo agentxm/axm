@@ -53,7 +53,7 @@
     "@axm.sh/utils": "workspace:*",
     "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "^0.84.1",
-    "@effect/vitest": "4.0.0-beta.42",
+    "@effect/vitest": "catalog:",
     "@eslint/js": "^10.0.0",
     "@nx/eslint": "22.6.3",
     "@nx/eslint-plugin": "22.6.3",

@@ -13,11 +13,11 @@
   "dependencies": {
     "@axm.sh/core": "workspace:*",
     "effect": "catalog:",
-    "@effect/platform-node": "4.0.0-beta.37"
+    "@effect/platform-node": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@effect/vitest": "4.0.0-beta.37",
+    "@effect/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

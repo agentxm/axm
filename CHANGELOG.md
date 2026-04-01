@@ -1,3 +1,13 @@
+## 0.1.2 (2026-04-01)
+
+### 🩹 Fixes
+
+- Fix trusted publishing and tighten auth/update behavior in automation ([f4f1a131](https://github.com/agentxm/axm/commit/f4f1a131))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.1.1 (2026-04-01)
 
 ### 🩹 Fixes

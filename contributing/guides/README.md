@@ -15,6 +15,7 @@ Each guide is a single markdown file named after its topic:
 - `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
 - `testing.md` — Testing orientation and skill references
 - `cli-design.md` — CLI architecture and conventions
+- `releasing.md` — Release versioning, prepare/publish flow, and status checks
 - `spec-driven-development.md` — SDD workflow with OpenSpec
 - `feature-delivery.md` — Proposal, design, and implementation checks
 - `typescript-style.md` — Assertion-free TypeScript and narrowing patterns

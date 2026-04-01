@@ -51,7 +51,7 @@ All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate t
 
 ### Releasing
 
-For a new version release, follow `CONTRIBUTING.md#releasing` exactly. Do not invent or restate a separate release flow here.
+For a new version release, follow `contributing/guides/releasing.md` exactly. Do not invent or restate a separate release flow here.
 
 ## Guides Index
 
@@ -67,6 +67,7 @@ the summary here, follow the guide.
 | [Instructions Guide](contributing/guides/instructions.md)                   | README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL ownership |
 | [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | Updating INSTALL.md or SKILL.md after CLI or workflow changes         |
 | **Delivery**                                                                |                                                                       |
+| [Releasing Guide](contributing/guides/releasing.md)                         | Planning, preparing, publishing, or checking a release                |
 | [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | OpenSpec workflow from proposal through archive                       |
 | [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Proposal, design, implementation, and verification checks             |
 | **Implementation**                                                          |                                                                       |

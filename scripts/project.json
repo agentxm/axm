@@ -50,15 +50,6 @@
         "cwd": "."
       }
     },
-    "release-status": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["utils:build"],
-      "options": {
-        "command": "bun scripts/release-status.ts",
-        "cwd": "."
-      }
-    },
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,

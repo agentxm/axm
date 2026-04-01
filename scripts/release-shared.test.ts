@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  parsePreparedReleaseCommits,
   releaseTagFromVersion,
   releaseVersionFromTag,
   validateReleaseTag,
@@ -101,21 +100,5 @@ describe("release tag helpers", () => {
     expect(validateReleaseTag(tag)).toBe(tag);
     expect(releaseVersionFromTag(tag)).toBe("1.2.3-beta.1+build.7");
     expect(releaseTagFromVersion("1.2.3-beta.1+build.7")).toBe(tag);
-  });
-
-  it("parses prepared release commits from git log output", () => {
-    const parsed = parsePreparedReleaseCommits(
-      [
-        "abc123\trelease: cli-v0.0.37",
-        "def456\trelease: cli-v1.2.3-beta.1+build.7",
-        "ghi789\tchore: not a release",
-        "jkl012\trelease: cli-vnot-semver",
-      ].join("\n"),
-    );
-
-    expect(parsed).toEqual([
-      { sha: "abc123", tag: "cli-v0.0.37" },
-      { sha: "def456", tag: "cli-v1.2.3-beta.1+build.7" },
-    ]);
   });
 });

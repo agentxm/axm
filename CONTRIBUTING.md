@@ -36,7 +36,6 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 | `pnpm lint:fix`        | Lint and auto-fix                        |
 | `pnpm run ci`          | Run the full CI pipeline locally         |
 | `pnpm run ci:affected` | Run CI pipeline for affected packages    |
-| `pnpm release:status`  | Show the latest prepared release status  |
 | `pnpm build:affected`  | Build only packages changed since `main` |
 | `pnpm test:affected`   | Test only packages changed since `main`  |
 | `pnpm lint:affected`   | Lint only packages changed since `main`  |
@@ -58,86 +57,9 @@ All commands delegate to Nx for caching and dependency-aware orchestration.
 
 ## Releasing
 
-Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to cut a release commit locally; the GitHub Release workflow publishes npm packages, uploads release binaries, and updates Homebrew.
+See the [Releasing Guide](contributing/guides/releasing.md) for versioning, the release flow, and how to inspect release and CI state.
 
-### Versioning
-
-We follow [semver](https://semver.org/):
-
-- **patch** (0.1.0 → 0.1.1) — bug fixes, documentation
-- **minor** (0.1.1 → 0.2.0) — new features, backward-compatible changes
-- **major** (0.2.0 → 1.0.0) — breaking changes to CLI flags, config format, or public API
-
-Version source of truth:
-
-- pending version plans in `.nx/version-plans/*.md`
-- `packages/utils/package.json`
-- `packages/core/package.json`
-- `packages/cli/package.json`
-
-Those three package versions must always match for a release. The release tag does not define the version; it must match the package manifests.
-
-### Release Flow
-
-The safe release flow is:
-
-1. **Plan** — create or update a version plan in the PR for any releasable change.
-
-   ```bash
-   pnpm release:plan
-   ```
-
-   Purpose: record the intended semver bump and changelog entry before cutting the release.
-
-   Outcome: a pending plan file exists in `.nx/version-plans/` for the fixed release group, and CI can enforce that requirement with `pnpm release:plan:check`.
-
-   CI enforces version plans for touched release projects with `pnpm release:plan:check`.
-
-2. **Prepare** — run the release prep from `main`.
-
-   ```bash
-   pnpm release:prepare
-   pnpm release:prepare -- --dry-run
-   ```
-
-   Purpose: validate repo state, apply the pending version plan, and cut the release commit from `main`.
-
-   Outcome: `pnpm release:prepare --dry-run` previews the release version and artifact changes; `pnpm release:prepare` checks you're on `main`, the working tree is clean, you're up to date with `origin/main`, release package versions match, runs `pnpm run ci` via the Nx `preVersionCommand`, consumes pending version plans, updates `utils`/`core`/`cli`, refreshes `CHANGELOG.md`, deletes the consumed plan files, commits the release artifacts, and pushes `release: cli-v{VERSION}` to `origin/main`.
-
-3. **Wait for CI** — wait for the CI workflow on that exact release commit to complete successfully.
-
-   Purpose: verify the exact release commit is green before creating the GitHub Release.
-
-   Outcome: the release commit has a successful CI run, including cross-platform compiled-binary smoke validation on `main`, and the build artifacts for that commit are available for publishing.
-
-   Use `pnpm release:status` to confirm the latest prepared release commit, CI result, tag state, and GitHub release state before publishing.
-
-4. **Publish** — publish the GitHub Release only after CI is green.
-
-   ```bash
-   pnpm release:publish -- cli-v0.1.0
-   pnpm release:publish -- cli-v0.1.0 --dry-run
-   ```
-
-   Purpose: create the GitHub Release from the validated release commit.
-
-   Outcome: `pnpm release:publish --dry-run` previews the GitHub release creation; `pnpm release:publish cli-v{VERSION}` creates the GitHub Release for the matching `release: cli-v{VERSION}` commit on `origin/main`.
-
-5. **GitHub Actions** — the GitHub Release triggers the [release workflow](/.github/workflows/publish.yml).
-
-   Purpose: run the canonical publish pipeline in CI instead of publishing packages and assets from a local machine.
-
-   Outcome: the workflow validates the `cli-v{VERSION}` tag, downloads the compiled binaries from the successful CI run for the same commit, uploads those binaries as Release assets, publishes the npm packages through `nx release publish` with [provenance](https://docs.npmjs.com/generating-provenance-statements) via GitHub OIDC, and updates `agentxm/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured.
-
-`pnpm release` remains an alias for `pnpm release:prepare`.
-
-### Notes
-
-- Release tags must use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
-- If the tag version and package manifest versions do not match, the Release workflow fails fast.
-- Do not create GitHub Releases manually. Use `pnpm release:publish cli-v{VERSION}` after CI is green.
-- Do not publish packages locally as the normal release path; GitHub Actions is the canonical publisher.
-- Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in `agentxm/axm`.
+Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to cut a release commit locally.
 
 ## License
 

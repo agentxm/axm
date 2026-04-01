@@ -10,7 +10,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 
@@ -83,7 +83,10 @@ const listConfig = {
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
-  withRuntime(withWorkspace(scope, handleList({ agents: agent })), { command: "skills list" }),
+  handleList({ agents: agent }).pipe(
+    withWorkspace(scope),
+    withRegistryRuntime({ command: "skills list" }),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),

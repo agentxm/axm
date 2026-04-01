@@ -45,7 +45,7 @@ import {
   type PublishMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
@@ -445,12 +445,9 @@ export const publishCommand = Command.make(
   "publish",
   publishConfig,
   ({ pack, registry, includeDependencies, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handlePublishPack({ pack, registry, includeDependencies, yes, force, preview }),
-      ),
-      { command: "packs publish" },
+    handlePublishPack({ pack, registry, includeDependencies, yes, force, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withAuthRuntime({ command: "packs publish" }),
     ),
 ).pipe(
   withArgvTracking(publishConfig),

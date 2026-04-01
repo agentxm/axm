@@ -22,7 +22,7 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 // -----------------------------------------------------------------------------
@@ -133,9 +133,10 @@ export const disableCommand = Command.make(
   "disable",
   disableConfig,
   ({ name, scope, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleDisable({ name, yes, force, preview })), {
-      command: "skills disable",
-    }),
+    handleDisable({ name, yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRegistryRuntime({ command: "skills disable" }),
+    ),
 ).pipe(
   withArgvTracking(disableConfig),
   Command.withDescription("Disable a skill without uninstalling it"),

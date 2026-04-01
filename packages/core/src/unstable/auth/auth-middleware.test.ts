@@ -3,7 +3,7 @@
  *
  * Covers: header injection, pass-through when no token, non-registry URL
  * pass-through, automatic 401 refresh, proactive refresh, single-retry-only,
- * no refresh for env-var/flag tokens, and AXM_TOKEN stderr message.
+ * no refresh for env-var/flag tokens.
  */
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -17,7 +17,6 @@ import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { makeAuthMiddlewareLive } from "./auth-middleware.js";
 import { RegistryUrl } from "./registry-url.js";
-import { isEnvVarMessageEmitted, resetEnvVarMessageFlag } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -87,7 +86,6 @@ describe("AuthMiddleware", () => {
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
     delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
   });
 
   afterEach(() => {
@@ -532,28 +530,6 @@ describe("AuthMiddleware", () => {
 
       await Effect.runPromise(program.pipe(Effect.provide(layers)));
       expect(capturedAuth).toBe("Bearer axm_ses_env_default");
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // AXM_TOKEN stderr message
-  // ---------------------------------------------------------------------------
-
-  describe("AXM_TOKEN stderr message", () => {
-    it("emits warning once per invocation", async () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
-      const layers = makeTestLayers((_req) => new Response("ok", { status: 200 }));
-
-      const program = Effect.gen(function* () {
-        const client = yield* HttpClient.HttpClient;
-        // Make two requests
-        yield* client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`));
-        yield* client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`));
-      });
-
-      // The warning is emitted via Effect.logWarning; we verify the flag mechanism
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(isEnvVarMessageEmitted()).toBe(true);
     });
   });
 });

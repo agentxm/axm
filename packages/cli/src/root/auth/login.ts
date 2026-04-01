@@ -21,6 +21,7 @@ import {
   AuthClient,
   RegistryUrl,
   CredentialStore,
+  makePersistedCredentialsUnsupportedError,
   runDeviceLogin,
 } from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -29,7 +30,7 @@ import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
-import { withRuntime } from "../../runtime.js";
+import { withAuthRuntime } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -40,6 +41,10 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (options: { y
   const renderer = yield* CliRenderer;
   const prompt = yield* CliPrompt;
   const registryUrl = yield* RegistryUrl;
+
+  if (!credStore.allowsPersistedCredentials) {
+    return yield* makePersistedCredentialsUnsupportedError();
+  }
 
   // Step 1: Reject non-interactive mode
   const nonInteractive = yield* isNonInteractive;
@@ -85,7 +90,7 @@ const loginConfig = {
 } as const;
 
 export const loginCommand = Command.make("login", loginConfig, ({ yes }) =>
-  withRuntime(handleLogin({ yes }), { command: "auth login" }),
+  handleLogin({ yes }).pipe(withAuthRuntime({ command: "auth login" })),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),

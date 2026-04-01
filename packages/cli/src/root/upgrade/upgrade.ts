@@ -15,7 +15,7 @@ import { InstallMethodLive } from "@axm.sh/core/unstable/install-method";
 import { InstallMetaLive } from "@axm.sh/core/unstable/install-meta";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime } from "../../runtime.js";
+import { withRegistryRuntime } from "../../runtime.js";
 import { handleUpgrade } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -35,7 +35,9 @@ const upgradeConfig = {
 } as const;
 
 export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ force }) =>
-  withRuntime(Effect.provide(handleUpgrade({ force }), upgradeLayer), { command: "upgrade" }),
+  Effect.provide(handleUpgrade({ force }), upgradeLayer).pipe(
+    withRegistryRuntime({ command: "upgrade" }),
+  ),
 ).pipe(
   withArgvTracking(upgradeConfig),
   Command.withDescription("Update axm to the latest version"),

@@ -28,22 +28,23 @@ export {
 // Credential store service
 export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";
 export {
+  canUsePersistedCredentials,
   CredentialStore,
   CredentialStoreLive,
   CredentialStoreTest,
   detectEnvironment,
+  makePersistedCredentialsUnsupportedError,
   selectTier,
 } from "./credential-store.js";
 
 // Token resolution
 export {
+  resolveRequiredToken,
   resolveToken,
   resolveStoredToken,
   refreshStoredToken,
   resolveAmbientToken,
   resolveRequestToken,
-  isEnvVarMessageEmitted,
-  resetEnvVarMessageFlag,
 } from "./token-resolution.js";
 
 // Registry URL service

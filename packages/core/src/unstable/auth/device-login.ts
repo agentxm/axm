@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer";
 import { CliRenderer } from "../cli-renderer/index.js";
 
 import { type TokenResponse, AuthClient } from "./auth-client.js";
-import { CredentialStore } from "./credential-store.js";
+import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 
 // -----------------------------------------------------------------------------
 // DeviceLoginInteraction service — platform integration abstraction
@@ -113,7 +113,12 @@ const presentDeviceFlow = (verificationUrl: string, userCode: string) =>
 export const runDeviceLogin = (registryUrl: string) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
+    const credStore = yield* CredentialStore;
     const renderer = yield* CliRenderer;
+
+    if (!credStore.allowsPersistedCredentials) {
+      return yield* makePersistedCredentialsUnsupportedError();
+    }
 
     const deviceFlow = yield* authClient.initiateDeviceFlow();
     const verificationUrl = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;

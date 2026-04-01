@@ -60,7 +60,7 @@ export const axmGlobalFlags = [
   jsonFlag,
 ] as const;
 
-// -- Base layer: platform, auth, logging --
+// -- Runtime layers --
 const RegistryUrlLayer = Layer.orDie(
   Layer.effect(
     RegistryUrl,
@@ -73,10 +73,11 @@ const RegistryUrlLayer = Layer.orDie(
 );
 
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
 const AuthServicesLayer = Layer.provideMerge(
   Layer.mergeAll(CredentialStoreLive, AuthClientLive),
-  Layer.mergeAll(PlatformLayer, RegistryUrlLayer),
+  RegistryRuntimeLayer,
 );
 
 const AuthMiddlewareWrappedLayer = Layer.provide(
@@ -84,13 +85,16 @@ const AuthMiddlewareWrappedLayer = Layer.provide(
   Layer.mergeAll(AuthServicesLayer, PlatformLayer),
 );
 
-const AuthLayer = Layer.mergeAll(NodeServices.layer, AuthServicesLayer, AuthMiddlewareWrappedLayer);
+const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer);
 
-export const baseLayer = Layer.mergeAll(
-  AuthLayer,
+export const runtimeBaseLayer = Layer.mergeAll(
+  NodeServices.layer,
+  RegistryUrlLayer,
   AuthLoginInteractionLive,
   Logger.layer([], { mergeWithExisting: false }),
 );
+
+export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
 
 interface RuntimeOptions {
   readonly command?: string;
@@ -112,13 +116,16 @@ interface RuntimeEnvConfig {
   readonly debug: Option.Option<string>;
 }
 
-const readRuntimeEnvConfig = Effect.sync(() => ({
-  registryUrl: process.env["AXM_REGISTRY_URL"] ?? "https://registry.agentxm.ai",
-  doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
-  telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
-  verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
-  debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
-}));
+const readRuntimeEnvConfig = Effect.gen(function* () {
+  const registryUrl = yield* RegistryUrl;
+  return {
+    registryUrl,
+    doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
+    telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
+    verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
+    debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
+  };
+});
 
 const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfigService => ({
   mode: resolveTelemetryMode(
@@ -199,34 +206,42 @@ const resolveRuntimeConfig = () =>
     } as const;
   });
 
-export const withWorkspace = <A, E, R>(
-  options: WorkspaceScope | Omit<WorkspaceContextOptions, "builtInSources">,
-  program: Effect.Effect<A, E, R>,
-) =>
-  Effect.gen(function* () {
-    const registryUrl = process.env["AXM_REGISTRY_URL"] ?? "https://registry.agentxm.ai";
-    const resolved = typeof options === "string" ? { scope: options } : options;
-    const wsLayer = makeWorkspaceProgramLayer(registryUrl, resolved);
-    return yield* Effect.provide(program, wsLayer);
-  });
-
-export const withRuntime = <A, R>(
-  program: Effect.Effect<A, AppError | PromptCancelled, R>,
-  options?: RuntimeOptions,
-) =>
-  Effect.gen(function* () {
-    const config = yield* resolveRuntimeConfig();
-    const format = yield* resolveCliFormat;
-    const foundationLayer = makeFoundationLayer(format, {
-      envVerbose: config.envVerbose,
-      envDebug: config.envDebug,
+export const withWorkspace =
+  (options: WorkspaceScope | Omit<WorkspaceContextOptions, "builtInSources">) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>) =>
+    Effect.gen(function* () {
+      const registryUrl = yield* RegistryUrl;
+      const resolved = typeof options === "string" ? { scope: options } : options;
+      const wsLayer = makeWorkspaceProgramLayer(registryUrl, resolved);
+      return yield* Effect.provide(program, wsLayer);
     });
-    const appLayer = Layer.provideMerge(debugLoggerLayer, foundationLayer);
-    const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
-    return yield* withCliErrorHandling(provided, {
-      command: options?.command,
-      format,
-      telemetryConfig: config.telemetryConfig,
+export const withRegistryRuntime =
+  (options?: RuntimeOptions) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+    program.pipe(Effect.provide(RegistryRuntimeLayer), withRuntime(options));
+
+export const withAuthRuntime =
+  (options?: RuntimeOptions) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+    program.pipe(Effect.provide(AuthLayer), withRuntime(options));
+
+export const withRuntime =
+  (options?: RuntimeOptions) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+    Effect.gen(function* () {
+      const config = yield* resolveRuntimeConfig();
+      const format = yield* resolveCliFormat;
+      const foundationLayer = makeFoundationLayer(format, {
+        envVerbose: config.envVerbose,
+        envDebug: config.envDebug,
+      });
+      const appLayer = Layer.provideMerge(debugLoggerLayer, foundationLayer);
+      const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+
+      return yield* withCliErrorHandling(provided, {
+        command: options?.command,
+        format,
+        telemetryConfig: config.telemetryConfig,
+      });
     });
-  });

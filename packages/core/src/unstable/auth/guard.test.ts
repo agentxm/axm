@@ -26,6 +26,7 @@ const makeLayers = (opts?: {
   hasToken?: boolean;
   confirmValue?: boolean;
   storedRegistryUrl?: string;
+  allowsPersistedCredentials?: boolean;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const [promptLayer, promptState] = makeTestPrompt({
@@ -36,24 +37,27 @@ const makeLayers = (opts?: {
   const flagsLayer = TestFlagsLayer({
     nonInteractive: opts?.nonInteractive ?? false,
   });
-
   const credStoreLayer = opts?.hasToken
-    ? CredentialStoreTest("restricted-file", {
-        version: 1,
-        registries: {
-          [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_existing",
-                refresh_token: "axm_ref_existing",
-                expires_at: "2099-01-01T00:00:00Z",
-                active: true,
+    ? CredentialStoreTest(
+        "restricted-file",
+        {
+          version: 1,
+          registries: {
+            [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
+              accounts: {
+                alice: {
+                  access_token: "axm_ses_existing",
+                  refresh_token: "axm_ref_existing",
+                  expires_at: "2099-01-01T00:00:00Z",
+                  active: true,
+                },
               },
             },
           },
         },
-      })
-    : CredentialStoreTest();
+        opts?.allowsPersistedCredentials,
+      )
+    : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const authClientLayer = AuthClientTest({
     initiateDeviceFlow: () =>
@@ -142,6 +146,21 @@ describe("withAuthGuard", () => {
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+      }),
+    );
+  });
+
+  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
+    const { FullLayer, promptState } = makeLayers({
+      confirmValue: true,
+      allowsPersistedCredentials: false,
+    });
+    return withAuthGuard(makeInnerEffect(), { yes: false }).pipe(
+      Effect.provide(FullLayer),
+      Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
+      Effect.map((result) => {
+        expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
+        expect(promptState.confirmCalls).toHaveLength(0);
       }),
     );
   });

@@ -208,8 +208,18 @@ jobs:
         env:
           AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
         run: |
-          actual_version="$(axm --version)"
+          stderr_file="$(mktemp)"
+          actual_version="$(axm --version 2>"$stderr_file")"
+          actual_stderr="$(cat "$stderr_file")"
+          rm -f "$stderr_file"
           expected_version="axm v${AXM_EXPECTED_VERSION}"
+
+          if [ -n "$actual_stderr" ]; then
+            echo "Expected no stderr output"
+            echo "Received stderr:"
+            echo "$actual_stderr"
+            exit 1
+          fi
 
           if [ "$actual_version" != "$expected_version" ]; then
             echo "Expected $expected_version"

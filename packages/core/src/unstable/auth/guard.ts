@@ -15,7 +15,13 @@ import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { CliPrompt } from "../cli-prompt/index.js";
 import { isNonInteractive } from "../cli-flags/index.js";
-import { RegistryUrl, resolveRequestToken, runDeviceLogin } from "./index.js";
+import {
+  CredentialStore,
+  RegistryUrl,
+  makePersistedCredentialsUnsupportedError,
+  resolveRequestToken,
+  runDeviceLogin,
+} from "./index.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -81,6 +87,11 @@ export const withAuthGuard = <A, E, R>(
     // Token available — proceed directly
     if (Option.isSome(token)) {
       return yield* effect;
+    }
+
+    const credStore = yield* CredentialStore;
+    if (!credStore.allowsPersistedCredentials) {
+      return yield* makePersistedCredentialsUnsupportedError();
     }
 
     // No token — check flags

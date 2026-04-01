@@ -31,7 +31,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { CopySkillOperation } from "@axm.sh/core/unstable/skills";
@@ -404,12 +404,9 @@ export const forkCommand = Command.make(
   "fork",
   forkConfig,
   ({ source, skill, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handleFork({ source, skills: [...skill], yes, force, preview }),
-      ),
-      { command: "skills fork" },
+    handleFork({ source, skills: [...skill], yes, force, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withRegistryRuntime({ command: "skills fork" }),
     ),
 ).pipe(
   withArgvTracking(forkConfig),

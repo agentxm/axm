@@ -2,8 +2,8 @@
  * Token command handler -- outputs current resolved token to stdout.
  *
  * Flow:
- * 1. Resolve token via resolveToken (no interactive fallback)
- * 2. If no token: fail with AUTH_LOGIN_REQUIRED
+ * 1. Resolve token via shared auth resolution (no interactive fallback)
+ * 2. If no token: fail with the environment-appropriate auth error
  * 3. Output raw token to stdout, or JSON when explicitly requested
  *
  * @experimental This API is unstable and may change without notice.
@@ -14,13 +14,12 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { RegistryUrl, resolveToken } from "@axm.sh/core/unstable/auth";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { RegistryUrl, resolveRequiredToken } from "@axm.sh/core/unstable/auth";
 import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { withRuntime } from "../../runtime.js";
+import { withAuthRuntime } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -36,23 +35,15 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const json = Option.getOrElse(yield* jsonFlag, () => false);
 
   // Step 1: Resolve token
-  const maybeToken = yield* resolveToken(registryUrl);
-
-  if (Option.isNone(maybeToken)) {
-    return yield* makeAppError({
-      code: "AUTH_LOGIN_REQUIRED",
-      what: "No token available",
-      howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
-    });
-  }
+  const token = yield* resolveRequiredToken(registryUrl);
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
   if (json) {
-    yield* renderer.result({ token: maybeToken.value.token }, TokenResultSchema);
+    yield* renderer.result({ token: token.token }, TokenResultSchema);
     return;
   }
 
-  yield* renderer.raw(maybeToken.value.token + "\n");
+  yield* renderer.raw(token.token + "\n");
 }, Effect.asVoid);
 
 // -----------------------------------------------------------------------------
@@ -62,7 +53,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 const tokenConfig = {} as const;
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>
-  withRuntime(handleToken(), { command: "auth token" }),
+  handleToken().pipe(withAuthRuntime({ command: "auth token" })),
 ).pipe(
   withArgvTracking(tokenConfig),
   Command.withDescription("Output current auth token to stdout"),

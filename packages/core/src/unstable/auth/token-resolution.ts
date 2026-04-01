@@ -15,7 +15,7 @@ import { envOption } from "../utils/index.js";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { type TokenResponse, AuthClient } from "./auth-client.js";
-import { CredentialStore } from "./credential-store.js";
+import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import {
   CredentialStoreTokenSource,
   EnvVarTokenSource,
@@ -23,31 +23,6 @@ import {
   type StoredCredentials,
   type TokenSource,
 } from "./schema.js";
-
-// -----------------------------------------------------------------------------
-// AXM_TOKEN stderr message (once per CLI invocation)
-// -----------------------------------------------------------------------------
-
-let envVarMessageEmitted = false;
-
-const emitEnvVarMessage = Effect.gen(function* () {
-  if (!envVarMessageEmitted) {
-    envVarMessageEmitted = true;
-    yield* Effect.logWarning("Authenticating via AXM_TOKEN environment variable");
-  }
-});
-
-/**
- * Check whether the env var message has been emitted. For testing only.
- */
-export const isEnvVarMessageEmitted = () => envVarMessageEmitted;
-
-/**
- * Reset the env var message flag. For testing only.
- */
-export const resetEnvVarMessageFlag = () => {
-  envVarMessageEmitted = false;
-};
 
 // -----------------------------------------------------------------------------
 // Token resolution
@@ -94,6 +69,13 @@ const persistRefreshedCredentials = (registryUrl: string, token: TokenResponse) 
     return makeStoredTokenSource(registryUrl, token);
   });
 
+const makeLoginRequiredError = () =>
+  makeAppError({
+    code: "AUTH_LOGIN_REQUIRED",
+    what: "Authentication required",
+    howToFix: "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+  });
+
 /**
  * Resolve a token from the credential store only.
  *
@@ -104,6 +86,10 @@ export const resolveStoredToken = (
 ): Effect.Effect<Option.Option<CredentialStoreTokenSource>, AppError, CredentialStore> =>
   Effect.gen(function* () {
     const store = yield* CredentialStore;
+    if (!store.allowsPersistedCredentials) {
+      return Option.none<CredentialStoreTokenSource>();
+    }
+
     const stored = yield* store.load(origin);
     return Option.map(stored, (credentials) => makeStoredTokenSource(origin, credentials));
   });
@@ -130,7 +116,6 @@ export const resolveAmbientToken = (flagToken?: string) =>
     const envTokenOpt = yield* envOption("AXM_TOKEN");
     const envToken = Option.getOrUndefined(envTokenOpt);
     if (envToken !== undefined && envToken.length > 0) {
-      yield* emitEnvVarMessage;
       return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
     }
     if (flagToken !== undefined && flagToken.length > 0) {
@@ -187,4 +172,28 @@ export const resolveToken = (
     const ambient = yield* resolveAmbientToken(flagToken);
     if (Option.isSome(ambient)) return ambient;
     return yield* resolveStoredToken(registryUrl);
+  });
+
+/**
+ * Resolve a token and fail with the correct auth policy error when none is available.
+ *
+ * In CI/container environments, persisted credentials are disabled by policy, so
+ * callers should surface `AUTH_TOKEN_REQUIRED` instead of suggesting `axm login`.
+ */
+export const resolveRequiredToken = (
+  registryUrl: string,
+  flagToken?: string,
+): Effect.Effect<TokenSource, AppError, CredentialStore> =>
+  Effect.gen(function* () {
+    const token = yield* resolveToken(registryUrl, flagToken);
+    if (Option.isSome(token)) {
+      return token.value;
+    }
+
+    const store = yield* CredentialStore;
+    if (!store.allowsPersistedCredentials) {
+      return yield* makePersistedCredentialsUnsupportedError();
+    }
+
+    return yield* makeLoginRequiredError();
   });

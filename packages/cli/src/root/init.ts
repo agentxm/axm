@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
-import { withRuntime, withWorkspace } from "../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -92,9 +92,9 @@ const initConfig = {
 } as const;
 
 export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
-  withRuntime(
-    withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope, handleInit()),
-    { command: "init" },
+  handleInit().pipe(
+    withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope),
+    withRegistryRuntime({ command: "init" }),
   ),
 ).pipe(
   withArgvTracking(initConfig),

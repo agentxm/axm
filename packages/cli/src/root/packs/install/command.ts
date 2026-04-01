@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
@@ -26,9 +26,12 @@ export const installCommand = Command.make(
   "install",
   installConfig,
   ({ source, scope, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleInstallPack({ source }, { yes, force, preview })), {
-      command: "packs install",
-    }),
+    handleInstallPack({ source }, { yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRegistryRuntime({
+        command: "packs install",
+      }),
+    ),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install a pack and its extensions from a registry"),

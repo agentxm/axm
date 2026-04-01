@@ -5,42 +5,46 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import {
-  AuthClientTest,
-  RegistryUrl,
-  CredentialStoreTest,
-  resetEnvVarMessageFlag,
-} from "@axm.sh/core/unstable/auth";
+import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeLayers = (opts?: { hasCredentials?: boolean; machine?: boolean; json?: boolean }) => {
+const makeLayers = (opts?: {
+  hasCredentials?: boolean;
+  machine?: boolean;
+  json?: boolean;
+  allowsPersistedCredentials?: boolean;
+}) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = renderer.layer;
   const rendererState = renderer.state;
-
   const credStoreLayer = opts?.hasCredentials
-    ? CredentialStoreTest("restricted-file", {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_mytoken",
-                refresh_token: "axm_ref_mytoken",
-                expires_at: "2099-01-01T00:00:00Z",
-                active: true,
+    ? CredentialStoreTest(
+        "restricted-file",
+        {
+          version: 1,
+          registries: {
+            [REGISTRY_URL]: {
+              accounts: {
+                alice: {
+                  access_token: "axm_ses_mytoken",
+                  refresh_token: "axm_ref_mytoken",
+                  expires_at: "2099-01-01T00:00:00Z",
+                  active: true,
+                },
               },
             },
           },
         },
-      })
-    : CredentialStoreTest();
+        opts?.allowsPersistedCredentials,
+      )
+    : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
@@ -65,7 +69,6 @@ describe("auth token handler", () => {
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
     delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
   });
 
   afterEach(() => {
@@ -79,10 +82,36 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         const result = yield* handleToken().pipe(
           Effect.catchTag("AppError", (e) =>
-            Effect.succeed({ error: true, code: e.code, howToFix: e.howToFix }),
+            Effect.succeed({
+              error: true,
+              code: e.code,
+              howToFix: Option.getOrUndefined(e.howToFix),
+            }),
           ),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+      }),
+    );
+  });
+
+  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
+    const { provide } = makeLayers({ allowsPersistedCredentials: false });
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* handleToken().pipe(
+          Effect.catchTag("AppError", (e) =>
+            Effect.succeed({
+              error: true,
+              code: e.code,
+              howToFix: Option.getOrUndefined(e.howToFix),
+            }),
+          ),
+        );
+        expect(result).toMatchObject({
+          error: true,
+          code: "AUTH_TOKEN_REQUIRED",
+          howToFix: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+        });
       }),
     );
   });

@@ -2,8 +2,8 @@
  * Whoami command handler -- identity resolution via /v1/auth/me.
  *
  * Flow:
- * 1. Resolve token via resolveToken
- * 2. If no token: fail with AUTH_LOGIN_REQUIRED
+ * 1. Resolve token via shared auth resolution
+ * 2. If no token: fail with the environment-appropriate auth error
  * 3. Call AuthClient.getMe
  * 4. Display identity
  *
@@ -11,16 +11,14 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, resolveToken } from "@axm.sh/core/unstable/auth";
+import { AuthClient, RegistryUrl, resolveRequiredToken } from "@axm.sh/core/unstable/auth";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { withRuntime } from "../../runtime.js";
+import { withAuthRuntime } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -50,18 +48,10 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const registryUrl = yield* RegistryUrl;
 
   // Step 1: Resolve token
-  const maybeToken = yield* resolveToken(registryUrl);
-
-  if (Option.isNone(maybeToken)) {
-    return yield* makeAppError({
-      code: "AUTH_LOGIN_REQUIRED",
-      what: "Not authenticated",
-      howToFix: "Run `axm login` to sign in.",
-    });
-  }
+  const token = yield* resolveRequiredToken(registryUrl);
 
   // Step 2: Call getMe
-  const me = yield* authClient.getMe(maybeToken.value.token);
+  const me = yield* authClient.getMe(token.token);
   const identity = {
     userId: me.userId,
     userHandle: me.userHandle,
@@ -88,7 +78,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
 const whoamiConfig = {} as const;
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  withRuntime(handleWhoami(), { command: "auth whoami" }),
+  handleWhoami().pipe(withAuthRuntime({ command: "auth whoami" })),
 ).pipe(
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),

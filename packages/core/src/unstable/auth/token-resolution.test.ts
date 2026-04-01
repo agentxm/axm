@@ -10,11 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import {
+  resolveRequiredToken,
   resolveToken,
   resolveStoredToken,
   resolveAmbientToken,
   resolveRequestToken,
-  resetEnvVarMessageFlag,
 } from "./token-resolution.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -24,7 +24,12 @@ const nearExpiry = () => new Date(Date.now() + 60 * 1000).toISOString();
 const makeRuntimeLayer = (
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
   authClientLayer = AuthClientTest(),
-) => Layer.mergeAll(CredentialStoreTest("restricted-file", credentialData), authClientLayer);
+  allowsPersistedCredentials?: boolean,
+) =>
+  Layer.mergeAll(
+    CredentialStoreTest("restricted-file", credentialData, allowsPersistedCredentials),
+    authClientLayer,
+  );
 
 describe("resolveToken", () => {
   let origAxmToken: string | undefined;
@@ -32,7 +37,6 @@ describe("resolveToken", () => {
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
     delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
   });
 
   afterEach(() => {
@@ -189,6 +193,65 @@ describe("resolveToken", () => {
   });
 });
 
+describe("resolveRequiredToken", () => {
+  it("returns the resolved token when one is available", async () => {
+    const layer = makeRuntimeLayer({
+      version: 1,
+      registries: {
+        [REGISTRY_URL]: {
+          accounts: {
+            alice: {
+              access_token: "axm_ses_stored",
+              refresh_token: "axm_ref_stored",
+              expires_at: futureExpiry(),
+              active: true,
+            },
+          },
+        },
+      },
+    });
+
+    const result = await Effect.runPromise(
+      resolveRequiredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
+    );
+
+    expect(result._tag).toBe("CredentialStore");
+    expect(result.token).toBe("axm_ses_stored");
+  });
+
+  it("fails with AUTH_LOGIN_REQUIRED when no token is available locally", async () => {
+    const layer = makeRuntimeLayer();
+
+    const result = await Effect.runPromise(
+      resolveRequiredToken(REGISTRY_URL).pipe(
+        Effect.provide(layer),
+        Effect.catchTag("AppError", (error) => Effect.succeed(error)),
+      ),
+    );
+
+    expect(result.code).toBe("AUTH_LOGIN_REQUIRED");
+    expect(Option.getOrUndefined(result.howToFix)).toBe(
+      "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+    );
+  });
+
+  it("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", async () => {
+    const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
+
+    const result = await Effect.runPromise(
+      resolveRequiredToken(REGISTRY_URL).pipe(
+        Effect.provide(layer),
+        Effect.catchTag("AppError", (error) => Effect.succeed(error)),
+      ),
+    );
+
+    expect(result.code).toBe("AUTH_TOKEN_REQUIRED");
+    expect(Option.getOrUndefined(result.howToFix)).toBe(
+      "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+    );
+  });
+});
+
 describe("resolveStoredToken", () => {
   it("returns stored credentials when they exist", async () => {
     const layer = CredentialStoreTest("restricted-file", {
@@ -238,6 +301,34 @@ describe("resolveStoredToken", () => {
     expect(Option.isNone(result)).toBe(true);
     delete process.env["AXM_TOKEN"];
   });
+
+  it("returns none when persisted credentials are disabled", async () => {
+    const layer = CredentialStoreTest(
+      "restricted-file",
+      {
+        version: 1,
+        registries: {
+          [REGISTRY_URL]: {
+            accounts: {
+              alice: {
+                access_token: "axm_ses_stored",
+                refresh_token: "axm_ref_stored",
+                expires_at: futureExpiry(),
+                active: true,
+              },
+            },
+          },
+        },
+      },
+      false,
+    );
+
+    const result = await Effect.runPromise(
+      resolveStoredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
+    );
+
+    expect(Option.isNone(result)).toBe(true);
+  });
 });
 
 describe("resolveAmbientToken", () => {
@@ -246,7 +337,6 @@ describe("resolveAmbientToken", () => {
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
     delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
   });
 
   afterEach(() => {
@@ -306,7 +396,6 @@ describe("resolveRequestToken", () => {
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
     delete process.env["AXM_TOKEN"];
-    resetEnvVarMessageFlag();
   });
 
   afterEach(() => {
@@ -385,6 +474,37 @@ describe("resolveRequestToken", () => {
       expect(result.value._tag).toBe("CredentialStore");
       expect(result.value.token).toBe("axm_ses_other");
     }
+  });
+
+  it("does not use stored credentials when persisted credentials are disabled", async () => {
+    const otherRegistryUrl = "https://other-registry.example.com";
+    const layer = makeRuntimeLayer(
+      {
+        version: 1,
+        registries: {
+          [otherRegistryUrl]: {
+            accounts: {
+              bob: {
+                access_token: "axm_ses_other",
+                refresh_token: "axm_ref_other",
+                expires_at: futureExpiry(),
+                active: true,
+              },
+            },
+          },
+        },
+      },
+      AuthClientTest(),
+      false,
+    );
+
+    const result = await Effect.runPromise(
+      resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL).pipe(
+        Effect.provide(layer),
+      ),
+    );
+
+    expect(Option.isNone(result)).toBe(true);
   });
 
   it("returns near-expiry stored credentials without proactive refresh", async () => {

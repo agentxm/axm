@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
@@ -33,12 +33,9 @@ export const updateCommand = Command.make(
   "update",
   updateConfig,
   ({ source, scope, agent, skill, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        scope,
-        handleUpdate({ source, agents: agent, skills: skill, yes, force, preview }),
-      ),
-      { command: "skills update" },
+    handleUpdate({ source, agents: agent, skills: skill, yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRegistryRuntime({ command: "skills update" }),
     ),
 ).pipe(
   withArgvTracking(updateConfig),

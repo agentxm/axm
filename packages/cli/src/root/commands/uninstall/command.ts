@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { handleUninstallCommand } from "./handler.js";
@@ -21,12 +21,9 @@ export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
   ({ name, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handleUninstallCommand({ commandName: name }, { yes, force, preview }),
-      ),
-      { command: "commands uninstall" },
+    handleUninstallCommand({ commandName: name }, { yes, force, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withRegistryRuntime({ command: "commands uninstall" }),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),

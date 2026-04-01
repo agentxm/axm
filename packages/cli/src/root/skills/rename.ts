@@ -20,7 +20,7 @@ import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 
 // -----------------------------------------------------------------------------
@@ -140,9 +140,12 @@ export const renameCommand = Command.make(
   "rename",
   renameConfig,
   ({ oldName, newName, scope, yes, force, preview }) =>
-    withRuntime(withWorkspace(scope, handleRename({ oldName, newName, yes, force, preview })), {
-      command: "skills rename",
-    }),
+    handleRename({ oldName, newName, yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRegistryRuntime({
+        command: "skills rename",
+      }),
+    ),
 ).pipe(
   withArgvTracking(renameConfig),
   Command.withDescription("Rename a skill"),

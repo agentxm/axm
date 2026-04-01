@@ -21,7 +21,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { PublishSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -343,12 +343,9 @@ export const publishCommand = Command.make(
   "publish",
   publishConfig,
   ({ extensions, registry, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handlePublish({ extensions: [...extensions], registry, yes, force, preview }),
-      ),
-      { command: "skills publish" },
+    handlePublish({ extensions: [...extensions], registry, yes, force, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withAuthRuntime({ command: "skills publish" }),
     ),
 ).pipe(
   withArgvTracking(publishConfig),

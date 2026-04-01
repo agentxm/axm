@@ -26,7 +26,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRegistryRuntime, withWorkspace } from "../../runtime.js";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
@@ -275,12 +275,9 @@ export const addCommand = Command.make(
   "add",
   addConfig,
   ({ pack, extension, yes, force, preview }) =>
-    withRuntime(
-      withWorkspace(
-        DEFAULT_WORKSPACE_SCOPE,
-        handlePacksAdd({ pack, extension, yes, force, preview }),
-      ),
-      { command: "packs add" },
+    handlePacksAdd({ pack, extension, yes, force, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withRegistryRuntime({ command: "packs add" }),
     ),
 ).pipe(
   withArgvTracking(addConfig),

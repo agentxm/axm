@@ -9,6 +9,7 @@ import {
   CredentialStore,
   CredentialStoreTest,
   type EnvironmentInfo,
+  canUsePersistedCredentials,
   selectTier,
 } from "./credential-store.js";
 
@@ -118,6 +119,19 @@ describe("CredentialStore", () => {
       expect(tier).toBe("plaintext-file");
     });
 
+    it("fails save when persisted credentials are disabled", async () => {
+      const layer = CredentialStoreTest("restricted-file", undefined, false);
+      const program = Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        return yield* store
+          .save(registryUrl, "alice", credentials)
+          .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
+      });
+
+      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
+      expect(result).toBe("AUTH_TOKEN_REQUIRED");
+    });
+
     it("clear is a no-op when no credentials exist", async () => {
       const layer = CredentialStoreTest();
       const program = Effect.gen(function* () {
@@ -144,12 +158,12 @@ describe("CredentialStore", () => {
       expect(selectTier(baseEnv)).toBe("restricted-file");
     });
 
-    it("selects plaintext-file for container environment", () => {
-      expect(selectTier({ ...baseEnv, isContainer: true })).toBe("plaintext-file");
+    it("selects restricted-file for container environment", () => {
+      expect(selectTier({ ...baseEnv, isContainer: true })).toBe("restricted-file");
     });
 
-    it("selects plaintext-file for CI environment", () => {
-      expect(selectTier({ ...baseEnv, isCI: true })).toBe("plaintext-file");
+    it("selects restricted-file for CI environment", () => {
+      expect(selectTier({ ...baseEnv, isCI: true })).toBe("restricted-file");
     });
 
     it("selects restricted-file for SSH environment", () => {
@@ -161,11 +175,33 @@ describe("CredentialStore", () => {
     });
 
     it("container takes precedence over SSH", () => {
-      expect(selectTier({ ...baseEnv, isContainer: true, isSSH: true })).toBe("plaintext-file");
+      expect(selectTier({ ...baseEnv, isContainer: true, isSSH: true })).toBe("restricted-file");
     });
 
     it("container takes precedence over CI", () => {
-      expect(selectTier({ ...baseEnv, isContainer: true, isCI: true })).toBe("plaintext-file");
+      expect(selectTier({ ...baseEnv, isContainer: true, isCI: true })).toBe("restricted-file");
+    });
+  });
+
+  describe("canUsePersistedCredentials", () => {
+    const baseEnv: EnvironmentInfo = {
+      isSSH: false,
+      isContainer: false,
+      isWSL: false,
+      isCI: false,
+      isRoot: false,
+    };
+
+    it("allows persisted credentials in normal local environments", () => {
+      expect(canUsePersistedCredentials(baseEnv)).toBe(true);
+    });
+
+    it("disables persisted credentials in CI", () => {
+      expect(canUsePersistedCredentials({ ...baseEnv, isCI: true })).toBe(false);
+    });
+
+    it("disables persisted credentials in containers", () => {
+      expect(canUsePersistedCredentials({ ...baseEnv, isContainer: true })).toBe(false);
     });
   });
 });

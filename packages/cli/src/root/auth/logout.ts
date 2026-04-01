@@ -19,7 +19,7 @@ import { AuthClient, RegistryUrl, CredentialStore } from "@axm.sh/core/unstable/
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { withRuntime } from "../../runtime.js";
+import { withAuthRuntime } from "../../runtime.js";
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -69,7 +69,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 const logoutConfig = {} as const;
 
 export const logoutCommand = Command.make("logout", logoutConfig, () =>
-  withRuntime(handleLogout(), { command: "auth logout" }),
+  handleLogout().pipe(withAuthRuntime({ command: "auth logout" })),
 ).pipe(
   withArgvTracking(logoutConfig),
   Command.withDescription("Sign out of a registry"),

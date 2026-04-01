@@ -206,6 +206,7 @@ describe("buildSkipContext", () => {
       isNonInteractive: false,
       isJsonOutput: true,
       isStderrTTY: true,
+      isAgentSession: false,
     });
     expect(ctx.isJsonOutput).toBe(true);
     expect(ctx.isUpgradeCommand).toBe(false);

@@ -29,6 +29,7 @@ const makeLayers = (opts?: {
   meResponse?: MeResponse;
   confirmValue?: boolean;
   getMeFails?: boolean;
+  allowsPersistedCredentials?: boolean;
 }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
   const [promptLayer, promptState] = makeTestPrompt({
@@ -39,24 +40,27 @@ const makeLayers = (opts?: {
   const flagsLayer = TestFlagsLayer({
     nonInteractive: opts?.nonInteractive ?? false,
   });
-
   const credStoreLayer = opts?.existingCredentials
-    ? CredentialStoreTest("restricted-file", {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              alice: {
-                access_token: "axm_ses_existing",
-                refresh_token: "axm_ref_existing",
-                expires_at: "2099-01-01T00:00:00Z",
-                active: true,
+    ? CredentialStoreTest(
+        "restricted-file",
+        {
+          version: 1,
+          registries: {
+            [REGISTRY_URL]: {
+              accounts: {
+                alice: {
+                  access_token: "axm_ses_existing",
+                  refresh_token: "axm_ref_existing",
+                  expires_at: "2099-01-01T00:00:00Z",
+                  active: true,
+                },
               },
             },
           },
         },
-      })
-    : CredentialStoreTest();
+        opts?.allowsPersistedCredentials,
+      )
+    : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const meData: MeResponse = opts?.meResponse ?? {
     userId: "user-1",
@@ -116,6 +120,18 @@ describe("auth login handler", () => {
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
         expect(result).toMatchObject({ error: true, code: "AUTH_LOGIN_REQUIRED" });
+      }),
+    );
+  });
+
+  it.effect("rejects when persisted credentials are disabled", () => {
+    const { provide } = makeLayers({ allowsPersistedCredentials: false });
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* handleLogin({ yes: false }).pipe(
+          Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
+        );
+        expect(result).toMatchObject({ error: true, code: "AUTH_TOKEN_REQUIRED" });
       }),
     );
   });

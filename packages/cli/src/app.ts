@@ -14,7 +14,7 @@ import { UpdateCheckLive } from "@axm.sh/core/unstable/update-check";
 import { LearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
-import { axmGlobalFlags, baseLayer } from "./runtime.js";
+import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
 import { initCommand } from "./root/init.js";
@@ -78,7 +78,7 @@ const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
 /** Layer providing UpdateCheck and InstallMethod for the startup update check. */
 const updateCheckServicesLayer = Layer.provide(
   Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
-  baseLayer,
+  runtimeBaseLayer,
 );
 
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {

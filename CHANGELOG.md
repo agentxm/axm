@@ -1,3 +1,13 @@
+## 0.1.1 (2026-04-01)
+
+### 🩹 Fixes
+
+- Fix installer publishing and show update notices for agent sessions ([fa535e3a](https://github.com/agentxm/axm/commit/fa535e3a))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.1.0 (2026-04-01)
 
 ### 🚀 Features

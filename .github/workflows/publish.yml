@@ -98,7 +98,6 @@ jobs:
     name: Installer Verification - ${{ matrix.os }} - ${{ matrix.mode }}
     needs: release
     if: ${{ needs.release.result == 'success' }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:

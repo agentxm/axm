@@ -49,6 +49,7 @@ const preflight = () => {
 
   requireMainBranch();
   requireCleanWorkingTree();
+  run("pnpm", ["format:check"]);
   fetchOriginMain();
   requireNotBehindOriginMain();
 

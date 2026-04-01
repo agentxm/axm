@@ -587,8 +587,10 @@ export const createRemoteRegistryClient = (
 
     // Assertion needed: FormData is the correct runtime type but the generated client
     // types the payload as the schema type; bodyFormData casts to any internally
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const payload = formData as unknown as GeneratedRegistryClient.ExtensionsPublishVersionRequestFormData;
+    /* eslint-disable @typescript-eslint/consistent-type-assertions */
+    const payload =
+      formData as unknown as GeneratedRegistryClient.ExtensionsPublishVersionRequestFormData;
+    /* eslint-enable @typescript-eslint/consistent-type-assertions */
 
     return client
       .ExtensionsPublishVersion(args.handle, pluralizeType(args.type), args.name, args.version, {

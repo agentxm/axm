@@ -28,26 +28,28 @@ Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md in
 
 All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
 
-| Command                   | Purpose                                                  |
-| ------------------------- | -------------------------------------------------------- |
-| `pnpm axm`                | Run the main CLI from source                             |
-| `pnpm spike`              | Run the CLI spike from source                            |
-| `pnpm watch`              | Rebuild `cli` on changes                                 |
-| `pnpm build`              | Build all packages                                       |
-| `pnpm build:affected`     | Build only packages changed since `main`                 |
-| `pnpm test`               | Run package test targets                                 |
-| `pnpm test:affected`      | Run tests only for packages changed since `main`         |
-| `pnpm test:e2e`           | Run E2E targets only                                     |
-| `pnpm typecheck`          | Type check all packages                                  |
-| `pnpm typecheck:affected` | Type check only packages changed since `main`            |
-| `pnpm format`             | Write formatting changes                                 |
-| `pnpm format:check`       | Check formatting                                         |
-| `pnpm lint`               | Lint all packages                                        |
-| `pnpm lint:affected`      | Lint only packages changed since `main`                  |
-| `pnpm lint:fix`           | Lint and auto-fix                                        |
-| `pnpm run ci`             | Run full CI pipeline (lint, typecheck, build, test, e2e) |
-| `pnpm run ci:affected`    | Run CI pipeline for affected packages only               |
-| `pnpm generate`           | Generate registry and telemetry clients                  |
+| Command                      | Purpose                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| `pnpm axm`                   | Run the main CLI from source                             |
+| `pnpm spike`                 | Run the CLI spike from source                            |
+| `pnpm watch`                 | Rebuild `cli` on changes                                 |
+| `pnpm build`                 | Build all packages                                       |
+| `pnpm build:affected`        | Build only packages changed since `main`                 |
+| `pnpm test`                  | Run package test targets                                 |
+| `pnpm test:affected`         | Run tests only for packages changed since `main`         |
+| `pnpm test:e2e`              | Run E2E targets only                                     |
+| `pnpm typecheck`             | Type check all packages                                  |
+| `pnpm typecheck:affected`    | Type check only packages changed since `main`            |
+| `pnpm format`                | Format the whole repo with Prettier                      |
+| `pnpm format:check`          | Check whole-repo formatting with Prettier                |
+| `pnpm format:affected`       | Format only Nx-selected changed files                    |
+| `pnpm format:check:affected` | Check only Nx-selected changed files                     |
+| `pnpm lint`                  | Lint all packages                                        |
+| `pnpm lint:affected`         | Lint only packages changed since `main`                  |
+| `pnpm lint:fix`              | Lint and auto-fix                                        |
+| `pnpm run ci`                | Run full CI pipeline (lint, typecheck, build, test, e2e) |
+| `pnpm run ci:affected`       | Run CI pipeline for affected packages only               |
+| `pnpm generate`              | Generate registry and telemetry clients                  |
 
 ### Releasing
 
@@ -98,6 +100,9 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false # Disable dynamic line-rewriting (ol
 - Agents should export them in their shell before invoking Nx-backed commands.
 - CI may set them in workflow or job `env`.
 - Prefer not to rewrite checked-in repo scripts just to inject them.
+- Formatting strategy: `pnpm format` and `pnpm format:check` are the canonical
+  full-repo Prettier commands. `pnpm format:affected` and
+  `pnpm format:check:affected` are Nx conveniences for changed-file ranges only.
 
 ## CLI Conventions
 

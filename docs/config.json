@@ -1,5 +1,3 @@
 {
-  "nav": [
-    { "label": "Quickstart", "to": "quickstart" }
-  ]
+  "nav": [{ "label": "Quickstart", "to": "quickstart" }]
 }

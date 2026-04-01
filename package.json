@@ -19,13 +19,15 @@
     "test:e2e": "nx run-many -t e2e --nxBail",
     "typecheck": "nx run-many -t typecheck",
     "typecheck:affected": "nx affected -t typecheck",
-    "format": "nx format:write",
-    "format:check": "nx format:check",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "format:affected": "nx format:write",
+    "format:check:affected": "nx format:check",
     "lint": "nx run-many -t lint",
     "lint:affected": "nx affected -t lint",
     "lint:fix": "nx run-many -t lint --fix",
-    "ci": "nx sync:check && nx format:check && nx run-many -t lint typecheck build test e2e --batch --nxBail && nx run scripts:verify-e2e-boundaries",
-    "ci:affected": "nx sync:check && nx format:check && nx affected -t lint typecheck build test e2e --batch --nxBail && nx run scripts:verify-e2e-boundaries",
+    "ci": "nx sync:check && pnpm format:check && nx run-many -t lint typecheck build test e2e --batch --nxBail && nx run scripts:verify-e2e-boundaries",
+    "ci:affected": "nx sync:check && pnpm format:check && nx affected -t lint typecheck build test e2e --batch --nxBail && nx run scripts:verify-e2e-boundaries",
     "prepare": "husky && effect-language-service patch",
     "release": "pnpm exec nx run scripts:release-prepare --outputStyle=static",
     "release:plan": "nx release plan --only-touched=false",
@@ -41,7 +43,7 @@
   },
   "lint-staged": {
     "*.{js,ts,mjs,cjs}": "eslint --fix",
-    "*.md": "prettier --write"
+    "*.{md,json,jsonc,yml,yaml}": "prettier --write"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

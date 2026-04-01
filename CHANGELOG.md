@@ -1,3 +1,13 @@
+## 0.1.3 (2026-04-01)
+
+### 🩹 Fixes
+
+- Strengthen release formatting guardrails and standardize formatting checks ([064cbcc1](https://github.com/agentxm/axm/commit/064cbcc1))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.1.2 (2026-04-01)
 
 ### 🩹 Fixes

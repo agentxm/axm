@@ -22,6 +22,7 @@ import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
 } from "@axm.sh/core/unstable/version-resolution";
+import { isAgent } from "@axm.sh/utils/unstable/interaction";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv
@@ -53,6 +54,8 @@ export interface UpdateCheckContextInputs {
   readonly isStderrTTY?: boolean | undefined;
   /** Override AXM_NO_UPDATE_CHECK detection for testability. */
   readonly noUpdateCheckEnv?: boolean | undefined;
+  /** Override agent-session detection for testability. Defaults to `isAgent(process.env)`. */
+  readonly isAgentSession?: boolean | undefined;
 }
 
 export const buildSkipContext = (inputs: UpdateCheckContextInputs) => ({
@@ -64,6 +67,8 @@ export const buildSkipContext = (inputs: UpdateCheckContextInputs) => ({
   isUpgradeCommand: isUpgradeCommand(inputs.args),
   isNonInteractive: inputs.isNonInteractive,
   isStderrTTY: inputs.isStderrTTY ?? process.stderr.isTTY === true,
+  // eslint-disable-next-line no-restricted-properties -- Centralized env var access for agent-session detection
+  isAgentSession: inputs.isAgentSession ?? isAgent(process.env),
 });
 
 // -----------------------------------------------------------------------------
@@ -101,6 +106,11 @@ export const refreshCache = (localVersion: string) =>
  */
 export type NotificationPrinter = (message: string) => Effect.Effect<void>;
 
+const printAgentNotification: NotificationPrinter = (message) =>
+  Effect.sync(() => {
+    process.stderr.write(`${message}\n`);
+  });
+
 // -----------------------------------------------------------------------------
 // Core integration effect
 // -----------------------------------------------------------------------------
@@ -124,11 +134,14 @@ export const withUpdateCheck = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     const updateCheck = yield* UpdateCheck;
-    const renderer = yield* CliRenderer;
-    const printer = options.printNotification ?? ((message: string) => renderer.warn(message));
-
-    // Build and evaluate skip context
     const skipContext = buildSkipContext(options.inputs);
+    const renderer = yield* CliRenderer;
+    const printer =
+      options.printNotification ??
+      (skipContext.isAgentSession
+        ? printAgentNotification
+        : (message: string) => renderer.warn(message));
+
     if (updateCheck.shouldSkip(skipContext)) {
       return yield* program;
     }
@@ -146,6 +159,7 @@ export const withUpdateCheck = <A, E, R>(
           method,
           updateAvailable.value.current,
           updateAvailable.value.latest,
+          skipContext.isAgentSession ? "agent" : "human",
         ),
       );
     });

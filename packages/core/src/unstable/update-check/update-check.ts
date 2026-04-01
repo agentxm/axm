@@ -55,7 +55,10 @@ export interface SkipCheckContext {
   readonly isUpgradeCommand: boolean;
   readonly isNonInteractive: boolean;
   readonly isStderrTTY: boolean;
+  readonly isAgentSession: boolean;
 }
+
+export type NotificationAudience = "human" | "agent";
 
 // -----------------------------------------------------------------------------
 // Service interface
@@ -77,6 +80,7 @@ export interface UpdateCheckService {
     method: InstallMethodType,
     current: string,
     latest: string,
+    audience?: NotificationAudience,
   ) => string;
 }
 
@@ -100,8 +104,20 @@ export const shouldSkip = (context: SkipCheckContext): boolean =>
   context.isJsonOutput ||
   context.noUpdateCheckEnv ||
   context.isUpgradeCommand ||
-  context.isNonInteractive ||
-  !context.isStderrTTY;
+  (context.isNonInteractive && !context.isAgentSession) ||
+  (!context.isStderrTTY && !context.isAgentSession);
+
+const notificationCommand = (method: InstallMethodType): string => {
+  switch (method._tag) {
+    case "Script":
+    case "Unknown":
+      return "axm upgrade";
+    case "Homebrew":
+      return "brew upgrade agentxm/tap/axm";
+    case "Npm":
+      return "npm update -g @axm.sh/cli";
+  }
+};
 
 /**
  * Build an install-method-aware notification message.
@@ -110,17 +126,16 @@ export const notificationMessage = (
   method: InstallMethodType,
   current: string,
   latest: string,
+  audience: NotificationAudience = "human",
 ): string => {
-  const header = `Update available: ${current} \u2192 ${latest}`;
-  switch (method._tag) {
-    case "Script":
-    case "Unknown":
-      return `${header}\nRun: axm upgrade`;
-    case "Homebrew":
-      return `${header}\nRun: brew upgrade agentxm/tap/axm`;
-    case "Npm":
-      return `${header}\nRun: npm update -g @axm.sh/cli`;
+  const command = notificationCommand(method);
+
+  if (audience === "agent") {
+    return `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="${command}"`;
   }
+
+  const header = `Update available: ${current} \u2192 ${latest}`;
+  return `${header}\nRun: ${command}`;
 };
 
 /**

@@ -10,6 +10,9 @@
   "exclude": ["src/**/*.test.ts", "src/**/*.e2e.test.ts"],
   "references": [
     {
+      "path": "../utils/tsconfig.lib.json"
+    },
+    {
       "path": "../core/tsconfig.lib.json"
     }
   ]

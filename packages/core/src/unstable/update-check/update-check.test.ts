@@ -46,6 +46,7 @@ const baseSkipContext: SkipCheckContext = {
   isUpgradeCommand: false,
   isNonInteractive: false,
   isStderrTTY: true,
+  isAgentSession: false,
 };
 
 // =============================================================================
@@ -107,8 +108,20 @@ describe("shouldSkip", () => {
     expect(shouldSkip({ ...baseSkipContext, isNonInteractive: true })).toBe(true);
   });
 
+  it("returns false for agent sessions in non-interactive mode", () => {
+    expect(shouldSkip({ ...baseSkipContext, isNonInteractive: true, isAgentSession: true })).toBe(
+      false,
+    );
+  });
+
   it("returns true when stderr is not a TTY", () => {
     expect(shouldSkip({ ...baseSkipContext, isStderrTTY: false })).toBe(true);
+  });
+
+  it("returns false for agent sessions without a stderr TTY", () => {
+    expect(shouldSkip({ ...baseSkipContext, isStderrTTY: false, isAgentSession: true })).toBe(
+      false,
+    );
   });
 
   it("returns true when multiple skip conditions are met", () => {
@@ -119,6 +132,7 @@ describe("shouldSkip", () => {
         isUpgradeCommand: false,
         isNonInteractive: false,
         isStderrTTY: true,
+        isAgentSession: false,
       }),
     ).toBe(true);
   });
@@ -155,6 +169,28 @@ describe("notificationMessage", () => {
   it("returns script message for Unknown method", () => {
     const msg = notificationMessage(new Unknown(), "0.1.0", "0.2.0");
     expect(msg).toBe("Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade");
+  });
+
+  it("returns compact agent message for Script method", () => {
+    const msg = notificationMessage(
+      new Script({ execPath: "/bin/axm" }),
+      "0.1.0",
+      "0.2.0",
+      "agent",
+    );
+    expect(msg).toBe('AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"');
+  });
+
+  it("returns compact agent message for Npm method", () => {
+    const msg = notificationMessage(
+      new Npm({ importUrl: "file:///lib/node_modules/axm" }),
+      "0.1.0",
+      "0.2.0",
+      "agent",
+    );
+    expect(msg).toBe(
+      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="npm update -g @axm.sh/cli"',
+    );
   });
 });
 

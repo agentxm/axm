@@ -51,6 +51,7 @@ const baseInputs: UpdateCheckContextInputs = {
   isNonInteractive: false,
   isJsonOutput: false,
   isStderrTTY: true,
+  isAgentSession: false,
   noUpdateCheckEnv: false,
 };
 
@@ -163,10 +164,12 @@ const makeTrackingUpdateCheck = (opts: {
       ctx.isJsonOutput ||
       ctx.noUpdateCheckEnv ||
       ctx.isUpgradeCommand ||
-      ctx.isNonInteractive ||
-      !ctx.isStderrTTY,
-    notificationMessage: (_method, current, latest) =>
-      `Update available: ${current} \u2192 ${latest}\nRun: axm upgrade`,
+      (ctx.isNonInteractive && !ctx.isAgentSession) ||
+      (!ctx.isStderrTTY && !ctx.isAgentSession),
+    notificationMessage: (_method, current, latest, audience = "human") =>
+      audience === "agent"
+        ? `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="axm upgrade"`
+        : `Update available: ${current} \u2192 ${latest}\nRun: axm upgrade`,
   };
 
   return { layer: Layer.succeed(UpdateCheck, service), calls };
@@ -208,6 +211,7 @@ describe("buildSkipContext", () => {
     expect(ctx.isUpgradeCommand).toBe(false);
     expect(ctx.isNonInteractive).toBe(false);
     expect(ctx.isStderrTTY).toBe(true);
+    expect(ctx.isAgentSession).toBe(false);
   });
 
   it("detects upgrade command", () => {
@@ -227,6 +231,16 @@ describe("buildSkipContext", () => {
       isJsonOutput: false,
     });
     expect(ctx.isStderrTTY).toBe(process.stderr.isTTY === true);
+  });
+
+  it("maps agent session override", () => {
+    const ctx = buildSkipContext({
+      args: [],
+      isNonInteractive: true,
+      isJsonOutput: false,
+      isAgentSession: true,
+    });
+    expect(ctx.isAgentSession).toBe(true);
   });
 });
 
@@ -449,6 +463,30 @@ describe("withUpdateCheck", () => {
     );
   });
 
+  it.effect("does not skip when non-interactive mode is an agent session", () => {
+    const { printer, messages } = makeTestPrinter();
+    const commandProgram = Effect.void;
+
+    const layer = makeTestLayers({
+      tempDir,
+      cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
+    });
+
+    return withUpdateCheck(commandProgram, {
+      localVersion: LOCAL_VERSION,
+      inputs: { ...baseInputs, isNonInteractive: true, isAgentSession: true },
+      printNotification: printer,
+    }).pipe(
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(messages.length).toBe(1);
+          expect(messages[0]).toContain("AXM_UPDATE_AVAILABLE");
+        }),
+      ),
+      Effect.provide(layer),
+    );
+  });
+
   it.effect("skips when command is upgrade", () => {
     const { printer, messages } = makeTestPrinter();
     const commandProgram = Effect.void;
@@ -489,6 +527,30 @@ describe("withUpdateCheck", () => {
       Effect.tap(() =>
         Effect.sync(() => {
           expect(messages.length).toBe(0);
+        }),
+      ),
+      Effect.provide(layer),
+    );
+  });
+
+  it.effect("does not skip when stderr is not a TTY for an agent session", () => {
+    const { printer, messages } = makeTestPrinter();
+    const commandProgram = Effect.void;
+
+    const layer = makeTestLayers({
+      tempDir,
+      cacheData: { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() },
+    });
+
+    return withUpdateCheck(commandProgram, {
+      localVersion: LOCAL_VERSION,
+      inputs: { ...baseInputs, isStderrTTY: false, isAgentSession: true },
+      printNotification: printer,
+    }).pipe(
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(messages.length).toBe(1);
+          expect(messages[0]).toContain("AXM_UPDATE_AVAILABLE");
         }),
       ),
       Effect.provide(layer),

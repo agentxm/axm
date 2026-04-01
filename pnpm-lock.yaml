@@ -94,6 +94,9 @@ importers:
       '@axm.sh/core':
         specifier: workspace:*
         version: link:../core
+      '@axm.sh/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@clack/prompts':
         specifier: ^1.1.0
         version: 1.1.0

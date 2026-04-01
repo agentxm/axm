@@ -7,7 +7,9 @@
   "tags": ["type:e2e", "scope:spike"],
   "targets": {
     "e2e": {
+      "cache": true,
       "dependsOn": ["cli-spike:compile"],
+      "inputs": ["default", "^production"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run",

@@ -35,6 +35,6 @@ describe("axm token", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stdout + result.stderr).toContain("AUTH_LOGIN_REQUIRED");
-    expect(result.stderr).toContain("Authentication required");
+    expect(result.stderr).toContain("No token available");
   });
 });

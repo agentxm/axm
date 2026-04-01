@@ -31,7 +31,7 @@ describe("compiled binary smoke", () => {
 
     expect(result.exitCode).toBe(1);
     expect(getOutput(result)).toContain("AUTH_LOGIN_REQUIRED");
-    expect(getOutput(result)).toContain("Authentication required");
+    expect(getOutput(result)).toContain("No token available");
   });
 
   it("exits non-zero for skills disable on a missing skill", async () => {

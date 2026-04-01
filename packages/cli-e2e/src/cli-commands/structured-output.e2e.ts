@@ -95,7 +95,7 @@ describe("structured output (--json)", () => {
           schemaVersion: 1,
           code: "AUTH_LOGIN_REQUIRED",
         });
-        expect(result.stderr).toContain("Authentication required");
+        expect(result.stderr).toContain("No token available");
       } finally {
         temp.cleanup();
       }

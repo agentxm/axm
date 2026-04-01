@@ -1,19 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  expectExitCode,
-  expectStderr,
-  expectStdout,
-  getOutput,
-  parseJsonOutput,
-} from "@axm.sh/e2e-utils";
+import { expectExitCode, expectStdout, getOutput, parseJsonOutput } from "@axm.sh/e2e-utils";
 
 import { runCli } from "./utils.js";
 
-// NOTE: E2E tests run in non-TTY mode, so the CLI uses the MachineRenderer.
-// Chrome output (log, intro, note, box) goes to stderr as NDJSON events.
-// Data display (table, detail, tree) are no-ops in machine mode.
-// Machine data output (result, raw, json) goes to stdout.
+// NOTE: E2E tests run the compiled binary in default text mode.
+// Human-readable output goes to stdout unless --json is requested.
 
 describe("outputs commands", () => {
   it("outputs --help lists all 14 subcommands", async () => {
@@ -40,46 +32,42 @@ describe("outputs commands", () => {
     }
   });
 
-  it("outputs log produces all 7 log levels on stderr", async () => {
+  it("outputs log produces all 7 log levels on stdout", async () => {
     const result = await runCli(["outputs", "log"]);
     expectExitCode(result, 0);
-    // In machine mode, log messages are NDJSON events on stderr
-    expectStderr(result, "plain message");
-    expectStderr(result, "info message");
-    expectStderr(result, "success message");
-    expectStderr(result, "step message");
-    expectStderr(result, "warning message");
-    expectStderr(result, "error message");
-    expectStderr(result, "cancel message");
+    expectStdout(result, "plain message");
+    expectStdout(result, "info message");
+    expectStdout(result, "success message");
+    expectStdout(result, "step message");
+    expectStdout(result, "warning message");
+    expectStdout(result, "error message");
+    expectStdout(result, "cancel message");
   });
 
   it("outputs intro renders intro/outro framing", async () => {
     const result = await runCli(["outputs", "intro"]);
     expectExitCode(result, 0);
-    // Machine mode emits NDJSON log events to stderr
-    expectStderr(result, "Welcome to axm-spike");
-    expectStderr(result, "Goodbye");
+    expectStdout(result, "Welcome to axm-spike");
+    expectStdout(result, "Goodbye");
   });
 
   it("outputs note renders boxed note", async () => {
     const result = await runCli(["outputs", "note"]);
     expectExitCode(result, 0);
-    // Machine mode emits note content as NDJSON log event to stderr
-    expectStderr(result, "This note has a title");
-    expectStderr(result, "Important");
+    expectStdout(result, "This note has a title");
+    expectStdout(result, "Important");
   });
 
   it("outputs box renders default box", async () => {
     const result = await runCli(["outputs", "box"]);
     expectExitCode(result, 0);
-    // Machine mode emits box content as NDJSON log event to stderr
-    expectStderr(result, "content inside a box");
+    expectStdout(result, "content inside a box");
   });
 
   it("outputs box --rounded --width 40 renders with options", async () => {
     const result = await runCli(["outputs", "box", "--rounded", "--width", "40"]);
     expectExitCode(result, 0);
-    expectStderr(result, "content inside a box");
+    expectStdout(result, "content inside a box");
   });
 
   it("outputs spinner completes with success", async () => {
@@ -95,8 +83,7 @@ describe("outputs commands", () => {
   it("outputs task-log --retain-log retains output", async () => {
     const result = await runCli(["outputs", "task-log", "--retain-log"], { timeout: 15000 });
     expectExitCode(result, 0);
-    // Machine mode emits task log messages as NDJSON to stderr
-    expectStderr(result, "Building project");
+    expectStdout(result, "Building project");
   }, 15000);
 
   it("outputs run-tasks shows task status", async () => {
@@ -136,8 +123,7 @@ describe("outputs commands", () => {
   it("outputs result renders human-readable output", async () => {
     const result = await runCli(["outputs", "result"]);
     expectExitCode(result, 0);
-    // In machine mode without --json, result uses log methods which emit to stderr
-    expectStderr(result, "pr-review");
+    expectStdout(result, "pr-review");
   });
 
   it("outputs result --json emits structured data to stdout", async () => {

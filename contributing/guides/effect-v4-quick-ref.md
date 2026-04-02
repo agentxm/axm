@@ -12,8 +12,9 @@ projects.
 
 - [Effect Guide](./effect.md) - Main Effect orientation for this repo
 - [Effect Option Guide](./effect-option.md) - Option and nullable boundaries
-- [effect-smol MIGRATION](../../.reference/effect-smol/MIGRATION.md) - Local
-  migration reference
+- [effect-smol source](../../../external/Effect-TS/effect-smol) - Effect v4
+  source, tests, and API reference; see `MIGRATION.md` and `migration/` there
+  for v3 → v4 details by topic
 
 ---
 

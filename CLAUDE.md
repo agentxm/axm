@@ -238,14 +238,31 @@ Do not use `as` type assertions or non-null assertions (`!`).
 - Rare escape hatch: `as unknown as T` with `// Assertion needed:` comment
 - Validate parsed data with Schema instead of asserting it
 
+## External Dependency Sources
+
+Local source checkouts of key dependencies live at
+`../external/{org}/{repo}` (relative to this repo root). Read these sources to
+understand internal behavior beyond public API docs, learn idiomatic patterns
+from reference implementations, and research bugs or breaking changes via
+upstream issues and discussions. Each checkout should be on the tag matching the
+dependency version so the source you read matches the code you run.
+
+| Package                  | Version         | Local path                          | Upstream                                                          | Tag                    |
+| ------------------------ | --------------- | ----------------------------------- | ----------------------------------------------------------------- | ---------------------- |
+| `effect` (+ `@effect/*`) | `4.0.0-beta.42` | `../external/Effect-TS/effect-smol` | [Effect-TS/effect-smol](https://github.com/Effect-TS/effect-smol) | `effect@4.0.0-beta.42` |
+| `@clack/prompts`         | `^1.1.0`        | `../external/bombshell-dev/clack`   | [bombshell-dev/clack](https://github.com/bombshell-dev/clack)     | `@clack/prompts@1.1.0` |
+
+Setup and sync instructions are in the
+[agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).
+
 ## Effect
 
 See [Effect Guide](contributing/guides/effect.md),
 [Effect Option Guide](contributing/guides/effect-option.md), and
 [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md).
 
-- Refer to `.reference/effect-smol` for idiomatic Effect v4 reference
-  implementations and Effect v4 capability/API questions.
+- Refer to `../external/Effect-TS/effect-smol` for idiomatic Effect v4
+  reference implementations and Effect v4 capability/API questions.
 
 - Use Effect collection types in signatures
 - Prefer `Option<T>` internally; convert nullable values at boundaries

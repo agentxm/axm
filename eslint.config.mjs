@@ -10,7 +10,6 @@ export default [
       "**/dist/**",
       "**/build/**",
       "**/node_modules/**",
-      ".reference/**",
       ".axm/cache/**",
       ".claude/worktrees/**",
       "**/.wrangler-artifacts/**",

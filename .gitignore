@@ -41,7 +41,6 @@ crashlytics-build.properties
 fabric.properties
 http-client.private.env.json
 
-.reference/
 .axm/cache/
 .claude/settings.local.json
 .claude/worktrees/

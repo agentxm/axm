@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { isContainer, isRoot, isSSH, isWSL } from "./environment.js";
 
 // ---------------------------------------------------------------------------
@@ -57,19 +57,25 @@ describe("Environment detection", () => {
       else delete process.env["SSH_TTY"];
     });
 
-    it("returns true when SSH_CLIENT is set", async () => {
-      process.env["SSH_CLIENT"] = "192.168.1.1 12345 22";
-      expect(await Effect.runPromise(isSSH)).toBe(true);
-    });
+    it.effect("returns true when SSH_CLIENT is set", () =>
+      Effect.gen(function* () {
+        process.env["SSH_CLIENT"] = "192.168.1.1 12345 22";
+        expect(yield* isSSH).toBe(true);
+      }),
+    );
 
-    it("returns true when SSH_TTY is set", async () => {
-      process.env["SSH_TTY"] = "/dev/pts/0";
-      expect(await Effect.runPromise(isSSH)).toBe(true);
-    });
+    it.effect("returns true when SSH_TTY is set", () =>
+      Effect.gen(function* () {
+        process.env["SSH_TTY"] = "/dev/pts/0";
+        expect(yield* isSSH).toBe(true);
+      }),
+    );
 
-    it("returns false when neither SSH var is set", async () => {
-      expect(await Effect.runPromise(isSSH)).toBe(false);
-    });
+    it.effect("returns false when neither SSH var is set", () =>
+      Effect.gen(function* () {
+        expect(yield* isSSH).toBe(false);
+      }),
+    );
   });
 
   describe("isRoot", () => {
@@ -105,57 +111,71 @@ describe("Environment detection", () => {
   });
 
   describe("isContainer", () => {
-    it("returns true when /.dockerenv exists", async () => {
-      const layer = mockFileSystem({ exists: (p) => p === "/.dockerenv" });
-      const result = await Effect.runPromise(isContainer.pipe(Effect.provide(layer)));
-      expect(result).toBe(true);
-    });
+    it.effect("returns true when /.dockerenv exists", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({ exists: (p) => p === "/.dockerenv" });
+        const result = yield* isContainer.pipe(Effect.provide(layer));
+        expect(result).toBe(true);
+      }),
+    );
 
-    it("returns true when /.containerenv exists", async () => {
-      const layer = mockFileSystem({ exists: (p) => p === "/.containerenv" });
-      const result = await Effect.runPromise(isContainer.pipe(Effect.provide(layer)));
-      expect(result).toBe(true);
-    });
+    it.effect("returns true when /.containerenv exists", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({ exists: (p) => p === "/.containerenv" });
+        const result = yield* isContainer.pipe(Effect.provide(layer));
+        expect(result).toBe(true);
+      }),
+    );
 
-    it("returns false when neither exists", async () => {
-      const layer = mockFileSystem({ exists: () => false });
-      const result = await Effect.runPromise(isContainer.pipe(Effect.provide(layer)));
-      expect(result).toBe(false);
-    });
+    it.effect("returns false when neither exists", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({ exists: () => false });
+        const result = yield* isContainer.pipe(Effect.provide(layer));
+        expect(result).toBe(false);
+      }),
+    );
   });
 
   describe("isWSL", () => {
-    it("returns true when /proc/version contains microsoft", async () => {
-      const layer = mockFileSystem({
-        exists: (p) => p === "/proc/version",
-        readFileString: () => "Linux version 5.10.16.3-microsoft-standard-WSL2 (oe-user@oe-host)",
-      });
-      const result = await Effect.runPromise(isWSL.pipe(Effect.provide(layer)));
-      expect(result).toBe(true);
-    });
+    it.effect("returns true when /proc/version contains microsoft", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({
+          exists: (p) => p === "/proc/version",
+          readFileString: () => "Linux version 5.10.16.3-microsoft-standard-WSL2 (oe-user@oe-host)",
+        });
+        const result = yield* isWSL.pipe(Effect.provide(layer));
+        expect(result).toBe(true);
+      }),
+    );
 
-    it("returns true case-insensitively", async () => {
-      const layer = mockFileSystem({
-        exists: (p) => p === "/proc/version",
-        readFileString: () => "Linux version 5.10.16.3-Microsoft-standard",
-      });
-      const result = await Effect.runPromise(isWSL.pipe(Effect.provide(layer)));
-      expect(result).toBe(true);
-    });
+    it.effect("returns true case-insensitively", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({
+          exists: (p) => p === "/proc/version",
+          readFileString: () => "Linux version 5.10.16.3-Microsoft-standard",
+        });
+        const result = yield* isWSL.pipe(Effect.provide(layer));
+        expect(result).toBe(true);
+      }),
+    );
 
-    it("returns false when /proc/version does not contain microsoft", async () => {
-      const layer = mockFileSystem({
-        exists: (p) => p === "/proc/version",
-        readFileString: () => "Linux version 5.10.0-generic (builder@buildhost)",
-      });
-      const result = await Effect.runPromise(isWSL.pipe(Effect.provide(layer)));
-      expect(result).toBe(false);
-    });
+    it.effect("returns false when /proc/version does not contain microsoft", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({
+          exists: (p) => p === "/proc/version",
+          readFileString: () => "Linux version 5.10.0-generic (builder@buildhost)",
+        });
+        const result = yield* isWSL.pipe(Effect.provide(layer));
+        expect(result).toBe(false);
+      }),
+    );
 
-    it("returns false when /proc/version does not exist", async () => {
-      const layer = mockFileSystem({ exists: () => false });
-      const result = await Effect.runPromise(isWSL.pipe(Effect.provide(layer)));
-      expect(result).toBe(false);
-    });
+    it.effect("returns false when /proc/version does not exist", () =>
+      Effect.gen(function* () {
+        const layer = mockFileSystem({ exists: () => false });
+        const result = yield* isWSL.pipe(Effect.provide(layer));
+        expect(result).toBe(false);
+      }),
+    );
   });
 });

@@ -3,17 +3,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
-import { describe, expect, it } from "vitest";
+import * as Exit from "effect/Exit";
+import { describe, expect, it } from "@effect/vitest";
 import { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 
-const runSync = <A>(effect: Effect.Effect<A, unknown>) =>
-  Effect.runSyncExit(effect).pipe((exit) =>
-    exit._tag === "Success" ? Result.succeed(exit.value) : Result.fail(exit.cause),
-  );
-
 describe("parseFqn", () => {
-  it.each([
+  [
     {
       input: "@acme/skills/code-review",
       expected: { handle: "@acme", type: "skills", name: "code-review" },
@@ -38,16 +33,16 @@ describe("parseFqn", () => {
       input: "@acme/commands/deploy",
       expected: { handle: "@acme", type: "commands", name: "deploy" },
     },
-  ])("parses valid FQN: $input", ({ input, expected }) => {
-    const result = runSync(parseFqn(input));
-
-    expect(Result.isSuccess(result)).toBe(true);
-    if (Result.isSuccess(result)) {
-      expect(result.success).toEqual(expected);
-    }
+  ].forEach(({ input, expected }) => {
+    it.effect(`parses valid FQN: ${input}`, () =>
+      Effect.gen(function* () {
+        const result = yield* parseFqn(input);
+        expect(result).toEqual(expected);
+      }),
+    );
   });
 
-  it.each([
+  [
     { input: "@acme/code-review", desc: "2-segment name" },
     { input: "acme/skills/code-review", desc: "missing @ prefix" },
     { input: "code-review", desc: "bare name" },
@@ -57,10 +52,13 @@ describe("parseFqn", () => {
     { input: "@acme/skills/", desc: "trailing slash, no name" },
     { input: "@acme//code-review", desc: "missing type segment" },
     { input: "@/skills/code-review", desc: "empty handle" },
-  ])("rejects invalid input: $desc ($input)", ({ input }) => {
-    const result = runSync(parseFqn(input));
-
-    expect(Result.isFailure(result)).toBe(true);
+  ].forEach(({ input, desc }) => {
+    it.effect(`rejects invalid input: ${desc} (${input})`, () =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.exit(parseFqn(input));
+        expect(Exit.isFailure(exit)).toBe(true);
+      }),
+    );
   });
 });
 

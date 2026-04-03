@@ -56,35 +56,37 @@ describe("selectVersion", () => {
 // -----------------------------------------------------------------------------
 
 describe("computeIntegrity", () => {
-  it("computes sha512 integrity in SRI format", async () => {
-    const data = new TextEncoder().encode("hello world");
-    const result = await Effect.runPromise(
-      computeIntegrity(data).pipe(Effect.provide(NodeServices.layer)),
-    );
-    const expected = `sha512-${createHash("sha512").update(data).digest("base64")}`;
-    expect(result).toBe(expected);
-  });
+  it.effect("computes sha512 integrity in SRI format", () =>
+    Effect.gen(function* () {
+      const data = new TextEncoder().encode("hello world");
+      const result = yield* computeIntegrity(data).pipe(Effect.provide(NodeServices.layer));
+      const expected = `sha512-${createHash("sha512").update(data).digest("base64")}`;
+      expect(result).toBe(expected);
+    }),
+  );
 
-  it("returns different integrity for different data", async () => {
-    const data1 = new TextEncoder().encode("hello");
-    const data2 = new TextEncoder().encode("world");
-    const [result1, result2] = await Effect.runPromise(
-      Effect.all([computeIntegrity(data1), computeIntegrity(data2)]).pipe(
-        Effect.provide(NodeServices.layer),
-      ),
-    );
-    expect(result1).not.toBe(result2);
-  });
+  it.effect("returns different integrity for different data", () =>
+    Effect.gen(function* () {
+      const data1 = new TextEncoder().encode("hello");
+      const data2 = new TextEncoder().encode("world");
+      const [result1, result2] = yield* Effect.all([
+        computeIntegrity(data1),
+        computeIntegrity(data2),
+      ]).pipe(Effect.provide(NodeServices.layer));
+      expect(result1).not.toBe(result2);
+    }),
+  );
 
-  it("returns consistent integrity for same data", async () => {
-    const data = new TextEncoder().encode("test");
-    const [result1, result2] = await Effect.runPromise(
-      Effect.all([computeIntegrity(data), computeIntegrity(data)]).pipe(
-        Effect.provide(NodeServices.layer),
-      ),
-    );
-    expect(result1).toBe(result2);
-  });
+  it.effect("returns consistent integrity for same data", () =>
+    Effect.gen(function* () {
+      const data = new TextEncoder().encode("test");
+      const [result1, result2] = yield* Effect.all([
+        computeIntegrity(data),
+        computeIntegrity(data),
+      ]).pipe(Effect.provide(NodeServices.layer));
+      expect(result1).toBe(result2);
+    }),
+  );
 });
 
 // -----------------------------------------------------------------------------

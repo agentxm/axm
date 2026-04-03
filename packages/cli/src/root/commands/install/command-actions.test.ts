@@ -6,7 +6,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -69,81 +70,91 @@ const runWithActions = <A, E>(
   Effect.gen(function* () {
     const actions = yield* InstallCommandCommandWorkflowActions;
     return yield* fn(actions);
-  }).pipe(Effect.provide(actionsLayer), Effect.runPromise);
+  }).pipe(Effect.provide(actionsLayer));
 
 describe("parseCommandInstallArgs", () => {
-  it("parses @profile/commands/name registry pattern", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "@acme/commands/my-cmd",
-      }),
-    );
-    expect(result.profile).toBe("@acme");
-    expect(result.commandName).toBe("my-cmd");
-    expect(Option.isNone(result.versionConstraint)).toBe(true);
-    expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
-  });
+  it.effect("parses @profile/commands/name registry pattern", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/commands/my-cmd",
+        }),
+      );
+      expect(result.profile).toBe("@acme");
+      expect(result.commandName).toBe("my-cmd");
+      expect(Option.isNone(result.versionConstraint)).toBe(true);
+      expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
+    }),
+  );
 
-  it("parses @profile/commands/name@version with constraint", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "@acme/commands/my-cmd@^1.0.0",
-      }),
-    );
-    expect(result.profile).toBe("@acme");
-    expect(result.commandName).toBe("my-cmd");
-    expect(Option.getOrNull(result.versionConstraint)).toBe("^1.0.0");
-  });
+  it.effect("parses @profile/commands/name@version with constraint", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/commands/my-cmd@^1.0.0",
+        }),
+      );
+      expect(result.profile).toBe("@acme");
+      expect(result.commandName).toBe("my-cmd");
+      expect(Option.getOrNull(result.versionConstraint)).toBe("^1.0.0");
+    }),
+  );
 
-  it("resolves bare name using configured profile", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "my-cmd",
-      }),
-    );
-    expect(result.profile).toBe("@test-ns");
-    expect(result.commandName).toBe("my-cmd");
-    expect(result.resolvedInput).toBe("@test-ns/commands/my-cmd");
-  });
+  it.effect("resolves bare name using configured profile", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "my-cmd",
+        }),
+      );
+      expect(result.profile).toBe("@test-ns");
+      expect(result.commandName).toBe("my-cmd");
+      expect(result.resolvedInput).toBe("@test-ns/commands/my-cmd");
+    }),
+  );
 
-  it("rejects non-commands registry type", async () => {
-    await expect(
-      runWithActions((actions) =>
+  it.effect("rejects non-commands registry type", () =>
+    Effect.gen(function* () {
+      const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/skills/my-skill",
         }),
-      ),
-    ).rejects.toThrow();
-  });
+      ).pipe(Effect.flip);
+      expect(error).toBeDefined();
+    }),
+  );
 
-  it("rejects URL sources", async () => {
-    await expect(
-      runWithActions((actions) =>
+  it.effect("rejects URL sources", () =>
+    Effect.gen(function* () {
+      const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "https://example.com/repo",
         }),
-      ),
-    ).rejects.toThrow();
-  });
+      ).pipe(Effect.flip);
+      expect(error).toBeDefined();
+    }),
+  );
 
-  it("sets force to false (force is now passed through plan flags, not parsed args)", async () => {
-    const forceActionsLayer = Layer.provide(
-      InstallCommandCommandWorkflowActionsLive,
-      Layer.mergeAll(
-        Layer.succeed(Workspace, mockWorkspace),
-        Layer.succeed(CommandManager, mockCommandManager),
-        Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-        promptLayer,
-        NodeServices.layer,
-        TestFlagsLayer(),
-      ),
-    );
-    const result = await Effect.gen(function* () {
-      const actions = yield* InstallCommandCommandWorkflowActions;
-      return yield* actions.parseArgs({
-        source: "my-cmd",
-      });
-    }).pipe(Effect.provide(forceActionsLayer), Effect.runPromise);
-    expect(result.force).toBe(false);
-  });
+  it.effect("sets force to false (force is now passed through plan flags, not parsed args)", () =>
+    Effect.gen(function* () {
+      const forceActionsLayer = Layer.provide(
+        InstallCommandCommandWorkflowActionsLive,
+        Layer.mergeAll(
+          Layer.succeed(Workspace, mockWorkspace),
+          Layer.succeed(CommandManager, mockCommandManager),
+          Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+          promptLayer,
+          NodeServices.layer,
+          TestFlagsLayer(),
+        ),
+      );
+      const result = yield* Effect.gen(function* () {
+        const actions = yield* InstallCommandCommandWorkflowActions;
+        return yield* actions.parseArgs({
+          source: "my-cmd",
+        });
+      }).pipe(Effect.provide(forceActionsLayer));
+      expect(result.force).toBe(false);
+    }),
+  );
 });

@@ -15,7 +15,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { makeAppError } from "../../../app-error/index.js";
 import type {
@@ -43,7 +43,7 @@ import { at } from "../../../test-helpers.js";
 
 const runEffect = <A, E>(
   effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
-) => Effect.runPromise(effect.pipe(Effect.scoped, Effect.provide(NodeServices.layer)));
+) => effect.pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 const sha512 = (data: Uint8Array): string => {
   const b64 = createHash("sha512").update(data).digest("base64");
@@ -189,7 +189,7 @@ const expectRegistryPackRef = (ref: ExtensionRef): RegistryPackRef => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
-  it("maps FindOptions to GetExtensionsByProfileArgs and returns ExtensionRefs", () => {
+  it.effect("maps FindOptions to GetExtensionsByProfileArgs and returns ExtensionRefs", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByProfileArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
@@ -260,7 +260,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps mcp-server entries to McpServerExtensionRef", () => {
+  it.effect("maps mcp-server entries to McpServerExtensionRef", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -303,7 +303,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps command entries to CommandExtensionRef", () => {
+  it.effect("maps command entries to CommandExtensionRef", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -346,7 +346,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps pack entries to PackExtensionRef with empty deps", () => {
+  it.effect("maps pack entries to PackExtensionRef with empty deps", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -392,7 +392,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps pack entries with mixed dependency types", () => {
+  it.effect("maps pack entries with mixed dependency types", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -443,7 +443,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("ignores malformed dependency keys in pack entries", () => {
+  it.effect("ignores malformed dependency keys in pack entries", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -487,7 +487,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("returns empty array when client returns empty", () => {
+  it.effect("returns empty array when client returns empty", () => {
     const registry = makeTestRegistry();
     const client = createMockClient({
       getExtensionsByScope: () => Effect.succeed(toResult([])),
@@ -503,7 +503,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps wildcard type to client", () => {
+  it.effect("maps wildcard type to client", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByProfileArgs | undefined;
 
@@ -530,7 +530,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.fetch", () => {
-  it("delegates to client.getExtensionPackage and verifies integrity", () => {
+  it.effect("delegates to client.getExtensionPackage and verifies integrity", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
     const integrity = sha512(archiveBytes);
 
@@ -579,7 +579,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     );
   });
 
-  it("fails on integrity mismatch", () => {
+  it.effect("fails on integrity mismatch", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
 
     const client = createMockClient({
@@ -611,7 +611,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     );
   });
 
-  it("extracts profile/type/name/version from mcp-server ref", () => {
+  it.effect("extracts profile/type/name/version from mcp-server ref", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
     const integrity = sha512(archiveBytes);
 
@@ -654,7 +654,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.publishExtension", () => {
-  it("delegates to client.publishExtension", () => {
+  it.effect("delegates to client.publishExtension", () => {
     let capturedArgs: Parameters<RegistryClient["publishExtension"]>[0] | undefined;
 
     const client = createMockClient({
@@ -688,7 +688,7 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.match", () => {
-  it("matches file:// URLs", () => {
+  it.effect("matches file:// URLs", () => {
     const client = createMockClient();
     const provider = createLocalRegistrySourceHostProvider(client);
 
@@ -700,7 +700,7 @@ describe("LocalRegistrySourceHostProvider.match", () => {
     );
   });
 
-  it("does not match https:// URLs", () => {
+  it.effect("does not match https:// URLs", () => {
     const client = createMockClient();
     const provider = createLocalRegistrySourceHostProvider(client);
 
@@ -718,7 +718,7 @@ describe("LocalRegistrySourceHostProvider.match", () => {
 // -----------------------------------------------------------------------------
 
 describe("RemoteRegistrySourceHostProvider", () => {
-  it("find fails when client returns error", () => {
+  it.effect("find fails when client returns error", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 
@@ -733,7 +733,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
     );
   });
 
-  it("fetch fails when client returns error", () => {
+  it.effect("fetch fails when client returns error", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 
@@ -759,7 +759,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
     );
   });
 
-  it("publishExtension fails when client returns error", () => {
+  it.effect("publishExtension fails when client returns error", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 
@@ -783,7 +783,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
     );
   });
 
-  it("matches https:// URLs", () => {
+  it.effect("matches https:// URLs", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 
@@ -795,7 +795,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
     );
   });
 
-  it("does not match file:// URLs", () => {
+  it.effect("does not match file:// URLs", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 

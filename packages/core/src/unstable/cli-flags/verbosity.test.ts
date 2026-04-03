@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import {
   type VerbosityLevel,
   Verbosity,
@@ -11,70 +11,85 @@ describe("Verbosity", () => {
   describe("isAtLeast", () => {
     const levels: ReadonlyArray<VerbosityLevel> = ["quiet", "normal", "verbose", "debug"];
 
-    it.each(levels)("level '%s' is at least itself", async (level) => {
-      const result = await Effect.gen(function* () {
-        const v = yield* Verbosity;
-        return v.isAtLeast(level);
-      }).pipe(Effect.provide(makeVerbosityLayer(level)), Effect.runPromise);
-
-      expect(result).toBe(true);
-    });
-
-    it("quiet is not at least normal", async () => {
-      const result = await Effect.gen(function* () {
-        const v = yield* Verbosity;
-        return v.isAtLeast("normal");
-      }).pipe(Effect.provide(makeVerbosityLayer("quiet")), Effect.runPromise);
-
-      expect(result).toBe(false);
-    });
-
-    it("debug is at least every level", async () => {
-      const results = await Effect.forEach(levels, (min) =>
+    levels.forEach((level) => {
+      it.effect(`level '${level}' is at least itself`, () =>
         Effect.gen(function* () {
-          const v = yield* Verbosity;
-          return v.isAtLeast(min);
-        }),
-      ).pipe(Effect.provide(makeVerbosityLayer("debug")), Effect.runPromise);
+          const result = yield* Effect.gen(function* () {
+            const v = yield* Verbosity;
+            return v.isAtLeast(level);
+          }).pipe(Effect.provide(makeVerbosityLayer(level)));
 
-      expect(results).toEqual([true, true, true, true]);
+          expect(result).toBe(true);
+        }),
+      );
     });
 
-    it("normal is at least quiet but not verbose or debug", async () => {
-      const results = await Effect.forEach(levels, (min) =>
-        Effect.gen(function* () {
+    it.effect("quiet is not at least normal", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.gen(function* () {
           const v = yield* Verbosity;
-          return v.isAtLeast(min);
-        }),
-      ).pipe(Effect.provide(makeVerbosityLayer("normal")), Effect.runPromise);
+          return v.isAtLeast("normal");
+        }).pipe(Effect.provide(makeVerbosityLayer("quiet")));
 
-      expect(results).toEqual([true, true, false, false]);
-    });
+        expect(result).toBe(false);
+      }),
+    );
 
-    it("verbose is at least quiet and normal but not debug", async () => {
-      const results = await Effect.forEach(levels, (min) =>
-        Effect.gen(function* () {
-          const v = yield* Verbosity;
-          return v.isAtLeast(min);
-        }),
-      ).pipe(Effect.provide(makeVerbosityLayer("verbose")), Effect.runPromise);
+    it.effect("debug is at least every level", () =>
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(levels, (min) =>
+          Effect.gen(function* () {
+            const v = yield* Verbosity;
+            return v.isAtLeast(min);
+          }),
+        ).pipe(Effect.provide(makeVerbosityLayer("debug")));
 
-      expect(results).toEqual([true, true, true, false]);
-    });
+        expect(results).toEqual([true, true, true, true]);
+      }),
+    );
+
+    it.effect("normal is at least quiet but not verbose or debug", () =>
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(levels, (min) =>
+          Effect.gen(function* () {
+            const v = yield* Verbosity;
+            return v.isAtLeast(min);
+          }),
+        ).pipe(Effect.provide(makeVerbosityLayer("normal")));
+
+        expect(results).toEqual([true, true, false, false]);
+      }),
+    );
+
+    it.effect("verbose is at least quiet and normal but not debug", () =>
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(levels, (min) =>
+          Effect.gen(function* () {
+            const v = yield* Verbosity;
+            return v.isAtLeast(min);
+          }),
+        ).pipe(Effect.provide(makeVerbosityLayer("verbose")));
+
+        expect(results).toEqual([true, true, true, false]);
+      }),
+    );
   });
 
   describe("makeVerbosityLayer", () => {
-    it.each<VerbosityLevel>(["quiet", "normal", "verbose", "debug"])(
-      "constructs layer with level '%s'",
-      async (level) => {
-        const result = await Effect.gen(function* () {
-          const v = yield* Verbosity;
-          return v.level;
-        }).pipe(Effect.provide(makeVerbosityLayer(level)), Effect.runPromise);
+    (
+      ["quiet", "normal", "verbose", "debug"] as const satisfies ReadonlyArray<VerbosityLevel>
+    ).forEach((level) => {
+      it.effect(`constructs layer with level '${level}'`, () =>
+        Effect.gen(function* () {
+          const result = yield* Effect.gen(function* () {
+            const v = yield* Verbosity;
+            return v.level;
+          }).pipe(Effect.provide(makeVerbosityLayer(level)));
 
-        expect(result).toBe(level);
-      },
-    );
+          expect(result).toBe(level);
+        }),
+      );
+    });
   });
 
   describe("verbosityToLogLevel", () => {

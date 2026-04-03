@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/index.js";
@@ -153,7 +153,7 @@ const runWithService = <A, E>(
     Layer.provide(NodeServices.layer),
   );
   const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer);
-  return Effect.runPromise(effect.pipe(Effect.provide(fullLayer), Effect.scoped));
+  return effect.pipe(Effect.provide(fullLayer), Effect.scoped);
 };
 
 // -----------------------------------------------------------------------------
@@ -161,7 +161,7 @@ const runWithService = <A, E>(
 // -----------------------------------------------------------------------------
 
 describe("registry meta-provider profile routing", () => {
-  it("queries catch-all registry when no profile match", () => {
+  it.effect("queries catch-all registry when no profile match", () => {
     const registryRoot = makeRegistryDir();
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
@@ -203,7 +203,7 @@ describe("registry meta-provider profile routing", () => {
     );
   });
 
-  it("returns empty when no registries configured", () =>
+  it.effect("returns empty when no registries configured", () =>
     runWithService(
       [],
       Effect.gen(function* () {
@@ -218,9 +218,10 @@ describe("registry meta-provider profile routing", () => {
         );
         expect(refs).toHaveLength(0);
       }),
-    ));
+    ),
+  );
 
-  it("filters registry discovery to the requested profile", () => {
+  it.effect("filters registry discovery to the requested profile", () => {
     const registryRoot = makeRegistryDir();
     const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
     const otherScopeSkillDir = nodePath.join(
@@ -289,7 +290,7 @@ describe("registry meta-provider profile routing", () => {
     );
   });
 
-  it("uses the provided registry source and ignores other configured registries", () => {
+  it.effect("uses the provided registry source and ignores other configured registries", () => {
     const registryRoot = makeRegistryDir();
 
     return runWithService(
@@ -330,7 +331,7 @@ describe("registry meta-provider profile routing", () => {
 // -----------------------------------------------------------------------------
 
 describe("SourceHostProviders dispatch", () => {
-  it("dispatches to local provider for local source", () =>
+  it.effect("dispatches to local provider for local source", () =>
     runWithService(
       [],
       Effect.gen(function* () {
@@ -343,9 +344,10 @@ describe("SourceHostProviders dispatch", () => {
         // Local provider will fail because the dir doesn't exist
         expect(result._tag).toBe("Failure");
       }),
-    ));
+    ),
+  );
 
-  it("dispatches to git stub for git source", () =>
+  it.effect("dispatches to git stub for git source", () =>
     runWithService(
       [],
       Effect.gen(function* () {
@@ -363,9 +365,10 @@ describe("SourceHostProviders dispatch", () => {
           expect(result.failure.what).toContain("not yet supported");
         }
       }),
-    ));
+    ),
+  );
 
-  it("dispatches to azurerepos stub", () =>
+  it.effect("dispatches to azurerepos stub", () =>
     runWithService(
       [],
       Effect.gen(function* () {
@@ -388,9 +391,10 @@ describe("SourceHostProviders dispatch", () => {
 
         expect(result._tag).toBe("Failure");
       }),
-    ));
+    ),
+  );
 
-  it("dispatches to registry for registry source", () => {
+  it.effect("dispatches to registry for registry source", () => {
     const registryRoot = makeRegistryDir();
 
     return runWithService(
@@ -421,7 +425,7 @@ describe("SourceHostProviders dispatch", () => {
     );
   });
 
-  it("dispatches to builtin stub for builtin source", () =>
+  it.effect("dispatches to builtin stub for builtin source", () =>
     runWithService(
       [],
       Effect.gen(function* () {
@@ -433,5 +437,6 @@ describe("SourceHostProviders dispatch", () => {
           expect(result.failure.what).toContain("Builtin source provider find not yet implemented");
         }
       }),
-    ));
+    ),
+  );
 });

@@ -3,7 +3,7 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
   CodingAgentRepository,
@@ -93,23 +93,21 @@ const runBuildPlan = ({
   const { layer: rendererTestLayer } = TestRenderer.make();
   const testLayer = Layer.mergeAll(NodeServices.layer, rendererTestLayer);
 
-  return Effect.runSync(
-    buildSkillInstallPlan({
-      selectedSkills,
-      source,
-      force,
-      versionConstraint,
-    }).pipe(
-      Effect.provideService(Workspace, workspaceMock),
-      Effect.provideService(SourceHostProviders, sourceProvidersMock),
-      Effect.provideService(CodingAgentRepository, {
-        get: () => Effect.die(new Error("not implemented")),
-        all: Effect.succeed([]),
-        getConfiguredAgents: () => Effect.succeed([]),
-        getUnknownConfiguredAgentIds: () => Effect.succeed([]),
-      } satisfies CodingAgentRepositoryService),
-      Effect.provide(testLayer),
-    ),
+  return buildSkillInstallPlan({
+    selectedSkills,
+    source,
+    force,
+    versionConstraint,
+  }).pipe(
+    Effect.provideService(Workspace, workspaceMock),
+    Effect.provideService(SourceHostProviders, sourceProvidersMock),
+    Effect.provideService(CodingAgentRepository, {
+      get: () => Effect.die(new Error("not implemented")),
+      all: Effect.succeed([]),
+      getConfiguredAgents: () => Effect.succeed([]),
+      getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+    } satisfies CodingAgentRepositoryService),
+    Effect.provide(testLayer),
   );
 };
 
@@ -118,79 +116,90 @@ const runBuildPlan = ({
 // -----------------------------------------------------------------------------
 
 describe("buildSkillInstallPlan", () => {
-  it("sets default plan name and source-based description", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("commit")],
-      lockedSkills: {},
-    });
+  it.effect("sets default plan name and source-based description", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("commit")],
+        lockedSkills: {},
+      });
 
-    expect(plan.name).toBe("Install skill(s)");
-    expect(plan.description).toEqual(Option.some("Install skills from /fake"));
-  });
+      expect(plan.name).toBe("Install skill(s)");
+      expect(plan.description).toEqual(Option.some("Install skills from /fake"));
+    }),
+  );
 
-  it("marks new skills as ready with run closure", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("commit")],
-      lockedSkills: {},
-    });
+  it.effect("marks new skills as ready with run closure", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("commit")],
+        lockedSkills: {},
+      });
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(at(plan.jobs, 0).steps).toHaveLength(1);
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("ready");
-    expect(step.label).toBe("commit");
-    expect("run" in step).toBe(true);
-  });
+      expect(plan.jobs).toHaveLength(1);
+      expect(at(plan.jobs, 0).steps).toHaveLength(1);
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("ready");
+      expect(step.label).toBe("commit");
+      expect("run" in step).toBe(true);
+    }),
+  );
 
-  it("marks already-installed skills as ready no-op", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("commit")],
-      lockedSkills: lockfileWith("commit"),
-    });
+  it.effect("marks already-installed skills as ready no-op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("commit")],
+        lockedSkills: lockfileWith("commit"),
+      });
 
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("ready");
-    // No-op run closure returns "already installed" when executed
-    if (step.readiness === "ready") {
-      const result = Effect.runSync(step.run);
-      expect(result.result).toBe("success");
-      expect(result.message).toContain("already installed");
-    }
-  });
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("ready");
+      if (step.readiness === "ready") {
+        const result = yield* step.run;
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("already installed");
+      }
+    }),
+  );
 
-  it("creates a single serial job", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("a"), makeLocalSkillRef("b")],
-      lockedSkills: {},
-    });
+  it.effect("creates a single serial job", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("a"), makeLocalSkillRef("b")],
+        lockedSkills: {},
+      });
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(at(plan.jobs, 0).concurrency).toBe(1);
-  });
+      expect(plan.jobs).toHaveLength(1);
+      expect(at(plan.jobs, 0).concurrency).toBe(1);
+    }),
+  );
 
-  it("marks already-installed skills as ready with run closure when force is true", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("commit")],
-      lockedSkills: lockfileWith("commit"),
-      force: true,
-    });
+  it.effect("marks already-installed skills as ready with run closure when force is true", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("commit")],
+        lockedSkills: lockfileWith("commit"),
+        force: true,
+      });
 
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("ready");
-    expect("run" in step).toBe(true);
-  });
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("ready");
+      expect("run" in step).toBe(true);
+    }),
+  );
 
-  it("produces steps with correct labels matching skill names", () => {
-    const plan = runBuildPlan({
-      selectedSkills: [makeLocalSkillRef("local-skill"), makeRegistrySkillRef("registry-skill")],
-      lockedSkills: {},
-      versionConstraint: Option.some("^1.2.3"),
-    });
+  it.effect("produces steps with correct labels matching skill names", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan({
+        selectedSkills: [makeLocalSkillRef("local-skill"), makeRegistrySkillRef("registry-skill")],
+        lockedSkills: {},
+        versionConstraint: Option.some("^1.2.3"),
+      });
 
-    const localStep = at(at(plan.jobs, 0).steps, 0);
-    const registryStep = at(at(plan.jobs, 0).steps, 1);
+      const localStep = at(at(plan.jobs, 0).steps, 0);
+      const registryStep = at(at(plan.jobs, 0).steps, 1);
 
-    expect(localStep.label).toBe("local-skill");
-    expect(registryStep.label).toBe("registry-skill");
-  });
+      expect(localStep.label).toBe("local-skill");
+      expect(registryStep.label).toBe("registry-skill");
+    }),
+  );
 });

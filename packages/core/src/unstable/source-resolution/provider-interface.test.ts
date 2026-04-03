@@ -7,7 +7,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import type { GitHostedSkillRef } from "../skills/index.js";
 import type {
   BuiltinSource,
@@ -73,74 +73,80 @@ describe("SourceHostProvider", () => {
     expect(provider.type).toBe("github");
   });
 
-  it("has match method that returns Effect<boolean>", async () => {
-    const provider = makeGitHubProvider();
-    const result = await Effect.runPromise(
-      provider.match(new URL("https://github.com/owner/repo")),
-    );
-    expect(result).toBe(true);
-  });
+  it.effect("has match method that returns Effect<boolean>", () =>
+    Effect.gen(function* () {
+      const provider = makeGitHubProvider();
+      const result = yield* provider.match(new URL("https://github.com/owner/repo"));
+      expect(result).toBe(true);
+    }),
+  );
 
-  it("match returns false for non-matching URLs", async () => {
-    const provider = makeGitHubProvider();
-    const result = await Effect.runPromise(
-      provider.match(new URL("https://gitlab.com/owner/repo")),
-    );
-    expect(result).toBe(false);
-  });
+  it.effect("match returns false for non-matching URLs", () =>
+    Effect.gen(function* () {
+      const provider = makeGitHubProvider();
+      const result = yield* provider.match(new URL("https://gitlab.com/owner/repo"));
+      expect(result).toBe(false);
+    }),
+  );
 
-  it("has find method that returns Effect<ReadonlyArray<ExtensionRef>>", async () => {
-    const provider = makeGitHubProvider();
-    const source: GitHubSource = {
-      type: "github",
-      url: new URL("https://github.com"),
-      owner: "test",
-      repo: "repo",
-      ref: Option.none(),
-      subPath: Option.none(),
-    };
-    const options: FindOptions = {
-      skillNames: [],
-      type: "skill",
-      profile: Option.none(),
-      versionConstraint: Option.none(),
-    };
-    const result = await Effect.runPromise(provider.find(source, options));
-    expect(Array.isArray(result)).toBe(true);
-  });
+  it.effect("has find method that returns Effect<ReadonlyArray<ExtensionRef>>", () =>
+    Effect.gen(function* () {
+      const provider = makeGitHubProvider();
+      const source: GitHubSource = {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "test",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      };
+      const options: FindOptions = {
+        skillNames: [],
+        type: "skill",
+        profile: Option.none(),
+        versionConstraint: Option.none(),
+      };
+      const result = yield* provider.find(source, options);
+      expect(Array.isArray(result)).toBe(true);
+    }),
+  );
 
-  it("has fetch method that returns Effect<ExtensionFiles>", async () => {
-    const provider = makeGitHubProvider();
-    const source: GitHubSource = {
-      type: "github",
-      url: new URL("https://github.com"),
-      owner: "test",
-      repo: "repo",
-      ref: Option.none(),
-      subPath: Option.none(),
-    };
-    const ref: GitHostedSkillRef = {
-      type: "skill",
-      refType: "git-hosted",
-      skill: { name: "test-skill", description: Option.none(), metadata: Option.none() },
-      source,
-      location: "file:///tmp/clone",
-      gitTreeSha: Option.none(),
-    };
-    const result = await Effect.runPromise(provider.fetch(source, ref));
-    expect(result.directory).toBe("/tmp/clone");
-  });
+  it.effect("has fetch method that returns Effect<ExtensionFiles>", () =>
+    Effect.gen(function* () {
+      const provider = makeGitHubProvider();
+      const source: GitHubSource = {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "test",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      };
+      const ref: GitHostedSkillRef = {
+        type: "skill",
+        refType: "git-hosted",
+        skill: { name: "test-skill", description: Option.none(), metadata: Option.none() },
+        source,
+        location: "file:///tmp/clone",
+        gitTreeSha: Option.none(),
+      };
+      const result = yield* provider.fetch(source, ref);
+      expect(result.directory).toBe("/tmp/clone");
+    }),
+  );
 
   it("builtin provider type is 'builtin'", () => {
     const provider = makeBuiltinProvider();
     expect(provider.type).toBe("builtin");
   });
 
-  it("builtin provider match always returns false", async () => {
-    const provider = makeBuiltinProvider();
-    const result = await Effect.runPromise(provider.match(new URL("https://example.com")));
-    expect(result).toBe(false);
-  });
+  it.effect("builtin provider match always returns false", () =>
+    Effect.gen(function* () {
+      const provider = makeBuiltinProvider();
+      const result = yield* provider.match(new URL("https://example.com"));
+      expect(result).toBe(false);
+    }),
+  );
 });
 
 // -----------------------------------------------------------------------------
@@ -157,18 +163,25 @@ describe("registry provider shape", () => {
     expect(typeof provider.publishExtension).toBe("function");
   });
 
-  it("publishExtension returns Effect<void>", async () => {
-    const provider = makeRegistryProvider();
-    const metadata: VersionEntry = {
-      version: "1.0.0",
-      published: "2025-01-01T00:00:00Z",
-      integrity: "sha512-AAAA==",
-    };
-    const result = await Effect.runPromise(
-      provider.publishExtension("@test", "skill", "my-skill", "1.0.0", new Uint8Array(), metadata),
-    );
-    expect(result).toBeUndefined();
-  });
+  it.effect("publishExtension returns Effect<void>", () =>
+    Effect.gen(function* () {
+      const provider = makeRegistryProvider();
+      const metadata: VersionEntry = {
+        version: "1.0.0",
+        published: "2025-01-01T00:00:00Z",
+        integrity: "sha512-AAAA==",
+      };
+      const result = yield* provider.publishExtension(
+        "@test",
+        "skill",
+        "my-skill",
+        "1.0.0",
+        new Uint8Array(),
+        metadata,
+      );
+      expect(result).toBeUndefined();
+    }),
+  );
 
   it("is assignable to SourceHostProvider", () => {
     const provider: RegistryProviderWithPublish = makeRegistryProvider();

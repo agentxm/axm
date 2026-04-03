@@ -5,7 +5,7 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -44,132 +44,150 @@ const runBuildPlan = (
   installed: InstalledSkills,
   name: string,
   description: Option.Option<string>,
-) =>
-  Effect.runSync(
-    buildSkillUninstallPlan(ops, installed, name, description).pipe(Effect.provide(testLayer)),
-  );
+) => buildSkillUninstallPlan(ops, installed, name, description).pipe(Effect.provide(testLayer));
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("buildSkillUninstallPlan", () => {
-  it("marks installed skills as ready", () => {
-    const plan = runBuildPlan(
-      [makeOp("commit")],
-      installedWith("commit"),
-      "Uninstall",
-      Option.none(),
-    );
+  it.effect("marks installed skills as ready", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit")],
+        installedWith("commit"),
+        "Uninstall",
+        Option.none(),
+      );
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(at(plan.jobs, 0).steps).toHaveLength(1);
-    expect(at(at(plan.jobs, 0).steps, 0).readiness).toBe("ready");
-  });
+      expect(plan.jobs).toHaveLength(1);
+      expect(at(plan.jobs, 0).steps).toHaveLength(1);
+      expect(at(at(plan.jobs, 0).steps, 0).readiness).toBe("ready");
+    }),
+  );
 
-  it("marks skills not installed as ready with no-op run", () => {
-    const plan = runBuildPlan([makeOp("commit")], emptyInstalled, "Uninstall", Option.none());
+  it.effect("marks skills not installed as ready with no-op run", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit")],
+        emptyInstalled,
+        "Uninstall",
+        Option.none(),
+      );
 
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("ready");
-    if (step.readiness === "ready") {
-      const result = Effect.runSync(step.run);
-      expect(result.result).toBe("success");
-      expect(result.message).toContain("not installed");
-    }
-  });
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("ready");
+      if (step.readiness === "ready") {
+        const result = yield* step.run;
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("not installed");
+      }
+    }),
+  );
 
-  it("produces empty plan from empty operations", () => {
-    const plan = runBuildPlan([], emptyInstalled, "Uninstall", Option.none());
+  it.effect("produces empty plan from empty operations", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan([], emptyInstalled, "Uninstall", Option.none());
+      expect(plan.jobs).toHaveLength(1);
+      expect(at(plan.jobs, 0).steps).toHaveLength(0);
+    }),
+  );
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(at(plan.jobs, 0).steps).toHaveLength(0);
-  });
+  it.effect("derives label from skillName", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit"), makeOp("review-pr")],
+        installedWith("commit", "review-pr"),
+        "Uninstall",
+        Option.none(),
+      );
 
-  it("derives label from skillName", () => {
-    const plan = runBuildPlan(
-      [makeOp("commit"), makeOp("review-pr")],
-      installedWith("commit", "review-pr"),
-      "Uninstall",
-      Option.none(),
-    );
+      expect(at(at(plan.jobs, 0).steps, 0).label).toBe("commit");
+      expect(at(at(plan.jobs, 0).steps, 1).label).toBe("review-pr");
+    }),
+  );
 
-    expect(at(at(plan.jobs, 0).steps, 0).label).toBe("commit");
-    expect(at(at(plan.jobs, 0).steps, 1).label).toBe("review-pr");
-  });
+  it.effect("passes through caller-provided name and description", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit")],
+        installedWith("commit"),
+        "Uninstall skill(s)",
+        Option.some("Uninstall skills from workspace"),
+      );
 
-  it("passes through caller-provided name and description", () => {
-    const plan = runBuildPlan(
-      [makeOp("commit")],
-      installedWith("commit"),
-      "Uninstall skill(s)",
-      Option.some("Uninstall skills from workspace"),
-    );
+      expect(plan.name).toBe("Uninstall skill(s)");
+      expect(plan.description).toEqual(Option.some("Uninstall skills from workspace"));
+    }),
+  );
 
-    expect(plan.name).toBe("Uninstall skill(s)");
-    expect(plan.description).toEqual(Option.some("Uninstall skills from workspace"));
-  });
+  it.effect("creates a single job with serial concurrency", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("a"), makeOp("b")],
+        installedWith("a", "b"),
+        "Uninstall",
+        Option.none(),
+      );
 
-  it("creates a single job with serial concurrency", () => {
-    const plan = runBuildPlan(
-      [makeOp("a"), makeOp("b")],
-      installedWith("a", "b"),
-      "Uninstall",
-      Option.none(),
-    );
+      expect(plan.jobs).toHaveLength(1);
+      expect(at(plan.jobs, 0).concurrency).toBe(1);
+    }),
+  );
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(at(plan.jobs, 0).concurrency).toBe(1);
-  });
+  it.effect("handles mixed ready and error readiness", () =>
+    Effect.gen(function* () {
+      const installed = {
+        ...installedWith("commit", "debug"),
+      };
+      const plan = yield* runBuildPlan(
+        [makeOp("commit"), makeOp("review-pr"), makeOp("debug")],
+        installed,
+        "Uninstall",
+        Option.none(),
+      );
 
-  it("handles mixed ready and error readiness", () => {
-    const installed = {
-      ...installedWith("commit", "debug"),
-    };
-    const plan = runBuildPlan(
-      [makeOp("commit"), makeOp("review-pr"), makeOp("debug")],
-      installed,
-      "Uninstall",
-      Option.none(),
-    );
+      const steps = at(plan.jobs, 0).steps;
+      expect(at(steps, 0).readiness).toBe("ready");
+      expect(at(steps, 0).label).toBe("commit");
+      expect(at(steps, 1).readiness).toBe("ready");
+      expect(at(steps, 1).label).toBe("review-pr");
+      expect(at(steps, 2).readiness).toBe("ready");
+      expect(at(steps, 2).label).toBe("debug");
+    }),
+  );
 
-    const steps = at(plan.jobs, 0).steps;
-    expect(at(steps, 0).readiness).toBe("ready");
-    expect(at(steps, 0).label).toBe("commit");
-    // review-pr is not installed: becomes ready no-op
-    expect(at(steps, 1).readiness).toBe("ready");
-    expect(at(steps, 1).label).toBe("review-pr");
-    expect(at(steps, 2).readiness).toBe("ready");
-    expect(at(steps, 2).label).toBe("debug");
-  });
+  it.effect("marks pack-dependent skill (single pack) as error", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit")],
+        installedWithPacks({ commit: ["my-pack"] }),
+        "Uninstall",
+        Option.none(),
+      );
 
-  it("marks pack-dependent skill (single pack) as error", () => {
-    const plan = runBuildPlan(
-      [makeOp("commit")],
-      installedWithPacks({ commit: ["my-pack"] }),
-      "Uninstall",
-      Option.none(),
-    );
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("error");
+      if (step.readiness === "error") {
+        expect(step.errorMessage).toContain("required by pack my-pack");
+      }
+    }),
+  );
 
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("error");
-    if (step.readiness === "error") {
-      expect(step.errorMessage).toContain("required by pack my-pack");
-    }
-  });
+  it.effect("marks pack-dependent skill (multiple packs) as error", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuildPlan(
+        [makeOp("commit")],
+        installedWithPacks({ commit: ["pack-a", "pack-b"] }),
+        "Uninstall",
+        Option.none(),
+      );
 
-  it("marks pack-dependent skill (multiple packs) as error", () => {
-    const plan = runBuildPlan(
-      [makeOp("commit")],
-      installedWithPacks({ commit: ["pack-a", "pack-b"] }),
-      "Uninstall",
-      Option.none(),
-    );
-
-    const step = at(at(plan.jobs, 0).steps, 0);
-    expect(step.readiness).toBe("error");
-    if (step.readiness === "error") {
-      expect(step.errorMessage).toContain("required by pack pack-a, pack-b");
-    }
-  });
+      const step = at(at(plan.jobs, 0).steps, 0);
+      expect(step.readiness).toBe("error");
+      if (step.readiness === "error") {
+        expect(step.errorMessage).toContain("required by pack pack-a, pack-b");
+      }
+    }),
+  );
 });

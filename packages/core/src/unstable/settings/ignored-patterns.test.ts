@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { AppError } from "../app-error/index.js";
 import { SettingsSchema } from "./schema.js";
 import { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
@@ -80,79 +80,90 @@ describe("SettingsSchema mcpServers (camelCase)", () => {
 });
 
 describe("normalizeIgnoredPatterns", () => {
-  it("trims leading/trailing whitespace", () => {
-    const result = Effect.runSync(normalizeIgnoredPatterns(["  openspec-*  ", " foo "]));
+  it.effect("trims leading/trailing whitespace", () =>
+    Effect.gen(function* () {
+      const result = yield* normalizeIgnoredPatterns(["  openspec-*  ", " foo "]);
+      expect(result).toEqual(["openspec-*", "foo"]);
+    }),
+  );
 
-    expect(result).toEqual(["openspec-*", "foo"]);
-  });
+  it.effect("deduplicates patterns after trimming", () =>
+    Effect.gen(function* () {
+      const result = yield* normalizeIgnoredPatterns(["openspec-*", " openspec-* "]);
+      expect(result).toEqual(["openspec-*"]);
+    }),
+  );
 
-  it("deduplicates patterns after trimming", () => {
-    const result = Effect.runSync(normalizeIgnoredPatterns(["openspec-*", " openspec-* "]));
+  it.effect("rejects empty patterns after trimming", () =>
+    Effect.gen(function* () {
+      const error = yield* normalizeIgnoredPatterns(["  "]).pipe(Effect.flip);
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
+    }),
+  );
 
-    expect(result).toEqual(["openspec-*"]);
-  });
+  it.effect("rejects empty string pattern", () =>
+    Effect.gen(function* () {
+      const error = yield* normalizeIgnoredPatterns([""]).pipe(Effect.flip);
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
+    }),
+  );
 
-  it("rejects empty patterns after trimming", () => {
-    const error = Effect.runSync(normalizeIgnoredPatterns(["  "]).pipe(Effect.flip));
+  it.effect("passes through valid patterns unchanged", () =>
+    Effect.gen(function* () {
+      const result = yield* normalizeIgnoredPatterns(["openspec-*", "exact-name"]);
+      expect(result).toEqual(["openspec-*", "exact-name"]);
+    }),
+  );
 
-    expect(error).toBeInstanceOf(AppError);
-    expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
-  });
-
-  it("rejects empty string pattern", () => {
-    const error = Effect.runSync(normalizeIgnoredPatterns([""]).pipe(Effect.flip));
-
-    expect(error).toBeInstanceOf(AppError);
-    expect(error.code).toBe("SETTINGS_IGNORED_PATTERN_INVALID");
-  });
-
-  it("passes through valid patterns unchanged", () => {
-    const result = Effect.runSync(normalizeIgnoredPatterns(["openspec-*", "exact-name"]));
-
-    expect(result).toEqual(["openspec-*", "exact-name"]);
-  });
-
-  it("handles empty array", () => {
-    const result = Effect.runSync(normalizeIgnoredPatterns([]));
-
-    expect(result).toEqual([]);
-  });
+  it.effect("handles empty array", () =>
+    Effect.gen(function* () {
+      const result = yield* normalizeIgnoredPatterns([]);
+      expect(result).toEqual([]);
+    }),
+  );
 });
 
 describe("validateIgnoredConfigConflicts", () => {
-  it("fails when a configured name matches an ignored pattern", () => {
-    const error = Effect.runSync(
-      validateIgnoredConfigConflicts(["openspec-core"], ["openspec-*"]).pipe(Effect.flip),
-    );
+  it.effect("fails when a configured name matches an ignored pattern", () =>
+    Effect.gen(function* () {
+      const error = yield* validateIgnoredConfigConflicts(["openspec-core"], ["openspec-*"]).pipe(
+        Effect.flip,
+      );
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
+    }),
+  );
 
-    expect(error).toBeInstanceOf(AppError);
-    expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
-  });
+  it.effect("fails when a configured name matches an exact ignored pattern", () =>
+    Effect.gen(function* () {
+      const error = yield* validateIgnoredConfigConflicts(["my-skill"], ["my-skill"]).pipe(
+        Effect.flip,
+      );
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
+    }),
+  );
 
-  it("fails when a configured name matches an exact ignored pattern", () => {
-    const error = Effect.runSync(
-      validateIgnoredConfigConflicts(["my-skill"], ["my-skill"]).pipe(Effect.flip),
-    );
+  it.effect("passes when no configured names match ignored patterns", () =>
+    Effect.gen(function* () {
+      const result = yield* validateIgnoredConfigConflicts(["my-skill"], ["openspec-*"]);
+      expect(result).toBeUndefined();
+    }),
+  );
 
-    expect(error).toBeInstanceOf(AppError);
-    expect(error.code).toBe("SETTINGS_IGNORED_CONFIG_CONFLICT");
-  });
+  it.effect("passes with empty configured names", () =>
+    Effect.gen(function* () {
+      const result = yield* validateIgnoredConfigConflicts([], ["openspec-*"]);
+      expect(result).toBeUndefined();
+    }),
+  );
 
-  it("passes when no configured names match ignored patterns", () => {
-    const result = Effect.runSync(validateIgnoredConfigConflicts(["my-skill"], ["openspec-*"]));
-
-    expect(result).toBeUndefined();
-  });
-
-  it("passes with empty configured names", () => {
-    const result = Effect.runSync(validateIgnoredConfigConflicts([], ["openspec-*"]));
-
-    expect(result).toBeUndefined();
-  });
-
-  it("passes with empty ignored patterns", () => {
-    const result = Effect.runSync(validateIgnoredConfigConflicts(["my-skill"], []));
-
-    expect(result).toBeUndefined();
-  });
+  it.effect("passes with empty ignored patterns", () =>
+    Effect.gen(function* () {
+      const result = yield* validateIgnoredConfigConflicts(["my-skill"], []);
+      expect(result).toBeUndefined();
+    }),
+  );
 });

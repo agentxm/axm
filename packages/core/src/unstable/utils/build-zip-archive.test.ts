@@ -9,14 +9,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { buildZipArchive } from "./build-zip-archive.js";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const runEffect = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -37,26 +31,22 @@ describe("buildZipArchive", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("does not mutate timestamps on the source directory", async () => {
-    // Record original timestamps
-    const originalMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
+  it.live("does not mutate timestamps on the source directory", () =>
+    Effect.gen(function* () {
+      const originalMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
+      yield* Effect.sleep("50 millis");
+      yield* buildZipArchive(sourceDir, "TEST_ZIP_FAILED");
+      const afterMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
+      expect(afterMtime).toBe(originalMtime);
+    }),
+  );
 
-    // Small delay to ensure any mutation would be visible
-    await new Promise((r) => setTimeout(r, 50));
-
-    await runEffect(buildZipArchive(sourceDir, "TEST_ZIP_FAILED"));
-
-    // Source directory timestamps should be unchanged
-    const afterMtime = fs.statSync(path.join(sourceDir, "hello.txt")).mtimeMs;
-    expect(afterMtime).toBe(originalMtime);
-  });
-
-  it("produces a valid zip archive", async () => {
-    const archive = await runEffect(buildZipArchive(sourceDir, "TEST_ZIP_FAILED"));
-
-    // ZIP magic bytes: PK\x03\x04
-    expect(archive[0]).toBe(0x50); // P
-    expect(archive[1]).toBe(0x4b); // K
-    expect(archive.length).toBeGreaterThan(4);
-  });
+  it.effect("produces a valid zip archive", () =>
+    Effect.gen(function* () {
+      const archive = yield* buildZipArchive(sourceDir, "TEST_ZIP_FAILED");
+      expect(archive[0]).toBe(0x50);
+      expect(archive[1]).toBe(0x4b);
+      expect(archive.length).toBeGreaterThan(4);
+    }),
+  );
 });

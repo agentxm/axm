@@ -6,7 +6,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -69,81 +70,91 @@ const runWithActions = <A, E>(
   Effect.gen(function* () {
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     return yield* fn(actions);
-  }).pipe(Effect.provide(actionsLayer), Effect.runPromise);
+  }).pipe(Effect.provide(actionsLayer));
 
 describe("parseMcpServerInstallArgs", () => {
-  it("parses @profile/mcp-servers/name registry pattern", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "@acme/mcp-servers/my-server",
-      }),
-    );
-    expect(result.profile).toBe("@acme");
-    expect(result.serverName).toBe("my-server");
-    expect(Option.isNone(result.versionConstraint)).toBe(true);
-    expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
-  });
+  it.effect("parses @profile/mcp-servers/name registry pattern", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/mcp-servers/my-server",
+        }),
+      );
+      expect(result.profile).toBe("@acme");
+      expect(result.serverName).toBe("my-server");
+      expect(Option.isNone(result.versionConstraint)).toBe(true);
+      expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
+    }),
+  );
 
-  it("parses @profile/mcp-servers/name@version with constraint", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "@acme/mcp-servers/my-server@^2.0.0",
-      }),
-    );
-    expect(result.profile).toBe("@acme");
-    expect(result.serverName).toBe("my-server");
-    expect(Option.getOrNull(result.versionConstraint)).toBe("^2.0.0");
-  });
+  it.effect("parses @profile/mcp-servers/name@version with constraint", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/mcp-servers/my-server@^2.0.0",
+        }),
+      );
+      expect(result.profile).toBe("@acme");
+      expect(result.serverName).toBe("my-server");
+      expect(Option.getOrNull(result.versionConstraint)).toBe("^2.0.0");
+    }),
+  );
 
-  it("resolves bare name using configured profile", async () => {
-    const result = await runWithActions((actions) =>
-      actions.parseArgs({
-        source: "my-server",
-      }),
-    );
-    expect(result.profile).toBe("@test-ns");
-    expect(result.serverName).toBe("my-server");
-    expect(result.resolvedInput).toBe("@test-ns/mcp-servers/my-server");
-  });
+  it.effect("resolves bare name using configured profile", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "my-server",
+        }),
+      );
+      expect(result.profile).toBe("@test-ns");
+      expect(result.serverName).toBe("my-server");
+      expect(result.resolvedInput).toBe("@test-ns/mcp-servers/my-server");
+    }),
+  );
 
-  it("rejects non-mcp-servers registry type", async () => {
-    await expect(
-      runWithActions((actions) =>
+  it.effect("rejects non-mcp-servers registry type", () =>
+    Effect.gen(function* () {
+      const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/skills/my-skill",
         }),
-      ),
-    ).rejects.toThrow();
-  });
+      ).pipe(Effect.flip);
+      expect(error).toBeDefined();
+    }),
+  );
 
-  it("rejects URL sources", async () => {
-    await expect(
-      runWithActions((actions) =>
+  it.effect("rejects URL sources", () =>
+    Effect.gen(function* () {
+      const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "https://example.com/repo",
         }),
-      ),
-    ).rejects.toThrow();
-  });
+      ).pipe(Effect.flip);
+      expect(error).toBeDefined();
+    }),
+  );
 
-  it("sets force to false (force is now passed through plan flags, not parsed args)", async () => {
-    const forceActionsLayer = Layer.provide(
-      InstallMcpServerCommandWorkflowActionsLive,
-      Layer.mergeAll(
-        Layer.succeed(Workspace, mockWorkspace),
-        Layer.succeed(McpServerManager, mockMcpServerManager),
-        Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-        promptLayer,
-        NodeServices.layer,
-        TestFlagsLayer(),
-      ),
-    );
-    const result = await Effect.gen(function* () {
-      const actions = yield* InstallMcpServerCommandWorkflowActions;
-      return yield* actions.parseArgs({
-        source: "my-server",
-      });
-    }).pipe(Effect.provide(forceActionsLayer), Effect.runPromise);
-    expect(result.force).toBe(false);
-  });
+  it.effect("sets force to false (force is now passed through plan flags, not parsed args)", () =>
+    Effect.gen(function* () {
+      const forceActionsLayer = Layer.provide(
+        InstallMcpServerCommandWorkflowActionsLive,
+        Layer.mergeAll(
+          Layer.succeed(Workspace, mockWorkspace),
+          Layer.succeed(McpServerManager, mockMcpServerManager),
+          Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+          promptLayer,
+          NodeServices.layer,
+          TestFlagsLayer(),
+        ),
+      );
+      const result = yield* Effect.gen(function* () {
+        const actions = yield* InstallMcpServerCommandWorkflowActions;
+        return yield* actions.parseArgs({
+          source: "my-server",
+        });
+      }).pipe(Effect.provide(forceActionsLayer));
+      expect(result.force).toBe(false);
+    }),
+  );
 });

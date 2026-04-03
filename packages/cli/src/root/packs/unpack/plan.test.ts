@@ -6,8 +6,9 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
@@ -130,7 +131,7 @@ const testLayer = Layer.mergeAll(
 );
 
 const runBuild = (args: Parameters<typeof buildUnpackPlan>[0]) =>
-  Effect.runSync(buildUnpackPlan(args).pipe(Effect.provide(testLayer)));
+  buildUnpackPlan(args).pipe(Effect.provide(testLayer));
 
 const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T => {
   const item = items[index];
@@ -148,268 +149,297 @@ const getStep = (steps: ReadonlyArray<PlannedJobStep>, index: number) =>
   getItem(steps, index, "step");
 
 /** Check if a ready step's run returns a no-op message. */
-const isNoOp = (step: PlannedJobStep) => {
-  if (step.readiness !== "ready") return false;
-  try {
-    const result = Effect.runSync(step.run);
-    return result.result === "success" && result.message.includes("already directly installed");
-  } catch {
-    return false;
-  }
-};
+const isNoOp = (step: PlannedJobStep) =>
+  step.readiness !== "ready"
+    ? Effect.succeed(false)
+    : step.run.pipe(
+        Effect.exit,
+        Effect.map(
+          (exit) =>
+            Exit.isSuccess(exit) &&
+            exit.value.result === "success" &&
+            exit.value.message.includes("already directly installed"),
+        ),
+      );
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("buildUnpackPlan", () => {
-  it("emits install-skill steps for each skill op", () => {
-    const plan = runBuild({
-      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("emits install-skill steps for each skill op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(getStep(steps, 0).label).toBe("skill-a");
-    expect(getStep(steps, 0).readiness).toBe("ready");
-    expect(getStep(steps, 1).label).toBe("skill-b");
-    expect(getStep(steps, 1).readiness).toBe("ready");
-  });
+      const steps = getSteps(plan);
+      expect(getStep(steps, 0).label).toBe("skill-a");
+      expect(getStep(steps, 0).readiness).toBe("ready");
+      expect(getStep(steps, 1).label).toBe("skill-b");
+      expect(getStep(steps, 1).readiness).toBe("ready");
+    }),
+  );
 
-  it("emits install-command steps for each command op", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [makeCommandOp("cmd-a")],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("emits install-command steps for each command op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [makeCommandOp("cmd-a")],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(getStep(steps, 0).label).toBe("cmd-a");
-    expect(getStep(steps, 0).readiness).toBe("ready");
-  });
+      const steps = getSteps(plan);
+      expect(getStep(steps, 0).label).toBe("cmd-a");
+      expect(getStep(steps, 0).readiness).toBe("ready");
+    }),
+  );
 
-  it("emits install-mcp-server steps for each mcp-server op", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [makeMcpServerOp("server-a")],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("emits install-mcp-server steps for each mcp-server op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [],
+        mcpServerOps: [makeMcpServerOp("server-a")],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(getStep(steps, 0).label).toBe("server-a");
-    expect(getStep(steps, 0).readiness).toBe("ready");
-  });
+      const steps = getSteps(plan);
+      expect(getStep(steps, 0).label).toBe("server-a");
+      expect(getStep(steps, 0).readiness).toBe("ready");
+    }),
+  );
 
-  it("marks already directly installed skills as no-op", () => {
-    const plan = runBuild({
-      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: ["skill-a"],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("marks already directly installed skills as no-op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: ["skill-a"],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(isNoOp(getStep(steps, 0))).toBe(true);
-    expect(isNoOp(getStep(steps, 1))).toBe(false);
-  });
+      const steps = getSteps(plan);
+      expect(yield* isNoOp(getStep(steps, 0))).toBe(true);
+      expect(yield* isNoOp(getStep(steps, 1))).toBe(false);
+    }),
+  );
 
-  it("marks already directly installed commands as no-op", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: ["cmd-a"],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("marks already directly installed commands as no-op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: ["cmd-a"],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(isNoOp(getStep(steps, 0))).toBe(true);
-    expect(isNoOp(getStep(steps, 1))).toBe(false);
-  });
+      const steps = getSteps(plan);
+      expect(yield* isNoOp(getStep(steps, 0))).toBe(true);
+      expect(yield* isNoOp(getStep(steps, 1))).toBe(false);
+    }),
+  );
 
-  it("marks already directly installed mcp-servers as no-op", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [makeMcpServerOp("server-a"), makeMcpServerOp("server-b")],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: ["server-a"],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("marks already directly installed mcp-servers as no-op", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [],
+        mcpServerOps: [makeMcpServerOp("server-a"), makeMcpServerOp("server-b")],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: ["server-a"],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(isNoOp(getStep(steps, 0))).toBe(true);
-    expect(isNoOp(getStep(steps, 1))).toBe(false);
-  });
+      const steps = getSteps(plan);
+      expect(yield* isNoOp(getStep(steps, 0))).toBe(true);
+      expect(yield* isNoOp(getStep(steps, 1))).toBe(false);
+    }),
+  );
 
-  it("orders steps: install ops first, uninstall-pack last", () => {
-    const plan = runBuild({
-      skillOps: [makeSkillOp("my-skill")],
-      commandOps: [makeCommandOp("my-cmd")],
-      mcpServerOps: [makeMcpServerOp("my-server")],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("orders steps: install ops first, uninstall-pack last", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("my-skill")],
+        commandOps: [makeCommandOp("my-cmd")],
+        mcpServerOps: [makeMcpServerOp("my-server")],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(steps).toHaveLength(4);
-    expect(getStep(steps, 0).label).toBe("my-skill");
-    expect(getStep(steps, 1).label).toBe("my-cmd");
-    expect(getStep(steps, 2).label).toBe("my-server");
-    expect(getStep(steps, 3).label).toBe("my-pack");
-  });
+      const steps = getSteps(plan);
+      expect(steps).toHaveLength(4);
+      expect(getStep(steps, 0).label).toBe("my-skill");
+      expect(getStep(steps, 1).label).toBe("my-cmd");
+      expect(getStep(steps, 2).label).toBe("my-server");
+      expect(getStep(steps, 3).label).toBe("my-pack");
+    }),
+  );
 
-  it("uninstall-pack step uses pack name as label", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("uninstall-pack step uses pack name as label", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(steps).toHaveLength(1);
-    expect(getStep(steps, 0).label).toBe("my-pack");
-    expect(getStep(steps, 0).readiness).toBe("ready");
-  });
+      const steps = getSteps(plan);
+      expect(steps).toHaveLength(1);
+      expect(getStep(steps, 0).label).toBe("my-pack");
+      expect(getStep(steps, 0).readiness).toBe("ready");
+    }),
+  );
 
-  it("passes through caller-provided name and description", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack(s)",
-      description: Option.some("Unpack pack into direct entries"),
-    });
+  it.effect("passes through caller-provided name and description", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack(s)",
+        description: Option.some("Unpack pack into direct entries"),
+      });
 
-    expect(plan.name).toBe("Unpack pack(s)");
-    expect(plan.description).toEqual(Option.some("Unpack pack into direct entries"));
-  });
+      expect(plan.name).toBe("Unpack pack(s)");
+      expect(plan.description).toEqual(Option.some("Unpack pack into direct entries"));
+    }),
+  );
 
-  it("creates a single job with serial concurrency", () => {
-    const plan = runBuild({
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("creates a single job with serial concurrency", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    expect(plan.jobs).toHaveLength(1);
-    expect(getJob(plan).concurrency).toBe(1);
-  });
+      expect(plan.jobs).toHaveLength(1);
+      expect(getJob(plan).concurrency).toBe(1);
+    }),
+  );
 
-  it("handles mixed skip/ready across extension types", () => {
-    const plan = runBuild({
-      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
-      commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
-      mcpServerOps: [makeMcpServerOp("server-a")],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: ["skill-a"],
-      configuredCommandNames: ["cmd-b"],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("handles mixed skip/ready across extension types", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+        commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
+        mcpServerOps: [makeMcpServerOp("server-a")],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: ["skill-a"],
+        configuredCommandNames: ["cmd-b"],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(steps).toHaveLength(6);
-    expect(isNoOp(getStep(steps, 0))).toBe(true); // skill-a
-    expect(isNoOp(getStep(steps, 1))).toBe(false); // skill-b
-    expect(isNoOp(getStep(steps, 2))).toBe(false); // cmd-a
-    expect(isNoOp(getStep(steps, 3))).toBe(true); // cmd-b
-    expect(isNoOp(getStep(steps, 4))).toBe(false); // server-a
-    expect(getStep(steps, 5).label).toBe("my-pack"); // last
-  });
+      const steps = getSteps(plan);
+      expect(steps).toHaveLength(6);
+      expect(yield* isNoOp(getStep(steps, 0))).toBe(true); // skill-a
+      expect(yield* isNoOp(getStep(steps, 1))).toBe(false); // skill-b
+      expect(yield* isNoOp(getStep(steps, 2))).toBe(false); // cmd-a
+      expect(yield* isNoOp(getStep(steps, 3))).toBe(true); // cmd-b
+      expect(yield* isNoOp(getStep(steps, 4))).toBe(false); // server-a
+      expect(getStep(steps, 5).label).toBe("my-pack"); // last
+    }),
+  );
 
-  it("install ops use empty integrity (skip fetch path)", () => {
-    const plan = runBuild({
-      skillOps: [makeSkillOp("my-skill")],
-      commandOps: [makeCommandOp("my-cmd")],
-      mcpServerOps: [makeMcpServerOp("my-server")],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("install ops use empty integrity (skip fetch path)", () =>
+    Effect.gen(function* () {
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("my-skill")],
+        commandOps: [makeCommandOp("my-cmd")],
+        mcpServerOps: [makeMcpServerOp("my-server")],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    // We can verify the plan built correctly; the operations are captured in closures
-    // so we verify step count and readiness
-    expect(steps).toHaveLength(4);
-    expect(getStep(steps, 0).readiness).toBe("ready");
-    expect(getStep(steps, 1).readiness).toBe("ready");
-    expect(getStep(steps, 2).readiness).toBe("ready");
-    expect(getStep(steps, 3).readiness).toBe("ready");
-  });
+      const steps = getSteps(plan);
+      // We can verify the plan built correctly; the operations are captured in closures
+      // so we verify step count and readiness
+      expect(steps).toHaveLength(4);
+      expect(getStep(steps, 0).readiness).toBe("ready");
+      expect(getStep(steps, 1).readiness).toBe("ready");
+      expect(getStep(steps, 2).readiness).toBe("ready");
+      expect(getStep(steps, 3).readiness).toBe("ready");
+    }),
+  );
 
-  it("install-skill ops have skipSettings as Option.none (not skipped)", () => {
-    // The skipSettings behavior is captured inside the run closure.
-    // We verify the plan builder accepts the ops correctly (no error).
-    const plan = runBuild({
-      skillOps: [makeSkillOp("my-skill")],
-      commandOps: [],
-      mcpServerOps: [],
-      uninstallPackOp: makeUninstallPackOp("my-pack"),
-      configuredSkillNames: [],
-      configuredCommandNames: [],
-      configuredMcpServerNames: [],
-      name: "Unpack pack",
-      description: Option.none(),
-    });
+  it.effect("install-skill ops have skipSettings as Option.none (not skipped)", () =>
+    Effect.gen(function* () {
+      // The skipSettings behavior is captured inside the run closure.
+      // We verify the plan builder accepts the ops correctly (no error).
+      const plan = yield* runBuild({
+        skillOps: [makeSkillOp("my-skill")],
+        commandOps: [],
+        mcpServerOps: [],
+        uninstallPackOp: makeUninstallPackOp("my-pack"),
+        configuredSkillNames: [],
+        configuredCommandNames: [],
+        configuredMcpServerNames: [],
+        name: "Unpack pack",
+        description: Option.none(),
+      });
 
-    const steps = getSteps(plan);
-    expect(getStep(steps, 0).readiness).toBe("ready");
-    expect(getStep(steps, 0).label).toBe("my-skill");
-  });
+      const steps = getSteps(plan);
+      expect(getStep(steps, 0).readiness).toBe("ready");
+      expect(getStep(steps, 0).label).toBe("my-skill");
+    }),
+  );
 });

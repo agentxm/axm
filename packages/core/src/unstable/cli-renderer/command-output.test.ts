@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import type * as ServiceMap from "effect/ServiceMap";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { column, hidden } from "./annotations.js";
 import { columnsFrom, emitMany, emitOne } from "./command-output.js";
@@ -289,47 +289,51 @@ describe("emitMany", () => {
 
   const items: ReadonlyArray<SimpleRow> = [{ name: "alpha" }, { name: "beta" }];
 
-  it("calls result() then table() when result returns false", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitMany(items, { schema: SimpleRow, title: "Skills" }), mock.layer),
-    );
-    expect(mock.calls).toHaveLength(2);
-    expect(mock.calls[0]?.method).toBe("result");
-    expect(mock.calls[1]?.method).toBe("table");
-  });
+  it.effect("calls result() then table() when result returns false", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitMany(items, { schema: SimpleRow, title: "Skills" }), mock.layer);
+      expect(mock.calls).toHaveLength(2);
+      expect(mock.calls[0]?.method).toBe("result");
+      expect(mock.calls[1]?.method).toBe("table");
+    }),
+  );
 
-  it("passes items and schema to result()", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer));
-    const resultCall = mock.calls.find((c) => c.method === "result");
-    assertDefined(resultCall, "Expected result() call");
-    expect(resultCall.args[0]).toBe(items);
-  });
+  it.effect("passes items and schema to result()", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer);
+      const resultCall = mock.calls.find((c) => c.method === "result");
+      assertDefined(resultCall, "Expected result() call");
+      expect(resultCall.args[0]).toBe(items);
+    }),
+  );
 
-  it("passes items, columns, and title to table()", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitMany(items, { schema: SimpleRow, title: "Skills" }), mock.layer),
-    );
-    const tableCall = mock.calls.find((c) => c.method === "table");
-    assertDefined(tableCall, "Expected table() call");
-    expect(tableCall.args[0]).toBe(items);
-    // Second arg is the columns array
-    const cols = expectColumns(tableCall.args[1]);
-    expect(cols.map((c) => c.key)).toEqual(["name"]);
-    // Third arg is the title
-    expect(tableCall.args[2]).toBe("Skills");
-  });
+  it.effect("passes items, columns, and title to table()", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitMany(items, { schema: SimpleRow, title: "Skills" }), mock.layer);
+      const tableCall = mock.calls.find((c) => c.method === "table");
+      assertDefined(tableCall, "Expected table() call");
+      expect(tableCall.args[0]).toBe(items);
+      // Second arg is the columns array
+      const cols = expectColumns(tableCall.args[1]);
+      expect(cols.map((c) => c.key)).toEqual(["name"]);
+      // Third arg is the title
+      expect(tableCall.args[2]).toBe("Skills");
+    }),
+  );
 
-  it("short-circuits when result() returns true (machine mode)", async () => {
-    const mock = makeMockRenderer(true);
-    await Effect.runPromise(Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer));
-    expect(mock.calls).toHaveLength(1);
-    expect(mock.calls[0]?.method).toBe("result");
-    // table() should NOT be called
-    expect(mock.calls.find((c) => c.method === "table")).toBeUndefined();
-  });
+  it.effect("short-circuits when result() returns true (machine mode)", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(true);
+      yield* Effect.provide(emitMany(items, { schema: SimpleRow }), mock.layer);
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0]?.method).toBe("result");
+      // table() should NOT be called
+      expect(mock.calls.find((c) => c.method === "table")).toBeUndefined();
+    }),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -345,42 +349,46 @@ describe("emitOne", () => {
 
   const item: SimpleRow = { name: "my-skill", version: "1.0.0" };
 
-  it("calls result() then detail() when result returns false", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitOne(item, { schema: SimpleRow, title: "Skill Info" }), mock.layer),
-    );
-    expect(mock.calls).toHaveLength(2);
-    expect(mock.calls[0]?.method).toBe("result");
-    expect(mock.calls[1]?.method).toBe("detail");
-  });
+  it.effect("calls result() then detail() when result returns false", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitOne(item, { schema: SimpleRow, title: "Skill Info" }), mock.layer);
+      expect(mock.calls).toHaveLength(2);
+      expect(mock.calls[0]?.method).toBe("result");
+      expect(mock.calls[1]?.method).toBe("detail");
+    }),
+  );
 
-  it("passes item and schema to result()", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer));
-    const resultCall = mock.calls.find((c) => c.method === "result");
-    assertDefined(resultCall, "Expected result() call");
-    expect(resultCall.args[0]).toBe(item);
-  });
+  it.effect("passes item and schema to result()", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer);
+      const resultCall = mock.calls.find((c) => c.method === "result");
+      assertDefined(resultCall, "Expected result() call");
+      expect(resultCall.args[0]).toBe(item);
+    }),
+  );
 
-  it("passes item, columns, and title to detail()", async () => {
-    const mock = makeMockRenderer(false);
-    await Effect.runPromise(
-      Effect.provide(emitOne(item, { schema: SimpleRow, title: "Skill Info" }), mock.layer),
-    );
-    const detailCall = mock.calls.find((c) => c.method === "detail");
-    assertDefined(detailCall, "Expected detail() call");
-    expect(detailCall.args[0]).toBe(item);
-    const cols = expectColumns(detailCall.args[1]);
-    expect(cols.map((c) => c.key)).toEqual(["name", "version"]);
-    expect(detailCall.args[2]).toBe("Skill Info");
-  });
+  it.effect("passes item, columns, and title to detail()", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(false);
+      yield* Effect.provide(emitOne(item, { schema: SimpleRow, title: "Skill Info" }), mock.layer);
+      const detailCall = mock.calls.find((c) => c.method === "detail");
+      assertDefined(detailCall, "Expected detail() call");
+      expect(detailCall.args[0]).toBe(item);
+      const cols = expectColumns(detailCall.args[1]);
+      expect(cols.map((c) => c.key)).toEqual(["name", "version"]);
+      expect(detailCall.args[2]).toBe("Skill Info");
+    }),
+  );
 
-  it("short-circuits when result() returns true (machine mode)", async () => {
-    const mock = makeMockRenderer(true);
-    await Effect.runPromise(Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer));
-    expect(mock.calls).toHaveLength(1);
-    expect(mock.calls[0]?.method).toBe("result");
-    expect(mock.calls.find((c) => c.method === "detail")).toBeUndefined();
-  });
+  it.effect("short-circuits when result() returns true (machine mode)", () =>
+    Effect.gen(function* () {
+      const mock = makeMockRenderer(true);
+      yield* Effect.provide(emitOne(item, { schema: SimpleRow }), mock.layer);
+      expect(mock.calls).toHaveLength(1);
+      expect(mock.calls[0]?.method).toBe("result");
+      expect(mock.calls.find((c) => c.method === "detail")).toBeUndefined();
+    }),
+  );
 });

@@ -86,46 +86,40 @@ interface UnavailableRegistry {
 }
 
 const startUnavailableRegistry = () =>
-  Effect.promise<UnavailableRegistry>(
-    () =>
-      new Promise((resolve, reject) => {
-        const server = createServer((_req, res) => {
-          res.statusCode = 503;
-          res.setHeader("content-type", "application/json");
-          res.end(JSON.stringify({ code: "registry_unavailable" }));
-        });
+  new Promise<UnavailableRegistry>((resolve, reject) => {
+    const server = createServer((_req, res) => {
+      res.statusCode = 503;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ code: "registry_unavailable" }));
+    });
 
-        server.once("error", reject);
-        server.listen(0, "127.0.0.1", () => {
-          const address = server.address();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
 
-          if (address === null || typeof address === "string") {
-            reject(new Error("Failed to bind test registry server"));
-            return;
-          }
+      if (address === null || typeof address === "string") {
+        reject(new Error("Failed to bind test registry server"));
+        return;
+      }
 
-          resolve({
-            location: `http://127.0.0.1:${String(address.port)}`,
-            server,
-          });
-        });
-      }),
-  );
+      resolve({
+        location: `http://127.0.0.1:${String(address.port)}`,
+        server,
+      });
+    });
+  });
 
 const stopUnavailableRegistry = (server: Server) =>
-  Effect.promise(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
+  new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
 
-          resolve();
-        });
-      }),
-  );
+      resolve();
+    });
+  });
 
 const defaultArgs = (
   source: string,
@@ -146,34 +140,22 @@ describe("skills install handler — error propagation", () => {
   let originalCwd: string;
   let unavailableRegistry: UnavailableRegistry | undefined;
 
-  beforeEach(() =>
-    Effect.runPromise(
-      startUnavailableRegistry().pipe(
-        Effect.tap((registry) =>
-          Effect.sync(() => {
-            unavailableRegistry = registry;
-            originalCwd = process.cwd();
-            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-install-handler-test-"));
-            process.chdir(tempDir);
-          }),
-        ),
-      ),
-    ),
-  );
+  beforeEach(async () => {
+    unavailableRegistry = await startUnavailableRegistry();
+    originalCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-install-handler-test-"));
+    process.chdir(tempDir);
+  });
 
-  afterEach(() =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        process.chdir(originalCwd);
-        fs.rmSync(tempDir, { recursive: true, force: true });
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
 
-        if (unavailableRegistry !== undefined) {
-          yield* stopUnavailableRegistry(unavailableRegistry.server);
-          unavailableRegistry = undefined;
-        }
-      }),
-    ),
-  );
+    if (unavailableRegistry !== undefined) {
+      await stopUnavailableRegistry(unavailableRegistry.server);
+      unavailableRegistry = undefined;
+    }
+  });
 
   const getUnavailableRegistryLocation = () => {
     if (unavailableRegistry === undefined) {

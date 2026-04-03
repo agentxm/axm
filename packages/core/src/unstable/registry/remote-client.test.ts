@@ -12,7 +12,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { AppError } from "../app-error/index.js";
@@ -50,8 +50,7 @@ const makeNetworkErrorClient = () =>
 /**
  * Helper to run an effect and extract the AppError.
  */
-const runFailure = <A>(effect: Effect.Effect<A, AppError>): Promise<AppError> =>
-  Effect.runPromise(Effect.flip(effect));
+const runFailure = <A>(effect: Effect.Effect<A, AppError>) => Effect.flip(effect);
 
 /**
  * Standard extension index response body.
@@ -177,85 +176,101 @@ const getErrorKind = (status: number): string => {
 // =============================================================================
 
 describe("getExtensionIndex", () => {
-  it("returns Option.some(ExtensionIndex) on success", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns Option.some(ExtensionIndex) on success", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const result = yield* client.getExtensionIndex({
+        handle: "@acme",
+        type: "skill",
+        name: "test-skill",
+      });
 
-    expect(Option.isSome(result)).toBe(true);
-    const index = Option.getOrThrow(result);
-    expect(index.name).toBe("test-skill");
-    expect(index.profile).toBe("@acme");
-    expect(index.type).toBe("skill");
-    expect(index.versions).toHaveLength(2);
-    expect(index.versions[0]?.version).toBe("1.0.0");
-  });
+      expect(Option.isSome(result)).toBe(true);
+      const index = Option.getOrThrow(result);
+      expect(index.name).toBe("test-skill");
+      expect(index.profile).toBe("@acme");
+      expect(index.type).toBe("skill");
+      expect(index.versions).toHaveLength(2);
+      expect(index.versions[0]?.version).toBe("1.0.0");
+    }),
+  );
 
-  it("returns Option.none() on 404", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(404, "extension_not_found", "Extension not found"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns Option.none() on 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "extension_not_found", "Extension not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "nonexistent" }),
-    );
+      const result = yield* client.getExtensionIndex({
+        handle: "@acme",
+        type: "skill",
+        name: "nonexistent",
+      });
 
-    expect(Option.isNone(result)).toBe(true);
-  });
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE on invalid response schema", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify({ unexpected: "shape" }), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect(
+    "fails with REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE on invalid response schema",
+    () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(
+          () => new Response(JSON.stringify({ unexpected: "shape" }), { status: 200 }),
+        );
+        const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+        const error = yield* runFailure(
+          client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+        );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
-  });
+        expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
+      }),
+  );
 
-  it("fails with REGISTRY_REMOTE_DISCOVERY_FAILED on 400 with proper error schema", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "DecodeErrorResponse",
-            type: "about:blank",
-            title: "Bad Request",
-            status: 400,
-            detail: "Invalid request",
-            code: "invalid_request",
-          }),
-          { status: 400 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_DISCOVERY_FAILED on 400 with proper error schema", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "DecodeErrorResponse",
+              type: "about:blank",
+              title: "Bad Request",
+              status: 400,
+              detail: "Invalid request",
+              code: "invalid_request",
+            }),
+            { status: 400 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_FAILED");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_FAILED");
+    }),
+  );
 });
 
 // =============================================================================
@@ -263,82 +278,84 @@ describe("getExtensionIndex", () => {
 // =============================================================================
 
 describe("getExtensionsByScope", () => {
-  it("returns extensions in named mode", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns extensions in named mode", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionsByScope({
+      const result = yield* client.getExtensionsByScope({
         handle: "@acme",
         names: ["test-skill"],
         types: ["skill"],
         limit: Option.none(),
         offset: 0,
-      }),
-    );
+      });
 
-    expect(result.extensions.length).toBeGreaterThanOrEqual(1);
-    expect(result.total).toBeGreaterThanOrEqual(1);
-    expect(result.extensions[0]?.name).toBe("test-skill");
-  });
+      expect(result.extensions.length).toBeGreaterThanOrEqual(1);
+      expect(result.total).toBeGreaterThanOrEqual(1);
+      expect(result.extensions[0]?.name).toBe("test-skill");
+    }),
+  );
 
-  it("applies limit and offset correctly", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("applies limit and offset correctly", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionsByScope({
+      const result = yield* client.getExtensionsByScope({
         handle: "@acme",
         names: ["test-skill", "another"],
         types: ["skill"],
         limit: Option.some(1),
         offset: 0,
-      }),
-    );
+      });
 
-    expect(result.extensions.length).toBeLessThanOrEqual(1);
-  });
+      expect(result.extensions.length).toBeLessThanOrEqual(1);
+    }),
+  );
 
-  it("returns empty list when no extensions match", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(404, "extension_not_found", "Extension not found"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns empty list when no extensions match", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "extension_not_found", "Extension not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionsByScope({
+      const result = yield* client.getExtensionsByScope({
         handle: "@acme",
         names: ["nonexistent"],
         types: ["skill"],
         limit: Option.none(),
         offset: 0,
-      }),
-    );
+      });
 
-    expect(result.extensions).toHaveLength(0);
-    expect(result.total).toBe(0);
-  });
+      expect(result.extensions).toHaveLength(0);
+      expect(result.total).toBe(0);
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionsByScope({
-        handle: "@acme",
-        names: ["test-skill"],
-        types: ["skill"],
-        limit: Option.none(),
-        offset: 0,
-      }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionsByScope({
+          handle: "@acme",
+          names: ["test-skill"],
+          types: ["skill"],
+          limit: Option.none(),
+          offset: 0,
+        }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+    }),
+  );
 });
 
 // =============================================================================
@@ -346,47 +363,55 @@ describe("getExtensionsByScope", () => {
 // =============================================================================
 
 describe("profileExists", () => {
-  it("returns exists:true when profile has extensions", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(extensionListResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns exists:true when profile has extensions", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(extensionListResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(client.profileExists("@acme"));
+      const result = yield* client.profileExists("@acme");
 
-    expect(result.exists).toBe(true);
-  });
+      expect(result.exists).toBe(true);
+    }),
+  );
 
-  it("returns exists:false when profile has no extensions", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify({ extensions: [] }), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns exists:false when profile has no extensions", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify({ extensions: [] }), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(client.profileExists("@empty"));
+      const result = yield* client.profileExists("@empty");
 
-    expect(result.exists).toBe(false);
-  });
+      expect(result.exists).toBe(false);
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.profileExists("@acme"));
+      const error = yield* runFailure(client.profileExists("@acme"));
 
-    expect(error.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_INVALID_RESPONSE on invalid schema", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify({ not: "extensions" }), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_INVALID_RESPONSE on invalid schema", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify({ not: "extensions" }), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.profileExists("@acme"));
+      const error = yield* runFailure(client.profileExists("@acme"));
 
-    expect(error.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
+    }),
+  );
 });
 
 // =============================================================================
@@ -394,132 +419,140 @@ describe("profileExists", () => {
 // =============================================================================
 
 describe("getExtensionPackage", () => {
-  it("returns archive for latest version", async () => {
-    const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-    const httpClient = makeMockHttpClient((request) => {
-      const url = request.url;
-      if (url.endsWith("/archive")) {
-        return new Response(archiveData, {
-          status: 200,
-          headers: { "content-type": "application/zip" },
-        });
-      }
-      return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
-    });
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns archive for latest version", () =>
+    Effect.gen(function* () {
+      const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const httpClient = makeMockHttpClient((request) => {
+        const url = request.url;
+        if (url.endsWith("/archive")) {
+          return new Response(archiveData, {
+            status: 200,
+            headers: { "content-type": "application/zip" },
+          });
+        }
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionPackage({
+      const result = yield* client.getExtensionPackage({
         handle: "@acme",
         type: "skill",
         name: "test-skill",
         version: Option.none(),
-      }),
-    );
+      });
 
-    expect(result.archive).toBeInstanceOf(Uint8Array);
-    expect(result.archive.length).toBeGreaterThan(0);
-  });
+      expect(result.archive).toBeInstanceOf(Uint8Array);
+      expect(result.archive.length).toBeGreaterThan(0);
+    }),
+  );
 
-  it("returns archive for specific version", async () => {
-    const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-    const httpClient = makeMockHttpClient((request) => {
-      const url = request.url;
-      if (url.endsWith("/archive")) {
-        return new Response(archiveData, {
-          status: 200,
-          headers: { "content-type": "application/zip" },
-        });
-      }
-      return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
-    });
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns archive for specific version", () =>
+    Effect.gen(function* () {
+      const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const httpClient = makeMockHttpClient((request) => {
+        const url = request.url;
+        if (url.endsWith("/archive")) {
+          return new Response(archiveData, {
+            status: 200,
+            headers: { "content-type": "application/zip" },
+          });
+        }
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.getExtensionPackage({
+      const result = yield* client.getExtensionPackage({
         handle: "@acme",
         type: "skill",
         name: "test-skill",
         version: Option.some("1.0.0"),
-      }),
-    );
+      });
 
-    expect(result.archive).toBeInstanceOf(Uint8Array);
-  });
+      expect(result.archive).toBeInstanceOf(Uint8Array);
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on index 404", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(404, "extension_not_found", "Extension not found"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on index 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "extension_not_found", "Extension not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionPackage({
-        handle: "@acme",
-        type: "skill",
-        name: "nonexistent",
-        version: Option.none(),
-      }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionPackage({
+          handle: "@acme",
+          type: "skill",
+          name: "nonexistent",
+          version: Option.none(),
+        }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on archive 404", async () => {
-    const httpClient = makeMockHttpClient((request) => {
-      const url = request.url;
-      if (url.endsWith("/archive")) {
-        return typedErrorResponse(404, "archive_not_found", "Archive not found");
-      }
-      return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
-    });
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on archive 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient((request) => {
+        const url = request.url;
+        if (url.endsWith("/archive")) {
+          return typedErrorResponse(404, "archive_not_found", "Archive not found");
+        }
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionPackage({
-        handle: "@acme",
-        type: "skill",
-        name: "test-skill",
-        version: Option.none(),
-      }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionPackage({
+          handle: "@acme",
+          type: "skill",
+          name: "test-skill",
+          version: Option.none(),
+        }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_VERSION_NOT_FOUND for missing version", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_VERSION_NOT_FOUND for missing version", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionPackage({
-        handle: "@acme",
-        type: "skill",
-        name: "test-skill",
-        version: Option.some("99.99.99"),
-      }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionPackage({
+          handle: "@acme",
+          type: "skill",
+          name: "test-skill",
+          version: Option.some("99.99.99"),
+        }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.getExtensionPackage({
-        handle: "@acme",
-        type: "skill",
-        name: "test-skill",
-        version: Option.none(),
-      }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionPackage({
+          handle: "@acme",
+          type: "skill",
+          name: "test-skill",
+          version: Option.none(),
+        }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NETWORK_ERROR");
+    }),
+  );
 });
 
 // =============================================================================
@@ -527,49 +560,61 @@ describe("getExtensionPackage", () => {
 // =============================================================================
 
 describe("extensionExists", () => {
-  it("returns exists:true on 200", async () => {
-    const httpClient = makeMockHttpClient(() => new Response(null, { status: 200 }));
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns exists:true on 200", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() => new Response(null, { status: 200 }));
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const result = yield* client.extensionExists({
+        handle: "@acme",
+        type: "skill",
+        name: "test-skill",
+      });
 
-    expect(result.exists).toBe(true);
-  });
+      expect(result.exists).toBe(true);
+    }),
+  );
 
-  it("returns exists:false on 404", async () => {
-    const httpClient = makeMockHttpClient(() => new Response(null, { status: 404 }));
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns exists:false on 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() => new Response(null, { status: 404 }));
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(
-      client.extensionExists({ handle: "@acme", type: "skill", name: "nonexistent" }),
-    );
+      const result = yield* client.extensionExists({
+        handle: "@acme",
+        type: "skill",
+        name: "nonexistent",
+      });
 
-    expect(result.exists).toBe(false);
-  });
+      expect(result.exists).toBe(false);
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const error = yield* runFailure(
+        client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR");
+    }),
+  );
 
-  it("fails with REGISTRY_REMOTE_EXTENSION_CHECK_FAILED on unexpected status", async () => {
-    const httpClient = makeMockHttpClient(() => new Response(null, { status: 500 }));
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_REMOTE_EXTENSION_CHECK_FAILED on unexpected status", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() => new Response(null, { status: 500 }));
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(
-      client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
-    );
+      const error = yield* runFailure(
+        client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_FAILED");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_FAILED");
+    }),
+  );
 });
 
 // =============================================================================
@@ -590,323 +635,357 @@ const publishArgs = {
 };
 
 describe("publishExtension", () => {
-  it("returns published:true on 200", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(publishSuccessResponse), { status: 200 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns published:true on 200", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(publishSuccessResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(client.publishExtension(publishArgs));
+      const result = yield* client.publishExtension(publishArgs);
 
-    expect(result.published).toBe(true);
-  });
+      expect(result.published).toBe(true);
+    }),
+  );
 
-  it("returns published:true on 201", async () => {
-    const httpClient = makeMockHttpClient(
-      () => new Response(JSON.stringify(publishSuccessResponse), { status: 201 }),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("returns published:true on 201", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(publishSuccessResponse), { status: 201 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const result = await Effect.runPromise(client.publishExtension(publishArgs));
+      const result = yield* client.publishExtension(publishArgs);
 
-    expect(result.published).toBe(true);
-  });
+      expect(result.published).toBe(true);
+    }),
+  );
 
-  it("fails with AUTH_UNAUTHENTICATED on 401", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(401, "token_expired", "Token expired"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with AUTH_UNAUTHENTICATED on 401", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(401, "token_expired", "Token expired"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("AUTH_UNAUTHENTICATED");
-  });
+      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+    }),
+  );
 
-  it("fails with AUTH_UNAUTHORIZED on 403 (generic)", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "ForbiddenError",
-            type: "about:blank",
-            title: "Forbidden",
-            status: 403,
-            detail: "Insufficient permissions",
-            code: "insufficient_permissions",
-            details: {
-              requiredScope: "extensions:write",
-              tokenScopes: ["extensions:read"],
-            },
-          }),
-          { status: 403 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with AUTH_UNAUTHORIZED on 403 (generic)", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "ForbiddenError",
+              type: "about:blank",
+              title: "Forbidden",
+              status: 403,
+              detail: "Insufficient permissions",
+              code: "insufficient_permissions",
+              details: {
+                requiredScope: "extensions:write",
+                tokenScopes: ["extensions:read"],
+              },
+            }),
+            { status: 403 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("AUTH_UNAUTHORIZED");
-  });
+      expect(error.code).toBe("AUTH_UNAUTHORIZED");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_QUOTA_EXCEEDED on 403 with quota_exceeded code", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "ForbiddenError",
-            type: "about:blank",
-            title: "Forbidden",
-            status: 403,
-            detail: "Storage quota exceeded",
-            code: "quota_exceeded",
-            details: {
-              retryable: false,
-            },
-          }),
-          { status: 403 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_QUOTA_EXCEEDED on 403 with quota_exceeded code", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "ForbiddenError",
+              type: "about:blank",
+              title: "Forbidden",
+              status: 403,
+              detail: "Storage quota exceeded",
+              code: "quota_exceeded",
+              details: {
+                retryable: false,
+              },
+            }),
+            { status: 403 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_QUOTA_EXCEEDED");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_CONFLICT on 409", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "ConflictError",
-            type: "about:blank",
-            title: "Conflict",
-            status: 409,
-            detail: "Version already exists",
-            code: "publish_conflict",
-          }),
-          { status: 409 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_CONFLICT on 409", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "ConflictError",
+              type: "about:blank",
+              title: "Conflict",
+              status: 409,
+              detail: "Version already exists",
+              code: "publish_conflict",
+            }),
+            { status: 409 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_CONFLICT");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_CONFLICT");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with malformed_archive", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(400, "malformed_archive", "Archive is malformed"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with malformed_archive", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(400, "malformed_archive", "Archive is malformed"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with empty_archive", async () => {
-    const httpClient = makeMockHttpClient(() =>
-      typedErrorResponse(400, "empty_archive", "Archive is empty"),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 400 with empty_archive", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(400, "empty_archive", "Archive is empty"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_TOO_LARGE on 413", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "PayloadTooLargeError",
-            type: "about:blank",
-            title: "Payload Too Large",
-            status: 413,
-            detail: "Archive too large",
-            code: "ingest_archive_too_large",
-          }),
-          { status: 413 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_TOO_LARGE on 413", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "PayloadTooLargeError",
+              type: "about:blank",
+              title: "Payload Too Large",
+              status: 413,
+              detail: "Archive too large",
+              code: "ingest_archive_too_large",
+            }),
+            { status: 413 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_TOO_LARGE");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_TOO_LARGE");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 415", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "UnsupportedMediaTypeError",
-            type: "about:blank",
-            title: "Unsupported Media Type",
-            status: 415,
-            detail: "Unsupported content type",
-            code: "ingest_unsupported_content_type",
-          }),
-          { status: 415 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_INVALID_ARCHIVE on 415", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "UnsupportedMediaTypeError",
+              type: "about:blank",
+              title: "Unsupported Media Type",
+              status: 415,
+              detail: "Unsupported content type",
+              code: "ingest_unsupported_content_type",
+            }),
+            { status: 415 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_INVALID_ARCHIVE");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_INTEGRITY_MISMATCH on 422 with integrity_mismatch", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "UnprocessableEntityError",
-            type: "about:blank",
-            title: "Unprocessable Entity",
-            status: 422,
-            detail: "Integrity mismatch",
-            code: "integrity_mismatch",
-          }),
-          { status: 422 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_INTEGRITY_MISMATCH on 422 with integrity_mismatch", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "UnprocessableEntityError",
+              type: "about:blank",
+              title: "Unprocessable Entity",
+              status: 422,
+              detail: "Integrity mismatch",
+              code: "integrity_mismatch",
+            }),
+            { status: 422 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_INTEGRITY_MISMATCH");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_INTEGRITY_MISMATCH");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_MANIFEST_INVALID on 422 with manifest_* code", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "UnprocessableEntityError",
-            type: "about:blank",
-            title: "Unprocessable Entity",
-            status: 422,
-            detail: "Manifest name is invalid",
-            code: "manifest_invalid_name",
-          }),
-          { status: 422 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_MANIFEST_INVALID on 422 with manifest_* code", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "UnprocessableEntityError",
+              type: "about:blank",
+              title: "Unprocessable Entity",
+              status: 422,
+              detail: "Manifest name is invalid",
+              code: "manifest_invalid_name",
+            }),
+            { status: 422 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_MANIFEST_INVALID");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_MANIFEST_INVALID");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_THROTTLED on 429 with retryAfterSeconds", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "TooManyRequestsError",
-            type: "about:blank",
-            title: "Too Many Requests",
-            status: 429,
-            detail: "Rate limited",
-            code: "throttled",
-            details: {
-              retryable: true,
-              retryAfterSeconds: 30,
-            },
-          }),
-          { status: 429 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_THROTTLED on 429 with retryAfterSeconds", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "TooManyRequestsError",
+              type: "about:blank",
+              title: "Too Many Requests",
+              status: 429,
+              detail: "Rate limited",
+              code: "throttled",
+              details: {
+                retryable: true,
+                retryAfterSeconds: 30,
+              },
+            }),
+            { status: 429 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_THROTTLED");
-    expect(Option.getOrThrow(error.howToFix)).toContain("30");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_THROTTLED");
+      expect(Option.getOrThrow(error.howToFix)).toContain("30");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED on 501", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "NotImplementedError",
-            type: "about:blank",
-            title: "Not Implemented",
-            status: 501,
-            detail: "Type not supported",
-            code: "publish_type_not_implemented",
-          }),
-          { status: 501 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED on 501", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "NotImplementedError",
+              type: "about:blank",
+              title: "Not Implemented",
+              status: 501,
+              detail: "Type not supported",
+              code: "publish_type_not_implemented",
+            }),
+            { status: 501 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_TYPE_NOT_SUPPORTED");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_DISABLED on 503", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "ServiceUnavailableError",
-            type: "about:blank",
-            title: "Service Unavailable",
-            status: 503,
-            detail: "Publishing disabled",
-            code: "publish_disabled",
-          }),
-          { status: 503 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_DISABLED on 503", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "ServiceUnavailableError",
+              type: "about:blank",
+              title: "Service Unavailable",
+              status: 503,
+              detail: "Publishing disabled",
+              code: "publish_disabled",
+            }),
+            { status: 503 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_DISABLED");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_DISABLED");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_NETWORK_ERROR on network failure", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_NETWORK_ERROR on network failure", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
+    }),
+  );
 
-  it("fails with REGISTRY_PUBLISH_FAILED on unknown 500 error", async () => {
-    const httpClient = makeMockHttpClient(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "InternalError",
-            type: "about:blank",
-            title: "Internal Server Error",
-            status: 500,
-            detail: "Something went wrong",
-            code: "internal_error",
-          }),
-          { status: 500 },
-        ),
-    );
-    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+  it.effect("fails with REGISTRY_PUBLISH_FAILED on unknown 500 error", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "InternalError",
+              type: "about:blank",
+              title: "Internal Server Error",
+              status: 500,
+              detail: "Something went wrong",
+              code: "internal_error",
+            }),
+            { status: 500 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-    const error = await runFailure(client.publishExtension(publishArgs));
+      const error = yield* runFailure(client.publishExtension(publishArgs));
 
-    expect(error.code).toBe("REGISTRY_PUBLISH_FAILED");
-  });
+      expect(error.code).toBe("REGISTRY_PUBLISH_FAILED");
+    }),
+  );
 });
 
 // =============================================================================
@@ -914,27 +993,31 @@ describe("publishExtension", () => {
 // =============================================================================
 
 describe("network diagnostics", () => {
-  it("detects localhost+HTTPS mismatch in howToFix", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient("https://localhost:3000", httpClient);
+  it.effect("detects localhost+HTTPS mismatch in howToFix", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient("https://localhost:3000", httpClient);
 
-    const error = await runFailure(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
-    expect(Option.getOrThrow(error.howToFix)).toContain("http://localhost");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(Option.getOrThrow(error.howToFix)).toContain("http://localhost");
+    }),
+  );
 
-  it("provides generic advice for remote URLs", async () => {
-    const httpClient = makeNetworkErrorClient();
-    const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+  it.effect("provides generic advice for remote URLs", () =>
+    Effect.gen(function* () {
+      const httpClient = makeNetworkErrorClient();
+      const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
 
-    const error = await runFailure(
-      client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
-    );
+      const error = yield* runFailure(
+        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
+      );
 
-    expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
-    expect(Option.getOrThrow(error.howToFix)).toContain("Check registry URL");
-  });
+      expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
+      expect(Option.getOrThrow(error.howToFix)).toContain("Check registry URL");
+    }),
+  );
 });

@@ -5,7 +5,7 @@
  * metadata against lockfile entries to determine which skills need updating.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
@@ -23,10 +23,10 @@ const stubRunClosure: MakeRunClosure = (op) =>
   });
 
 /** Run a step's closure (if present) and return the result message. */
-const runStep = (step: PlannedJobStep) => {
-  if (step.readiness === "error") return "error";
-  return Effect.runSync(step.run).message;
-};
+const runStep = (step: PlannedJobStep) =>
+  step.readiness === "error"
+    ? Effect.succeed("error")
+    : step.run.pipe(Effect.map((result) => result.message));
 
 const getItem = <T>(items: ReadonlyArray<T>, index: number, label: string): T => {
   const item = items[index];
@@ -310,11 +310,10 @@ const lockfileWith = (entries: Record<string, SkillLockEntry>): Lockfile => ({
  * Determine if a step uses the stub run closure (operation was dispatched)
  * vs. a no-op success closure (skipped/already up to date).
  */
-const isSkipStep = (step: PlannedJobStep): boolean => {
-  if (step.readiness === "error") return false;
-  const result = Effect.runSync(step.run);
-  return result.message === "already up to date";
-};
+const isSkipStep = (step: PlannedJobStep) =>
+  step.readiness === "error"
+    ? Effect.succeed(false)
+    : step.run.pipe(Effect.map((result) => result.message === "already up to date"));
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -325,322 +324,356 @@ describe("buildUpdatePlan", () => {
   // Git hosting sources (github, gitlab, bitbucket, azurerepos, git)
   // ---------------------------------------------------------------------------
 
-  it("marks git source as ready when gitTreeHash changed", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      gitTreeSha: Option.some("new-sha"),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "old-sha",
-      }),
-    });
+  it.effect("marks git source as ready when gitTreeHash changed", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        gitTreeSha: Option.some("new-sha"),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "old-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-    expect(runStep(getFirstStep(plan))).toBe("executed install-skill");
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+      expect(yield* runStep(getFirstStep(plan))).toBe("executed install-skill");
+    }),
+  );
 
-  it("marks git source as skip when gitTreeHash unchanged", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      gitTreeSha: Option.some("same-sha"),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "same-sha",
-      }),
-    });
+  it.effect("marks git source as skip when gitTreeHash unchanged", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        gitTreeSha: Option.some("same-sha"),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "same-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(true);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
+    }),
+  );
 
-  it("marks git source as ready when lockfile gitTreeHash is missing", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      gitTreeSha: Option.some("new-sha"),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        // no gitTreeHash
-      }),
-    });
+  it.effect("marks git source as ready when lockfile gitTreeHash is missing", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        gitTreeSha: Option.some("new-sha"),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          // no gitTreeHash
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("marks git source as ready when operation gitTreeSha is missing", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      gitTreeSha: Option.none(),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "old-sha",
-      }),
-    });
+  it.effect("marks git source as ready when operation gitTreeSha is missing", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        gitTreeSha: Option.none(),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "old-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("marks git source as ready when both gitTreeHash and gitTreeSha are missing", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      gitTreeSha: Option.none(),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        // no gitTreeHash
-      }),
-    });
+  it.effect("marks git source as ready when both gitTreeHash and gitTreeSha are missing", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        gitTreeSha: Option.none(),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          // no gitTreeHash
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("handles gitlab source with git hash comparison", () => {
-    const op = makeOp("lint", {
-      sourceType: "gitlab",
-      gitTreeSha: Option.some("new-sha"),
-    });
-    const lf = lockfileWith({
-      lint: makeLockEntry({
-        type: "gitlab",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "old-sha",
-      }),
-    });
+  it.effect("handles gitlab source with git hash comparison", () =>
+    Effect.gen(function* () {
+      const op = makeOp("lint", {
+        sourceType: "gitlab",
+        gitTreeSha: Option.some("new-sha"),
+      });
+      const lf = lockfileWith({
+        lint: makeLockEntry({
+          type: "gitlab",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "old-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("handles bitbucket source with git hash comparison", () => {
-    const op = makeOp("lint", {
-      sourceType: "bitbucket",
-      gitTreeSha: Option.some("same-sha"),
-    });
-    const lf = lockfileWith({
-      lint: makeLockEntry({
-        type: "bitbucket",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "same-sha",
-      }),
-    });
+  it.effect("handles bitbucket source with git hash comparison", () =>
+    Effect.gen(function* () {
+      const op = makeOp("lint", {
+        sourceType: "bitbucket",
+        gitTreeSha: Option.some("same-sha"),
+      });
+      const lf = lockfileWith({
+        lint: makeLockEntry({
+          type: "bitbucket",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "same-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(true);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
+    }),
+  );
 
-  it("handles azurerepos source with git hash comparison", () => {
-    const op = makeOp("lint", {
-      sourceType: "azurerepos",
-      gitTreeSha: Option.some("new-sha"),
-    });
-    const lf = lockfileWith({
-      lint: makeLockEntry({
-        type: "azurerepos",
-        organization: "org",
-        project: "proj",
-        repo: "r",
-        gitTreeHash: "old-sha",
-      }),
-    });
+  it.effect("handles azurerepos source with git hash comparison", () =>
+    Effect.gen(function* () {
+      const op = makeOp("lint", {
+        sourceType: "azurerepos",
+        gitTreeSha: Option.some("new-sha"),
+      });
+      const lf = lockfileWith({
+        lint: makeLockEntry({
+          type: "azurerepos",
+          organization: "org",
+          project: "proj",
+          repo: "r",
+          gitTreeHash: "old-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("handles generic git source with git hash comparison", () => {
-    const op = makeOp("lint", {
-      sourceType: "git",
-      gitTreeSha: Option.some("new-sha"),
-    });
-    const lf = lockfileWith({
-      lint: makeLockEntry({
-        type: "git",
-        url: "git@example.com:repo.git",
-        gitTreeHash: "old-sha",
-      }),
-    });
+  it.effect("handles generic git source with git hash comparison", () =>
+    Effect.gen(function* () {
+      const op = makeOp("lint", {
+        sourceType: "git",
+        gitTreeSha: Option.some("new-sha"),
+      });
+      const lf = lockfileWith({
+        lint: makeLockEntry({
+          type: "git",
+          url: "git@example.com:repo.git",
+          gitTreeHash: "old-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Registry sources
   // ---------------------------------------------------------------------------
 
-  it("marks registry source as ready when resolvedVersion changed", () => {
-    const op = makeOp("commit", {
-      sourceType: "registry",
-      version: "2.0.0",
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "registry",
-        profile: "@axm",
-        name: "commit",
-        resolvedVersion: "1.0.0",
-        integrity: "sha512-AAAA==",
-        sourceName: "default",
-      }),
-    });
+  it.effect("marks registry source as ready when resolvedVersion changed", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "registry",
+        version: "2.0.0",
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "registry",
+          profile: "@axm",
+          name: "commit",
+          resolvedVersion: "1.0.0",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("marks registry source as skip when resolvedVersion unchanged", () => {
-    const op = makeOp("commit", {
-      sourceType: "registry",
-      version: "1.0.0",
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "registry",
-        profile: "@axm",
-        name: "commit",
-        resolvedVersion: "1.0.0",
-        integrity: "sha512-AAAA==",
-        sourceName: "default",
-      }),
-    });
+  it.effect("marks registry source as skip when resolvedVersion unchanged", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "registry",
+        version: "1.0.0",
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "registry",
+          profile: "@axm",
+          name: "commit",
+          resolvedVersion: "1.0.0",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(true);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Builtin sources
   // ---------------------------------------------------------------------------
 
-  it("marks builtin source as skip (updated separately via pack flow)", () => {
-    const op = makeOp("commit", { sourceType: "builtin" });
-    const lf = lockfileWith({
-      commit: makeLockEntry({ type: "builtin" }),
-    });
+  it.effect("marks builtin source as skip (updated separately via pack flow)", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", { sourceType: "builtin" });
+      const lf = lockfileWith({
+        commit: makeLockEntry({ type: "builtin" }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(true);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
+    }),
+  );
 
-  it("marks builtin source as ready when force is true", () => {
-    const op = makeOp("commit", { sourceType: "builtin", force: true });
-    const lf = lockfileWith({
-      commit: makeLockEntry({ type: "builtin" }),
-    });
+  it.effect("marks builtin source as ready when force is true", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", { sourceType: "builtin", force: true });
+      const lf = lockfileWith({
+        commit: makeLockEntry({ type: "builtin" }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Local sources
   // ---------------------------------------------------------------------------
 
-  it("always marks local source as ready (no version tracking)", () => {
-    const op = makeOp("commit", { sourceType: "local" });
-    const lf = lockfileWith({
-      commit: makeLockEntry({ type: "local", path: "/installed" }),
-    });
+  it.effect("always marks local source as ready (no version tracking)", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", { sourceType: "local" });
+      const lf = lockfileWith({
+        commit: makeLockEntry({ type: "local", path: "/installed" }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Force flag
   // ---------------------------------------------------------------------------
 
-  it("marks as ready when force is true regardless of version match", () => {
-    const op = makeOp("commit", {
-      sourceType: "github",
-      force: true,
-      gitTreeSha: Option.some("same-sha"),
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "same-sha",
-      }),
-    });
+  it.effect("marks as ready when force is true regardless of version match", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "github",
+        force: true,
+        gitTreeSha: Option.some("same-sha"),
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "same-sha",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
-  it("marks as ready when force is true for registry with same version", () => {
-    const op = makeOp("commit", {
-      sourceType: "registry",
-      force: true,
-      version: "1.0.0",
-    });
-    const lf = lockfileWith({
-      commit: makeLockEntry({
-        type: "registry",
-        profile: "@axm",
-        name: "commit",
-        resolvedVersion: "1.0.0",
-        integrity: "sha512-AAAA==",
-        sourceName: "default",
-      }),
-    });
+  it.effect("marks as ready when force is true for registry with same version", () =>
+    Effect.gen(function* () {
+      const op = makeOp("commit", {
+        sourceType: "registry",
+        force: true,
+        version: "1.0.0",
+      });
+      const lf = lockfileWith({
+        commit: makeLockEntry({
+          type: "registry",
+          profile: "@axm",
+          name: "commit",
+          resolvedVersion: "1.0.0",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+        }),
+      });
 
-    const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Skill not in lockfile (new skill during update)
   // ---------------------------------------------------------------------------
 
-  it("marks as ready when skill is not in lockfile", () => {
-    const op = makeOp("new-skill", { sourceType: "github", gitTreeSha: Option.some("sha") });
+  it.effect("marks as ready when skill is not in lockfile", () =>
+    Effect.gen(function* () {
+      const op = makeOp("new-skill", { sourceType: "github", gitTreeSha: Option.some("sha") });
 
-    const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none(), stubRunClosure);
 
-    expect(isSkipStep(getFirstStep(plan))).toBe(false);
-  });
+      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Plan structure
@@ -705,71 +738,75 @@ describe("buildUpdatePlan", () => {
     expect(plan._tag).toBe("Plan");
   });
 
-  it("handles mixed ready and skip readiness", () => {
-    const ops = [
-      makeOp("changed", {
-        sourceType: "github",
-        gitTreeSha: Option.some("new-sha"),
-      }),
-      makeOp("unchanged", {
-        sourceType: "github",
-        gitTreeSha: Option.some("same-sha"),
-      }),
-      makeOp("local-skill", { sourceType: "local" }),
-    ];
-    const lf = lockfileWith({
-      changed: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "old-sha",
-      }),
-      unchanged: makeLockEntry({
-        type: "github",
-        owner: "o",
-        repo: "r",
-        gitTreeHash: "same-sha",
-      }),
-      "local-skill": makeLockEntry({ type: "local", path: "/local" }),
-    });
+  it.effect("handles mixed ready and skip readiness", () =>
+    Effect.gen(function* () {
+      const ops = [
+        makeOp("changed", {
+          sourceType: "github",
+          gitTreeSha: Option.some("new-sha"),
+        }),
+        makeOp("unchanged", {
+          sourceType: "github",
+          gitTreeSha: Option.some("same-sha"),
+        }),
+        makeOp("local-skill", { sourceType: "local" }),
+      ];
+      const lf = lockfileWith({
+        changed: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "old-sha",
+        }),
+        unchanged: makeLockEntry({
+          type: "github",
+          owner: "o",
+          repo: "r",
+          gitTreeHash: "same-sha",
+        }),
+        "local-skill": makeLockEntry({ type: "local", path: "/local" }),
+      });
 
-    const plan = buildUpdatePlan(ops, lf, "Update", Option.none(), stubRunClosure);
+      const plan = buildUpdatePlan(ops, lf, "Update", Option.none(), stubRunClosure);
 
-    const steps = getSteps(plan);
-    expect(isSkipStep(getStep(steps, 0))).toBe(false);
-    expect(getStep(steps, 0).label).toBe("changed");
-    expect(isSkipStep(getStep(steps, 1))).toBe(true);
-    expect(getStep(steps, 1).label).toBe("unchanged");
-    expect(isSkipStep(getStep(steps, 2))).toBe(false);
-    expect(getStep(steps, 2).label).toBe("local-skill");
-  });
+      const steps = getSteps(plan);
+      expect(yield* isSkipStep(getStep(steps, 0))).toBe(false);
+      expect(getStep(steps, 0).label).toBe("changed");
+      expect(yield* isSkipStep(getStep(steps, 1))).toBe(true);
+      expect(getStep(steps, 1).label).toBe("unchanged");
+      expect(yield* isSkipStep(getStep(steps, 2))).toBe(false);
+      expect(getStep(steps, 2).label).toBe("local-skill");
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // UninstallSkillOperation support (rename cleanup)
   // ---------------------------------------------------------------------------
 
-  it("accepts UninstallSkillOperation in the operations array", () => {
-    const installOp = makeOp("new-name");
-    const uninstallOp: UninstallSkillOperation = {
-      name: "uninstall-skill",
-      args: { skillName: "old-name", agents: [] },
-    };
+  it.effect("accepts UninstallSkillOperation in the operations array", () =>
+    Effect.gen(function* () {
+      const installOp = makeOp("new-name");
+      const uninstallOp: UninstallSkillOperation = {
+        name: "uninstall-skill",
+        args: { skillName: "old-name", agents: [] },
+      };
 
-    const plan = buildUpdatePlan(
-      [installOp, uninstallOp],
-      emptyLockfile,
-      "Update",
-      Option.none(),
-      stubRunClosure,
-    );
+      const plan = buildUpdatePlan(
+        [installOp, uninstallOp],
+        emptyLockfile,
+        "Update",
+        Option.none(),
+        stubRunClosure,
+      );
 
-    const steps = getSteps(plan);
-    expect(steps).toHaveLength(2);
-    // First step should be install (dispatched to stub closure)
-    expect(runStep(getStep(steps, 0))).toBe("executed install-skill");
-    // Second step should be uninstall (dispatched to stub closure)
-    expect(runStep(getStep(steps, 1))).toBe("executed uninstall-skill");
-  });
+      const steps = getSteps(plan);
+      expect(steps).toHaveLength(2);
+      // First step should be install (dispatched to stub closure)
+      expect(yield* runStep(getStep(steps, 0))).toBe("executed install-skill");
+      // Second step should be uninstall (dispatched to stub closure)
+      expect(yield* runStep(getStep(steps, 1))).toBe("executed uninstall-skill");
+    }),
+  );
 
   it("gives UninstallSkillOperation steps a rename cleanup label", () => {
     const uninstallOp: UninstallSkillOperation = {
@@ -790,29 +827,31 @@ describe("buildUpdatePlan", () => {
     expect(step.label).toContain("renamed");
   });
 
-  it("handles mixed install and uninstall operations", () => {
-    const installOp = makeOp("new-skill", {
-      sourceType: "github",
-      gitTreeSha: Option.some("sha-123"),
-    });
-    const uninstallOp: UninstallSkillOperation = {
-      name: "uninstall-skill",
-      args: { skillName: "old-skill", agents: [] },
-    };
+  it.effect("handles mixed install and uninstall operations", () =>
+    Effect.gen(function* () {
+      const installOp = makeOp("new-skill", {
+        sourceType: "github",
+        gitTreeSha: Option.some("sha-123"),
+      });
+      const uninstallOp: UninstallSkillOperation = {
+        name: "uninstall-skill",
+        args: { skillName: "old-skill", agents: [] },
+      };
 
-    const plan = buildUpdatePlan(
-      [installOp, uninstallOp],
-      emptyLockfile,
-      "Update skill(s)",
-      Option.some("Rename detected"),
-      stubRunClosure,
-    );
+      const plan = buildUpdatePlan(
+        [installOp, uninstallOp],
+        emptyLockfile,
+        "Update skill(s)",
+        Option.some("Rename detected"),
+        stubRunClosure,
+      );
 
-    const steps = getSteps(plan);
-    expect(steps).toHaveLength(2);
-    expect(getStep(steps, 0).label).toBe("new-skill");
-    expect(isSkipStep(getStep(steps, 0))).toBe(false);
-    expect(getStep(steps, 1).label).toContain("old-skill");
-    expect(getStep(steps, 1).label).toContain("renamed");
-  });
+      const steps = getSteps(plan);
+      expect(steps).toHaveLength(2);
+      expect(getStep(steps, 0).label).toBe("new-skill");
+      expect(yield* isSkipStep(getStep(steps, 0))).toBe(false);
+      expect(getStep(steps, 1).label).toContain("old-skill");
+      expect(getStep(steps, 1).label).toContain("renamed");
+    }),
+  );
 });

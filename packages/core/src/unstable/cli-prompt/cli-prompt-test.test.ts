@@ -231,58 +231,66 @@ describe("makeTestPrompt", () => {
   });
 
   describe("empty queue failure", () => {
-    it("dies when text queue is empty", async () => {
-      const [layer] = makeTestPrompt({ textResponses: [] });
-      const exit = await Effect.gen(function* () {
-        const prompt = yield* CliPrompt;
-        return yield* prompt.text({ message: "Name?" });
-      }).pipe(Effect.provide(layer), Effect.runPromiseExit);
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit)) {
-        const die = exit.cause.reasons.find(Cause.isDieReason);
-        expect(die).toBeDefined();
-        expect(String(die?.defect)).toContain("TestPrompt");
-        expect(String(die?.defect)).toContain("text");
-      }
-    });
+    it.effect("dies when text queue is empty", () =>
+      Effect.gen(function* () {
+        const [layer] = makeTestPrompt({ textResponses: [] });
+        const exit = yield* Effect.gen(function* () {
+          const prompt = yield* CliPrompt;
+          return yield* prompt.text({ message: "Name?" });
+        }).pipe(Effect.provide(layer), Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          const die = exit.cause.reasons.find(Cause.isDieReason);
+          expect(die).toBeDefined();
+          expect(String(die?.defect)).toContain("TestPrompt");
+          expect(String(die?.defect)).toContain("text");
+        }
+      }),
+    );
 
-    it("dies when confirm queue is empty", async () => {
-      const [layer] = makeTestPrompt({ confirmResponses: [] });
-      const exit = await Effect.gen(function* () {
-        const prompt = yield* CliPrompt;
-        return yield* prompt.confirm({ message: "Sure?" });
-      }).pipe(Effect.provide(layer), Effect.runPromiseExit);
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit)) {
-        const die = exit.cause.reasons.find(Cause.isDieReason);
-        expect(die).toBeDefined();
-        expect(String(die?.defect)).toContain("TestPrompt");
-        expect(String(die?.defect)).toContain("confirm");
-      }
-    });
+    it.effect("dies when confirm queue is empty", () =>
+      Effect.gen(function* () {
+        const [layer] = makeTestPrompt({ confirmResponses: [] });
+        const exit = yield* Effect.gen(function* () {
+          const prompt = yield* CliPrompt;
+          return yield* prompt.confirm({ message: "Sure?" });
+        }).pipe(Effect.provide(layer), Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          const die = exit.cause.reasons.find(Cause.isDieReason);
+          expect(die).toBeDefined();
+          expect(String(die?.defect)).toContain("TestPrompt");
+          expect(String(die?.defect)).toContain("confirm");
+        }
+      }),
+    );
 
-    it("dies when queue is exhausted after valid responses", async () => {
-      const [layer] = makeTestPrompt({ textResponses: ["one"] });
-      const exit = await Effect.gen(function* () {
-        const prompt = yield* CliPrompt;
-        yield* prompt.text({ message: "First" });
-        return yield* prompt.text({ message: "Second" });
-      }).pipe(Effect.provide(layer), Effect.runPromiseExit);
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit)) {
-        const die = exit.cause.reasons.find(Cause.isDieReason);
-        expect(die).toBeDefined();
-        expect(String(die?.defect)).toContain("queue is empty");
-      }
-    });
+    it.effect("dies when queue is exhausted after valid responses", () =>
+      Effect.gen(function* () {
+        const [layer] = makeTestPrompt({ textResponses: ["one"] });
+        const exit = yield* Effect.gen(function* () {
+          const prompt = yield* CliPrompt;
+          yield* prompt.text({ message: "First" });
+          return yield* prompt.text({ message: "Second" });
+        }).pipe(Effect.provide(layer), Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          const die = exit.cause.reasons.find(Cause.isDieReason);
+          expect(die).toBeDefined();
+          expect(String(die?.defect)).toContain("queue is empty");
+        }
+      }),
+    );
 
-    it("dies when no config provided and any prompt is called", async () => {
-      const [layer] = makeTestPrompt();
-      const exit = await Effect.gen(function* () {
-        const prompt = yield* CliPrompt;
-        return yield* prompt.text({ message: "Name?" });
-      }).pipe(Effect.provide(layer), Effect.runPromiseExit);
-      expect(Exit.isFailure(exit)).toBe(true);
-    });
+    it.effect("dies when no config provided and any prompt is called", () =>
+      Effect.gen(function* () {
+        const [layer] = makeTestPrompt();
+        const exit = yield* Effect.gen(function* () {
+          const prompt = yield* CliPrompt;
+          return yield* prompt.text({ message: "Name?" });
+        }).pipe(Effect.provide(layer), Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+      }),
+    );
   });
 });

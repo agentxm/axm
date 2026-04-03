@@ -60,29 +60,29 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 Use `contributing/guides` for topic-level guidance. If a guide goes deeper than
 the summary here, follow the guide.
 
-| Guide                                                                       | When to consult                                                       |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Docs & process**                                                          |                                                                       |
-| [Guides README](contributing/guides/README.md)                              | Adding a guide; template and local conventions                        |
-| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Writing or editing docs; audience, flow, and source-of-truth rules    |
-| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Deciding whether a topic needs a guide; structuring guide content     |
-| [Instructions Guide](contributing/guides/instructions.md)                   | README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL ownership |
-| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | Updating INSTALL.md or SKILL.md after CLI or workflow changes         |
-| **Delivery**                                                                |                                                                       |
-| [Releasing Guide](contributing/guides/releasing.md)                         | Planning, preparing, publishing, or checking a release                |
-| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | OpenSpec workflow from proposal through archive                       |
-| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Proposal, design, implementation, and verification checks             |
-| **Implementation**                                                          |                                                                       |
-| [CLI Design Guide](contributing/guides/cli-design.md)                       | Command shape, flags, prompts, handlers, and parent command behavior  |
-| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Machine-readable JSON output, renderer boundaries, and diagnostics    |
-| [Testing Guide](contributing/guides/testing.md)                             | Test levels, E2E scope, and Effect testing references                 |
-| [Effect Guide](contributing/guides/effect.md)                               | Core Effect patterns and skill index                                  |
-| [Effect Option Guide](contributing/guides/effect-option.md)                 | Option vs nullable values and boundary conversions                    |
-| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | Common v3 to v4 renames and migration patterns                        |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Error architecture, AppError conventions, typed service errors        |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Layer construction, composition, provision, and dependency wiring     |
-| [Logging Guide](contributing/guides/logging.md)                             | Structured logging with Effect                                        |
-| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Assertion-free TypeScript, narrowing, and immutability                |
+| Guide                                                                       | When to consult                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Docs & process**                                                          |                                                                                      |
+| [Guides README](contributing/guides/README.md)                              | Adding a guide; template and local conventions                                       |
+| [Documentation Guidelines](contributing/guides/documentation-guidelines.md) | Writing or editing docs; audience, flow, and source-of-truth rules                   |
+| [Guide Authoring](contributing/guides/guide-authoring.md)                   | Deciding whether a topic needs a guide; structuring guide content                    |
+| [Instructions Guide](contributing/guides/instructions.md)                   | README vs CONTRIBUTING vs AGENTS/CLAUDE vs INSTALL vs SKILL ownership                |
+| [Agent Accessibility Guide](contributing/guides/agent-accessibility.md)     | Updating INSTALL.md or SKILL.md after CLI or workflow changes                        |
+| **Delivery**                                                                |                                                                                      |
+| [Releasing Guide](contributing/guides/releasing.md)                         | Planning, preparing, publishing, or checking a release                               |
+| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | OpenSpec workflow from proposal through archive                                      |
+| [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Proposal, design, implementation, and verification checks                            |
+| **Implementation**                                                          |                                                                                      |
+| [CLI Design Guide](contributing/guides/cli-design.md)                       | Command shape, flags, prompts, handlers, and parent command behavior                 |
+| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                   | Machine-readable JSON output, renderer boundaries, and diagnostics                   |
+| [Testing Guide](contributing/guides/testing.md)                             | Test levels, E2E scope, and Effect testing references                                |
+| [Effect Guide](contributing/guides/effect.md)                               | Core Effect patterns and skill index                                                 |
+| [Effect Option Guide](contributing/guides/effect-option.md)                 | Option vs nullable values and boundary conversions                                   |
+| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | Common v3 to v4 renames and migration patterns                                       |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Error architecture, AppError conventions, typed service errors, Result type guidance |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Layer construction, composition, provision, and dependency wiring                    |
+| [Logging Guide](contributing/guides/logging.md)                             | Structured logging with Effect                                                       |
+| [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Assertion-free TypeScript, narrowing, and immutability                               |
 
 ### Nx
 

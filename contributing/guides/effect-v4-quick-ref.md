@@ -49,7 +49,7 @@ class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
 
 ---
 
-## Forking and Yieldables
+## Other Common Renames
 
 | v3                  | v4                  |
 | ------------------- | ------------------- |
@@ -57,6 +57,37 @@ class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
 | `Effect.forkDaemon` | `Effect.forkDetach` |
 | `Effect.either`     | `Effect.result`     |
 | `Effect.context`    | `Effect.services`   |
+
+---
+
+## Either → Result
+
+The `Either` module is removed. `Result` replaces it with semantic naming
+(`Success`/`Failure` instead of `Right`/`Left`):
+
+| v3 (removed)        | v4                  |
+| ------------------- | ------------------- |
+| `Either<A, E>`      | `Result<A, E>`      |
+| `Either.right(a)`   | `Result.succeed(a)` |
+| `Either.left(e)`    | `Result.fail(e)`    |
+| `Either.isRight`    | `Result.isSuccess`  |
+| `Either.isLeft`     | `Result.isFailure`  |
+| `.right`            | `.success`          |
+| `.left`             | `.failure`          |
+| `Either.match`      | `Result.match`      |
+| `Either.map`        | `Result.map`        |
+| `Either.mapLeft`    | `Result.mapError`   |
+| `Either.flatMap`    | `Result.flatMap`    |
+| `Effect.fromEither` | `Effect.fromResult` |
+
+`Effect.either` → `Effect.result` is listed in
+[Other Common Renames](#other-common-renames) above. See the
+[Effect Errors Guide](./effect-errors.md#result-type-at-boundaries) for when to
+use `Result` vs Effect's error channel.
+
+---
+
+## Yieldable Changes
 
 `Ref`, `Deferred`, and `Fiber` are no longer yieldable Effects.
 

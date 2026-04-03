@@ -552,6 +552,12 @@ readonly get: (id: string) => Effect.Effect<Manifest | null>
 An error belongs in `E` when callers need different recovery strategies. When
 every caller recovers identically, return a result value instead.
 
+> **Terminology note:** "Result value" in this section means returning the
+> outcome as data in the success channel `A` — a `boolean`, `Option<T>`,
+> discriminated union, etc. This is distinct from the `Result<A, E>` type, which
+> has its own guidance in
+> [Result type at boundaries](#result-type-at-boundaries).
+
 ```ts
 // WRONG — every caller catches and does the same thing
 export const validateKey = (
@@ -569,12 +575,24 @@ operation should probably return a result value, not a typed error.
 
 #### Choosing a result value shape
 
-| Scenario                            | Return type         | Why                                                             |
-| ----------------------------------- | ------------------- | --------------------------------------------------------------- |
-| Pass/fail with no detail needed     | `boolean`           | Binary validation or authorization gates                        |
-| Value may be absent (cache, lookup) | `Option<T>`         | Effect-native; composes with `Option.match`, `Option.getOrElse` |
-| Operation outcome with metadata     | Discriminated union | When callers need to inspect _which_ outcome occurred           |
-| Operation that degrades gracefully  | `T` with a default  | When every caller substitutes the same fallback                 |
+| Scenario                                  | Return type         | Why                                                                                                                      |
+| ----------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Pass/fail with no detail needed           | `boolean`           | Binary validation or authorization gates                                                                                 |
+| Value may be absent (cache, lookup)       | `Option<T>`         | Effect-native; composes with `Option.match`, `Option.getOrElse`                                                          |
+| Single-record lookup at data access layer | `T \| null`         | Appropriate when consumed immediately at a boundary and not threaded through an Effect pipeline                          |
+| Operation outcome with metadata           | Discriminated union | When callers need to inspect _which_ outcome occurred but all recover the same way per outcome. Keep variants to 3–4 max |
+| Operation that degrades gracefully        | `T` with a default  | When every caller substitutes the same fallback — return the fallback directly from the service                          |
+
+##### When `null` is appropriate for absence
+
+`T | null` is acceptable when all three hold: **(1)** exactly one failure mode
+(absence only — if `null` could mean "not found" vs "unauthorized" vs "expired",
+use `E` or a union), **(2)** consumed immediately at the call site (not threaded
+through pipeline composition), and **(3)** data-access boundary
+(repository/store lookup mirroring the data model).
+
+When the value feeds into pipeline composition, prefer `Option<T>` — see
+[Effect Option Guide](./effect-option.md).
 
 ### Translate at boundaries
 
@@ -660,6 +678,86 @@ static readonly layer = Layer.effect(
 
 ---
 
+## Result Type at Boundaries
+
+`Result<A, E>` (v4 replacement for `Either`) represents a **computed outcome** —
+synchronous, pure, eagerly evaluated. `Effect<A, E, R>` represents a
+**computation** — potentially async, with dependencies, lazily evaluated. Use
+the least powerful abstraction that solves the problem.
+
+### When to use Result
+
+| Context                                       | Type                                                       | Why                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| Pure synchronous validation or parsing        | `Result<A, E>`                                             | No effects, no dependencies — Result is sufficient                   |
+| Schema decoding without Effect runtime        | `Schema.decodeResult(schema)`                              | Synchronous validation; Effect unnecessary                           |
+| Encapsulating an Effect's outcome as data     | `Effect.result(e)` → `Effect<Result<A, E>, never, R>`      | Moves errors into success channel for inspection without propagation |
+| Collecting all outcomes without short-circuit | `Effect.all([…], { mode: "result" })` → `Array<Result<…>>` | Every outcome captured regardless of individual failures             |
+
+### When not to use Result
+
+| Context                              | Use instead       | Why                                                          |
+| ------------------------------------ | ----------------- | ------------------------------------------------------------ |
+| Effectful computation that can fail  | `Effect<A, E, R>` | The error channel exists for this purpose                    |
+| Service method return type           | `Effect<A, E, R>` | Result side-steps the error channel contract callers rely on |
+| Async operation                      | `Effect<A, E, R>` | Result is synchronous; use Effect for async                  |
+| Failure where callers need no detail | `Option<A>`       | Option signals absence without error context                 |
+
+### Bridging Result into Effect
+
+Result implements the `Yieldable` protocol — `yield*` a Result in `Effect.gen`
+to extract the success value or short-circuit into Effect's error channel on
+failure:
+
+```ts
+// Pure synchronous validation returning Result
+const validateHandle = (input: string): Result.Result<string, HandleInvalidError> =>
+  input.length === 0
+    ? Result.fail(new HandleInvalidError({ reason: "empty" }))
+    : Result.succeed(input.trim().toLowerCase());
+
+// Effect pipeline — yield* the Result to bridge into the error channel
+const checkHandle = (input: string) =>
+  Effect.gen(function* () {
+    const handle = yield* validateHandle(input); // Failure → E channel
+    // ... continue with Effect operations
+    return handle;
+  });
+```
+
+Avoid manual unwrapping when `yield*` suffices:
+
+```ts
+// WRONG — manual check + re-yield is redundant
+const result = validateHandle(input);
+if (Result.isFailure(result)) {
+  return yield * result.failure;
+}
+const handle = result.success;
+
+// RIGHT — yield* does the same thing
+const handle = yield * validateHandle(input);
+```
+
+Manual unwrapping is appropriate when you need to branch on failure details
+without short-circuiting — e.g., returning a fallback response instead of
+entering the error channel.
+
+### Result Type Checklist
+
+- [ ] **Outcomes vs computations** — Pure synchronous functions return
+      `Result<A, E>`; effectful computations use Effect's error channel
+- [ ] **Not in service signatures** — Service method return types use
+      `Effect<A, E, R>`, not `Result<A, E>`
+- [ ] **Bridge via yield\*** — Result values enter Effect pipelines through
+      `yield*` in `Effect.gen`, not through manual `isFailure` checks followed
+      by re-yielding the error
+- [ ] **Encapsulation is intentional** — `Effect.result` and
+      `{ mode: "result" }` used deliberately for outcome inspection or batch
+      collection, not to avoid handling errors in `E`
+
+---
+
 ## See Also
 
 - [Effect Guide](./effect.md) — Core Effect patterns, service design, and skill
@@ -674,5 +772,8 @@ static readonly layer = Layer.effect(
   Official error handling documentation
 - [Effect: Data.TaggedError](https://effect.website/docs/data-types/data/#taggederror) —
   API reference for tagged error classes
+- [Effect v4: Result module](https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/Result.ts)
+  — `Result<A, E>` API reference (v4 replacement for `Either`); JSDoc covers
+  construction, transformation, pattern matching, and `Yieldable` protocol
 - [Effect Solutions](https://www.effect.solutions/) — Prescriptive patterns by
   Kit Langton; covers error modeling and service architecture

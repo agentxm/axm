@@ -1,5 +1,6 @@
 import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/ServiceMap";
+import type { AppError } from "../app-error/index.js";
 import type { PromptCancelled } from "./prompt-cancelled.js";
 
 export interface PromptOption<Value> {
@@ -98,23 +99,25 @@ export interface AutocompleteMultiselectOpts<V> {
 export class CliPrompt extends ServiceMap.Service<
   CliPrompt,
   {
-    readonly text: (opts: TextOpts) => Effect.Effect<string, PromptCancelled>;
-    readonly password: (opts: PasswordOpts) => Effect.Effect<string, PromptCancelled>;
-    readonly confirm: (opts: ConfirmOpts) => Effect.Effect<boolean, PromptCancelled>;
-    readonly select: <V>(opts: SelectOpts<V>) => Effect.Effect<V, PromptCancelled>;
+    readonly text: (opts: TextOpts) => Effect.Effect<string, PromptCancelled | AppError>;
+    readonly password: (opts: PasswordOpts) => Effect.Effect<string, PromptCancelled | AppError>;
+    readonly confirm: (opts: ConfirmOpts) => Effect.Effect<boolean, PromptCancelled | AppError>;
+    readonly select: <V>(opts: SelectOpts<V>) => Effect.Effect<V, PromptCancelled | AppError>;
     readonly multiselect: <V>(
       opts: MultiselectOpts<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled | AppError>;
     readonly groupMultiselect: <V>(
       opts: GroupMultiselectOpts<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled | AppError>;
     readonly selectKey: <V extends string>(
       opts: SelectKeyOpts<V>,
-    ) => Effect.Effect<V, PromptCancelled>;
-    readonly autocomplete: <V>(opts: AutocompleteOpts<V>) => Effect.Effect<V, PromptCancelled>;
+    ) => Effect.Effect<V, PromptCancelled | AppError>;
+    readonly autocomplete: <V>(
+      opts: AutocompleteOpts<V>,
+    ) => Effect.Effect<V, PromptCancelled | AppError>;
     readonly autocompleteMultiselect: <V>(
       opts: AutocompleteMultiselectOpts<V>,
-    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled>;
-    readonly path: (opts: PathOpts) => Effect.Effect<string, PromptCancelled>;
+    ) => Effect.Effect<ReadonlyArray<V>, PromptCancelled | AppError>;
+    readonly path: (opts: PathOpts) => Effect.Effect<string, PromptCancelled | AppError>;
   }
 >()("@axm.sh/cli/CliPrompt") {}

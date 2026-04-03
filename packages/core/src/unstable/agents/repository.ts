@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError } from "../app-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import { Workspace } from "../workspace/service-interface.js";
 import {
   type CodingAgent,
@@ -47,7 +47,7 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
     } as const),
 });
 
-const fromId = (id: AgentId) => {
+const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
   switch (id) {
     case "claude-code":
       return Effect.succeed(claudeCodeCodingAgent);
@@ -64,7 +64,12 @@ const fromId = (id: AgentId) => {
     default:
       return Option.match(getAgentById(id), {
         onNone: () =>
-          Effect.die(new Error(`Unexpected missing descriptor for known agent id: ${id}`)),
+          Effect.fail(
+            makeAppError({
+              code: "CODING_AGENT_NOT_SUPPORTED",
+              what: `Unsupported coding agent: ${id}`,
+            }),
+          ),
         onSome: (descriptor) => Effect.succeed(codingAgentFromDescriptor(descriptor)),
       });
   }
@@ -90,12 +95,11 @@ const getConfiguredAgentIds = () =>
 const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(
     Effect.flatMap((ids) =>
-      Effect.forEach(ids, (id) =>
-        Option.match(getAgentById(id), {
-          onNone: () => Effect.succeed(Option.none<CodingAgent>()),
-          onSome: (descriptor) => fromId(descriptor.id).pipe(Effect.map(Option.some)),
-        }),
-      ),
+      Effect.forEach(ids, (id) => {
+        const descriptor = getAgentById(id);
+        if (Option.isNone(descriptor)) return Effect.succeed(Option.none<CodingAgent>());
+        return fromId(descriptor.value.id).pipe(Effect.map((agent) => Option.some(agent)));
+      }),
     ),
     Effect.map(Array.getSomes),
   );

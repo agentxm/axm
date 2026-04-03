@@ -57,7 +57,7 @@ const toClackPathOptions = (opts: PathOpts): p.PathOptions => ({
 
 const isPromptValue = <T>(value: T | symbol): value is T => !p.isCancel(value);
 
-const wrapPrompt = <T>(thunk: () => Promise<T | symbol>): Effect.Effect<T, PromptCancelled> =>
+const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   Effect.gen(function* () {
     const result = yield* Effect.tryPromise({
       try: () => thunk(),
@@ -67,18 +67,15 @@ const wrapPrompt = <T>(thunk: () => Promise<T | symbol>): Effect.Effect<T, Promp
           what: "Prompt failed to render",
           cause: error,
         }),
-    }).pipe(
-      // Render failures are defects, not expected errors
-      Effect.catch((error) => Effect.die(error)),
-    );
+    });
     if (!isPromptValue(result)) {
       return yield* new PromptCancelled({ message: "Operation cancelled." });
     }
     return result;
   });
 
-const dieNonInteractive = (message: string): Effect.Effect<never> =>
-  Effect.die(
+const dieNonInteractive = (message: string) =>
+  Effect.fail(
     makeAppError({
       code: "PROMPT_REQUIRED",
       what: `Interactive prompt required: ${message}`,
@@ -91,7 +88,7 @@ const guardedPrompt = <T>(
   defaultValue: T | undefined,
   message: string,
   thunk: () => Promise<T | symbol>,
-): Effect.Effect<T, PromptCancelled> =>
+) =>
   nonInteractive
     ? defaultValue !== undefined
       ? Effect.succeed(defaultValue)
@@ -101,7 +98,7 @@ const guardedPrompt = <T>(
 /**
  * Construct an InteractivePrompt layer.
  * When nonInteractive is true: prompts with a default silently use it;
- * prompts without a default die with PROMPT_REQUIRED (defect).
+ * prompts without a default fail with PROMPT_REQUIRED.
  */
 export const makeInteractivePrompt = (nonInteractive: boolean): Layer.Layer<CliPrompt> =>
   Layer.succeed(CliPrompt, {

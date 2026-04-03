@@ -18,7 +18,7 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { buildRegistrySkillRef, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
+import { buildRegistrySkillRef } from "@axm.sh/core/unstable/skills";
 import {
   buildRegistryCommandRef,
   type InstallCommandOperation,
@@ -43,7 +43,7 @@ export interface UnpackHandlerArgs {
   /** Pack name (FQN like @profile/name). */
   readonly name: string;
   /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
-  readonly strictAgentSync?: boolean;
+  readonly strictAgentSync: Option.Option<boolean>;
   /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
   /** Override constraints that would cause failure. */
@@ -110,17 +110,19 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         };
 
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
-  const skillOps: ReadonlyArray<InstallSkillOperation> = Object.entries(entry.resolvedSkills).map(
-    ([fqn, version]) => ({
+  const skillOps = yield* Effect.forEach(Object.entries(entry.resolvedSkills), ([fqn, version]) =>
+    Effect.map(buildRegistrySkillRef(fqn, version, source), (ref) => ({
       name: "install-skill" as const,
       args: {
-        ref: buildRegistrySkillRef(fqn, version, source),
+        ref,
         force: false,
         versionConstraint: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
+        strictUnknownAgents: Option.none<boolean>(),
+        existingInstalledAt: Option.none<Date>(),
         sourceName: Option.none<string>(),
       },
-    }),
+    })),
   );
 
   const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
@@ -144,7 +146,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       force: false,
       versionConstraint: Option.none<string>(),
       skipSettings: Option.none<boolean>(),
-      strictAgentSync: args.strictAgentSync ? Option.some(true) : Option.none<boolean>(),
+      strictAgentSync: args.strictAgentSync,
     },
   }));
 

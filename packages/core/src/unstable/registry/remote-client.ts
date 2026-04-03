@@ -13,8 +13,9 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { toAuthor, type ExtensionType } from "../extensions/index.js";
+import { toAuthor, ExtensionTypeSchema, type ExtensionType } from "../extensions/index.js";
 import type { ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
@@ -59,16 +60,14 @@ import type {
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
+const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
+
 /**
- * Narrow a string to ExtensionType. The generated client uses a wider union
- * ("skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack")
- * but our domain only supports the subset. Values outside the domain type
- * are passed through — the registry could return new types the client doesn't know.
+ * Narrow a string to ExtensionType via Schema validation.
+ * The generated client uses a wider union than our domain type;
+ * this validates the value is within our supported subset.
  */
-// Assertion needed: generated type is wider union than ExtensionType; we trust the
-// registry to return a valid type within our domain, but cannot statically prove it
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-const narrowExtensionType = (type: string): ExtensionType => type as unknown as ExtensionType;
+const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType(type);
 
 /**
  * Map the generated ExtensionsGet200 response to our domain ExtensionIndex type.

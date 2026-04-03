@@ -288,7 +288,7 @@ const makeOp = (
           profile: overrides.profile ?? "@community",
           name: skill.name,
           version: Option.getOrElse(version, () => ""),
-          integrity: "",
+          integrity: Option.none(),
         } satisfies RegistrySkillRef;
       case "local":
         return {
@@ -322,6 +322,7 @@ const makeOp = (
       versionConstraint: overrides.versionConstraint ?? Option.none(),
       skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
       strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
+      existingInstalledAt: Option.none(),
       sourceName: Option.none(),
     },
   };

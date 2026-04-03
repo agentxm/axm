@@ -90,7 +90,7 @@ export const expandPackInstallRefs = (args: {
         profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
-        integrity: "",
+        integrity: Option.none(),
       });
     }
   }
@@ -106,7 +106,7 @@ export const expandPackInstallRefs = (args: {
         profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
-        integrity: "",
+        integrity: Option.none(),
       });
     }
   }
@@ -122,7 +122,7 @@ export const expandPackInstallRefs = (args: {
         profile: namespaceFromFqn(fqn),
         name: nameFromFqn(fqn),
         version,
-        integrity: "",
+        integrity: Option.none(),
       });
     }
   }

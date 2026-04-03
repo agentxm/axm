@@ -13,14 +13,14 @@ export const PACK_MANIFEST_FILENAME = "axm-pack.json";
  * Raw pack manifest JSON shape (no schema validation on read to allow editing).
  */
 export interface RawPackManifest {
-  profile: string;
-  type: string;
-  name: string;
-  version: string;
-  skills?: Record<string, string>;
-  commands?: Record<string, string>;
-  "mcp-servers"?: Record<string, string>;
-  [key: string]: unknown;
+  readonly profile: string;
+  readonly type: string;
+  readonly name: string;
+  readonly version: string;
+  readonly skills?: Record<string, string>;
+  readonly commands?: Record<string, string>;
+  readonly "mcp-servers"?: Record<string, string>;
+  readonly [key: string]: unknown;
 }
 
 /**

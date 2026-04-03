@@ -1,70 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliError } from "effect/unstable/cli";
+import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
 import { JsonSchemaVersion } from "./json-envelope.js";
 
 // ---------------------------------------------------------------------------
-// Helpers
+// classifyError — pure classification tests
 // ---------------------------------------------------------------------------
 
-// Sentinel error thrown by the process.exit mock to stop execution.
-// Without this, mocked process.exit returns and execution falls through
-// to subsequent code paths in handleError.
-class ExitCalled extends Error {
-  readonly code: number;
-  constructor(code: number) {
-    super(`process.exit(${code})`);
-    this.code = code;
-  }
-}
-
-let stdoutWriteCalls: Array<unknown> = [];
-
-beforeEach(() => {
-  stdoutWriteCalls = [];
-  vi.spyOn(process, "exit").mockImplementation((code) => {
-    throw new ExitCalled(typeof code === "number" ? code : 0);
-  });
-  vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
-    stdoutWriteCalls.push(args[0]);
-    return true;
-  });
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-/** Call handleError and capture the ExitCalled sentinel. */
-const callHandleError = (...args: Parameters<typeof handleError>): ExitCalled => {
-  try {
-    handleError(...args);
-    throw new Error("handleError did not call process.exit");
-  } catch (e) {
-    if (e instanceof ExitCalled) return e;
-    throw e;
-  }
-};
-
-// ---------------------------------------------------------------------------
-// ShowHelp
-// ---------------------------------------------------------------------------
-
-describe("handleError — ShowHelp", () => {
-  it("exits 0 for ShowHelp with no errors (clean help display)", () => {
+describe("classifyError — ShowHelp", () => {
+  it("returns exitCode 0 for ShowHelp with no errors", () => {
     const showHelp = new CliError.ShowHelp({
       commandPath: ["axm"],
       errors: [],
     });
 
-    const exit = callHandleError(showHelp, "text");
+    const result = classifyError(showHelp, "text");
 
-    expect(exit.code).toBe(0);
-    expect(stdoutWriteCalls).toHaveLength(0);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBeUndefined();
   });
 
-  it("exits 1 for ShowHelp with errors (usage error triggered help)", () => {
+  it("returns exitCode 1 for ShowHelp with errors", () => {
     const showHelp = new CliError.ShowHelp({
       commandPath: ["axm"],
       errors: [
@@ -75,47 +33,44 @@ describe("handleError — ShowHelp", () => {
       ],
     });
 
-    const exit = callHandleError(showHelp, "text");
+    const result = classifyError(showHelp, "text");
 
-    expect(exit.code).toBe(1);
-    expect(stdoutWriteCalls).toHaveLength(0);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBeUndefined();
   });
 
-  it("never emits JSON for ShowHelp even in json format", () => {
+  it("never emits output for ShowHelp even in json format", () => {
     const showHelp = new CliError.ShowHelp({
       commandPath: ["axm"],
       errors: [],
     });
 
-    const exit = callHandleError(showHelp, "json");
+    const result = classifyError(showHelp, "json");
 
-    expect(exit.code).toBe(0);
-    expect(stdoutWriteCalls).toHaveLength(0);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBeUndefined();
   });
 });
 
-// ---------------------------------------------------------------------------
-// Other CliError (non-ShowHelp)
-// ---------------------------------------------------------------------------
-
-describe("handleError — CliError (non-ShowHelp)", () => {
-  it("exits 2 for MissingOption in text format", () => {
+describe("classifyError — CliError (non-ShowHelp)", () => {
+  it("returns exitCode 2 with no output for text format", () => {
     const error = new CliError.MissingOption({ option: "name" });
 
-    const exit = callHandleError(error, "text");
+    const result = classifyError(error, "text");
 
-    expect(exit.code).toBe(2);
-    expect(stdoutWriteCalls).toHaveLength(0);
+    expect(result.exitCode).toBe(2);
+    expect(result.output).toBeUndefined();
   });
 
-  it("exits 2 and emits JSON for MissingOption in json format", () => {
+  it("returns exitCode 2 with JSON stdout output for json format", () => {
     const error = new CliError.MissingOption({ option: "name" });
 
-    const exit = callHandleError(error, "json");
+    const result = classifyError(error, "json");
 
-    expect(exit.code).toBe(2);
-    expect(stdoutWriteCalls).toHaveLength(1);
-    const parsed: unknown = JSON.parse(String(stdoutWriteCalls[0]));
+    expect(result.exitCode).toBe(2);
+    expect(result.output).toBeDefined();
+    expect(result.output?.channel).toBe("stdout");
+    const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       schemaVersion: JsonSchemaVersion,
       type: "error",
@@ -125,42 +80,34 @@ describe("handleError — CliError (non-ShowHelp)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// EffectCliExit
-// ---------------------------------------------------------------------------
-
-describe("handleError — EffectCliExit", () => {
-  it("exits with the custom exit code", () => {
+describe("classifyError — EffectCliExit", () => {
+  it("returns the custom exit code with no output", () => {
     const cliExit = effectCliExit(42);
 
-    const exit = callHandleError(cliExit, "text");
+    const result = classifyError(cliExit, "text");
 
-    expect(exit.code).toBe(42);
+    expect(result.exitCode).toBe(42);
+    expect(result.output).toBeUndefined();
   });
 });
 
-// ---------------------------------------------------------------------------
-// Generic errors
-// ---------------------------------------------------------------------------
+describe("classifyError — generic errors", () => {
+  it("returns exitCode 1 with stderr output for text format", () => {
+    const result = classifyError(new Error("boom"), "text");
 
-describe("handleError — generic errors", () => {
-  it("exits 1 for a plain Error in text format", () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const exit = callHandleError(new Error("boom"), "text");
-
-    expect(exit.code).toBe(1);
-    expect(stdoutWriteCalls).toHaveLength(0);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBeDefined();
+    expect(result.output?.channel).toBe("stderr");
+    expect(result.output?.content).toContain("boom");
   });
 
-  it("exits 1 and emits JSON for a plain Error in json format", () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("returns exitCode 1 with JSON stdout output for json format", () => {
+    const result = classifyError(new Error("boom"), "json");
 
-    const exit = callHandleError(new Error("boom"), "json");
-
-    expect(exit.code).toBe(1);
-    expect(stdoutWriteCalls).toHaveLength(1);
-    const parsed: unknown = JSON.parse(String(stdoutWriteCalls[0]));
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBeDefined();
+    expect(result.output?.channel).toBe("stdout");
+    const parsed: unknown = JSON.parse(result.output?.content ?? "");
     expect(parsed).toMatchObject({
       schemaVersion: JsonSchemaVersion,
       type: "error",
@@ -168,5 +115,45 @@ describe("handleError — generic errors", () => {
       message: "boom",
       exitCode: 1,
     });
+    expect(result.stderrMessage).toBe("\u2717 boom");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleError — integration test (verifies side effects)
+// ---------------------------------------------------------------------------
+
+describe("handleError — integration", () => {
+  class ExitCalled extends Error {
+    readonly code: number;
+    constructor(code: number) {
+      super(`process.exit(${code})`);
+      this.code = code;
+    }
+  }
+
+  beforeEach(() => {
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new ExitCalled(typeof code === "number" ? code : 0);
+    });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls process.exit with the classified exit code", () => {
+    try {
+      handleError(new Error("boom"), "text");
+    } catch (e) {
+      if (e instanceof ExitCalled) {
+        expect(e.code).toBe(1);
+        return;
+      }
+      throw e;
+    }
+    throw new Error("handleError did not call process.exit");
   });
 });

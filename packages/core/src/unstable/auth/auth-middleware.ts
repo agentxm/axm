@@ -54,6 +54,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
             flagToken,
           ).pipe(
             Effect.provide(authLayer),
+            Effect.tapError((e) => Effect.logDebug("Token resolution failed", { error: e })),
             Effect.catch(() => Effect.succeed(Option.none<TokenSource>())),
           );
 

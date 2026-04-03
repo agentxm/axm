@@ -7,12 +7,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { envOption } from "../utils/environment.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access point; all callers use these helpers
-const readEnv = (name: string): string | undefined => process.env[name];
-
-/** Returns true if CI=true env var is set. */
-export const isCI: Effect.Effect<boolean> = Effect.sync(() => readEnv("CI") === "true");
+/** Returns true if CI env var is set. */
+export const isCI: Effect.Effect<boolean> = Effect.map(envOption("CI"), Option.isSome);
 
 /**
  * Raw --non-interactive global flag. Callers should use {@link isNonInteractive}

@@ -299,7 +299,7 @@ describe("sourceToLockEntry", () => {
       profile: "@acme",
       name: "test-skill",
       version: "2.1.0",
-      integrity: "sha512-AAAA==",
+      integrity: Option.some("sha512-AAAA=="),
     };
 
     const result = sourceToLockEntry({
@@ -340,7 +340,7 @@ describe("sourceToLockEntry", () => {
       profile: "@community",
       name: "test-skill",
       version: "1.0.0",
-      integrity: "sha512-AAAA==",
+      integrity: Option.some("sha512-AAAA=="),
     };
 
     const result = sourceToLockEntry({

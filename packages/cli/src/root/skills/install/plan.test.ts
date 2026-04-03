@@ -48,7 +48,7 @@ const makeRegistrySkillRef = (name: string) =>
     profile: "@acme",
     name,
     version: "1.2.3",
-    integrity: "sha512-deadbeef",
+    integrity: Option.some("sha512-deadbeef"),
   }) satisfies RegistrySkillRef;
 
 const lockfileWith = (...names: string[]): SkillsLockMap =>

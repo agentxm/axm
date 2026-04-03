@@ -17,9 +17,9 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { existsInAnyCanonicalLocation } from "../disk-check.js";
 import { getSkillFqn, isReferencedByPack } from "../utils.js";
 
 // -----------------------------------------------------------------------------
@@ -41,47 +41,6 @@ export interface UninstallSkillOperationArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillOperationArgs>;
-
-/**
- * Check if a skill exists in any known canonical location.
- */
-const existsInAnyLocation = (
-  fsService: FileSystem.FileSystem,
-  base: string,
-  sanitizedName: string,
-  pathService: Path.Path,
-) =>
-  Effect.gen(function* () {
-    // Check non-registry canonical location
-    const canonicalExists = yield* fsService
-      .exists(pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName))
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (canonicalExists) return true;
-
-    // Check registry canonical locations
-    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-
-    if (!extensionsDirExists) return false;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
-        return fsService.exists(skillPath).pipe(Effect.catch(() => Effect.succeed(false)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  });
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -122,7 +81,7 @@ export const uninstallSkill: OperationHandler<
     const lockEntry = Option.getOrUndefined(lockEntryOption);
 
     // Determine if skill is installed anywhere (check all known locations)
-    const installedOnDisk = yield* existsInAnyLocation(fs, base, sanitizedName, path);
+    const installedOnDisk = yield* existsInAnyCanonicalLocation(fs, path, base, op.args.skillName);
 
     if (!lockEntry && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;

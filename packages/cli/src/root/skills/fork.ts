@@ -335,7 +335,6 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           });
 
           const published = response.extensions[0];
-          const integrity = published != null ? published.integrity : "";
 
           const registryRef: RegistrySkillRef = {
             type: "skill" as const,
@@ -353,7 +352,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             profile,
             name: ref.skill.name,
             version: published != null ? published.version : "0.1.0",
-            integrity,
+            integrity: Option.fromUndefinedOr(published?.integrity),
           };
 
           return yield* installSkill({
@@ -363,6 +362,8 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
               force: true,
               versionConstraint: Option.none(),
               skipSettings: Option.none(),
+              strictUnknownAgents: Option.none(),
+              existingInstalledAt: Option.none(),
               sourceName: Option.some(registryName),
             },
           } satisfies InstallSkillOperation);

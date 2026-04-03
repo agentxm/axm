@@ -2,10 +2,11 @@
  * Unit tests for token resolution precedence chain.
  */
 
+import { describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, expect } from "vitest";
 
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
@@ -44,32 +45,32 @@ describe("resolveToken", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it("returns EnvVar token source when AXM_TOKEN is set", async () => {
+  it.effect("returns EnvVar token source when AXM_TOKEN is set", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_token";
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(resolveToken(REGISTRY_URL).pipe(Effect.provide(layer)));
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("EnvVar");
-      expect(result.value.token).toBe("axm_ses_env_token");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("EnvVar");
+        expect(result.value.token).toBe("axm_ses_env_token");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns Flag token source when --token flag is provided", async () => {
+  it.effect("returns Flag token source when --token flag is provided", () => {
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL, "axm_ses_flag_token").pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("Flag");
-      expect(result.value.token).toBe("axm_ses_flag_token");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_token");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("Flag");
+        expect(result.value.token).toBe("axm_ses_flag_token");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns CredentialStore token source when credentials exist", async () => {
+  it.effect("returns CredentialStore token source when credentials exist", () => {
     const layer = makeRuntimeLayer({
       version: 1,
       registries: {
@@ -86,37 +87,38 @@ describe("resolveToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(resolveToken(REGISTRY_URL).pipe(Effect.provide(layer)));
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_stored");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("CredentialStore");
+        expect(result.value.token).toBe("axm_ses_stored");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns none when no token source is available", async () => {
+  it.effect("returns none when no token source is available", () => {
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(resolveToken(REGISTRY_URL).pipe(Effect.provide(layer)));
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("AXM_TOKEN takes priority over --token flag", async () => {
+  it.effect("AXM_TOKEN takes priority over --token flag", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_priority";
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL, "axm_ses_flag_ignored").pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("EnvVar");
-      expect(result.value.token).toBe("axm_ses_env_priority");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_ignored");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("EnvVar");
+        expect(result.value.token).toBe("axm_ses_env_priority");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("--token flag takes priority over credential store", async () => {
+  it.effect("--token flag takes priority over credential store", () => {
     const layer = makeRuntimeLayer({
       version: 1,
       registries: {
@@ -133,40 +135,37 @@ describe("resolveToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL, "axm_ses_flag_priority").pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("Flag");
-      expect(result.value.token).toBe("axm_ses_flag_priority");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_priority");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("Flag");
+        expect(result.value.token).toBe("axm_ses_flag_priority");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("ignores empty AXM_TOKEN", async () => {
+  it.effect("ignores empty AXM_TOKEN", () => {
     process.env["AXM_TOKEN"] = "";
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL, "axm_ses_flag").pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("Flag");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("Flag");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("ignores empty --token flag", async () => {
+  it.effect("ignores empty --token flag", () => {
     const layer = makeRuntimeLayer();
-    const result = await Effect.runPromise(
-      resolveToken(REGISTRY_URL, "").pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL, "");
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns near-expiry stored credentials without proactive refresh", async () => {
+  it.effect("returns near-expiry stored credentials without proactive refresh", () => {
     const layer = makeRuntimeLayer({
       version: 1,
       registries: {
@@ -183,18 +182,19 @@ describe("resolveToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(resolveToken(REGISTRY_URL).pipe(Effect.provide(layer)));
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_old");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("CredentialStore");
+        expect(result.value.token).toBe("axm_ses_old");
+      }
+    }).pipe(Effect.provide(layer));
   });
 });
 
 describe("resolveRequiredToken", () => {
-  it("returns the resolved token when one is available", async () => {
+  it.effect("returns the resolved token when one is available", () => {
     const layer = makeRuntimeLayer({
       version: 1,
       registries: {
@@ -211,49 +211,54 @@ describe("resolveRequiredToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveRequiredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("CredentialStore");
-    expect(result.token).toBe("axm_ses_stored");
+    return Effect.gen(function* () {
+      const result = yield* resolveRequiredToken(REGISTRY_URL);
+      expect(result._tag).toBe("CredentialStore");
+      expect(result.token).toBe("axm_ses_stored");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_LOGIN_REQUIRED when no token is available locally", async () => {
+  it.effect("fails with AUTH_LOGIN_REQUIRED when no token is available locally", () => {
     const layer = makeRuntimeLayer();
-
-    const result = await Effect.runPromise(
-      resolveRequiredToken(REGISTRY_URL).pipe(
-        Effect.provide(layer),
+    return Effect.gen(function* () {
+      const result = yield* resolveRequiredToken(REGISTRY_URL).pipe(
         Effect.catchTag("AppError", (error) => Effect.succeed(error)),
-      ),
-    );
-
-    expect(result.code).toBe("AUTH_LOGIN_REQUIRED");
-    expect(Option.getOrUndefined(result.howToFix)).toBe(
-      "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
-    );
+      );
+      expect(result.code).toBe("AUTH_LOGIN_REQUIRED");
+      expect(Option.getOrUndefined(result.howToFix)).toBe(
+        "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
+      );
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", async () => {
+  it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
     const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
-
-    const result = await Effect.runPromise(
-      resolveRequiredToken(REGISTRY_URL).pipe(
-        Effect.provide(layer),
+    return Effect.gen(function* () {
+      const result = yield* resolveRequiredToken(REGISTRY_URL).pipe(
         Effect.catchTag("AppError", (error) => Effect.succeed(error)),
-      ),
-    );
-
-    expect(result.code).toBe("AUTH_TOKEN_REQUIRED");
-    expect(Option.getOrUndefined(result.howToFix)).toBe(
-      "Set the AXM_TOKEN environment variable instead of running `axm login`.",
-    );
+      );
+      expect(result.code).toBe("AUTH_TOKEN_REQUIRED");
+      expect(Option.getOrUndefined(result.howToFix)).toBe(
+        "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+      );
+    }).pipe(Effect.provide(layer));
   });
 });
 
 describe("resolveStoredToken", () => {
-  it("returns stored credentials when they exist", async () => {
+  let origAxmToken: string | undefined;
+
+  beforeEach(() => {
+    origAxmToken = process.env["AXM_TOKEN"];
+    delete process.env["AXM_TOKEN"];
+  });
+
+  afterEach(() => {
+    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
+    else delete process.env["AXM_TOKEN"];
+  });
+
+  it.effect("returns stored credentials when they exist", () => {
     const layer = CredentialStoreTest("restricted-file", {
       version: 1,
       registries: {
@@ -270,39 +275,35 @@ describe("resolveStoredToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveStoredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_stored");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveStoredToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("CredentialStore");
+        expect(result.value.token).toBe("axm_ses_stored");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns none when no credentials exist", async () => {
+  it.effect("returns none when no credentials exist", () => {
     const layer = CredentialStoreTest();
-    const result = await Effect.runPromise(
-      resolveStoredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveStoredToken(REGISTRY_URL);
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("does not check AXM_TOKEN env var", async () => {
+  it.effect("does not check AXM_TOKEN env var", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_should_be_ignored";
     const layer = CredentialStoreTest();
-    const result = await Effect.runPromise(
-      resolveStoredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
-    );
-
-    // Should return none — env var is not checked by resolveStoredToken
-    expect(Option.isNone(result)).toBe(true);
-    delete process.env["AXM_TOKEN"];
+    return Effect.gen(function* () {
+      const result = yield* resolveStoredToken(REGISTRY_URL);
+      // Should return none — env var is not checked by resolveStoredToken
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns none when persisted credentials are disabled", async () => {
+  it.effect("returns none when persisted credentials are disabled", () => {
     const layer = CredentialStoreTest(
       "restricted-file",
       {
@@ -323,11 +324,10 @@ describe("resolveStoredToken", () => {
       false,
     );
 
-    const result = await Effect.runPromise(
-      resolveStoredToken(REGISTRY_URL).pipe(Effect.provide(layer)),
-    );
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveStoredToken(REGISTRY_URL);
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 });
 
@@ -344,50 +344,55 @@ describe("resolveAmbientToken", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it("returns EnvVar token when AXM_TOKEN is set", async () => {
+  it.effect("returns EnvVar token when AXM_TOKEN is set", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_ambient";
-    const result = await Effect.runPromise(resolveAmbientToken());
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("EnvVar");
-      expect(result.value.token).toBe("axm_ses_env_ambient");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveAmbientToken();
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("EnvVar");
+        expect(result.value.token).toBe("axm_ses_env_ambient");
+      }
+    });
   });
 
-  it("returns Flag token when flagToken is provided", async () => {
-    const result = await Effect.runPromise(resolveAmbientToken("axm_ses_flag_ambient"));
+  it.effect("returns Flag token when flagToken is provided", () =>
+    Effect.gen(function* () {
+      const result = yield* resolveAmbientToken("axm_ses_flag_ambient");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("Flag");
+        expect(result.value.token).toBe("axm_ses_flag_ambient");
+      }
+    }),
+  );
 
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("Flag");
-      expect(result.value.token).toBe("axm_ses_flag_ambient");
-    }
-  });
+  it.effect("returns none when neither is available", () =>
+    Effect.gen(function* () {
+      const result = yield* resolveAmbientToken();
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
 
-  it("returns none when neither is available", async () => {
-    const result = await Effect.runPromise(resolveAmbientToken());
-
-    expect(Option.isNone(result)).toBe(true);
-  });
-
-  it("AXM_TOKEN takes priority over flag", async () => {
+  it.effect("AXM_TOKEN takes priority over flag", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_priority";
-    const result = await Effect.runPromise(resolveAmbientToken("axm_ses_flag_ignored"));
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("EnvVar");
-      expect(result.value.token).toBe("axm_ses_env_priority");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveAmbientToken("axm_ses_flag_ignored");
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("EnvVar");
+        expect(result.value.token).toBe("axm_ses_env_priority");
+      }
+    });
   });
 
-  it("does not access credential store (no CredentialStore layer needed)", async () => {
-    // resolveAmbientToken does not require CredentialStore
-    const result = await Effect.runPromise(resolveAmbientToken());
-
-    expect(Option.isNone(result)).toBe(true);
-  });
+  it.effect("does not access credential store (no CredentialStore layer needed)", () =>
+    Effect.gen(function* () {
+      // resolveAmbientToken does not require CredentialStore
+      const result = yield* resolveAmbientToken();
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
 });
 
 describe("resolveRequestToken", () => {
@@ -403,7 +408,7 @@ describe("resolveRequestToken", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it("prefers AXM_TOKEN for requests to the default registry", async () => {
+  it.effect("prefers AXM_TOKEN for requests to the default registry", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env";
     const layer = makeRuntimeLayer({
       version: 1,
@@ -421,31 +426,28 @@ describe("resolveRequestToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL).pipe(
-        Effect.provide(layer),
-      ),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("EnvVar");
-      expect(result.value.token).toBe("axm_ses_env");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("EnvVar");
+        expect(result.value.token).toBe("axm_ses_env");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("does not apply AXM_TOKEN to non-default registry requests", async () => {
+  it.effect("does not apply AXM_TOKEN to non-default registry requests", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env";
-    const result = await Effect.runPromise(
-      resolveRequestToken("https://other-registry.example.com/v1/extensions", REGISTRY_URL).pipe(
-        Effect.provide(makeRuntimeLayer()),
-      ),
-    );
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveRequestToken(
+        "https://other-registry.example.com/v1/extensions",
+        REGISTRY_URL,
+      );
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(makeRuntimeLayer()));
   });
 
-  it("falls back to stored credentials for non-default registry requests", async () => {
+  it.effect("falls back to stored credentials for non-default registry requests", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
     const layer = makeRuntimeLayer({
       version: 1,
@@ -463,20 +465,17 @@ describe("resolveRequestToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL).pipe(
-        Effect.provide(layer),
-      ),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_other");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("CredentialStore");
+        expect(result.value.token).toBe("axm_ses_other");
+      }
+    }).pipe(Effect.provide(layer));
   });
 
-  it("does not use stored credentials when persisted credentials are disabled", async () => {
+  it.effect("does not use stored credentials when persisted credentials are disabled", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
     const layer = makeRuntimeLayer(
       {
@@ -498,16 +497,13 @@ describe("resolveRequestToken", () => {
       false,
     );
 
-    const result = await Effect.runPromise(
-      resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL).pipe(
-        Effect.provide(layer),
-      ),
-    );
-
-    expect(Option.isNone(result)).toBe(true);
+    return Effect.gen(function* () {
+      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      expect(Option.isNone(result)).toBe(true);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("returns near-expiry stored credentials without proactive refresh", async () => {
+  it.effect("returns near-expiry stored credentials without proactive refresh", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
     const layer = makeRuntimeLayer({
       version: 1,
@@ -525,16 +521,13 @@ describe("resolveRequestToken", () => {
       },
     });
 
-    const result = await Effect.runPromise(
-      resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL).pipe(
-        Effect.provide(layer),
-      ),
-    );
-
-    expect(Option.isSome(result)).toBe(true);
-    if (Option.isSome(result)) {
-      expect(result.value._tag).toBe("CredentialStore");
-      expect(result.value.token).toBe("axm_ses_near_expiry");
-    }
+    return Effect.gen(function* () {
+      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("CredentialStore");
+        expect(result.value.token).toBe("axm_ses_near_expiry");
+      }
+    }).pipe(Effect.provide(layer));
   });
 });

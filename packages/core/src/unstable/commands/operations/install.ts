@@ -53,7 +53,7 @@ const buildLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry =>
   profile: ref.profile,
   name: ref.name,
   resolvedVersion: ref.version,
-  integrity: ref.integrity,
+  integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,
   updatedAt: now,
@@ -94,7 +94,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         }),
       ),
     );
-    const useExisting = ref.integrity === "" && canonicalExists;
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
 
     if (!useExisting) {
       const locationStr =
@@ -109,14 +109,13 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         version: Option.some(ref.version),
       });
 
-      // Non-empty integrity → validate
-      if (ref.integrity !== "") {
+      if (Option.isSome(ref.integrity)) {
         const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity) {
+        if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "INSTALL_COMMAND_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
+            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
           });
         }
       }

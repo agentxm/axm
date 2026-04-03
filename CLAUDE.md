@@ -79,6 +79,9 @@ the summary here, follow the guide.
 | [Effect Guide](contributing/guides/effect.md)                               | Core Effect patterns and skill index                                  |
 | [Effect Option Guide](contributing/guides/effect-option.md)                 | Option vs nullable values and boundary conversions                    |
 | [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)     | Common v3 to v4 renames and migration patterns                        |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Error architecture, AppError conventions, typed service errors        |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Layer construction, composition, provision, and dependency wiring     |
+| [Logging Guide](contributing/guides/logging.md)                             | Structured logging with Effect                                        |
 | [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Assertion-free TypeScript, narrowing, and immutability                |
 
 ### Nx
@@ -289,10 +292,20 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ### Error Handling Patterns
 
-- Expected failures use `AppError`; do not create parallel domain error types
-- Error codes use stable `AREA_REASON` names
+See [Effect Errors Guide](contributing/guides/effect-errors.md) for full
+conventions, recovery operators, and service error channel design.
+
+- Two-layer error model: services MAY use typed `Data.TaggedError` subclasses
+  for internal precision; command handlers MUST translate all errors to
+  `AppError` before the runtime boundary
+- `AppError` is the CLI-facing error type; error codes use stable `AREA_REASON`
+  names
 - `run` only accepts `Effect<A, AppError | PromptCancelled, R>`
 - `PromptCancelled` is control flow, not an error
+- Typed service errors earn their keep when callers need distinct recovery
+  strategies, the error carries structurally different metadata, or it
+  represents control flow (like `PromptCancelled`); otherwise use `AppError`
+  with a code
 - Expected failures live in the `E` channel; defects crash
 - Do not throw in helpers except deliberate `unsafe*` or `*OrThrow` escape
   hatches

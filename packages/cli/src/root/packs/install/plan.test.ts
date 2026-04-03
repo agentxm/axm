@@ -51,7 +51,7 @@ const makePackRef = (
   profile: "@acme",
   name,
   version: opts?.version ?? "1.0.0",
-  integrity: "sha512-AAAA==",
+  integrity: Option.some("sha512-AAAA=="),
 });
 
 const emptyLockfile: Lockfile = {
@@ -72,6 +72,8 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
     force: false,
     versionConstraint: Option.none(),
     skipSettings: Option.none(),
+    strictUnknownAgents: Option.none(),
+    existingInstalledAt: Option.none(),
     sourceName: Option.none(),
   },
 });
@@ -114,7 +116,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       profile: "@acme",
       name,
       version: "1.0.0",
-      integrity: "",
+      integrity: Option.none(),
     },
     force: false,
     versionConstraint: Option.none(),
@@ -137,7 +139,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       profile: "@acme",
       name,
       version: "1.0.0",
-      integrity: "",
+      integrity: Option.none(),
     },
     force: false,
     versionConstraint: Option.none(),

@@ -16,21 +16,22 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { validatePathSafety } from "../extensions/index.js";
 import { sourceToLockEntry } from "../sources/index.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";
+import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
 import { copyExtensionDirectory, sanitizeName } from "../extensions/utils.js";
 import {
   computeIntegrity,
   createSymlink,
-  isPathSafe,
   removeFromAllCanonicalLocations,
   stripFileProtocol,
+  isPathSafe,
 } from "../utils/index.js";
 import { CodingAgentRepository } from "../agents/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
@@ -49,14 +50,6 @@ export class SkillManager extends ServiceMap.Service<
 // Helpers
 // -----------------------------------------------------------------------------
 
-const validatePathSafety = (baseDir: string, targetPath: string) =>
-  isPathSafe(baseDir, targetPath)
-    ? Effect.void
-    : makeAppError({
-        code: "INSTALL_SKILL_PATH_TRAVERSAL",
-        what: `Path traversal detected: ${targetPath}`,
-      });
-
 // Build skill lock entry from ref
 const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<string>) =>
   sourceToLockEntry({
@@ -65,43 +58,6 @@ const buildSkillLockEntry = (ref: SkillExtensionRef, agents: ReadonlyArray<strin
     now: new Date(),
     sourceName: Option.none(),
     existingInstalledAt: Option.none(),
-  });
-
-const checkInstalledOnDisk = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  skillName: string,
-) =>
-  Effect.gen(function* () {
-    const sanitizedName = sanitizeName(skillName);
-
-    const canonicalExists = yield* fsService
-      .exists(pathService.join(baseDir, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName))
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (canonicalExists) return true;
-
-    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!extensionsDirExists) return false;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
-        return fsService.exists(skillPath).pipe(Effect.catch(() => Effect.succeed(false)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
   });
 
 // -----------------------------------------------------------------------------
@@ -239,7 +195,7 @@ export const SkillManagerLive = Layer.effect(
           return true;
         }
 
-        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        return yield* existsInAnyCanonicalLocation(fs, path, baseDir, target.name);
       }),
 
       materializeInstall,
@@ -374,7 +330,7 @@ const materializeGitHosted = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath);
+    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(
       fs,
@@ -403,7 +359,7 @@ const materializeLocal = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath);
+    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
     const sourcePath = stripFileProtocol(ref.location);
     const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
     if (!isSelfCopy) {
@@ -436,7 +392,7 @@ const materializeBuiltin = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath);
+    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
     const fetched = yield* sources.fetch(ref).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -475,7 +431,7 @@ const materializeRegistry = (
       source,
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, canonicalPath);
+    yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
@@ -486,7 +442,7 @@ const materializeRegistry = (
         }),
       ),
     );
-    const useExisting = ref.integrity === "" && canonicalExists;
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
 
     if (!useExisting) {
       const locationStr =
@@ -501,13 +457,13 @@ const materializeRegistry = (
         version: Option.some(ref.version),
       });
 
-      if (ref.integrity !== "") {
+      if (Option.isSome(ref.integrity)) {
         const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity) {
+        if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
+            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
           });
         }
       }

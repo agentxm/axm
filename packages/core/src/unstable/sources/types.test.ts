@@ -335,12 +335,12 @@ describe("ref detail interfaces", () => {
       profile: "@acme",
       name: "my-skill",
       version: "1.2.3",
-      integrity: "sha512-abc==",
+      integrity: Option.some("sha512-abc=="),
     };
     expect(details.profile).toBe("@acme");
     expect(details.name).toBe("my-skill");
     expect(details.version).toBe("1.2.3");
-    expect(details.integrity).toBe("sha512-abc==");
+    expect(details.integrity).toEqual(Option.some("sha512-abc=="));
   });
 
   it("LocalRefDetails has location", () => {
@@ -397,11 +397,11 @@ describe("SkillExtensionRef", () => {
       profile: "@acme",
       name: "test-pkg",
       version: "1.0.0",
-      integrity: "sha512-abc",
+      integrity: Option.some("sha512-abc"),
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
-      expect(ref.integrity).toBe("sha512-abc");
+      expect(ref.integrity).toEqual(Option.some("sha512-abc"));
       expect(ref.name).toBe("test-pkg");
       expect(ref.profile).toBe("@acme");
     }
@@ -488,7 +488,7 @@ describe("McpServerExtensionRef", () => {
       profile: "@acme",
       name: "server-pkg",
       version: "2.0.0",
-      integrity: "sha512-def",
+      integrity: Option.some("sha512-def"),
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("2.0.0");
@@ -515,7 +515,7 @@ describe("PackExtensionRef", () => {
       profile: "@acme",
       name: "pack-pkg",
       version: "1.0.0",
-      integrity: "sha512-ghi",
+      integrity: Option.some("sha512-ghi"),
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
@@ -589,7 +589,7 @@ describe("ExtensionRef", () => {
       profile: "@acme",
       name: "pkg",
       version: "1.0.0",
-      integrity: "sha512-abc",
+      integrity: Option.some("sha512-abc"),
     };
     if (ref.refType === "registry") {
       expect(ref.profile).toBe("@acme");

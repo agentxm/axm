@@ -180,4 +180,7 @@ export const materializeBuiltinPack = (
       },
     };
     yield* writeLockfile(workspaceDir, updatedLockfile);
-  }).pipe(Effect.catch(() => Effect.void));
+  }).pipe(
+    Effect.tapError((e) => Effect.logWarning("Failed to materialize builtin pack", { error: e })),
+    Effect.catch(() => Effect.void),
+  );

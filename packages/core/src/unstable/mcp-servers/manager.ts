@@ -38,7 +38,7 @@ const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServe
   profile: ref.profile,
   name: ref.name,
   resolvedVersion: ref.version,
-  integrity: ref.integrity,
+  integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,
   updatedAt: now,
@@ -129,7 +129,7 @@ export const McpServerManagerLive = Layer.effect(
             }),
           ),
         );
-        const useExisting = registryRef.integrity === "" && canonicalExists;
+        const useExisting = Option.isNone(registryRef.integrity) && canonicalExists;
 
         if (!useExisting) {
           const locationStr =
@@ -144,13 +144,13 @@ export const McpServerManagerLive = Layer.effect(
             version: Option.some(registryRef.version),
           });
 
-          if (registryRef.integrity !== "") {
+          if (Option.isSome(registryRef.integrity)) {
             const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity !== registryRef.integrity) {
+            if (actualIntegrity !== registryRef.integrity.value) {
               return yield* makeAppError({
                 code: "INSTALL_MCP_SERVER_INTEGRITY_MISMATCH",
                 what: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
-                details: [`Expected ${registryRef.integrity}, got ${actualIntegrity}`],
+                details: [`Expected ${registryRef.integrity.value}, got ${actualIntegrity}`],
               });
             }
           }

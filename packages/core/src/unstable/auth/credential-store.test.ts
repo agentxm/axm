@@ -2,9 +2,10 @@
  * Unit tests for CredentialStore service.
  */
 
+import { describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import { expect } from "vitest";
 import {
   CredentialStore,
   CredentialStoreTest,
@@ -22,72 +23,64 @@ describe("CredentialStore", () => {
       expires_at: "2026-03-12T10:30:00Z",
     };
 
-    it("returns none when no credentials exist", async () => {
+    it.effect("returns none when no credentials exist", () => {
       const layer = CredentialStoreTest();
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        return yield* store.load(registryUrl);
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isNone(result)).toBe(true);
+        const result = yield* store.load(registryUrl);
+        expect(Option.isNone(result)).toBe(true);
+      }).pipe(Effect.provide(layer));
     });
 
-    it("saves and loads credentials", async () => {
+    it.effect("saves and loads credentials", () => {
       const layer = CredentialStoreTest();
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.save(registryUrl, "alice", credentials);
-        return yield* store.load(registryUrl);
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.handle).toBe("alice");
-        expect(result.value.access_token).toBe("axm_ses_abc");
-        expect(result.value.refresh_token).toBe("axm_ref_def");
-        expect(result.value.expires_at).toBe("2026-03-12T10:30:00Z");
-      }
+        const result = yield* store.load(registryUrl);
+        expect(Option.isSome(result)).toBe(true);
+        if (Option.isSome(result)) {
+          expect(result.value.handle).toBe("alice");
+          expect(result.value.access_token).toBe("axm_ses_abc");
+          expect(result.value.refresh_token).toBe("axm_ref_def");
+          expect(result.value.expires_at).toBe("2026-03-12T10:30:00Z");
+        }
+      }).pipe(Effect.provide(layer));
     });
 
-    it("clears credentials for a registry", async () => {
+    it.effect("clears credentials for a registry", () => {
       const layer = CredentialStoreTest();
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.save(registryUrl, "alice", credentials);
         yield* store.clear(registryUrl);
-        return yield* store.load(registryUrl);
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isNone(result)).toBe(true);
+        const result = yield* store.load(registryUrl);
+        expect(Option.isNone(result)).toBe(true);
+      }).pipe(Effect.provide(layer));
     });
 
-    it("deactivates previous accounts on save", async () => {
+    it.effect("deactivates previous accounts on save", () => {
       const layer = CredentialStoreTest();
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.save(registryUrl, "alice", credentials);
         yield* store.save(registryUrl, "bob", {
           ...credentials,
           access_token: "axm_ses_bob",
         });
-        return yield* store.load(registryUrl);
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.handle).toBe("bob");
-        expect(result.value.access_token).toBe("axm_ses_bob");
-      }
+        const result = yield* store.load(registryUrl);
+        expect(Option.isSome(result)).toBe(true);
+        if (Option.isSome(result)) {
+          expect(result.value.handle).toBe("bob");
+          expect(result.value.access_token).toBe("axm_ses_bob");
+        }
+      }).pipe(Effect.provide(layer));
     });
 
-    it("keeps separate registries independent", async () => {
+    it.effect("keeps separate registries independent", () => {
       const layer = CredentialStoreTest();
       const otherUrl = "https://registry.corp.com";
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.save(registryUrl, "alice", credentials);
         yield* store.save(otherUrl, "bob", {
@@ -96,52 +89,42 @@ describe("CredentialStore", () => {
         });
         const result1 = yield* store.load(registryUrl);
         const result2 = yield* store.load(otherUrl);
-        return [result1, result2] as const;
-      });
-
-      const [result1, result2] = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isSome(result1)).toBe(true);
-      expect(Option.isSome(result2)).toBe(true);
-      if (Option.isSome(result1) && Option.isSome(result2)) {
-        expect(result1.value.handle).toBe("alice");
-        expect(result2.value.handle).toBe("bob");
-      }
+        expect(Option.isSome(result1)).toBe(true);
+        expect(Option.isSome(result2)).toBe(true);
+        if (Option.isSome(result1) && Option.isSome(result2)) {
+          expect(result1.value.handle).toBe("alice");
+          expect(result2.value.handle).toBe("bob");
+        }
+      }).pipe(Effect.provide(layer));
     });
 
-    it("reports the configured tier", async () => {
+    it.effect("reports the configured tier", () => {
       const layer = CredentialStoreTest("plaintext-file");
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        return store.tier;
-      });
-
-      const tier = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(tier).toBe("plaintext-file");
+        expect(store.tier).toBe("plaintext-file");
+      }).pipe(Effect.provide(layer));
     });
 
-    it("fails save when persisted credentials are disabled", async () => {
+    it.effect("fails save when persisted credentials are disabled", () => {
       const layer = CredentialStoreTest("restricted-file", undefined, false);
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        return yield* store
+        const result = yield* store
           .save(registryUrl, "alice", credentials)
           .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(result).toBe("AUTH_TOKEN_REQUIRED");
+        expect(result).toBe("AUTH_TOKEN_REQUIRED");
+      }).pipe(Effect.provide(layer));
     });
 
-    it("clear is a no-op when no credentials exist", async () => {
+    it.effect("clear is a no-op when no credentials exist", () => {
       const layer = CredentialStoreTest();
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.clear(registryUrl);
-        return yield* store.load(registryUrl);
-      });
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
-      expect(Option.isNone(result)).toBe(true);
+        const result = yield* store.load(registryUrl);
+        expect(Option.isNone(result)).toBe(true);
+      }).pipe(Effect.provide(layer));
     });
   });
 

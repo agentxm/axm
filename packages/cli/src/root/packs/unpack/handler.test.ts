@@ -106,6 +106,7 @@ const defaultArgs = (
   overrides: Partial<UnpackHandlerArgs> = {},
 ): UnpackHandlerArgs => ({
   name,
+  strictAgentSync: Option.none(),
   yes: false,
   force: false,
   preview: false,

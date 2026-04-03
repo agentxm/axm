@@ -8,12 +8,15 @@
  * mock HTTP responses that match the generated schema expectations.
  */
 
+import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
-import { describe, expect, it } from "vitest";
+import * as TestClock from "effect/testing/TestClock";
+import { expect } from "vitest";
 
 import { AuthClient, AuthClientLive, pollOnce } from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
@@ -113,7 +116,7 @@ const makeRefreshTokenError = () => ({
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.initiateDeviceFlow", () => {
-  it("returns device flow response on success", async () => {
+  it.effect("returns device flow response on success", () => {
     const layer = makeTestLayer(
       () =>
         new Response(
@@ -129,22 +132,19 @@ describe("AuthClient.initiateDeviceFlow", () => {
         ),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.initiateDeviceFlow();
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.device_code).toBe("dev_123");
-    expect(result.user_code).toBe("ABCD-1234");
-    expect(result.verification_uri).toBe("https://agentxm.ai/device");
-    expect(result.verification_uri_complete).toBe("https://agentxm.ai/device?code=ABCD-1234");
-    expect(result.interval).toBe(5);
-    expect(result.expires_in).toBe(900);
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.initiateDeviceFlow();
+      expect(result.device_code).toBe("dev_123");
+      expect(result.user_code).toBe("ABCD-1234");
+      expect(result.verification_uri).toBe("https://agentxm.ai/device");
+      expect(result.verification_uri_complete).toBe("https://agentxm.ai/device?code=ABCD-1234");
+      expect(result.interval).toBe(5);
+      expect(result.expires_in).toBe(900);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_LOGIN_FAILED on 400 error", async () => {
+  it.effect("fails with AUTH_LOGIN_FAILED on 400 error", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("unknown_client", 400)), {
@@ -153,20 +153,16 @@ describe("AuthClient.initiateDeviceFlow", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.initiateDeviceFlow().pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .initiateDeviceFlow()
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_LOGIN_FAILED on network error", async () => {
+  it.effect("fails with AUTH_LOGIN_FAILED on network error", () => {
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
@@ -174,20 +170,16 @@ describe("AuthClient.initiateDeviceFlow", () => {
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.initiateDeviceFlow().pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .initiateDeviceFlow()
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("sends correct request body", async () => {
+  it.effect("sends correct request body", () => {
     const layer = makeTestLayer((req) => {
       expect(req.url).toContain("/v1/auth/device/code");
       expect(req.method).toBe("POST");
@@ -204,12 +196,10 @@ describe("AuthClient.initiateDeviceFlow", () => {
       );
     });
 
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.initiateDeviceFlow();
-      }).pipe(Effect.provide(layer)),
-    );
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.initiateDeviceFlow();
+    }).pipe(Effect.provide(layer));
   });
 });
 
@@ -226,7 +216,7 @@ describe("pollOnce", () => {
     );
   };
 
-  it("returns Success on 200 with token", async () => {
+  it.effect("returns Success on 200 with token", () => {
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
     const client = makeMockClient(
       () =>
@@ -236,15 +226,17 @@ describe("pollOnce", () => {
         ),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123"));
-    expect(result._tag).toBe("Success");
-    if (result._tag === "Success") {
-      expect(result.token.access_token).toBe("axm_ses_new");
-      expect(result.token.expires_at).toBe(expiresAt);
-    }
+    return Effect.gen(function* () {
+      const result = yield* pollOnce(client, "dev_123");
+      expect(result._tag).toBe("Success");
+      if (result._tag === "Success") {
+        expect(result.token.access_token).toBe("axm_ses_new");
+        expect(result.token.expires_at).toBe(expiresAt);
+      }
+    });
   });
 
-  it("returns Pending on authorization_pending error", async () => {
+  it.effect("returns Pending on authorization_pending error", () => {
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("authorization_pending")), {
@@ -253,11 +245,13 @@ describe("pollOnce", () => {
         }),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123"));
-    expect(result._tag).toBe("Pending");
+    return Effect.gen(function* () {
+      const result = yield* pollOnce(client, "dev_123");
+      expect(result._tag).toBe("Pending");
+    });
   });
 
-  it("returns SlowDown on slow_down error", async () => {
+  it.effect("returns SlowDown on slow_down error", () => {
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("slow_down")), {
@@ -266,11 +260,13 @@ describe("pollOnce", () => {
         }),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123"));
-    expect(result._tag).toBe("SlowDown");
+    return Effect.gen(function* () {
+      const result = yield* pollOnce(client, "dev_123");
+      expect(result._tag).toBe("SlowDown");
+    });
   });
 
-  it("returns AccessDenied on access_denied error", async () => {
+  it.effect("returns AccessDenied on access_denied error", () => {
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("access_denied")), {
@@ -279,11 +275,13 @@ describe("pollOnce", () => {
         }),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123"));
-    expect(result._tag).toBe("AccessDenied");
+    return Effect.gen(function* () {
+      const result = yield* pollOnce(client, "dev_123");
+      expect(result._tag).toBe("AccessDenied");
+    });
   });
 
-  it("returns ExpiredToken on expired_token error", async () => {
+  it.effect("returns ExpiredToken on expired_token error", () => {
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify(makeOAuthError("expired_token")), {
@@ -292,11 +290,13 @@ describe("pollOnce", () => {
         }),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123"));
-    expect(result._tag).toBe("ExpiredToken");
+    return Effect.gen(function* () {
+      const result = yield* pollOnce(client, "dev_123");
+      expect(result._tag).toBe("ExpiredToken");
+    });
   });
 
-  it("fails with AUTH_LOGIN_FAILED on unexpected 500 error", async () => {
+  it.effect("fails with AUTH_LOGIN_FAILED on unexpected 500 error", () => {
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify({ message: "internal error" }), {
@@ -305,11 +305,12 @@ describe("pollOnce", () => {
         }),
     );
 
-    const result = await Effect.runPromise(pollOnce(client, "dev_123").pipe(Effect.result));
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
-    }
+    return Effect.gen(function* () {
+      const error = yield* pollOnce(client, "dev_123").pipe(
+        Effect.catchTag("AppError", (e) => Effect.succeed(e)),
+      );
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+    });
   });
 });
 
@@ -318,7 +319,7 @@ describe("pollOnce", () => {
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.pollDeviceToken", () => {
-  it("returns token on immediate success after first poll", async () => {
+  it.effect("returns token on immediate success after first poll", () => {
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
     const layer = makeTestLayer(
       () =>
@@ -330,17 +331,14 @@ describe("AuthClient.pollDeviceToken", () => {
         ),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.pollDeviceToken("dev_123", 0);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.access_token).toBe("axm_ses_polled");
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.pollDeviceToken("dev_123", 0);
+      expect(result.access_token).toBe("axm_ses_polled");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("continues polling on authorization_pending then succeeds", async () => {
+  it.effect("continues polling on authorization_pending then succeeds", () => {
     let callCount = 0;
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
@@ -360,18 +358,15 @@ describe("AuthClient.pollDeviceToken", () => {
       );
     });
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.pollDeviceToken("dev_123", 0);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.access_token).toBe("axm_ses_after_pending");
-    expect(callCount).toBe(3);
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.pollDeviceToken("dev_123", 0);
+      expect(result.access_token).toBe("axm_ses_after_pending");
+      expect(callCount).toBe(3);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_LOGIN_CANCELLED on access_denied", async () => {
+  it.effect("fails with AUTH_LOGIN_CANCELLED on access_denied", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeOAuthError("access_denied")), {
@@ -380,20 +375,16 @@ describe("AuthClient.pollDeviceToken", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_LOGIN_CANCELLED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .pollDeviceToken("dev_123", 0)
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_LOGIN_CANCELLED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_LOGIN_FAILED on expired_token", async () => {
+  it.effect("fails with AUTH_LOGIN_FAILED on expired_token", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeOAuthError("expired_token")), {
@@ -402,20 +393,16 @@ describe("AuthClient.pollDeviceToken", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_LOGIN_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .pollDeviceToken("dev_123", 0)
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("increases interval on slow_down then succeeds", async () => {
+  it.effect("increases interval on slow_down then succeeds", () => {
     let callCount = 0;
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
@@ -435,16 +422,19 @@ describe("AuthClient.pollDeviceToken", () => {
       );
     });
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.pollDeviceToken("dev_123", 0);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.access_token).toBe("axm_ses_after_slowdown");
-    expect(callCount).toBe(2);
-  }, 10000);
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      // Fork the polling effect so we can advance the TestClock past the
+      // slow_down back-off interval (5 000 ms) without waiting real time.
+      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0));
+      yield* Effect.yieldNow;
+      // Advance past the 5 s slow-down increment so the second poll fires.
+      yield* TestClock.adjust("6 seconds");
+      const result = yield* Fiber.join(fiber);
+      expect(result.access_token).toBe("axm_ses_after_slowdown");
+      expect(callCount).toBe(2);
+    }).pipe(Effect.provide(layer));
+  });
 });
 
 // -----------------------------------------------------------------------------
@@ -452,7 +442,7 @@ describe("AuthClient.pollDeviceToken", () => {
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.refreshToken", () => {
-  it("returns new tokens on success", async () => {
+  it.effect("returns new tokens on success", () => {
     const expiresAt = "2026-03-10T12:30:00.000Z";
 
     const layer = makeTestLayer((req) => {
@@ -471,19 +461,16 @@ describe("AuthClient.refreshToken", () => {
       );
     });
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.refreshToken("axm_ref_old");
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.access_token).toBe("axm_ses_refreshed");
-    expect(result.refresh_token).toBe("axm_ref_refreshed");
-    expect(result.expires_at).toBe(expiresAt);
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.refreshToken("axm_ref_old");
+      expect(result.access_token).toBe("axm_ses_refreshed");
+      expect(result.refresh_token).toBe("axm_ref_refreshed");
+      expect(result.expires_at).toBe(expiresAt);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_REFRESH_FAILED on 400", async () => {
+  it.effect("fails with AUTH_REFRESH_FAILED on 400", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("invalid_grant", 400)), {
@@ -492,20 +479,16 @@ describe("AuthClient.refreshToken", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.refreshToken("axm_ref_expired").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_REFRESH_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .refreshToken("axm_ref_expired")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_REFRESH_FAILED on 401", async () => {
+  it.effect("fails with AUTH_REFRESH_FAILED on 401", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeRefreshTokenError()), {
@@ -514,20 +497,16 @@ describe("AuthClient.refreshToken", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.refreshToken("axm_ref_expired").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_REFRESH_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .refreshToken("axm_ref_expired")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_REFRESH_FAILED on network error", async () => {
+  it.effect("fails with AUTH_REFRESH_FAILED on network error", () => {
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
@@ -535,17 +514,13 @@ describe("AuthClient.refreshToken", () => {
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.refreshToken("axm_ref_old").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_REFRESH_FAILED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .refreshToken("axm_ref_old")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_REFRESH_FAILED");
+    }).pipe(Effect.provide(layer));
   });
 });
 
@@ -554,34 +529,30 @@ describe("AuthClient.refreshToken", () => {
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.revokeToken", () => {
-  it("succeeds on 200", async () => {
+  it.effect("succeeds on 200", () => {
     const layer = makeTestLayer((req) => {
       expect(req.url).toContain("/v1/auth/token/revoke");
       expect(req.method).toBe("POST");
       return new Response("", { status: 200 });
     });
 
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        yield* client.revokeToken("axm_ses_revoke");
-      }).pipe(Effect.provide(layer)),
-    );
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.revokeToken("axm_ses_revoke");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("succeeds (non-fatal) on server error — errors swallowed", async () => {
+  it.effect("succeeds (non-fatal) on server error — errors swallowed", () => {
     const layer = makeTestLayer(() => new Response("internal error", { status: 500 }));
 
     // Should not throw — revoke is best-effort
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        yield* client.revokeToken("axm_ses_revoke");
-      }).pipe(Effect.provide(layer)),
-    );
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.revokeToken("axm_ses_revoke");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("succeeds (non-fatal) on 400 error — errors swallowed", async () => {
+  it.effect("succeeds (non-fatal) on 400 error — errors swallowed", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("invalid_token", 400)), {
@@ -591,15 +562,13 @@ describe("AuthClient.revokeToken", () => {
     );
 
     // Should not throw — revoke is best-effort
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        yield* client.revokeToken("axm_ses_revoke");
-      }).pipe(Effect.provide(layer)),
-    );
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.revokeToken("axm_ses_revoke");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("succeeds (non-fatal) on network error — errors swallowed", async () => {
+  it.effect("succeeds (non-fatal) on network error — errors swallowed", () => {
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
@@ -608,12 +577,10 @@ describe("AuthClient.revokeToken", () => {
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
     // Should not throw — revoke is best-effort
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        yield* client.revokeToken("axm_ses_revoke");
-      }).pipe(Effect.provide(layer)),
-    );
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.revokeToken("axm_ses_revoke");
+    }).pipe(Effect.provide(layer));
   });
 });
 
@@ -622,7 +589,7 @@ describe("AuthClient.revokeToken", () => {
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.getMe", () => {
-  it("returns identity on success with MeResponse transform", async () => {
+  it.effect("returns identity on success with MeResponse transform", () => {
     let capturedAuth: string | null = null;
 
     const layer = makeTestLayer((req) => {
@@ -634,23 +601,20 @@ describe("AuthClient.getMe", () => {
       });
     });
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.getMe("axm_ses_test");
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(capturedAuth).toBe("Bearer axm_ses_test");
-    expect(result.userId).toBe("user_01h455vb4pexka56gq5w2r7cpc");
-    expect(result.userHandle).toBe("alice");
-    expect(result.email).toBe("alice@example.com");
-    expect(result.tokenType).toBe("session");
-    expect(result.scopes).toEqual(["extensions:read", "account:read"]);
-    expect(result.orgs).toEqual([]);
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.getMe("axm_ses_test");
+      expect(capturedAuth).toBe("Bearer axm_ses_test");
+      expect(result.userId).toBe("user_01h455vb4pexka56gq5w2r7cpc");
+      expect(result.userHandle).toBe("alice");
+      expect(result.email).toBe("alice@example.com");
+      expect(result.tokenType).toBe("session");
+      expect(result.scopes).toEqual(["extensions:read", "account:read"]);
+      expect(result.orgs).toEqual([]);
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_UNAUTHENTICATED on 401", async () => {
+  it.effect("fails with AUTH_UNAUTHENTICATED on 401", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeUnauthorizedError()), {
@@ -659,20 +623,16 @@ describe("AuthClient.getMe", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.getMe("axm_ses_bad").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .getMe("axm_ses_bad")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_UNAUTHENTICATED on 400", async () => {
+  it.effect("fails with AUTH_UNAUTHENTICATED on 400", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("bad_request", 400)), {
@@ -681,40 +641,32 @@ describe("AuthClient.getMe", () => {
         }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.getMe("axm_ses_bad").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .getMe("axm_ses_bad")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_UNAUTHENTICATED on unexpected status (404)", async () => {
+  it.effect("fails with AUTH_UNAUTHENTICATED on unexpected status (404)", () => {
     // 404 is not a known status handler for AuthGetMe, so hits unexpectedStatus
     // which produces an HttpClientError — mapped to AUTH_UNAUTHENTICATED
     const layer = makeTestLayer(
       () => new Response(JSON.stringify({ message: "not found" }), { status: 404 }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.getMe("axm_ses_bad").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .getMe("axm_ses_bad")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+    }).pipe(Effect.provide(layer));
   });
 
-  it("fails with AUTH_UNAUTHENTICATED on network error", async () => {
+  it.effect("fails with AUTH_UNAUTHENTICATED on network error", () => {
     const httpLayer = Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
@@ -722,17 +674,13 @@ describe("AuthClient.getMe", () => {
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const client = yield* AuthClient;
-        return yield* client.getMe("axm_ses_bad").pipe(Effect.result);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.code).toBe("AUTH_UNAUTHENTICATED");
-    }
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .getMe("axm_ses_bad")
+        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      expect(error.code).toBe("AUTH_UNAUTHENTICATED");
+    }).pipe(Effect.provide(layer));
   });
 
   // Note: AUTH_SERVER_ERROR on 5xx is hard to test via HTTP mocks because the

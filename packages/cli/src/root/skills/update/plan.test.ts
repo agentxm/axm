@@ -165,7 +165,7 @@ const makeOp = (
         profile: "@axm",
         name,
         version: overrides?.version ?? "0.0.0",
-        integrity: "sha512-AAAA==",
+        integrity: Option.some("sha512-AAAA=="),
       };
       break;
     case "builtin":
@@ -193,6 +193,8 @@ const makeOp = (
       force: overrides?.force ?? false,
       versionConstraint: Option.none(),
       skipSettings: Option.none(),
+      strictUnknownAgents: Option.none(),
+      existingInstalledAt: Option.none(),
       sourceName: Option.none(),
     },
   };

@@ -36,8 +36,8 @@ describe("TestRenderer", () => {
       expect(state.notes).toEqual([]);
       expect(state.boxes).toEqual([]);
       expect(state.cancelMessages).toEqual([]);
-      expect(Option.isNone(state.introTitle)).toBe(true);
-      expect(Option.isNone(state.outroMessage)).toBe(true);
+      expect(state.introTitles).toEqual([]);
+      expect(state.outroMessages).toEqual([]);
     });
   });
 
@@ -51,7 +51,7 @@ describe("TestRenderer", () => {
         }),
         layer,
       );
-      expect(Option.getOrThrow(state.introTitle)).toBe("My App");
+      expect(state.introTitles).toEqual(["My App"]);
     });
 
     it("captures outro message", async () => {
@@ -63,7 +63,7 @@ describe("TestRenderer", () => {
         }),
         layer,
       );
-      expect(Option.getOrThrow(state.outroMessage)).toBe("Done!");
+      expect(state.outroMessages).toEqual(["Done!"]);
     });
 
     it("captures info log", async () => {
@@ -502,7 +502,7 @@ describe("TestMachineRenderer", () => {
         yield* r.note("msg", "title");
       }).pipe(Effect.provide(layer)),
     );
-    expect(Option.getOrThrow(state.introTitle)).toBe("App");
+    expect(state.introTitles).toEqual(["App"]);
     expect(state.logs).toEqual([{ _tag: "info", message: "Processing" }]);
     expect(state.tables).toHaveLength(1);
     expect(state.notes).toEqual([{ message: "msg", title: "title" }]);

@@ -212,6 +212,7 @@ interface MockCall {
 }
 
 const eraseTestType = <T>(value: unknown): T => {
+  // Assertion needed: mock service shape does not fully satisfy CliRenderer type
   return value as T;
 };
 

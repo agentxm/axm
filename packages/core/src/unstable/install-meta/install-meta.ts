@@ -128,11 +128,17 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
     const path = yield* Path.Path;
     const metaPath = path.join(dataDir, INSTALL_META_FILENAME);
 
-    yield* fs.makeDirectory(dataDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+    yield* fs.makeDirectory(dataDir, { recursive: true }).pipe(
+      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
+      Effect.catch(() => Effect.void),
+    );
 
     const content =
       JSON.stringify({ method: data.method, installedAt: data.installedAt }, null, 2) + "\n";
-    yield* fs.writeFileString(metaPath, content).pipe(Effect.catch(() => Effect.void));
+    yield* fs.writeFileString(metaPath, content).pipe(
+      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
+      Effect.catch(() => Effect.void),
+    );
   });
 
 // -----------------------------------------------------------------------------

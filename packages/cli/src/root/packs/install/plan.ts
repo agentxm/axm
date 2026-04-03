@@ -159,7 +159,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         packName: ref.pack.name,
         profile: ref.refType === "registry" ? ref.profile : "",
         resolvedVersion: ref.refType === "registry" ? ref.version : "",
-        integrity: ref.refType === "registry" ? ref.integrity : "",
+        integrity: ref.refType === "registry" ? Option.getOrElse(ref.integrity, () => "") : "",
         sourceName: "default",
         resolvedSkills,
         resolvedCommands,

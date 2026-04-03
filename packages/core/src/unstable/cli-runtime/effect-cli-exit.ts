@@ -5,16 +5,15 @@
 // triggering error formatting. Not a real error — just a control flow signal.
 // ---------------------------------------------------------------------------
 
-export interface EffectCliExit {
-  readonly _tag: "EffectCliExit";
+import * as Data from "effect/Data";
+
+export class EffectCliExit extends Data.TaggedError("EffectCliExit")<{
   readonly exitCode: number;
-}
+}> {}
 
-export const effectCliExit = (exitCode: number): EffectCliExit => ({
-  _tag: "EffectCliExit",
-  exitCode,
-});
+export const effectCliExit = (exitCode: number): EffectCliExit => new EffectCliExit({ exitCode });
 
+// Duck-type check: instanceof may fail for defects extracted via Cause.squash
 export const isEffectCliExit = (error: unknown): error is EffectCliExit =>
   typeof error === "object" &&
   error !== null &&

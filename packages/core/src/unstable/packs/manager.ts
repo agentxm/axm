@@ -45,7 +45,7 @@ const buildSetPackArgs = (
   profile: ref.profile,
   name: ref.pack.name,
   resolvedVersion: ref.version,
-  integrity: ref.integrity,
+  integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: new Date(),
   updatedAt: new Date(),

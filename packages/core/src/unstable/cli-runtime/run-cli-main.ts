@@ -18,6 +18,7 @@ export const resolveCliContext = (args: ReadonlyArray<string>): CliMainContext =
   verbosityLevel: resolveVerbosityFromArgv(args),
 });
 
+// Raw async/await: bootstraps the CLI before the Effect runtime is configured.
 export const runCliMain = async (
   execute: (args: ReadonlyArray<string>) => Effect.Effect<void, unknown, never>,
   options?: {

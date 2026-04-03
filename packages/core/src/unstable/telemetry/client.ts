@@ -114,6 +114,7 @@ export const makeTelemetryClient = (
       );
     };
 
+    // Uses swallowFailure (not fireAndForget) so error reports complete before process exit.
     const reportError: TelemetryClientService["reportError"] = (error) => {
       const now = new Date().toISOString();
       const payload = {

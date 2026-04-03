@@ -207,7 +207,7 @@ const makeRegistryRef = (
   profile: overrides.profile ?? "@community",
   name: overrides.name ?? "my-server",
   version: overrides.version ?? "1.0.0",
-  integrity: overrides.integrity ?? "",
+  integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
 });
 
 const makeOp = (

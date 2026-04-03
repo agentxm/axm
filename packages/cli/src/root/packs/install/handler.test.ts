@@ -413,7 +413,7 @@ describe("packs install handler", () => {
         profile: "@acme",
         name: "my-pack",
         version: "1.0.0",
-        integrity: "abc",
+        integrity: Option.some("abc"),
       };
 
       const mockService: SourceHostProvidersService = {
@@ -524,7 +524,7 @@ describe("packs install handler", () => {
       profile: "@acme",
       name,
       version: "1.0.0",
-      integrity: "",
+      integrity: Option.none(),
     });
 
     it.effect("builds plan from pack ref returned by sources.find", () => {
@@ -554,7 +554,7 @@ describe("packs install handler", () => {
                 profile: "@acme",
                 name: "code-review",
                 version: "1.2.3",
-                integrity: "",
+                integrity: Option.none(),
               },
             ]);
           }
@@ -852,7 +852,7 @@ describe("packs install handler", () => {
                 profile: "@acme",
                 name: "code-review",
                 version: "1.0.0",
-                integrity: "",
+                integrity: Option.none(),
               },
             ]);
           }
@@ -870,7 +870,7 @@ describe("packs install handler", () => {
                 profile: "@acme",
                 name: "lint",
                 version: "2.0.0",
-                integrity: "",
+                integrity: Option.none(),
               },
             ]);
           }
@@ -888,7 +888,7 @@ describe("packs install handler", () => {
                 profile: "@acme",
                 name: "analytics",
                 version: "3.0.0",
-                integrity: "",
+                integrity: Option.none(),
               },
             ]);
           }

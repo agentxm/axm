@@ -1,11 +1,17 @@
+---
+status: active
+last-reviewed: 2026-04-03
+version: 0.2.0
+description: Common v3 to v4 renames and migration patterns
+depends-on: [./effect.md]
+---
+
 # Effect v4 Quick Reference
 
 Short migration reference for the Effect v4 APIs used in this repo. Use it when
 you encounter older examples, outdated blog posts, or code copied from v3-era
 projects.
 
-> [Effect](../../AGENTS.md#effect) - critical guidance
->
 > [Effect](../../CLAUDE.md#effect) - duplicate agent copy
 
 ## Key Resources
@@ -49,6 +55,8 @@ class Database extends ServiceMap.Service<Database, Shape>()("Database") {}
 | ------------------- | ------------------- |
 | `Effect.fork`       | `Effect.forkChild`  |
 | `Effect.forkDaemon` | `Effect.forkDetach` |
+| `Effect.either`     | `Effect.result`     |
+| `Effect.context`    | `Effect.services`   |
 
 `Ref`, `Deferred`, and `Fiber` are no longer yieldable Effects.
 
@@ -68,10 +76,12 @@ Platform modules moved into the `effect` package namespace.
 // old
 import { FileSystem } from "@effect/platform/FileSystem";
 import { Path } from "@effect/platform/Path";
+import { NodeContext } from "@effect/platform-node/NodeContext";
 
 // v4
 import { FileSystem } from "effect/FileSystem";
 import { Path } from "effect/Path";
+import { NodeServices } from "@effect/platform-node/NodeServices";
 ```
 
 ---

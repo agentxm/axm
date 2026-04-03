@@ -31,6 +31,13 @@ export interface ReconciliationContext {
   readonly settings: Settings;
 }
 
+/**
+ * Adapter-facing runtime dependencies.
+ *
+ * The reconciliation flow resolves shared Effect services at the orchestration
+ * boundary and passes them into adapters explicitly so the adapter contract
+ * does not need to expose FileSystem/Path in its own `R` type.
+ */
 export interface AdapterEnvironment {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;

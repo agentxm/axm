@@ -1,10 +1,13 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "./manifest-schema.js";
+import { readAndDecodeManifest } from "../extensions/index.js";
+import {
+  PackManifestSchema,
+  PACK_MANIFEST_FILENAME,
+  type PackManifest,
+} from "./manifest-schema.js";
 import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -188,73 +191,32 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         onSome: (value) => value.name,
       });
 
-      const canonicalPath = env.path.join(
+      const canonicalPath = computePackPaths(
+        env.path.join,
         context.baseDir,
-        REGISTRY_EXTENSIONS_DIR,
         profile,
-        "packs",
         diskName,
-      );
+      ).canonicalPath;
 
-      const exists = yield* env.fs.exists(canonicalPath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
-            what: `Failed to check pack path: ${canonicalPath}`,
-            cause: error,
-          }),
-        ),
-      );
-
-      if (!exists) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "missing",
-        } satisfies DeclarationResolution;
-      }
-
-      const manifestPath = env.path.join(canonicalPath, PACK_MANIFEST_FILENAME);
-      const manifestRaw = yield* env.fs
-        .readFileString(manifestPath)
-        .pipe(Effect.catch(() => Effect.succeed("")));
-
-      if (manifestRaw.length === 0) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
-
-      const parsedJson = yield* Effect.sync(() => {
+      const decodePackManifest = (json: unknown): PackManifest | null => {
         try {
-          const parsed: unknown = JSON.parse(manifestRaw);
-          return parsed;
+          return Schema.decodeUnknownSync(PackManifestSchema)(json);
         } catch {
           return null;
         }
-      });
+      };
 
-      if (parsedJson === null) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
-
-      const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(parsedJson).pipe(
-        Effect.catch(() => Effect.succeed<null>(null)),
+      const result = yield* readAndDecodeManifest(
+        declaration,
+        canonicalPath,
+        PACK_MANIFEST_FILENAME,
+        decodePackManifest,
+        "pack",
+        env,
       );
 
-      if (manifest === null) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
+      if (result._tag !== "ok") return result;
+      const { manifest } = result;
 
       if (manifest.profile !== profile || manifest.name !== diskName) {
         return {

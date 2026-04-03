@@ -1,4 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
 
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
@@ -30,10 +31,13 @@ export const unpackCommand = Command.make(
   "unpack",
   unpackConfig,
   ({ name, strictAgentSync, yes, force, preview }) =>
-    handleUnpack({ name, strictAgentSync, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withCommandRuntime(commandMeta),
-    ),
+    handleUnpack({
+      name,
+      strictAgentSync: Option.liftPredicate(strictAgentSync, Boolean),
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(unpackConfig),
   annotateCommandMeta(commandMeta),

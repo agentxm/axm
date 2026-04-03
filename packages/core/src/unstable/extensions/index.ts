@@ -47,7 +47,10 @@ export type {
 export type { ExtensionRef } from "./refs.js";
 
 // Shared utilities
-export { sanitizeName, copyExtensionDirectory } from "./utils.js";
+export { sanitizeName, copyExtensionDirectory, validatePathSafety } from "./utils.js";
+
+// Reconciliation utilities
+export { readAndDecodeManifest } from "./reconciliation-utils.js";
 
 // Extension operations
 export {

@@ -480,6 +480,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             force: args.force,
             versionConstraint: item.versionConstraint,
             skipSettings: Option.none(),
+            strictUnknownAgents: Option.none(),
             existingInstalledAt,
             sourceName: Option.none(),
           },
@@ -497,6 +498,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           force: args.force,
           versionConstraint: item.versionConstraint,
           skipSettings: Option.none(),
+          strictUnknownAgents: Option.none(),
           existingInstalledAt,
           sourceName: Option.none(),
         },
@@ -613,14 +615,13 @@ const collectPackConstraints = () =>
           .pipe(Effect.catch(() => Effect.succeed("")));
         if (content === "") return;
 
-        const json = yield* Effect.sync(() => {
-          try {
-            const parsed: unknown = JSON.parse(content);
-            return Option.some(parsed);
-          } catch {
-            return Option.none<unknown>();
-          }
-        });
+        const json = yield* Effect.try({
+          try: () => JSON.parse(content),
+          catch: () => ({ _tag: "parse-failed" as const }),
+        }).pipe(
+          Effect.map((value): unknown => value),
+          Effect.option,
+        );
         if (Option.isNone(json)) return;
 
         const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json.value).pipe(

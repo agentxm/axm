@@ -38,8 +38,8 @@ export interface RegistryRefDetails {
   readonly name: string;
   /** Resolved semver version */
   readonly version: string;
-  /** SRI integrity string in `sha512-<base64>` format */
-  readonly integrity: string;
+  /** SRI integrity string in `sha512-<base64>` format. None for synthetic refs (fork/publish). */
+  readonly integrity: Option.Option<string>;
 }
 
 /** Ref details for local filesystem sources. @experimental */

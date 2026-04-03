@@ -155,6 +155,8 @@ export const buildReconciliationSnapshot = (
 ): Effect.Effect<ReconciliationSnapshot, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const adapters = getReconciliationAdapters();
+    // Resolve shared services once, then pass them into each adapter as an
+    // explicit environment to keep the adapter interface narrow.
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 

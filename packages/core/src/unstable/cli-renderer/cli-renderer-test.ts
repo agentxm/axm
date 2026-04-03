@@ -47,8 +47,8 @@ export interface TestRendererState {
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
   readonly cancelMessages: Array<string>;
-  introTitle: Option.Option<string>;
-  outroMessage: Option.Option<string>;
+  readonly introTitles: Array<string>;
+  readonly outroMessages: Array<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,8 +65,8 @@ const makeEmptyState = (): TestRendererState => ({
   notes: [],
   boxes: [],
   cancelMessages: [],
-  introTitle: Option.none(),
-  outroMessage: Option.none(),
+  introTitles: [],
+  outroMessages: [],
 });
 
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
@@ -141,11 +141,11 @@ const makeTestRendererService = (
     // Chrome (stderr)
     intro: (title: string) =>
       Effect.sync(() => {
-        state.introTitle = Option.some(title);
+        state.introTitles.push(title);
       }),
     outro: (message: string) =>
       Effect.sync(() => {
-        state.outroMessage = Option.some(message);
+        state.outroMessages.push(message);
       }),
     message: (message: string) =>
       Effect.sync(() => {

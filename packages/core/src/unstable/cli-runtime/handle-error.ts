@@ -4,7 +4,19 @@ import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
 
 /**
- * Error routing based on output mode.
+ * Classified error result — pure data describing what handleError should do.
+ */
+export interface ErrorClassification {
+  readonly exitCode: number;
+  readonly output?: {
+    readonly channel: "stdout" | "stderr";
+    readonly content: string;
+  };
+  readonly stderrMessage?: string;
+}
+
+/**
+ * Pure error classification — determines exit code and output without side effects.
  *
  * Channel routing per format:
  * - text:        human-readable to stderr only (no stdout pollution)
@@ -16,59 +28,89 @@ import { makeJsonErrorEnvelope } from "./json-envelope.js";
  * - CliError → 2 (usage/validation — bad flags, missing args)
  * - Other → 1 (application/runtime)
  */
-export const handleError = (error: unknown, format: OutputFormat): never => {
+export const classifyError = (error: unknown, format: OutputFormat): ErrorClassification => {
   if (isEffectCliExit(error)) {
-    process.exit(error.exitCode);
+    return { exitCode: error.exitCode };
   }
 
   if (CliError.isCliError(error)) {
-    // ShowHelp is control flow, not an error.
-    // The framework already printed help output before this point.
-    // Exit 0 for clean help, 1 if help was triggered by validation errors.
     if (error._tag === "ShowHelp") {
-      process.exit(error.errors.length > 0 ? 1 : 0);
+      return { exitCode: error.errors.length > 0 ? 1 : 0 };
     }
 
     if (format !== "text") {
-      // Extract human-readable messages from structured CliError errors
       const message =
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
           ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
           : error.message;
-      process.stdout.write(
-        JSON.stringify(
-          makeJsonErrorEnvelope({
-            code: "USAGE_ERROR",
-            message,
-            exitCode: 2,
-          }),
-          null,
-          2,
-        ) + "\n",
-      );
+      return {
+        exitCode: 2,
+        output: {
+          channel: "stdout",
+          content:
+            JSON.stringify(
+              makeJsonErrorEnvelope({
+                code: "USAGE_ERROR",
+                message,
+                exitCode: 2,
+              }),
+              null,
+              2,
+            ) + "\n",
+        },
+      };
     }
-    process.exit(2);
+
+    return { exitCode: 2 };
   }
 
   const message = error instanceof Error ? error.message : String(error);
   const code = error instanceof Error && "code" in error ? String(error.code) : "UNKNOWN_ERROR";
 
   if (format === "text") {
-    console.error(`\u2717 ${message}`);
-  } else {
-    process.stdout.write(
-      JSON.stringify(
-        makeJsonErrorEnvelope({
-          code,
-          message,
-          exitCode: 1,
-        }),
-        null,
-        2,
-      ) + "\n",
-    );
-    console.error(`\u2717 ${message}`);
+    return {
+      exitCode: 1,
+      output: { channel: "stderr", content: `\u2717 ${message}` },
+    };
   }
 
-  process.exit(1);
+  return {
+    exitCode: 1,
+    output: {
+      channel: "stdout",
+      content:
+        JSON.stringify(
+          makeJsonErrorEnvelope({
+            code,
+            message,
+            exitCode: 1,
+          }),
+          null,
+          2,
+        ) + "\n",
+    },
+    stderrMessage: `\u2717 ${message}`,
+  };
+};
+
+/**
+ * Error routing based on output mode.
+ *
+ * Classifies the error, writes output to the appropriate channel, and exits.
+ */
+export const handleError = (error: unknown, format: OutputFormat): never => {
+  const result = classifyError(error, format);
+
+  if (result.output) {
+    if (result.output.channel === "stdout") {
+      process.stdout.write(result.output.content);
+      if (result.stderrMessage) {
+        console.error(result.stderrMessage);
+      }
+    } else {
+      console.error(result.output.content);
+    }
+  }
+
+  process.exit(result.exitCode);
 };

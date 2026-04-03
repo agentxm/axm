@@ -174,7 +174,7 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
     profile: entry.profile,
     name: entry.name,
     version: entry.version,
-    integrity: entry.integrity,
+    integrity: Option.fromUndefinedOr(entry.integrity || undefined),
   };
 
   switch (entry.type) {
@@ -264,13 +264,15 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       version: Option.some(version),
     });
 
-    const actualIntegrity = yield* computeIntegrity(archiveBytes);
-    if (actualIntegrity !== expectedIntegrity) {
-      return yield* makeAppError({
-        code: "SOURCE_FETCH_FAILED",
-        what: `Integrity mismatch for ${type}:${name}@${version}`,
-        details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
-      });
+    if (Option.isSome(expectedIntegrity)) {
+      const actualIntegrity = yield* computeIntegrity(archiveBytes);
+      if (actualIntegrity !== expectedIntegrity.value) {
+        return yield* makeAppError({
+          code: "SOURCE_FETCH_FAILED",
+          what: `Integrity mismatch for ${type}:${name}@${version}`,
+          details: [`Expected ${expectedIntegrity.value}, got ${actualIntegrity}`],
+        });
+      }
     }
 
     const fs = yield* FileSystem.FileSystem;

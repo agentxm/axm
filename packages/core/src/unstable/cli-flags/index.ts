@@ -105,5 +105,7 @@ export const TestFlagsLayer = (overrides?: {
       overrides?.json === undefined ? Option.none() : Option.some(overrides.json),
     ),
     Layer.succeed(quietFlag, overrides?.quiet ?? false),
+    Layer.succeed(verboseFlag, overrides?.verbose ?? false),
+    Layer.succeed(debugFlag, overrides?.debug ?? false),
   );
 };

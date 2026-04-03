@@ -12,6 +12,8 @@ import type { PlatformError } from "effect/PlatformError";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { makeAppError } from "../app-error/index.js";
+import { isPathSafe } from "../utils/index.js";
 
 // -----------------------------------------------------------------------------
 // Name Sanitization
@@ -38,6 +40,18 @@ export const sanitizeName = (name: string): string => {
 
   return result || "unnamed-skill";
 };
+
+// -----------------------------------------------------------------------------
+// Path Safety Validation
+// -----------------------------------------------------------------------------
+
+export const validatePathSafety = (baseDir: string, targetPath: string, code: string) =>
+  isPathSafe(baseDir, targetPath)
+    ? Effect.void
+    : makeAppError({
+        code,
+        what: `Path traversal detected: ${targetPath}`,
+      });
 
 // -----------------------------------------------------------------------------
 // Extension Directory Copy

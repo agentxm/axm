@@ -71,6 +71,8 @@ export const buildSkillInstallPlan = ({
           force,
           versionConstraint: ref.refType === "registry" ? versionConstraint : Option.none(),
           skipSettings: Option.none(),
+          strictUnknownAgents: Option.none(),
+          existingInstalledAt: Option.none(),
           sourceName: Option.none(),
         },
       };

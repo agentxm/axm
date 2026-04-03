@@ -26,9 +26,9 @@ describe("isCI", () => {
     expect(await Effect.runPromise(isCI)).toBe(false);
   });
 
-  it("returns false when CI is not 'true'", async () => {
+  it("returns true when CI is set to any non-empty value", async () => {
     process.env["CI"] = "false";
-    expect(await Effect.runPromise(isCI)).toBe(false);
+    expect(await Effect.runPromise(isCI)).toBe(true);
   });
 });
 

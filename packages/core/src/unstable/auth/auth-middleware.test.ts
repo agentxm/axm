@@ -6,12 +6,13 @@
  * no refresh for env-var/flag tokens.
  */
 
+import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, expect } from "vitest";
 
 import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
@@ -98,7 +99,7 @@ describe("AuthMiddleware", () => {
   // ---------------------------------------------------------------------------
 
   describe("header injection", () => {
-    it("injects Bearer header for credential store token", async () => {
+    it.effect("injects Bearer header for credential store token", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -106,17 +107,15 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_stored");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_stored");
+      }).pipe(Effect.provide(layers));
     });
 
-    it("injects Bearer header for AXM_TOKEN env var", async () => {
+    it.effect("injects Bearer header for AXM_TOKEN env var", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env";
       let capturedAuth: string | null = null;
 
@@ -125,17 +124,15 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_env");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_env");
+      }).pipe(Effect.provide(layers));
     });
 
-    it("prefers AXM_TOKEN over stored credentials for the default registry", async () => {
+    it.effect("prefers AXM_TOKEN over stored credentials for the default registry", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env";
       let capturedAuth: string | null = null;
 
@@ -144,17 +141,15 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_env");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_env");
+      }).pipe(Effect.provide(layers));
     });
 
-    it("injects Bearer header for --token flag", async () => {
+    it.effect("injects Bearer header for --token flag", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers(
@@ -166,17 +161,15 @@ describe("AuthMiddleware", () => {
         "axm_ses_flag",
       );
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_flag");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_flag");
+      }).pipe(Effect.provide(layers));
     });
 
-    it("prefers --token over stored credentials for the default registry", async () => {
+    it.effect("prefers --token over stored credentials for the default registry", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers(
@@ -188,14 +181,12 @@ describe("AuthMiddleware", () => {
         "axm_ses_flag",
       );
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_flag");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_flag");
+      }).pipe(Effect.provide(layers));
     });
   });
 
@@ -204,7 +195,7 @@ describe("AuthMiddleware", () => {
   // ---------------------------------------------------------------------------
 
   describe("pass-through", () => {
-    it("sends request without auth when no token is available", async () => {
+    it.effect("sends request without auth when no token is available", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -212,17 +203,15 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBeNull();
+        yield* client.execute(request);
+        expect(capturedAuth).toBeNull();
+      }).pipe(Effect.provide(layers));
     });
 
-    it("does not inject auth for non-registry URLs", async () => {
+    it.effect("does not inject auth for non-registry URLs", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -230,14 +219,12 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get("https://other-api.example.com/data");
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBeNull();
+        yield* client.execute(request);
+        expect(capturedAuth).toBeNull();
+      }).pipe(Effect.provide(layers));
     });
   });
 
@@ -246,7 +233,7 @@ describe("AuthMiddleware", () => {
   // ---------------------------------------------------------------------------
 
   describe("automatic refresh on 401", () => {
-    it("refreshes and retries on 401 for credential store tokens", async () => {
+    it.effect("refreshes and retries on 401 for credential store tokens", () => {
       let requestCount = 0;
 
       const layers = makeTestLayers((req) => {
@@ -274,20 +261,17 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
-        return response.status;
-      });
-
-      const status = await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(status).toBe(200);
-      // 1 original + 1 refresh + 1 retry = 3
-      expect(requestCount).toBe(3);
+        expect(response.status).toBe(200);
+        // 1 original + 1 refresh + 1 retry = 3
+        expect(requestCount).toBe(3);
+      }).pipe(Effect.provide(layers));
     });
 
-    it("returns 401 when refresh fails", async () => {
+    it.effect("returns 401 when refresh fails", () => {
       const layers = makeTestLayers((req) => {
         if (req.url.includes("/v1/auth/token/refresh")) {
           return new Response("forbidden", { status: 403 });
@@ -295,18 +279,15 @@ describe("AuthMiddleware", () => {
         return new Response("unauthorized", { status: 401 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
-        return response.status;
-      });
-
-      const status = await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(status).toBe(401);
+        expect(response.status).toBe(401);
+      }).pipe(Effect.provide(layers));
     });
 
-    it("does not refresh for env var tokens on 401", async () => {
+    it.effect("does not refresh for env var tokens on 401", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env";
       let refreshCalled = false;
 
@@ -318,19 +299,16 @@ describe("AuthMiddleware", () => {
         return new Response("unauthorized", { status: 401 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
-        return response.status;
-      });
-
-      const status = await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(status).toBe(401);
-      expect(refreshCalled).toBe(false);
+        expect(response.status).toBe(401);
+        expect(refreshCalled).toBe(false);
+      }).pipe(Effect.provide(layers));
     });
 
-    it("does not refresh for flag tokens on 401", async () => {
+    it.effect("does not refresh for flag tokens on 401", () => {
       let refreshCalled = false;
 
       const layers = makeTestLayers(
@@ -345,19 +323,16 @@ describe("AuthMiddleware", () => {
         "axm_ses_flag",
       );
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
-        return response.status;
-      });
-
-      const status = await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(status).toBe(401);
-      expect(refreshCalled).toBe(false);
+        expect(response.status).toBe(401);
+        expect(refreshCalled).toBe(false);
+      }).pipe(Effect.provide(layers));
     });
 
-    it("only retries once after refresh (single retry)", async () => {
+    it.effect("only retries once after refresh (single retry)", () => {
       let mainRequestCount = 0;
 
       const layers = makeTestLayers((req) => {
@@ -378,18 +353,15 @@ describe("AuthMiddleware", () => {
         return new Response("unauthorized", { status: 401 });
       }, storedCredentials());
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
-        return response.status;
-      });
-
-      const status = await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      // Retry also returned 401 — middleware returns it
-      expect(status).toBe(401);
-      // Original request + 1 retry = 2
-      expect(mainRequestCount).toBe(2);
+        // Retry also returned 401 — middleware returns it
+        expect(response.status).toBe(401);
+        // Original request + 1 retry = 2
+        expect(mainRequestCount).toBe(2);
+      }).pipe(Effect.provide(layers));
     });
   });
 
@@ -398,7 +370,7 @@ describe("AuthMiddleware", () => {
   // ---------------------------------------------------------------------------
 
   describe("near-expiry tokens", () => {
-    it("sends near-expiry token as-is without proactive refresh", async () => {
+    it.effect("sends near-expiry token as-is without proactive refresh", () => {
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -406,14 +378,12 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       }, storedCredentials(nearExpiry()));
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_stored");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_stored");
+      }).pipe(Effect.provide(layers));
     });
   });
 
@@ -422,7 +392,7 @@ describe("AuthMiddleware", () => {
   // ---------------------------------------------------------------------------
 
   describe("credential-based gating", () => {
-    it("injects auth for non-default registry with stored credentials", async () => {
+    it.effect("injects auth for non-default registry with stored credentials", () => {
       const NON_DEFAULT_REGISTRY = "https://custom-registry.example.com";
       let capturedAuth: string | null = null;
 
@@ -464,17 +434,15 @@ describe("AuthMiddleware", () => {
         registryUrlLayer,
       );
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${NON_DEFAULT_REGISTRY}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_custom");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_custom");
+      }).pipe(Effect.provide(layers));
     });
 
-    it("scopes AXM_TOKEN to default registry only", async () => {
+    it.effect("scopes AXM_TOKEN to default registry only", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env_scoped";
       let capturedAuth: string | null = null;
 
@@ -483,18 +451,16 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get("https://other-registry.example.com/v1/extensions");
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      // AXM_TOKEN should NOT leak to non-default registry hosts
-      expect(capturedAuth).toBeNull();
+        yield* client.execute(request);
+        // AXM_TOKEN should NOT leak to non-default registry hosts
+        expect(capturedAuth).toBeNull();
+      }).pipe(Effect.provide(layers));
     });
 
-    it("does not leak AXM_TOKEN to non-registry hosts", async () => {
+    it.effect("does not leak AXM_TOKEN to non-registry hosts", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env_leak_test";
       let capturedAuth: string | null = null;
 
@@ -503,17 +469,15 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get("https://github.com/some/repo");
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBeNull();
+        yield* client.execute(request);
+        expect(capturedAuth).toBeNull();
+      }).pipe(Effect.provide(layers));
     });
 
-    it("uses AXM_TOKEN with empty credential store against default registry", async () => {
+    it.effect("uses AXM_TOKEN with empty credential store against default registry", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env_default";
       let capturedAuth: string | null = null;
 
@@ -522,14 +486,12 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       });
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
-        return yield* client.execute(request);
-      });
-
-      await Effect.runPromise(program.pipe(Effect.provide(layers)));
-      expect(capturedAuth).toBe("Bearer axm_ses_env_default");
+        yield* client.execute(request);
+        expect(capturedAuth).toBe("Bearer axm_ses_env_default");
+      }).pipe(Effect.provide(layers));
     });
   });
 });

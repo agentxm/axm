@@ -131,7 +131,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         profile: ref.profile,
         name: ref.skill.name,
         resolvedVersion: ref.version,
-        integrity: ref.integrity,
+        integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
         ...common,
       };

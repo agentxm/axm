@@ -31,6 +31,7 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
+import { validatePathSafety } from "../../extensions/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -56,9 +57,9 @@ export type InstallSkillOperationArgs = {
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
   /** When true, fail on unknown configured agents instead of warning+skip. */
-  readonly strictUnknownAgents?: Option.Option<boolean>;
+  readonly strictUnknownAgents: Option.Option<boolean>;
   /** When updating, preserve the original install timestamp instead of using now. */
-  readonly existingInstalledAt?: Option.Option<Date>;
+  readonly existingInstalledAt: Option.Option<Date>;
   /** Named registry source that provided the ref (written to lockfile for registry skills). */
   readonly sourceName: Option.Option<string>;
 };
@@ -82,14 +83,6 @@ type MaterializedSkill = {
 // -----------------------------------------------------------------------------
 // Shared helpers
 // -----------------------------------------------------------------------------
-
-const validatePathSafety = (baseDir: string, targetPath: string) =>
-  isPathSafe(baseDir, targetPath)
-    ? Effect.void
-    : makeAppError({
-        code: "INSTALL_SKILL_PATH_TRAVERSAL",
-        what: `Path traversal detected: ${targetPath}`,
-      });
 
 const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
   Effect.gen(function* () {
@@ -120,7 +113,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
@@ -136,7 +129,7 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
     const sourcePath = stripFileProtocol(ref.location);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
@@ -173,7 +166,7 @@ const installFromBuiltin = (ref: BuiltinSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
     const sourcePath = yield* fetchSource(ref);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
@@ -194,9 +187,9 @@ const installFromRegistry = (
       refType: "registry",
       profile: ref.profile,
     });
-    yield* validatePathSafety(ws.baseDir, canonicalPath);
+    yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
-    // Synthetic refs (fork/publish) may have empty integrity — use existing canonical
+    // Synthetic refs (fork/publish) may have no integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -206,7 +199,7 @@ const installFromRegistry = (
         }),
       ),
     );
-    const useExisting = ref.integrity === "" && canonicalExists;
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
 
     if (!useExisting) {
       const locationStr =
@@ -221,14 +214,13 @@ const installFromRegistry = (
         version: Option.some(ref.version),
       });
 
-      // Non-empty integrity -> validate
-      if (ref.integrity !== "") {
+      if (Option.isSome(ref.integrity)) {
         const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity) {
+        if (actualIntegrity !== ref.integrity.value) {
           return yield* makeAppError({
             code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
             what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
+            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
           });
         }
       }
@@ -376,10 +368,7 @@ export const installSkill: OperationHandler<
     const { ref } = op.args;
     const agents = yield* ws.getConfiguredAgents();
     const sanitizedName = sanitizeName(ref.skill.name);
-    const strictUnknownAgents = Option.getOrElse(
-      op.args.strictUnknownAgents ?? Option.none(),
-      () => false,
-    );
+    const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
     const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionConstraint);
@@ -499,7 +488,7 @@ export const installSkill: OperationHandler<
       agents,
       now: new Date(),
       sourceName: op.args.sourceName,
-      existingInstalledAt: op.args.existingInstalledAt ?? Option.none(),
+      existingInstalledAt: op.args.existingInstalledAt,
     });
 
     if (lockEntry.type === "registry") {

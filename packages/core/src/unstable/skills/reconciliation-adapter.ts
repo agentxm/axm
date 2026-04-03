@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
-import { SkillManifestSchema, MANIFEST_FILENAME } from "./manifest-schema.js";
+import { readAndDecodeManifest } from "../extensions/index.js";
+import { SkillManifestSchema, MANIFEST_FILENAME, type SkillManifest } from "./manifest-schema.js";
 import { computeSkillPaths } from "./paths.js";
 import type {
   DeclarationResolution,
@@ -75,9 +75,8 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
   checkDiskCompatibility: (declaration, context, env) =>
     Effect.gen(function* () {
       const parsed = parseRegistrySkillSource(declaration.source);
-      const source = declaration.source;
 
-      if (source !== "registry" && Option.isNone(parsed)) {
+      if (declaration.source !== "registry" && Option.isNone(parsed)) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -101,68 +100,25 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
         diskName,
       ).canonicalPath;
 
-      const exists = yield* env.fs.exists(canonicalPath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "LOCKFILE_RECONCILE_DISK_CHECK_FAILED",
-            what: `Failed to check skill path: ${canonicalPath}`,
-            cause: error,
-          }),
-        ),
+      const decodeSkillManifest = (json: unknown): SkillManifest | null => {
+        try {
+          return Schema.decodeUnknownSync(SkillManifestSchema)(json);
+        } catch {
+          return null;
+        }
+      };
+
+      const result = yield* readAndDecodeManifest(
+        declaration,
+        canonicalPath,
+        MANIFEST_FILENAME,
+        decodeSkillManifest,
+        "skill",
+        env,
       );
 
-      if (!exists) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "missing",
-        } satisfies DeclarationResolution;
-      }
-
-      const manifestPath = env.path.join(canonicalPath, MANIFEST_FILENAME);
-      const manifestRaw = yield* env.fs
-        .readFileString(manifestPath)
-        .pipe(Effect.catch(() => Effect.succeed("")));
-
-      if (manifestRaw.length === 0) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
-
-      const manifestJson = yield* Effect.try({
-        try: () => {
-          const parsed: unknown = JSON.parse(manifestRaw);
-          return parsed;
-        },
-        catch: () =>
-          makeAppError({
-            code: "LOCKFILE_RECONCILE_MANIFEST_INVALID",
-            what: `Invalid skill manifest JSON at ${manifestPath}`,
-          }),
-      }).pipe(Effect.catch(() => Effect.succeed<unknown>(null)));
-
-      if (manifestJson === null) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
-
-      const manifest = yield* Schema.decodeUnknownEffect(SkillManifestSchema)(manifestJson).pipe(
-        Effect.catch(() => Effect.succeed<null>(null)),
-      );
-
-      if (manifest === null) {
-        return {
-          _tag: "Unresolved",
-          declaration,
-          reason: "invalid",
-        } satisfies DeclarationResolution;
-      }
+      if (result._tag !== "ok") return result;
+      const { manifest } = result;
 
       if (manifest.profile !== profile || manifest.name !== diskName) {
         return {

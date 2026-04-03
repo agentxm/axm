@@ -255,7 +255,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(skillRef.profile).toBe("@test");
         expect(skillRef.name).toBe("my-skill");
         expect(skillRef.version).toBe("1.0.0");
-        expect(skillRef.integrity).toBe("sha512-abc");
+        expect(skillRef.integrity).toEqual(Option.some("sha512-abc"));
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
@@ -553,7 +553,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       profile: "@test",
       name: "my-skill",
       version: "1.0.0",
-      integrity,
+      integrity: Option.some(integrity),
     };
 
     return runEffect(
@@ -596,7 +596,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       profile: "@test",
       name: "my-skill",
       version: "1.0.0",
-      integrity: "sha512-wrongIntegrityValue==",
+      integrity: Option.some("sha512-wrongIntegrityValue=="),
     };
 
     return runEffect(
@@ -636,7 +636,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       profile: "@test",
       name: "my-server",
       version: "2.0.0",
-      integrity,
+      integrity: Option.some(integrity),
     };
 
     return runEffect(
@@ -745,7 +745,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
       profile: "@test",
       name: "my-skill",
       version: "1.0.0",
-      integrity: "sha512-abc",
+      integrity: Option.some("sha512-abc"),
     };
 
     return runEffect(

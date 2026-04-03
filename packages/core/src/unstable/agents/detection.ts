@@ -11,7 +11,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { getHome } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
@@ -36,10 +36,7 @@ import type { AgentDescriptor } from "./types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const detectAgent = (
-  agent: AgentDescriptor,
-  projectDir: string,
-): Effect.Effect<boolean, AppError, FileSystem.FileSystem | Path.Path> =>
+export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
@@ -80,9 +77,7 @@ export const detectAgent = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const detectAgents = (
-  projectDir: string,
-): Effect.Effect<ReadonlyArray<AgentDescriptor>, AppError, FileSystem.FileSystem | Path.Path> =>
+export const detectAgents = (projectDir: string) =>
   Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

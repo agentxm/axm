@@ -7,7 +7,7 @@
   },
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",
-    "axm:local": "AXM_REGISTRY_URL=http://localhost:4300 bun packages/cli/src/main.ts",
+    "axm:local": "./scripts/axm-local",
     "spike": "bun packages/cli-spike/src/main.ts",
     "sync": "nx sync",
     "sync:check": "nx sync:check",

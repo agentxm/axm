@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { toAuthor, ExtensionTypeSchema, type ExtensionType } from "../extensions/index.js";
+import { type Handle, unsafeHandle } from "../extensions/handle.js";
 import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
@@ -226,10 +227,20 @@ export const createRemoteRegistryClient = (
   ): Effect.Effect<GetExtensionsByOwnerResponse, AppError> =>
     Effect.gen(function* () {
       let allExtensions: ReadonlyArray<RegistryExtensionManifest>;
+      const owner = args.owner;
 
-      if (args.names.length === 0) {
+      if (args.names.length === 0 || owner === "*") {
         // List mode: fetch owner listing, then fan-out to get full indexes
         allExtensions = yield* getListModeExtensions(args);
+        if (args.names.length > 0) {
+          const nameSet = new Set(args.names);
+          const requestedTypes = new Set(args.types);
+          allExtensions = allExtensions.filter(
+            (entry) =>
+              nameSet.has(entry.name) &&
+              (requestedTypes.size === 0 || requestedTypes.has(entry.type)),
+          );
+        }
       } else {
         // Named mode: fetch each name+type combination
         const requestedTypes: ReadonlyArray<ExtensionType> =
@@ -242,7 +253,7 @@ export const createRemoteRegistryClient = (
               requestedTypes,
               (type) =>
                 getExtensionIndex({
-                  owner: args.owner,
+                  owner,
                   type,
                   name,
                 }),
@@ -294,7 +305,7 @@ export const createRemoteRegistryClient = (
         summaries,
         (summary) =>
           getExtensionIndex({
-            owner: summary.owner,
+            owner: unsafeHandle(summary.owner),
             type: narrowExtensionType(summary.type),
             name: summary.name,
           }),
@@ -322,7 +333,7 @@ export const createRemoteRegistryClient = (
     });
 
   const fetchExtensionList = (
-    owner: string,
+    owner: Handle | "*",
   ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
     client.ExtensionsListByOwner(owner, undefined).pipe(
       Effect.map((response) => response.extensions),
@@ -330,7 +341,7 @@ export const createRemoteRegistryClient = (
     );
 
   const fetchExtensionListByType = (
-    owner: string,
+    owner: Handle | "*",
     type: ExtensionType,
   ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
     client.ExtensionsListByType(owner, pluralizeType(type), undefined).pipe(
@@ -347,7 +358,7 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   // ownerExists
   // ---------------------------------------------------------------------------
-  const ownerExists = (owner: string): Effect.Effect<OwnerExistsResponse, AppError> =>
+  const ownerExists = (owner: Handle): Effect.Effect<OwnerExistsResponse, AppError> =>
     client.ExtensionsListByOwner(owner, undefined).pipe(
       Effect.map(
         (response) => ({ exists: response.extensions.length > 0 }) satisfies OwnerExistsResponse,

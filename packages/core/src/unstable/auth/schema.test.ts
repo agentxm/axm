@@ -70,7 +70,7 @@ describe("Auth schema", () => {
     it("decodes a valid registry accounts map", () => {
       const input = {
         accounts: {
-          alice: {
+          "@alice": {
             access_token: "axm_ses_abc",
             refresh_token: "axm_ref_def",
             expires_at: "2026-03-12T10:30:00Z",
@@ -80,19 +80,19 @@ describe("Auth schema", () => {
       };
       const result = Schema.decodeUnknownSync(RegistryAccountsSchema)(input);
 
-      expect(result.accounts["alice"]?.active).toBe(true);
+      expect(result.accounts["@alice"]?.active).toBe(true);
     });
 
     it("decodes multiple accounts", () => {
       const input = {
         accounts: {
-          alice: {
+          "@alice": {
             access_token: "a1",
             refresh_token: "r1",
             expires_at: "2026-01-01T00:00:00Z",
             active: true,
           },
-          bob: {
+          "@bob": {
             access_token: "a2",
             refresh_token: "r2",
             expires_at: "2026-01-01T00:00:00Z",
@@ -108,7 +108,7 @@ describe("Auth schema", () => {
     it("round-trips through encode/decode", () => {
       const input = {
         accounts: {
-          alice: {
+          "@alice": {
             access_token: "a1",
             refresh_token: "r1",
             expires_at: "2026-01-01T00:00:00Z",
@@ -129,7 +129,7 @@ describe("Auth schema", () => {
       registries: {
         "https://registry.agentxm.ai": {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_abc",
               refresh_token: "axm_ref_def",
               expires_at: "2026-03-12T10:30:00Z",
@@ -145,7 +145,7 @@ describe("Auth schema", () => {
 
       expect(result.version).toBe(1);
       expect(
-        result.registries["https://registry.agentxm.ai"]?.accounts["alice"]?.access_token,
+        result.registries["https://registry.agentxm.ai"]?.accounts["@alice"]?.access_token,
       ).toBe("axm_ses_abc");
     });
 
@@ -162,7 +162,7 @@ describe("Auth schema", () => {
         registries: {
           "https://registry.agentxm.ai": {
             accounts: {
-              alice: {
+              "@alice": {
                 access_token: "a1",
                 refresh_token: "r1",
                 expires_at: "2026-01-01T00:00:00Z",
@@ -172,7 +172,7 @@ describe("Auth schema", () => {
           },
           "https://registry.corp.com": {
             accounts: {
-              bob: {
+              "@bob": {
                 access_token: "a2",
                 refresh_token: "r2",
                 expires_at: "2026-01-01T00:00:00Z",

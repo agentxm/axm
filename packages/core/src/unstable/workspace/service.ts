@@ -38,6 +38,7 @@ import {
 } from "../lockfile/index.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computePackPaths } from "../packs/paths.js";
+import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { AgentIdSchema, formatFqn, type ExtensionType } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
@@ -434,24 +435,21 @@ const make = (options: WorkspaceLayerOptions) =>
 
       getConfiguredProfile: () =>
         Effect.gen(function* () {
-          const normalizeProfile = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.profile) return normalizeProfile(projectSettings.profile);
+          if (projectSettings.profile) return projectSettings.profile;
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.profile) return normalizeProfile(globalSettings.profile);
+          if (globalSettings.profile) return globalSettings.profile;
           return DEFAULT_PROFILE;
         }),
 
       // TODO: check logged-in identity handle when auth is implemented
       getDefaultProfile: () =>
         Effect.gen(function* () {
-          const normalizeProfile = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.profile)
-            return Option.some(normalizeProfile(projectSettings.profile));
+          if (projectSettings.profile) return Option.some(projectSettings.profile);
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.profile) return Option.some(normalizeProfile(globalSettings.profile));
-          return Option.none<string>();
+          if (globalSettings.profile) return Option.some(globalSettings.profile);
+          return Option.none<Handle>();
         }),
 
       addConfiguredSource: (source: SourceHostConfig) =>
@@ -938,7 +936,7 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("Workspace.removePack")),
 
-      getPackDir: (name: string, owner: string) =>
+      getPackDir: (name: string, owner: Handle) =>
         Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
       // -----------------------------------------------------------------------

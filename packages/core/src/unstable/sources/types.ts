@@ -7,6 +7,7 @@
 
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import type { Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema
@@ -184,7 +185,7 @@ export interface GitSourceParams {
 /** @experimental */
 export interface RegistrySourceParams {
   readonly type: "registry";
-  readonly owner: Option.Option<string>;
+  readonly owner: Option.Option<Handle>;
 }
 
 /** @experimental */

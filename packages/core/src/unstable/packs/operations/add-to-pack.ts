@@ -11,6 +11,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import type { Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
@@ -35,7 +36,7 @@ export interface AddToPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
-  readonly packOwner: string;
+  readonly packOwner: Handle;
   /** Precomputed manifest delta: FQN -> version range entries to add. */
   readonly additions: Readonly<Record<string, string>>;
   /** Manifest content hash at plan time for stale-check. */
@@ -128,8 +129,8 @@ export const addToPack: OperationHandler<
       ),
     );
 
-    const currentSkills = { ...(manifest.skills ?? {}) };
-    const currentCommands = { ...(manifest.commands ?? {}) };
+    const currentSkills: Record<string, string> = { ...(manifest["skills"] ?? {}) };
+    const currentCommands: Record<string, string> = { ...(manifest["commands"] ?? {}) };
     const currentMcpServers = { ...(manifest["mcp-servers"] ?? {}) };
 
     for (const [fqn, version] of Object.entries(additions)) {
@@ -152,6 +153,10 @@ export const addToPack: OperationHandler<
 
     const updatedManifest: RawPackManifest = {
       ...manifest,
+      owner: manifest.owner,
+      type: manifest.type,
+      name: manifest.name,
+      version: manifest.version,
       skills: currentSkills,
       commands: currentCommands,
       "mcp-servers": currentMcpServers,

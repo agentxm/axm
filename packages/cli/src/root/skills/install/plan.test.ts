@@ -11,6 +11,7 @@ import {
 } from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import type { LocalSkillRef, RegistrySkillRef } from "@axm.sh/core/unstable/skills";
 import type { Source } from "@axm.sh/core/unstable/sources";
@@ -21,6 +22,8 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { exactVersion, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
+
+const ACME = normalizeHandle("@acme");
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -45,7 +48,7 @@ const makeRegistrySkillRef = (name: string) =>
       location: new URL("https://registry.example.com"),
       owner: Option.none(),
     },
-    owner: "@acme",
+    owner: ACME,
     name,
     version: exactVersion("1.2.3"),
     integrity: Option.some("sha512-deadbeef"),

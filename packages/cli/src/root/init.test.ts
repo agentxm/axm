@@ -23,6 +23,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../builtin-pack/index.js";
@@ -131,7 +132,7 @@ describe("init.handler", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const existingSettings: Settings = {
             agents: ["claude-code"],
-            profile: "@community",
+            profile: normalizeHandle("@community"),
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
@@ -155,7 +156,7 @@ describe("init.handler", () => {
             skills: {
               commit: "^1.0.0",
             },
-            profile: "@myorg",
+            profile: normalizeHandle("@myorg"),
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");

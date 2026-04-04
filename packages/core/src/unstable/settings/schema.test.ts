@@ -34,11 +34,10 @@ describe("Settings schema", () => {
       expect(result.profile).toBe("@myorg");
     });
 
-    it("auto-prepends @ to bare profile", () => {
+    it("rejects bare profile values without @", () => {
       const input = { profile: "myorg" };
-      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.profile).toBe("@myorg");
+      expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
     });
 
     it("accepts settings with all fields", () => {

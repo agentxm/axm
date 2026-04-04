@@ -311,11 +311,11 @@ describe("resolveSource", () => {
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSlashInputSource(
           {
-            first: "acme",
+            first: "@acme",
             second: "skills",
             third: Option.some("my-skill"),
           },
-          "acme/skills/my-skill",
+          "@acme/skills/my-skill",
         ).pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
           Effect.ensuring(

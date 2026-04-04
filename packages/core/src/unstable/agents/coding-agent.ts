@@ -14,6 +14,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/ServiceMap";
 import type { AppError } from "../app-error/index.js";
+import type { Handle } from "../extensions/handle.js";
 import type { Workspace } from "../workspace/service-interface.js";
 import type { AgentId } from "./types.js";
 
@@ -40,7 +41,7 @@ export interface AddMcpServerArgs {
   readonly workspaceRoot: string;
   readonly serverName: string;
   readonly canonicalPath: string;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly resolvedVersion: string;
 }
 

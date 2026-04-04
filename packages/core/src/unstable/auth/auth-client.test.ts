@@ -74,7 +74,7 @@ const makeDecodeError = (code: string, status: number) => ({
 const makeMeResponse = () => ({
   user: {
     id: "user_01h455vb4pexka56gq5w2r7cpc",
-    handle: "alice",
+    handle: "@alice",
     email: "alice@example.com",
   },
   orgs: [],
@@ -693,7 +693,7 @@ describe("AuthClient.getMe", () => {
       const result = yield* client.getMe("axm_ses_test");
       expect(capturedAuth).toBe("Bearer axm_ses_test");
       expect(result.userId).toBe("user_01h455vb4pexka56gq5w2r7cpc");
-      expect(result.userHandle).toBe("alice");
+      expect(result.userHandle).toBe("@alice");
       expect(result.email).toBe("alice@example.com");
       expect(result.tokenType).toBe("session");
       expect(result.scopes).toEqual(["extensions:read", "account:read"]);

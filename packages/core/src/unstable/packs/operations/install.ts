@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
+import type { Handle } from "../../extensions/handle.js";
 import {
   type ResolvedExtensionMap,
   validateExactResolvedVersion,
@@ -39,7 +40,7 @@ export interface InstallPackOperationArgs {
   /** Pack name (e.g., "my-pack") */
   readonly packName: string;
   /** Pack owner (e.g., "@acme") */
-  readonly owner: string;
+  readonly owner: Handle;
   /** Exact resolved version */
   readonly resolvedVersion: ExactSemverVersion;
   /** SRI integrity string */

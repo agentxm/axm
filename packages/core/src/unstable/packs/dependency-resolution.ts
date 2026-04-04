@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionRef } from "../extensions/index.js";
 import { parseFqnOrThrow } from "../extensions/index.js";
+import type { Handle } from "../extensions/handle.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
@@ -52,7 +53,7 @@ const resolveDependencyType = (
 
 const registrySourceForDependency = (
   pack: PackExtensionRef,
-  owner: string,
+  owner: Handle,
 ): Effect.Effect<RegistrySource, AppError> => {
   if (pack.source.type !== "registry") {
     return Effect.fail(

@@ -66,7 +66,7 @@ const storedCredentials = (expiresAt?: string) => ({
   registries: {
     [REGISTRY_URL]: {
       accounts: {
-        alice: {
+        "@alice": {
           access_token: "axm_ses_stored",
           refresh_token: "axm_ref_stored",
           expires_at: expiresAt ?? futureExpiry(),
@@ -407,7 +407,7 @@ describe("AuthMiddleware", () => {
         registries: {
           [NON_DEFAULT_REGISTRY]: {
             accounts: {
-              bob: {
+              "@bob": {
                 access_token: "axm_ses_custom",
                 refresh_token: "axm_ref_custom",
                 expires_at: futureExpiry(),

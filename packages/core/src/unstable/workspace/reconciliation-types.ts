@@ -1,6 +1,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
+import type { Handle } from "../extensions/handle.js";
 import type {
   CommandLockEntry,
   McpServerLockEntry,
@@ -15,7 +16,7 @@ export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 
 export interface ReconciliationDeclaration {
   readonly extensionType: ReconcileExtensionType;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: string;
   readonly declarationSourceOrConstraint: string;
   readonly source: string;
@@ -26,7 +27,7 @@ export interface ReconciliationDeclaration {
 export interface ReconciliationContext {
   readonly baseDir: string;
   readonly now: Date;
-  readonly defaultProfile: string;
+  readonly defaultProfile: Handle;
   readonly agents: ReadonlyArray<string>;
   readonly settings: Settings;
 }

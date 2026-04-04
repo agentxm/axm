@@ -10,6 +10,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Layer from "effect/Layer";
 
 import { CliRenderer } from "../cli-renderer/index.js";
+import { normalizeHandle } from "../extensions/handle.js";
 
 import { type TokenResponse, AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
@@ -66,7 +67,7 @@ export const DeviceLoginInteractionTest = (overrides?: {
 // Device login orchestration
 // -----------------------------------------------------------------------------
 
-const UNKNOWN_HANDLE = "unknown";
+const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 
 const persistLoginCredentials = (registryUrl: string, token: TokenResponse) =>
   Effect.gen(function* () {

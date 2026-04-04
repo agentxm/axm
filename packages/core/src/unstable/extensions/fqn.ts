@@ -8,6 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
+import { HANDLE_PATTERN_SOURCE, type Handle, unsafeHandle } from "./handle.js";
 
 /**
  * Extension type in plural form, matching the FQN segment.
@@ -22,12 +23,14 @@ export type ExtensionTypePlural = "skills" | "packs" | "commands" | "mcp-servers
  * @experimental This API is unstable and may change without notice.
  */
 export interface Fqn {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: ExtensionTypePlural;
   readonly name: string;
 }
 
-const FQN_PARTS_PATTERN = /^(@[\w-]+)\/(skills|packs|commands|mcp-servers)\/([\w-]+)$/;
+const FQN_PARTS_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/(skills|packs|commands|mcp-servers)\\/([\\w-]+)$`,
+);
 
 const parseFqnMatch = (input: string): Fqn | undefined => {
   const match = FQN_PARTS_PATTERN.exec(input);
@@ -48,7 +51,7 @@ const parseFqnMatch = (input: string): Fqn | undefined => {
   }
 
   return {
-    owner,
+    owner: unsafeHandle(owner),
     type,
     name,
   };

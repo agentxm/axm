@@ -18,6 +18,7 @@ import * as Option from "effect/Option";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
@@ -42,7 +43,7 @@ export interface InstallMcpServerHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export interface ParsedMcpServerInstallArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly serverName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -55,7 +56,7 @@ export interface ParsedMcpServerInstallArgs {
 
 export interface McpServerInstallSourceRequest {
   readonly source: RegistrySource;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly serverName: string;
   readonly versionConstraint: Option.Option<string>;
 }

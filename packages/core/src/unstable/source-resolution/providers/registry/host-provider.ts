@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import { type AppError, makeAppError } from "../../../app-error/index.js";
+import { type Handle, unsafeHandle } from "../../../extensions/handle.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -42,7 +43,7 @@ import type { ExactSemverVersion } from "../../../version-constraints/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
-    owner: string,
+    owner: Handle,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,
@@ -56,7 +57,18 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 // -----------------------------------------------------------------------------
 
 /** Map FindOptions + owner to GetExtensionsByOwnerArgs (no pagination — fetch all). */
-const toSearchOptions = (owner: string, options: FindOptions): GetExtensionsByOwnerArgs => ({
+const toSearchOptions = (owner: "*", options: FindOptions): GetExtensionsByOwnerArgs => ({
+  owner,
+  names: options.skillNames,
+  types: options.type === "*" ? [] : [options.type],
+  limit: Option.none(),
+  offset: 0,
+});
+
+const toRegistrySearchOptions = (
+  owner: Handle,
+  options: FindOptions,
+): GetExtensionsByOwnerArgs => ({
   owner,
   names: options.skillNames,
   types: options.type === "*" ? [] : [options.type],
@@ -98,7 +110,7 @@ const manifestFromIndex = (
 const findWithVersionConstraint = (
   client: RegistryClient,
   source: RegistrySource,
-  owners: ReadonlyArray<string>,
+  owners: ReadonlyArray<Handle>,
   options: FindOptions,
 ) =>
   Effect.forEach(
@@ -110,7 +122,9 @@ const findWithVersionConstraint = (
         const requestedNames = options.skillNames.length > 0 ? options.skillNames : [];
 
         if (requestedNames.length === 0) {
-          const result = yield* client.getExtensionsByScope(toSearchOptions(owner, options));
+          const result = yield* client.getExtensionsByScope(
+            toRegistrySearchOptions(owner, options),
+          );
           const resolved = yield* Effect.forEach(
             result.extensions,
             (entry) =>
@@ -329,9 +343,9 @@ export const createLocalRegistrySourceHostProvider = (
       const entries = yield* fsService
         .readDirectory(extensionsDir)
         .pipe(Effect.orElseSucceed((): readonly string[] => []));
-      const namespaces = Option.isSome(options.owner)
+      const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
         ? [options.owner.value]
-        : entries.filter((d) => d.startsWith("@"));
+        : entries.filter((d) => d.startsWith("@")).map(unsafeHandle);
 
       if (Option.isSome(options.versionConstraint)) {
         return yield* findWithVersionConstraint(client, source, namespaces, options);
@@ -341,7 +355,9 @@ export const createLocalRegistrySourceHostProvider = (
         namespaces,
         (owner) =>
           Effect.gen(function* () {
-            const result = yield* client.getExtensionsByScope(toSearchOptions(owner, options));
+            const result = yield* client.getExtensionsByScope(
+              toRegistrySearchOptions(owner, options),
+            );
             return result.extensions.map((entry) => toExtensionRef(entry, source));
           }),
         { concurrency: "unbounded" },
@@ -352,7 +368,7 @@ export const createLocalRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    owner: string,
+    owner: Handle,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,
@@ -382,11 +398,12 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const owner = Option.isSome(options.owner) ? options.owner.value : "*";
+      const owner: Handle | "*" = Option.isSome(options.owner) ? options.owner.value : "*";
       if (Option.isSome(options.versionConstraint) && owner !== "*") {
         return yield* findWithVersionConstraint(client, source, [owner], options);
       }
-      const searchOptions = toSearchOptions(owner, options);
+      const searchOptions =
+        owner === "*" ? toSearchOptions("*", options) : toRegistrySearchOptions(owner, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),
@@ -394,7 +411,7 @@ export const createRemoteRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    owner: string,
+    owner: Handle,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,

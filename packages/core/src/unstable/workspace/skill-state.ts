@@ -75,7 +75,7 @@ const resolveSkillRef = (
       Option.isSome(parsed.value.pattern.type) &&
       parsed.value.pattern.type.value === "skills"
         ? Option.some(parsed.value.pattern.owner)
-        : Option.none<string>();
+        : Option.none();
     const versionConstraint =
       Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input"
         ? parsed.value.pattern.versionConstraint

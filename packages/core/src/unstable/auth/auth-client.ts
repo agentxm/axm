@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import { type AppError, makeAppError } from "../app-error/index.js";
+import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
 import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
@@ -58,11 +59,11 @@ export type TokenResponse = NormalizedTokenResponse;
 
 export interface MeResponse {
   readonly userId: string;
-  readonly userHandle: string;
+  readonly userHandle: Handle;
   readonly email: string;
   readonly tokenType: string;
   readonly scopes: ReadonlyArray<string>;
-  readonly orgs: ReadonlyArray<{ readonly id: string; readonly handle: string }>;
+  readonly orgs: ReadonlyArray<{ readonly id: string; readonly handle: Handle }>;
 }
 
 // -----------------------------------------------------------------------------
@@ -415,7 +416,7 @@ export const AuthClientLive = Layer.effect(
 
         return {
           userId: decoded.user.id,
-          userHandle: decoded.user.handle,
+          userHandle: normalizeHandle(decoded.user.handle),
           email: decoded.user.email ?? "",
           tokenType: decoded.token.type,
           scopes: decoded.token.scopes,

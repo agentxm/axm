@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -26,6 +27,8 @@ import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
 import type { UninstallPackOperation } from "@axm.sh/core/unstable/packs";
 import { buildUnpackPlan } from "./plan.js";
+
+const ACME = normalizeHandle("@acme");
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -43,7 +46,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -69,7 +72,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -92,7 +95,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),

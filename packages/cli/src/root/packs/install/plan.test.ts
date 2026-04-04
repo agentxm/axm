@@ -14,6 +14,7 @@ import {
 } from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -31,6 +32,8 @@ import {
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+
+const ACME = normalizeHandle("@acme");
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -54,7 +57,7 @@ const makePackRef = (
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
-  owner: "@acme",
+  owner: ACME,
   name,
   version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
@@ -90,7 +93,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      makeRegistryPackLockEntry({ owner: "@acme", name, sourceName: "local" }),
+      makeRegistryPackLockEntry({ owner: ACME, name, sourceName: "local" }),
     ]),
   ),
 });
@@ -107,7 +110,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -130,7 +133,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -149,7 +152,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        owner: "@acme",
+        owner: ACME,
         name,
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
@@ -169,7 +172,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        owner: "@acme",
+        owner: ACME,
         name,
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
@@ -675,7 +678,7 @@ describe("buildInstallPlan", () => {
         commands: {
           "cmd-a": {
             type: "registry" as const,
-            owner: "@acme",
+            owner: ACME,
             name: "cmd-a",
             resolvedVersion: exactVersion("1.0.0"),
             integrity: "",

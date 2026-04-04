@@ -6,6 +6,7 @@ import { describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { expect } from "vitest";
+import { normalizeHandle } from "../extensions/handle.js";
 import {
   CredentialStore,
   CredentialStoreTest,
@@ -36,11 +37,11 @@ describe("CredentialStore", () => {
       const layer = CredentialStoreTest();
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        yield* store.save(registryUrl, "alice", credentials);
+        yield* store.save(registryUrl, normalizeHandle("@alice"), credentials);
         const result = yield* store.load(registryUrl);
         expect(Option.isSome(result)).toBe(true);
         if (Option.isSome(result)) {
-          expect(result.value.handle).toBe("alice");
+          expect(result.value.handle).toBe("@alice");
           expect(result.value.access_token).toBe("axm_ses_abc");
           expect(result.value.refresh_token).toBe("axm_ref_def");
           expect(result.value.expires_at).toBe("2026-03-12T10:30:00Z");
@@ -52,7 +53,7 @@ describe("CredentialStore", () => {
       const layer = CredentialStoreTest();
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        yield* store.save(registryUrl, "alice", credentials);
+        yield* store.save(registryUrl, normalizeHandle("@alice"), credentials);
         yield* store.clear(registryUrl);
         const result = yield* store.load(registryUrl);
         expect(Option.isNone(result)).toBe(true);
@@ -63,15 +64,15 @@ describe("CredentialStore", () => {
       const layer = CredentialStoreTest();
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        yield* store.save(registryUrl, "alice", credentials);
-        yield* store.save(registryUrl, "bob", {
+        yield* store.save(registryUrl, normalizeHandle("@alice"), credentials);
+        yield* store.save(registryUrl, normalizeHandle("@bob"), {
           ...credentials,
           access_token: "axm_ses_bob",
         });
         const result = yield* store.load(registryUrl);
         expect(Option.isSome(result)).toBe(true);
         if (Option.isSome(result)) {
-          expect(result.value.handle).toBe("bob");
+          expect(result.value.handle).toBe("@bob");
           expect(result.value.access_token).toBe("axm_ses_bob");
         }
       }).pipe(Effect.provide(layer));
@@ -82,8 +83,8 @@ describe("CredentialStore", () => {
       const otherUrl = "https://registry.corp.com";
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        yield* store.save(registryUrl, "alice", credentials);
-        yield* store.save(otherUrl, "bob", {
+        yield* store.save(registryUrl, normalizeHandle("@alice"), credentials);
+        yield* store.save(otherUrl, normalizeHandle("@bob"), {
           ...credentials,
           access_token: "axm_ses_bob",
         });
@@ -92,8 +93,8 @@ describe("CredentialStore", () => {
         expect(Option.isSome(result1)).toBe(true);
         expect(Option.isSome(result2)).toBe(true);
         if (Option.isSome(result1) && Option.isSome(result2)) {
-          expect(result1.value.handle).toBe("alice");
-          expect(result2.value.handle).toBe("bob");
+          expect(result1.value.handle).toBe("@alice");
+          expect(result2.value.handle).toBe("@bob");
         }
       }).pipe(Effect.provide(layer));
     });
@@ -111,7 +112,7 @@ describe("CredentialStore", () => {
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
         const result = yield* store
-          .save(registryUrl, "alice", credentials)
+          .save(registryUrl, normalizeHandle("@alice"), credentials)
           .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
         expect(result).toBe("AUTH_TOKEN_REQUIRED");
       }).pipe(Effect.provide(layer));

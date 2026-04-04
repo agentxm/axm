@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient, type RegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InputParseResult, InputPattern, RegistrySource } from "@axm.sh/core/unstable/sources";
 import {
@@ -76,7 +77,7 @@ const checkRegistryMatch = ({
   skillName,
 }: {
   readonly client: RegistryClient;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly skillName: Option.Option<string>;
 }) =>
   Option.match(skillName, {
@@ -85,7 +86,7 @@ const checkRegistryMatch = ({
   });
 
 const resolveRegistrySource = (
-  owner: string,
+  owner: Handle,
   input: string,
   options: {
     readonly skillName: Option.Option<string>;

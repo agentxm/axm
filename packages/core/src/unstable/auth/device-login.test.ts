@@ -48,7 +48,7 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
           )
         : Effect.succeed({
             userId: "user-1",
-            userHandle: "alice",
+            userHandle: "@alice",
             email: "alice@example.com",
             tokenType: "session",
             scopes: ["extensions:read"],
@@ -89,7 +89,7 @@ describe("runDeviceLogin", () => {
           ),
         ).toBe(false);
         expect(logs.step).toContain("Your verification code: ABCD-1234 (copied to clipboard)");
-        expect(logs.success).toContain("Logged in to registry.agentxm.ai as alice.");
+        expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
       }),
     );
   });
@@ -121,7 +121,7 @@ describe("runDeviceLogin", () => {
       expect(logs.success.some((message) => message.includes("as "))).toBe(false);
       expect(stored._tag).toBe("Some");
       if (stored._tag === "Some") {
-        expect(stored.value.handle).toBe("unknown");
+        expect(stored.value.handle).toBe("@unknown");
         expect(stored.value.access_token).toBe("axm_ses_new");
       }
     }).pipe(Effect.provide(layer));
@@ -153,7 +153,7 @@ describe("runDeviceLogin", () => {
       getMe: () =>
         Effect.succeed({
           userId: "user-1",
-          userHandle: "alice",
+          userHandle: "@alice",
           email: "alice@example.com",
           tokenType: "session",
           scopes: ["extensions:read"],

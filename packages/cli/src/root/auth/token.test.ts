@@ -9,11 +9,13 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ALICE = normalizeHandle("@alice");
 
 const makeLayers = (opts?: {
   hasCredentials?: boolean;
@@ -32,7 +34,7 @@ const makeLayers = (opts?: {
           registries: {
             [REGISTRY_URL]: {
               accounts: {
-                alice: {
+                [ALICE]: {
                   access_token: "axm_ses_mytoken",
                   refresh_token: "axm_ref_mytoken",
                   expires_at: "2099-01-01T00:00:00Z",

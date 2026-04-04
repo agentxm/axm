@@ -12,7 +12,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
-import type { ExtensionType } from "../extensions/index.js";
+import type { ExtensionType, Handle } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { Source } from "./types.js";
 
@@ -33,7 +33,7 @@ export interface FindOptions {
   readonly skillNames: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
   /** Registry owner filter (e.g. "@acme"). */
-  readonly owner: Option.Option<string>;
+  readonly owner: Option.Option<Handle>;
   readonly versionConstraint: Option.Option<string>;
 }
 

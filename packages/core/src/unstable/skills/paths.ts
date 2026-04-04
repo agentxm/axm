@@ -8,6 +8,7 @@
  */
 
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import type { Handle } from "../extensions/handle.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -16,7 +17,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly owner: string }
+  | { readonly refType: "registry"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" | "builtin" };
 
 /**

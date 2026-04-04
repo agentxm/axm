@@ -9,7 +9,7 @@
 
 import * as Schema from "effect/Schema";
 import * as SchemaGetter from "effect/SchemaGetter";
-import { FullyQualifiedNameSchema } from "../extensions/index.js";
+import { FullyQualifiedNameSchema, HandleSchema } from "../extensions/index.js";
 import { ExactSemverVersionSchema } from "../version-constraints/index.js";
 
 // =============================================================================
@@ -107,7 +107,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...extraFields }),
     Schema.Struct({
       type: Schema.Literal("registry"),
-      owner: Schema.String,
+      owner: HandleSchema,
       name: Schema.String,
       resolvedVersion: ExactSemverVersionSchema,
       integrity: Schema.String,
@@ -269,7 +269,7 @@ export type ResolvedExtensionMap = Schema.Schema.Type<typeof ResolvedExtensionMa
  */
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  owner: Schema.String,
+  owner: HandleSchema,
   name: Schema.String,
   resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
@@ -315,7 +315,7 @@ export const makeRegistryPackLockEntry = (
  */
 export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
-  owner: Schema.String,
+  owner: HandleSchema,
   name: Schema.String,
   resolvedVersion: ExactSemverVersionSchema,
   installedAt: DateFromString,

@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
+import { type Handle, unsafeHandle } from "../extensions/handle.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -13,7 +14,7 @@ import type {
 const parseRegistryCommandSource = (
   source: string,
 ): Option.Option<{
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -33,7 +34,7 @@ const parseRegistryCommandSource = (
   }
 
   return Option.some({
-    owner,
+    owner: unsafeHandle(owner),
     name,
     constraint: match[3] ?? "*",
   });

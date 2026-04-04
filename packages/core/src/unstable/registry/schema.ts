@@ -13,6 +13,7 @@ import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionTypeSchema,
 } from "../extensions/index.js";
+import { HandleSchema } from "../extensions/handle.js";
 import { ExactSemverVersionSchema } from "../version-constraints/index.js";
 
 // =============================================================================
@@ -65,7 +66,7 @@ export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
  */
 export const ExtensionIndexSchema = Schema.Struct({
   name: Schema.String,
-  owner: Schema.String,
+  owner: HandleSchema,
   type: ExtensionTypeSchema,
   description: Schema.optional(Schema.String),
   repository: Schema.optional(Schema.String),

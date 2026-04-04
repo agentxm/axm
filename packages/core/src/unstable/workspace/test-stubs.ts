@@ -35,6 +35,7 @@ import {
   type ResolvedExtensionMap,
   type SkillLockEntry,
 } from "../lockfile/index.js";
+import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
@@ -120,7 +121,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
+    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@community")),
     getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
@@ -229,7 +230,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
@@ -250,7 +251,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 });
 
 export const makeRegistryPackLockEntry = (opts: {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;

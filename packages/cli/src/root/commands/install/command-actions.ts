@@ -24,6 +24,7 @@ import * as Path from "effect/Path";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
@@ -48,7 +49,7 @@ export interface InstallCommandHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export interface ParsedCommandInstallArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly commandName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -61,7 +62,7 @@ export interface ParsedCommandInstallArgs {
 
 export interface CommandInstallSourceRequest {
   readonly source: RegistrySource;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly commandName: string;
   readonly versionConstraint: Option.Option<string>;
 }

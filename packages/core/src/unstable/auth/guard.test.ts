@@ -45,7 +45,7 @@ const makeLayers = (opts?: {
           registries: {
             [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
               accounts: {
-                alice: {
+                "@alice": {
                   access_token: "axm_ses_existing",
                   refresh_token: "axm_ref_existing",
                   expires_at: "2099-01-01T00:00:00Z",
@@ -78,7 +78,7 @@ const makeLayers = (opts?: {
     getMe: () =>
       Effect.succeed({
         userId: "user-1",
-        userHandle: "alice",
+        userHandle: "@alice",
         email: "alice@example.com",
         tokenType: "session",
         scopes: ["extensions:read"],
@@ -171,9 +171,9 @@ describe("withAuthGuard", () => {
       Effect.provide(FullLayer),
       Effect.map((result) => {
         expect(result).toBe("publish-result");
-        expect(logs.success.some((m) => m.includes("Logged in to") && m.includes("as alice"))).toBe(
-          true,
-        );
+        expect(
+          logs.success.some((m) => m.includes("Logged in to") && m.includes("as @alice")),
+        ).toBe(true);
       }),
     );
   });

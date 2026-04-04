@@ -7,8 +7,8 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as SchemaGetter from "effect/SchemaGetter";
 import { AgentIdSchema } from "../extensions/common.js";
+import { HandleSchema } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)
@@ -317,12 +317,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-const ProfileSchema = Schema.String.pipe(
-  Schema.decode({
-    decode: SchemaGetter.transform((s: string) => (s.startsWith("@") ? s : `@${s}`)),
-    encode: SchemaGetter.transform((s: string) => s),
-  }),
-);
+const ProfileSchema = HandleSchema;
 
 export const SettingsSchema = Schema.Struct({
   telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),

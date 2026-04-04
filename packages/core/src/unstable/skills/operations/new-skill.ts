@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
+import type { Handle } from "../../extensions/handle.js";
 import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
@@ -31,7 +32,7 @@ export interface NewSkillOperationArgs {
   /** Skill name (validated, lowercase with hyphens). */
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
-  readonly owner: string;
+  readonly owner: Handle;
   /** Agent IDs to create symlinks for. */
   readonly agents: ReadonlyArray<string>;
 }

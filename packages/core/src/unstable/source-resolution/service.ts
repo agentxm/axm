@@ -18,6 +18,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import type { AppError } from "../app-error/index.js";
+import { unsafeHandle } from "../extensions/index.js";
 import { Workspace } from "../workspace/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type {
@@ -141,10 +142,13 @@ export const createRegistryMetaProvider = () => ({
         : Option.isSome(source.owner)
           ? source.owner
           : options.skillNames.length > 0
-            ? Option.fromNullOr(
-                options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+            ? Option.map(
+                Option.fromNullOr(
+                  options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+                ),
+                unsafeHandle,
               )
-            : Option.none<string>();
+            : Option.none();
 
       const provider = yield* createRegistrySourceHostProviderFromHost(source);
       const registrySource: RegistrySource = { ...source, owner };

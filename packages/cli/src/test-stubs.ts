@@ -33,6 +33,7 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
   type ExtensionDependencyConstraintMap,
+  normalizeHandle,
 } from "@axm.sh/core/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
@@ -128,7 +129,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
+    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@community")),
     getDefaultProfile: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
@@ -265,7 +266,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): SkillLockEntry => ({
   type: "registry",
-  owner: opts.owner,
+  owner: normalizeHandle(opts.owner),
   name: opts.name,
   resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
@@ -288,7 +289,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
-    owner: opts.owner,
+    owner: normalizeHandle(opts.owner),
     name: opts.name,
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",

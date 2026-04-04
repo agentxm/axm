@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { type Handle, unsafeHandle } from "../extensions/handle.js";
 import { readAndDecodeManifest } from "../extensions/index.js";
 import { SkillManifestSchema, MANIFEST_FILENAME, type SkillManifest } from "./manifest-schema.js";
 import { computeSkillPaths } from "./paths.js";
@@ -13,7 +14,7 @@ import type {
 const parseRegistrySkillSource = (
   source: string,
 ): Option.Option<{
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -33,7 +34,7 @@ const parseRegistrySkillSource = (
   }
 
   return Option.some({
-    owner,
+    owner: unsafeHandle(owner),
     name,
     constraint: match[3] ?? "*",
   });

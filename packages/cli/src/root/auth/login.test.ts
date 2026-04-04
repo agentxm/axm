@@ -18,9 +18,12 @@ import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { handleLogin } from "./login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ALICE = normalizeHandle("@alice");
+const UNKNOWN = normalizeHandle("@unknown");
 
 const makeLayers = (opts?: {
   nonInteractive?: boolean;
@@ -48,7 +51,7 @@ const makeLayers = (opts?: {
           registries: {
             [REGISTRY_URL]: {
               accounts: {
-                alice: {
+                [ALICE]: {
                   access_token: "axm_ses_existing",
                   refresh_token: "axm_ref_existing",
                   expires_at: "2099-01-01T00:00:00Z",
@@ -64,7 +67,7 @@ const makeLayers = (opts?: {
 
   const meData: MeResponse = opts?.meResponse ?? {
     userId: "user-1",
-    userHandle: "alice",
+    userHandle: ALICE,
     email: "alice@example.com",
     tokenType: "session",
     scopes: ["extensions:read"],
@@ -145,7 +148,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes("Logged in to registry.agentxm.ai as alice."),
+              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
           ),
         ).toBe(true);
       }),
@@ -184,7 +187,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes("Logged in to registry.agentxm.ai as alice."),
+              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
           ),
         ).toBe(true);
       }),
@@ -209,7 +212,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes("Logged in to registry.agentxm.ai as alice."),
+              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
           ),
         ).toBe(true);
       }),
@@ -309,7 +312,7 @@ describe("auth login handler", () => {
       const stored = yield* credStore.load(REGISTRY_URL);
       expect(stored._tag).toBe("Some");
       if (stored._tag === "Some") {
-        expect(stored.value.handle).toBe("unknown");
+        expect(stored.value.handle).toBe(UNKNOWN);
         expect(stored.value.access_token).toBe("axm_ses_new");
       }
     }).pipe(Effect.provide(layer));

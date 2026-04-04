@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import { inflateRawSync } from "node:zlib";
 import type { ExtensionType } from "../extensions/index.js";
+import type { Handle } from "../extensions/handle.js";
 import {
   ArchiveGuardrailError,
   type ArchiveGuardrailLimits,
@@ -22,7 +23,7 @@ import {
 } from "./manifest-policy.js";
 
 export interface DeclaredPublishIdentity {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly extensionType: ExtensionType;
   readonly name: string;
   readonly version: string;
@@ -46,7 +47,7 @@ export interface NormalizePublishInputArgs {
 }
 
 export interface PublishInput {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly extensionType: ExtensionType;
   readonly name: string;
   readonly version: string;

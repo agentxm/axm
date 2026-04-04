@@ -8,19 +8,22 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { AuthClientTest, RegistryUrl, CredentialStoreTest } from "@axm.sh/core/unstable/auth";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { handleWhoami } from "./whoami.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ALICE = normalizeHandle("@alice");
+const ACME = normalizeHandle("@acme");
 
 const defaultMe = {
   userId: "user-1",
-  userHandle: "alice",
+  userHandle: ALICE,
   email: "alice@example.com",
   tokenType: "session",
   scopes: ["extensions:read", "account:read"],
-  orgs: [{ id: "org-1", handle: "acme" }],
+  orgs: [{ id: "org-1", handle: ACME }],
 };
 
 const makeLayers = (opts?: {
@@ -39,7 +42,7 @@ const makeLayers = (opts?: {
           registries: {
             [REGISTRY_URL]: {
               accounts: {
-                alice: {
+                [ALICE]: {
                   access_token: "axm_ses_tok",
                   refresh_token: "axm_ref_tok",
                   expires_at: "2099-01-01T00:00:00Z",
@@ -140,7 +143,7 @@ describe("auth whoami handler", () => {
           schemaVersion: 1,
           command: "auth.whoami",
           data: {
-            userHandle: "alice",
+            userHandle: ALICE,
             email: "alice@example.com",
             tokenType: "session",
           },

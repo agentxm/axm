@@ -27,7 +27,7 @@ import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { REGISTRY_EXTENSIONS_DIR } from "@axm.sh/core/unstable/extensions";
+import { REGISTRY_EXTENSIONS_DIR, type Handle } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -218,7 +218,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     source: RegistrySource | SkillExtensionRef["source"],
     options: {
       readonly skillNames: ReadonlyArray<string>;
-      readonly owner: Option.Option<string>;
+      readonly owner: Option.Option<Handle>;
       readonly versionConstraint: Option.Option<string>;
     },
   ) =>
@@ -243,7 +243,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     packConstraints,
   }: {
     readonly source: RegistrySource;
-    readonly owner: string;
+    readonly owner: Handle;
     readonly lookupName: string;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
@@ -359,7 +359,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             }
 
             const requestedOwner = Option.match(registryPattern, {
-              onNone: () => Option.none<string>(),
+              onNone: () => Option.none<Handle>(),
               onSome: (pattern) => Option.some(pattern.owner),
             });
 

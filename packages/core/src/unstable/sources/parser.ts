@@ -10,6 +10,7 @@
  */
 
 import * as Option from "effect/Option";
+import { HANDLE_PATTERN, type Handle, unsafeHandle } from "../extensions/handle.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -25,7 +26,7 @@ type NameInput = { readonly pattern: "name-input"; readonly name: string };
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 };
@@ -78,8 +79,6 @@ export type InputParseResult<T = InputPattern> = {
   readonly pattern: T;
   readonly originalInput: string;
 };
-
-const REGISTRY_NAMESPACE_PATTERN = /^@[^/]+$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
@@ -162,13 +161,14 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   if (input.startsWith("@")) {
     const segments = input.split("/");
     const owner = segments.at(0);
-    if (owner !== undefined && REGISTRY_NAMESPACE_PATTERN.test(owner)) {
+    if (owner !== undefined && HANDLE_PATTERN.test(owner)) {
+      const handle = unsafeHandle(owner);
       if (segments.length === 1) {
         return Option.some(
           wrap({
             pattern: "registry-pattern-input",
             type: Option.none(),
-            owner,
+            owner: handle,
             name: Option.none(),
             versionConstraint: Option.none(),
           }),
@@ -187,7 +187,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
             wrap({
               pattern: "registry-pattern-input",
               type: Option.some(second),
-              owner,
+              owner: handle,
               name: Option.none(),
               versionConstraint: Option.none(),
             }),
@@ -211,7 +211,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
               wrap({
                 pattern: "registry-pattern-input",
                 type: Option.some(second),
-                owner,
+                owner: handle,
                 name: parsedName.value.name,
                 versionConstraint: parsedName.value.versionConstraint,
               }),

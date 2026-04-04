@@ -21,6 +21,7 @@ import type {
   ExtensionDependencyConstraintMap,
   ExtensionType,
 } from "../extensions/index.js";
+import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
@@ -40,7 +41,7 @@ import type { ExactSemverVersion } from "../version-constraints/index.js";
  * - `offset`: number of results to skip (default: 0)
  */
 export interface GetExtensionsByOwnerArgs {
-  readonly owner: string;
+  readonly owner: Handle | "*";
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
@@ -60,7 +61,7 @@ export interface GetExtensionsByOwnerArgs {
  * - `version`: specific version to fetch, or `None` for latest
  */
 export interface GetExtensionPackageArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: Option.Option<string>;
@@ -78,7 +79,7 @@ export interface GetExtensionPackageArgs {
  * - `name`: extension name
  */
 export interface GetExtensionIndexArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: string;
 }
@@ -98,7 +99,7 @@ export interface GetExtensionIndexArgs {
  * - `metadata`: version entry metadata
  */
 export interface PublishExtensionArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: ExactSemverVersion;
@@ -118,7 +119,7 @@ export interface PublishExtensionArgs {
  * - `name`: extension name
  */
 export interface ExtensionExistsArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: string;
 }
@@ -189,7 +190,7 @@ export interface ExtensionExistsResponse {
  * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly type: T;
   readonly name: string;
   readonly description: Option.Option<string>;
@@ -217,7 +218,7 @@ export interface RegistryClient {
   readonly getExtensionsByScope: (
     args: GetExtensionsByOwnerArgs,
   ) => Effect.Effect<GetExtensionsByOwnerResponse, AppError>;
-  readonly ownerExists: (owner: string) => Effect.Effect<OwnerExistsResponse, AppError>;
+  readonly ownerExists: (owner: Handle) => Effect.Effect<OwnerExistsResponse, AppError>;
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;

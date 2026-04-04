@@ -17,6 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { Source, InputParseResult } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -46,7 +47,7 @@ export interface ParsedSkillInstallArgs {
   readonly source: Source;
   readonly versionConstraint: Option.Option<string>;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedOwner: Option.Option<string>;
+  readonly requestedOwner: Option.Option<Handle>;
   readonly all: boolean;
 }
 
@@ -56,7 +57,7 @@ export interface ParsedSkillInstallArgs {
 export interface SkillSourceRequest {
   readonly source: Source;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedOwner: Option.Option<string>;
+  readonly requestedOwner: Option.Option<Handle>;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -141,12 +142,12 @@ const extractRequestedSkills = (
 const extractRequestedOwner = (
   parsedSource: InputParseResult,
   source: Source,
-): Option.Option<string> =>
+): Option.Option<Handle> =>
   parsedSource.pattern.pattern === "registry-pattern-input"
     ? Option.some(parsedSource.pattern.owner)
     : source.type === "registry"
-      ? (source.owner ?? Option.none<string>())
-      : Option.none<string>();
+      ? source.owner
+      : Option.none<Handle>();
 
 // -----------------------------------------------------------------------------
 // Service Tag

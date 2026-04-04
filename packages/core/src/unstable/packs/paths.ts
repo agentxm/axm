@@ -8,6 +8,7 @@
  */
 
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import type { Handle } from "../extensions/handle.js";
 
 /**
  * Computed path for an installed pack directory.
@@ -31,7 +32,7 @@ export interface PackDirPath {
 export const computePackPaths = (
   join: (...paths: string[]) => string,
   base: string,
-  owner: string,
+  owner: Handle,
   name: string,
 ): PackDirPath => {
   const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);

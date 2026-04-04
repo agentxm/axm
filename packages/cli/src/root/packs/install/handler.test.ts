@@ -12,6 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
@@ -42,6 +43,10 @@ import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { dependencyConstraintMap, exactVersion } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
+
+const ACME = normalizeHandle("@acme");
+const AXM = normalizeHandle("@axm");
+const MYORG = normalizeHandle("@myorg");
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -250,7 +255,7 @@ describe("packs install handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        owner: "@myorg",
+        owner: MYORG,
       });
 
       return provide(
@@ -268,7 +273,7 @@ describe("packs install handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        owner: "@myorg",
+        owner: MYORG,
       });
 
       return provide(
@@ -413,7 +418,7 @@ describe("packs install handler", () => {
           location: new URL("file:///tmp/reg"),
           owner: Option.none(),
         },
-        owner: "@acme",
+        owner: ACME,
         name: "my-pack",
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
@@ -437,7 +442,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "my-pack": {
             type: "registry",
-            owner: "@acme",
+            owner: ACME,
             name: "my-pack",
             resolvedVersion: "1.0.0",
             integrity: "abc",
@@ -524,7 +529,7 @@ describe("packs install handler", () => {
         mcpServers: opts?.mcpServers ?? {},
       },
       source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
-      owner: "@acme",
+      owner: ACME,
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -554,7 +559,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "code-review",
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
@@ -655,7 +660,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "existing-skill",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -673,7 +678,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "existing-cmd",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -689,7 +694,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "test-pack": {
             type: "registry",
-            owner: "@acme",
+            owner: ACME,
             name: "test-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -835,7 +840,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        owner: "@axm",
+        owner: AXM,
         sources: [
           { type: "registry", name: "remote", location: "http://localhost:4300" },
           { type: "registry", name: "local", location: "file:///tmp/reg" },
@@ -892,7 +897,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "code-review",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -910,7 +915,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "lint",
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
@@ -928,7 +933,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "analytics",
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
@@ -994,7 +999,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "existing-skill",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -1012,7 +1017,7 @@ describe("packs install handler", () => {
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
-                owner: "@acme",
+                owner: ACME,
                 name: "existing-cmd",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -1028,7 +1033,7 @@ describe("packs install handler", () => {
         lockfileSkills: {
           "existing-skill": {
             type: "registry",
-            owner: "@acme",
+            owner: ACME,
             name: "existing-skill",
             resolvedVersion: "1.0.0",
             integrity: "",

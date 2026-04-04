@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
+import { normalizeHandle, type Handle } from "@axm.sh/core/unstable/extensions";
 import type { SourceHostConfig } from "@axm.sh/core/unstable/settings";
 import { parseInputPattern, type InputParseResult } from "@axm.sh/core/unstable/sources";
 import { Workspace, type WorkspaceContextService } from "@axm.sh/core/unstable/workspace";
@@ -26,7 +27,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
           (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
         ),
       ),
-    getConfiguredProfile: () => Effect.succeed("@test"),
+    getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test")),
   });
 
 const createSkillIndex = (registryRoot: string, owner: string, name: string) => {
@@ -263,7 +264,7 @@ describe("resolveSkillInstallSource", () => {
             NodeServices.layer,
             Workspace.layer({
               ...makeWorkspace(sources),
-              getDefaultProfile: () => Effect.succeed(Option.some("@test")),
+              getDefaultProfile: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
             }),
           ),
         ),
@@ -352,7 +353,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
   const provideLayersWithProfile = (
     sources: ReadonlyArray<SourceHostConfig>,
-    owner: Option.Option<string>,
+    owner: Option.Option<Handle>,
   ) =>
     Layer.mergeAll(
       NodeServices.layer,
@@ -374,7 +375,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
-        Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
+        Effect.provide(provideLayersWithProfile(sources, Option.some(normalizeHandle("@myns")))),
       );
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -398,7 +399,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
-        Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
+        Effect.provide(provideLayersWithProfile(sources, Option.some(normalizeHandle("@myns")))),
       );
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -423,7 +424,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       return Effect.gen(function* () {
         const error = yield* resolveSkillInstallSource(parseInputOrThrow("missing-skill")).pipe(
           Effect.flip,
-          Effect.provide(provideLayersWithProfile(sources, Option.some("@myns"))),
+          Effect.provide(provideLayersWithProfile(sources, Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
@@ -463,7 +464,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       return Effect.gen(function* () {
         const error = yield* resolveSkillInstallSource(parseInputOrThrow("some-skill")).pipe(
           Effect.flip,
-          Effect.provide(provideLayersWithProfile([], Option.some("@myns"))),
+          Effect.provide(provideLayersWithProfile([], Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");

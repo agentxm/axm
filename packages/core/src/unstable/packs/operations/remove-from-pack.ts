@@ -11,6 +11,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import type { Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
@@ -34,7 +35,7 @@ export interface RemoveFromPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
-  readonly packOwner: string;
+  readonly packOwner: Handle;
   /** Precomputed manifest delta: extension names to remove. */
   readonly removals: ReadonlyArray<string>;
   /** Manifest content hash at plan time for stale-check. */
@@ -128,17 +129,19 @@ export const removeFromPack: OperationHandler<
     );
 
     const removalSet = new Set(removals);
-    const updatedSkills = Object.fromEntries(
-      Object.entries(manifest.skills ?? {}).filter(([name]) => !removalSet.has(name)),
-    );
-    const updatedCommands = Object.fromEntries(
-      Object.entries(manifest.commands ?? {}).filter(([name]) => !removalSet.has(name)),
-    );
-    const updatedMcpServers = Object.fromEntries(
-      Object.entries(manifest["mcp-servers"] ?? {}).filter(([name]) => !removalSet.has(name)),
-    );
+    const filterSection = (
+      section: Readonly<Record<string, string>> | undefined,
+    ): Record<string, string> =>
+      Object.fromEntries(Object.entries(section ?? {}).filter(([name]) => !removalSet.has(name)));
+    const updatedSkills = filterSection(manifest["skills"]);
+    const updatedCommands = filterSection(manifest["commands"]);
+    const updatedMcpServers = filterSection(manifest["mcp-servers"]);
     const updatedManifest: RawPackManifest = {
       ...manifest,
+      owner: manifest.owner,
+      type: manifest.type,
+      name: manifest.name,
+      version: manifest.version,
       skills: updatedSkills,
       commands: updatedCommands,
       "mcp-servers": updatedMcpServers,

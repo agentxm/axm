@@ -8,6 +8,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
 import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -16,6 +17,8 @@ import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { exactVersion } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
+
+const AXM = normalizeHandle("@axm");
 
 // A stub MakeRunClosure that returns a tagged success result
 const stubRunClosure: MakeRunClosure = (op) =>
@@ -164,7 +167,7 @@ const makeOp = (
           location: new URL("http://localhost:3000"),
           owner: Option.none(),
         },
-        owner: "@axm",
+        owner: AXM,
         name,
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
@@ -276,7 +279,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
       const registryOverrides = overrides?.type === "registry" ? overrides : undefined;
       return {
         type: "registry",
-        owner: registryOverrides?.owner ?? "@axm",
+        owner: registryOverrides?.owner ?? AXM,
         name: registryOverrides?.name ?? "skill",
         resolvedVersion: registryOverrides?.resolvedVersion ?? exactVersion("0.0.0"),
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
@@ -529,7 +532,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          owner: "@axm",
+          owner: AXM,
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
@@ -552,7 +555,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          owner: "@axm",
+          owner: AXM,
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
@@ -649,7 +652,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          owner: "@axm",
+          owner: AXM,
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",

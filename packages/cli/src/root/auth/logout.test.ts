@@ -7,12 +7,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AuthClientTest, RegistryUrl, CredentialStoreTest } from "@axm.sh/core/unstable/auth";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { handleLogout } from "./logout.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ALICE = normalizeHandle("@alice");
 
 const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolean }) => {
   const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
@@ -23,7 +25,7 @@ const makeLayers = (opts?: { existingCredentials?: boolean; revokeFails?: boolea
         registries: {
           [REGISTRY_URL]: {
             accounts: {
-              alice: {
+              [ALICE]: {
                 access_token: "axm_ses_existing",
                 refresh_token: "axm_ref_existing",
                 expires_at: "2099-01-01T00:00:00Z",
@@ -88,7 +90,7 @@ describe("auth logout handler", () => {
             (l) =>
               l._tag === "success" &&
               l.message.includes(REGISTRY_HOST) &&
-              l.message.includes("alice"),
+              l.message.includes(ALICE),
           ),
         ).toBe(true);
       }),
@@ -108,7 +110,7 @@ describe("auth logout handler", () => {
             (l) =>
               l._tag === "warn" &&
               l.message.includes(REGISTRY_HOST) &&
-              l.message.includes("alice") &&
+              l.message.includes(ALICE) &&
               l.message.includes("token will expire automatically"),
           ),
         ).toBe(true);

@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "@axm.sh/core/unstable/auth";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import {
@@ -22,6 +23,8 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
 import { handlePublishPack, type PublishPackHandlerArgs } from "./publish.js";
+
+const TESTUSER = normalizeHandle("@testuser");
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -144,7 +147,7 @@ describe("packs publish.handler", () => {
               registries: {
                 "https://registry.agentxm.ai": {
                   accounts: {
-                    testuser: {
+                    [TESTUSER]: {
                       access_token: "axm_ses_test",
                       refresh_token: "axm_ref_test",
                       expires_at: "2099-01-01T00:00:00Z",

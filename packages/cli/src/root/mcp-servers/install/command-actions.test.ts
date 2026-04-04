@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/ServiceMap";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -25,7 +26,7 @@ import {
 } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
-  getConfiguredProfile: () => Effect.succeed("@test-ns"),
+  getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test-ns")),
 });
 
 const mockMcpServerManager = {

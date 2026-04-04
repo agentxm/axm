@@ -11,6 +11,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { NewSkillOperation } from "@axm.sh/core/unstable/skills";
 import { newSkill } from "@axm.sh/core/unstable/skills";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -55,7 +56,7 @@ export interface SkillsNewHandlerArgs {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const normalizeOwner = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
 // -----------------------------------------------------------------------------
 // Main Handler

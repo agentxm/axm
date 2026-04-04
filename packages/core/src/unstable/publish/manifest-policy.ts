@@ -9,6 +9,7 @@ import {
   ManifestNameSchema,
   ExtensionTypeSchema,
 } from "../extensions/common.js";
+import type { Handle } from "../extensions/handle.js";
 import {
   McpServerManifestSchema,
   MCP_SERVER_MANIFEST_FILENAME,
@@ -78,7 +79,7 @@ export interface ManifestResolutionInput {
 }
 
 export interface DeclaredPublishIdentity {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly extensionType: string;
   readonly name: string;
   readonly version: string;

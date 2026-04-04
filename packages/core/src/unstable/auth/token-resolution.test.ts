@@ -76,7 +76,7 @@ describe("resolveToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
               expires_at: futureExpiry(),
@@ -124,7 +124,7 @@ describe("resolveToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_stored_ignored",
               refresh_token: "axm_ref_stored",
               expires_at: futureExpiry(),
@@ -171,7 +171,7 @@ describe("resolveToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_old",
               refresh_token: "axm_ref_old",
               expires_at: nearExpiry(),
@@ -200,7 +200,7 @@ describe("resolveRequiredToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
               expires_at: futureExpiry(),
@@ -264,7 +264,7 @@ describe("resolveStoredToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
               expires_at: futureExpiry(),
@@ -311,7 +311,7 @@ describe("resolveStoredToken", () => {
         registries: {
           [REGISTRY_URL]: {
             accounts: {
-              alice: {
+              "@alice": {
                 access_token: "axm_ses_stored",
                 refresh_token: "axm_ref_stored",
                 expires_at: futureExpiry(),
@@ -415,7 +415,7 @@ describe("resolveRequestToken", () => {
       registries: {
         [REGISTRY_URL]: {
           accounts: {
-            alice: {
+            "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
               expires_at: futureExpiry(),
@@ -454,7 +454,7 @@ describe("resolveRequestToken", () => {
       registries: {
         [otherRegistryUrl]: {
           accounts: {
-            bob: {
+            "@bob": {
               access_token: "axm_ses_other",
               refresh_token: "axm_ref_other",
               expires_at: futureExpiry(),
@@ -483,7 +483,7 @@ describe("resolveRequestToken", () => {
         registries: {
           [otherRegistryUrl]: {
             accounts: {
-              bob: {
+              "@bob": {
                 access_token: "axm_ses_other",
                 refresh_token: "axm_ref_other",
                 expires_at: futureExpiry(),
@@ -510,7 +510,7 @@ describe("resolveRequestToken", () => {
       registries: {
         [otherRegistryUrl]: {
           accounts: {
-            bob: {
+            "@bob": {
               access_token: "axm_ses_near_expiry",
               refresh_token: "axm_ref_near_expiry",
               expires_at: nearExpiry(),

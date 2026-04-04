@@ -116,13 +116,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         const lockedPacks = yield* ws.getLockedPacks();
+        const defaultOwner = yield* ws.getConfiguredProfile();
 
         const targets = parsed.packNames.map((name): PackExtensionTarget => {
           const lockEntry = lockedPacks[name];
           return {
             type: "pack",
             name,
-            owner: lockEntry?.owner ?? "",
+            owner: lockEntry?.owner ?? defaultOwner,
           };
         });
 

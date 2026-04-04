@@ -18,6 +18,7 @@ import { CodingAgentRepository } from "../../agents/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { JobStepResult, Operation } from "../../workspace/plan.js";
@@ -222,7 +223,7 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly strict: boolean;
   readonly serverName: string;
   readonly canonicalPath: string;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly resolvedVersion: string;
 }) =>
   Effect.gen(function* () {

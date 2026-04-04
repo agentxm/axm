@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { ExtensionRef } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionRef, Handle } from "@axm.sh/core/unstable/extensions";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -46,7 +46,7 @@ export interface InstallPackHandlerArgs {
 
 /** Parsed and validated pack install args. */
 export interface ParsedPackInstallArgs {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly packName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -56,7 +56,7 @@ export interface ParsedPackInstallArgs {
 /** Source request for pack registry lookup. */
 export interface PackSourceRequest {
   readonly source: RegistrySource;
-  readonly owner: string;
+  readonly owner: Handle;
   readonly packName: string;
   readonly versionConstraint: Option.Option<string>;
 }

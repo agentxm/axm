@@ -25,6 +25,23 @@ export {
   type FullyQualifiedName,
 } from "./common.js";
 
+export {
+  HANDLE_PATTERN,
+  HANDLE_PATTERN_SOURCE,
+  HandleSchema,
+  SLUG_PATTERN,
+  SLUG_PATTERN_SOURCE,
+  SlugSchema,
+  handleFromSlug,
+  normalizeHandle,
+  normalizeSlug,
+  slugFromHandle,
+  unsafeHandle,
+  unsafeSlug,
+  type Handle,
+  type Slug,
+} from "./handle.js";
+
 // FQN parsing
 export type { ExtensionTypePlural, Fqn } from "./fqn.js";
 export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";

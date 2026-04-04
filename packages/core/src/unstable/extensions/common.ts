@@ -7,6 +7,7 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { AGENT_IDS } from "../agents/index.js";
+import { HANDLE_PATTERN, HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { ExactSemverVersionSchema, VersionConstraintSchema } from "../version-constraints/index.js";
 
 /**
@@ -45,12 +46,14 @@ export const toAuthor = (author: Schema.Schema.Type<typeof AuthorSchema>): Autho
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FQN_PATTERN = /^@[\w-]+\/(skills|packs|commands|mcp-servers)\/[\w-]+$/;
+export const FQN_PATTERN = new RegExp(
+  `^(${HANDLE_PATTERN_SOURCE})\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$`,
+);
 
 /**
  * Manifest handle regex: `@<handle>`.
  */
-export const MANIFEST_HANDLE_PATTERN = /^@[\w-]+$/;
+export const MANIFEST_HANDLE_PATTERN = HANDLE_PATTERN;
 
 /**
  * Manifest short name regex: `<name>` with alphanumeric, hyphen, underscore.
@@ -95,9 +98,7 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
 /**
  * Manifest handle schema.
  */
-export const ManifestHandleSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(MANIFEST_HANDLE_PATTERN)),
-);
+export const ManifestHandleSchema = HandleSchema;
 
 /**
  * Manifest short name schema.

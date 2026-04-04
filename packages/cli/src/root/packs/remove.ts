@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { RemoveFromPackOperation } from "@axm.sh/core/unstable/packs";
 import { removeFromPack } from "@axm.sh/core/unstable/packs";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
@@ -91,7 +92,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const [packOwnerFromSource] = packSource.split("/");
   const packOwner =
     hasProfile && packOwnerFromSource !== undefined
-      ? packOwnerFromSource
+      ? normalizeHandle(packOwnerFromSource)
       : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 

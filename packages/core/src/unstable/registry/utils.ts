@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "../app-error/index.js";
+import type { Handle } from "../extensions/handle.js";
 import { resolveVersionWithConstraint } from "../version-constraints/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "./schema.js";
@@ -79,7 +80,7 @@ export const pluralizeType = (type: ExtensionType): string => {
 /** Build the path to an extension's directory within a registry. */
 export const extensionDir = (
   registryRoot: string,
-  owner: string,
+  owner: Handle,
   type: ExtensionType,
   name: string,
   join: (...parts: readonly string[]) => string,

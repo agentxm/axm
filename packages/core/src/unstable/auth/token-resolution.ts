@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import { envOption } from "../utils/index.js";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
+import { normalizeHandle } from "../extensions/handle.js";
 import { type TokenResponse, AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import {
@@ -56,7 +57,7 @@ const persistRefreshedCredentials = (registryUrl: string, token: TokenResponse) 
     const store = yield* CredentialStore;
     const existing = yield* store.load(registryUrl);
     const handle = Option.match(existing, {
-      onNone: () => "unknown",
+      onNone: () => normalizeHandle("@unknown"),
       onSome: (credentials) => credentials.handle,
     });
 

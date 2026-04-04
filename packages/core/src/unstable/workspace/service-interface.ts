@@ -16,6 +16,7 @@ import type * as Record from "effect/Record";
 import * as ServiceMap from "effect/ServiceMap";
 
 import type { AppError } from "../app-error/index.js";
+import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type {
   RegistryPackLockEntryArgs,
@@ -60,7 +61,7 @@ import type { LockfileState } from "./augment-plan.js";
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly owner: string }
+  | { readonly refType: "registry"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" | "builtin" };
 
 /**
@@ -86,7 +87,7 @@ export interface SkillExtensionTarget {
 export interface PackExtensionTarget {
   readonly type: "pack";
   readonly name: string;
-  readonly owner: string;
+  readonly owner: Handle;
 }
 
 export interface CommandExtensionTarget {
@@ -224,9 +225,9 @@ export interface WorkspaceContextService {
     AppError
   >;
   /** Resolve owner: project settings -> user-scope settings -> DEFAULT_PROFILE. */
-  readonly getConfiguredProfile: () => Effect.Effect<string, AppError>;
+  readonly getConfiguredProfile: () => Effect.Effect<Handle, AppError>;
   /** Resolve owner without fallback: project settings -> user-scope settings -> Option.none(). */
-  readonly getDefaultProfile: () => Effect.Effect<Option.Option<string>, AppError>;
+  readonly getDefaultProfile: () => Effect.Effect<Option.Option<Handle>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Configured skills from settings with source metadata. */
@@ -403,7 +404,7 @@ export interface WorkspaceContextService {
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, owner: string) => Effect.Effect<PackDirPath, AppError>;
+  readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
   readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific command, or Option.none(). */

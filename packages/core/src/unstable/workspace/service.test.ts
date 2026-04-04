@@ -384,17 +384,17 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("normalizes bare owner by prepending @", () =>
+    it.effect("rejects bare owner in settings", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           profile: "myorg",
         });
 
-        const ws = yield* getService(defaultOptions);
-        const owner = yield* ws.getConfiguredProfile();
+        const error = yield* getService(defaultOptions).pipe(Effect.flip);
 
-        expect(owner).toBe("@myorg");
+        expect(error).toBeInstanceOf(AppError);
+        expect(error.code).toBe("SETTINGS_PARSE_FAILED");
       }),
     );
 
@@ -459,18 +459,17 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("normalizes bare owner by prepending @", () =>
+    it.effect("rejects bare owner in settings", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           profile: "myorg",
         });
 
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getDefaultProfile();
+        const error = yield* getService(defaultOptions).pipe(Effect.flip);
 
-        expect(Option.isSome(result)).toBe(true);
-        expect(Option.getOrThrow(result)).toBe("@myorg");
+        expect(error).toBeInstanceOf(AppError);
+        expect(error.code).toBe("SETTINGS_PARSE_FAILED");
       }),
     );
   });

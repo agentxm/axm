@@ -33,6 +33,7 @@ import type {
   SourceType,
 } from "../sources/index.js";
 import { createRegistryClient } from "../registry/index.js";
+import { type Handle, unsafeHandle } from "../extensions/handle.js";
 import type { ExtensionType } from "../extensions/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
@@ -401,7 +402,7 @@ export const routeNameInput = (
 export const routeRegistryInput = (
   pattern: {
     readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
-    readonly owner: string;
+    readonly owner: Handle;
     readonly name: Option.Option<string>;
   },
   input: string,
@@ -439,7 +440,7 @@ export const routeRegistryInput = (
     return {
       type: "registry" as const,
       location: regConfig.location,
-      owner: Option.none(),
+      owner: Option.some(pattern.owner),
     } satisfies RegistrySource;
   });
 
@@ -477,7 +478,7 @@ export const resolveSlashInputSource = (
       const extensionType = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(extensionType)) {
         const ws = yield* Workspace;
-        const owner = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
+        const owner = pattern.first.startsWith("@") ? unsafeHandle(pattern.first) : undefined;
         const extensionName = pattern.third.value;
         const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
@@ -489,17 +490,19 @@ export const resolveSlashInputSource = (
           ),
         );
 
-        for (const regSource of registrySources) {
-          const client = yield* createRegistryClient(regSource.location.href);
-          const exists = yield* client
-            .extensionExists({ owner, type: extensionType.value, name: extensionName })
-            .pipe(Effect.orElseSucceed(() => false));
-          if (exists) {
-            return {
-              type: "registry" as const,
-              location: regSource.location,
-              owner: Option.none(),
-            } satisfies RegistrySource;
+        if (owner !== undefined) {
+          for (const regSource of registrySources) {
+            const client = yield* createRegistryClient(regSource.location.href);
+            const exists = yield* client
+              .extensionExists({ owner, type: extensionType.value, name: extensionName })
+              .pipe(Effect.orElseSucceed(() => false));
+            if (exists) {
+              return {
+                type: "registry" as const,
+                location: regSource.location,
+                owner: Option.some(owner),
+              } satisfies RegistrySource;
+            }
           }
         }
       }

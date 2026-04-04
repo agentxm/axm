@@ -15,6 +15,7 @@ import type * as Record from "effect/Record";
 import type { RefType, Source } from "../sources/types.js";
 import type { ExtensionDependencyConstraintMap } from "./common.js";
 import type { ExactSemverVersion } from "../version-constraints/index.js";
+import type { Handle } from "./handle.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -31,7 +32,7 @@ export interface GitHostedRefDetails {
 /** Ref details for registry sources. @experimental */
 export interface RegistryRefDetails {
   /** Registry owner that owns the published extension */
-  readonly owner: string;
+  readonly owner: Handle;
   /**
    * Registry package name — the identifier used for registry operations (fetch, version resolution).
    * This may differ from the extension-specific display name (e.g., skill.name, pack.name,
@@ -106,7 +107,7 @@ export type PackExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"pack", TRefType, TSource> & {
-  readonly owner: string;
+  readonly owner: Handle;
   readonly pack: {
     readonly name: string;
     readonly skills: ExtensionDependencyConstraintMap;

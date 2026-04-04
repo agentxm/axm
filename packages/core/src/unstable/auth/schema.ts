@@ -6,6 +6,7 @@
 
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
+import { HandleSchema, type Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // Credential Entry
@@ -25,7 +26,7 @@ export type CredentialEntry = Schema.Schema.Type<typeof CredentialEntrySchema>;
 // -----------------------------------------------------------------------------
 
 export const RegistryAccountsSchema = Schema.Struct({
-  accounts: Schema.Record(Schema.String, CredentialEntrySchema),
+  accounts: Schema.Record(HandleSchema, CredentialEntrySchema),
 });
 
 export type RegistryAccounts = Schema.Schema.Type<typeof RegistryAccountsSchema>;
@@ -67,7 +68,7 @@ export type TokenSource = EnvVarTokenSource | FlagTokenSource | CredentialStoreT
 // -----------------------------------------------------------------------------
 
 export interface StoredCredentials {
-  readonly handle: string;
+  readonly handle: Handle;
   readonly access_token: string;
   readonly refresh_token: string;
   readonly expires_at: string;

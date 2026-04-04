@@ -57,7 +57,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 
 /** Map FindOptions + owner to GetExtensionsByOwnerArgs (no pagination — fetch all). */
 const toSearchOptions = (owner: string, options: FindOptions): GetExtensionsByOwnerArgs => ({
-  handle: owner,
+  owner,
   names: options.skillNames,
   types: options.type === "*" ? [] : [options.type],
   limit: Option.none(),
@@ -98,11 +98,11 @@ const manifestFromIndex = (
 const findWithVersionConstraint = (
   client: RegistryClient,
   source: RegistrySource,
-  profiles: ReadonlyArray<string>,
+  owners: ReadonlyArray<string>,
   options: FindOptions,
 ) =>
   Effect.forEach(
-    profiles,
+    owners,
     (owner) =>
       Effect.gen(function* () {
         const requestedTypes: ReadonlyArray<ExtensionType> =
@@ -116,7 +116,7 @@ const findWithVersionConstraint = (
             (entry) =>
               client
                 .getExtensionIndex({
-                  handle: entry.owner,
+                  owner: entry.owner,
                   type: entry.type,
                   name: entry.name,
                 })
@@ -140,7 +140,7 @@ const findWithVersionConstraint = (
             Effect.forEach(
               requestedTypes,
               (type) =>
-                client.getExtensionIndex({ handle: owner, type, name }).pipe(
+                client.getExtensionIndex({ owner, type, name }).pipe(
                   Effect.map((indexOption) =>
                     Option.match(indexOption, {
                       onNone: () => Option.none<RegistryExtensionManifest>(),
@@ -264,7 +264,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const name = refName(ref);
 
     const { archive: archiveBytes } = yield* client.getExtensionPackage({
-      handle: owner,
+      owner,
       type,
       name,
       version: Option.some(version),
@@ -358,7 +358,7 @@ export const createLocalRegistrySourceHostProvider = (
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ handle: owner, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------
@@ -400,7 +400,7 @@ export const createRemoteRegistrySourceHostProvider = (
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ handle: owner, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------

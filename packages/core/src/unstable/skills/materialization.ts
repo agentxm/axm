@@ -181,7 +181,7 @@ const materializeRegistry = (
           : ref.source.location.href;
       const client = yield* provide(createRegistryClient(locationStr));
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.owner,
+        owner: ref.owner,
         type: "skill",
         name: ref.name,
         version: Option.some(ref.version),

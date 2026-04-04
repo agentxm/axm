@@ -173,7 +173,7 @@ const readInstalledDependencyVersion = (
 
     const dependencyDeclaration: ReconciliationDeclaration = {
       extensionType,
-      owner: parsed.handle,
+      owner: parsed.owner,
       name: parsed.name,
       source: fqn,
       declarationSourceOrConstraint: constraint,
@@ -186,13 +186,13 @@ const readInstalledDependencyVersion = (
         ? computeSkillPaths(
             env.path.join,
             context.baseDir,
-            { refType: "registry", owner: parsed.handle },
+            { refType: "registry", owner: parsed.owner },
             parsed.name,
           ).canonicalPath
         : env.path.join(
             context.baseDir,
             REGISTRY_EXTENSIONS_DIR,
-            parsed.handle,
+            parsed.owner,
             extensionType,
             parsed.name,
           );
@@ -233,7 +233,7 @@ const readInstalledDependencyVersion = (
     }
 
     const { manifest } = result;
-    if (manifest.owner !== parsed.handle || manifest.name !== parsed.name) {
+    if (manifest.owner !== parsed.owner || manifest.name !== parsed.name) {
       return {
         _tag: "Unresolved",
         reason: "declaration-mismatch",

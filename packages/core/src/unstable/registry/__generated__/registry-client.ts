@@ -29,6 +29,40 @@ export const DecodeErrorResponse = Schema.Struct({
   code: Schema.String,
   instance: Schema.optionalKey(Schema.String),
 });
+export type InternalError = {
+  readonly kind: "InternalError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly code: string;
+  readonly instance?: string;
+  readonly details?: {
+    readonly retryable: boolean;
+    readonly retryAfterSeconds?: number;
+    readonly requiredScope?: string;
+    readonly tokenScopes?: ReadonlyArray<string>;
+    readonly requiredRole?: string | null;
+  };
+};
+export const InternalError = Schema.Struct({
+  kind: Schema.Literal("InternalError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  code: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
+      requiredScope: Schema.optionalKey(Schema.String),
+      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
+      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+  ),
+});
 export type InvalidRequestError = {
   readonly kind: "InvalidRequestError";
   readonly type: string;
@@ -291,40 +325,6 @@ export const NotFoundError = Schema.Struct({
     }),
   ),
 });
-export type InternalError = {
-  readonly kind: "InternalError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly code: string;
-  readonly instance?: string;
-  readonly details?: {
-    readonly retryable: boolean;
-    readonly retryAfterSeconds?: number;
-    readonly requiredScope?: string;
-    readonly tokenScopes?: ReadonlyArray<string>;
-    readonly requiredRole?: string | null;
-  };
-};
-export const InternalError = Schema.Struct({
-  kind: Schema.Literal("InternalError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  code: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Struct({
-      retryable: Schema.Boolean,
-      retryAfterSeconds: Schema.optionalKey(Schema.Number.check(Schema.isFinite())),
-      requiredScope: Schema.optionalKey(Schema.String),
-      tokenScopes: Schema.optionalKey(Schema.Array(Schema.String)),
-      requiredRole: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-    }),
-  ),
-});
 export type ExtensionId = string;
 export const ExtensionId = Schema.String.check(
   Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -562,6 +562,8 @@ export const AuthIssueDeviceCode200 = Schema.Struct({
 });
 export type AuthIssueDeviceCode400 = DecodeErrorResponse;
 export const AuthIssueDeviceCode400 = DecodeErrorResponse;
+export type AuthIssueDeviceCode500 = InternalError;
+export const AuthIssueDeviceCode500 = InternalError;
 export type AuthExchangeDeviceCodeRequestFormUrlEncoded = {
   readonly grant_type: string;
   readonly device_code: string;
@@ -800,7 +802,7 @@ export type TokensDelete401 = UnauthorizedError;
 export const TokensDelete401 = UnauthorizedError;
 export type TokensDelete403 = ForbiddenError;
 export const TokensDelete403 = ForbiddenError;
-export type ExtensionsListByProfile200 = {
+export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
     readonly owner: string;
@@ -819,7 +821,7 @@ export type ExtensionsListByProfile200 = {
     readonly deprecation_notice?: string | null;
   }>;
 };
-export const ExtensionsListByProfile200 = Schema.Struct({
+export const ExtensionsListByOwner200 = Schema.Struct({
   extensions: Schema.Array(
     Schema.Struct({
       name: Schema.String,
@@ -856,8 +858,8 @@ export const ExtensionsListByProfile200 = Schema.Struct({
     }),
   ),
 });
-export type ExtensionsListByProfile400 = DecodeErrorResponse;
-export const ExtensionsListByProfile400 = DecodeErrorResponse;
+export type ExtensionsListByOwner400 = DecodeErrorResponse;
+export const ExtensionsListByOwner400 = DecodeErrorResponse;
 export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
@@ -1193,24 +1195,24 @@ export type ExtensionsDownloadArchive404 = NotFoundError;
 export const ExtensionsDownloadArchive404 = NotFoundError;
 export type ExtensionsDownloadArchive500 = InternalError;
 export const ExtensionsDownloadArchive500 = InternalError;
-export type ExtensionsGetHandleProfile200 = {
+export type ExtensionsGetOwnerProfile200 = {
   readonly ok: true;
   readonly mock: true;
   readonly method: "GET";
-  readonly route: "/v1/extensions/{handle}/owner";
+  readonly route: "/v1/extensions/{owner}/profile";
   readonly message: string;
-  readonly params: { readonly handle: string };
+  readonly params: { readonly owner: string };
 };
-export const ExtensionsGetHandleProfile200 = Schema.Struct({
+export const ExtensionsGetOwnerProfile200 = Schema.Struct({
   ok: Schema.Literal(true),
   mock: Schema.Literal(true),
   method: Schema.Literal("GET"),
-  route: Schema.Literal("/v1/extensions/{handle}/owner"),
+  route: Schema.Literal("/v1/extensions/{owner}/profile"),
   message: Schema.String,
-  params: Schema.Struct({ handle: Schema.String }),
+  params: Schema.Struct({ owner: Schema.String }),
 });
-export type ExtensionsGetHandleProfile400 = DecodeErrorResponse;
-export const ExtensionsGetHandleProfile400 = DecodeErrorResponse;
+export type ExtensionsGetOwnerProfile400 = DecodeErrorResponse;
+export const ExtensionsGetOwnerProfile400 = DecodeErrorResponse;
 export type ExtensionsDeprecateRequestJson = { readonly notice?: string | null };
 export const ExtensionsDeprecateRequestJson = Schema.Struct({
   notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1636,6 +1638,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthIssueDeviceCode200),
             "400": decodeError("AuthIssueDeviceCode400", AuthIssueDeviceCode400),
+            "500": decodeError("AuthIssueDeviceCode500", AuthIssueDeviceCode500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1738,18 +1741,18 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsListByProfile: (handle, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}`).pipe(
+    ExtensionsListByOwner: (owner, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsListByProfile200),
-            "400": decodeError("ExtensionsListByProfile400", ExtensionsListByProfile400),
+            "2xx": decodeSuccess(ExtensionsListByOwner200),
+            "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
             orElse: unexpectedStatus,
           }),
         ),
       ),
-    ExtensionsListByType: (handle, type, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}`).pipe(
+    ExtensionsListByType: (owner, type, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsListByType200),
@@ -1758,8 +1761,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsGet: (handle, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}`).pipe(
+    ExtensionsGet: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGet200),
@@ -1770,8 +1773,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsHead: (handle, type, name, options) =>
-      HttpClientRequest.head(`/v1/extensions/${handle}/${type}/${name}`).pipe(
+    ExtensionsHead: (owner, type, name, options) =>
+      HttpClientRequest.head(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "200": () => Effect.void,
@@ -1782,8 +1785,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsUpdateVisibility: (handle, type, name, options) =>
-      HttpClientRequest.patch(`/v1/extensions/${handle}/${type}/${name}`).pipe(
+    ExtensionsUpdateVisibility: (owner, type, name, options) =>
+      HttpClientRequest.patch(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -1796,8 +1799,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsGetVersion: (handle, type, name, version, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}`).pipe(
+    ExtensionsGetVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetVersion200),
@@ -1807,8 +1810,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsPublishVersion: (handle, type, name, version, options) =>
-      HttpClientRequest.put(`/v1/extensions/${handle}/${type}/${name}/${version}`).pipe(
+    ExtensionsPublishVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
         HttpClientRequest.bodyFormData(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -1830,8 +1833,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsDeleteVersion: (handle, type, name, version, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${handle}/${type}/${name}/${version}`).pipe(
+    ExtensionsDeleteVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "400": decodeError("ExtensionsDeleteVersion400", ExtensionsDeleteVersion400),
@@ -1843,8 +1846,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsDownloadArchive: (handle, type, name, version, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
+    ExtensionsDownloadArchive: (owner, type, name, version, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeBinary,
@@ -1855,22 +1858,22 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsDownloadArchiveStream: (handle, type, name, version) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/${version}/archive`).pipe(
+    ExtensionsDownloadArchiveStream: (owner, type, name, version) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
         binaryRequest,
       ),
-    ExtensionsGetHandleProfile: (handle, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/owner`).pipe(
+    ExtensionsGetOwnerProfile: (owner, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/profile`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetHandleProfile200),
-            "400": decodeError("ExtensionsGetHandleProfile400", ExtensionsGetHandleProfile400),
+            "2xx": decodeSuccess(ExtensionsGetOwnerProfile200),
+            "400": decodeError("ExtensionsGetOwnerProfile400", ExtensionsGetOwnerProfile400),
             orElse: unexpectedStatus,
           }),
         ),
       ),
-    ExtensionsDeprecate: (handle, type, name, options) =>
-      HttpClientRequest.post(`/v1/extensions/${handle}/${type}/${name}/deprecate`).pipe(
+    ExtensionsDeprecate: (owner, type, name, options) =>
+      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/deprecate`).pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -1883,8 +1886,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsUndeprecate: (handle, type, name, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${handle}/${type}/${name}/deprecate`).pipe(
+    ExtensionsUndeprecate: (owner, type, name, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/deprecate`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUndeprecate200),
@@ -1896,8 +1899,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsYankVersion: (handle, type, name, version, options) =>
-      HttpClientRequest.post(`/v1/extensions/${handle}/${type}/${name}/${version}/yank`).pipe(
+    ExtensionsYankVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsYankVersion200),
@@ -1909,8 +1912,8 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsUnyankVersion: (handle, type, name, version, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${handle}/${type}/${name}/${version}/yank`).pipe(
+    ExtensionsUnyankVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUnyankVersion200),
@@ -1922,8 +1925,8 @@ export const make = (
           }),
         ),
       ),
-    CollaboratorsListCollaborators: (handle, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/${type}/${name}/collaborators`).pipe(
+    CollaboratorsListCollaborators: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/collaborators`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(CollaboratorsListCollaborators200),
@@ -1947,10 +1950,8 @@ export const make = (
           }),
         ),
       ),
-    CollaboratorsUpsertCollaborator: (handle, type, name, userId, options) =>
-      HttpClientRequest.put(
-        `/v1/extensions/${handle}/${type}/${name}/collaborators/${userId}`,
-      ).pipe(
+    CollaboratorsUpsertCollaborator: (owner, type, name, userId, options) =>
+      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/collaborators/${userId}`).pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -1975,9 +1976,9 @@ export const make = (
           }),
         ),
       ),
-    CollaboratorsDeleteCollaborator: (handle, type, name, userId, options) =>
+    CollaboratorsDeleteCollaborator: (owner, type, name, userId, options) =>
       HttpClientRequest.delete(
-        `/v1/extensions/${handle}/${type}/${name}/collaborators/${userId}`,
+        `/v1/extensions/${owner}/${type}/${name}/collaborators/${userId}`,
       ).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -2084,6 +2085,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"AuthIssueDeviceCode400", typeof AuthIssueDeviceCode400.Type>
+    | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
   >;
   /**
    * Exchange device code for access token (RFC 8628 polling)
@@ -2196,20 +2198,20 @@ export interface RegistryClient {
   /**
    * List owner extensions
    */
-  readonly ExtensionsListByProfile: <Config extends OperationConfig>(
-    handle: string,
+  readonly ExtensionsListByOwner: <Config extends OperationConfig>(
+    owner: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsListByProfile200.Type, Config>,
+    WithOptionalResponse<typeof ExtensionsListByOwner200.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
-    | RegistryClientError<"ExtensionsListByProfile400", typeof ExtensionsListByProfile400.Type>
+    | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
   >;
   /**
-   * List extensions by owner and type
+   * List owner extensions by type
    */
   readonly ExtensionsListByType: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
@@ -2222,7 +2224,7 @@ export interface RegistryClient {
    * Get extension metadata
    */
   readonly ExtensionsGet: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: { readonly config?: Config | undefined } | undefined,
@@ -2237,7 +2239,7 @@ export interface RegistryClient {
    * Check whether an extension exists
    */
   readonly ExtensionsHead: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: { readonly config?: Config | undefined } | undefined,
@@ -2253,7 +2255,7 @@ export interface RegistryClient {
    * Update extension visibility
    */
   readonly ExtensionsUpdateVisibility: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: {
@@ -2285,7 +2287,7 @@ export interface RegistryClient {
    * Get extension version metadata
    */
   readonly ExtensionsGetVersion: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2301,7 +2303,7 @@ export interface RegistryClient {
    * Publish extension version
    */
   readonly ExtensionsPublishVersion: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2333,7 +2335,7 @@ export interface RegistryClient {
    * Hard-delete an extension version
    */
   readonly ExtensionsDeleteVersion: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2351,7 +2353,7 @@ export interface RegistryClient {
    * Download extension archive
    */
   readonly ExtensionsDownloadArchive: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2368,31 +2370,28 @@ export interface RegistryClient {
    * Download extension archive
    */
   readonly ExtensionsDownloadArchiveStream: (
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
   ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
   /**
-   * Returns the current mock handle owner payload.
+   * Returns the current mock owner profile payload.
    */
-  readonly ExtensionsGetHandleProfile: <Config extends OperationConfig>(
-    handle: string,
+  readonly ExtensionsGetOwnerProfile: <Config extends OperationConfig>(
+    owner: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetHandleProfile200.Type, Config>,
+    WithOptionalResponse<typeof ExtensionsGetOwnerProfile200.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
-    | RegistryClientError<
-        "ExtensionsGetHandleProfile400",
-        typeof ExtensionsGetHandleProfile400.Type
-      >
+    | RegistryClientError<"ExtensionsGetOwnerProfile400", typeof ExtensionsGetOwnerProfile400.Type>
   >;
   /**
    * Deprecate an extension
    */
   readonly ExtensionsDeprecate: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: {
@@ -2412,7 +2411,7 @@ export interface RegistryClient {
    * Un-deprecate an extension
    */
   readonly ExtensionsUndeprecate: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: { readonly config?: Config | undefined } | undefined,
@@ -2429,7 +2428,7 @@ export interface RegistryClient {
    * Yank an extension version
    */
   readonly ExtensionsYankVersion: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2447,7 +2446,7 @@ export interface RegistryClient {
    * Un-yank an extension version
    */
   readonly ExtensionsUnyankVersion: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     version: string,
@@ -2465,7 +2464,7 @@ export interface RegistryClient {
    * List extension collaborators
    */
   readonly CollaboratorsListCollaborators: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     options: { readonly config?: Config | undefined } | undefined,
@@ -2494,7 +2493,7 @@ export interface RegistryClient {
    * Add or update collaborator
    */
   readonly CollaboratorsUpsertCollaborator: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     userId: string,
@@ -2527,7 +2526,7 @@ export interface RegistryClient {
    * Remove collaborator
    */
   readonly CollaboratorsDeleteCollaborator: <Config extends OperationConfig>(
-    handle: string,
+    owner: string,
     type: string,
     name: string,
     userId: string,

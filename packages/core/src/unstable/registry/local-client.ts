@@ -149,7 +149,7 @@ export const createLocalRegistryClient = (
             requestedTypes,
             (extType) =>
               Effect.gen(function* () {
-                const typeDir = path.join(extensionsDir, args.handle, pluralizeType(extType));
+                const typeDir = path.join(extensionsDir, args.owner, pluralizeType(extType));
                 const typeDirExists = yield* fs
                   .exists(typeDir)
                   .pipe(Effect.orElseSucceed(() => false));
@@ -193,16 +193,16 @@ export const createLocalRegistryClient = (
       } satisfies GetExtensionsByOwnerResponse;
     }),
 
-  profileExists: (handle) =>
+  ownerExists: (owner) =>
     Effect.gen(function* () {
-      const scopeDir = path.join(registryRoot, "extensions", handle);
+      const scopeDir = path.join(registryRoot, "extensions", owner);
       const exists = yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
       return { exists };
     }),
 
   getExtensionIndex: (args) =>
     Effect.gen(function* () {
-      const dir = extensionDir(registryRoot, args.handle, args.type, args.name, path.join);
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
       const idxPath = path.join(dir, "index.json");
       const exists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
@@ -214,7 +214,7 @@ export const createLocalRegistryClient = (
 
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
-      const owner = args.handle;
+      const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
 
       const version = yield* Option.match(args.version, {
@@ -283,7 +283,7 @@ export const createLocalRegistryClient = (
 
   publishExtension: (args: PublishExtensionArgs) =>
     Effect.gen(function* () {
-      const owner = args.handle;
+      const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
 
       // Ensure directory exists
@@ -398,7 +398,7 @@ export const createLocalRegistryClient = (
 
   extensionExists: (args: ExtensionExistsArgs) =>
     Effect.gen(function* () {
-      const owner = args.handle;
+      const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
       const indexPath = path.join(dir, "index.json");
       const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));

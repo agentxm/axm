@@ -77,7 +77,7 @@ export const copySkill: OperationHandler<
     const fqn = yield* parseFqn(op.args.targetName);
 
     // Target path in the managed extensions store
-    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.handle, "skills", fqn.name);
+    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);
 
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;
@@ -102,7 +102,7 @@ export const copySkill: OperationHandler<
 
     // Generate axm-skill.json manifest
     const manifest = {
-      owner: fqn.handle,
+      owner: fqn.owner,
       type: "skill",
       name: fqn.name,
       version: DEFAULT_VERSION,

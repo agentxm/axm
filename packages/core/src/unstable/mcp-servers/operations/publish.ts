@@ -78,7 +78,7 @@ export const publishMcpServer: (
     const extensionDir = path.join(
       base,
       REGISTRY_EXTENSIONS_DIR,
-      fqn.handle,
+      fqn.owner,
       "mcp-servers",
       fqn.name,
     );
@@ -165,7 +165,7 @@ export const publishMcpServer: (
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        handle: fqn.handle,
+        owner: fqn.owner,
         type: "mcp-server",
         name: fqn.name,
         version: manifest.version,

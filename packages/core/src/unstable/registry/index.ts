@@ -23,7 +23,7 @@ export type {
   GetExtensionPackageResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
-  ProfileExistsResponse,
+  OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
 } from "./client.js";

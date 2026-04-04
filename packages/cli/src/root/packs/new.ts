@@ -79,7 +79,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = formatFqn({ handle: owner, type: "packs", name: args.name });
+  const fqn = formatFqn({ owner, type: "packs", name: args.name });
   const base = ws.baseDir;
 
   // Check if pack already exists

@@ -110,7 +110,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         op.args.ref.refType === "registry"
           ? [
               [
-                formatFqn({ handle: op.args.ref.owner, type: "skills", name: op.args.ref.name }),
+                formatFqn({ owner: op.args.ref.owner, type: "skills", name: op.args.ref.name }),
                 op.args.ref.version,
               ],
             ]
@@ -124,7 +124,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
           ? [
               [
                 formatFqn({
-                  handle: op.args.ref.owner,
+                  owner: op.args.ref.owner,
                   type: "commands",
                   name: op.args.ref.name,
                 }),
@@ -141,7 +141,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
           ? [
               [
                 formatFqn({
-                  handle: op.args.ref.owner,
+                  owner: op.args.ref.owner,
                   type: "mcp-servers",
                   name: op.args.ref.name,
                 }),

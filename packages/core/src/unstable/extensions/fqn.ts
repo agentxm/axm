@@ -1,7 +1,7 @@
 /**
  * Fully qualified name (FQN) parsing and formatting for 3-segment extension names.
  *
- * FQN format: `@handle/type-plural/name` (e.g., `@acme/skills/code-review`)
+ * FQN format: `@owner/type-plural/name` (e.g., `@acme/skills/code-review`)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -22,7 +22,7 @@ export type ExtensionTypePlural = "skills" | "packs" | "commands" | "mcp-servers
  * @experimental This API is unstable and may change without notice.
  */
 export interface Fqn {
-  readonly handle: string;
+  readonly owner: string;
   readonly type: ExtensionTypePlural;
   readonly name: string;
 }
@@ -35,12 +35,12 @@ const parseFqnMatch = (input: string): Fqn | undefined => {
     return undefined;
   }
 
-  const handle = match.at(1);
+  const owner = match.at(1);
   const type = match.at(2);
   const name = match.at(3);
 
   if (
-    handle === undefined ||
+    owner === undefined ||
     name === undefined ||
     (type !== "skills" && type !== "packs" && type !== "commands" && type !== "mcp-servers")
   ) {
@@ -48,7 +48,7 @@ const parseFqnMatch = (input: string): Fqn | undefined => {
   }
 
   return {
-    handle,
+    owner,
     type,
     name,
   };
@@ -93,4 +93,4 @@ export const parseFqnOrThrow = (input: string): Fqn => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const formatFqn = (fqn: Fqn): string => `${fqn.handle}/${fqn.type}/${fqn.name}`;
+export const formatFqn = (fqn: Fqn): string => `${fqn.owner}/${fqn.type}/${fqn.name}`;

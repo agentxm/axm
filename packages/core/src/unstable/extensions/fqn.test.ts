@@ -11,27 +11,27 @@ describe("parseFqn", () => {
   [
     {
       input: "@acme/skills/code-review",
-      expected: { handle: "@acme", type: "skills", name: "code-review" },
+      expected: { owner: "@acme", type: "skills", name: "code-review" },
     },
     {
       input: "@acme/packs/fullstack",
-      expected: { handle: "@acme", type: "packs", name: "fullstack" },
+      expected: { owner: "@acme", type: "packs", name: "fullstack" },
     },
     {
       input: "@acme/mcp-servers/database",
-      expected: { handle: "@acme", type: "mcp-servers", name: "database" },
+      expected: { owner: "@acme", type: "mcp-servers", name: "database" },
     },
     {
       input: "@wayne_corp/skills/bat_signal",
-      expected: { handle: "@wayne_corp", type: "skills", name: "bat_signal" },
+      expected: { owner: "@wayne_corp", type: "skills", name: "bat_signal" },
     },
     {
       input: "@test123/packs/tool456",
-      expected: { handle: "@test123", type: "packs", name: "tool456" },
+      expected: { owner: "@test123", type: "packs", name: "tool456" },
     },
     {
       input: "@acme/commands/deploy",
-      expected: { handle: "@acme", type: "commands", name: "deploy" },
+      expected: { owner: "@acme", type: "commands", name: "deploy" },
     },
   ].forEach(({ input, expected }) => {
     it.effect(`parses valid FQN: ${input}`, () =>
@@ -66,7 +66,7 @@ describe("parseFqnOrThrow", () => {
   it("returns parsed Fqn for valid input", () => {
     const result = parseFqnOrThrow("@acme/skills/code-review");
 
-    expect(result).toEqual({ handle: "@acme", type: "skills", name: "code-review" });
+    expect(result).toEqual({ owner: "@acme", type: "skills", name: "code-review" });
   });
 
   it("throws for invalid input", () => {
@@ -80,15 +80,15 @@ describe("parseFqnOrThrow", () => {
 
 describe("formatFqn", () => {
   it("formats Fqn to string", () => {
-    const result = formatFqn({ handle: "@acme", type: "skills", name: "code-review" });
+    const result = formatFqn({ owner: "@acme", type: "skills", name: "code-review" });
 
     expect(result).toBe("@acme/skills/code-review");
   });
 
   it("formats all type segments correctly", () => {
-    expect(formatFqn({ handle: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
-    expect(formatFqn({ handle: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
-    expect(formatFqn({ handle: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
+    expect(formatFqn({ owner: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
+    expect(formatFqn({ owner: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
+    expect(formatFqn({ owner: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
   });
 });
 

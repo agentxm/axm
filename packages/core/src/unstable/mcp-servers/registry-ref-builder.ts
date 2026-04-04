@@ -15,7 +15,7 @@ export const buildRegistryMcpServerRef = (
     refType: "registry",
     server: { name: parsed.name },
     source,
-    owner: parsed.handle,
+    owner: parsed.owner,
     name: parsed.name,
     version,
     integrity: Option.none(),

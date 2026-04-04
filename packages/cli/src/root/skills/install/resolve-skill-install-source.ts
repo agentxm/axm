@@ -80,8 +80,8 @@ const checkRegistryMatch = ({
   readonly skillName: Option.Option<string>;
 }) =>
   Option.match(skillName, {
-    onNone: () => client.profileExists(owner),
-    onSome: (name) => client.extensionExists({ handle: owner, type: "skill", name }),
+    onNone: () => client.ownerExists(owner),
+    onSome: (name) => client.extensionExists({ owner, type: "skill", name }),
   });
 
 const resolveRegistrySource = (
@@ -246,7 +246,7 @@ const resolveSkillRegistrySourceByName = (
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
       const existsResult = yield* client
-        .extensionExists({ handle: owner, type: "skill", name })
+        .extensionExists({ owner, type: "skill", name })
         .pipe(Effect.result);
       if (existsResult._tag === "Failure") {
         if (Option.isSome(resolutionOptions)) {

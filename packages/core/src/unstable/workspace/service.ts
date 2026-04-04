@@ -546,7 +546,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const source =
               lockEntry.type === "registry"
                 ? (() => {
-                    const fqn = formatFqn({ handle: lockEntry.owner, type: "skills", name });
+                    const fqn = formatFqn({ owner: lockEntry.owner, type: "skills", name });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
                       : fqn;
@@ -884,7 +884,7 @@ const make = (options: WorkspaceLayerOptions) =>
               name,
             });
             // Update settings — thread versionConstraint through so it's preserved
-            const fqn = formatFqn({ handle: args.owner, type: "packs", name });
+            const fqn = formatFqn({ owner: args.owner, type: "packs", name });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`
               : fqn;

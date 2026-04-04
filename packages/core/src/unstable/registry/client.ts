@@ -33,14 +33,14 @@ import type { ExactSemverVersion } from "../version-constraints/index.js";
 /**
  * Options for searching extensions within a specific registry owner.
  *
- * - `handle`: owner handle to search (e.g. `"@acme"`)
+ * - `owner`: owner to search (e.g. `"@acme"`)
  * - `names`: extension names to match (empty = all)
  * - `types`: extension types to include (empty = all)
  * - `limit`: max results to return (default: all)
  * - `offset`: number of results to skip (default: 0)
  */
 export interface GetExtensionsByOwnerArgs {
-  readonly handle: string;
+  readonly owner: string;
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
@@ -54,13 +54,13 @@ export interface GetExtensionsByOwnerArgs {
 /**
  * Options for fetching a specific extension version from a registry.
  *
- * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
+ * - `owner`: owner in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
  */
 export interface GetExtensionPackageArgs {
-  readonly handle: string;
+  readonly owner: string;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: Option.Option<string>;
@@ -73,12 +73,12 @@ export interface GetExtensionPackageArgs {
 /**
  * Options for fetching extension index metadata from a registry.
  *
- * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
+ * - `owner`: owner in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  */
 export interface GetExtensionIndexArgs {
-  readonly handle: string;
+  readonly owner: string;
   readonly type: ExtensionType;
   readonly name: string;
 }
@@ -90,7 +90,7 @@ export interface GetExtensionIndexArgs {
 /**
  * Options for publishing an extension version to a registry.
  *
- * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
+ * - `owner`: owner in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: version string to publish
@@ -98,7 +98,7 @@ export interface GetExtensionIndexArgs {
  * - `metadata`: version entry metadata
  */
 export interface PublishExtensionArgs {
-  readonly handle: string;
+  readonly owner: string;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: ExactSemverVersion;
@@ -113,18 +113,18 @@ export interface PublishExtensionArgs {
 /**
  * Options for checking whether an extension exists in a registry.
  *
- * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
+ * - `owner`: owner in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  */
 export interface ExtensionExistsArgs {
-  readonly handle: string;
+  readonly owner: string;
   readonly type: ExtensionType;
   readonly name: string;
 }
 
 // -----------------------------------------------------------------------------
-// Get Extensions By Profile Response
+// Get Extensions By Owner Response
 // -----------------------------------------------------------------------------
 
 /**
@@ -158,13 +158,13 @@ export interface PublishExtensionResponse {
 }
 
 // -----------------------------------------------------------------------------
-// Profile Exists Response
+// Owner Exists Response
 // -----------------------------------------------------------------------------
 
 /**
  * Response from checking whether an owner exists in a registry.
  */
-export interface ProfileExistsResponse {
+export interface OwnerExistsResponse {
   readonly exists: boolean;
 }
 
@@ -217,7 +217,7 @@ export interface RegistryClient {
   readonly getExtensionsByScope: (
     args: GetExtensionsByOwnerArgs,
   ) => Effect.Effect<GetExtensionsByOwnerResponse, AppError>;
-  readonly profileExists: (handle: string) => Effect.Effect<ProfileExistsResponse, AppError>;
+  readonly ownerExists: (owner: string) => Effect.Effect<OwnerExistsResponse, AppError>;
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;

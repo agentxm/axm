@@ -65,7 +65,7 @@ export const newPack: OperationHandler<
     const initialVersion = decodeExactSemverVersionSync("0.0.1");
 
     const { name, owner } = op.args;
-    const fqn = formatFqn({ handle: owner, type: "packs", name });
+    const fqn = formatFqn({ owner, type: "packs", name });
 
     // 1. Compute pack directory path
     const packDir = computePackPaths(path.join, base, owner, name);

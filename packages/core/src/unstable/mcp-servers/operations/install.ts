@@ -113,7 +113,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
           : ref.source.location.href;
       const client = yield* createRegistryClient(locationStr);
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.owner,
+        owner: ref.owner,
         type: "mcp-server",
         name: ref.name,
         version: Option.some(ref.version),

@@ -193,7 +193,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const packName = yield* hasProfile
     ? Effect.succeed(args.pack)
     : ws.getConfiguredProfile().pipe(
-        Effect.map((owner) => formatFqn({ handle: owner, type: "packs", name: args.pack })),
+        Effect.map((owner) => formatFqn({ owner, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
@@ -212,7 +212,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     "Validating pack...",
     () =>
       Effect.gen(function* () {
-        const packDir = computePackPaths(path.join, base, fqn.handle, fqn.name).canonicalPath;
+        const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
         const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
         if (!packDirExists) {
@@ -298,7 +298,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           const depDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,
-            parsed.handle,
+            parsed.owner,
             parsed.type,
             parsed.name,
           );

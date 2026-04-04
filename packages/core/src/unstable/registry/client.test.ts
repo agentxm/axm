@@ -1,7 +1,7 @@
 /**
  * Tests for LocalRegistryClient.
  *
- * Tests all 5 client methods: getExtensionsByScope, profileExists,
+ * Tests all 5 client methods: getExtensionsByScope, ownerExists,
  * getExtensionPackage, publishExtension, extensionExists.
  */
 
@@ -55,7 +55,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 });
 
 const defaultSearchOptions: GetExtensionsByOwnerArgs = {
-  handle: "@test",
+  owner: "@test",
   names: [],
   types: ["skill"],
   limit: Option.none(),
@@ -235,7 +235,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
-        handle: "@test",
+        owner: "@test",
         names: ["skill-a"],
       });
 
@@ -342,10 +342,10 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistryClient.profileExists
+// LocalRegistryClient.ownerExists
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistryClient.profileExists", () => {
+describe("LocalRegistryClient.ownerExists", () => {
   it.effect("returns true when owner directory exists", () => {
     const registryRoot = makeRegistryDir();
     const scopeDir = nodePath.join(registryRoot, "extensions", "@test", "skills");
@@ -355,7 +355,7 @@ describe("LocalRegistryClient.profileExists", () => {
       yield* fs.makeDirectory(scopeDir, { recursive: true });
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.profileExists("@test");
+      const result = yield* client.ownerExists("@test");
       expect(result.exists).toBe(true);
     }).pipe(
       Effect.ensuring(
@@ -370,7 +370,7 @@ describe("LocalRegistryClient.profileExists", () => {
 
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.profileExists("@missing");
+      const result = yield* client.ownerExists("@missing");
       expect(result.exists).toBe(false);
     }).pipe(
       Effect.ensuring(
@@ -398,7 +398,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("1.0.0"),
@@ -429,7 +429,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.none(),
@@ -469,7 +469,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const { archive: bytes } = yield* client.getExtensionPackage({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("^0.1.0"),
@@ -491,7 +491,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client
         .getExtensionPackage({
-          handle: "@test",
+          owner: "@test",
           type: "skill",
           name: "missing",
           version: Option.some("1.0.0"),
@@ -524,7 +524,7 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client
         .getExtensionPackage({
-          handle: "@test",
+          owner: "@test",
           type: "skill",
           name: "my-skill",
           version: Option.none(),
@@ -558,7 +558,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -606,7 +606,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "2.0.0",
@@ -637,7 +637,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       const publishArgs = {
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -672,7 +672,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -682,7 +682,7 @@ describe("LocalRegistryClient.publishExtension", () => {
 
       const result = yield* client
         .publishExtension({
-          handle: "@test",
+          owner: "@test",
           type: "skill",
           name: "my-skill",
           version: "1.0.0",
@@ -720,7 +720,7 @@ describe("LocalRegistryClient.extensionExists", () => {
 
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.extensionExists({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
       });
@@ -739,7 +739,7 @@ describe("LocalRegistryClient.extensionExists", () => {
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.extensionExists({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "nonexistent",
       });
@@ -833,9 +833,9 @@ describe("RemoteRegistryClient", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("profileExists succeeds via remote list semantics", () =>
+  it.effect("ownerExists succeeds via remote list semantics", () =>
     Effect.gen(function* () {
-      const result = yield* client.profileExists("@test");
+      const result = yield* client.ownerExists("@test");
       expect(result).toEqual({ exists: true });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -843,7 +843,7 @@ describe("RemoteRegistryClient", () => {
   it.effect("getExtensionPackage succeeds via index + archive", () =>
     Effect.gen(function* () {
       const result = yield* client.getExtensionPackage({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: Option.some("1.0.0"),
@@ -879,7 +879,7 @@ describe("RemoteRegistryClient", () => {
         publishHttpClient,
       );
       const result = yield* publishClient.publishExtension({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -893,7 +893,7 @@ describe("RemoteRegistryClient", () => {
   it.effect("extensionExists succeeds for remote client", () =>
     Effect.gen(function* () {
       const result = yield* client.extensionExists({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
       });
@@ -959,7 +959,7 @@ describe("createRegistryClient", () => {
     Effect.gen(function* () {
       const client = yield* createRegistryClient("https://registry.example.com");
       expect(typeof client.getExtensionsByScope).toBe("function");
-      expect(typeof client.profileExists).toBe("function");
+      expect(typeof client.ownerExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );
@@ -999,7 +999,7 @@ describe("createRegistryClient", () => {
       const integrity = yield* computeIntegrity(archive);
 
       yield* client.publishExtension({
-        handle: "@test",
+        owner: "@test",
         type: "skill",
         name: "my-skill",
         version: "1.0.0",
@@ -1019,7 +1019,7 @@ describe("createRegistryClient", () => {
     Effect.gen(function* () {
       const client = yield* createRegistryClient("http://registry.example.com");
       expect(typeof client.getExtensionsByScope).toBe("function");
-      expect(typeof client.profileExists).toBe("function");
+      expect(typeof client.ownerExists).toBe("function");
       expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, remoteHttpLayer))),
   );

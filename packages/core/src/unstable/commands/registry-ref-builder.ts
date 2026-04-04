@@ -15,7 +15,7 @@ export const buildRegistryCommandRef = (
     refType: "registry",
     command: { name: parsed.name },
     source,
-    owner: parsed.handle,
+    owner: parsed.owner,
     name: parsed.name,
     version,
     integrity: Option.none(),

@@ -184,7 +184,7 @@ describe("getExtensionIndex", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionIndex({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "test-skill",
       });
@@ -207,7 +207,7 @@ describe("getExtensionIndex", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionIndex({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "nonexistent",
       });
@@ -222,7 +222,7 @@ describe("getExtensionIndex", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
-        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+        client.getExtensionIndex({ owner: "@acme", type: "skill", name: "test-skill" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
@@ -239,7 +239,7 @@ describe("getExtensionIndex", () => {
         const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
         const error = yield* runFailure(
-          client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+          client.getExtensionIndex({ owner: "@acme", type: "skill", name: "test-skill" }),
         );
 
         expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
@@ -265,7 +265,7 @@ describe("getExtensionIndex", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
-        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test-skill" }),
+        client.getExtensionIndex({ owner: "@acme", type: "skill", name: "test-skill" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_FAILED");
@@ -286,7 +286,7 @@ describe("getExtensionsByScope", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionsByScope({
-        handle: "@acme",
+        owner: "@acme",
         names: ["test-skill"],
         types: ["skill"],
         limit: Option.none(),
@@ -307,7 +307,7 @@ describe("getExtensionsByScope", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionsByScope({
-        handle: "@acme",
+        owner: "@acme",
         names: ["test-skill", "another"],
         types: ["skill"],
         limit: Option.some(1),
@@ -326,7 +326,7 @@ describe("getExtensionsByScope", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionsByScope({
-        handle: "@acme",
+        owner: "@acme",
         names: ["nonexistent"],
         types: ["skill"],
         limit: Option.none(),
@@ -345,7 +345,7 @@ describe("getExtensionsByScope", () => {
 
       const error = yield* runFailure(
         client.getExtensionsByScope({
-          handle: "@acme",
+          owner: "@acme",
           names: ["test-skill"],
           types: ["skill"],
           limit: Option.none(),
@@ -359,10 +359,10 @@ describe("getExtensionsByScope", () => {
 });
 
 // =============================================================================
-// profileExists
+// ownerExists
 // =============================================================================
 
-describe("profileExists", () => {
+describe("ownerExists", () => {
   it.effect("returns exists:true when owner has extensions", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
@@ -370,7 +370,7 @@ describe("profileExists", () => {
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const result = yield* client.profileExists("@acme");
+      const result = yield* client.ownerExists("@acme");
 
       expect(result.exists).toBe(true);
     }),
@@ -383,7 +383,7 @@ describe("profileExists", () => {
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const result = yield* client.profileExists("@empty");
+      const result = yield* client.ownerExists("@empty");
 
       expect(result.exists).toBe(false);
     }),
@@ -394,7 +394,7 @@ describe("profileExists", () => {
       const httpClient = makeNetworkErrorClient();
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const error = yield* runFailure(client.profileExists("@acme"));
+      const error = yield* runFailure(client.ownerExists("@acme"));
 
       expect(error.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
     }),
@@ -407,7 +407,7 @@ describe("profileExists", () => {
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const error = yield* runFailure(client.profileExists("@acme"));
+      const error = yield* runFailure(client.ownerExists("@acme"));
 
       expect(error.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
     }),
@@ -435,7 +435,7 @@ describe("getExtensionPackage", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionPackage({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "test-skill",
         version: Option.none(),
@@ -462,7 +462,7 @@ describe("getExtensionPackage", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.getExtensionPackage({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "test-skill",
         version: Option.some("1.0.0"),
@@ -481,7 +481,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(
         client.getExtensionPackage({
-          handle: "@acme",
+          owner: "@acme",
           type: "skill",
           name: "nonexistent",
           version: Option.none(),
@@ -505,7 +505,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(
         client.getExtensionPackage({
-          handle: "@acme",
+          owner: "@acme",
           type: "skill",
           name: "test-skill",
           version: Option.none(),
@@ -525,7 +525,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(
         client.getExtensionPackage({
-          handle: "@acme",
+          owner: "@acme",
           type: "skill",
           name: "test-skill",
           version: Option.some("99.99.99"),
@@ -543,7 +543,7 @@ describe("getExtensionPackage", () => {
 
       const error = yield* runFailure(
         client.getExtensionPackage({
-          handle: "@acme",
+          owner: "@acme",
           type: "skill",
           name: "test-skill",
           version: Option.none(),
@@ -566,7 +566,7 @@ describe("extensionExists", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.extensionExists({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "test-skill",
       });
@@ -581,7 +581,7 @@ describe("extensionExists", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.extensionExists({
-        handle: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "nonexistent",
       });
@@ -596,7 +596,7 @@ describe("extensionExists", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
-        client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
+        client.extensionExists({ owner: "@acme", type: "skill", name: "test-skill" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR");
@@ -609,7 +609,7 @@ describe("extensionExists", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
-        client.extensionExists({ handle: "@acme", type: "skill", name: "test-skill" }),
+        client.extensionExists({ owner: "@acme", type: "skill", name: "test-skill" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_FAILED");
@@ -622,7 +622,7 @@ describe("extensionExists", () => {
 // =============================================================================
 
 const publishArgs = {
-  handle: "@acme",
+  owner: "@acme",
   type: "skill" as const,
   name: "test-skill",
   version: "1.0.0",
@@ -999,7 +999,7 @@ describe("network diagnostics", () => {
       const client = createRemoteRegistryClient("https://localhost:3000", httpClient);
 
       const error = yield* runFailure(
-        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
+        client.getExtensionIndex({ owner: "@acme", type: "skill", name: "test" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");
@@ -1013,7 +1013,7 @@ describe("network diagnostics", () => {
       const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
 
       const error = yield* runFailure(
-        client.getExtensionIndex({ handle: "@acme", type: "skill", name: "test" }),
+        client.getExtensionIndex({ owner: "@acme", type: "skill", name: "test" }),
       );
 
       expect(error.code).toBe("REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR");

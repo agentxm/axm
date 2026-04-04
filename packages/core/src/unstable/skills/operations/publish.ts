@@ -74,7 +74,7 @@ export const publishSkill: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed extension directory
-    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.handle, "skills", fqn.name);
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -168,7 +168,7 @@ export const publishSkill: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        handle: fqn.handle,
+        owner: fqn.owner,
         type: "skill",
         name: fqn.name,
         version: manifest.version,

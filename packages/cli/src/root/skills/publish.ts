@@ -219,14 +219,14 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
             return Effect.fail(
               makeAppError({
                 code: "EXTENSION_NOT_FOUND",
-                what: `Missing extension name for parsed FQN ${fqn.handle}/skills/${fqn.name}`,
+                what: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
               }),
             );
           }
           const extensionDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,
-            fqn.handle,
+            fqn.owner,
             "skills",
             fqn.name,
           );

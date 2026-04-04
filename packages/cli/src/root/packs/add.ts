@@ -193,7 +193,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;
 
-    const fqn = formatFqn({ handle: lockEntry.owner, type: "skills", name: lockEntry.name });
+    const fqn = formatFqn({ owner: lockEntry.owner, type: "skills", name: lockEntry.name });
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)

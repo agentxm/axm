@@ -98,7 +98,7 @@ const toResult = (
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensionsByScope: () => Effect.succeed(toResult([])),
-  profileExists: () => Effect.succeed({ exists: false }),
+  ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
   getExtensionPackage: () =>
     Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
@@ -115,7 +115,7 @@ const createFailingClient = (): RegistryClient => ({
         what: "remote registry not yet supported",
       }),
     ),
-  profileExists: () =>
+  ownerExists: () =>
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
@@ -228,7 +228,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
-          handle: "@test",
+          owner: "@test",
           names: ["my-skill"],
           types: ["skill"],
           limit: Option.none(),
@@ -562,7 +562,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // client delegation happened. Use Effect.result to catch the extraction error.
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
 
-        expect(capturedArgs?.handle).toBe("@test");
+        expect(capturedArgs?.owner).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
         expect(capturedArgs?.name).toBe("my-skill");
         expect(capturedArgs?.version).toEqual(Option.some("1.0.0"));
@@ -672,7 +672,7 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
       Effect.gen(function* () {
         yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, metadata);
 
-        expect(capturedArgs?.handle).toBe("@test");
+        expect(capturedArgs?.owner).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
         expect(capturedArgs?.name).toBe("my-skill");
         expect(capturedArgs?.version).toBe("1.0.0");

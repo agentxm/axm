@@ -26,7 +26,7 @@ import type {
   GetExtensionPackageResponse,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
-  ProfileExistsResponse,
+  OwnerExistsResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
@@ -53,7 +53,7 @@ import {
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
-  ExtensionsListByProfile200,
+  ExtensionsListByOwner200,
 } from "./__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
@@ -160,7 +160,7 @@ export const createRemoteRegistryClient = (
   // getExtensionIndex
   // ---------------------------------------------------------------------------
   const getExtensionIndex = (args: GetExtensionIndexArgs) =>
-    client.ExtensionsGet(args.handle, pluralizeType(args.type), args.name, undefined).pipe(
+    client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
       Effect.map((response) => Option.some(mapToExtensionIndex(response))),
       Effect.catch((e) => mapDiscoveryErrorWithNotFound(e, "REGISTRY_REMOTE_DISCOVERY")),
     );
@@ -242,7 +242,7 @@ export const createRemoteRegistryClient = (
               requestedTypes,
               (type) =>
                 getExtensionIndex({
-                  handle: args.handle,
+                  owner: args.owner,
                   type,
                   name,
                 }),
@@ -280,10 +280,10 @@ export const createRemoteRegistryClient = (
       // Fetch extension lists by type
       const listResults =
         args.types.length === 0
-          ? [yield* fetchExtensionList(args.handle)]
+          ? [yield* fetchExtensionList(args.owner)]
           : yield* Effect.forEach(
               args.types,
-              (type) => fetchExtensionListByType(args.handle, type),
+              (type) => fetchExtensionListByType(args.owner, type),
               { concurrency: "unbounded" },
             );
 
@@ -294,7 +294,7 @@ export const createRemoteRegistryClient = (
         summaries,
         (summary) =>
           getExtensionIndex({
-            handle: summary.owner,
+            owner: summary.owner,
             type: narrowExtensionType(summary.type),
             name: summary.name,
           }),
@@ -322,18 +322,18 @@ export const createRemoteRegistryClient = (
     });
 
   const fetchExtensionList = (
-    handle: string,
-  ): Effect.Effect<ExtensionsListByProfile200["extensions"], AppError> =>
-    client.ExtensionsListByProfile(handle, undefined).pipe(
+    owner: string,
+  ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
+    client.ExtensionsListByOwner(owner, undefined).pipe(
       Effect.map((response) => response.extensions),
       mapDiscoveryErrors,
     );
 
   const fetchExtensionListByType = (
-    handle: string,
+    owner: string,
     type: ExtensionType,
-  ): Effect.Effect<ExtensionsListByProfile200["extensions"], AppError> =>
-    client.ExtensionsListByType(handle, pluralizeType(type), undefined).pipe(
+  ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
+    client.ExtensionsListByType(owner, pluralizeType(type), undefined).pipe(
       Effect.map((response) => response.extensions),
       mapDiscoveryErrors,
     );
@@ -345,26 +345,26 @@ export const createRemoteRegistryClient = (
     effect.pipe(Effect.mapError((e) => mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")));
 
   // ---------------------------------------------------------------------------
-  // profileExists
+  // ownerExists
   // ---------------------------------------------------------------------------
-  const profileExists = (handle: string): Effect.Effect<ProfileExistsResponse, AppError> =>
-    client.ExtensionsListByProfile(handle, undefined).pipe(
+  const ownerExists = (owner: string): Effect.Effect<OwnerExistsResponse, AppError> =>
+    client.ExtensionsListByOwner(owner, undefined).pipe(
       Effect.map(
-        (response) => ({ exists: response.extensions.length > 0 }) satisfies ProfileExistsResponse,
+        (response) => ({ exists: response.extensions.length > 0 }) satisfies OwnerExistsResponse,
       ),
       Effect.catch((e) => {
         // 404 → not found
         if (hasTagSuffix(e, "404")) {
-          return Effect.succeed({ exists: false } satisfies ProfileExistsResponse);
+          return Effect.succeed({ exists: false } satisfies OwnerExistsResponse);
         }
-        return Effect.fail(mapProfileExistsError(e));
+        return Effect.fail(mapOwnerExistsError(e));
       }),
     );
 
   /**
-   * Map profileExists errors to AppError.
+   * Map ownerExists errors to AppError.
    */
-  const mapProfileExistsError = (e: unknown): AppError => {
+  const mapOwnerExistsError = (e: unknown): AppError => {
     if (isHttpClientError(e)) {
       return mapNetworkError(
         e,
@@ -410,7 +410,7 @@ export const createRemoteRegistryClient = (
     Effect.gen(function* () {
       // Step 1: Fetch extension index
       const indexResult = yield* client
-        .ExtensionsGet(args.handle, pluralizeType(args.type), args.name, undefined)
+        .ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined)
         .pipe(Effect.mapError((e) => mapPackageFetchError(e)));
 
       const index = mapToExtensionIndex(indexResult);
@@ -434,7 +434,7 @@ export const createRemoteRegistryClient = (
       // Step 3: Download archive
       const archive = yield* client
         .ExtensionsDownloadArchive(
-          args.handle,
+          args.owner,
           pluralizeType(args.type),
           args.name,
           resolvedVersion.value,
@@ -529,7 +529,7 @@ export const createRemoteRegistryClient = (
   const extensionExists = (
     args: ExtensionExistsArgs,
   ): Effect.Effect<ExtensionExistsResponse, AppError> =>
-    client.ExtensionsHead(args.handle, pluralizeType(args.type), args.name, undefined).pipe(
+    client.ExtensionsHead(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
       Effect.map(() => ({ exists: true }) satisfies ExtensionExistsResponse),
       Effect.catch((e) => {
         if (getTag(e) === "404") {
@@ -597,7 +597,7 @@ export const createRemoteRegistryClient = (
     /* eslint-enable @typescript-eslint/consistent-type-assertions */
 
     return client
-      .ExtensionsPublishVersion(args.handle, pluralizeType(args.type), args.name, args.version, {
+      .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
         payload,
         config: undefined,
       })
@@ -794,7 +794,7 @@ export const createRemoteRegistryClient = (
   return {
     getExtensionIndex,
     getExtensionsByScope,
-    profileExists,
+    ownerExists,
     getExtensionPackage,
     publishExtension,
     extensionExists,

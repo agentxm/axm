@@ -108,6 +108,14 @@
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/InternalError" }
+              }
+            }
           }
         },
         "summary": "Initiate OAuth device authorization flow",
@@ -710,13 +718,13 @@
         "summary": "Revoke access token"
       }
     },
-    "/v1/extensions/{handle}": {
+    "/v1/extensions/{owner}": {
       "get": {
         "tags": ["Extensions"],
-        "operationId": "Extensions.listByProfile",
+        "operationId": "Extensions.listByOwner",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -809,13 +817,13 @@
         "summary": "List owner extensions"
       }
     },
-    "/v1/extensions/{handle}/{type}": {
+    "/v1/extensions/{owner}/{type}": {
       "get": {
         "tags": ["Extensions"],
         "operationId": "Extensions.listByType",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -914,16 +922,16 @@
             }
           }
         },
-        "summary": "List extensions by owner and type"
+        "summary": "List owner extensions by type"
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}": {
+    "/v1/extensions/{owner}/{type}/{name}": {
       "head": {
         "tags": ["Extensions"],
         "operationId": "Extensions.head",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -958,7 +966,7 @@
         "operationId": "Extensions.get",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1117,7 +1125,7 @@
         "operationId": "Extensions.updateVisibility",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1223,13 +1231,13 @@
         }
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/{version}": {
+    "/v1/extensions/{owner}/{type}/{name}/{version}": {
       "get": {
         "tags": ["Extensions"],
         "operationId": "Extensions.getVersion",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1371,7 +1379,7 @@
         "operationId": "Extensions.deleteVersion",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1436,7 +1444,7 @@
         "operationId": "Extensions.publishVersion",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1653,13 +1661,13 @@
         }
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/{version}/archive": {
+    "/v1/extensions/{owner}/{type}/{name}/{version}/archive": {
       "get": {
         "tags": ["Extensions"],
         "operationId": "Extensions.downloadArchive",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1715,13 +1723,13 @@
         "summary": "Download extension archive"
       }
     },
-    "/v1/extensions/{handle}/owner": {
+    "/v1/extensions/{owner}/profile": {
       "get": {
         "tags": ["Extensions"],
-        "operationId": "Extensions.getHandleProfile",
+        "operationId": "Extensions.getOwnerProfile",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1739,12 +1747,12 @@
                     "ok": { "type": "boolean", "enum": [true] },
                     "mock": { "type": "boolean", "enum": [true] },
                     "method": { "type": "string", "enum": ["GET"] },
-                    "route": { "type": "string", "enum": ["/v1/extensions/{handle}/owner"] },
+                    "route": { "type": "string", "enum": ["/v1/extensions/{owner}/profile"] },
                     "message": { "type": "string" },
                     "params": {
                       "type": "object",
-                      "properties": { "handle": { "type": "string" } },
-                      "required": ["handle"],
+                      "properties": { "owner": { "type": "string" } },
+                      "required": ["owner"],
                       "additionalProperties": false
                     }
                   },
@@ -1763,17 +1771,17 @@
             }
           }
         },
-        "description": "Returns the current mock handle owner payload.",
-        "summary": "Get handle owner"
+        "description": "Returns the current mock owner profile payload.",
+        "summary": "Get owner profile"
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/deprecate": {
+    "/v1/extensions/{owner}/{type}/{name}/deprecate": {
       "post": {
         "tags": ["Extensions"],
         "operationId": "Extensions.deprecate",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1874,7 +1882,7 @@
         "operationId": "Extensions.undeprecate",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -1952,13 +1960,13 @@
         "summary": "Un-deprecate an extension"
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/{version}/yank": {
+    "/v1/extensions/{owner}/{type}/{name}/{version}/yank": {
       "post": {
         "tags": ["Extensions"],
         "operationId": "Extensions.yankVersion",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -2046,7 +2054,7 @@
         "operationId": "Extensions.unyankVersion",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -2125,13 +2133,13 @@
         "summary": "Un-yank an extension version"
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/collaborators": {
+    "/v1/extensions/{owner}/{type}/{name}/collaborators": {
       "get": {
         "tags": ["Collaborators"],
         "operationId": "Collaborators.listCollaborators",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -2224,13 +2232,13 @@
         "summary": "List extension collaborators"
       }
     },
-    "/v1/extensions/{handle}/{type}/{name}/collaborators/{userId}": {
+    "/v1/extensions/{owner}/{type}/{name}/collaborators/{userId}": {
       "put": {
         "tags": ["Collaborators"],
         "operationId": "Collaborators.upsertCollaborator",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -2345,7 +2353,7 @@
         "operationId": "Collaborators.deleteCollaborator",
         "parameters": [
           {
-            "name": "handle",
+            "name": "owner",
             "in": "path",
             "schema": { "type": "string", "allOf": [{ "minLength": 1 }] },
             "required": true
@@ -2724,6 +2732,32 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "InternalError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["InternalError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "code": { "type": "string" },
+          "instance": { "type": "string" },
+          "details": {
+            "type": "object",
+            "properties": {
+              "retryable": { "type": "boolean" },
+              "retryAfterSeconds": { "type": "number" },
+              "requiredScope": { "type": "string" },
+              "tokenScopes": { "type": "array", "items": { "type": "string" } },
+              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            },
+            "required": ["retryable"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
+      },
       "InvalidRequestError": {
         "type": "object",
         "properties": {
@@ -2925,32 +2959,6 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["NotFoundError"] },
-          "type": { "type": "string" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "code": { "type": "string" },
-          "instance": { "type": "string" },
-          "details": {
-            "type": "object",
-            "properties": {
-              "retryable": { "type": "boolean" },
-              "retryAfterSeconds": { "type": "number" },
-              "requiredScope": { "type": "string" },
-              "tokenScopes": { "type": "array", "items": { "type": "string" } },
-              "requiredRole": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-            },
-            "required": ["retryable"],
-            "additionalProperties": false
-          }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
-      },
-      "InternalError": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["InternalError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },

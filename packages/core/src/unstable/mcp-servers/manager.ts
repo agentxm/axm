@@ -139,7 +139,7 @@ export const McpServerManagerLive = Layer.effect(
               : registryRef.source.location.href;
           const client = yield* provide(createRegistryClient(locationStr));
           const { archive } = yield* client.getExtensionPackage({
-            handle: registryRef.owner,
+            owner: registryRef.owner,
             type: "mcp-server",
             name: registryRef.name,
             version: Option.some(registryRef.version),

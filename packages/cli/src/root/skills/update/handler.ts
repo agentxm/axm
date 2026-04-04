@@ -253,7 +253,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         source.location.protocol === "file:" ? source.location.pathname : source.location.href;
       const client = yield* createRegistryClient(location);
       const indexOption = yield* client.getExtensionIndex({
-        handle: owner,
+        owner,
         type: "skill",
         name: lookupName,
       });

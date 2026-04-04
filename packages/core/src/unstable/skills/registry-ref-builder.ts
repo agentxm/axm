@@ -27,7 +27,7 @@ export const buildRegistrySkillRef = (
     refType: "registry",
     skill: { name: parsed.name, description: Option.none(), metadata: Option.none() },
     source,
-    owner: parsed.handle,
+    owner: parsed.owner,
     name: parsed.name,
     version,
     integrity: Option.none(),

@@ -91,7 +91,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              owner: parsed.handle,
+              owner: parsed.owner,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",
@@ -117,7 +117,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              owner: parsed.handle,
+              owner: parsed.owner,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",
@@ -141,7 +141,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry",
-              owner: parsed.handle,
+              owner: parsed.owner,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",

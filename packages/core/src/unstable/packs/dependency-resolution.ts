@@ -80,12 +80,12 @@ const resolveDependencyRef = <T extends ExtensionType>(
     const parsed = parseFqnOrThrow(fqn);
     yield* resolveDependencyType(expectedType, parsed.type);
 
-    const source = yield* registrySourceForDependency(pack, parsed.handle);
+    const source = yield* registrySourceForDependency(pack, parsed.owner);
     const matches = yield* Effect.scoped(
       sources.find(source, {
         skillNames: [parsed.name],
         type: expectedType,
-        owner: Option.some(parsed.handle),
+        owner: Option.some(parsed.owner),
         versionConstraint: Option.some(constraint),
       }),
     );
@@ -96,7 +96,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
       ): candidate is Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }> =>
         candidate.type === expectedType &&
         candidate.refType === "registry" &&
-        candidate.owner === parsed.handle &&
+        candidate.owner === parsed.owner &&
         candidate.name === parsed.name,
     );
 

@@ -327,7 +327,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         Effect.gen(function* () {
           const client = yield* createRegistryClient(registryLocationStr);
           const response = yield* client.getExtensionsByScope({
-            handle: owner,
+            owner,
             names: [ref.skill.name],
             types: ["skill"],
             limit: Option.some(1),

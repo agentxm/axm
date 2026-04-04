@@ -72,7 +72,7 @@ export const publishCommand: (
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the extension directory
-    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.handle, "commands", fqn.name);
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "commands", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -156,7 +156,7 @@ export const publishCommand: (
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        handle: fqn.handle,
+        owner: fqn.owner,
         type: "command",
         name: fqn.name,
         version: manifest.version,

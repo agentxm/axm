@@ -75,7 +75,7 @@ export const publishPack: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed pack directory
-    const packDir = computePackPaths(path.join, base, fqn.handle, fqn.name).canonicalPath;
+    const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
       return yield* makeAppError({
@@ -176,7 +176,7 @@ export const publishPack: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        handle: fqn.handle,
+        owner: fqn.owner,
         type: "pack",
         name: fqn.name,
         version: manifest.version,

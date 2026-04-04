@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { parseFqn } from "../../extensions/index.js";
+import { parseFqn, type ExtensionDependencyConstraintMap } from "../../extensions/index.js";
 import {
   PackManifestSchema,
   type PackManifest,
@@ -148,13 +148,14 @@ export const publishPack: OperationHandler<
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
     // Collect manifest dependencies (keys are already 3-segment FQNs)
-    const dependencies: Record<string, string> = {};
-    const addDependencies = (candidates: unknown) => {
-      if (candidates === null || typeof candidates !== "object") {
+    const dependencies: Record<string, ExtensionDependencyConstraintMap[string]> = {};
+    const addDependencies = (candidates: ExtensionDependencyConstraintMap | undefined) => {
+      if (candidates === undefined) {
         return;
       }
-      for (const [fqn, constraint] of Object.entries(candidates)) {
-        if (typeof constraint === "string") {
+      for (const fqn of Object.keys(candidates)) {
+        const constraint = candidates[fqn];
+        if (constraint !== undefined) {
           dependencies[fqn] = constraint;
         }
       }

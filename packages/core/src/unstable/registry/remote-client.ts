@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { toAuthor, ExtensionTypeSchema, type ExtensionType } from "../extensions/index.js";
-import type { ExtensionIndex } from "./schema.js";
+import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
   ExtensionExistsArgs,
@@ -61,6 +61,8 @@ import type {
 // -----------------------------------------------------------------------------
 
 const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
+const decodeVersionEntry = Schema.decodeUnknownSync(VersionEntrySchema);
+const decodeExtensionIndex = Schema.decodeUnknownSync(ExtensionIndexSchema);
 
 /**
  * Narrow a string to ExtensionType via Schema validation.
@@ -72,28 +74,31 @@ const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType
 /**
  * Map the generated ExtensionsGet200 response to our domain ExtensionIndex type.
  */
-const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex => ({
-  name: response.name,
-  profile: response.profile,
-  type: narrowExtensionType(response.type),
-  description: response.description ?? undefined,
-  repository: response.repository ?? undefined,
-  license: response.license ?? undefined,
-  authors:
-    response.authors === null || response.authors === undefined
-      ? undefined
-      : response.authors.map((a) => ({
-          name: a.name ?? "",
-          email: a.email ?? undefined,
-          url: a.url ?? undefined,
-        })),
-  versions: response.versions.map((v) => ({
-    version: v.version,
-    published: v.published,
-    integrity: v.integrity,
-    dependencies: v.dependencies === null ? undefined : v.dependencies,
-  })),
-});
+const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
+  decodeExtensionIndex({
+    name: response.name,
+    profile: response.profile,
+    type: narrowExtensionType(response.type),
+    description: response.description ?? undefined,
+    repository: response.repository ?? undefined,
+    license: response.license ?? undefined,
+    authors:
+      response.authors === null || response.authors === undefined
+        ? undefined
+        : response.authors.map((a) => ({
+            name: a.name ?? "",
+            email: a.email ?? undefined,
+            url: a.url ?? undefined,
+          })),
+    versions: response.versions.map((v) =>
+      decodeVersionEntry({
+        version: v.version,
+        published: v.published,
+        integrity: v.integrity,
+        dependencies: v.dependencies === null ? undefined : v.dependencies,
+      }),
+    ),
+  });
 
 /**
  * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.

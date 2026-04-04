@@ -117,7 +117,7 @@ describe("workspace sync", () => {
           name: "starter",
           version: "1.0.0",
           skills: {
-            "@acme/skills/code-review": "1.2.0",
+            "@acme/skills/code-review": "^1.2.0",
           },
         },
         null,

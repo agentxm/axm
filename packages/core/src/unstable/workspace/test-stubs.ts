@@ -29,7 +29,16 @@ import type {
   ClassifiedExtensionRef,
 } from "./index.js";
 import type { AppError } from "../app-error/index.js";
-import type { RegistryPackLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import {
+  makeRegistryPackLockEntry as buildRegistryPackLockEntry,
+  type RegistryPackLockEntry,
+  type ResolvedExtensionMap,
+  type SkillLockEntry,
+} from "../lockfile/index.js";
+import {
+  decodeExactSemverVersionSync,
+  type ExactSemverVersion,
+} from "../version-constraints/index.js";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
@@ -222,7 +231,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 export const makeRegistrySkillLockEntry = (opts: {
   readonly profile: string;
   readonly name: string;
-  readonly resolvedVersion?: string;
+  readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly agents?: ReadonlyArray<string>;
@@ -232,7 +241,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   type: "registry",
   profile: opts.profile,
   name: opts.name,
-  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
+  resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   agents: [...(opts.agents ?? ["claude-code"])],
@@ -243,24 +252,24 @@ export const makeRegistrySkillLockEntry = (opts: {
 export const makeRegistryPackLockEntry = (opts: {
   readonly profile: string;
   readonly name: string;
-  readonly resolvedVersion?: string;
+  readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly resolvedSkills?: Record<string, string>;
-  readonly resolvedCommands?: Record<string, string>;
-  readonly resolvedMcpServers?: Record<string, string>;
+  readonly resolvedSkills?: ResolvedExtensionMap;
+  readonly resolvedCommands?: ResolvedExtensionMap;
+  readonly resolvedMcpServers?: ResolvedExtensionMap;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
-}): RegistryPackLockEntry => ({
-  type: "registry",
-  profile: opts.profile,
-  name: opts.name,
-  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
-  integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
-  installedAt: opts.installedAt ?? TEST_DATE,
-  updatedAt: opts.updatedAt ?? TEST_DATE,
-  resolvedSkills: opts.resolvedSkills ?? {},
-  resolvedCommands: opts.resolvedCommands ?? {},
-  resolvedMcpServers: opts.resolvedMcpServers ?? {},
-});
+}): RegistryPackLockEntry =>
+  buildRegistryPackLockEntry({
+    profile: opts.profile,
+    name: opts.name,
+    resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+    integrity: opts.integrity ?? "sha512-AAAA==",
+    sourceName: opts.sourceName ?? "default",
+    installedAt: opts.installedAt ?? TEST_DATE,
+    updatedAt: opts.updatedAt ?? TEST_DATE,
+    resolvedSkills: opts.resolvedSkills ?? {},
+    resolvedCommands: opts.resolvedCommands ?? {},
+    resolvedMcpServers: opts.resolvedMcpServers ?? {},
+  });

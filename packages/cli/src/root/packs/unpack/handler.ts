@@ -110,20 +110,18 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         };
 
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
-  const skillOps = yield* Effect.forEach(Object.entries(entry.resolvedSkills), ([fqn, version]) =>
-    Effect.map(buildRegistrySkillRef(fqn, version, source), (ref) => ({
-      name: "install-skill" as const,
-      args: {
-        ref,
-        force: false,
-        versionConstraint: Option.none<string>(),
-        skipSettings: Option.none<boolean>(),
-        strictUnknownAgents: Option.none<boolean>(),
-        existingInstalledAt: Option.none<Date>(),
-        sourceName: Option.none<string>(),
-      },
-    })),
-  );
+  const skillOps = Object.entries(entry.resolvedSkills).map(([fqn, version]) => ({
+    name: "install-skill" as const,
+    args: {
+      ref: buildRegistrySkillRef(fqn, version, source),
+      force: false,
+      versionConstraint: Option.none<string>(),
+      skipSettings: Option.none<boolean>(),
+      strictUnknownAgents: Option.none<boolean>(),
+      existingInstalledAt: Option.none<Date>(),
+      sourceName: Option.none<string>(),
+    },
+  }));
 
   const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
     entry.resolvedCommands,

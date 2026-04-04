@@ -484,6 +484,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         const refs = yield* expandPackInstallRefs({
           pack: intent.packToInstall,
           supportedDependencyTypes: ["skill", "command", "mcp-server"],
+          sources,
         });
 
         const steps = refs.map((ref: ExtensionRef): PlannedJobStep => {

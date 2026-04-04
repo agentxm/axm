@@ -25,6 +25,7 @@ import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
+import { decodeExactSemverVersionSync } from "../../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -61,7 +62,7 @@ const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntr
   type: "registry",
   profile: ref.profile,
   name: ref.name,
-  resolvedVersion: ref.version,
+  resolvedVersion: decodeExactSemverVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,

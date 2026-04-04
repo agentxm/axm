@@ -10,6 +10,8 @@
 
 // Schema types and schemas
 export type {
+  BuiltinPackLockEntry,
+  BuiltinPackLockEntryArgs,
   CommandLockEntry,
   CommandsLockMap,
   Lockfile,
@@ -17,6 +19,8 @@ export type {
   McpServersLockMap,
   PackLockEntry,
   PacksLockMap,
+  RegistryPackLockEntryArgs,
+  ResolvedExtensionMap,
   RegistryPackLockEntry,
   SkillLockEntry,
   SkillsLockMap,
@@ -26,12 +30,15 @@ export {
   CommandLockEntrySchema,
   CommandsLockMapSchema,
   DateFromString,
+  makeBuiltinPackLockEntry,
+  makeRegistryPackLockEntry,
   LockfileSchema,
   McpServerLockEntrySchema,
   McpServersLockMapSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
   RegistryPackLockEntrySchema,
+  ResolvedExtensionMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";

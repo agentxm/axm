@@ -7,6 +7,7 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { AGENT_IDS } from "../agents/index.js";
+import { ExactSemverVersionSchema, VersionConstraintSchema } from "../version-constraints/index.js";
 
 /**
  * Author information for a manifest.
@@ -73,6 +74,25 @@ export const FullyQualifiedNameSchema = Schema.String.pipe(
 export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSchema>;
 
 /**
+ * Map of fully-qualified extension names to semver constraints.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ExtensionDependencyConstraintMapSchema = Schema.Record(
+  FullyQualifiedNameSchema,
+  VersionConstraintSchema,
+);
+
+/**
+ * Inferred type for extension dependency constraint maps.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
+  typeof ExtensionDependencyConstraintMapSchema
+>;
+
+/**
  * Manifest handle schema.
  */
 export const ManifestHandleSchema = Schema.String.pipe(
@@ -95,7 +115,7 @@ export const ManifestNameSchema = Schema.String.pipe(
 export const CommonManifestFields = {
   profile: ManifestHandleSchema,
   name: ManifestNameSchema,
-  version: Schema.String,
+  version: ExactSemverVersionSchema,
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),
   repository: Schema.optional(Schema.String),

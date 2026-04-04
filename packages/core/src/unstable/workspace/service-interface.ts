@@ -18,13 +18,13 @@ import * as ServiceMap from "effect/ServiceMap";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type {
+  RegistryPackLockEntryArgs,
   CommandLockEntry,
   CommandsLockMap,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
   PacksLockMap,
-  RegistryPackLockEntry,
   SkillLockEntry,
   SkillsLockMap,
 } from "../lockfile/index.js";
@@ -170,7 +170,7 @@ export interface SetSkillArgs {
  * Arguments for `setPack` -- all `PackLockEntry` fields except `type` (always "registry"),
  * plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = Omit<RegistryPackLockEntry, "type"> & {
+export type SetPackArgs = RegistryPackLockEntryArgs & {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionConstraint: Option.Option<string>;
 };

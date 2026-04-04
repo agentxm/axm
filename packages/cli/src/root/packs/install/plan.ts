@@ -15,7 +15,7 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
-import type { PackExtensionRef } from "@axm.sh/core/unstable/packs";
+import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import { installPack, type InstallPackOperation } from "@axm.sh/core/unstable/packs";
@@ -42,7 +42,7 @@ export type PackInstallOp =
  */
 export interface BuildInstallPlanArgs {
   /** The pack extension ref to install */
-  readonly ref: PackExtensionRef;
+  readonly ref: RegistryPackRef;
   /** Already-resolved skill install operations */
   readonly skillOps: ReadonlyArray<InstallSkillOperation>;
   /** Already-resolved command install operations */
@@ -157,9 +157,9 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       name: "install-pack",
       args: {
         packName: ref.pack.name,
-        profile: ref.refType === "registry" ? ref.profile : "",
-        resolvedVersion: ref.refType === "registry" ? ref.version : "",
-        integrity: ref.refType === "registry" ? Option.getOrElse(ref.integrity, () => "") : "",
+        profile: ref.profile,
+        resolvedVersion: ref.version,
+        integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
         resolvedSkills,
         resolvedCommands,

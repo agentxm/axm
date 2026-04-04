@@ -16,10 +16,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
-import type { Author, ExtensionType } from "../extensions/index.js";
+import type {
+  Author,
+  ExtensionDependencyConstraintMap,
+  ExtensionType,
+} from "../extensions/index.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
+import type { ExactSemverVersion } from "../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -96,7 +101,7 @@ export interface PublishExtensionArgs {
   readonly handle: string;
   readonly type: ExtensionType;
   readonly name: string;
-  readonly version: string;
+  readonly version: ExactSemverVersion;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
 }
@@ -191,8 +196,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly repository: Option.Option<string>;
   readonly license: Option.Option<string>;
   readonly authors: ReadonlyArray<Author>;
-  readonly dependencies: Readonly<Record<string, string>>;
-  readonly version: string;
+  readonly dependencies: ExtensionDependencyConstraintMap;
+  readonly version: ExactSemverVersion;
   readonly integrity: string;
 }
 

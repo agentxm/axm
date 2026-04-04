@@ -9,7 +9,8 @@
 
 import * as Schema from "effect/Schema";
 import * as SchemaGetter from "effect/SchemaGetter";
-import * as semver from "semver";
+import { FullyQualifiedNameSchema } from "../extensions/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/index.js";
 
 // =============================================================================
 // Date Transform
@@ -26,18 +27,6 @@ export const DateFromString = Schema.String.pipe(
     decode: SchemaGetter.Date<string>(),
     encode: SchemaGetter.transform((date: Date) => date.toISOString()),
   }),
-);
-
-/**
- * Exact semver version (no ranges).
- */
-export const ExactSemverVersionSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((value: string) => {
-      const normalized = semver.valid(value);
-      return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
-    }),
-  ),
 );
 
 // =============================================================================
@@ -261,7 +250,17 @@ export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchem
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record(Schema.String, ExactSemverVersionSchema);
+export const ResolvedExtensionMapSchema = Schema.Record(
+  FullyQualifiedNameSchema,
+  ExactSemverVersionSchema,
+);
+
+/**
+ * Inferred type for resolved extension maps.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ResolvedExtensionMap = Schema.Schema.Type<typeof ResolvedExtensionMapSchema>;
 
 /**
  * Registry pack lock entry - pack from a registry.
@@ -290,6 +289,25 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
 export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
 
 /**
+ * Constructor args for a registry pack lock entry.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RegistryPackLockEntryArgs = Omit<RegistryPackLockEntry, "type">;
+
+/**
+ * Build a registry pack lock entry from typed args.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const makeRegistryPackLockEntry = (
+  args: RegistryPackLockEntryArgs,
+): RegistryPackLockEntry => ({
+  type: "registry",
+  ...args,
+});
+
+/**
  * Builtin pack lock entry - pack bundled with axm.
  * No integrity or sourceName fields.
  *
@@ -305,6 +323,30 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
+});
+
+/**
+ * Inferred type for builtin pack lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type BuiltinPackLockEntry = Schema.Schema.Type<typeof BuiltinPackLockEntrySchema>;
+
+/**
+ * Constructor args for a builtin pack lock entry.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type BuiltinPackLockEntryArgs = Omit<BuiltinPackLockEntry, "type">;
+
+/**
+ * Build a builtin pack lock entry from typed args.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const makeBuiltinPackLockEntry = (args: BuiltinPackLockEntryArgs): BuiltinPackLockEntry => ({
+  type: "builtin",
+  ...args,
 });
 
 /**

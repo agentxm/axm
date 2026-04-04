@@ -11,8 +11,10 @@
 // Manifest schemas
 export {
   PACK_MANIFEST_FILENAME,
+  PackDependencyConstraintMapSchema,
   PackManifestSchema,
   RawPackManifestSchema,
+  type PackDependencyConstraintMap,
   type PackManifest,
   type RawPackManifest,
 } from "./manifest-schema.js";

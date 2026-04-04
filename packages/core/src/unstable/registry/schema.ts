@@ -8,7 +8,12 @@
  */
 
 import * as Schema from "effect/Schema";
-import { AuthorSchema, ExtensionTypeSchema } from "../extensions/index.js";
+import {
+  AuthorSchema,
+  ExtensionDependencyConstraintMapSchema,
+  ExtensionTypeSchema,
+} from "../extensions/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/index.js";
 
 // =============================================================================
 // Version Entry
@@ -26,9 +31,9 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const VersionEntrySchema = Schema.Struct({
-  version: Schema.String,
+  version: ExactSemverVersionSchema,
   published: Schema.String,
-  dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   integrity: Schema.String,
 });
 

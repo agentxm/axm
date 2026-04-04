@@ -13,6 +13,8 @@ import type { ExtensionType } from "./common.js";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 import type { RefType, Source } from "../sources/types.js";
+import type { ExtensionDependencyConstraintMap } from "./common.js";
+import type { ExactSemverVersion } from "../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -37,7 +39,7 @@ export interface RegistryRefDetails {
    */
   readonly name: string;
   /** Resolved semver version */
-  readonly version: string;
+  readonly version: ExactSemverVersion;
   /** SRI integrity string in `sha512-<base64>` format. None for synthetic refs (fork/publish). */
   readonly integrity: Option.Option<string>;
 }
@@ -107,8 +109,8 @@ export type PackExtensionRefBase<
   readonly profile: string;
   readonly pack: {
     readonly name: string;
-    readonly skills: Readonly<Record<string, string>>;
-    readonly commands: Readonly<Record<string, string>>;
-    readonly mcpServers: Readonly<Record<string, string>>;
+    readonly skills: ExtensionDependencyConstraintMap;
+    readonly commands: ExtensionDependencyConstraintMap;
+    readonly mcpServers: ExtensionDependencyConstraintMap;
   };
 };

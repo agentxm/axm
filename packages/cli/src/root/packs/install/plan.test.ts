@@ -15,14 +15,19 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
+import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
+import type { PackDependencyConstraintMap, RegistryPackRef } from "@axm.sh/core/unstable/packs";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import {
+  exactVersion,
+  makeBaseWorkspaceMock,
+  makeRegistryPackLockEntry,
+} from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -34,10 +39,10 @@ import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 const makePackRef = (
   name: string,
   opts?: {
-    skills?: Readonly<Record<string, string>>;
-    commands?: Readonly<Record<string, string>>;
-    mcpServers?: Readonly<Record<string, string>>;
-    version?: string;
+    skills?: PackDependencyConstraintMap;
+    commands?: PackDependencyConstraintMap;
+    mcpServers?: PackDependencyConstraintMap;
+    version?: ExactSemverVersion;
   },
 ): RegistryPackRef => ({
   type: "pack",
@@ -51,7 +56,7 @@ const makePackRef = (
   },
   profile: "@acme",
   name,
-  version: opts?.version ?? "1.0.0",
+  version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
 });
 
@@ -85,19 +90,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      {
-        type: "registry" as const,
-        profile: "@acme",
-        name,
-        resolvedVersion: "1.0.0",
-        integrity: "sha512-AAAA==",
-        sourceName: "local",
-        installedAt: new Date(),
-        updatedAt: new Date(),
-        resolvedSkills: {},
-        resolvedCommands: {},
-        resolvedMcpServers: {},
-      },
+      makeRegistryPackLockEntry({ profile: "@acme", name, sourceName: "local" }),
     ]),
   ),
 });
@@ -116,7 +109,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
     force: false,
@@ -139,7 +132,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
     force: false,
@@ -158,7 +151,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
         type: "registry" as const,
         profile: "@acme",
         name,
-        resolvedVersion: "1.0.0",
+        resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
         installedAt: new Date(),
@@ -178,7 +171,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
         type: "registry" as const,
         profile: "@acme",
         name,
-        resolvedVersion: "1.0.0",
+        resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
         installedAt: new Date(),
@@ -684,7 +677,7 @@ describe("buildInstallPlan", () => {
             type: "registry" as const,
             profile: "@acme",
             name: "cmd-a",
-            resolvedVersion: "1.0.0",
+            resolvedVersion: exactVersion("1.0.0"),
             integrity: "",
             sourceName: "default",
             installedAt: new Date(),

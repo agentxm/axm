@@ -17,6 +17,7 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
+import { decodeExactSemverVersionSync } from "../../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -61,6 +62,7 @@ export const newPack: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* Workspace;
     const base = ws.baseDir;
+    const initialVersion = decodeExactSemverVersionSync("0.0.1");
 
     const { name, profile } = op.args;
     const fqn = formatFqn({ handle: profile, type: "packs", name });
@@ -104,7 +106,7 @@ export const newPack: OperationHandler<
       profile,
       type: "pack",
       name,
-      version: "0.0.1",
+      version: initialVersion,
       skills: {},
       commands: {},
       "mcp-servers": {},
@@ -126,7 +128,7 @@ export const newPack: OperationHandler<
       .setPack({
         profile,
         name,
-        resolvedVersion: "0.0.1",
+        resolvedVersion: initialVersion,
         integrity: "",
         sourceName: "",
         installedAt: now,

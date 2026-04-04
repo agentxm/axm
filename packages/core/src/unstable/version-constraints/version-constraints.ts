@@ -1,3 +1,4 @@
+import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
@@ -8,6 +9,52 @@ import * as semver from "semver";
 export interface VersionEntryLike {
   readonly version: string;
 }
+
+/**
+ * Schema for exact semver versions (no ranges).
+ */
+export const ExactSemverVersionSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => {
+      const normalized = semver.valid(value);
+      return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
+    }),
+  ),
+  Schema.brand("ExactSemverVersion"),
+);
+
+/**
+ * Inferred type for exact semver versions.
+ */
+export type ExactSemverVersion = Schema.Schema.Type<typeof ExactSemverVersionSchema>;
+
+/**
+ * Schema for semver version constraints, including exact versions and ranges.
+ */
+export const VersionConstraintSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => {
+      const normalized = semver.validRange(value);
+      return normalized !== null ? undefined : `Expected semver constraint, got: ${value}`;
+    }),
+  ),
+  Schema.brand("VersionConstraint"),
+);
+
+/**
+ * Inferred type for semver version constraints.
+ */
+export type VersionConstraint = Schema.Schema.Type<typeof VersionConstraintSchema>;
+
+/**
+ * Decode a value as an exact semver version.
+ */
+export const decodeExactSemverVersionSync = Schema.decodeUnknownSync(ExactSemverVersionSchema);
+
+/**
+ * Decode a value as a semver constraint.
+ */
+export const decodeVersionConstraintSync = Schema.decodeUnknownSync(VersionConstraintSchema);
 
 /**
  * Extract a version constraint suffix from a source string.

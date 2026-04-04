@@ -10,6 +10,7 @@ export {
   AgentIdSchema,
   AuthorSchema,
   CommonManifestFields,
+  ExtensionDependencyConstraintMapSchema,
   ExtensionTypeSchema,
   FQN_PATTERN,
   FullyQualifiedNameSchema,
@@ -19,6 +20,7 @@ export {
   ManifestHandleSchema,
   toAuthor,
   type Author,
+  type ExtensionDependencyConstraintMap,
   type ExtensionType,
   type FullyQualifiedName,
 } from "./common.js";

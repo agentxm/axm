@@ -18,7 +18,7 @@ import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { exactVersion, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
@@ -47,7 +47,7 @@ const makeRegistrySkillRef = (name: string) =>
     },
     profile: "@acme",
     name,
-    version: "1.2.3",
+    version: exactVersion("1.2.3"),
     integrity: Option.some("sha512-deadbeef"),
   }) satisfies RegistrySkillRef;
 

@@ -9,44 +9,27 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type { PackExtensionRef } from "./refs.js";
-import type { RegistrySource } from "../sources/index.js";
 import type {
   ExtensionTarget,
   PackExtensionTarget,
   SkillExtensionTarget,
 } from "../workspace/service-interface.js";
 import type { Lockfile } from "../lockfile/index.js";
-
-// -----------------------------------------------------------------------------
-// FQN Parsing
-// -----------------------------------------------------------------------------
-
-/**
- * Extract the short name from a fully-qualified name.
- * e.g. "@acme/skills/code-review" -> "code-review"
- */
-const nameFromFqn = (fqn: string): string => {
-  const parts = fqn.split("/");
-  return parts[parts.length - 1] ?? fqn;
-};
-
-/**
- * Extract the profile from a fully-qualified name.
- * e.g. "@acme/skills/code-review" -> "@acme"
- */
-const namespaceFromFqn = (fqn: string): string => {
-  const parts = fqn.split("/");
-  return parts[0] ?? "";
-};
+import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import { resolvePackDependencies } from "./dependency-resolution.js";
 
 // -----------------------------------------------------------------------------
 // expandPackInstallRefs
 // -----------------------------------------------------------------------------
+
+const nameFromFqn = (fqn: string): string => {
+  const parts = fqn.split("/");
+  return parts[parts.length - 1] ?? fqn;
+};
 
 /**
  * Expand a pack ref into its cross-type dependency refs.
@@ -61,75 +44,19 @@ const namespaceFromFqn = (fqn: string): string => {
 export const expandPackInstallRefs = (args: {
   readonly pack: PackExtensionRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
-}): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> => {
-  const { pack, supportedDependencyTypes } = args;
-  const deps: ExtensionRef[] = [];
+  readonly sources: SourceHostProvidersService;
+}): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
+  Effect.gen(function* () {
+    const { pack, supportedDependencyTypes, sources } = args;
+    const resolved = yield* resolvePackDependencies(pack, sources);
 
-  // Build a registry source for dependencies based on pack's source
-  const depSource: RegistrySource =
-    pack.source.type === "registry"
-      ? pack.source
-      : {
-          type: "registry",
-          location: new URL("file:///builtin"),
-          profile: Option.none(),
-        };
+    const deps = resolved.dependencyRefs.filter((ref) =>
+      supportedDependencyTypes.includes(ref.type),
+    );
 
-  // Skills
-  if (supportedDependencyTypes.includes("skill")) {
-    for (const [fqn, version] of Object.entries(pack.pack.skills)) {
-      deps.push({
-        type: "skill",
-        refType: "registry",
-        skill: {
-          name: nameFromFqn(fqn),
-          description: Option.none(),
-          metadata: Option.none(),
-        },
-        source: depSource,
-        profile: namespaceFromFqn(fqn),
-        name: nameFromFqn(fqn),
-        version,
-        integrity: Option.none(),
-      });
-    }
-  }
-
-  // Commands
-  if (supportedDependencyTypes.includes("command")) {
-    for (const [fqn, version] of Object.entries(pack.pack.commands)) {
-      deps.push({
-        type: "command",
-        refType: "registry",
-        command: { name: nameFromFqn(fqn) },
-        source: depSource,
-        profile: namespaceFromFqn(fqn),
-        name: nameFromFqn(fqn),
-        version,
-        integrity: Option.none(),
-      });
-    }
-  }
-
-  // MCP Servers
-  if (supportedDependencyTypes.includes("mcp-server")) {
-    for (const [fqn, version] of Object.entries(pack.pack.mcpServers)) {
-      deps.push({
-        type: "mcp-server",
-        refType: "registry",
-        server: { name: nameFromFqn(fqn) },
-        source: depSource,
-        profile: namespaceFromFqn(fqn),
-        name: nameFromFqn(fqn),
-        version,
-        integrity: Option.none(),
-      });
-    }
-  }
-
-  const packRef: ExtensionRef = pack;
-  return Effect.succeed([packRef, ...deps]);
-};
+    const packRef: ExtensionRef = pack;
+    return [packRef, ...deps];
+  });
 
 // -----------------------------------------------------------------------------
 // expandPackUninstallTargets

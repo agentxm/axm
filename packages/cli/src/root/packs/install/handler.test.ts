@@ -40,6 +40,7 @@ import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import { dependencyConstraintMap, exactVersion } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -53,6 +54,8 @@ const serviceStubs: SourceHostProvidersService = {
   cloneUrl: () => Option.none(),
   origin: () => "unknown",
 };
+
+const constraints = dependencyConstraintMap;
 
 /** Create an initialized workspace with settings + lockfile. */
 const initWorkspace = (
@@ -412,7 +415,7 @@ describe("packs install handler", () => {
         },
         profile: "@acme",
         name: "my-pack",
-        version: "1.0.0",
+        version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
       };
 
@@ -507,9 +510,9 @@ describe("packs install handler", () => {
     const makePackRef = (
       name: string,
       opts?: {
-        skills?: Record<string, string>;
-        commands?: Record<string, string>;
-        mcpServers?: Record<string, string>;
+        skills?: ReturnType<typeof dependencyConstraintMap>;
+        commands?: ReturnType<typeof dependencyConstraintMap>;
+        mcpServers?: ReturnType<typeof dependencyConstraintMap>;
       },
     ): PackExtensionRef => ({
       type: "pack",
@@ -523,13 +526,13 @@ describe("packs install handler", () => {
       source: { type: "registry", location: new URL("file:///tmp/reg"), profile: Option.none() },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     });
 
     it.effect("builds plan from pack ref returned by sources.find", () => {
       const packRef = makePackRef("test-pack", {
-        skills: { "@acme/skills/code-review": "^1.0.0" },
+        skills: constraints({ "@acme/skills/code-review": "^1.0.0" }),
       });
 
       const mockService: SourceHostProvidersService = {
@@ -553,7 +556,7 @@ describe("packs install handler", () => {
                 },
                 profile: "@acme",
                 name: "code-review",
-                version: "1.2.3",
+                version: exactVersion("1.2.3"),
                 integrity: Option.none(),
               },
             ]);
@@ -637,6 +640,46 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: "existing-skill",
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  profile: Option.none(),
+                },
+                profile: "@acme",
+                name: "existing-skill",
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+              },
+            ]);
+          }
+          if (options.type === "command") {
+            return Effect.succeed([
+              {
+                type: "command",
+                refType: "registry",
+                command: { name: "existing-cmd" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  profile: Option.none(),
+                },
+                profile: "@acme",
+                name: "existing-cmd",
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };
@@ -825,9 +868,9 @@ describe("packs install handler", () => {
 
     it.effect("builds skill, command, and mcp-server ops from pack resolved maps", () => {
       const packRef = makePackRef("multi-pack", {
-        skills: { "@acme/skills/code-review": "1.0.0" },
-        commands: { "@acme/commands/lint": "2.0.0" },
-        mcpServers: { "@acme/mcp-servers/analytics": "3.0.0" },
+        skills: constraints({ "@acme/skills/code-review": "1.0.0" }),
+        commands: constraints({ "@acme/commands/lint": "2.0.0" }),
+        mcpServers: constraints({ "@acme/mcp-servers/analytics": "3.0.0" }),
       });
 
       const mockService: SourceHostProvidersService = {
@@ -851,7 +894,7 @@ describe("packs install handler", () => {
                 },
                 profile: "@acme",
                 name: "code-review",
-                version: "1.0.0",
+                version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },
             ]);
@@ -869,7 +912,7 @@ describe("packs install handler", () => {
                 },
                 profile: "@acme",
                 name: "lint",
-                version: "2.0.0",
+                version: exactVersion("2.0.0"),
                 integrity: Option.none(),
               },
             ]);
@@ -887,7 +930,7 @@ describe("packs install handler", () => {
                 },
                 profile: "@acme",
                 name: "analytics",
-                version: "3.0.0",
+                version: exactVersion("3.0.0"),
                 integrity: Option.none(),
               },
             ]);
@@ -928,14 +971,54 @@ describe("packs install handler", () => {
 
     it.effect("includes dependency extensions in install plan", () => {
       const packRef = makePackRef("dep-pack", {
-        skills: { "@acme/skills/existing-skill": "1.0.0" },
-        commands: { "@acme/commands/existing-cmd": "1.0.0" },
+        skills: constraints({ "@acme/skills/existing-skill": "1.0.0" }),
+        commands: constraints({ "@acme/commands/existing-cmd": "1.0.0" }),
       });
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: "existing-skill",
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  profile: Option.none(),
+                },
+                profile: "@acme",
+                name: "existing-skill",
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+              },
+            ]);
+          }
+          if (options.type === "command") {
+            return Effect.succeed([
+              {
+                type: "command",
+                refType: "registry",
+                command: { name: "existing-cmd" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  profile: Option.none(),
+                },
+                profile: "@acme",
+                name: "existing-cmd",
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };

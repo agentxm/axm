@@ -28,6 +28,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
+  makeRegistryPackLockEntry,
   readLockfile,
   writeLockfile,
   type CommandsLockMap,
@@ -878,7 +879,10 @@ const make = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const { name, versionConstraint, ...lockFields } = args;
-            const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
+            const lockEntry: RegistryPackLockEntry = makeRegistryPackLockEntry({
+              ...lockFields,
+              name,
+            });
             // Update settings — thread versionConstraint through so it's preserved
             const fqn = formatFqn({ handle: args.profile, type: "packs", name });
             const source = Option.isSome(versionConstraint)

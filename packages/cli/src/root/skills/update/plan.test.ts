@@ -9,10 +9,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
+import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
+import { exactVersion } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 
 // A stub MakeRunClosure that returns a tagged success result
@@ -67,7 +69,7 @@ const makeOp = (
       | "local"
       | "builtin";
     force: boolean;
-    version: string;
+    version: ExactSemverVersion;
     gitTreeSha: Option.Option<string>;
   }>,
 ): InstallSkillOperation => {
@@ -164,7 +166,7 @@ const makeOp = (
         },
         profile: "@axm",
         name,
-        version: overrides?.version ?? "0.0.0",
+        version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
       };
       break;
@@ -276,7 +278,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
         type: "registry",
         profile: registryOverrides?.profile ?? "@axm",
         name: registryOverrides?.name ?? "skill",
-        resolvedVersion: registryOverrides?.resolvedVersion ?? "0.0.0",
+        resolvedVersion: registryOverrides?.resolvedVersion ?? exactVersion("0.0.0"),
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
         sourceName: registryOverrides?.sourceName ?? "default",
         ...makeCommonLockFields(registryOverrides),
@@ -522,14 +524,14 @@ describe("buildUpdatePlan", () => {
     Effect.gen(function* () {
       const op = makeOp("commit", {
         sourceType: "registry",
-        version: "2.0.0",
+        version: exactVersion("2.0.0"),
       });
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
           profile: "@axm",
           name: "commit",
-          resolvedVersion: "1.0.0",
+          resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
         }),
@@ -545,14 +547,14 @@ describe("buildUpdatePlan", () => {
     Effect.gen(function* () {
       const op = makeOp("commit", {
         sourceType: "registry",
-        version: "1.0.0",
+        version: exactVersion("1.0.0"),
       });
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
           profile: "@axm",
           name: "commit",
-          resolvedVersion: "1.0.0",
+          resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
         }),
@@ -642,14 +644,14 @@ describe("buildUpdatePlan", () => {
       const op = makeOp("commit", {
         sourceType: "registry",
         force: true,
-        version: "1.0.0",
+        version: exactVersion("1.0.0"),
       });
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
           profile: "@axm",
           name: "commit",
-          resolvedVersion: "1.0.0",
+          resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
         }),

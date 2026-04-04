@@ -14,9 +14,9 @@ import {
 } from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
+import type { Lockfile, PackLockEntry, ResolvedExtensionMap } from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { exactVersion, makeBaseWorkspaceMock, resolvedExtensionMap } from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -28,15 +28,15 @@ import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 const makePackLockEntry = (
   name: string,
   overrides?: {
-    resolvedSkills?: Record<string, string>;
-    resolvedCommands?: Record<string, string>;
-    resolvedMcpServers?: Record<string, string>;
+    resolvedSkills?: ResolvedExtensionMap;
+    resolvedCommands?: ResolvedExtensionMap;
+    resolvedMcpServers?: ResolvedExtensionMap;
   },
 ): PackLockEntry => ({
   type: "registry",
   profile: "@acme",
   name,
-  resolvedVersion: "1.0.0",
+  resolvedVersion: exactVersion("1.0.0"),
   integrity: "sha512-AAAA==",
   sourceName: "local",
   installedAt: new Date(),
@@ -45,6 +45,8 @@ const makePackLockEntry = (
   resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
 });
+
+const resolved = resolvedExtensionMap;
 
 const emptyLockfile: Lockfile = {
   lockfileVersion: 1,
@@ -246,7 +248,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
+          resolvedSkills: resolved({
+            "@acme/skills/skill-a": "1.0.0",
+            "@acme/skills/skill-b": "1.0.0",
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -269,7 +274,7 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+          resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -289,7 +294,7 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+          resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -306,16 +311,16 @@ describe("buildUninstallPlan", () => {
         [
           "removing-pack",
           makePackLockEntry("removing-pack", {
-            resolvedSkills: {
+            resolvedSkills: resolved({
               "@acme/skills/shared": "1.0.0",
               "@acme/skills/orphaned": "1.0.0",
-            },
+            }),
           }),
         ],
         [
           "staying-pack",
           makePackLockEntry("staying-pack", {
-            resolvedSkills: { "@acme/skills/shared": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/shared": "1.0.0" }),
           }),
         ],
       );
@@ -332,10 +337,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: {
+          resolvedSkills: resolved({
             "@acme/skills/code-review": "1.0.0",
             "@acme/skills/orphaned": "1.0.0",
-          },
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(
@@ -368,13 +373,13 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/shared-skill": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/shared-skill": "1.0.0" }),
           }),
         ],
       );
@@ -398,19 +403,19 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
           }),
         ],
         [
           "pack-c",
           makePackLockEntry("pack-c", {
-            resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+            resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
           }),
         ],
       );
@@ -446,19 +451,19 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedSkills: {
+            resolvedSkills: resolved({
               "@acme/skills/shared": "1.0.0",
               "@acme/skills/only-a": "1.0.0",
-            },
+            }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedSkills: {
+            resolvedSkills: resolved({
               "@acme/skills/shared": "1.0.0",
               "@acme/skills/only-b": "1.0.0",
-            },
+            }),
           }),
         ],
       );
@@ -487,7 +492,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedCommands: { "@acme/commands/cmd-a": "1.0.0", "@acme/commands/cmd-b": "1.0.0" },
+          resolvedCommands: resolved({
+            "@acme/commands/cmd-a": "1.0.0",
+            "@acme/commands/cmd-b": "1.0.0",
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -506,7 +514,7 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
+          resolvedCommands: resolved({ "@acme/commands/cmd-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -527,16 +535,16 @@ describe("buildUninstallPlan", () => {
         [
           "removing-pack",
           makePackLockEntry("removing-pack", {
-            resolvedCommands: {
+            resolvedCommands: resolved({
               "@acme/commands/shared": "1.0.0",
               "@acme/commands/orphaned": "1.0.0",
-            },
+            }),
           }),
         ],
         [
           "staying-pack",
           makePackLockEntry("staying-pack", {
-            resolvedCommands: { "@acme/commands/shared": "1.0.0" },
+            resolvedCommands: resolved({ "@acme/commands/shared": "1.0.0" }),
           }),
         ],
       );
@@ -553,10 +561,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedCommands: {
+          resolvedCommands: resolved({
             "@acme/commands/direct-cmd": "1.0.0",
             "@acme/commands/orphaned": "1.0.0",
-          },
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(
@@ -586,13 +594,13 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedCommands: { "@acme/commands/shared-cmd": "1.0.0" },
+            resolvedCommands: resolved({ "@acme/commands/shared-cmd": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedCommands: { "@acme/commands/shared-cmd": "1.0.0" },
+            resolvedCommands: resolved({ "@acme/commands/shared-cmd": "1.0.0" }),
           }),
         ],
       );
@@ -619,10 +627,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedMcpServers: {
+          resolvedMcpServers: resolved({
             "@acme/mcp-servers/srv-a": "1.0.0",
             "@acme/mcp-servers/srv-b": "1.0.0",
-          },
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -641,7 +649,7 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -662,16 +670,16 @@ describe("buildUninstallPlan", () => {
         [
           "removing-pack",
           makePackLockEntry("removing-pack", {
-            resolvedMcpServers: {
+            resolvedMcpServers: resolved({
               "@acme/mcp-servers/shared": "1.0.0",
               "@acme/mcp-servers/orphaned": "1.0.0",
-            },
+            }),
           }),
         ],
         [
           "staying-pack",
           makePackLockEntry("staying-pack", {
-            resolvedMcpServers: { "@acme/mcp-servers/shared": "1.0.0" },
+            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared": "1.0.0" }),
           }),
         ],
       );
@@ -688,10 +696,10 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedMcpServers: {
+          resolvedMcpServers: resolved({
             "@acme/mcp-servers/direct-srv": "1.0.0",
             "@acme/mcp-servers/orphaned": "1.0.0",
-          },
+          }),
         }),
       ]);
       const plan = yield* runBuildPlan(
@@ -725,13 +733,13 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedMcpServers: { "@acme/mcp-servers/shared-srv": "1.0.0" },
+            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared-srv": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedMcpServers: { "@acme/mcp-servers/shared-srv": "1.0.0" },
+            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared-srv": "1.0.0" }),
           }),
         ],
       );
@@ -758,9 +766,9 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
-          resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
-          resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+          resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
+          resolvedCommands: resolved({ "@acme/commands/cmd-a": "1.0.0" }),
+          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -782,9 +790,9 @@ describe("buildUninstallPlan", () => {
       const lockfile = lockfileWithPacks([
         "my-pack",
         makePackLockEntry("my-pack", {
-          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
-          resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
-          resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+          resolvedSkills: resolved({ "@acme/skills/skill-a": "1.0.0" }),
+          resolvedCommands: resolved({ "@acme/commands/cmd-a": "1.0.0" }),
+          resolvedMcpServers: resolved({ "@acme/mcp-servers/srv-a": "1.0.0" }),
         }),
       ]);
       const plan = yield* runBuildPlan(makePlanArgs({ ops: [makeOp("my-pack")], lockfile }));
@@ -803,23 +811,26 @@ describe("buildUninstallPlan", () => {
         [
           "pack-a",
           makePackLockEntry("pack-a", {
-            resolvedSkills: { "@acme/skills/shared": "1.0.0" },
-            resolvedCommands: {
+            resolvedSkills: resolved({ "@acme/skills/shared": "1.0.0" }),
+            resolvedCommands: resolved({
               "@acme/commands/shared": "1.0.0",
               "@acme/commands/only-a": "1.0.0",
-            },
-            resolvedMcpServers: { "@acme/mcp-servers/shared": "1.0.0" },
+            }),
+            resolvedMcpServers: resolved({ "@acme/mcp-servers/shared": "1.0.0" }),
           }),
         ],
         [
           "pack-b",
           makePackLockEntry("pack-b", {
-            resolvedSkills: { "@acme/skills/shared": "1.0.0", "@acme/skills/only-b": "1.0.0" },
-            resolvedCommands: { "@acme/commands/shared": "1.0.0" },
-            resolvedMcpServers: {
+            resolvedSkills: resolved({
+              "@acme/skills/shared": "1.0.0",
+              "@acme/skills/only-b": "1.0.0",
+            }),
+            resolvedCommands: resolved({ "@acme/commands/shared": "1.0.0" }),
+            resolvedMcpServers: resolved({
               "@acme/mcp-servers/shared": "1.0.0",
               "@acme/mcp-servers/only-b": "1.0.0",
-            },
+            }),
           }),
         ],
       );

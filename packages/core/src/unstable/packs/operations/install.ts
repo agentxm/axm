@@ -13,9 +13,11 @@ import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import {
+  type ResolvedExtensionMap,
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
 } from "../../lockfile/index.js";
+import type { ExactSemverVersion } from "../../version-constraints/index.js";
 import type { PackExtensionRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
@@ -39,17 +41,17 @@ export interface InstallPackOperationArgs {
   /** Pack profile (e.g., "@acme") */
   readonly profile: string;
   /** Exact resolved version */
-  readonly resolvedVersion: string;
+  readonly resolvedVersion: ExactSemverVersion;
   /** SRI integrity string */
   readonly integrity: string;
   /** Registry source name */
   readonly sourceName: string;
   /** Resolved skill FQNs to exact versions */
-  readonly resolvedSkills: Readonly<Record<string, string>>;
+  readonly resolvedSkills: ResolvedExtensionMap;
   /** Resolved command FQNs to exact versions */
-  readonly resolvedCommands: Readonly<Record<string, string>>;
+  readonly resolvedCommands: ResolvedExtensionMap;
   /** Resolved MCP server FQNs to exact versions */
-  readonly resolvedMcpServers: Readonly<Record<string, string>>;
+  readonly resolvedMcpServers: ResolvedExtensionMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionConstraint: Option<string>;
   /** Pack extension ref for fetching the archive. */
@@ -140,9 +142,9 @@ export const installPack: OperationHandler<
         sourceName: op.args.sourceName,
         installedAt: new Date(),
         updatedAt: new Date(),
-        resolvedSkills: { ...op.args.resolvedSkills },
-        resolvedCommands: { ...op.args.resolvedCommands },
-        resolvedMcpServers: { ...op.args.resolvedMcpServers },
+        resolvedSkills: op.args.resolvedSkills,
+        resolvedCommands: op.args.resolvedCommands,
+        resolvedMcpServers: op.args.resolvedMcpServers,
         versionConstraint: op.args.versionConstraint,
       })
       .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));

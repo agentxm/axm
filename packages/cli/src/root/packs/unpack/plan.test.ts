@@ -20,7 +20,7 @@ import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-re
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { exactVersion, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
@@ -45,7 +45,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
       },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
     force: false,
@@ -71,7 +71,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
     force: false,
@@ -94,7 +94,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       },
       profile: "@acme",
       name,
-      version: "1.0.0",
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
     force: false,

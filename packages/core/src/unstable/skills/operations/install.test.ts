@@ -813,35 +813,9 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("fails when registry resolvedVersion is a range", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@community");
-
-        const result = yield* installSkill(
-          makeOp({
-            source: {
-              type: "registry",
-              location: new URL("file:///tmp/reg"),
-              profile: Option.none(),
-            },
-            profile: "@community",
-            version: Option.some("^1.0.0"),
-            versionConstraint: Option.some("^1.0.0"),
-          }),
-        ).pipe(
-          Effect.provide(withServices(axmDir)),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
-        );
-
-        expect(result.result).toBe("error");
-        if (result.result === "error") {
-          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
-          expect(result.error.what).toContain("exact semver");
-          expect(result.error.details.join("\n")).toContain("Received: ^1.0.0");
-        }
-      }),
-    );
+    // Range versions (e.g. "^1.0.0") are now statically prevented by the
+    // ExactSemverVersion branded type on RegistrySkillRef.version.
+    // Schema-level rejection is tested in version-constraints.test.ts.
   });
 
   describe("pre-clean from all locations", () => {

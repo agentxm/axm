@@ -74,6 +74,17 @@ describe("PackManifestSchema", () => {
     expect(() => decode(input)).toThrow();
   });
 
+  it("rejects manifest with invalid semver constraint values", () => {
+    const input = {
+      profile: "@wayne",
+      type: "pack",
+      name: "utility-belt",
+      version: "1.0.0",
+      skills: { "@wayne/skills/grappling-hook": "latest" },
+    };
+    expect(() => decode(input)).toThrow();
+  });
+
   it("rejects 2-segment FQN keys", () => {
     const input = {
       profile: "@wayne",
@@ -82,7 +93,7 @@ describe("PackManifestSchema", () => {
       version: "1.0.0",
       skills: { "@wayne/grappling-hook": "^1.0.0" },
     };
-    expect(() => decode(input)).toThrow(/Names must match @handle\/type\/name format/);
+    expect(() => decode(input)).toThrow(/Expected a string matching the RegExp/);
   });
 
   it("rejects manifest missing required fields", () => {

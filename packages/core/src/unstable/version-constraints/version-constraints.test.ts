@@ -1,3 +1,4 @@
+import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import {
   parseVersionConstraint,
   resolveVersionWithConstraint,
   satisfiesConstraint,
+  VersionConstraintSchema,
 } from "./version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -15,6 +17,24 @@ import {
 
 const makeVersionEntryLike = (version: string): VersionEntryLike => ({
   version,
+});
+
+// -----------------------------------------------------------------------------
+// VersionConstraintSchema
+// -----------------------------------------------------------------------------
+
+describe("VersionConstraintSchema", () => {
+  const decode = Schema.decodeUnknownSync(VersionConstraintSchema);
+
+  it("accepts exact versions and ranges", () => {
+    expect(decode("1.2.3")).toBe("1.2.3");
+    expect(decode("^1.0.0")).toBe("^1.0.0");
+    expect(decode(">=1.0.0 <2.0.0")).toBe(">=1.0.0 <2.0.0");
+  });
+
+  it("rejects invalid constraints", () => {
+    expect(() => decode("latest")).toThrow();
+  });
 });
 
 // -----------------------------------------------------------------------------

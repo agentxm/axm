@@ -26,6 +26,7 @@ import { Workspace } from "../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
+import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -41,7 +42,7 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
   type: "registry",
   profile: ref.profile,
   name: ref.name,
-  resolvedVersion: ref.version,
+  resolvedVersion: decodeExactSemverVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   installedAt: now,

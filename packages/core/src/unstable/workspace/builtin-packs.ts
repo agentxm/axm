@@ -20,16 +20,25 @@ import type { AppError } from "../app-error/index.js";
 import { getAgentById } from "../agents/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import { readLockfile, writeLockfile } from "../lockfile/index.js";
+import {
+  makeBuiltinPackLockEntry,
+  readLockfile,
+  type ResolvedExtensionMap,
+  writeLockfile,
+} from "../lockfile/index.js";
 import { createSymlink } from "../utils/index.js";
 import type { PackManifest } from "../packs/manifest-schema.js";
+import {
+  decodeExactSemverVersionSync,
+  type ExactSemverVersion,
+} from "../version-constraints/index.js";
 
 /**
  * Resolved builtin pack data — provided by the CLI package.
  */
 export interface ResolvedBuiltinPack {
   readonly manifest: PackManifest;
-  readonly version: string;
+  readonly version: ExactSemverVersion;
   readonly skillsDir: string;
 }
 
@@ -152,19 +161,19 @@ export const materializeBuiltinPack = (
       };
     }
 
-    const resolvedCommands: Record<string, string> = {};
-    const resolvedMcpServers: Record<string, string> = {};
-    const packLockEntry = {
-      type: "builtin" as const,
+    const resolvedSkills: ResolvedExtensionMap = Object.fromEntries(
+      skillEntries.map(([fqn, version]) => [fqn, decodeExactSemverVersionSync(version)]),
+    );
+    const packLockEntry = makeBuiltinPackLockEntry({
       profile: BUILTIN_PACK_SCOPE,
       name: BUILTIN_PACK_NAME,
       resolvedVersion: builtinPack.version,
       installedAt: now,
       updatedAt: now,
-      resolvedSkills: Object.fromEntries(skillEntries.map(([fqn, ver]) => [fqn, ver])),
-      resolvedCommands,
-      resolvedMcpServers,
-    };
+      resolvedSkills,
+      resolvedCommands: {},
+      resolvedMcpServers: {},
+    });
 
     // Write updated lockfile
     const currentLockfile = yield* readLockfile(workspaceDir);

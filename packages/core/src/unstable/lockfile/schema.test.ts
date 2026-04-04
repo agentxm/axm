@@ -3,13 +3,13 @@ import * as Schema from "effect/Schema";
 import {
   BuiltinPackLockEntrySchema,
   DateFromString,
-  ExactSemverVersionSchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
+import { ExactSemverVersionSchema } from "../version-constraints/index.js";
 
 describe("lockfile schema", () => {
   describe("DateFromString", () => {

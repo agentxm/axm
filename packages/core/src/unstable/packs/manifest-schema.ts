@@ -5,7 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields, FQN_PATTERN } from "../extensions/common.js";
+import {
+  CommonManifestFields,
+  ExtensionDependencyConstraintMapSchema,
+  type ExtensionDependencyConstraintMap,
+} from "../extensions/common.js";
 
 export const PACK_MANIFEST_FILENAME = "axm-pack.json";
 
@@ -44,17 +48,14 @@ export const RawPackManifestSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-const VersionSpecifierMapSchema = Schema.Record(Schema.String, Schema.String).pipe(
-  Schema.check(
-    Schema.makeFilter<Record<string, string>>((record) => {
-      const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
-      if (invalidKeys.length > 0) {
-        return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @handle/type/name format (e.g. @acme/skills/my-skill).`;
-      }
-      return undefined;
-    }),
-  ),
-);
+export const PackDependencyConstraintMapSchema = ExtensionDependencyConstraintMapSchema;
+
+/**
+ * Inferred type for pack dependency constraint maps.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PackDependencyConstraintMap = ExtensionDependencyConstraintMap;
 
 /**
  * Schema for pack manifest files (axm-pack.json).
@@ -68,9 +69,9 @@ const VersionSpecifierMapSchema = Schema.Record(Schema.String, Schema.String).pi
 export const PackManifestSchema = Schema.Struct({
   ...CommonManifestFields,
   type: Schema.Literal("pack"),
-  skills: Schema.optional(VersionSpecifierMapSchema),
-  commands: Schema.optional(VersionSpecifierMapSchema),
-  "mcp-servers": Schema.optional(VersionSpecifierMapSchema),
+  skills: Schema.optional(PackDependencyConstraintMapSchema),
+  commands: Schema.optional(PackDependencyConstraintMapSchema),
+  "mcp-servers": Schema.optional(PackDependencyConstraintMapSchema),
 });
 
 /**

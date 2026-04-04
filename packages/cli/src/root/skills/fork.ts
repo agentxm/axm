@@ -49,6 +49,7 @@ import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
+import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 
@@ -137,6 +138,8 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
   sourceInput.startsWith("https://")
     ? "Verify the profile and skill name, or use --list with skills install to inspect available skills."
     : "Verify the source path contains directories with SKILL.md files.";
+
+const FALLBACK_PUBLISHED_VERSION = decodeExactSemverVersionSync("0.1.0");
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -351,7 +354,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             },
             profile,
             name: ref.skill.name,
-            version: published != null ? published.version : "0.1.0",
+            version: published?.version ?? FALLBACK_PUBLISHED_VERSION,
             integrity: Option.fromUndefinedOr(published?.integrity),
           };
 

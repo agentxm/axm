@@ -23,7 +23,12 @@ import type {
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
-import { toAuthor, type Author, type ExtensionType } from "../../../extensions/index.js";
+import {
+  toAuthor,
+  type Author,
+  type ExtensionDependencyConstraintMap,
+  type ExtensionType,
+} from "../../../extensions/index.js";
 import type { ExtensionRef } from "../../../extensions/index.js";
 import type {
   ExtensionFiles,
@@ -33,13 +38,14 @@ import type {
   RegistrySourceHost,
 } from "../../../sources/index.js";
 import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
+import type { ExactSemverVersion } from "../../../version-constraints/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
     profile: string,
     type: ExtensionType,
     name: string,
-    version: string,
+    version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
   ) => Effect.Effect<void, AppError, R>;
@@ -208,9 +214,9 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
         ...details,
       };
     case "pack": {
-      const skills: Record<string, string> = {};
-      const commands: Record<string, string> = {};
-      const mcpServers: Record<string, string> = {};
+      const skills: Record<string, ExtensionDependencyConstraintMap[string]> = {};
+      const commands: Record<string, ExtensionDependencyConstraintMap[string]> = {};
+      const mcpServers: Record<string, ExtensionDependencyConstraintMap[string]> = {};
       for (const [key, version] of Object.entries(dependencies)) {
         if (key.includes("/skills/")) skills[key] = version;
         else if (key.includes("/commands/")) commands[key] = version;
@@ -349,7 +355,7 @@ export const createLocalRegistrySourceHostProvider = (
     profile: string,
     type: ExtensionType,
     name: string,
-    version: string,
+    version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
   ) => client.publishExtension({ handle: profile, type, name, version, archive, metadata }),
@@ -391,7 +397,7 @@ export const createRemoteRegistrySourceHostProvider = (
     profile: string,
     type: ExtensionType,
     name: string,
-    version: string,
+    version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
   ) => client.publishExtension({ handle: profile, type, name, version, archive, metadata }),

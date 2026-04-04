@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type {
   WorkspaceContextService,
@@ -29,7 +30,23 @@ import type {
   ClassifiedExtensionRef,
 } from "@axm.sh/core/unstable/workspace";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
-import type { RegistryPackLockEntry, SkillLockEntry } from "@axm.sh/core/unstable/lockfile";
+import {
+  ExtensionDependencyConstraintMapSchema,
+  type ExtensionDependencyConstraintMap,
+} from "@axm.sh/core/unstable/extensions";
+import {
+  makeRegistryPackLockEntry as buildRegistryPackLockEntry,
+  type RegistryPackLockEntry,
+  ResolvedExtensionMapSchema,
+  type ResolvedExtensionMap,
+  type SkillLockEntry,
+} from "@axm.sh/core/unstable/lockfile";
+import {
+  decodeExactSemverVersionSync,
+  decodeVersionConstraintSync,
+  type ExactSemverVersion,
+  type VersionConstraint,
+} from "@axm.sh/core/unstable/version-constraints";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
@@ -162,10 +179,28 @@ export const makeBaseWorkspaceMock = (
 };
 
 const TEST_DATE = new Date("2025-01-01T00:00:00.000Z");
+const decodeResolvedExtensionMapSync = Schema.decodeUnknownSync(ResolvedExtensionMapSchema);
+const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
+  ExtensionDependencyConstraintMapSchema,
+);
 
 const hasEntries = (
   value: Readonly<Record<string, unknown>> | undefined,
 ): value is Record<string, unknown> => value !== undefined && Object.keys(value).length > 0;
+
+export const exactVersion = (value: string): ExactSemverVersion =>
+  decodeExactSemverVersionSync(value);
+
+export const versionConstraint = (value: string): VersionConstraint =>
+  decodeVersionConstraintSync(value);
+
+export const resolvedExtensionMap = (
+  entries: Readonly<Record<string, string>>,
+): ResolvedExtensionMap => decodeResolvedExtensionMapSync(entries);
+
+export const dependencyConstraintMap = (
+  entries: Readonly<Record<string, string>>,
+): ExtensionDependencyConstraintMap => decodeExtensionDependencyConstraintMapSync(entries);
 
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
@@ -222,7 +257,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 export const makeRegistrySkillLockEntry = (opts: {
   readonly profile: string;
   readonly name: string;
-  readonly resolvedVersion?: string;
+  readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly agents?: ReadonlyArray<string>;
@@ -232,7 +267,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   type: "registry",
   profile: opts.profile,
   name: opts.name,
-  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
+  resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   agents: [...(opts.agents ?? ["claude-code"])],
@@ -243,24 +278,24 @@ export const makeRegistrySkillLockEntry = (opts: {
 export const makeRegistryPackLockEntry = (opts: {
   readonly profile: string;
   readonly name: string;
-  readonly resolvedVersion?: string;
+  readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly resolvedSkills?: Record<string, string>;
-  readonly resolvedCommands?: Record<string, string>;
-  readonly resolvedMcpServers?: Record<string, string>;
+  readonly resolvedSkills?: ResolvedExtensionMap;
+  readonly resolvedCommands?: ResolvedExtensionMap;
+  readonly resolvedMcpServers?: ResolvedExtensionMap;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
-}): RegistryPackLockEntry => ({
-  type: "registry",
-  profile: opts.profile,
-  name: opts.name,
-  resolvedVersion: opts.resolvedVersion ?? "1.0.0",
-  integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
-  installedAt: opts.installedAt ?? TEST_DATE,
-  updatedAt: opts.updatedAt ?? TEST_DATE,
-  resolvedSkills: opts.resolvedSkills ?? {},
-  resolvedCommands: opts.resolvedCommands ?? {},
-  resolvedMcpServers: opts.resolvedMcpServers ?? {},
-});
+}): RegistryPackLockEntry =>
+  buildRegistryPackLockEntry({
+    profile: opts.profile,
+    name: opts.name,
+    resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+    integrity: opts.integrity ?? "sha512-AAAA==",
+    sourceName: opts.sourceName ?? "default",
+    installedAt: opts.installedAt ?? TEST_DATE,
+    updatedAt: opts.updatedAt ?? TEST_DATE,
+    resolvedSkills: opts.resolvedSkills ?? {},
+    resolvedCommands: opts.resolvedCommands ?? {},
+    resolvedMcpServers: opts.resolvedMcpServers ?? {},
+  });

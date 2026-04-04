@@ -16,17 +16,20 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { PackExtensionRef, RegistryPackRef } from "./refs.js";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../source-resolution/index.js";
 import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { computePackPaths } from "./paths.js";
 import { removeIfExists } from "../utils/index.js";
-import {
-  validateExactResolvedVersion,
-  validateExactResolvedVersionMap,
-} from "../lockfile/index.js";
+import { validateExactResolvedVersion } from "../lockfile/index.js";
+import type { AppError } from "../app-error/index.js";
+import { resolvePackDependencies } from "./dependency-resolution.js";
+import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -41,19 +44,25 @@ export class PackManager extends ServiceMap.Service<
 const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionConstraint: Option.Option<string>,
-): SetPackArgs => ({
-  profile: ref.profile,
-  name: ref.pack.name,
-  resolvedVersion: ref.version,
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
-  installedAt: new Date(),
-  updatedAt: new Date(),
-  resolvedSkills: { ...ref.pack.skills },
-  resolvedCommands: { ...ref.pack.commands },
-  resolvedMcpServers: { ...ref.pack.mcpServers },
-  versionConstraint,
-});
+  sources: SourceHostProvidersService,
+): Effect.Effect<SetPackArgs, AppError> =>
+  Effect.gen(function* () {
+    const resolved = yield* resolvePackDependencies(ref, sources);
+
+    return {
+      profile: ref.profile,
+      name: ref.pack.name,
+      resolvedVersion: decodeExactSemverVersionSync(ref.version),
+      integrity: Option.getOrElse(ref.integrity, () => ""),
+      sourceName: "default",
+      installedAt: new Date(),
+      updatedAt: new Date(),
+      resolvedSkills: resolved.resolvedSkills,
+      resolvedCommands: resolved.resolvedCommands,
+      resolvedMcpServers: resolved.resolvedMcpServers,
+      versionConstraint,
+    } satisfies SetPackArgs;
+  });
 
 const checkInstalledOnDisk = (
   fsService: FileSystem.FileSystem,
@@ -162,18 +171,6 @@ export const PackManagerLive = Layer.effect(
         `packs.${ref.pack.name}.resolvedVersion`,
         registryRef.version,
       );
-      yield* validateExactResolvedVersionMap(
-        `packs.${ref.pack.name}.resolvedSkills`,
-        ref.pack.skills,
-      );
-      yield* validateExactResolvedVersionMap(
-        `packs.${ref.pack.name}.resolvedCommands`,
-        ref.pack.commands,
-      );
-      yield* validateExactResolvedVersionMap(
-        `packs.${ref.pack.name}.resolvedMcpServers`,
-        ref.pack.mcpServers,
-      );
 
       const packDir = computePackPaths(
         path.join,
@@ -248,18 +245,20 @@ export const PackManagerLive = Layer.effect(
       }) => {
         if (ref.refType === "builtin")
           return Effect.void.pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
-        const args = buildSetPackArgs(ref, versionConstraint);
-        return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertSettingsEntry"));
+        return buildSetPackArgs(ref, versionConstraint, sources).pipe(
+          Effect.flatMap((args) => ws.setPack(args)),
+          Effect.withSpan("PackManager.upsertSettingsEntry"),
+        );
       },
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
+      // Pack lockfile entries are written by upsertSettingsEntry via buildSetPackArgs;
+      // this method satisfies the ExtensionManager interface but performs no additional work.
       upsertLockfileEntry: ({ ref }: { readonly ref: PackExtensionRef }) => {
-        if (ref.refType === "builtin")
-          return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
-        const args = buildSetPackArgs(ref, Option.none());
-        return ws.setPack(args).pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
+        void ref;
+        return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
       },
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>

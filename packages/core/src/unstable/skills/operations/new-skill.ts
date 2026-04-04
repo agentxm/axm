@@ -18,6 +18,7 @@ import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
+import { decodeExactSemverVersionSync } from "../../version-constraints/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -55,7 +56,7 @@ description: A new skill
 Describe what this skill does and when to use it.
 `;
 
-const INITIAL_SKILL_VERSION = "0.0.1";
+const INITIAL_SKILL_VERSION = decodeExactSemverVersionSync("0.0.1");
 
 // -----------------------------------------------------------------------------
 // Public API

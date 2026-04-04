@@ -12,6 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  exactVersion,
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
   writeWorkspaceFiles,
@@ -117,7 +118,7 @@ describe("packs-add.handler", () => {
           "code-review": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "code-review",
-            resolvedVersion: "1.2.0",
+            resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),
         },
@@ -156,7 +157,7 @@ describe("packs-add.handler", () => {
           "code-review": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "code-review",
-            resolvedVersion: "1.2.0",
+            resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),
         },
@@ -197,19 +198,19 @@ describe("packs-add.handler", () => {
           "effect-basics": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "effect-basics",
-            resolvedVersion: "1.0.0",
+            resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "effect-streams",
-            resolvedVersion: "2.0.0",
+            resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
           }),
           "other-skill": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "other-skill",
-            resolvedVersion: "3.0.0",
+            resolvedVersion: exactVersion("3.0.0"),
             sourceName: "local",
           }),
         },
@@ -246,7 +247,7 @@ describe("packs-add.handler", () => {
           "some-skill": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "some-skill",
-            resolvedVersion: "1.0.0",
+            resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
         },
@@ -322,13 +323,13 @@ describe("packs-add.handler", () => {
           "skill-a": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "skill-a",
-            resolvedVersion: "1.0.0",
+            resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "skill-b": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "skill-b",
-            resolvedVersion: "2.0.0",
+            resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
           }),
         },
@@ -370,7 +371,7 @@ describe("packs-add.handler", () => {
           "code-review": makeRegistrySkillLockEntry({
             profile: "@acme",
             name: "code-review",
-            resolvedVersion: "1.2.0",
+            resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),
         },

@@ -46,7 +46,7 @@ describe("doctor handler", () => {
       path.join(canonicalDir, "axm-skill.json"),
       JSON.stringify(
         {
-          profile: "@axm",
+          owner: "@axm",
           type: "skill",
           name: "manage-extensions",
           version: "0.0.1",

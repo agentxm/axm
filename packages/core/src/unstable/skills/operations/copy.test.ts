@@ -118,7 +118,7 @@ describe("copySkill", () => {
   };
 
   describe("file copy", () => {
-    it.effect("copies source files to .axm/extensions/@profile/skills/<name>/src/", () =>
+    it.effect("copies source files to .axm/extensions/@owner/skills/<name>/src/", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -141,7 +141,7 @@ describe("copySkill", () => {
       }),
     );
 
-    it.effect("uses the profile from targetName", () =>
+    it.effect("uses the owner from targetName", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -191,7 +191,7 @@ describe("copySkill", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.profile).toBe("@community");
+        expect(manifest.owner).toBe("@community");
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.1.0");

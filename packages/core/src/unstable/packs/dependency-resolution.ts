@@ -52,7 +52,7 @@ const resolveDependencyType = (
 
 const registrySourceForDependency = (
   pack: PackExtensionRef,
-  profile: string,
+  owner: string,
 ): Effect.Effect<RegistrySource, AppError> => {
   if (pack.source.type !== "registry") {
     return Effect.fail(
@@ -65,7 +65,7 @@ const registrySourceForDependency = (
 
   return Effect.succeed({
     ...pack.source,
-    profile: Option.some(profile),
+    owner: Option.some(owner),
   });
 };
 
@@ -85,7 +85,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
       sources.find(source, {
         skillNames: [parsed.name],
         type: expectedType,
-        profile: Option.some(parsed.handle),
+        owner: Option.some(parsed.handle),
         versionConstraint: Option.some(constraint),
       }),
     );
@@ -96,7 +96,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
       ): candidate is Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }> =>
         candidate.type === expectedType &&
         candidate.refType === "registry" &&
-        candidate.profile === parsed.handle &&
+        candidate.owner === parsed.handle &&
         candidate.name === parsed.name,
     );
 

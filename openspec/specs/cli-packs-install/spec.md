@@ -4,7 +4,7 @@
 
 When a pack is installed, the system SHALL build a plan that includes install operations for all extensions referenced in the pack manifest, including skills, commands, and MCP servers.
 
-Pack manifest dependency keys SHALL use the three-segment FQN format (`@profile/type-plural/name`). These keys SHALL be written to the pack's `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers` maps in the lockfile.
+Pack manifest dependency keys SHALL use the three-segment FQN format (`@owner/type-plural/name`). These keys SHALL be written to the pack's `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers` maps in the lockfile.
 
 The pack install handler SHALL build extension refs from the pack ref's resolved extension maps and pass them to the plan builder as install operations. Extension refs SHALL use the pack's registry source and empty integrity (skip validation -- trust the pack's source).
 
@@ -48,7 +48,7 @@ Extensions already installed in the workspace SHALL be re-applied idempotently (
 #### Scenario: Extension refs built from pack resolved maps
 
 - **WHEN** the pack ref contains `pack.skills: { "@acme/skills/code-review": "1.2.0" }`
-- **THEN** the handler SHALL build a registry skill ref with profile `@acme`, name `code-review`, version `1.2.0`, and empty integrity
+- **THEN** the handler SHALL build a registry skill ref with owner `@acme`, name `code-review`, version `1.2.0`, and empty integrity
 - **AND** the ref's source SHALL be the pack's registry source
 
 #### Scenario: Dependency extensions installed without user version constraint

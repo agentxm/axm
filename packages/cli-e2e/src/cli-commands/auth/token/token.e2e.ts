@@ -29,12 +29,12 @@ describe("axm token", () => {
     });
   });
 
-  it("fails with AUTH_LOGIN_REQUIRED when no credentials available", async () => {
+  it("fails with AUTH_TOKEN_REQUIRED when no credentials available", async () => {
     const result = await runCli(["token"], {
       env: { AXM_TOKEN: "" },
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stdout + result.stderr).toContain("AUTH_LOGIN_REQUIRED");
-    expect(result.stderr).toContain("No token available");
+    expect(result.stdout + result.stderr).toContain("AUTH_TOKEN_REQUIRED");
+    expect(result.stderr).toContain("Persisted credentials are disabled");
   });
 });

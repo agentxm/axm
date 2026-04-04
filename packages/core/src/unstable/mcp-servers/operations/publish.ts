@@ -34,7 +34,7 @@ import { Workspace } from "../../workspace/service-interface.js";
  * Args for the publish-mcp-server operation.
  */
 export type PublishMcpServerOperationArgs = {
-  /** Extension identity in `@profile/mcp-servers/name` FQN format. */
+  /** Extension identity in `@owner/mcp-servers/name` FQN format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;

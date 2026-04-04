@@ -307,7 +307,7 @@ describe("fork.handler", () => {
 
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Manifest should use the configured profile
+          // Manifest should use the configured owner
           const manifestPath = path.join(
             tempDir,
             ".axm",
@@ -318,7 +318,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.profile).toBe("@test");
+          expect(manifest.owner).toBe("@test");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),
@@ -639,8 +639,8 @@ describe("fork.handler", () => {
     );
   });
 
-  describe("profile resolution", () => {
-    it.effect("uses profile from project settings", () => {
+  describe("owner resolution", () => {
+    it.effect("uses owner from project settings", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -666,7 +666,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("my-skill"));
 
-          // Manifest should use the configured profile
+          // Manifest should use the configured owner
           const manifestPath = path.join(
             tempDir,
             ".axm",
@@ -677,7 +677,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.profile).toBe("@test");
+          expect(manifest.owner).toBe("@test");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),

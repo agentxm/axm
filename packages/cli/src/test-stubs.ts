@@ -255,7 +255,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
@@ -265,7 +265,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): SkillLockEntry => ({
   type: "registry",
-  profile: opts.profile,
+  owner: opts.owner,
   name: opts.name,
   resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
@@ -276,7 +276,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 });
 
 export const makeRegistryPackLockEntry = (opts: {
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
@@ -288,7 +288,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
-    profile: opts.profile,
+    owner: opts.owner,
     name: opts.name,
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",

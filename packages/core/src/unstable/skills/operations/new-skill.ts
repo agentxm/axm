@@ -31,7 +31,7 @@ export interface NewSkillOperationArgs {
   /** Skill name (validated, lowercase with hyphens). */
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
-  readonly profile: string;
+  readonly owner: string;
   /** Agent IDs to create symlinks for. */
   readonly agents: ReadonlyArray<string>;
 }
@@ -83,8 +83,8 @@ export const newSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { name, profile, agents } = op.args;
-    const fqn = `${profile}/skills/${name}`;
+    const { name, owner, agents } = op.args;
+    const fqn = `${owner}/skills/${name}`;
 
     // 1. Check if skill already exists in settings
     const configuredSkills = yield* ws.getConfiguredSkills();
@@ -100,7 +100,7 @@ export const newSkill: OperationHandler<
     const { canonicalPath, skillSrcPath } = computeSkillPaths(
       path.join,
       base,
-      { refType: "registry", profile },
+      { refType: "registry", owner },
       name,
     );
 
@@ -117,7 +117,7 @@ export const newSkill: OperationHandler<
 
     // 4. Write manifest
     const manifest: SkillManifest = {
-      profile,
+      owner,
       type: "skill",
       name,
       version: INITIAL_SKILL_VERSION,
@@ -175,7 +175,7 @@ export const newSkill: OperationHandler<
       versionConstraint: Option.none(),
       lockEntry: {
         type: "registry",
-        profile,
+        owner,
         name,
         resolvedVersion: INITIAL_SKILL_VERSION,
         integrity: "",

@@ -21,7 +21,7 @@ describe("axm skills publish", () => {
         // Initialize workspace
         await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
-        // Set up registry source and profile
+        // Set up registry source and owner
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
@@ -50,7 +50,7 @@ describe("axm skills publish", () => {
 
         // Create axm-skill.json manifest at extension root
         const manifest = {
-          profile: "@test",
+          owner: "@test",
           type: "skill",
           name: "my-publish-skill",
           version: "1.0.0",
@@ -81,7 +81,7 @@ describe("axm skills publish", () => {
 
         const index = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
         expect(index.name).toBe("my-publish-skill");
-        expect(index.profile).toBe("@test");
+        expect(index.owner).toBe("@test");
         expect(index.type).toBe("skill");
         expect(index.versions).toBeDefined();
         expect(index.versions.length).toBe(1);
@@ -114,7 +114,7 @@ describe("axm skills publish", () => {
       }
     });
 
-    it("publishes with bare name (resolves profile from settings)", async () => {
+    it("publishes with bare name (resolves owner from settings)", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -128,7 +128,7 @@ describe("axm skills publish", () => {
         settings.profile = "@myorg";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        // Create extension with profile from settings
+        // Create extension with owner from settings
         const extensionDir = path.join(
           temp.path,
           ".axm",
@@ -147,7 +147,7 @@ describe("axm skills publish", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              profile: "@myorg",
+              owner: "@myorg",
               type: "skill",
               name: "code-review",
               version: "2.0.0",
@@ -158,7 +158,7 @@ describe("axm skills publish", () => {
           ) + "\n",
         );
 
-        // Publish using bare name (profile resolved from settings)
+        // Publish using bare name (owner resolved from settings)
         const publishResult = await runCli(["skills", "publish", "code-review", "--yes"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
@@ -215,11 +215,11 @@ describe("axm skills publish", () => {
     /** Create an extension in .axm/extensions/ with a manifest. */
     const createManagedExtension = (
       tempPath: string,
-      profile: string,
+      owner: string,
       name: string,
       version = "1.0.0",
     ) => {
-      const extensionDir = path.join(tempPath, ".axm", "extensions", profile, "skills", name);
+      const extensionDir = path.join(tempPath, ".axm", "extensions", owner, "skills", name);
       const srcDir = path.join(extensionDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(
@@ -230,7 +230,7 @@ describe("axm skills publish", () => {
         path.join(extensionDir, "axm-skill.json"),
         JSON.stringify(
           {
-            profile,
+            owner,
             type: "skill",
             name,
             version,
@@ -242,18 +242,18 @@ describe("axm skills publish", () => {
       );
     };
 
-    /** Set up workspace with registry source, profile, and optional skills in settings. */
+    /** Set up workspace with registry source, owner, and optional skills in settings. */
     const setupWorkspace = async (
       tempPath: string,
       registryPath: string,
-      profile: string,
+      owner: string,
       skills?: Record<string, string>,
     ) => {
       await runCli(["init", "--yes", "--non-interactive"], { cwd: tempPath });
       const settingsPath = path.join(tempPath, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
-      settings.profile = profile;
+      settings.profile = owner;
       if (skills) settings.skills = skills;
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     };
@@ -262,18 +262,18 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
         // Create 3 extensions
-        createManagedExtension(temp.path, profile, "effect-basics");
-        createManagedExtension(temp.path, profile, "effect-stream");
-        createManagedExtension(temp.path, profile, "commit");
+        createManagedExtension(temp.path, owner, "effect-basics");
+        createManagedExtension(temp.path, owner, "effect-stream");
+        createManagedExtension(temp.path, owner, "commit");
 
         // Set up workspace with all 3 registered as configured skills
-        await setupWorkspace(temp.path, registryDir.path, profile, {
-          "effect-basics": `${profile}/skills/effect-basics`,
-          "effect-stream": `${profile}/skills/effect-stream`,
-          commit: `${profile}/skills/commit`,
+        await setupWorkspace(temp.path, registryDir.path, owner, {
+          "effect-basics": `${owner}/skills/effect-basics`,
+          "effect-stream": `${owner}/skills/effect-stream`,
+          commit: `${owner}/skills/commit`,
         });
 
         // Publish with glob pattern
@@ -287,7 +287,7 @@ describe("axm skills publish", () => {
         const effectBasicsIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "effect-basics",
           "index.json",
@@ -295,7 +295,7 @@ describe("axm skills publish", () => {
         const effectStreamIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "effect-stream",
           "index.json",
@@ -307,7 +307,7 @@ describe("axm skills publish", () => {
         const commitIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "commit",
           "index.json",
@@ -323,14 +323,14 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
-        createManagedExtension(temp.path, profile, "skill-a");
-        createManagedExtension(temp.path, profile, "skill-b");
+        createManagedExtension(temp.path, owner, "skill-a");
+        createManagedExtension(temp.path, owner, "skill-b");
 
-        await setupWorkspace(temp.path, registryDir.path, profile, {
-          "skill-a": `${profile}/skills/skill-a`,
-          "skill-b": `${profile}/skills/skill-b`,
+        await setupWorkspace(temp.path, registryDir.path, owner, {
+          "skill-a": `${owner}/skills/skill-a`,
+          "skill-b": `${owner}/skills/skill-b`,
         });
 
         // Publish multiple literal names
@@ -344,7 +344,7 @@ describe("axm skills publish", () => {
         const skillAIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "skill-a",
           "index.json",
@@ -352,7 +352,7 @@ describe("axm skills publish", () => {
         const skillBIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "skill-b",
           "index.json",
@@ -369,12 +369,12 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
-        createManagedExtension(temp.path, profile, "some-skill");
+        createManagedExtension(temp.path, owner, "some-skill");
 
-        await setupWorkspace(temp.path, registryDir.path, profile, {
-          "some-skill": `${profile}/skills/some-skill`,
+        await setupWorkspace(temp.path, registryDir.path, owner, {
+          "some-skill": `${owner}/skills/some-skill`,
         });
 
         // Publish with a glob that matches nothing

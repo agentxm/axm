@@ -73,41 +73,41 @@ const runWithActions = <A, E>(
   }).pipe(Effect.provide(actionsLayer));
 
 describe("parseMcpServerInstallArgs", () => {
-  it.effect("parses @profile/mcp-servers/name registry pattern", () =>
+  it.effect("parses @owner/mcp-servers/name registry pattern", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/mcp-servers/my-server",
         }),
       );
-      expect(result.profile).toBe("@acme");
+      expect(result.owner).toBe("@acme");
       expect(result.serverName).toBe("my-server");
       expect(Option.isNone(result.versionConstraint)).toBe(true);
       expect(result.resolvedInput).toBe("@acme/mcp-servers/my-server");
     }),
   );
 
-  it.effect("parses @profile/mcp-servers/name@version with constraint", () =>
+  it.effect("parses @owner/mcp-servers/name@version with constraint", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/mcp-servers/my-server@^2.0.0",
         }),
       );
-      expect(result.profile).toBe("@acme");
+      expect(result.owner).toBe("@acme");
       expect(result.serverName).toBe("my-server");
       expect(Option.getOrNull(result.versionConstraint)).toBe("^2.0.0");
     }),
   );
 
-  it.effect("resolves bare name using configured profile", () =>
+  it.effect("resolves bare name using configured owner", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "my-server",
         }),
       );
-      expect(result.profile).toBe("@test-ns");
+      expect(result.owner).toBe("@test-ns");
       expect(result.serverName).toBe("my-server");
       expect(result.resolvedInput).toBe("@test-ns/mcp-servers/my-server");
     }),

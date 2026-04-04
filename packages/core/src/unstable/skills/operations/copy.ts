@@ -29,13 +29,13 @@ import { stripFileProtocol } from "../../utils/index.js";
 /**
  * Args for the copy-skill operation.
  *
- * Copies source files to `.axm/extensions/@<profile>/skills/<name>/`
+ * Copies source files to `.axm/extensions/@<owner>/skills/<name>/`
  * and generates an `axm-skill.json` manifest.
  */
 export type CopySkillOperationArgs = {
   /** The skill extension ref carrying source and location. */
   readonly ref: SkillExtensionRef;
-  /** Target identity in `@profile/name` format. */
+  /** Target identity in `@owner/name` format. */
   readonly targetName: string;
 };
 
@@ -59,9 +59,9 @@ const DEFAULT_VERSION = "0.1.0";
 /**
  * Copy-skill operation handler.
  *
- * 1. Parse target name (`@profile/name`)
+ * 1. Parse target name (`@owner/name`)
  * 2. Resolve source path from ref location
- * 3. Copy files to `.axm/extensions/@<profile>/skills/<name>/`
+ * 3. Copy files to `.axm/extensions/@<owner>/skills/<name>/`
  * 4. Generate `axm-skill.json` manifest with defaults
  */
 export const copySkill: OperationHandler<
@@ -102,7 +102,7 @@ export const copySkill: OperationHandler<
 
     // Generate axm-skill.json manifest
     const manifest = {
-      profile: fqn.handle,
+      owner: fqn.handle,
       type: "skill",
       name: fqn.name,
       version: DEFAULT_VERSION,

@@ -190,7 +190,7 @@ const withServices = (
 const makeRegistryRef = (
   overrides: {
     name?: string;
-    profile?: string;
+    owner?: string;
     version?: string;
     integrity?: string;
     location?: string;
@@ -201,10 +201,10 @@ const makeRegistryRef = (
   source: {
     type: "registry",
     location: new URL(overrides.location ?? "file:///tmp/reg"),
-    profile: Option.none(),
+    owner: Option.none(),
   },
   server: { name: overrides.name ?? "my-server" },
-  profile: overrides.profile ?? "@community",
+  owner: overrides.owner ?? "@community",
   name: overrides.name ?? "my-server",
   version: overrides.version ?? "1.0.0",
   integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
@@ -252,8 +252,8 @@ describe("installMcpServer", () => {
     return { base, axmDir };
   };
 
-  const setupRegistryCanonical = (base: string, profile: string, name = "my-server") => {
-    const canonicalPath = path.join(base, ".axm", "extensions", profile, "mcp-servers", name);
+  const setupRegistryCanonical = (base: string, owner: string, name = "my-server") => {
+    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "axm-mcp-server.json"),
@@ -263,12 +263,12 @@ describe("installMcpServer", () => {
   };
 
   /** Creates a local registry with index.json and a zip archive for an MCP server. */
-  const setupLocalRegistry = (opts: { profile?: string; name?: string; version?: string } = {}) => {
-    const profile = opts.profile ?? "@community";
+  const setupLocalRegistry = (opts: { owner?: string; name?: string; version?: string } = {}) => {
+    const owner = opts.owner ?? "@community";
     const name = opts.name ?? "my-server";
     const version = opts.version ?? "1.0.0";
     const registryRoot = path.join(tmpDir, "local-registry");
-    const extDir = path.join(registryRoot, "extensions", profile, "mcp-servers", name);
+    const extDir = path.join(registryRoot, "extensions", owner, "mcp-servers", name);
     fs.mkdirSync(extDir, { recursive: true });
 
     // Create index.json
@@ -475,12 +475,12 @@ describe("installMcpServer", () => {
   });
 
   describe("path safety", () => {
-    it.effect("fails when profile contains path traversal", () =>
+    it.effect("fails when owner contains path traversal", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
         const ref = makeRegistryRef({
-          profile: "../../../etc",
+          owner: "../../../etc",
           integrity: "",
         });
 
@@ -794,7 +794,7 @@ describe("installMcpServer", () => {
             workspaceRoot: base,
             serverName: "chrome-devtools-mcp",
             canonicalPath,
-            profile: "@community",
+            owner: "@community",
             resolvedVersion: "1.0.0",
           });
         }),

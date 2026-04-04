@@ -114,7 +114,7 @@ const makeOp = (overrides: Partial<NewSkillOperation["args"]> = {}): NewSkillOpe
   name: "new-skill",
   args: {
     name: overrides.name ?? "my-skill",
-    profile: overrides.profile ?? "@myorg",
+    owner: overrides.owner ?? "@myorg",
     agents: overrides.agents ?? ["claude-code"],
   },
 });
@@ -212,7 +212,7 @@ describe("newSkill", () => {
           "axm-skill.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.profile).toBe("@myorg");
+        expect(manifest.owner).toBe("@myorg");
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.0.1");

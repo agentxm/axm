@@ -39,16 +39,16 @@ export const getSkillDisplayName = (ref: SkillExtensionRef): string =>
 // -----------------------------------------------------------------------------
 
 /**
- * Derive the FQN (`@profile/skills/name`) for a skill lock entry, if it's a registry entry.
+ * Derive the FQN (`@owner/skills/name`) for a skill lock entry, if it's a registry entry.
  */
 export const getSkillFqn = (
   skillName: string,
-  lockEntry: { type: string; profile?: string; name?: string } | undefined,
+  lockEntry: { type: string; owner?: string; name?: string } | undefined,
 ): string | undefined => {
-  if (lockEntry?.type === "registry" && lockEntry.profile && lockEntry.name) {
-    return `${lockEntry.profile}/skills/${lockEntry.name}`;
+  if (lockEntry?.type === "registry" && lockEntry.owner && lockEntry.name) {
+    return `${lockEntry.owner}/skills/${lockEntry.name}`;
   }
-  // For non-registry entries, the skill name itself may be a FQN (e.g., "@profile/skills/name")
+  // For non-registry entries, the skill name itself may be a FQN (e.g., "@owner/skills/name")
   return skillName.startsWith("@") ? skillName : undefined;
 };
 

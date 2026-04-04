@@ -48,7 +48,7 @@ describe("workspace sync", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
-      profile: "@axm",
+      owner: "@axm",
       skills: {
         "manage-extensions": "@axm/skills/manage-extensions",
       },
@@ -61,7 +61,7 @@ describe("workspace sync", () => {
       path.join(canonicalDir, "axm-skill.json"),
       JSON.stringify(
         {
-          profile: "@axm",
+          owner: "@axm",
           type: "skill",
           name: "manage-extensions",
           version: "0.0.1",
@@ -77,7 +77,7 @@ describe("workspace sync", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
-      profile: "@acme",
+      owner: "@acme",
       skills: {
         "code-review": {
           source: "@acme/skills/code-review",
@@ -95,7 +95,7 @@ describe("workspace sync", () => {
       path.join(skillDir, "axm-skill.json"),
       JSON.stringify(
         {
-          profile: "@acme",
+          owner: "@acme",
           type: "skill",
           name: "code-review",
           version: "1.2.0",
@@ -112,7 +112,7 @@ describe("workspace sync", () => {
       path.join(packDir, "axm-pack.json"),
       JSON.stringify(
         {
-          profile: "@acme",
+          owner: "@acme",
           type: "pack",
           name: "starter",
           version: "1.0.0",
@@ -152,7 +152,7 @@ describe("workspace sync", () => {
         expect(lockfile.skills).toEqual({
           "manage-extensions": expect.objectContaining({
             type: "registry",
-            profile: "@axm",
+            owner: "@axm",
             name: "manage-extensions",
             resolvedVersion: "0.0.1",
             sourceName: "default",
@@ -179,7 +179,7 @@ describe("workspace sync", () => {
         expect(Object.keys(lockfile.skills)).toEqual(["code-review"]);
         expect(lockfile.skills["code-review"]).toMatchObject({
           type: "registry",
-          profile: "@acme",
+          owner: "@acme",
           name: "code-review",
           resolvedVersion: "1.2.0",
           sourceName: "default",
@@ -187,7 +187,7 @@ describe("workspace sync", () => {
         });
         expect(lockfile.packs.starter).toMatchObject({
           type: "registry",
-          profile: "@acme",
+          owner: "@acme",
           name: "starter",
           resolvedVersion: "1.0.0",
           sourceName: "default",
@@ -204,7 +204,7 @@ describe("workspace sync", () => {
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
-        profile: "@axm",
+        owner: "@axm",
         skills: {
           "manage-extensions": "@axm/skills/manage-extensions",
         },

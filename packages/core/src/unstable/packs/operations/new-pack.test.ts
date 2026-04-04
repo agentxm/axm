@@ -96,7 +96,7 @@ const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOpera
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
-    profile: overrides.profile ?? "@myorg",
+    owner: overrides.owner ?? "@myorg",
   },
 });
 
@@ -156,7 +156,7 @@ describe("newPack", () => {
           "axm-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.profile).toBe("@myorg");
+        expect(manifest.owner).toBe("@myorg");
         expect(manifest.type).toBe("pack");
         expect(manifest.name).toBe("my-pack");
         expect(manifest.version).toBe("0.0.1");
@@ -179,7 +179,7 @@ describe("newPack", () => {
         expect(setPackFn).toHaveBeenCalledOnce();
         expect(setPackFn).toHaveBeenCalledWith(
           expect.objectContaining({
-            profile: "@myorg",
+            owner: "@myorg",
             name: "my-pack",
           }),
         );
@@ -197,7 +197,7 @@ describe("newPack", () => {
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
           path.join(packDir, "axm-pack.json"),
-          JSON.stringify({ profile: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
+          JSON.stringify({ owner: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 
         const result = yield* newPack(makeOp()).pipe(

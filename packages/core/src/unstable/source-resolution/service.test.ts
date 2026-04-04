@@ -1,7 +1,7 @@
 /**
  * Tests for SourceHostProviders service and registry meta-provider.
  *
- * Tests profile routing, lazy config reads, 404 fallthrough,
+ * Tests owner routing, lazy config reads, 404 fallthrough,
  * and dispatch to correct provider by source type.
  */
 
@@ -40,7 +40,7 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 
 const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   name: "my-skill",
-  profile: "@test",
+  owner: "@test",
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
@@ -49,7 +49,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 const defaultFindOptions: FindOptions = {
   skillNames: [],
   type: "skill",
-  profile: Option.none(),
+  owner: Option.none(),
   versionConstraint: Option.none(),
 };
 
@@ -74,7 +74,7 @@ const computeIntegrity = (data: Uint8Array): string => {
 
 /**
  * Create a minimal workspace service for testing.
- * Returns registry sources without profile filtering.
+ * Returns registry sources without owner filtering.
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   ...taxonomyStubs,
@@ -157,11 +157,11 @@ const runWithService = <A, E>(
 };
 
 // -----------------------------------------------------------------------------
-// Registry meta-provider: profile routing
+// Registry meta-provider: owner routing
 // -----------------------------------------------------------------------------
 
-describe("registry meta-provider profile routing", () => {
-  it.effect("queries catch-all registry when no profile match", () => {
+describe("registry meta-provider owner routing", () => {
+  it.effect("queries catch-all registry when no owner match", () => {
     const registryRoot = makeRegistryDir();
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
@@ -190,7 +190,7 @@ describe("registry meta-provider profile routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            profile: Option.none(),
+            owner: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -212,7 +212,7 @@ describe("registry meta-provider profile routing", () => {
           {
             type: "registry",
             location: new URL("file:///tmp/registry"),
-            profile: Option.none(),
+            owner: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -221,7 +221,7 @@ describe("registry meta-provider profile routing", () => {
     ),
   );
 
-  it.effect("filters registry discovery to the requested profile", () => {
+  it.effect("filters registry discovery to the requested owner", () => {
     const registryRoot = makeRegistryDir();
     const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
     const otherScopeSkillDir = nodePath.join(
@@ -251,7 +251,7 @@ describe("registry meta-provider profile routing", () => {
           nodePath.join(scopedSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              profile: "@acme",
+              owner: "@acme",
               name: "my-skill",
               versions: [makeVersionEntry({ integrity })],
             }),
@@ -261,7 +261,7 @@ describe("registry meta-provider profile routing", () => {
           nodePath.join(otherScopeSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              profile: "@other",
+              owner: "@other",
               name: "my-skill",
               versions: [makeVersionEntry({ integrity, version: "2.0.0" })],
             }),
@@ -273,14 +273,14 @@ describe("registry meta-provider profile routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            profile: Option.none(),
+            owner: Option.none(),
           },
-          { ...defaultFindOptions, profile: Option.some("@acme") },
+          { ...defaultFindOptions, owner: Option.some("@acme") },
         );
         expect(refs).toHaveLength(1);
         const ref = refs[0];
         if (ref?.refType === "registry") {
-          expect(ref.profile).toBe("@acme");
+          expect(ref.owner).toBe("@acme");
         }
       }).pipe(
         Effect.ensuring(
@@ -312,7 +312,7 @@ describe("registry meta-provider profile routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            profile: Option.some("@test"),
+            owner: Option.some("@test"),
           },
           { ...defaultFindOptions, skillNames: ["missing"] },
         );
@@ -411,7 +411,7 @@ describe("SourceHostProviders dispatch", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            profile: Option.none(),
+            owner: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["nonexistent"] },
         );

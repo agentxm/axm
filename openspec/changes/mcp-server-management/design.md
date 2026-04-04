@@ -773,7 +773,7 @@ const handleInstall = Effect.fn("McpInstall.handle")(function* (args: InstallHan
   const handle = yield* spinnerSvc.start("Resolving...")
   const discoveredRefs = yield* sources.find(resolvedSource, {
     type: "mcp-server",
-    profile: requestedNamespace,
+    owner: requestedNamespace,
     versionConstraint,
     skillNames: requestedNames,
   })
@@ -1282,7 +1282,7 @@ const handleUpdate = Effect.fn("McpUpdate.handle")(function* (args: UpdateHandle
         const versionConstraint = Option.fromNullable(target.entry.source)
         const newRefs = yield* sources.find(/* registry source */, {
           type: "mcp-server",
-          profile: Option.some(target.locked.profile),
+          owner: Option.some(target.locked.owner),
           versionConstraint,
           skillNames: [target.name],
         })
@@ -1366,7 +1366,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
     name.startsWith("@") && name.includes("/")
       ? Effect.succeed(name)
-      : ws.getConfiguredProfile().pipe(Effect.map((profile) => `${profile}/mcp-servers/${name}`)),
+      : ws.getConfiguredProfile().pipe(Effect.map((owner) => `${owner}/mcp-servers/${name}`)),
   );
 
   // Step 4: Validate each extension exists on disk with manifest
@@ -1437,7 +1437,7 @@ const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHan
 
 interface McpNewHandlerArgs {
   readonly name: string;
-  readonly profile: Option<string>;
+  readonly owner: Option<string>;
   readonly yes: boolean;
   readonly preview: boolean;
   readonly nonInteractive: Option<boolean>;
@@ -1455,8 +1455,8 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   yield* log.info("axm mcp new");
 
   // 1. Resolve profile
-  const profile = Option.isSome(args.profile)
-    ? normalizeHandle(args.profile.value)
+  const owner = Option.isSome(args.profile)
+    ? normalizeProfile(args.profile.value)
     : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
@@ -1480,7 +1480,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
     });
   }
 
-  const fqn = `${profile}/mcp-servers/${args.name}`;
+  const fqn = `${owner}/mcp-servers/${args.name}`;
   const base = ws.baseDir;
 
   // 3. Check existence
@@ -1493,7 +1493,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   }
 
   // 4. Compute paths
-  const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, profile, "mcp-servers", args.name);
+  const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, owner, "mcp-servers", args.name);
 
   // 5. Create directory
   yield* fs.makeDirectory(canonicalPath, { recursive: true });

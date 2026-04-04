@@ -47,14 +47,14 @@ const makePackRef = (
 ): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
-  source: { type: "registry", location: new URL("file:///tmp/registry"), profile: Option.none() },
+  source: { type: "registry", location: new URL("file:///tmp/registry"), owner: Option.none() },
   pack: {
     name,
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
-  profile: "@acme",
+  owner: "@acme",
   name,
   version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
@@ -90,7 +90,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      makeRegistryPackLockEntry({ profile: "@acme", name, sourceName: "local" }),
+      makeRegistryPackLockEntry({ owner: "@acme", name, sourceName: "local" }),
     ]),
   ),
 });
@@ -105,9 +105,9 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -128,9 +128,9 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -149,7 +149,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        profile: "@acme",
+        owner: "@acme",
         name,
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
@@ -169,7 +169,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        profile: "@acme",
+        owner: "@acme",
         name,
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
@@ -675,7 +675,7 @@ describe("buildInstallPlan", () => {
         commands: {
           "cmd-a": {
             type: "registry" as const,
-            profile: "@acme",
+            owner: "@acme",
             name: "cmd-a",
             resolvedVersion: exactVersion("1.0.0"),
             integrity: "",

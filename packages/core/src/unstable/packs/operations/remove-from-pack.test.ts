@@ -104,14 +104,14 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 /** Creates a pack manifest with some skills on disk and returns its content hash. */
 const createPackManifestWithSkills = (
   base: string,
-  profile: string,
+  owner: string,
   packName: string,
   skills: Record<string, string> = {},
 ) => {
-  const packDir = path.join(base, ".axm", "extensions", profile, "packs", packName);
+  const packDir = path.join(base, ".axm", "extensions", owner, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
-    profile,
+    owner,
     type: "pack",
     name: packName,
     version: "0.0.1",
@@ -131,7 +131,7 @@ const makeOp = (
   name: "remove-from-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
-    packProfile: overrides.packProfile ?? "@myorg",
+    packOwner: overrides.packOwner ?? "@myorg",
     removals: overrides.removals ?? ["@acme/skills/my-skill"],
     manifestHash: overrides.manifestHash,
   },

@@ -40,7 +40,7 @@ export interface AddMcpServerArgs {
   readonly workspaceRoot: string;
   readonly serverName: string;
   readonly canonicalPath: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly resolvedVersion: string;
 }
 

@@ -104,8 +104,8 @@ const makeWorkspaceMock = (
         );
       }
       if (lockEntry.type === "registry") {
-        const profile = lockEntry.profile;
-        const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
+        const owner = lockEntry.owner;
+        const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
@@ -176,7 +176,7 @@ const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source"): Skill
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
 const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "registry" as const,
-  profile: "@community",
+  owner: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

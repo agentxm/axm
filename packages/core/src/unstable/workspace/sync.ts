@@ -56,7 +56,7 @@ const countLockfileEntries = (lockfile: ReconciliationSnapshot["lockfile"]): num
 const formatUnresolved = (snapshot: ReconciliationSnapshot) =>
   snapshot.unresolved.map(
     ({ declaration, reason }) =>
-      `${declaration.extensionType}:${declaration.profile}/${declaration.name} (${reason})`,
+      `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
   );
 
 const buildWorkspaceSyncState = () =>

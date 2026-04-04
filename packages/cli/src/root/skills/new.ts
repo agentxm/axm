@@ -1,5 +1,5 @@
 /**
- * Skills new handler — validates input, resolves profile and agents,
+ * Skills new handler — validates input, resolves owner and agents,
  * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -55,7 +55,7 @@ export interface SkillsNewHandlerArgs {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+const normalizeOwner = (s: string) => (s.startsWith("@") ? s : `@${s}`);
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -70,8 +70,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   yield* renderer.info("axm skills new");
 
   // 1. Resolve profile
-  const profile = Option.isSome(args.profile)
-    ? normalizeProfile(args.profile.value)
+  const owner = Option.isSome(args.profile)
+    ? normalizeOwner(args.profile.value)
     : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
@@ -124,11 +124,11 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 6. Build operation
   const op = {
     name: "new-skill",
-    args: { name: args.name, profile, agents: [...agents] },
+    args: { name: args.name, owner, agents: [...agents] },
   } satisfies NewSkillOperation;
 
   // 7. Build plan with inline run closure
-  const fqn = `${profile}/skills/${args.name}`;
+  const fqn = `${owner}/skills/${args.name}`;
 
   const toJobStepResult = (result: {
     readonly result: string;
@@ -172,9 +172,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 // -----------------------------------------------------------------------------
 
 const newConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("Name of the skill (without profile)"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Name of the skill (without owner)")),
   profile: Flag.string("profile").pipe(
     Flag.withDescription("Override the workspace profile (e.g., @acme)"),
     Flag.optional,
@@ -212,7 +210,7 @@ export const newCommand = Command.make(
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },
     {
       command: "axm skills new my-skill --profile @acme",
-      description: "Create under a specific profile",
+      description: "Create under a specific owner",
     },
     { command: "", description: "See also: skills fork, skills publish" },
   ]),

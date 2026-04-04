@@ -105,14 +105,10 @@ describe("publishMcpServer", () => {
   });
 
   /** Sets up a workspace with an installed MCP server and registry. */
-  const setup = (
-    profile = "@community",
-    name = "my-mcp",
-    manifest: Record<string, unknown> = {},
-  ) => {
+  const setup = (owner = "@community", name = "my-mcp", manifest: Record<string, unknown> = {}) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", profile, "mcp-servers", name);
+    const extensionDir = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -120,7 +116,7 @@ describe("publishMcpServer", () => {
     fs.mkdirSync(registryRoot, { recursive: true });
 
     const defaultManifest = {
-      profile,
+      owner,
       type: "mcp-server",
       name,
       version: "0.1.0",
@@ -159,7 +155,7 @@ describe("publishMcpServer", () => {
 
       const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
       expect(index.name).toBe("my-mcp");
-      expect(index.profile).toBe("@community");
+      expect(index.owner).toBe("@community");
       expect(index.type).toBe("mcp-server");
       expect(index.versions).toHaveLength(1);
     }),

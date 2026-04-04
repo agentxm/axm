@@ -424,7 +424,7 @@ const materializeRegistry = (
   provide: ProvideFS,
 ) =>
   Effect.gen(function* () {
-    const source: SkillPathSource = { refType: "registry", profile: ref.profile };
+    const source: SkillPathSource = { refType: "registry", owner: ref.owner };
     const { canonicalPath, skillSrcPath } = computeSkillPaths(
       pathService.join,
       baseDir,
@@ -451,7 +451,7 @@ const materializeRegistry = (
           : ref.source.location.href;
       const client = yield* provide(createRegistryClient(locationStr));
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.profile,
+        handle: ref.owner,
         type: "skill",
         name: ref.name,
         version: Option.some(ref.version),

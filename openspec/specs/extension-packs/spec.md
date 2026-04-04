@@ -4,16 +4,16 @@
 
 Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestFields` with additional fields:
 
-- `name`: fully qualified `@profile/packs/name`
+- `name`: fully qualified `@owner/packs/name`
 - `version`: semver string
 - `description`: optional
 - `license`: optional
 - `authors`: array of `{name, email?, url?}`
-- `skills`: optional record of `@profile/skills/name` to semver range
-- `commands`: optional record of `@profile/commands/name` to semver range
-- `mcp-servers`: optional record of `@profile/mcp-servers/name` to semver range
+- `skills`: optional record of `@owner/skills/name` to semver range
+- `commands`: optional record of `@owner/commands/name` to semver range
+- `mcp-servers`: optional record of `@owner/mcp-servers/name` to semver range
 
-All extension entries in the manifest SHALL use three-segment fully qualified names and version-specifier maps (`"@profile/type-plural/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
+All extension entries in the manifest SHALL use three-segment fully qualified names and version-specifier maps (`"@owner/type-plural/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
 
 #### Scenario: Valid pack manifest with skills and commands
 
@@ -35,7 +35,7 @@ All extension entries in the manifest SHALL use three-segment fully qualified na
 Packs SHALL be stored in the managed extensions directory with the layout:
 
 ```
-.axm/extensions/@<profile>/packs/<name>/
+.axm/extensions/@<owner>/packs/<name>/
   axm-pack.json
   <optional additional files>
 ```
@@ -55,7 +55,7 @@ Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
 #### Scenario: Additional files preserved
 
 - **WHEN** a pack archive contains `axm-pack.json` and `README.md`
-- **THEN** both files are extracted to `.axm/extensions/@<profile>/packs/<name>/`
+- **THEN** both files are extracted to `.axm/extensions/@<owner>/packs/<name>/`
 
 ### Requirement: Packs are registry-only
 

@@ -1,5 +1,5 @@
 {
-  "profile": "@acme",
+  "owner": "@acme",
   "type": "pack",
   "name": "fullstack-pack",
   "version": "1.0.0",

@@ -17,7 +17,7 @@ export const PACK_MANIFEST_FILENAME = "axm-pack.json";
  * Raw pack manifest JSON shape (no schema validation on read to allow editing).
  */
 export interface RawPackManifest {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly version: string;
@@ -33,7 +33,7 @@ export interface RawPackManifest {
  * Used for read-then-edit workflows where the full PackManifestSchema is too strict.
  */
 export const RawPackManifestSchema = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,

@@ -165,7 +165,7 @@ export const materializeBuiltinPack = (
       skillEntries.map(([fqn, version]) => [fqn, decodeExactSemverVersionSync(version)]),
     );
     const packLockEntry = makeBuiltinPackLockEntry({
-      profile: BUILTIN_PACK_SCOPE,
+      owner: BUILTIN_PACK_SCOPE,
       name: BUILTIN_PACK_NAME,
       resolvedVersion: builtinPack.version,
       installedAt: now,

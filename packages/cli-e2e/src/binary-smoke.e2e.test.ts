@@ -30,8 +30,8 @@ describe("compiled binary smoke", () => {
     const result = await runBinary(["auth", "token"]);
 
     expect(result.exitCode).toBe(1);
-    expect(getOutput(result)).toContain("AUTH_LOGIN_REQUIRED");
-    expect(getOutput(result)).toContain("No token available");
+    expect(getOutput(result)).toContain("AUTH_TOKEN_REQUIRED");
+    expect(getOutput(result)).toContain("Persisted credentials are disabled");
   });
 
   it("exits non-zero for skills disable on a missing skill", async () => {

@@ -1,5 +1,5 @@
 {
-  "profile": "@acme",
+  "owner": "@acme",
   "type": "skill",
   "name": "code-review",
   "version": "1.0.0",

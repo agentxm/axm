@@ -162,9 +162,9 @@ const makeOp = (
         source: {
           type: "registry",
           location: new URL("http://localhost:3000"),
-          profile: Option.none(),
+          owner: Option.none(),
         },
-        profile: "@axm",
+        owner: "@axm",
         name,
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
@@ -276,7 +276,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
       const registryOverrides = overrides?.type === "registry" ? overrides : undefined;
       return {
         type: "registry",
-        profile: registryOverrides?.profile ?? "@axm",
+        owner: registryOverrides?.owner ?? "@axm",
         name: registryOverrides?.name ?? "skill",
         resolvedVersion: registryOverrides?.resolvedVersion ?? exactVersion("0.0.0"),
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
@@ -529,7 +529,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          profile: "@axm",
+          owner: "@axm",
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
@@ -552,7 +552,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          profile: "@axm",
+          owner: "@axm",
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
@@ -649,7 +649,7 @@ describe("buildUpdatePlan", () => {
       const lf = lockfileWith({
         commit: makeLockEntry({
           type: "registry",
-          profile: "@axm",
+          owner: "@axm",
           name: "commit",
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",

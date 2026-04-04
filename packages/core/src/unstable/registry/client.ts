@@ -31,15 +31,15 @@ import type { ExactSemverVersion } from "../version-constraints/index.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Options for searching extensions within a specific registry profile.
+ * Options for searching extensions within a specific registry owner.
  *
- * - `handle`: profile handle to search (e.g. `"@acme"`)
+ * - `handle`: owner handle to search (e.g. `"@acme"`)
  * - `names`: extension names to match (empty = all)
  * - `types`: extension types to include (empty = all)
  * - `limit`: max results to return (default: all)
  * - `offset`: number of results to skip (default: 0)
  */
-export interface GetExtensionsByProfileArgs {
+export interface GetExtensionsByOwnerArgs {
   readonly handle: string;
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
@@ -54,7 +54,7 @@ export interface GetExtensionsByProfileArgs {
 /**
  * Options for fetching a specific extension version from a registry.
  *
- * - `handle`: profile handle in the registry path (e.g. `"@acme"`)
+ * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
@@ -73,7 +73,7 @@ export interface GetExtensionPackageArgs {
 /**
  * Options for fetching extension index metadata from a registry.
  *
- * - `handle`: profile handle in the registry path (e.g. `"@acme"`)
+ * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  */
@@ -90,7 +90,7 @@ export interface GetExtensionIndexArgs {
 /**
  * Options for publishing an extension version to a registry.
  *
- * - `handle`: profile handle in the registry path (e.g. `"@acme"`)
+ * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: version string to publish
@@ -113,7 +113,7 @@ export interface PublishExtensionArgs {
 /**
  * Options for checking whether an extension exists in a registry.
  *
- * - `handle`: profile handle in the registry path (e.g. `"@acme"`)
+ * - `handle`: owner handle in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  */
@@ -130,7 +130,7 @@ export interface ExtensionExistsArgs {
 /**
  * Result from a registry extension search.
  */
-export interface GetExtensionsByProfileResponse {
+export interface GetExtensionsByOwnerResponse {
   readonly extensions: ReadonlyArray<RegistryExtensionManifest<ExtensionType>>;
   readonly total: number;
 }
@@ -162,7 +162,7 @@ export interface PublishExtensionResponse {
 // -----------------------------------------------------------------------------
 
 /**
- * Response from checking whether a profile exists in a registry.
+ * Response from checking whether an owner exists in a registry.
  */
 export interface ProfileExistsResponse {
   readonly exists: boolean;
@@ -189,7 +189,7 @@ export interface ExtensionExistsResponse {
  * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: T;
   readonly name: string;
   readonly description: Option.Option<string>;
@@ -215,8 +215,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  */
 export interface RegistryClient {
   readonly getExtensionsByScope: (
-    args: GetExtensionsByProfileArgs,
-  ) => Effect.Effect<GetExtensionsByProfileResponse, AppError>;
+    args: GetExtensionsByOwnerArgs,
+  ) => Effect.Effect<GetExtensionsByOwnerResponse, AppError>;
   readonly profileExists: (handle: string) => Effect.Effect<ProfileExistsResponse, AppError>;
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,

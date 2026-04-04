@@ -196,7 +196,7 @@ describe("SourceParams", () => {
   it("narrows RegistrySourceParams via type", () => {
     const params: SourceParams = {
       type: "registry",
-      profile: Option.none(),
+      owner: Option.none(),
     };
     if (params.type === "registry") {
       expect(params.type).toBe("registry");
@@ -241,7 +241,7 @@ describe("Source", () => {
     const source: Source = {
       type: "registry",
       location: new URL("file:///registry"),
-      profile: Option.none(),
+      owner: Option.none(),
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
@@ -330,14 +330,14 @@ describe("ref detail interfaces", () => {
     expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
   });
 
-  it("RegistryRefDetails has profile, name, version, and integrity", () => {
+  it("RegistryRefDetails has owner, name, version, and integrity", () => {
     const details: RegistryRefDetails = {
-      profile: "@acme",
+      owner: "@acme",
       name: "my-skill",
       version: "1.2.3",
       integrity: Option.some("sha512-abc=="),
     };
-    expect(details.profile).toBe("@acme");
+    expect(details.owner).toBe("@acme");
     expect(details.name).toBe("my-skill");
     expect(details.version).toBe("1.2.3");
     expect(details.integrity).toEqual(Option.some("sha512-abc=="));
@@ -392,9 +392,9 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name: "test-pkg",
       version: "1.0.0",
       integrity: Option.some("sha512-abc"),
@@ -403,7 +403,7 @@ describe("SkillExtensionRef", () => {
       expect(ref.version).toBe("1.0.0");
       expect(ref.integrity).toEqual(Option.some("sha512-abc"));
       expect(ref.name).toBe("test-pkg");
-      expect(ref.profile).toBe("@acme");
+      expect(ref.owner).toBe("@acme");
     }
   });
 
@@ -483,9 +483,9 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name: "server-pkg",
       version: "2.0.0",
       integrity: Option.some("sha512-def"),
@@ -510,9 +510,9 @@ describe("PackExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name: "pack-pkg",
       version: "1.0.0",
       integrity: Option.some("sha512-ghi"),
@@ -523,17 +523,17 @@ describe("PackExtensionRef", () => {
     }
   });
 
-  it("BuiltinPackRef has pack name and profile", () => {
+  it("BuiltinPackRef has pack name and owner", () => {
     const ref: BuiltinPackRef = {
       type: "pack",
       refType: "builtin",
-      profile: "@axm",
+      owner: "@axm",
       pack: { name: "default", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };
     expect(ref.source.type).toBe("builtin");
     expect(ref.pack.name).toBe("default");
-    expect(ref.profile).toBe("@axm");
+    expect(ref.owner).toBe("@axm");
   });
 });
 
@@ -571,7 +571,7 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "builtin",
-      profile: "@axm",
+      owner: "@axm",
       pack: { name: "p", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };
@@ -585,14 +585,14 @@ describe("ExtensionRef", () => {
       type: "skill",
       refType: "registry",
       skill: { name: "s", description: Option.none(), metadata: Option.none() },
-      source: { type: "registry", location: new URL("file:///reg"), profile: Option.none() },
-      profile: "@acme",
+      source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
+      owner: "@acme",
       name: "pkg",
       version: "1.0.0",
       integrity: Option.some("sha512-abc"),
     };
     if (ref.refType === "registry") {
-      expect(ref.profile).toBe("@acme");
+      expect(ref.owner).toBe("@acme");
       expect(ref.version).toBe("1.0.0");
     }
   });
@@ -700,11 +700,11 @@ describe("SourceParams structural equality", () => {
   it("RegistrySourceParams has no additional fields", () => {
     const a: SourceParams = {
       type: "registry",
-      profile: Option.none(),
+      owner: Option.none(),
     };
     const b: SourceParams = {
       type: "registry",
-      profile: Option.none(),
+      owner: Option.none(),
     };
     expect(Equal.equals(a, b)).toBe(true);
   });

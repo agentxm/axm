@@ -65,14 +65,14 @@ const initWorkspace = (
     lockfilePacks?: Record<string, unknown>;
     settingsPacks?: Record<string, unknown>;
     sources?: ReadonlyArray<unknown>;
-    profile?: string;
+    owner?: string;
   },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.profile) settings["profile"] = opts.profile;
+  if (opts?.owner) settings["profile"] = opts.owner;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
@@ -212,7 +212,7 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("input parsing", () => {
-    it.effect("accepts @profile/packs/pack-name format", () => {
+    it.effect("accepts @owner/packs/pack-name format", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -222,14 +222,14 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const result = yield* actions.parseArgs(defaultArgs("@acme/packs/my-pack"));
-          expect(result.profile).toBe("@acme");
+          expect(result.owner).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.none());
         }),
       );
     });
 
-    it.effect("accepts @profile/packs/pack-name@^2.0.0 with version constraint", () => {
+    it.effect("accepts @owner/packs/pack-name@^2.0.0 with version constraint", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -239,7 +239,7 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const result = yield* actions.parseArgs(defaultArgs("@acme/packs/my-pack@^2.0.0"));
-          expect(result.profile).toBe("@acme");
+          expect(result.owner).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
         }),
@@ -250,32 +250,32 @@ describe("packs install handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        profile: "@myorg",
+        owner: "@myorg",
       });
 
       return provide(
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const result = yield* actions.parseArgs(defaultArgs("my-pack"));
-          expect(result.profile).toBe("@myorg");
+          expect(result.owner).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack");
         }),
       );
     });
 
-    it.effect("resolves bare pack-name@version with default profile", () => {
+    it.effect("resolves bare pack-name@version with default owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        profile: "@myorg",
+        owner: "@myorg",
       });
 
       return provide(
         Effect.gen(function* () {
           const actions = yield* InstallPackCommandWorkflowActions;
           const result = yield* actions.parseArgs(defaultArgs("my-pack@^2.0.0"));
-          expect(result.profile).toBe("@myorg");
+          expect(result.owner).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
@@ -283,7 +283,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("rejects @profile/pack-name without /packs/ segment", () => {
+    it.effect("rejects @owner/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -372,7 +372,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("rejects @profile/pack-name without /packs/ segment", () => {
+    it.effect("rejects @owner/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -411,9 +411,9 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           location: new URL("file:///tmp/reg"),
-          profile: Option.none(),
+          owner: Option.none(),
         },
-        profile: "@acme",
+        owner: "@acme",
         name: "my-pack",
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
@@ -437,7 +437,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "my-pack": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-pack",
             resolvedVersion: "1.0.0",
             integrity: "abc",
@@ -523,8 +523,8 @@ describe("packs install handler", () => {
         commands: opts?.commands ?? {},
         mcpServers: opts?.mcpServers ?? {},
       },
-      source: { type: "registry", location: new URL("file:///tmp/reg"), profile: Option.none() },
-      profile: "@acme",
+      source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+      owner: "@acme",
       name,
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -552,9 +552,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "code-review",
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
@@ -653,9 +653,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "existing-skill",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -671,9 +671,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "existing-cmd",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -689,7 +689,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "test-pack": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "test-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -835,7 +835,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@axm",
+        owner: "@axm",
         sources: [
           { type: "registry", name: "remote", location: "http://localhost:4300" },
           { type: "registry", name: "local", location: "file:///tmp/reg" },
@@ -890,9 +890,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "code-review",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -908,9 +908,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "lint",
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
@@ -926,9 +926,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "analytics",
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
@@ -992,9 +992,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "existing-skill",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -1010,9 +1010,9 @@ describe("packs install handler", () => {
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
-                  profile: Option.none(),
+                  owner: Option.none(),
                 },
-                profile: "@acme",
+                owner: "@acme",
                 name: "existing-cmd",
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
@@ -1028,7 +1028,7 @@ describe("packs install handler", () => {
         lockfileSkills: {
           "existing-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "existing-skill",
             resolvedVersion: "1.0.0",
             integrity: "",

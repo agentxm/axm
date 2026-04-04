@@ -1,7 +1,7 @@
 /**
  * Unit tests for the publish command handler.
  *
- * Tests the registry guard -> profile resolution -> validation -> plan build -> apply flow.
+ * Tests the registry guard -> owner resolution -> validation -> plan build -> apply flow.
  */
 
 import * as fs from "node:fs";
@@ -61,16 +61,16 @@ const initWorkspace = (
 /** Create an extension in .axm/extensions/ with a manifest at root and content in src/. */
 const createManagedExtension = (
   tempDir: string,
-  profile: string,
+  owner: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const extDir = path.join(tempDir, ".axm", "extensions", profile, "skills", name);
+  const extDir = path.join(tempDir, ".axm", "extensions", owner, "skills", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
-    profile,
+    owner,
     type: "skill",
     name,
     version: manifest["version"] ?? "0.0.1",
@@ -267,12 +267,12 @@ describe("publish.handler", () => {
     });
   });
 
-  describe("bare name profile resolution", () => {
-    it.effect("resolves bare name using profile from settings", () => {
+  describe("bare name owner resolution", () => {
+    it.effect("resolves bare name using owner from settings", () => {
       const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create extension under @test profile
+      // Create extension under @test owner
       createManagedExtension(tempDir, "@test", "code-review", {
         name: "@test/skills/code-review",
         version: "0.1.0",
@@ -283,12 +283,12 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Pass bare name without profile
+          // Pass bare name without owner
           yield* handlePublish(defaultArgs(["code-review"]));
 
           expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Should have published under @test profile
+          // Should have published under @test owner
           const registryIndexPath = path.join(
             registryRoot,
             "extensions",

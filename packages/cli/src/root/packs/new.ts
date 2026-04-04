@@ -1,5 +1,5 @@
 /**
- * Packs new handler — validates input, resolves profile,
+ * Packs new handler — validates input, resolves owner,
  * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -36,7 +36,7 @@ import { withWorkspace } from "../../runtime.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksNewHandlerArgs {
-  /** Name of the pack (without profile). */
+  /** Name of the pack (without owner). */
   readonly name: string;
   /** Optional profile override. */
   readonly profile: Option.Option<string>;
@@ -61,9 +61,9 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   yield* renderer.info("axm packs new");
 
   // Resolve profile
-  const normalizeProfile = (s: string) => (s.startsWith("@") ? s : `@${s}`);
-  const profile = Option.isSome(args.profile)
-    ? normalizeProfile(args.profile.value)
+  const normalizeOwner = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+  const owner = Option.isSome(args.profile)
+    ? normalizeOwner(args.profile.value)
     : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
@@ -79,11 +79,11 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = formatFqn({ handle: profile, type: "packs", name: args.name });
+  const fqn = formatFqn({ handle: owner, type: "packs", name: args.name });
   const base = ws.baseDir;
 
   // Check if pack already exists
-  const packDir = computePackPaths(path.join, base, profile, args.name);
+  const packDir = computePackPaths(path.join, base, owner, args.name);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const exists = yield* fs.exists(manifestPath).pipe(
@@ -107,7 +107,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   // Build operation
   const op = {
     name: "new-pack",
-    args: { name: args.name, profile },
+    args: { name: args.name, owner },
   } satisfies NewPackOperation;
 
   // Build Plan directly with inline run closure
@@ -155,9 +155,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 // -----------------------------------------------------------------------------
 
 const newConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("Name of the pack (without profile)"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
   profile: Flag.string("profile").pipe(
     Flag.withDescription("Override the workspace profile (e.g., @acme)"),
     Flag.optional,
@@ -186,7 +184,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
     },
     {
       command: "axm packs new frontend-tools --profile @co",
-      description: "Create under a specific profile",
+      description: "Create under a specific owner",
     },
     {
       command: "",

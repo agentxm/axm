@@ -48,10 +48,10 @@ const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
-  `${declaration.extensionType}:${declaration.profile}:${declaration.name}:${declaration.declarationSourceOrConstraint}`;
+  `${declaration.extensionType}:${declaration.owner}:${declaration.name}:${declaration.declarationSourceOrConstraint}`;
 
 const dedupeConflictKey = (declaration: ReconciliationDeclaration): string =>
-  `${declaration.extensionType}:${declaration.profile}:${declaration.name}`;
+  `${declaration.extensionType}:${declaration.owner}:${declaration.name}`;
 
 export interface ReconciliationSnapshot {
   readonly lockfile: Lockfile;
@@ -205,7 +205,7 @@ export const buildReconciliationSnapshot = (
 const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<string> =>
   snapshot.unresolved.map(
     ({ declaration, reason }) =>
-      `${declaration.extensionType}:${declaration.profile}/${declaration.name} (${reason})`,
+      `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
   );
 
 export const runReadRecoverOperation = (

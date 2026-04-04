@@ -88,7 +88,7 @@ describe("WorkspaceContextService", () => {
     ...options,
     resolveBuiltinPack: Effect.succeed({
       manifest: {
-        profile: "@axm",
+        owner: "@axm",
         name: "cli",
         type: "pack" as const,
         version: "0.0.0",
@@ -324,7 +324,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("returns all registry sources without profile filtering", () =>
+    it.effect("returns all registry sources without owner filtering", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -352,7 +352,7 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("getConfiguredProfile", () => {
-    it.effect("returns project profile when configured", () =>
+    it.effect("returns project owner when configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -360,31 +360,31 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const profile = yield* ws.getConfiguredProfile();
+        const owner = yield* ws.getConfiguredProfile();
 
-        expect(profile).toBe("@myorg");
+        expect(owner).toBe("@myorg");
       }),
     );
 
-    it.effect("returns global profile when project profile not configured", () =>
+    it.effect("returns global owner when project owner not configured", () =>
       Effect.gen(function* () {
-        // Project has no profile
+        // Project has no owner
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
         });
-        // Global has profile
+        // Global has owner
         writeSettingsTo(homeDir, {
           profile: "@globalorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const profile = yield* ws.getConfiguredProfile();
+        const owner = yield* ws.getConfiguredProfile();
 
-        expect(profile).toBe("@globalorg");
+        expect(owner).toBe("@globalorg");
       }),
     );
 
-    it.effect("normalizes bare profile by prepending @", () =>
+    it.effect("normalizes bare owner by prepending @", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -392,13 +392,13 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const profile = yield* ws.getConfiguredProfile();
+        const owner = yield* ws.getConfiguredProfile();
 
-        expect(profile).toBe("@myorg");
+        expect(owner).toBe("@myorg");
       }),
     );
 
-    it.effect("returns @community when no profile configured anywhere", () =>
+    it.effect("returns @community when no owner configured anywhere", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -406,15 +406,15 @@ describe("WorkspaceContextService", () => {
         // No user-scope settings (readSettingsSafe returns defaults)
 
         const ws = yield* getService(defaultOptions);
-        const profile = yield* ws.getConfiguredProfile();
+        const owner = yield* ws.getConfiguredProfile();
 
-        expect(profile).toBe("@community");
+        expect(owner).toBe("@community");
       }),
     );
   });
 
   describe("getDefaultProfile", () => {
-    it.effect("returns Option.some with project profile when configured", () =>
+    it.effect("returns Option.some with project owner when configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -429,7 +429,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("returns Option.some with user profile when project has none", () =>
+    it.effect("returns Option.some with user owner when project has none", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -446,7 +446,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("returns Option.none when neither project nor user has profile", () =>
+    it.effect("returns Option.none when neither project nor user has owner", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -459,7 +459,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("normalizes bare profile by prepending @", () =>
+    it.effect("normalizes bare owner by prepending @", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -856,7 +856,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          profile: "@acme",
+          owner: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -886,7 +886,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          profile: "@acme",
+          owner: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -916,7 +916,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          profile: "@acme",
+          owner: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -1190,7 +1190,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "my-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -1243,7 +1243,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill", {
           refType: "registry",
-          profile: "@corp",
+          owner: "@corp",
         });
 
         expect(paths.canonicalPath).toContain(".axm/extensions/@corp/skills/my-skill");
@@ -1629,7 +1629,7 @@ describe("WorkspaceContextService", () => {
 
   /** Create sample SetPackArgs for testing. */
   const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
-    profile: "@acme",
+    owner: "@acme",
     name: "starter-pack",
     resolvedVersion: "1.0.0",
     integrity: "sha512-AAAA==",
@@ -1719,7 +1719,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1765,7 +1765,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1862,7 +1862,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1875,7 +1875,7 @@ describe("WorkspaceContextService", () => {
             },
             "other-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "other-pack",
               resolvedVersion: "2.0.0",
               integrity: "sha512-CCCC==",
@@ -1926,7 +1926,7 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("getPackDir", () => {
-    it.effect("returns registry extensions path with profile", () =>
+    it.effect("returns registry extensions path with owner", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getPackDir("starter-pack", "@acme");
@@ -1958,7 +1958,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "code-review": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -1986,7 +1986,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "code-review": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2013,7 +2013,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "my-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2024,7 +2024,7 @@ describe("WorkspaceContextService", () => {
           },
           "implicit-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-BBBB==",
@@ -2055,7 +2055,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "implicit-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2088,7 +2088,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "my-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2149,7 +2149,7 @@ describe("WorkspaceContextService", () => {
           },
           "implicit-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-BBBB==",
@@ -2272,7 +2272,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {}, undefined, {
           "implicit-cmd": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-cmd",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2337,7 +2337,7 @@ describe("WorkspaceContextService", () => {
           },
           "implicit-cmd": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-cmd",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2473,7 +2473,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {}, undefined, undefined, {
           "implicit-mcp": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-mcp",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2537,7 +2537,7 @@ describe("WorkspaceContextService", () => {
           },
           "implicit-mcp": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "implicit-mcp",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -2645,7 +2645,7 @@ describe("WorkspaceContextService", () => {
           {
             "@axm/packs/axm-builtin": {
               type: "builtin",
-              profile: "@axm",
+              owner: "@axm",
               name: "axm-builtin",
               resolvedVersion: "1.0.0",
               installedAt: "2025-01-01T00:00:00.000Z",
@@ -2704,7 +2704,7 @@ describe("WorkspaceContextService", () => {
           {
             "@axm/packs/axm-builtin": {
               type: "builtin",
-              profile: "@axm",
+              owner: "@axm",
               name: "axm-builtin",
               resolvedVersion: "1.0.0",
               installedAt: "2025-01-01T00:00:00.000Z",
@@ -2736,7 +2736,7 @@ describe("WorkspaceContextService", () => {
           {
             "my-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "my-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -2749,7 +2749,7 @@ describe("WorkspaceContextService", () => {
             },
             "@axm/packs/axm-builtin": {
               type: "builtin",
-              profile: "@axm",
+              owner: "@axm",
               name: "axm-builtin",
               resolvedVersion: "1.0.0",
               installedAt: "2025-01-01T00:00:00.000Z",
@@ -3790,7 +3790,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -3846,7 +3846,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -3914,7 +3914,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -3950,7 +3950,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -3995,7 +3995,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -4041,7 +4041,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              profile: "@acme",
+              owner: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -4089,7 +4089,7 @@ describe("WorkspaceContextService", () => {
         const result = yield* ws.isExtensionRequiredByInstalledPack({
           type: "pack",
           name: "some-pack",
-          profile: "@acme",
+          owner: "@acme",
         });
 
         expect(result).toBe(false);

@@ -7,7 +7,7 @@ describe("McpServerManifestSchema", () => {
 
   it("accepts valid minimal manifest", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "mcp-server",
       name: "batcave-mcp",
       version: "1.0.0",
@@ -19,7 +19,7 @@ describe("McpServerManifestSchema", () => {
 
   it("accepts valid full manifest with all optional fields", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "mcp-server",
       name: "batcave-mcp",
       version: "1.0.0",
@@ -43,7 +43,7 @@ describe("McpServerManifestSchema", () => {
 
   it("rejects manifest with invalid name format", () => {
     const input = {
-      profile: "wayne",
+      owner: "wayne",
       type: "mcp-server",
       name: "batcave-mcp",
       version: "1.0.0",

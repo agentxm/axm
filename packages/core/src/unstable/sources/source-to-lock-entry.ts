@@ -128,7 +128,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "registry":
       return {
         type: "registry",
-        profile: ref.profile,
+        owner: ref.owner,
         name: ref.skill.name,
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),

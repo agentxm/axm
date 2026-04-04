@@ -21,7 +21,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { computeIntegrity } from "../utils/index.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
-import type { GetExtensionsByProfileArgs } from "./client.js";
+import type { GetExtensionsByOwnerArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
@@ -48,13 +48,13 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 
 const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   name: "my-skill",
-  profile: "@test",
+  owner: "@test",
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
 });
 
-const defaultSearchOptions: GetExtensionsByProfileArgs = {
+const defaultSearchOptions: GetExtensionsByOwnerArgs = {
   handle: "@test",
   names: [],
   types: ["skill"],
@@ -122,7 +122,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       expect(at(result.extensions, 0).type).toBe("skill");
       expect(at(result.extensions, 0).name).toBe("my-skill");
       expect(at(result.extensions, 0).version).toBe("1.0.0");
-      expect(at(result.extensions, 0).profile).toBe("@test");
+      expect(at(result.extensions, 0).owner).toBe("@test");
       expect(result.total).toBe(1);
     }).pipe(
       Effect.ensuring(
@@ -214,7 +214,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
     );
   });
 
-  it.effect("filters by profile when profile is provided", () => {
+  it.effect("filters by owner when owner is provided", () => {
     const registryRoot = makeRegistryDir();
     const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "skill-a");
     const otherSkillDir = nodePath.join(registryRoot, "extensions", "@other", "skills", "skill-a");
@@ -224,12 +224,12 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       yield* fs.makeDirectory(scopedSkillDir, { recursive: true });
       yield* fs.writeFileString(
         nodePath.join(scopedSkillDir, "index.json"),
-        JSON.stringify(makeIndex({ profile: "@test", name: "skill-a" })),
+        JSON.stringify(makeIndex({ owner: "@test", name: "skill-a" })),
       );
       yield* fs.makeDirectory(otherSkillDir, { recursive: true });
       yield* fs.writeFileString(
         nodePath.join(otherSkillDir, "index.json"),
-        JSON.stringify(makeIndex({ profile: "@other", name: "skill-a" })),
+        JSON.stringify(makeIndex({ owner: "@other", name: "skill-a" })),
       );
 
       const client = yield* makeLocalClient(registryRoot);
@@ -240,7 +240,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       });
 
       expect(result.extensions).toHaveLength(1);
-      expect(at(result.extensions, 0).profile).toBe("@test");
+      expect(at(result.extensions, 0).owner).toBe("@test");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -346,7 +346,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistryClient.profileExists", () => {
-  it.effect("returns true when profile directory exists", () => {
+  it.effect("returns true when owner directory exists", () => {
     const registryRoot = makeRegistryDir();
     const scopeDir = nodePath.join(registryRoot, "extensions", "@test", "skills");
 
@@ -365,7 +365,7 @@ describe("LocalRegistryClient.profileExists", () => {
     );
   });
 
-  it.effect("returns false when profile directory does not exist", () => {
+  it.effect("returns false when owner directory does not exist", () => {
     const registryRoot = makeRegistryDir();
 
     return Effect.gen(function* () {
@@ -570,7 +570,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
       const index: ExtensionIndex = JSON.parse(indexContent);
       expect(index.name).toBe("my-skill");
-      expect(index.profile).toBe("@test");
+      expect(index.owner).toBe("@test");
       expect(index.versions).toHaveLength(1);
       expect(at(index.versions, 0).version).toBe("1.0.0");
 
@@ -766,7 +766,7 @@ describe("RemoteRegistryClient", () => {
           new Response(
             JSON.stringify({
               extensions: [
-                { profile: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+                { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
               ],
             }),
             { status: 200 },
@@ -780,7 +780,7 @@ describe("RemoteRegistryClient", () => {
           new Response(
             JSON.stringify({
               extensions: [
-                { profile: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+                { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
               ],
             }),
             { status: 200 },
@@ -797,7 +797,7 @@ describe("RemoteRegistryClient", () => {
           request,
           new Response(
             JSON.stringify({
-              profile: "@test",
+              owner: "@test",
               type: "skill",
               name: "my-skill",
               versions: [
@@ -860,7 +860,7 @@ describe("RemoteRegistryClient", () => {
             request,
             new Response(
               JSON.stringify({
-                profile: "@test",
+                owner: "@test",
                 type: "skill",
                 name: "my-skill",
                 version: "1.0.0",
@@ -976,7 +976,7 @@ describe("createRegistryClient", () => {
             request,
             new Response(
               JSON.stringify({
-                profile: "@test",
+                owner: "@test",
                 type: "skill",
                 name: "my-skill",
                 version: "1.0.0",

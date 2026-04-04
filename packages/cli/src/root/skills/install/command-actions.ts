@@ -46,7 +46,7 @@ export interface ParsedSkillInstallArgs {
   readonly source: Source;
   readonly versionConstraint: Option.Option<string>;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedProfile: Option.Option<string>;
+  readonly requestedOwner: Option.Option<string>;
   readonly all: boolean;
 }
 
@@ -56,7 +56,7 @@ export interface ParsedSkillInstallArgs {
 export interface SkillSourceRequest {
   readonly source: Source;
   readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedProfile: Option.Option<string>;
+  readonly requestedOwner: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -92,7 +92,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
     if (isRemoteReadNotImplemented(error)) {
       return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo.";
     }
-    return "Verify the configured registry is reachable and contains the requested profile/skill.";
+    return "Verify the configured registry is reachable and contains the requested owner/skill.";
   }
   if (source.type === "local") {
     return "Verify the source path contains directories with SKILL.md files.";
@@ -102,7 +102,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
 
 const noSkillsFoundHowToFix = (source: Source): string => {
   if (source.type === "registry") {
-    return "Verify the profile and skill name exist in the configured registry.";
+    return "Verify the owner and skill name exist in the configured registry.";
   }
   if (source.type === "local") {
     return "Verify the source path contains directories with SKILL.md files.";
@@ -138,14 +138,14 @@ const extractRequestedSkills = (
           : []
         : [];
 
-const extractRequestedProfile = (
+const extractRequestedOwner = (
   parsedSource: InputParseResult,
   source: Source,
 ): Option.Option<string> =>
   parsedSource.pattern.pattern === "registry-pattern-input"
-    ? Option.some(parsedSource.pattern.profile)
+    ? Option.some(parsedSource.pattern.owner)
     : source.type === "registry"
-      ? (source.profile ?? Option.none<string>())
+      ? (source.owner ?? Option.none<string>())
       : Option.none<string>();
 
 // -----------------------------------------------------------------------------
@@ -237,13 +237,13 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 });
 
                 const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
-                const requestedProfile = extractRequestedProfile(parsedSource, source);
+                const requestedOwner = extractRequestedOwner(parsedSource, source);
 
                 return {
                   source,
                   versionConstraint,
                   requestedSkills,
-                  requestedProfile,
+                  requestedOwner,
                   resolutionProbes,
                 };
               }),
@@ -252,7 +252,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             },
           );
 
-          const { source, versionConstraint, requestedSkills, requestedProfile, resolutionProbes } =
+          const { source, versionConstraint, requestedSkills, requestedOwner, resolutionProbes } =
             parsed;
 
           if (resolutionProbes.length > 0) {
@@ -265,7 +265,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             source,
             versionConstraint,
             requestedSkills,
-            requestedProfile,
+            requestedOwner,
             all: args.all,
           } satisfies ParsedSkillInstallArgs;
         }),
@@ -276,7 +276,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         {
           source: parsed.source,
           requestedSkills: parsed.requestedSkills,
-          requestedProfile: parsed.requestedProfile,
+          requestedOwner: parsed.requestedOwner,
           versionConstraint: parsed.versionConstraint,
         },
       ]);
@@ -300,7 +300,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   .find(req.source, {
                     skillNames: req.requestedSkills,
                     type: "skill" as const,
-                    profile: req.requestedProfile,
+                    owner: req.requestedOwner,
                     versionConstraint: req.versionConstraint,
                   })
                   .pipe(

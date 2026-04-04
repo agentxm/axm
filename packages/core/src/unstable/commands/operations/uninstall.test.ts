@@ -131,7 +131,7 @@ const makeOp = (overrides: { commandName?: string } = {}): UninstallCommandOpera
 
 const makeRegistryLockEntry = () => ({
   type: "registry" as const,
-  profile: "@community",
+  owner: "@community",
   name: "my-command",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -142,7 +142,7 @@ const makeRegistryLockEntry = () => ({
 
 const makeRegistryLockEntryYaml = () => ({
   type: "registry",
-  profile: "@community",
+  owner: "@community",
   name: "my-command",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -175,16 +175,16 @@ describe("uninstallCommand", () => {
     opts: {
       commandName?: string;
       createCanonical?: boolean;
-      profile?: string;
+      owner?: string;
     } = {},
   ) => {
     const commandName = opts.commandName ?? "my-command";
-    const profile = opts.profile ?? "@community";
+    const owner = opts.owner ?? "@community";
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, ".axm", "extensions", profile, "commands", commandName);
+    const canonicalPath = path.join(base, ".axm", "extensions", owner, "commands", commandName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "run.sh"), "#!/bin/bash");

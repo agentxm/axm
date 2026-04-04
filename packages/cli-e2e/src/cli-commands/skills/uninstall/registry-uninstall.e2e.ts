@@ -21,7 +21,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
       // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-      // Set up registry source and profile
+      // Set up registry source and owner
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [

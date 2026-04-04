@@ -45,7 +45,7 @@ describe("workspace doctor", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
-      profile: "@axm",
+      owner: "@axm",
       skills: {
         "manage-extensions": "@axm/skills/manage-extensions",
       },
@@ -57,7 +57,7 @@ describe("workspace doctor", () => {
       path.join(canonicalDir, "axm-skill.json"),
       JSON.stringify(
         {
-          profile: "@axm",
+          owner: "@axm",
           type: "skill",
           name: "manage-extensions",
           version: "0.0.1",

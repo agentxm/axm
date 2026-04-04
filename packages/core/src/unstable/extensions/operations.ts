@@ -23,14 +23,14 @@ import type {
 /**
  * Derive an ExtensionTarget from an ExtensionRef.
  *
- * Pack targets include profile; skill/command/mcp-server targets are name-only.
+ * Pack targets include owner; skill/command/mcp-server targets are name-only.
  */
 export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
   switch (ref.type) {
     case "skill":
       return { type: "skill", name: ref.skill.name };
     case "pack":
-      return { type: "pack", name: ref.pack.name, profile: ref.profile };
+      return { type: "pack", name: ref.pack.name, owner: ref.owner };
     case "command":
       return { type: "command", name: ref.command.name };
     case "mcp-server":
@@ -41,10 +41,10 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
 /**
  * Produce a display label from an ExtensionTarget.
  *
- * Pack targets render as `profile/name`; others render as `name`.
+ * Pack targets render as `owner/name`; others render as `name`.
  */
 export const toLabel = (target: ExtensionTarget): string =>
-  target.type === "pack" ? `${target.profile}/${target.name}` : target.name;
+  target.type === "pack" ? `${target.owner}/${target.name}` : target.name;
 
 // -----------------------------------------------------------------------------
 // Uninstall Retention Policy Interface

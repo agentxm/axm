@@ -20,7 +20,7 @@ describe("builtin-pack", () => {
     Effect.gen(function* () {
       const result = yield* resolveBuiltinPack();
       const skills = expectDefined(result.manifest.skills, "Expected builtin pack skills");
-      expect(result.manifest.profile).toBe("@axm");
+      expect(result.manifest.owner).toBe("@axm");
       expect(result.manifest.type).toBe("pack");
       expect(result.manifest.name).toBe("cli");
       expect(Object.keys(skills)).toHaveLength(4);

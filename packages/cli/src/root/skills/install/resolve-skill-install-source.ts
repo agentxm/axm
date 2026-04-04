@@ -72,20 +72,20 @@ const registryLookupHowToFix = ({
 
 const checkRegistryMatch = ({
   client,
-  profile,
+  owner,
   skillName,
 }: {
   readonly client: RegistryClient;
-  readonly profile: string;
+  readonly owner: string;
   readonly skillName: Option.Option<string>;
 }) =>
   Option.match(skillName, {
-    onNone: () => client.profileExists(profile),
-    onSome: (name) => client.extensionExists({ handle: profile, type: "skill", name }),
+    onNone: () => client.profileExists(owner),
+    onSome: (name) => client.extensionExists({ handle: owner, type: "skill", name }),
   });
 
 const resolveRegistrySource = (
-  profile: string,
+  owner: string,
   input: string,
   options: {
     readonly skillName: Option.Option<string>;
@@ -98,7 +98,7 @@ const resolveRegistrySource = (
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_CONFIG_READ_FAILED",
-          what: `Failed to read configured registry sources for profile "${profile}"`,
+          what: `Failed to read configured registry sources for owner "${owner}"`,
           details: [input],
           howToFix: "Check that your workspace settings file is valid and accessible",
           cause: e,
@@ -109,9 +109,9 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
-        what: `No registry source is configured for profile "${profile}"`,
+        what: `No registry source is configured for owner "${owner}"`,
         details: [`Provided: ${input}`],
-        howToFix: `Add a registry source for profile "${profile}" using "axm sources add"`,
+        howToFix: `Add a registry source for owner "${owner}" using "axm sources add"`,
       });
     }
 
@@ -126,7 +126,7 @@ const resolveRegistrySource = (
       const client = yield* createRegistryClient(regConfig.location.href);
       const matchResult = yield* checkRegistryMatch({
         client,
-        profile,
+        owner,
         skillName: options.skillName,
       }).pipe(Effect.result);
 
@@ -153,7 +153,7 @@ const resolveRegistrySource = (
         return {
           type: "registry" as const,
           location: regConfig.location,
-          profile: Option.some(profile),
+          owner: Option.some(owner),
         } satisfies RegistrySource;
       }
 
@@ -170,7 +170,7 @@ const resolveRegistrySource = (
       const skillName = options.skillName.value;
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${profile}/${skillName}" was not found in configured registries`,
+        what: `Skill "${owner}/${skillName}" was not found in configured registries`,
         details: [
           `Provided: ${input}`,
           `Checked registries: ${checked.join(", ")}`,
@@ -179,14 +179,14 @@ const resolveRegistrySource = (
         howToFix: registryLookupHowToFix({
           issues,
           fallback:
-            "Verify the profile/skill name, or install with an explicit source like github:owner/repo",
+            "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
         }),
       });
     }
 
     return yield* makeAppError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
-      what: `None of the configured registry sources contain profile "${profile}"`,
+      what: `None of the configured registry sources contain owner "${owner}"`,
       details: [
         `Provided: ${input}`,
         `Checked registries: ${checked.join(", ")}`,
@@ -194,7 +194,7 @@ const resolveRegistrySource = (
       ],
       howToFix: registryLookupHowToFix({
         issues,
-        fallback: `Verify the profile name is correct, or add a registry that hosts "${profile}"`,
+        fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
       }),
     });
   });
@@ -213,23 +213,23 @@ const resolveSkillRegistrySourceByName = (
     if (Option.isNone(maybeProfile)) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${name}" could not be looked up (no default profile)`,
-        details: [`Provided: ${input}`, `No default profile configured and not logged in`],
+        what: `Skill "${name}" could not be looked up (no default owner)`,
+        details: [`Provided: ${input}`, `No default owner configured and not logged in`],
         howToFix:
-          "Configure a profile in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @profile/skills/name",
+          "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/skills/name",
       });
     }
-    const profile = maybeProfile.value;
+    const owner = maybeProfile.value;
 
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${profile}/${name}" could not be looked up (no registry sources)`,
+        what: `Skill "${owner}/${name}" could not be looked up (no registry sources)`,
         details: [
           `Provided: ${input}`,
-          `Default profile: ${profile}`,
+          `Default owner: ${owner}`,
           `No registry sources configured`,
         ],
         howToFix:
@@ -246,7 +246,7 @@ const resolveSkillRegistrySourceByName = (
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
       const existsResult = yield* client
-        .extensionExists({ handle: profile, type: "skill", name })
+        .extensionExists({ handle: owner, type: "skill", name })
         .pipe(Effect.result);
       if (existsResult._tag === "Failure") {
         if (Option.isSome(resolutionOptions)) {
@@ -271,7 +271,7 @@ const resolveSkillRegistrySourceByName = (
         return {
           type: "registry" as const,
           location: reg.location,
-          profile: Option.some(profile),
+          owner: Option.some(owner),
         } satisfies RegistrySource;
       }
 
@@ -286,17 +286,17 @@ const resolveSkillRegistrySourceByName = (
 
     return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
-      what: `Skill "${profile}/${name}" was not found in configured registries`,
+      what: `Skill "${owner}/${name}" was not found in configured registries`,
       details: [
         `Provided: ${input}`,
-        `Default profile: ${profile}`,
+        `Default owner: ${owner}`,
         `Checked registries: ${checked.join(", ")}`,
         ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
       ],
       howToFix: registryLookupHowToFix({
         issues,
         fallback:
-          "Verify the skill name, or install with an explicit source like github:owner/repo or @profile/skills/name",
+          "Verify the skill name, or install with an explicit source like github:owner/repo or @owner/skills/name",
       }),
     });
   });
@@ -311,12 +311,12 @@ const resolveSkillRegistrySource = (
       return yield* makeAppError({
         code: "SKILL_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        details: [pattern.profile],
+        details: [pattern.owner],
         howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
 
-    return yield* resolveRegistrySource(pattern.profile, input, {
+    return yield* resolveRegistrySource(pattern.owner, input, {
       skillName: pattern.name,
       resolutionOptions,
     });
@@ -363,7 +363,7 @@ export const resolveSkillInstallSource = (
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           details: [parseResult.originalInput],
           howToFix:
-            "Use a registry reference (e.g., @profile/skill-name), a URL, or a shorthand (owner/repo) instead",
+            "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",
         });
     }
   });

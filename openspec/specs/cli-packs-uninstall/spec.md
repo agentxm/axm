@@ -21,19 +21,19 @@ This is a defense-in-depth guard that catches the case where a user directly uni
 - **AND** at execution time, `code-review` is not referenced by any remaining installed pack
 - **THEN** the uninstall operation SHALL fully remove `code-review` from disk, lockfile, and settings
 
-### Requirement: Pack extension ref profile
+### Requirement: Pack extension ref owner
 
-Pack extension refs SHALL expose a canonical `profile` field. For registry packs, the profile SHALL be populated from the registry ref details. For builtin packs, the profile SHALL be populated from the builtin manifest. This profile is required for constructing pack extension targets used in uninstall operations.
+Pack extension refs SHALL expose a canonical `owner` field. For registry packs, the owner SHALL be populated from the registry ref details. For builtin packs, the owner SHALL be populated from the builtin manifest. This owner is required for constructing pack extension targets used in uninstall operations.
 
-#### Scenario: Registry pack ref exposes profile
+#### Scenario: Registry pack ref exposes owner
 
 - **WHEN** a pack ref is created for registry pack `@acme/packs/frontend-tools`
-- **THEN** the ref SHALL have `profile: "@acme"`
+- **THEN** the ref SHALL have `owner: "@acme"`
 
-#### Scenario: Builtin pack ref exposes profile
+#### Scenario: Builtin pack ref exposes owner
 
 - **WHEN** a pack ref is created for builtin pack `effect`
-- **THEN** the ref SHALL have a profile from the builtin manifest (e.g., `"@axm"`)
+- **THEN** the ref SHALL have an owner from the builtin manifest (e.g., `"@axm"`)
 
 ### Requirement: Pack uninstall cascades to command and MCP server dependencies
 

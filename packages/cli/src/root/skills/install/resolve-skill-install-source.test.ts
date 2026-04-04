@@ -29,14 +29,14 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
     getConfiguredProfile: () => Effect.succeed("@test"),
   });
 
-const createSkillIndex = (registryRoot: string, profile: string, name: string) => {
-  const skillDir = path.join(registryRoot, "extensions", profile, "skills", name);
+const createSkillIndex = (registryRoot: string, owner: string, name: string) => {
+  const skillDir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "index.json"),
     JSON.stringify({
       name,
-      profile,
+      owner,
       type: "skill",
       versions: [
         {
@@ -54,7 +54,7 @@ const makeRegistryCollectionResponse = () =>
   JSON.stringify({
     extensions: [
       {
-        profile: "@acme",
+        owner: "@acme",
         type: "skill",
         name: "my-skill",
         description: null,
@@ -131,7 +131,7 @@ describe("resolveSkillInstallSource", () => {
     tmpDirs.length = 0;
   });
 
-  it.effect("selects the first registry that contains the requested profile", () => {
+  it.effect("selects the first registry that contains the requested owner", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -220,7 +220,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("supports profile-only input and resolves against a matching registry", () => {
+  it.effect("supports owner-only input and resolves against a matching registry", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -244,7 +244,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("resolves bare skill name using configured default profile", () => {
+  it.effect("resolves bare skill name using configured default owner", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -352,13 +352,13 @@ describe("resolveSkillRegistrySourceByName", () => {
 
   const provideLayersWithProfile = (
     sources: ReadonlyArray<SourceHostConfig>,
-    profile: Option.Option<string>,
+    owner: Option.Option<string>,
   ) =>
     Layer.mergeAll(
       NodeServices.layer,
       Workspace.layer({
         ...makeWorkspace(sources),
-        getDefaultProfile: () => Effect.succeed(profile),
+        getDefaultProfile: () => Effect.succeed(owner),
       }),
     );
 
@@ -437,7 +437,7 @@ describe("resolveSkillRegistrySourceByName", () => {
   );
 
   it.effect(
-    "no default profile available fails with REGISTRY_SKILL_NOT_FOUND with no default profile detail",
+    "no default owner available fails with REGISTRY_SKILL_NOT_FOUND with no default owner detail",
     () => {
       const sources: ReadonlyArray<SourceHostConfig> = [
         { name: "first", type: "registry", location: new URL("file:///tmp/reg") },
@@ -450,9 +450,9 @@ describe("resolveSkillRegistrySourceByName", () => {
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
-        expect(error.what).toContain("no default profile");
+        expect(error.what).toContain("no default owner");
         const detailsText = error.details.join(" ");
-        expect(detailsText).toContain("No default profile configured");
+        expect(detailsText).toContain("No default owner configured");
       });
     },
   );

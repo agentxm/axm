@@ -37,7 +37,7 @@ import type { ExactSemverVersion } from "../version-constraints/index.js";
 const parseRegistryPackSource = (
   source: string,
 ): Option.Option<{
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -50,14 +50,14 @@ const parseRegistryPackSource = (
     return Option.none();
   }
 
-  const profile = match[1];
+  const owner = match[1];
   const name = match[2];
-  if (profile === undefined || name === undefined) {
+  if (owner === undefined || name === undefined) {
     return Option.none();
   }
 
   return Option.some({
-    profile,
+    owner,
     name,
     constraint: match[3] ?? "*",
   });
@@ -78,15 +78,15 @@ const parsePackDependency = (
     return Option.none();
   }
 
-  const profile = match[1];
+  const owner = match[1];
   const name = match[2];
-  if (profile === undefined || name === undefined) {
+  if (owner === undefined || name === undefined) {
     return Option.none();
   }
 
   return Option.some({
     extensionType,
-    profile,
+    owner,
     name,
     source: fqn,
     declarationSourceOrConstraint: constraint,
@@ -116,7 +116,7 @@ const collectPackDependencyDeclarations = (
 };
 
 type DependencyManifest = {
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly version: ExactSemverVersion;
 };
@@ -173,7 +173,7 @@ const readInstalledDependencyVersion = (
 
     const dependencyDeclaration: ReconciliationDeclaration = {
       extensionType,
-      profile: parsed.handle,
+      owner: parsed.handle,
       name: parsed.name,
       source: fqn,
       declarationSourceOrConstraint: constraint,
@@ -186,7 +186,7 @@ const readInstalledDependencyVersion = (
         ? computeSkillPaths(
             env.path.join,
             context.baseDir,
-            { refType: "registry", profile: parsed.handle },
+            { refType: "registry", owner: parsed.handle },
             parsed.name,
           ).canonicalPath
         : env.path.join(
@@ -233,7 +233,7 @@ const readInstalledDependencyVersion = (
     }
 
     const { manifest } = result;
-    if (manifest.profile !== parsed.handle || manifest.name !== parsed.name) {
+    if (manifest.owner !== parsed.handle || manifest.name !== parsed.name) {
       return {
         _tag: "Unresolved",
         reason: "declaration-mismatch",
@@ -305,9 +305,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       for (const [name, entry] of Object.entries(packs)) {
         const source = toPackSource(entry);
         const parsed = parseRegistryPackSource(source);
-        const profile = Option.match(parsed, {
+        const owner = Option.match(parsed, {
           onNone: () => context.defaultProfile,
-          onSome: (value) => value.profile,
+          onSome: (value) => value.owner,
         });
         const diskName = Option.match(parsed, {
           onNone: () => name,
@@ -316,7 +316,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
 
         declarations.push({
           extensionType: "packs",
-          profile,
+          owner,
           name,
           source,
           declarationSourceOrConstraint: Option.match(parsed, {
@@ -330,7 +330,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         const packDir = computePackPaths(
           env.path.join,
           context.baseDir,
-          profile,
+          owner,
           diskName,
         ).canonicalPath;
         const manifestPath = env.path.join(packDir, PACK_MANIFEST_FILENAME);
@@ -381,9 +381,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const profile = Option.match(parsed, {
-        onNone: () => declaration.profile,
-        onSome: (value) => value.profile,
+      const owner = Option.match(parsed, {
+        onNone: () => declaration.owner,
+        onSome: (value) => value.owner,
       });
       const diskName = Option.match(parsed, {
         onNone: () => declaration.name,
@@ -393,7 +393,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       const canonicalPath = computePackPaths(
         env.path.join,
         context.baseDir,
-        profile,
+        owner,
         diskName,
       ).canonicalPath;
 
@@ -417,7 +417,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       if (result._tag !== "ok") return result;
       const { manifest } = result;
 
-      if (manifest.profile !== profile || manifest.name !== diskName) {
+      if (manifest.owner !== owner || manifest.name !== diskName) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -473,7 +473,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           extensionType: "packs",
           name: declaration.name,
           entry: makeRegistryPackLockEntry({
-            profile,
+            owner,
             name: diskName,
             resolvedVersion: manifest.version,
             integrity: "",

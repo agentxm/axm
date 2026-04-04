@@ -68,7 +68,7 @@ export const uninstallCommand: (
     );
     const lockEntry = Option.getOrUndefined(lockEntryOption);
 
-    // Check if command exists on disk (scan registry extensions dir for any profile)
+    // Check if command exists on disk (scan registry extensions dir for any owner)
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.commandName);
 
     if (!lockEntry && !installedOnDisk) {
@@ -80,7 +80,7 @@ export const uninstallCommand: (
       const canonicalPath = path.join(
         base,
         REGISTRY_EXTENSIONS_DIR,
-        lockEntry.profile,
+        lockEntry.owner,
         "commands",
         lockEntry.name,
       );

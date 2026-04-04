@@ -13,7 +13,7 @@ import type {
 const parseRegistrySkillSource = (
   source: string,
 ): Option.Option<{
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly constraint: string;
 }> => {
@@ -26,14 +26,14 @@ const parseRegistrySkillSource = (
     return Option.none();
   }
 
-  const profile = match[1];
+  const owner = match[1];
   const name = match[2];
-  if (profile === undefined || name === undefined) {
+  if (owner === undefined || name === undefined) {
     return Option.none();
   }
 
   return Option.some({
-    profile,
+    owner,
     name,
     constraint: match[3] ?? "*",
   });
@@ -55,9 +55,9 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
 
       declarations.push({
         extensionType: "skills",
-        profile: Option.match(parsed, {
+        owner: Option.match(parsed, {
           onNone: () => context.defaultProfile,
-          onSome: (value) => value.profile,
+          onSome: (value) => value.owner,
         }),
         name,
         source,
@@ -84,9 +84,9 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
-      const profile = Option.match(parsed, {
-        onNone: () => declaration.profile,
-        onSome: (value) => value.profile,
+      const owner = Option.match(parsed, {
+        onNone: () => declaration.owner,
+        onSome: (value) => value.owner,
       });
       const diskName = Option.match(parsed, {
         onNone: () => declaration.name,
@@ -96,7 +96,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       const canonicalPath = computeSkillPaths(
         env.path.join,
         context.baseDir,
-        { refType: "registry", profile },
+        { refType: "registry", owner },
         diskName,
       ).canonicalPath;
 
@@ -120,7 +120,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       if (result._tag !== "ok") return result;
       const { manifest } = result;
 
-      if (manifest.profile !== profile || manifest.name !== diskName) {
+      if (manifest.owner !== owner || manifest.name !== diskName) {
         return {
           _tag: "Unresolved",
           declaration,
@@ -136,7 +136,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
           name: declaration.name,
           entry: {
             type: "registry",
-            profile,
+            owner,
             name: diskName,
             resolvedVersion: manifest.version,
             integrity: "",

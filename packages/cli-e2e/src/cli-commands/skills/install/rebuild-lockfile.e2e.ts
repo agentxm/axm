@@ -47,7 +47,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-skill.json",
     ),
     {
-      profile: TEST_NAMESPACE,
+      owner: TEST_NAMESPACE,
       type: "skill",
       name: "managed-skill",
       version: "1.0.0",
@@ -66,7 +66,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-command.json",
     ),
     {
-      profile: TEST_NAMESPACE,
+      owner: TEST_NAMESPACE,
       type: "command",
       name: "managed-command",
       version: "1.0.0",
@@ -84,7 +84,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-mcp-server.json",
     ),
     {
-      profile: TEST_NAMESPACE,
+      owner: TEST_NAMESPACE,
       type: "mcp-server",
       name: "managed-mcp",
       version: "1.0.0",
@@ -102,7 +102,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "axm-pack.json",
     ),
     {
-      profile: TEST_NAMESPACE,
+      owner: TEST_NAMESPACE,
       type: "pack",
       name: "managed-pack",
       version: "1.0.0",

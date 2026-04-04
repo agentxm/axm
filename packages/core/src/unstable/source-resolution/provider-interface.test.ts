@@ -21,7 +21,7 @@ import type { VersionEntry } from "../registry/index.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
   readonly publishExtension: (
-    profile: string,
+    owner: string,
     type: ExtensionType,
     name: string,
     version: string,
@@ -103,7 +103,7 @@ describe("SourceHostProvider", () => {
       const options: FindOptions = {
         skillNames: [],
         type: "skill",
-        profile: Option.none(),
+        owner: Option.none(),
         versionConstraint: Option.none(),
       };
       const result = yield* provider.find(source, options);
@@ -199,7 +199,7 @@ describe("FindOptions", () => {
     const options: FindOptions = {
       skillNames: [],
       type: "skill",
-      profile: Option.none(),
+      owner: Option.none(),
       versionConstraint: Option.none(),
     };
     expect(options.type).toBe("skill");
@@ -207,7 +207,7 @@ describe("FindOptions", () => {
     const packOptions: FindOptions = {
       skillNames: [],
       type: "pack",
-      profile: Option.none(),
+      owner: Option.none(),
       versionConstraint: Option.none(),
     };
     expect(packOptions.type).toBe("pack");
@@ -215,7 +215,7 @@ describe("FindOptions", () => {
     const mcpOptions: FindOptions = {
       skillNames: [],
       type: "mcp-server",
-      profile: Option.none(),
+      owner: Option.none(),
       versionConstraint: Option.none(),
     };
     expect(mcpOptions.type).toBe("mcp-server");
@@ -225,7 +225,7 @@ describe("FindOptions", () => {
     const options: FindOptions = {
       skillNames: [],
       type: "*",
-      profile: Option.none(),
+      owner: Option.none(),
       versionConstraint: Option.none(),
     };
     expect(options.type).toBe("*");
@@ -235,7 +235,7 @@ describe("FindOptions", () => {
     const options: FindOptions = {
       skillNames: ["my-skill"],
       type: "skill",
-      profile: Option.none(),
+      owner: Option.none(),
       versionConstraint: Option.some("^1.2.3"),
     };
     expect(Option.getOrNull(options.versionConstraint)).toBe("^1.2.3");

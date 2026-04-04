@@ -93,7 +93,7 @@ describe("unpackPack", () => {
         Effect.succeed(
           Option.some({
             type: "registry" as const,
-            profile: "@acme",
+            owner: "@acme",
             name: "full-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -129,7 +129,7 @@ describe("unpackPack", () => {
         Effect.succeed(
           Option.some({
             type: "registry" as const,
-            profile: "@acme",
+            owner: "@acme",
             name: "pack",
             resolvedVersion: "1.0.0",
             integrity: "",

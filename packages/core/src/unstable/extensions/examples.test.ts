@@ -50,7 +50,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "skills/axm-skill.example.json"));
     const result = Schema.decodeUnknownSync(SkillManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.profile).toBe("@acme");
+    expect(result.owner).toBe("@acme");
     expect(result.type).toBe("skill");
     expect(result.name).toBe("code-review");
     expect(result.version).toBe("1.0.0");
@@ -60,7 +60,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "commands/axm-command.example.json"));
     const result = Schema.decodeUnknownSync(CommandManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.profile).toBe("@acme");
+    expect(result.owner).toBe("@acme");
     expect(result.type).toBe("command");
     expect(result.name).toBe("deploy");
     expect(result.version).toBe("1.0.0");
@@ -72,7 +72,7 @@ describe("example files", () => {
     );
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.profile).toBe("@acme");
+    expect(result.owner).toBe("@acme");
     expect(result.type).toBe("mcp-server");
     expect(result.name).toBe("database-mcp");
     expect(result.version).toBe("1.0.0");
@@ -82,7 +82,7 @@ describe("example files", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "packs/axm-pack.example.json"));
     const result = Schema.decodeUnknownSync(PackManifestSchema)(example);
     expect(result).toBeDefined();
-    expect(result.profile).toBe("@acme");
+    expect(result.owner).toBe("@acme");
     expect(result.type).toBe("pack");
     expect(result.name).toBe("fullstack-pack");
     expect(result.skills?.["@acme/skills/code-review"]).toBe("^1.0.0");

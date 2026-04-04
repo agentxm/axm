@@ -294,9 +294,9 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         location: new URL("http://localhost:3000"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@acme",
+      owner: "@acme",
       name: "test-skill",
       version: "2.1.0",
       integrity: Option.some("sha512-AAAA=="),
@@ -312,7 +312,7 @@ describe("sourceToLockEntry", () => {
 
     expect(result).toEqual({
       type: "registry",
-      profile: "@acme",
+      owner: "@acme",
       name: "test-skill",
       resolvedVersion: "2.1.0",
       integrity: "sha512-AAAA==",
@@ -335,9 +335,9 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         location: new URL("http://localhost:3000"),
-        profile: Option.none(),
+        owner: Option.none(),
       },
-      profile: "@community",
+      owner: "@community",
       name: "test-skill",
       version: "1.0.0",
       integrity: Option.some("sha512-AAAA=="),

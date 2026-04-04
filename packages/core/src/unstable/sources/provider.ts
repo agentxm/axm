@@ -32,8 +32,8 @@ import type { Source } from "./types.js";
 export interface FindOptions {
   readonly skillNames: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
-  /** Registry profile filter (e.g. "@acme"). */
-  readonly profile: Option.Option<string>;
+  /** Registry owner filter (e.g. "@acme"). */
+  readonly owner: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 }
 

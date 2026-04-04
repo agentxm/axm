@@ -51,7 +51,7 @@ export type InstallCommandOperation = Operation<"install-command", InstallComman
 
 const buildLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({
   type: "registry",
-  profile: ref.profile,
+  owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeExactSemverVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
@@ -73,7 +73,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
     const canonicalPath = path.join(
       ws.baseDir,
       REGISTRY_EXTENSIONS_DIR,
-      ref.profile,
+      ref.owner,
       "commands",
       ref.name,
     );
@@ -104,7 +104,7 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
           : ref.source.location.href;
       const client = yield* createRegistryClient(locationStr);
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.profile,
+        handle: ref.owner,
         type: "command",
         name: ref.name,
         version: Option.some(ref.version),

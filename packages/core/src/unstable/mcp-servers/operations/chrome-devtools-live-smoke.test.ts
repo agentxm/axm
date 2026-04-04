@@ -96,10 +96,10 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             source: {
               type: "registry",
               location: new URL(liveRegistryUrl),
-              profile: Option.none(),
+              owner: Option.none(),
             },
             server: { name: "chrome-devtools-mcp" },
-            profile: liveProfile,
+            owner: liveProfile,
             name: "chrome-devtools-mcp",
             version: liveVersion,
             integrity: liveIntegrity,

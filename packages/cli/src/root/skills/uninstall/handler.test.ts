@@ -83,12 +83,12 @@ const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
 });
 
 const makeRegistryLockEntry = (
-  profile: string,
+  owner: string,
   name: string,
   agents: string[] = ["claude-code"],
 ) => ({
   type: "registry",
-  profile,
+  owner,
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",
@@ -99,12 +99,12 @@ const makeRegistryLockEntry = (
 });
 
 const makePackLockEntry = (
-  profile: string,
+  owner: string,
   name: string,
   resolvedSkills: Record<string, string> = {},
 ) => ({
   type: "registry",
-  profile,
+  owner,
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",

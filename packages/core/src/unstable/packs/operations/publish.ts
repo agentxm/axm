@@ -36,7 +36,7 @@ import { computePackPaths } from "../paths.js";
  * Args for the publish-pack operation.
  */
 export interface PublishPackOperationArgs {
-  /** Extension identity in `@profile/name` format. */
+  /** Extension identity in `@owner/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g., "local"). */
   readonly registryName: string;

@@ -10,11 +10,11 @@ The `axm skills new` command scaffolds a new managed skill with manifest, starte
 
 The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
-#### Scenario: Create a skill with default profile
+#### Scenario: Create a skill with configured profile
 
 - **WHEN** the user runs `axm skills new my-skill`
-- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-profile>/skills/my-skill/`
-- **AND** writes an `axm-skill.json` manifest with `name` set to `@<configured-profile>/my-skill` and `version` set to `0.0.1`
+- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-owner>/skills/my-skill/`
+- **AND** writes an `axm-skill.json` manifest with `owner` set to `@<configured-owner>`, `name` set to `my-skill`, and `version` set to `0.0.1`
 - **AND** creates `src/SKILL.md` with a starter template
 - **AND** registers the skill in `settings.json` as a managed entry
 - **AND** creates symlinks in all configured agent skill directories pointing to the `src/` subdirectory
@@ -22,9 +22,9 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 #### Scenario: Create a skill with explicit profile
 
 - **WHEN** the user runs `axm skills new my-skill --profile @acme`
-- **THEN** the CLI uses `@acme` as the profile instead of the workspace-configured profile
+- **THEN** the CLI uses `@acme` as the owner instead of the workspace-configured profile
 - **AND** the skill directory is `.axm/extensions/@acme/skills/my-skill/`
-- **AND** the manifest `name` is `@acme/my-skill`
+- **AND** the manifest contains `owner: "@acme"` and `name: "my-skill"`
 
 #### Scenario: Create a skill for specific agents
 
@@ -40,7 +40,7 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
 #### Scenario: No profile configured and no --profile flag
 
-- **WHEN** the user runs `axm skills new my-skill` and no profile is configured (or profile is `@community`)
+- **WHEN** the user runs `axm skills new my-skill` and no profile is configured (or the configured profile is `@community`)
 - **THEN** the CLI fails with an error indicating a profile is required
 - **AND** suggests using `--profile` or configuring a profile via `axm init`
 

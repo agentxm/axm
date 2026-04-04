@@ -12,11 +12,11 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/
 /**
  * Minimal structural discriminant for determining skill path layout.
  *
- * Registry refs carry a profile for the canonical path; all other ref types
+ * Registry refs carry an owner for the canonical path; all other ref types
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly profile: string }
+  | { readonly refType: "registry"; readonly owner: string }
   | { readonly refType: "git-hosted" | "local" | "builtin" };
 
 /**
@@ -26,7 +26,7 @@ export type SkillPathSource =
  * - `skillSrcPath`: where actual skill source files live
  *
  * Non-registry: `canonicalPath === skillSrcPath` = `<base>/.axm/extensions/external/skills/<sanitized-name>`
- * Registry: `canonicalPath` = `<base>/.axm/extensions/<profile>/skills/<sanitized-name>`,
+ * Registry: `canonicalPath` = `<base>/.axm/extensions/<owner>/skills/<sanitized-name>`,
  *           `skillSrcPath` = `<canonicalPath>/src`
  */
 export interface SkillDirPaths {
@@ -52,7 +52,7 @@ export const computeSkillPaths = (
     const canonicalPath = join(
       base,
       REGISTRY_EXTENSIONS_DIR,
-      source.profile,
+      source.owner,
       "skills",
       sanitizedName,
     );

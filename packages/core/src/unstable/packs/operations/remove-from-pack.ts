@@ -31,10 +31,10 @@ import { hashContent } from "./hash-content.js";
  * Args for the remove-from-pack operation.
  */
 export interface RemoveFromPackOperationArgs {
-  /** Pack name (without profile). */
+  /** Pack name (without owner). */
   readonly packName: string;
-  /** Pack profile (e.g., "@myorg"). */
-  readonly packProfile: string;
+  /** Pack owner (e.g., "@myorg"). */
+  readonly packOwner: string;
   /** Precomputed manifest delta: extension names to remove. */
   readonly removals: ReadonlyArray<string>;
   /** Manifest content hash at plan time for stale-check. */
@@ -71,7 +71,7 @@ export const removeFromPack: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { packName, packProfile, removals, manifestHash } = op.args;
+    const { packName, packOwner, removals, manifestHash } = op.args;
 
     // 1. Short-circuit if nothing to remove
     if (removals.length === 0) {
@@ -79,7 +79,7 @@ export const removeFromPack: OperationHandler<
     }
 
     // 2. Read current manifest
-    const packDir = computePackPaths(path.join, base, packProfile, packName);
+    const packDir = computePackPaths(path.join, base, packOwner, packName);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(

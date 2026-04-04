@@ -1,5 +1,5 @@
 {
-  "profile": "@axm",
+  "owner": "@axm",
   "type": "pack",
   "name": "cli",
   "version": "0.0.16",

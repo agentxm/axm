@@ -73,41 +73,41 @@ const runWithActions = <A, E>(
   }).pipe(Effect.provide(actionsLayer));
 
 describe("parseCommandInstallArgs", () => {
-  it.effect("parses @profile/commands/name registry pattern", () =>
+  it.effect("parses @owner/commands/name registry pattern", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/commands/my-cmd",
         }),
       );
-      expect(result.profile).toBe("@acme");
+      expect(result.owner).toBe("@acme");
       expect(result.commandName).toBe("my-cmd");
       expect(Option.isNone(result.versionConstraint)).toBe(true);
       expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
     }),
   );
 
-  it.effect("parses @profile/commands/name@version with constraint", () =>
+  it.effect("parses @owner/commands/name@version with constraint", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/commands/my-cmd@^1.0.0",
         }),
       );
-      expect(result.profile).toBe("@acme");
+      expect(result.owner).toBe("@acme");
       expect(result.commandName).toBe("my-cmd");
       expect(Option.getOrNull(result.versionConstraint)).toBe("^1.0.0");
     }),
   );
 
-  it.effect("resolves bare name using configured profile", () =>
+  it.effect("resolves bare name using configured owner", () =>
     Effect.gen(function* () {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "my-cmd",
         }),
       );
-      expect(result.profile).toBe("@test-ns");
+      expect(result.owner).toBe("@test-ns");
       expect(result.commandName).toBe("my-cmd");
       expect(result.resolvedInput).toBe("@test-ns/commands/my-cmd");
     }),

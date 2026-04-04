@@ -81,16 +81,16 @@ const makeWorkspaceMock = (
               ? "builtin"
               : "git-hosted");
       if (srcRefType === "registry") {
-        const profile =
+        const owner =
           source?.refType === "registry"
-            ? source.profile
+            ? source.owner
             : lockEntry?.type === "registry"
-              ? lockEntry.profile
+              ? lockEntry.owner
               : "@community";
         // Resolve immutable registry name from lock entry, not user-facing name
         const dirName = lockEntry?.type === "registry" ? lockEntry.name : name;
         const sanitized = sanitizeName(dirName);
-        const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", sanitized);
+        const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const sanitized = sanitizeName(name);
@@ -124,9 +124,9 @@ const makeLocalLockEntry = (agents: string[]) => ({
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[], profile = "@community") => ({
+const makeRegistryLockEntry = (agents: string[], owner = "@community") => ({
   type: "registry" as const,
-  profile,
+  owner,
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -367,12 +367,12 @@ describe("renameSkill", () => {
     const setupRegistryWorkspace = (
       opts: {
         skillName?: string;
-        profile?: string;
+        owner?: string;
         agents?: string[];
       } = {},
     ) => {
       const skillName = opts.skillName ?? "my-skill";
-      const profile = opts.profile ?? "@community";
+      const owner = opts.owner ?? "@community";
       const agents = opts.agents ?? ["claude-code"];
 
       const base = path.join(tmpDir, "project");
@@ -380,7 +380,7 @@ describe("renameSkill", () => {
       fs.mkdirSync(axmDir, { recursive: true });
 
       // Create registry canonical skill dir with src/ subdirectory
-      const canonicalPath = path.join(base, ".axm", "extensions", profile, "skills", skillName);
+      const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", skillName);
       const srcPath = path.join(canonicalPath, "src");
       fs.mkdirSync(srcPath, { recursive: true });
       fs.writeFileSync(

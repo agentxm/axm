@@ -87,13 +87,13 @@ const computeIntegrity = (data: Uint8Array): string =>
   `sha512-${createHash("sha512").update(data).digest("base64")}`;
 
 const makeRegistryLockEntry = (
-  profile: string,
+  owner: string,
   name: string,
   resolvedVersion: string,
   agents: string[] = ["claude-code"],
 ) => ({
   type: "registry",
-  profile,
+  owner,
   name,
   resolvedVersion,
   integrity: `sha512-${resolvedVersion}`,
@@ -103,9 +103,9 @@ const makeRegistryLockEntry = (
   updatedAt: new Date().toISOString(),
 });
 
-const makePackLockEntry = (profile: string, name: string) => ({
+const makePackLockEntry = (owner: string, name: string) => ({
   type: "registry",
-  profile,
+  owner,
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-pack",
@@ -119,19 +119,19 @@ const makePackLockEntry = (profile: string, name: string) => ({
 
 const writeRegistrySkill = ({
   registryRoot,
-  profile,
+  owner,
   name,
   versions,
 }: {
   readonly registryRoot: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly versions: ReadonlyArray<{
     readonly version: string;
     readonly skillBody: string;
   }>;
 }) => {
-  const dir = path.join(registryRoot, "extensions", profile, "skills", name);
+  const dir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(dir, { recursive: true });
 
   const versionEntries = versions.map(({ version, skillBody }) => {
@@ -148,7 +148,7 @@ const writeRegistrySkill = ({
     path.join(dir, "index.json"),
     JSON.stringify(
       {
-        profile,
+        owner,
         type: "skill",
         name,
         description: "Registry test skill",
@@ -162,22 +162,22 @@ const writeRegistrySkill = ({
 
 const writeInstalledPackManifest = ({
   workspaceRoot,
-  profile,
+  owner,
   name,
   skills,
 }: {
   readonly workspaceRoot: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly skills: Record<string, string>;
 }) => {
-  const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, profile, "packs", name);
+  const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, PACK_MANIFEST_FILENAME),
     JSON.stringify(
       {
-        profile,
+        owner,
         type: "pack",
         name,
         version: "1.0.0",
@@ -266,7 +266,7 @@ describe("update.handler — error recovery", () => {
       const registryRoot = path.join(tempDir, "registry");
       writeRegistrySkill({
         registryRoot,
-        profile: "@acme",
+        owner: "@acme",
         name: "code-review",
         versions: [
           { version: "2.0.0", skillBody: "# code-review v2" },
@@ -323,7 +323,7 @@ describe("update.handler — error recovery", () => {
     const registryRoot = path.join(tempDir, "registry");
     writeRegistrySkill({
       registryRoot,
-      profile: "@acme",
+      owner: "@acme",
       name: "code-review",
       versions: [
         { version: "2.0.0", skillBody: "# code-review v2" },
@@ -353,7 +353,7 @@ describe("update.handler — error recovery", () => {
     });
     writeInstalledPackManifest({
       workspaceRoot: tempDir,
-      profile: "@acme",
+      owner: "@acme",
       name: "frontend-pack",
       skills: {
         "@acme/skills/code-review": "^1.0.0",

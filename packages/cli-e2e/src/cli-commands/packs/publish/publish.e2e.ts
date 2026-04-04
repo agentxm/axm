@@ -12,19 +12,19 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 
-/** Set up a workspace with registry source and profile. */
-const setupWorkspace = async (tempPath: string, registryPath: string, profile: string) => {
+/** Set up a workspace with registry source and owner. */
+const setupWorkspace = async (tempPath: string, registryPath: string, owner: string) => {
   await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: tempPath });
   const settingsPath = path.join(tempPath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
-  settings.profile = profile;
+  settings.profile = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
 /** Create a skill extension in .axm/extensions/. */
-const createManagedSkill = (tempPath: string, profile: string, name: string, version = "1.0.0") => {
-  const extensionDir = path.join(tempPath, ".axm", "extensions", profile, "skills", name);
+const createManagedSkill = (tempPath: string, owner: string, name: string, version = "1.0.0") => {
+  const extensionDir = path.join(tempPath, ".axm", "extensions", owner, "skills", name);
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -35,7 +35,7 @@ const createManagedSkill = (tempPath: string, profile: string, name: string, ver
     path.join(extensionDir, "axm-skill.json"),
     JSON.stringify(
       {
-        profile,
+        owner,
         type: "skill",
         name,
         version,
@@ -50,7 +50,7 @@ const createManagedSkill = (tempPath: string, profile: string, name: string, ver
 /** Create a pack in .axm/extensions/ with an axm-pack.json manifest. */
 const createManagedPack = (
   tempPath: string,
-  profile: string,
+  owner: string,
   name: string,
   manifest: {
     version: string;
@@ -59,13 +59,13 @@ const createManagedPack = (
     "mcp-servers"?: Record<string, string>;
   },
 ) => {
-  const packDir = path.join(tempPath, ".axm", "extensions", profile, "packs", name);
+  const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       {
-        profile,
+        owner,
         type: "pack",
         name,
         ...manifest,
@@ -82,26 +82,26 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, profile);
+        await setupWorkspace(temp.path, registryDir.path, owner);
 
         // Create dependency skills locally
-        createManagedSkill(temp.path, profile, "dep-skill-a", "1.0.0");
-        createManagedSkill(temp.path, profile, "dep-skill-b", "2.0.0");
+        createManagedSkill(temp.path, owner, "dep-skill-a", "1.0.0");
+        createManagedSkill(temp.path, owner, "dep-skill-b", "2.0.0");
 
         // Create the pack with dependencies referencing those skills
-        createManagedPack(temp.path, profile, "my-pack", {
+        createManagedPack(temp.path, owner, "my-pack", {
           version: "1.0.0",
           skills: {
-            [`${profile}/skills/dep-skill-a`]: "^1.0.0",
-            [`${profile}/skills/dep-skill-b`]: "^2.0.0",
+            [`${owner}/skills/dep-skill-a`]: "^1.0.0",
+            [`${owner}/skills/dep-skill-b`]: "^2.0.0",
           },
         });
 
         // Publish with --include-dependencies
         const result = await runCli(
-          ["packs", "publish", `${profile}/packs/my-pack`, "--include-dependencies", "--yes"],
+          ["packs", "publish", `${owner}/packs/my-pack`, "--include-dependencies", "--yes"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode).toBe(0);
@@ -110,7 +110,7 @@ describe("axm packs publish", () => {
         const depAIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "dep-skill-a",
           "index.json",
@@ -118,7 +118,7 @@ describe("axm packs publish", () => {
         const depBIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "dep-skill-b",
           "index.json",
@@ -136,7 +136,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "packs",
           "my-pack",
           "index.json",
@@ -155,18 +155,18 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, profile);
+        await setupWorkspace(temp.path, registryDir.path, owner);
 
         // Create dependency skill locally
-        createManagedSkill(temp.path, profile, "preview-dep", "1.0.0");
+        createManagedSkill(temp.path, owner, "preview-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, profile, "preview-pack", {
+        createManagedPack(temp.path, owner, "preview-pack", {
           version: "1.0.0",
           skills: {
-            [`${profile}/skills/preview-dep`]: "^1.0.0",
+            [`${owner}/skills/preview-dep`]: "^1.0.0",
           },
         });
 
@@ -175,7 +175,7 @@ describe("axm packs publish", () => {
           [
             "packs",
             "publish",
-            `${profile}/packs/preview-pack`,
+            `${owner}/packs/preview-pack`,
             "--include-dependencies",
             "--preview",
             "--non-interactive",
@@ -186,14 +186,14 @@ describe("axm packs publish", () => {
 
         // Output should mention the dependency publish step
         const output = result.stdout + result.stderr;
-        expect(output).toContain(`${profile}/skills/preview-dep`);
-        expect(output).toContain(`${profile}/packs/preview-pack`);
+        expect(output).toContain(`${owner}/skills/preview-dep`);
+        expect(output).toContain(`${owner}/packs/preview-pack`);
 
         // Registry should NOT have anything published (preview only)
         const depIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "preview-dep",
           "index.json",
@@ -201,7 +201,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "packs",
           "preview-pack",
           "index.json",
@@ -220,23 +220,23 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const profile = "@test";
+        const owner = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, profile);
+        await setupWorkspace(temp.path, registryDir.path, owner);
 
         // Create dependency skill locally (should NOT be published)
-        createManagedSkill(temp.path, profile, "ignored-dep", "1.0.0");
+        createManagedSkill(temp.path, owner, "ignored-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, profile, "solo-pack", {
+        createManagedPack(temp.path, owner, "solo-pack", {
           version: "1.0.0",
           skills: {
-            [`${profile}/skills/ignored-dep`]: "^1.0.0",
+            [`${owner}/skills/ignored-dep`]: "^1.0.0",
           },
         });
 
         // Publish WITHOUT --include-dependencies
-        const result = await runCli(["packs", "publish", `${profile}/packs/solo-pack`, "--yes"], {
+        const result = await runCli(["packs", "publish", `${owner}/packs/solo-pack`, "--yes"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -246,7 +246,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "packs",
           "solo-pack",
           "index.json",
@@ -257,7 +257,7 @@ describe("axm packs publish", () => {
         const depIndex = path.join(
           registryDir.path,
           "extensions",
-          profile,
+          owner,
           "skills",
           "ignored-dep",
           "index.json",

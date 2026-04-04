@@ -32,7 +32,7 @@ describe("axm skills fork", () => {
         // Initialize workspace
         await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
 
-        // Set up registry source and profile in settings
+        // Set up registry source and owner in settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
@@ -72,7 +72,7 @@ describe("axm skills fork", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
         expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.profile).toBe("@test");
+        expect(manifest.owner).toBe("@test");
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.1.0");
@@ -93,7 +93,7 @@ describe("axm skills fork", () => {
         expect(fs.existsSync(indexPath)).toBe(true);
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-skill");
-        expect(index.profile).toBe("@test");
+        expect(index.owner).toBe("@test");
         expect(index.versions.length).toBeGreaterThan(0);
         expect(index.versions[0].version).toBe("0.1.0");
         expect(index.versions[0].integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
@@ -107,7 +107,7 @@ describe("axm skills fork", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock.skills["my-skill"]).toBeDefined();
         expect(lock.skills["my-skill"].type).toBe("registry");
-        expect(lock.skills["my-skill"].profile).toBe("@test");
+        expect(lock.skills["my-skill"].owner).toBe("@test");
 
         // 4. Verify settings.json was updated with forked skill
         const settingsAfterFork = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));

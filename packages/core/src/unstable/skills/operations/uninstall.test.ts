@@ -226,7 +226,7 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
 const makeRegistryLockEntry = (agents: string[]) => ({
   type: "registry" as const,
-  profile: "@community",
+  owner: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -239,7 +239,7 @@ const makeRegistryLockEntry = (agents: string[]) => ({
 /** Creates a registry source lock entry for on-disk YAML (ISO strings). */
 const makeRegistryLockEntryYaml = (agents: string[]) => ({
   type: "registry",
-  profile: "@community",
+  owner: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -727,7 +727,7 @@ describe("uninstallSkill", () => {
     /** Creates a pack lock entry with resolvedSkills. */
     const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
       type: "registry" as const,
-      profile: "@acme",
+      owner: "@acme",
       name: "starter-pack",
       resolvedVersion: "1.0.0",
       integrity: "sha512-CCCC==",
@@ -780,14 +780,14 @@ describe("uninstallSkill", () => {
           lockfileSkills: {
             "my-skill": {
               ...makeRegistryLockEntry(["claude-code"]),
-              profile: "@acme",
+              owner: "@acme",
               name: "my-skill",
             },
           },
           lockfileSkillsYaml: {
             "my-skill": {
               ...makeRegistryLockEntryYaml(["claude-code"]),
-              profile: "@acme",
+              owner: "@acme",
               name: "my-skill",
             },
           },
@@ -830,14 +830,14 @@ describe("uninstallSkill", () => {
           lockfileSkills: {
             "my-skill": {
               ...makeRegistryLockEntry(["claude-code"]),
-              profile: "@acme",
+              owner: "@acme",
               name: "my-skill",
             },
           },
           lockfileSkillsYaml: {
             "my-skill": {
               ...makeRegistryLockEntryYaml(["claude-code"]),
-              profile: "@acme",
+              owner: "@acme",
               name: "my-skill",
             },
           },
@@ -875,24 +875,24 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("matches skill FQN using lockfile entry profile and name fields", () =>
+    it.effect("matches skill FQN using lockfile entry owner and name fields", () =>
       Effect.gen(function* () {
         // Skill name in lockfile may differ from FQN in pack resolvedSkills
-        // e.g., lockfile key "my-skill" with profile "@community" → FQN "@community/skills/my-skill"
+        // e.g., lockfile key "my-skill" with owner "@community" → FQN "@community/skills/my-skill"
         const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
           agents: ["claude-code"],
           skillName: "my-skill",
           lockfileSkills: {
             "my-skill": {
               ...makeRegistryLockEntry(["claude-code"]),
-              profile: "@community",
+              owner: "@community",
               name: "my-skill",
             },
           },
           lockfileSkillsYaml: {
             "my-skill": {
               ...makeRegistryLockEntryYaml(["claude-code"]),
-              profile: "@community",
+              owner: "@community",
               name: "my-skill",
             },
           },
@@ -927,21 +927,21 @@ describe("uninstallSkill", () => {
     const setupRegistryWorkspace = (
       opts: {
         skillName?: string;
-        profile?: string;
+        owner?: string;
         agents?: string[];
         createSymlinks?: boolean;
       } = {},
     ) => {
       const skillName = opts.skillName ?? "my-skill";
-      const profile = opts.profile ?? "@community";
+      const owner = opts.owner ?? "@community";
       const agents = opts.agents ?? ["claude-code"];
 
       const base = path.join(tmpDir, "project");
       const axmDir = path.join(base, ".axm");
       fs.mkdirSync(axmDir, { recursive: true });
 
-      // Create registry canonical dir: .axm/extensions/@profile/skills/<name>/
-      const registryPath = path.join(base, ".axm", "extensions", profile, "skills", skillName);
+      // Create registry canonical dir: .axm/extensions/@owner/skills/<name>/
+      const registryPath = path.join(base, ".axm", "extensions", owner, "skills", skillName);
       fs.mkdirSync(registryPath, { recursive: true });
       fs.writeFileSync(path.join(registryPath, "SKILL.md"), `# ${skillName}`);
 

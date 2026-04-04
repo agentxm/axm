@@ -35,7 +35,7 @@ import { Workspace } from "../../workspace/service-interface.js";
  * computes the SRI integrity hash, and publishes to the target registry.
  */
 export type PublishSkillOperationArgs = {
-  /** Extension identity in `@profile/name` format. */
+  /** Extension identity in `@owner/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;

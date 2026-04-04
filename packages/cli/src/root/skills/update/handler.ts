@@ -218,7 +218,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     source: RegistrySource | SkillExtensionRef["source"],
     options: {
       readonly skillNames: ReadonlyArray<string>;
-      readonly profile: Option.Option<string>;
+      readonly owner: Option.Option<string>;
       readonly versionConstraint: Option.Option<string>;
     },
   ) =>
@@ -226,7 +226,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       .find(source, {
         skillNames: options.skillNames,
         type: "skill",
-        profile: options.profile,
+        owner: options.owner,
         versionConstraint: options.versionConstraint,
       })
       .pipe(
@@ -237,13 +237,13 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const resolveRegistrySkillWithConstraints = ({
     source,
-    profile,
+    owner,
     lookupName,
     userConstraint,
     packConstraints,
   }: {
     readonly source: RegistrySource;
-    readonly profile: string;
+    readonly owner: string;
     readonly lookupName: string;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
@@ -253,7 +253,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         source.location.protocol === "file:" ? source.location.pathname : source.location.href;
       const client = yield* createRegistryClient(location);
       const indexOption = yield* client.getExtensionIndex({
-        handle: profile,
+        handle: owner,
         type: "skill",
         name: lookupName,
       });
@@ -265,7 +265,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         }>();
       }
 
-      const skillFqn = `${profile}/skills/${lookupName}`;
+      const skillFqn = `${owner}/skills/${lookupName}`;
       const constraints: SkillConstraints = { userConstraint, packConstraints };
       const versions = indexOption.value.versions.map((entry) => entry.version);
       const [latestVersion] = versions;
@@ -294,7 +294,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
       const exactRefs = yield* findSkillRefs(source, {
         skillNames: [lookupName],
-        profile: Option.some(profile),
+        owner: Option.some(owner),
         versionConstraint: Option.some(resolvedVersion.value.resolvedVersion),
       });
       const exactRef = exactRefs.find(
@@ -341,11 +341,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               const lookupName = Option.getOrElse(registryPattern.value.name, () => name);
               const registryResolved = yield* resolveRegistrySkillWithConstraints({
                 source,
-                profile: registryPattern.value.profile,
+                owner: registryPattern.value.owner,
                 lookupName,
                 userConstraint: registryPattern.value.versionConstraint,
                 packConstraints:
-                  packConstraintMap.get(`${registryPattern.value.profile}/skills/${lookupName}`) ??
+                  packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ??
                   [],
               });
               if (Option.isSome(registryResolved)) {
@@ -358,15 +358,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               }
             }
 
-            const requestedProfile = Option.match(registryPattern, {
+            const requestedOwner = Option.match(registryPattern, {
               onNone: () => Option.none<string>(),
-              onSome: (pattern) => Option.some(pattern.profile),
+              onSome: (pattern) => Option.some(pattern.owner),
             });
 
             // First try with name filter (fast path)
             const namedRefs = yield* findSkillRefs(source, {
               skillNames: [name],
-              profile: requestedProfile,
+              owner: requestedOwner,
               versionConstraint: Option.none(),
             });
             const skillRef = namedRefs.find((r) => r.skill.name === name);
@@ -383,7 +383,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             // Skill not found by name — re-resolve without name filter for rename detection
             const allSkillRefs = yield* findSkillRefs(source, {
               skillNames: [],
-              profile: requestedProfile,
+              owner: requestedOwner,
               versionConstraint: Option.none(),
             });
 
@@ -401,12 +401,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               ) {
                 const renameResolved = yield* resolveRegistrySkillWithConstraints({
                   source,
-                  profile: registryPattern.value.profile,
+                  owner: registryPattern.value.owner,
                   lookupName: newRef.skill.name,
                   userConstraint: registryPattern.value.versionConstraint,
                   packConstraints:
                     packConstraintMap.get(
-                      `${registryPattern.value.profile}/skills/${newRef.skill.name}`,
+                      `${registryPattern.value.owner}/skills/${newRef.skill.name}`,
                     ) ?? [],
                 });
                 if (Option.isSome(renameResolved)) {
@@ -599,7 +599,7 @@ const collectPackConstraints = () =>
         const packDir = path.join(
           base,
           REGISTRY_EXTENSIONS_DIR,
-          packEntry.profile,
+          packEntry.owner,
           "packs",
           packName,
         );

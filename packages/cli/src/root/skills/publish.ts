@@ -2,7 +2,7 @@
  * Publish command handler -- Effect-based orchestration for `axm skills publish`.
  *
  * Publishes a managed extension from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> profile from settings)
+ * 1. Resolve extension name (bare name -> owner from settings)
  * 2. Validate managed extension exists
  * 3. Build plan with a single PublishSkillOperation
  * 4. Execute via resolvePlan
@@ -194,12 +194,12 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     name.startsWith("@") && name.includes("/")
       ? Effect.succeed(name)
       : ws.getConfiguredProfile().pipe(
-          Effect.map((profile) => `${profile}/skills/${name}`),
+          Effect.map((owner) => `${owner}/skills/${name}`),
           Effect.mapError((e) =>
             makeAppError({
               code: "NAMESPACE_RESOLUTION_FAILED",
-              what: `Failed to resolve profile: ${e._tag}`,
-              howToFix: "Configure a profile in your settings with `axm init`.",
+              what: `Failed to resolve owner: ${e._tag}`,
+              howToFix: "Configure an owner in your settings with `axm init`.",
               cause: e,
             }),
           ),
@@ -341,7 +341,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
 const publishConfig = {
   extensions: Argument.string("extensions").pipe(
     Argument.withDescription(
-      "Extension names or glob patterns (@profile/skills/name, bare name, or glob)",
+      "Extension names or glob patterns (@owner/skills/name, bare name, or glob)",
     ),
     Argument.atLeast(1),
   ),

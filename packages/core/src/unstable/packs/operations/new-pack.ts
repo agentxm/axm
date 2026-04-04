@@ -27,10 +27,10 @@ import { decodeExactSemverVersionSync } from "../../version-constraints/index.js
  * Args for the new-pack operation.
  */
 export interface NewPackOperationArgs {
-  /** Pack name (without profile). */
+  /** Pack name (without owner). */
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
-  readonly profile: string;
+  readonly owner: string;
 }
 
 /**
@@ -64,11 +64,11 @@ export const newPack: OperationHandler<
     const base = ws.baseDir;
     const initialVersion = decodeExactSemverVersionSync("0.0.1");
 
-    const { name, profile } = op.args;
-    const fqn = formatFqn({ handle: profile, type: "packs", name });
+    const { name, owner } = op.args;
+    const fqn = formatFqn({ handle: owner, type: "packs", name });
 
     // 1. Compute pack directory path
-    const packDir = computePackPaths(path.join, base, profile, name);
+    const packDir = computePackPaths(path.join, base, owner, name);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
     // 2. Check if pack manifest already exists
@@ -103,7 +103,7 @@ export const newPack: OperationHandler<
 
     // 4. Write manifest
     const manifest = {
-      profile,
+      owner,
       type: "pack",
       name,
       version: initialVersion,
@@ -126,7 +126,7 @@ export const newPack: OperationHandler<
     const now = new Date();
     yield* ws
       .setPack({
-        profile,
+        owner,
         name,
         resolvedVersion: initialVersion,
         integrity: "",

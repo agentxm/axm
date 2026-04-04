@@ -138,13 +138,13 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects name without profile (just name)", () => {
+    it("rejects name without owner (just name)", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("grappling-hook");
 
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects incomplete pattern (@profile only)", () => {
+    it("rejects incomplete pattern (@owner only)", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne");
 
       expect(Result.isFailure(result)).toBe(true);
@@ -170,7 +170,7 @@ describe("common schemas", () => {
 
     it("accepts valid full manifest", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         name: "grappling-hook",
         version: "1.0.0",
         description: "A grappling hook skill",
@@ -189,7 +189,7 @@ describe("common schemas", () => {
 
     it("accepts minimal manifest (name and version only)", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         name: "hook",
         version: "0.1.0",
       };
@@ -201,7 +201,7 @@ describe("common schemas", () => {
 
     it("rejects manifest with invalid name pattern", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         name: "invalid/name",
         version: "1.0.0",
       };
@@ -211,7 +211,7 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
-    it("rejects manifest missing required profile", () => {
+    it("rejects manifest missing required owner", () => {
       const input = {
         name: "hook",
         version: "1.0.0",
@@ -224,7 +224,7 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required name", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         version: "1.0.0",
       };
 
@@ -235,7 +235,7 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required version", () => {
       const input = {
-        profile: "@wayne",
+        owner: "@wayne",
         name: "hook",
       };
 
@@ -246,12 +246,12 @@ describe("common schemas", () => {
   });
 
   describe("ManifestHandle", () => {
-    it("accepts @-prefixed profile", () => {
+    it("accepts @-prefixed owner", () => {
       const result = Schema.decodeUnknownResult(ManifestHandleSchema)("@wayne");
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("rejects profile without @", () => {
+    it("rejects owner without @", () => {
       const result = Schema.decodeUnknownResult(ManifestHandleSchema)("wayne");
       expect(Result.isFailure(result)).toBe(true);
     });

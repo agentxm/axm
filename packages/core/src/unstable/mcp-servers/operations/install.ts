@@ -60,7 +60,7 @@ export type InstallMcpServerOperation = Operation<
 
 const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
   type: "registry",
-  profile: ref.profile,
+  owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeExactSemverVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
@@ -82,7 +82,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
     const canonicalPath = path.join(
       ws.baseDir,
       REGISTRY_EXTENSIONS_DIR,
-      ref.profile,
+      ref.owner,
       "mcp-servers",
       ref.name,
     );
@@ -113,7 +113,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
           : ref.source.location.href;
       const client = yield* createRegistryClient(locationStr);
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.profile,
+        handle: ref.owner,
         type: "mcp-server",
         name: ref.name,
         version: Option.some(ref.version),
@@ -222,7 +222,7 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly strict: boolean;
   readonly serverName: string;
   readonly canonicalPath: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly resolvedVersion: string;
 }) =>
   Effect.gen(function* () {
@@ -260,7 +260,7 @@ const syncConfiguredAgentsOnInstall = (args: {
             workspaceRoot: args.wsBaseDir,
             serverName: args.serverName,
             canonicalPath: args.canonicalPath,
-            profile: args.profile,
+            owner: args.owner,
             resolvedVersion: args.resolvedVersion,
           })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
@@ -385,7 +385,7 @@ export const installMcpServer: (
       strict: strictAgentSync,
       serverName: ref.server.name,
       canonicalPath,
-      profile: ref.profile,
+      owner: ref.owner,
       resolvedVersion: ref.version,
     });
 

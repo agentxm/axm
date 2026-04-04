@@ -34,15 +34,15 @@ const initWorkspace = (
 
 const createPackManifest = (
   tempDir: string,
-  profile: string,
+  owner: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", profile, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
-    profile,
+    owner,
     type: "pack",
     name,
     version: manifest["version"] ?? "0.0.1",

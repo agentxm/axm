@@ -51,7 +51,7 @@ describe("sync handler", () => {
       path.join(canonicalDir, "axm-skill.json"),
       JSON.stringify(
         {
-          profile: "@axm",
+          owner: "@axm",
           type: "skill",
           name: "manage-extensions",
           version: "0.0.1",
@@ -116,7 +116,7 @@ describe("sync handler", () => {
         expect(lockfile.skills).toEqual({
           "manage-extensions": expect.objectContaining({
             type: "registry",
-            profile: "@axm",
+            owner: "@axm",
             name: "manage-extensions",
             resolvedVersion: "0.0.1",
             sourceName: "default",

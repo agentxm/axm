@@ -93,9 +93,9 @@ describe("structured output (--json)", () => {
         expect(parseJson(result.stdout)).toMatchObject({
           type: "error",
           schemaVersion: 1,
-          code: "AUTH_LOGIN_REQUIRED",
+          code: "AUTH_TOKEN_REQUIRED",
         });
-        expect(result.stderr).toContain("No token available");
+        expect(result.stderr).toContain("Persisted credentials are disabled");
       } finally {
         temp.cleanup();
       }

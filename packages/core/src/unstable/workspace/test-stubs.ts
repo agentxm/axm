@@ -178,7 +178,7 @@ const hasEntries = (
 
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
-  readonly profile?: string | undefined;
+  readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
   readonly "mcp-servers"?: Record<string, unknown> | undefined;
@@ -195,7 +195,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
 
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
-    ...(opts.profile && { profile: opts.profile }),
+    ...(opts.owner && { owner: opts.owner }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),
@@ -229,7 +229,7 @@ export const makeLocalSkillLockEntry = (opts?: {
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
@@ -239,7 +239,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): SkillLockEntry => ({
   type: "registry",
-  profile: opts.profile,
+  owner: opts.owner,
   name: opts.name,
   resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
@@ -250,7 +250,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 });
 
 export const makeRegistryPackLockEntry = (opts: {
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
@@ -262,7 +262,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: Date;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
-    profile: opts.profile,
+    owner: opts.owner,
     name: opts.name,
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",

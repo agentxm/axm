@@ -46,7 +46,7 @@ export interface InstallPackHandlerArgs {
 
 /** Parsed and validated pack install args. */
 export interface ParsedPackInstallArgs {
-  readonly profile: string;
+  readonly owner: string;
   readonly packName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -56,7 +56,7 @@ export interface ParsedPackInstallArgs {
 /** Source request for pack registry lookup. */
 export interface PackSourceRequest {
   readonly source: RegistrySource;
-  readonly profile: string;
+  readonly owner: string;
   readonly packName: string;
   readonly versionConstraint: Option.Option<string>;
 }
@@ -192,16 +192,16 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
           // Handle bare name (e.g., "my-pack")
           if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
-            const profile = yield* ws.getConfiguredProfile();
+            const owner = yield* ws.getConfiguredProfile();
             yield* renderer.info(
-              `Source resolution: ${trimmed} -> ${profile}/packs/${parsed.value.pattern.name}`,
+              `Source resolution: ${trimmed} -> ${owner}/packs/${parsed.value.pattern.name}`,
             );
             return {
               inputKind: "name-input" as const,
-              profile,
+              owner,
               packName: parsed.value.pattern.name,
               versionConstraint: Option.none<string>(),
-              resolvedInput: `${profile}/packs/${parsed.value.pattern.name}`,
+              resolvedInput: `${owner}/packs/${parsed.value.pattern.name}`,
             };
           }
 
@@ -211,21 +211,21 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             const name = trimmed.slice(0, atIndex);
             const constraint = trimmed.slice(atIndex + 1);
             if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
-              const profile = yield* ws.getConfiguredProfile();
+              const owner = yield* ws.getConfiguredProfile();
               yield* renderer.info(
-                `Source resolution: ${trimmed} -> ${profile}/packs/${name}@${constraint}`,
+                `Source resolution: ${trimmed} -> ${owner}/packs/${name}@${constraint}`,
               );
               return {
                 inputKind: "name-input-with-version" as const,
-                profile,
+                owner,
                 packName: name,
                 versionConstraint: Option.some(constraint),
-                resolvedInput: `${profile}/packs/${name}@${constraint}`,
+                resolvedInput: `${owner}/packs/${name}@${constraint}`,
               };
             }
           }
 
-          // Handle @profile/packs/pack-name[@constraint]
+          // Handle @owner/packs/pack-name[@constraint]
           if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
             const pat = parsed.value.pattern;
 
@@ -235,7 +235,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 what: "Pack source must include /packs/ segment",
                 details: [`Provided: ${trimmed}`],
                 howToFix:
-                  "Use @profile/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+                  "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
               });
             }
 
@@ -244,13 +244,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 code: "PACK_SOURCE_MISSING_NAME",
                 what: "Pack source must include a pack name",
                 details: [`Provided: ${trimmed}`],
-                howToFix: "Use @profile/packs/pack-name format.",
+                howToFix: "Use @owner/packs/pack-name format.",
               });
             }
 
             return {
               inputKind: "registry-pattern-input" as const,
-              profile: pat.profile,
+              owner: pat.owner,
               packName: pat.name.value,
               versionConstraint: pat.versionConstraint,
               resolvedInput: trimmed,
@@ -262,8 +262,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             code: "PACK_SOURCE_NOT_REGISTRY",
             what: "Packs can only be installed from a registry",
             details: [`Provided: ${trimmed}`],
-            howToFix:
-              "Use @profile/packs/pack-name or just pack-name (resolved to default profile).",
+            howToFix: "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
           });
         }),
       );
@@ -280,12 +279,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     code: "INVALID_SOURCE",
                     what: `Invalid source: ${error.message}`,
                     details: [`Provided: ${parsed.resolvedInput}`],
-                    howToFix: "Use @profile/packs/pack-name or just pack-name.",
+                    howToFix: "Use @owner/packs/pack-name or just pack-name.",
                     cause: error,
                   }),
                 ),
               ),
-            { successMessage: `Pack: ${parsed.profile}/packs/${parsed.packName}` },
+            { successMessage: `Pack: ${parsed.owner}/packs/${parsed.packName}` },
           );
 
           if (source.type !== "registry") {
@@ -293,14 +292,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               code: "PACK_SOURCE_NOT_REGISTRY",
               what: "Packs can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
-              howToFix: "Use a registry source: @profile/packs/pack-name",
+              howToFix: "Use a registry source: @owner/packs/pack-name",
             });
           }
 
           return [
             {
               source,
-              profile: parsed.profile,
+              owner: parsed.owner,
               packName: parsed.packName,
               versionConstraint: parsed.versionConstraint,
             },
@@ -329,7 +328,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     sources.find(candidate, {
                       skillNames: [req.packName],
                       type: "pack",
-                      profile: Option.some(req.profile),
+                      owner: Option.some(req.owner),
                       versionConstraint: req.versionConstraint,
                     });
 
@@ -370,7 +369,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                           ({
                             type: "registry" as const,
                             location: host.location,
-                            profile: Option.some(req.profile),
+                            owner: Option.some(req.owner),
                           }) satisfies RegistrySource,
                       );
 
@@ -406,7 +405,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         code: "PACK_FETCH_FAILED",
                         what: "Failed to fetch pack from registry",
                         details: [
-                          `Pack: ${req.profile}/packs/${req.packName}`,
+                          `Pack: ${req.owner}/packs/${req.packName}`,
                           `Lookup probes: ${probes.map(formatRegistryProbe).join("; ")}`,
                         ],
                         howToFix:
@@ -418,7 +417,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       code: "PACK_FETCH_FAILED",
                       what: "Failed to fetch pack from registry",
                       details: [
-                        `Pack: ${req.profile}/packs/${req.packName}`,
+                        `Pack: ${req.owner}/packs/${req.packName}`,
                         `Reason: ${summarizeLookupError(initialResult.failure)}`,
                       ],
                       howToFix: "Verify the pack name and registry configuration.",

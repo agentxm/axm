@@ -1,7 +1,7 @@
 /**
  * E2E tests for the `axm skills new` command.
  *
- * Tests: scaffolding, profile override, already-exists error, agent narrowing.
+ * Tests: scaffolding, owner override, already-exists error, agent narrowing.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -25,9 +25,9 @@ function setupWorkspace() {
   return { temp, settingsPath, readSettings };
 }
 
-function configureScope(settingsPath: string, profile = "@test") {
+function configureScope(settingsPath: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.profile = profile;
+  settings.profile = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -57,7 +57,7 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.profile).toBe("@test");
+      expect(manifest.owner).toBe("@test");
       expect(manifest.type).toBe("skill");
       expect(manifest.name).toBe("my-skill");
       expect(manifest.version).toBe("0.0.1");
@@ -115,7 +115,7 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.profile).toBe("@custom");
+      expect(manifest.owner).toBe("@custom");
       expect(manifest.type).toBe("skill");
       expect(manifest.name).toBe("my-skill");
     } finally {

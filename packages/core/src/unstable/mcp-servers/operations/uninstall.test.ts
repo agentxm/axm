@@ -147,7 +147,7 @@ const makeOp = (
 
 const makeRegistryLockEntry = (name = "my-server") => ({
   type: "registry" as const,
-  profile: "@community",
+  owner: "@community",
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -158,7 +158,7 @@ const makeRegistryLockEntry = (name = "my-server") => ({
 
 const makeRegistryLockEntryYaml = (name = "my-server") => ({
   type: "registry",
-  profile: "@community",
+  owner: "@community",
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -192,16 +192,16 @@ describe("uninstallMcpServer", () => {
     opts: {
       serverName?: string;
       createCanonical?: boolean;
-      profile?: string;
+      owner?: string;
     } = {},
   ) => {
     const serverName = opts.serverName ?? "my-server";
-    const profile = opts.profile ?? "@community";
+    const owner = opts.owner ?? "@community";
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, ".axm", "extensions", profile, "mcp-servers", serverName);
+    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcp-servers", serverName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");

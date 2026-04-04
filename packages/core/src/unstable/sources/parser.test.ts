@@ -25,55 +25,55 @@ describe("parseInputPattern", () => {
       expectSome("some-name", { pattern: "name-input", name: "some-name" });
     });
 
-    it("classifies @profile/skills/name as registry-pattern-input", () => {
+    it("classifies @owner/skills/name as registry-pattern-input", () => {
       expectSome("@myorg/skills/some-name", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        profile: "@myorg",
+        owner: "@myorg",
         name: Option.some("some-name"),
         versionConstraint: Option.none(),
       });
     });
 
-    it("classifies @profile/mcp-servers/name@constraint as registry-pattern-input", () => {
+    it("classifies @owner/mcp-servers/name@constraint as registry-pattern-input", () => {
       expectSome("@myorg/mcp-servers/server-a@^1.2.3", {
         pattern: "registry-pattern-input",
         type: Option.some("mcp-servers"),
-        profile: "@myorg",
+        owner: "@myorg",
         name: Option.some("server-a"),
         versionConstraint: Option.some("^1.2.3"),
       });
     });
 
-    it("classifies @profile/packs/name as registry-pattern-input", () => {
+    it("classifies @owner/packs/name as registry-pattern-input", () => {
       expectSome("@myorg/packs/my-pack", {
         pattern: "registry-pattern-input",
         type: Option.some("packs"),
-        profile: "@myorg",
+        owner: "@myorg",
         name: Option.some("my-pack"),
         versionConstraint: Option.none(),
       });
     });
 
-    it("returns None for 2-segment @profile/name (no longer treated as registry)", () => {
+    it("returns None for 2-segment @owner/name (no longer treated as registry)", () => {
       expectNone("@myorg/legacy-skill");
     });
 
-    it("classifies @profile as registry-pattern-input with no type/name", () => {
+    it("classifies @owner as registry-pattern-input with no type/name", () => {
       expectSome("@myorg", {
         pattern: "registry-pattern-input",
         type: Option.none(),
-        profile: "@myorg",
+        owner: "@myorg",
         name: Option.none(),
         versionConstraint: Option.none(),
       });
     });
 
-    it("classifies @profile/{type} as registry-pattern-input with no name", () => {
+    it("classifies @owner/{type} as registry-pattern-input with no name", () => {
       expectSome("@myorg/skills", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        profile: "@myorg",
+        owner: "@myorg",
         name: Option.none(),
         versionConstraint: Option.none(),
       });

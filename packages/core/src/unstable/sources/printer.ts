@@ -95,7 +95,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "registry":
       return {
         type: "registry",
-        profile: Option.none(),
+        owner: Option.none(),
       };
     case "builtin":
       return { type: "builtin" };

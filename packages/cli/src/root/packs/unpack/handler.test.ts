@@ -71,9 +71,9 @@ const initWorkspace = (
 const createCanonicalDirs = (
   baseDir: string,
   opts: {
-    skills?: ReadonlyArray<{ profile: string; name: string }>;
-    commands?: ReadonlyArray<{ profile: string; name: string }>;
-    mcpServers?: ReadonlyArray<{ profile: string; name: string }>;
+    skills?: ReadonlyArray<{ owner: string; name: string }>;
+    commands?: ReadonlyArray<{ owner: string; name: string }>;
+    mcpServers?: ReadonlyArray<{ owner: string; name: string }>;
   },
 ) => {
   for (const skill of opts.skills ?? []) {
@@ -81,7 +81,7 @@ const createCanonicalDirs = (
       baseDir,
       ".axm",
       "extensions",
-      skill.profile,
+      skill.owner,
       "skills",
       skill.name,
       "src",
@@ -90,12 +90,12 @@ const createCanonicalDirs = (
     fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${skill.name}`);
   }
   for (const cmd of opts.commands ?? []) {
-    const cmdDir = path.join(baseDir, ".axm", "extensions", cmd.profile, "commands", cmd.name);
+    const cmdDir = path.join(baseDir, ".axm", "extensions", cmd.owner, "commands", cmd.name);
     fs.mkdirSync(cmdDir, { recursive: true });
     fs.writeFileSync(path.join(cmdDir, "run.sh"), "#!/bin/bash");
   }
   for (const srv of opts.mcpServers ?? []) {
-    const srvDir = path.join(baseDir, ".axm", "extensions", srv.profile, "mcp-servers", srv.name);
+    const srvDir = path.join(baseDir, ".axm", "extensions", srv.owner, "mcp-servers", srv.name);
     fs.mkdirSync(srvDir, { recursive: true });
     fs.writeFileSync(path.join(srvDir, "server.js"), "module.exports = {}");
   }
@@ -168,7 +168,7 @@ describe("packs unpack.handler", () => {
         lockSkills: {
           "code-review": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -179,7 +179,7 @@ describe("packs unpack.handler", () => {
           },
           "test-writer": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "test-writer",
             resolvedVersion: "2.0.0",
             integrity: "",
@@ -192,7 +192,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -212,8 +212,8 @@ describe("packs unpack.handler", () => {
       // Create canonical dirs so install handlers skip fetch
       createCanonicalDirs(tempDir, {
         skills: [
-          { profile: "@test", name: "code-review" },
-          { profile: "@test", name: "test-writer" },
+          { owner: "@test", name: "code-review" },
+          { owner: "@test", name: "test-writer" },
         ],
       });
 
@@ -231,7 +231,7 @@ describe("packs unpack.handler", () => {
           const packs = settingsContent.packs ?? {};
           expect(Object.keys(packs)).not.toContain("frontend-tools");
           expect(settingsContent.skills).toBeDefined();
-          // Skills are stored by short name (after profile/)
+          // Skills are stored by short name (after owner/)
           expect(settingsContent.skills["code-review"]).toBeDefined();
           expect(settingsContent.skills["test-writer"]).toBeDefined();
 
@@ -259,7 +259,7 @@ describe("packs unpack.handler", () => {
         lockSkills: {
           "code-review": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "code-review",
             resolvedVersion: "0.9.0",
             integrity: "",
@@ -270,7 +270,7 @@ describe("packs unpack.handler", () => {
           },
           "new-skill": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "new-skill",
             resolvedVersion: "1.0.0",
             integrity: "",
@@ -283,7 +283,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            profile: "@test",
+            owner: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -303,8 +303,8 @@ describe("packs unpack.handler", () => {
       // Create canonical dirs so install handlers skip fetch
       createCanonicalDirs(tempDir, {
         skills: [
-          { profile: "@test", name: "code-review" },
-          { profile: "@test", name: "new-skill" },
+          { owner: "@test", name: "code-review" },
+          { owner: "@test", name: "new-skill" },
         ],
       });
 

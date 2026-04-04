@@ -7,7 +7,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid minimal manifest", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -19,7 +19,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid manifest with extension version maps", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -34,7 +34,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts valid manifest with all extension types", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -48,7 +48,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts manifest with common optional fields", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -65,7 +65,7 @@ describe("PackManifestSchema", () => {
 
   it("rejects manifest with invalid FQN key in skills", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -76,7 +76,7 @@ describe("PackManifestSchema", () => {
 
   it("rejects manifest with invalid semver constraint values", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -87,7 +87,7 @@ describe("PackManifestSchema", () => {
 
   it("rejects 2-segment FQN keys", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",
@@ -103,7 +103,7 @@ describe("PackManifestSchema", () => {
 
   it("accepts empty extension maps", () => {
     const input = {
-      profile: "@wayne",
+      owner: "@wayne",
       type: "pack",
       name: "utility-belt",
       version: "1.0.0",

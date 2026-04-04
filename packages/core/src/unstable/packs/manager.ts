@@ -50,7 +50,7 @@ const buildSetPackArgs = (
     const resolved = yield* resolvePackDependencies(ref, sources);
 
     return {
-      profile: ref.profile,
+      owner: ref.owner,
       name: ref.pack.name,
       resolvedVersion: decodeExactSemverVersionSync(ref.version),
       integrity: Option.getOrElse(ref.integrity, () => ""),
@@ -146,7 +146,7 @@ export const PackManagerLive = Layer.effect(
             const packDir = computePackPaths(
               path.join,
               baseDir,
-              ref.profile,
+              ref.owner,
               ref.pack.name,
             ).canonicalPath;
             yield* provide(
@@ -175,7 +175,7 @@ export const PackManagerLive = Layer.effect(
       const packDir = computePackPaths(
         path.join,
         baseDir,
-        registryRef.profile,
+        registryRef.owner,
         ref.pack.name,
       ).canonicalPath;
 
@@ -213,7 +213,7 @@ export const PackManagerLive = Layer.effect(
         const packDir = computePackPaths(
           path.join,
           baseDir,
-          target.profile,
+          target.owner,
           target.name,
         ).canonicalPath;
         yield* removeIfExists(fs, packDir);

@@ -41,7 +41,7 @@ import { withWorkspace } from "../../runtime.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksRemoveHandlerArgs {
-  /** Pack name (without profile). */
+  /** Pack name (without owner). */
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
@@ -85,18 +85,18 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     });
   }
 
-  // Resolve pack profile
+  // Resolve pack owner
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
   const hasProfile = packSource.startsWith("@") && packSource.includes("/");
-  const [packProfileFromSource] = packSource.split("/");
-  const packProfile =
-    hasProfile && packProfileFromSource !== undefined
-      ? packProfileFromSource
+  const [packOwnerFromSource] = packSource.split("/");
+  const packOwner =
+    hasProfile && packOwnerFromSource !== undefined
+      ? packOwnerFromSource
       : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packProfile, args.pack);
+  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -176,7 +176,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     name: "remove-from-pack",
     args: {
       packName: args.pack,
-      packProfile,
+      packOwner,
       removals: matchedNames,
       manifestHash,
     },

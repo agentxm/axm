@@ -29,7 +29,7 @@ describe("DefaultCodingAgentRepository", () => {
         workspaceRoot: "/workspace",
         serverName: "chrome-devtools-mcp",
         canonicalPath: "/workspace/.axm/mcp-servers/chrome-devtools-mcp",
-        profile: "@mcp",
+        owner: "@mcp",
         resolvedVersion: "1.0.0",
       });
       expect(addOutcome).toEqual({

@@ -184,7 +184,7 @@ export interface GitSourceParams {
 /** @experimental */
 export interface RegistrySourceParams {
   readonly type: "registry";
-  readonly profile: Option.Option<string>;
+  readonly owner: Option.Option<string>;
 }
 
 /** @experimental */

@@ -64,7 +64,7 @@ describe("registry guard", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              profile: "@test",
+              owner: "@test",
               type: "skill",
               name: "my-skill",
               version: "1.0.0",
@@ -75,7 +75,7 @@ describe("registry guard", () => {
           ) + "\n",
         );
 
-        // Set profile but no sources
+        // Set owner but no sources
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.profile = "@test";

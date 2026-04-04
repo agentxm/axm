@@ -111,7 +111,7 @@ const makeLocalLockEntry = (agents: string[]): SkillLockEntry => ({
 /** Creates a registry source lock entry. */
 const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
   type: "registry" as const,
-  profile: "@community",
+  owner: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

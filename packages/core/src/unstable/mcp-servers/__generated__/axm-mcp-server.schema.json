@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "profile": {
+    "owner": {
       "type": "string",
       "allOf": [
         {
@@ -129,6 +129,6 @@
       "enum": ["mcp-server"]
     }
   },
-  "required": ["profile", "name", "version", "type"],
+  "required": ["owner", "name", "version", "type"],
   "additionalProperties": false
 }

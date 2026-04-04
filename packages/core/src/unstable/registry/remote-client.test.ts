@@ -57,7 +57,7 @@ const runFailure = <A>(effect: Effect.Effect<A, AppError>) => Effect.flip(effect
  */
 const extensionIndexResponse = {
   name: "test-skill",
-  profile: "@acme",
+  owner: "@acme",
   type: "skill",
   description: "A test skill",
   repository: "https://github.com/acme/test-skill",
@@ -85,13 +85,13 @@ const extensionListResponse = {
   extensions: [
     {
       name: "test-skill",
-      profile: "@acme",
+      owner: "@acme",
       type: "skill",
       latestVersion: "1.0.0",
     },
     {
       name: "another-skill",
-      profile: "@acme",
+      owner: "@acme",
       type: "skill",
       latestVersion: "2.0.0",
     },
@@ -102,7 +102,7 @@ const extensionListResponse = {
  * Standard publish success response body.
  */
 const publishSuccessResponse = {
-  profile: "@acme",
+  owner: "@acme",
   type: "skill",
   name: "test-skill",
   version: "1.0.0",
@@ -192,7 +192,7 @@ describe("getExtensionIndex", () => {
       expect(Option.isSome(result)).toBe(true);
       const index = Option.getOrThrow(result);
       expect(index.name).toBe("test-skill");
-      expect(index.profile).toBe("@acme");
+      expect(index.owner).toBe("@acme");
       expect(index.type).toBe("skill");
       expect(index.versions).toHaveLength(2);
       expect(index.versions[0]?.version).toBe("1.0.0");
@@ -363,7 +363,7 @@ describe("getExtensionsByScope", () => {
 // =============================================================================
 
 describe("profileExists", () => {
-  it.effect("returns exists:true when profile has extensions", () =>
+  it.effect("returns exists:true when owner has extensions", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () => new Response(JSON.stringify(extensionListResponse), { status: 200 }),
@@ -376,7 +376,7 @@ describe("profileExists", () => {
     }),
   );
 
-  it.effect("returns exists:false when profile has no extensions", () =>
+  it.effect("returns exists:false when owner has no extensions", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () => new Response(JSON.stringify({ extensions: [] }), { status: 200 }),

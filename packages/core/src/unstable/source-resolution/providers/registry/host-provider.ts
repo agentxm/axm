@@ -19,7 +19,7 @@ import { type AppError, makeAppError } from "../../../app-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
-  GetExtensionsByProfileArgs,
+  GetExtensionsByOwnerArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
@@ -42,7 +42,7 @@ import type { ExactSemverVersion } from "../../../version-constraints/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
-    profile: string,
+    owner: string,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,
@@ -55,9 +55,9 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-/** Map FindOptions + profile to GetExtensionsByProfileArgs (no pagination — fetch all). */
-const toSearchOptions = (profile: string, options: FindOptions): GetExtensionsByProfileArgs => ({
-  handle: profile,
+/** Map FindOptions + owner to GetExtensionsByOwnerArgs (no pagination — fetch all). */
+const toSearchOptions = (owner: string, options: FindOptions): GetExtensionsByOwnerArgs => ({
+  handle: owner,
   names: options.skillNames,
   types: options.type === "*" ? [] : [options.type],
   limit: Option.none(),
@@ -79,7 +79,7 @@ const manifestFromIndex = (
 
   const version = selectedVersion.value;
   return Option.some({
-    profile: index.profile,
+    owner: index.owner,
     type: index.type,
     name: index.name,
     description: Option.fromUndefinedOr(index.description),
@@ -103,20 +103,20 @@ const findWithVersionConstraint = (
 ) =>
   Effect.forEach(
     profiles,
-    (profile) =>
+    (owner) =>
       Effect.gen(function* () {
         const requestedTypes: ReadonlyArray<ExtensionType> =
           options.type === "*" ? ["skill", "command", "mcp-server", "pack"] : [options.type];
         const requestedNames = options.skillNames.length > 0 ? options.skillNames : [];
 
         if (requestedNames.length === 0) {
-          const result = yield* client.getExtensionsByScope(toSearchOptions(profile, options));
+          const result = yield* client.getExtensionsByScope(toSearchOptions(owner, options));
           const resolved = yield* Effect.forEach(
             result.extensions,
             (entry) =>
               client
                 .getExtensionIndex({
-                  handle: entry.profile,
+                  handle: entry.owner,
                   type: entry.type,
                   name: entry.name,
                 })
@@ -140,7 +140,7 @@ const findWithVersionConstraint = (
             Effect.forEach(
               requestedTypes,
               (type) =>
-                client.getExtensionIndex({ handle: profile, type, name }).pipe(
+                client.getExtensionIndex({ handle: owner, type, name }).pipe(
                   Effect.map((indexOption) =>
                     Option.match(indexOption, {
                       onNone: () => Option.none<RegistryExtensionManifest>(),
@@ -177,7 +177,7 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
   };
 
   const details = {
-    profile: entry.profile,
+    owner: entry.owner,
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
@@ -255,16 +255,16 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     if (ref.refType !== "registry") {
       return yield* makeAppError({
         code: "SOURCE_FETCH_FAILED",
-        what: "Ref missing registry details (profile, version, integrity)",
+        what: "Ref missing registry details (owner, version, integrity)",
       });
     }
 
-    const { profile, version, integrity: expectedIntegrity } = ref;
+    const { owner, version, integrity: expectedIntegrity } = ref;
     const type = refRegistryType(ref);
     const name = refName(ref);
 
     const { archive: archiveBytes } = yield* client.getExtensionPackage({
-      handle: profile,
+      handle: owner,
       type,
       name,
       version: Option.some(version),
@@ -329,8 +329,8 @@ export const createLocalRegistrySourceHostProvider = (
       const entries = yield* fsService
         .readDirectory(extensionsDir)
         .pipe(Effect.orElseSucceed((): readonly string[] => []));
-      const namespaces = Option.isSome(options.profile)
-        ? [options.profile.value]
+      const namespaces = Option.isSome(options.owner)
+        ? [options.owner.value]
         : entries.filter((d) => d.startsWith("@"));
 
       if (Option.isSome(options.versionConstraint)) {
@@ -339,9 +339,9 @@ export const createLocalRegistrySourceHostProvider = (
 
       const results = yield* Effect.forEach(
         namespaces,
-        (profile) =>
+        (owner) =>
           Effect.gen(function* () {
-            const result = yield* client.getExtensionsByScope(toSearchOptions(profile, options));
+            const result = yield* client.getExtensionsByScope(toSearchOptions(owner, options));
             return result.extensions.map((entry) => toExtensionRef(entry, source));
           }),
         { concurrency: "unbounded" },
@@ -352,13 +352,13 @@ export const createLocalRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    profile: string,
+    owner: string,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ handle: profile, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ handle: owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------
@@ -382,11 +382,11 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const profile = Option.isSome(options.profile) ? options.profile.value : "*";
-      if (Option.isSome(options.versionConstraint) && profile !== "*") {
-        return yield* findWithVersionConstraint(client, source, [profile], options);
+      const owner = Option.isSome(options.owner) ? options.owner.value : "*";
+      if (Option.isSome(options.versionConstraint) && owner !== "*") {
+        return yield* findWithVersionConstraint(client, source, [owner], options);
       }
-      const searchOptions = toSearchOptions(profile, options);
+      const searchOptions = toSearchOptions(owner, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),
@@ -394,13 +394,13 @@ export const createRemoteRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    profile: string,
+    owner: string,
     type: ExtensionType,
     name: string,
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ handle: profile, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ handle: owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------

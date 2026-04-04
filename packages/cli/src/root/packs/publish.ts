@@ -2,7 +2,7 @@
  * Publish command handler -- Effect-based orchestration for `axm packs publish`.
  *
  * Publishes a pack from `.axm/extensions/` to a target registry:
- * 1. Resolve extension name (bare name -> profile from settings)
+ * 1. Resolve extension name (bare name -> owner from settings)
  * 2. Validate managed pack exists with manifest
  * 3. Discover local dependencies (when --include-dependencies)
  * 4. Build plan (dependency job + pack job, or pack-only)
@@ -60,7 +60,7 @@ import { withWorkspace } from "../../runtime.js";
  * Arguments for the packs publish command.
  */
 export interface PublishPackHandlerArgs {
-  /** Pack name (@profile/name or bare name). */
+  /** Pack name (@owner/name or bare name). */
   readonly pack: string;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
@@ -193,18 +193,18 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const packName = yield* hasProfile
     ? Effect.succeed(args.pack)
     : ws.getConfiguredProfile().pipe(
-        Effect.map((profile) => formatFqn({ handle: profile, type: "packs", name: args.pack })),
+        Effect.map((owner) => formatFqn({ handle: owner, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
-            what: `Failed to resolve profile: ${e._tag}`,
-            howToFix: "Configure a profile in your settings with `axm init`.",
+            what: `Failed to resolve owner: ${e._tag}`,
+            howToFix: "Configure an owner in your settings with `axm init`.",
             cause: e,
           }),
         ),
       );
 
-  // Parse profile and pack name from the full name
+  // Parse owner and pack name from the full name
   const fqn = yield* parseFqn(packName);
 
   // Step 2: Validate managed pack exists
@@ -450,7 +450,7 @@ const makeDependencyStep = (
 
 const publishConfig = {
   pack: Argument.string("pack").pipe(
-    Argument.withDescription("Pack name (@profile/name or bare name)"),
+    Argument.withDescription("Pack name (@owner/name or bare name)"),
   ),
   registry: Flag.string("registry").pipe(
     Flag.withDescription("Target a specific named registry instead of the default"),

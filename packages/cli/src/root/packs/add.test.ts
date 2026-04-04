@@ -43,18 +43,18 @@ const initWorkspace = (
 
 const createPackManifest = (
   tempDir: string,
-  profile: string,
+  owner: string,
   name: string,
   manifest?: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", profile, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       {
         ...(manifest ?? {}),
-        profile,
+        owner,
         type: "pack",
         name,
         version: manifest?.["version"] ?? "0.0.1",
@@ -116,7 +116,7 @@ describe("packs-add.handler", () => {
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "code-review",
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
@@ -155,7 +155,7 @@ describe("packs-add.handler", () => {
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "code-review",
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
@@ -196,19 +196,19 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "effect-basics": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "effect-basics",
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "effect-streams",
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
           }),
           "other-skill": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "other-skill",
             resolvedVersion: exactVersion("3.0.0"),
             sourceName: "local",
@@ -245,7 +245,7 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "some-skill": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "some-skill",
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
@@ -321,13 +321,13 @@ describe("packs-add.handler", () => {
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         lockfileSkills: {
           "skill-a": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "skill-a",
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "skill-b": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "skill-b",
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
@@ -369,7 +369,7 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            profile: "@acme",
+            owner: "@acme",
             name: "code-review",
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
@@ -377,7 +377,7 @@ describe("packs-add.handler", () => {
         },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        profile: "@acme",
+        owner: "@acme",
         type: "pack",
         name: "my-pack",
         version: "0.0.1",

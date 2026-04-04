@@ -14,7 +14,7 @@ import { withWorkspace } from "../../../runtime.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
-      "Registry pack reference (@profile/packs/name, @profile/packs/name@version, or bare pack-name)",
+      "Registry pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
     ),
   ),
   scope: scopeFlag.pipe(
@@ -51,7 +51,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm packs install frontend-tools",
-      description: "Install using your default profile",
+      description: "Install using your default owner",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools --preview",

@@ -57,7 +57,7 @@ describe("coding-agent services", () => {
               workspaceRoot,
               serverName: "chrome-devtools-mcp",
               canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
-              profile: "@mcp",
+              owner: "@mcp",
               resolvedVersion: "1.0.0",
             });
             expect(addOutcome._tag).toBe("success");

@@ -105,14 +105,10 @@ describe("publishCommand", () => {
   });
 
   /** Sets up a workspace with an installed command and registry. */
-  const setup = (
-    profile = "@community",
-    name = "my-cmd",
-    manifest: Record<string, unknown> = {},
-  ) => {
+  const setup = (owner = "@community", name = "my-cmd", manifest: Record<string, unknown> = {}) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", profile, "commands", name);
+    const extensionDir = path.join(base, ".axm", "extensions", owner, "commands", name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -120,7 +116,7 @@ describe("publishCommand", () => {
     fs.mkdirSync(registryRoot, { recursive: true });
 
     const defaultManifest = {
-      profile,
+      owner,
       type: "command",
       name,
       version: "0.1.0",
@@ -159,7 +155,7 @@ describe("publishCommand", () => {
 
       const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
       expect(index.name).toBe("my-cmd");
-      expect(index.profile).toBe("@community");
+      expect(index.owner).toBe("@community");
       expect(index.type).toBe("command");
       expect(index.versions).toHaveLength(1);
     }),

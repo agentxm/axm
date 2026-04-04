@@ -95,7 +95,7 @@ describe("skills-new.handler", () => {
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.profile).toBe("@acme");
+          expect(manifest.owner).toBe("@acme");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
           expect(manifest.version).toBe("0.0.1");
@@ -127,7 +127,7 @@ describe("skills-new.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.skills["my-skill"]).toMatchObject({
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-skill",
             resolvedVersion: "0.0.1",
             sourceName: "local",
@@ -166,7 +166,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.profile).toBe("@corp");
+          expect(manifest.owner).toBe("@corp");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),
@@ -193,7 +193,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.profile).toBe("@corp");
+          expect(manifest.owner).toBe("@corp");
           expect(manifest.type).toBe("skill");
           expect(manifest.name).toBe("my-skill");
         }),

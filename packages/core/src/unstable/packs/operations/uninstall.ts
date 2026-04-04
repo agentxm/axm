@@ -117,7 +117,7 @@ export const uninstallPack: OperationHandler<
     const packDir = computePackPaths(
       path.join,
       base,
-      lockedPack.profile,
+      lockedPack.owner,
       lockedPack.name,
     ).canonicalPath;
     yield* removeIfExists(fs, packDir);

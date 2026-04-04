@@ -124,7 +124,7 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
     if (isRemoteReadNotImplemented(error)) {
       return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or fork from a local/git source.";
     }
-    return "Verify the configured registry is reachable and contains the requested profile/skill.";
+    return "Verify the configured registry is reachable and contains the requested owner/skill.";
   }
   if (source.type === "local") {
     return "Verify the source path contains directories with SKILL.md files.";
@@ -136,7 +136,7 @@ const noSkillsFoundHowToFix = (sourceInput: string): string =>
   sourceInput.includes("@") ||
   sourceInput.startsWith("http://") ||
   sourceInput.startsWith("https://")
-    ? "Verify the profile and skill name, or use --list with skills install to inspect available skills."
+    ? "Verify the owner and skill name, or use --list with skills install to inspect available skills."
     : "Verify the source path contains directories with SKILL.md files.";
 
 const FALLBACK_PUBLISHED_VERSION = decodeExactSemverVersionSync("0.1.0");
@@ -169,13 +169,13 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   yield* renderer.info("axm skills fork");
 
-  // Step 1: Resolve profile
-  const profile = yield* ws.getConfiguredProfile().pipe(
+  // Step 1: Resolve owner
+  const owner = yield* ws.getConfiguredProfile().pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "NAMESPACE_RESOLUTION_FAILED",
-        what: `Failed to resolve profile: ${e._tag}`,
-        howToFix: "Configure a profile in your settings with `axm init`.",
+        what: `Failed to resolve owner: ${e._tag}`,
+        howToFix: "Configure an owner in your settings with `axm init`.",
         cause: e,
       }),
     ),
@@ -212,7 +212,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             sources.find(source, {
               skillNames: [],
               type: "skill",
-              profile: Option.none(),
+              owner: Option.none(),
               versionConstraint: Option.none(),
             }),
           { concurrency: "unbounded" },
@@ -294,7 +294,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       : registrySource.location.href;
 
   const steps: ReadonlyArray<PlannedJobStep> = Array.flatMap(filtered, (ref) => {
-    const targetName = `${profile}/skills/${ref.skill.name}`;
+    const targetName = `${owner}/skills/${ref.skill.name}`;
     const extensionRef = ref;
 
     // Run closures are Effect<JobStepResult, AppError, never>: services are
@@ -330,7 +330,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         Effect.gen(function* () {
           const client = yield* createRegistryClient(registryLocationStr);
           const response = yield* client.getExtensionsByScope({
-            handle: profile,
+            handle: owner,
             names: [ref.skill.name],
             types: ["skill"],
             limit: Option.some(1),
@@ -350,9 +350,9 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             source: {
               type: "registry" as const,
               location: registrySource.location,
-              profile: Option.none(),
+              owner: Option.none(),
             },
-            profile,
+            owner,
             name: ref.skill.name,
             version: published?.version ?? FALLBACK_PUBLISHED_VERSION,
             integrity: Option.fromUndefinedOr(published?.integrity),

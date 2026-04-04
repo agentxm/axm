@@ -13,7 +13,7 @@ import { withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription("Registry command reference (@profile/commands/name or bare name)"),
+    Argument.withDescription("Registry command reference (@owner/commands/name or bare name)"),
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
@@ -45,7 +45,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm commands install my-cmd",
-      description: "Install using your default profile",
+      description: "Install using your default owner",
     },
     {
       command: "axm commands install @acme/commands/my-cmd --preview",

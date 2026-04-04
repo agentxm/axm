@@ -737,7 +737,7 @@
                         "type": "object",
                         "properties": {
                           "name": { "type": "string" },
-                          "profile": { "type": "string" },
+                          "owner": { "type": "string" },
                           "type": {
                             "type": "string",
                             "enum": [
@@ -786,7 +786,7 @@
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
                         },
-                        "required": ["name", "profile", "type", "latestVersion"],
+                        "required": ["name", "owner", "type", "latestVersion"],
                         "additionalProperties": false
                       }
                     }
@@ -806,7 +806,7 @@
             }
           }
         },
-        "summary": "List profile extensions"
+        "summary": "List owner extensions"
       }
     },
     "/v1/extensions/{handle}/{type}": {
@@ -845,7 +845,7 @@
                         "type": "object",
                         "properties": {
                           "name": { "type": "string" },
-                          "profile": { "type": "string" },
+                          "owner": { "type": "string" },
                           "type": {
                             "type": "string",
                             "enum": [
@@ -894,7 +894,7 @@
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
                         },
-                        "required": ["name", "profile", "type", "latestVersion"],
+                        "required": ["name", "owner", "type", "latestVersion"],
                         "additionalProperties": false
                       }
                     }
@@ -914,7 +914,7 @@
             }
           }
         },
-        "summary": "List extensions by profile and type"
+        "summary": "List extensions by owner and type"
       }
     },
     "/v1/extensions/{handle}/{type}/{name}": {
@@ -989,7 +989,7 @@
                   "type": "object",
                   "properties": {
                     "name": { "type": "string" },
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": {
                       "type": "string",
                       "enum": ["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]
@@ -1086,7 +1086,7 @@
                       "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                     }
                   },
-                  "required": ["name", "profile", "type", "versions"],
+                  "required": ["name", "owner", "type", "versions"],
                   "additionalProperties": false
                 }
               }
@@ -1148,13 +1148,13 @@
                   "type": "object",
                   "properties": {
                     "id": { "$ref": "#/components/schemas/ExtensionId" },
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "visibility": { "type": "string" },
                     "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
                   },
-                  "required": ["id", "profile", "type", "name", "visibility", "updatedAt"],
+                  "required": ["id", "owner", "type", "name", "visibility", "updatedAt"],
                   "additionalProperties": false
                 }
               }
@@ -1261,7 +1261,7 @@
                   "type": "object",
                   "properties": {
                     "name": { "type": "string" },
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "version": { "type": "string" },
                     "status": {
@@ -1335,7 +1335,7 @@
                   },
                   "required": [
                     "name",
-                    "profile",
+                    "owner",
                     "type",
                     "version",
                     "status",
@@ -1467,7 +1467,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
@@ -1477,7 +1477,7 @@
                     "publish_status": { "type": "string", "readOnly": true }
                   },
                   "required": [
-                    "profile",
+                    "owner",
                     "type",
                     "name",
                     "version",
@@ -1498,7 +1498,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
@@ -1508,7 +1508,7 @@
                     "publish_status": { "type": "string", "readOnly": true }
                   },
                   "required": [
-                    "profile",
+                    "owner",
                     "type",
                     "name",
                     "version",
@@ -1715,7 +1715,7 @@
         "summary": "Download extension archive"
       }
     },
-    "/v1/extensions/{handle}/profile": {
+    "/v1/extensions/{handle}/owner": {
       "get": {
         "tags": ["Extensions"],
         "operationId": "Extensions.getHandleProfile",
@@ -1739,7 +1739,7 @@
                     "ok": { "type": "boolean", "enum": [true] },
                     "mock": { "type": "boolean", "enum": [true] },
                     "method": { "type": "string", "enum": ["GET"] },
-                    "route": { "type": "string", "enum": ["/v1/extensions/{handle}/profile"] },
+                    "route": { "type": "string", "enum": ["/v1/extensions/{handle}/owner"] },
                     "message": { "type": "string" },
                     "params": {
                       "type": "object",
@@ -1763,8 +1763,8 @@
             }
           }
         },
-        "description": "Returns the current mock handle profile payload.",
-        "summary": "Get handle profile"
+        "description": "Returns the current mock handle owner payload.",
+        "summary": "Get handle owner"
       }
     },
     "/v1/extensions/{handle}/{type}/{name}/deprecate": {
@@ -1803,7 +1803,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "deprecatedAt": {
@@ -1816,7 +1816,7 @@
                       "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                     }
                   },
-                  "required": ["profile", "type", "name", "deprecatedAt", "deprecationNotice"],
+                  "required": ["owner", "type", "name", "deprecatedAt", "deprecationNotice"],
                   "additionalProperties": false
                 }
               }
@@ -1904,13 +1904,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "deprecatedAt": { "type": "null" },
                     "deprecationNotice": { "type": "null" }
                   },
-                  "required": ["profile", "type", "name", "deprecatedAt", "deprecationNotice"],
+                  "required": ["owner", "type", "name", "deprecatedAt", "deprecationNotice"],
                   "additionalProperties": false
                 }
               }
@@ -1989,7 +1989,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
@@ -2000,7 +2000,7 @@
                       ]
                     }
                   },
-                  "required": ["profile", "type", "name", "version", "yankedAt"],
+                  "required": ["owner", "type", "name", "version", "yankedAt"],
                   "additionalProperties": false
                 }
               }
@@ -2077,13 +2077,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "profile": { "type": "string" },
+                    "owner": { "type": "string" },
                     "type": { "type": "string" },
                     "name": { "type": "string" },
                     "version": { "type": "string" },
                     "yankedAt": { "type": "null" }
                   },
-                  "required": ["profile", "type", "name", "version", "yankedAt"],
+                  "required": ["owner", "type", "name", "version", "yankedAt"],
                   "additionalProperties": false
                 }
               }

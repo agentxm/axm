@@ -527,7 +527,7 @@ const make = (options: WorkspaceLayerOptions) =>
           const entry = lockEntry.value;
           const entrySource: SkillPathSource =
             entry.type === "registry"
-              ? { refType: "registry", profile: entry.profile }
+              ? { refType: "registry", owner: entry.owner }
               : entry.type === "local"
                 ? { refType: "local" }
                 : entry.type === "builtin"
@@ -546,7 +546,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const source =
               lockEntry.type === "registry"
                 ? (() => {
-                    const fqn = formatFqn({ handle: lockEntry.profile, type: "skills", name });
+                    const fqn = formatFqn({ handle: lockEntry.owner, type: "skills", name });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
                       : fqn;
@@ -884,7 +884,7 @@ const make = (options: WorkspaceLayerOptions) =>
               name,
             });
             // Update settings — thread versionConstraint through so it's preserved
-            const fqn = formatFqn({ handle: args.profile, type: "packs", name });
+            const fqn = formatFqn({ handle: args.owner, type: "packs", name });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`
               : fqn;
@@ -938,8 +938,8 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("Workspace.removePack")),
 
-      getPackDir: (name: string, profile: string) =>
-        Effect.succeed(computePackPaths(path.join, baseDir, profile, name)),
+      getPackDir: (name: string, owner: string) =>
+        Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
       // -----------------------------------------------------------------------
       // Command methods

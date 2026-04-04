@@ -34,7 +34,7 @@ import { Workspace } from "../../workspace/service-interface.js";
  * Args for the publish-command operation.
  */
 export type PublishCommandOperationArgs = {
-  /** Extension identity in `@profile/commands/name` FQN format. */
+  /** Extension identity in `@owner/commands/name` FQN format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
   readonly registryName: string;

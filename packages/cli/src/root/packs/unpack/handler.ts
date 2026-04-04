@@ -40,7 +40,7 @@ import { emitPlanResolutionResult } from "../../../json-output.js";
  * Arguments for the packs unpack command.
  */
 export interface UnpackHandlerArgs {
-  /** Pack name (FQN like @profile/name). */
+  /** Pack name (FQN like @owner/name). */
   readonly name: string;
   /** Enforce strict MCP agent-sync outcomes while promoting pack MCP servers. */
   readonly strictAgentSync: Option.Option<boolean>;
@@ -101,12 +101,12 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       ? {
           type: "registry",
           location: sourceOpt.value.location,
-          profile: Option.none(),
+          owner: Option.none(),
         }
       : {
           type: "registry",
           location: new URL("file:///unknown"),
-          profile: Option.none(),
+          owner: Option.none(),
         };
 
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)

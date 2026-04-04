@@ -24,7 +24,7 @@ describe("axm skills install from local registry (via fork)", () => {
       // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-      // Set up registry source and profile in settings
+      // Set up registry source and owner in settings
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [
@@ -82,7 +82,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const entry = lock.skills["my-skill"];
       expect(entry.type).toBe("registry");
-      expect(entry.profile).toBe("@test");
+      expect(entry.owner).toBe("@test");
       expect(entry.name).toBe("my-skill");
       expect(entry.resolvedVersion).toBeDefined();
       expect(entry.agents).toContain("claude-code");
@@ -131,7 +131,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const index = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
       expect(index.name).toBe("my-skill");
-      expect(index.profile).toBe("@test");
+      expect(index.owner).toBe("@test");
       expect(index.type).toBe("skill");
       expect(index.versions).toBeDefined();
       expect(index.versions.length).toBeGreaterThan(0);
@@ -163,7 +163,7 @@ describe("axm skills install from local registry (via fork)", () => {
       // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-      // Set up registry source and profile in settings
+      // Set up registry source and owner in settings
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [
@@ -196,7 +196,7 @@ describe("axm skills install from local registry (via fork)", () => {
       );
       expect(fs.existsSync(extensionDir)).toBe(false);
 
-      // Fresh install from registry using @profile/name syntax
+      // Fresh install from registry using @owner/name syntax
       const registryInstallResult = await runCli(
         ["skills", "install", "@test/skills/my-skill", "--yes"],
         { cwd: temp.path },

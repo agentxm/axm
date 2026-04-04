@@ -14,7 +14,7 @@ import { withWorkspace } from "../../../runtime.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
-      "Registry reference (@profile/skills/name), GitHub shorthand (owner/repo), local path, or URL",
+      "Registry reference (@owner/skills/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
   ),
   scope: scopeFlag.pipe(

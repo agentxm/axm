@@ -10,9 +10,9 @@ Instructions for managing extension packs using the `axm` CLI.
 ## Install a Pack
 
 ```bash
-axm packs install @profile/pack-name
-axm packs install @profile/pack-name@^2.0.0
-axm packs install @profile/pack-name --preview
+axm packs install @owner/pack-name
+axm packs install @owner/pack-name@^2.0.0
+axm packs install @owner/pack-name --preview
 ```
 
 **Options:** `--scope <project|user>`, `--yes`, `--force`, `--preview`
@@ -20,7 +20,7 @@ axm packs install @profile/pack-name --preview
 ## Uninstall a Pack
 
 ```bash
-axm packs uninstall @profile/pack-name
+axm packs uninstall @owner/pack-name
 ```
 
 **Options:** `--yes`, `--preview`
@@ -37,7 +37,7 @@ axm packs new my-pack --profile @acme
 ## Add Extension to Pack
 
 ```bash
-axm packs add my-pack @profile/skill-name
+axm packs add my-pack @owner/skill-name
 ```
 
 **Options:** `--yes`
@@ -45,7 +45,7 @@ axm packs add my-pack @profile/skill-name
 ## Remove Extension from Pack
 
 ```bash
-axm packs remove my-pack @profile/skill-name
+axm packs remove my-pack @owner/skill-name
 ```
 
 **Options:** `--yes`
@@ -62,7 +62,7 @@ axm packs publish my-pack --registry my-registry
 ## Unpack a Pack
 
 ```bash
-axm packs unpack @profile/pack-name
+axm packs unpack @owner/pack-name
 ```
 
 **Options:** `--yes`, `--preview`

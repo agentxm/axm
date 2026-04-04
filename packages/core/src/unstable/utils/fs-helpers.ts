@@ -25,7 +25,7 @@ export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string
  *
  * Ensures clean removal regardless of where the skill was installed:
  * 1. `.axm/extensions/external/skills/<name>/` (non-registry canonical)
- * 2. `.axm/extensions/@* /skills/<name>/` (registry canonical, any profile)
+ * 2. `.axm/extensions/@* /skills/<name>/` (registry canonical, any owner)
  */
 export const removeFromAllCanonicalLocations = (
   fsService: FileSystem.FileSystem,

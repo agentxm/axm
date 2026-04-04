@@ -113,7 +113,7 @@ export const ManifestNameSchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestFields = {
-  profile: ManifestHandleSchema,
+  owner: ManifestHandleSchema,
   name: ManifestNameSchema,
   version: ExactSemverVersionSchema,
   description: Schema.optional(Schema.String),

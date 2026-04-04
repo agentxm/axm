@@ -135,11 +135,11 @@ export const createRegistryMetaProvider = () => ({
 
   find: (source: RegistrySource, options: FindOptions) =>
     Effect.gen(function* () {
-      // Determine profile from explicit option, or infer from @profile/name.
-      const profile = Option.isSome(options.profile)
-        ? options.profile
-        : Option.isSome(source.profile)
-          ? source.profile
+      // Determine owner from explicit option, or infer from @owner/name.
+      const owner = Option.isSome(options.owner)
+        ? options.owner
+        : Option.isSome(source.owner)
+          ? source.owner
           : options.skillNames.length > 0
             ? Option.fromNullOr(
                 options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
@@ -147,7 +147,7 @@ export const createRegistryMetaProvider = () => ({
             : Option.none<string>();
 
       const provider = yield* createRegistrySourceHostProviderFromHost(source);
-      const registrySource: RegistrySource = { ...source, profile };
+      const registrySource: RegistrySource = { ...source, owner };
       return yield* provider.find(registrySource, options);
     }),
 

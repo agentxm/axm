@@ -1,5 +1,5 @@
 {
-  "profile": "@acme",
+  "owner": "@acme",
   "type": "command",
   "name": "deploy",
   "version": "1.0.0",

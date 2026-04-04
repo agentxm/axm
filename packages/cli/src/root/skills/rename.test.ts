@@ -118,7 +118,7 @@ describe("rename.handler", () => {
         {
           "my-skill": {
             type: "registry",
-            profile: "@acme",
+            owner: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",

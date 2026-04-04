@@ -431,7 +431,7 @@
                 "type": "string",
                 "enum": ["registry"]
               },
-              "profile": {
+              "owner": {
                 "type": "string"
               },
               "name": {
@@ -481,7 +481,7 @@
             },
             "required": [
               "type",
-              "profile",
+              "owner",
               "name",
               "resolvedVersion",
               "integrity",
@@ -906,7 +906,7 @@
                     "type": "string",
                     "enum": ["registry"]
                   },
-                  "profile": {
+                  "owner": {
                     "type": "string"
                   },
                   "name": {
@@ -950,7 +950,7 @@
                 },
                 "required": [
                   "type",
-                  "profile",
+                  "owner",
                   "name",
                   "resolvedVersion",
                   "integrity",
@@ -1373,7 +1373,7 @@
                     "type": "string",
                     "enum": ["registry"]
                   },
-                  "profile": {
+                  "owner": {
                     "type": "string"
                   },
                   "name": {
@@ -1417,7 +1417,7 @@
                 },
                 "required": [
                   "type",
-                  "profile",
+                  "owner",
                   "name",
                   "resolvedVersion",
                   "integrity",
@@ -1485,7 +1485,7 @@
                     "type": "string",
                     "enum": ["registry"]
                   },
-                  "profile": {
+                  "owner": {
                     "type": "string"
                   },
                   "name": {
@@ -1527,7 +1527,7 @@
                 },
                 "required": [
                   "type",
-                  "profile",
+                  "owner",
                   "name",
                   "resolvedVersion",
                   "integrity",
@@ -1547,7 +1547,7 @@
                     "type": "string",
                     "enum": ["builtin"]
                   },
-                  "profile": {
+                  "owner": {
                     "type": "string"
                   },
                   "name": {
@@ -1583,7 +1583,7 @@
                 },
                 "required": [
                   "type",
-                  "profile",
+                  "owner",
                   "name",
                   "resolvedVersion",
                   "installedAt",

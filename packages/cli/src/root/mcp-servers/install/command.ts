@@ -14,7 +14,7 @@ import { withWorkspace } from "../../../runtime.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
-      "Registry MCP server reference (@profile/mcp-servers/name or bare name)",
+      "Registry MCP server reference (@owner/mcp-servers/name or bare name)",
     ),
   ),
   scope: scopeFlag.pipe(
@@ -47,7 +47,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm mcp-servers install my-server",
-      description: "Install using your default profile",
+      description: "Install using your default owner",
     },
     {
       command: "axm mcp-servers install @acme/mcp-servers/my-server --preview",

@@ -37,13 +37,13 @@ const initWorkspace = (
   axmDir: string,
   opts?: {
     sources?: ReadonlyArray<unknown>;
-    profile?: string;
+    owner?: string;
   },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.profile) settings["profile"] = opts.profile;
+  if (opts?.owner) settings["profile"] = opts.owner;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
@@ -53,20 +53,20 @@ const initWorkspace = (
 
 const createRegistrySkill = ({
   registryRoot,
-  profile,
+  owner,
   name,
 }: {
   readonly registryRoot: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly name: string;
 }) => {
-  const skillDir = path.join(registryRoot, "extensions", profile, "skills", name);
+  const skillDir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "index.json"),
     JSON.stringify({
       name,
-      profile,
+      owner,
       type: "skill",
       versions: [
         {
@@ -213,10 +213,10 @@ describe("skills install handler — error propagation", () => {
     "preserves REGISTRY_SKILL_NOT_FOUND from resolver instead of wrapping in INVALID_SOURCE",
     () => {
       const { provide } = makeLayers();
-      // Workspace has a default profile but no registries contain the skill
+      // Workspace has a default owner but no registries contain the skill
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/empty-reg" }],
-        profile: "@myorg",
+        owner: "@myorg",
       });
 
       return provide(
@@ -263,12 +263,12 @@ describe("skills install handler — error propagation", () => {
       const registryDir = path.join(tempDir, "registry");
       createRegistrySkill({
         registryRoot: registryDir,
-        profile: "@myorg",
+        owner: "@myorg",
         name: "effect-basics",
       });
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        profile: "@myorg",
+        owner: "@myorg",
         sources: [
           { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
           { type: "registry", name: "local", location: `file://${registryDir}` },
@@ -291,10 +291,10 @@ describe("skills install handler — error propagation", () => {
     });
 
     const registryDir = path.join(tempDir, "registry");
-    createRegistrySkill({ registryRoot: registryDir, profile: "@myorg", name: "effect-basics" });
+    createRegistrySkill({ registryRoot: registryDir, owner: "@myorg", name: "effect-basics" });
 
     initWorkspace(path.join(tempDir, ".axm"), {
-      profile: "@myorg",
+      owner: "@myorg",
       sources: [
         { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
         { type: "registry", name: "local", location: `file://${registryDir}` },

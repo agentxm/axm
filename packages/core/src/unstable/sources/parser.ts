@@ -21,11 +21,11 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `@profile/(skills|commands|mcp-servers|packs)/name`. */
+/** A namespaced registry source: `@owner/(skills|commands|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
-  readonly profile: string;
+  readonly owner: string;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 };
@@ -156,19 +156,19 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   }
 
   // 5. Registry source:
-  //    - @profile
-  //    - @profile/{type}
-  //    - @profile/{type}/{name}@constraint
+  //    - @owner
+  //    - @owner/{type}
+  //    - @owner/{type}/{name}@constraint
   if (input.startsWith("@")) {
     const segments = input.split("/");
-    const profile = segments.at(0);
-    if (profile !== undefined && REGISTRY_NAMESPACE_PATTERN.test(profile)) {
+    const owner = segments.at(0);
+    if (owner !== undefined && REGISTRY_NAMESPACE_PATTERN.test(owner)) {
       if (segments.length === 1) {
         return Option.some(
           wrap({
             pattern: "registry-pattern-input",
             type: Option.none(),
-            profile,
+            owner,
             name: Option.none(),
             versionConstraint: Option.none(),
           }),
@@ -187,7 +187,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
             wrap({
               pattern: "registry-pattern-input",
               type: Option.some(second),
-              profile,
+              owner,
               name: Option.none(),
               versionConstraint: Option.none(),
             }),
@@ -211,7 +211,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
               wrap({
                 pattern: "registry-pattern-input",
                 type: Option.some(second),
-                profile,
+                owner,
                 name: parsedName.value.name,
                 versionConstraint: parsedName.value.versionConstraint,
               }),

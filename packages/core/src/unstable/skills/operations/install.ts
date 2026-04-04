@@ -185,7 +185,7 @@ const installFromRegistry = (
 
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: "registry",
-      profile: ref.profile,
+      owner: ref.owner,
     });
     yield* validatePathSafety(ws.baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
 
@@ -208,7 +208,7 @@ const installFromRegistry = (
           : ref.source.location.href;
       const client = yield* createRegistryClient(locationStr);
       const { archive } = yield* client.getExtensionPackage({
-        handle: ref.profile,
+        handle: ref.owner,
         type: "skill",
         name: ref.name,
         version: Option.some(ref.version),

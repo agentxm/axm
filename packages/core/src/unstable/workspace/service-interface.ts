@@ -56,11 +56,11 @@ import type { LockfileState } from "./augment-plan.js";
 /**
  * Minimal structural discriminant for determining skill path layout.
  *
- * Registry refs carry a profile for the canonical path; all other ref types
+ * Registry refs carry an owner for the canonical path; all other ref types
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly profile: string }
+  | { readonly refType: "registry"; readonly owner: string }
   | { readonly refType: "git-hosted" | "local" | "builtin" };
 
 /**
@@ -86,7 +86,7 @@ export interface SkillExtensionTarget {
 export interface PackExtensionTarget {
   readonly type: "pack";
   readonly name: string;
-  readonly profile: string;
+  readonly owner: string;
 }
 
 export interface CommandExtensionTarget {
@@ -223,9 +223,9 @@ export interface WorkspaceContextService {
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
     AppError
   >;
-  /** Resolve profile: project settings -> user-scope settings -> DEFAULT_PROFILE. */
+  /** Resolve owner: project settings -> user-scope settings -> DEFAULT_PROFILE. */
   readonly getConfiguredProfile: () => Effect.Effect<string, AppError>;
-  /** Resolve profile without fallback: project settings -> user-scope settings -> Option.none(). */
+  /** Resolve owner without fallback: project settings -> user-scope settings -> Option.none(). */
   readonly getDefaultProfile: () => Effect.Effect<Option.Option<string>, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
@@ -403,7 +403,7 @@ export interface WorkspaceContextService {
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, profile: string) => Effect.Effect<PackDirPath, AppError>;
+  readonly getPackDir: (name: string, owner: string) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
   readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific command, or Option.none(). */

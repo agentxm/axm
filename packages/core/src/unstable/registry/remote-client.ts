@@ -24,8 +24,8 @@ import type {
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
-  GetExtensionsByProfileArgs,
-  GetExtensionsByProfileResponse,
+  GetExtensionsByOwnerArgs,
+  GetExtensionsByOwnerResponse,
   ProfileExistsResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
@@ -77,7 +77,7 @@ const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType
 const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
   decodeExtensionIndex({
     name: response.name,
-    profile: response.profile,
+    owner: response.owner,
     type: narrowExtensionType(response.type),
     description: response.description ?? undefined,
     repository: response.repository ?? undefined,
@@ -113,7 +113,7 @@ const toRegistryManifest = (
   const latest = selected.value;
 
   return Option.some({
-    profile: index.profile,
+    owner: index.owner,
     type: index.type,
     name: index.name,
     description: Option.fromUndefinedOr(index.description),
@@ -222,13 +222,13 @@ export const createRemoteRegistryClient = (
   // getExtensionsByScope
   // ---------------------------------------------------------------------------
   const getExtensionsByScope = (
-    args: GetExtensionsByProfileArgs,
-  ): Effect.Effect<GetExtensionsByProfileResponse, AppError> =>
+    args: GetExtensionsByOwnerArgs,
+  ): Effect.Effect<GetExtensionsByOwnerResponse, AppError> =>
     Effect.gen(function* () {
       let allExtensions: ReadonlyArray<RegistryExtensionManifest>;
 
       if (args.names.length === 0) {
-        // List mode: fetch profile listing, then fan-out to get full indexes
+        // List mode: fetch owner listing, then fan-out to get full indexes
         allExtensions = yield* getListModeExtensions(args);
       } else {
         // Named mode: fetch each name+type combination
@@ -274,7 +274,7 @@ export const createRemoteRegistryClient = (
     });
 
   const getListModeExtensions = (
-    args: GetExtensionsByProfileArgs,
+    args: GetExtensionsByOwnerArgs,
   ): Effect.Effect<ReadonlyArray<RegistryExtensionManifest>, AppError> =>
     Effect.gen(function* () {
       // Fetch extension lists by type
@@ -294,7 +294,7 @@ export const createRemoteRegistryClient = (
         summaries,
         (summary) =>
           getExtensionIndex({
-            handle: summary.profile,
+            handle: summary.owner,
             type: narrowExtensionType(summary.type),
             name: summary.name,
           }),
@@ -313,7 +313,7 @@ export const createRemoteRegistryClient = (
       );
 
       const sorted = [...allExtensions].sort((a, b) => {
-        if (a.profile !== b.profile) return a.profile.localeCompare(b.profile);
+        if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
         if (a.name !== b.name) return a.name.localeCompare(b.name);
         return a.type.localeCompare(b.type);
       });
@@ -369,7 +369,7 @@ export const createRemoteRegistryClient = (
       return mapNetworkError(
         e,
         "REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR",
-        "Failed to connect to remote registry profile endpoint",
+        "Failed to connect to remote registry owner endpoint",
         baseUrl,
       );
     }
@@ -384,19 +384,19 @@ export const createRemoteRegistryClient = (
       return mapSchemaError(
         e,
         "REGISTRY_REMOTE_INVALID_RESPONSE",
-        "Remote profile endpoint response does not match expected schema",
+        "Remote owner endpoint response does not match expected schema",
       );
     }
     if (isAnyRegistryClientError(e)) {
       return mapUnexpectedStatusError(
         e,
         "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-        "Remote profile check failed",
+        "Remote owner check failed",
       );
     }
     return makeAppError({
       code: "REGISTRY_REMOTE_NAMESPACE_CHECK_FAILED",
-      what: "Remote profile check failed",
+      what: "Remote owner check failed",
       cause: e,
     });
   };

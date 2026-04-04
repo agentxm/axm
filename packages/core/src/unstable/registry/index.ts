@@ -16,8 +16,8 @@ export { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
 export type {
   RegistryClient,
   RegistryExtensionManifest,
-  GetExtensionsByProfileArgs,
-  GetExtensionsByProfileResponse,
+  GetExtensionsByOwnerArgs,
+  GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,

@@ -559,7 +559,7 @@ describe("init.handler", () => {
           expect(lockfile.packs).toBeDefined();
           expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
           expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-          expect(lockfile.packs["@axm/packs/cli"].profile).toBe("@axm");
+          expect(lockfile.packs["@axm/packs/cli"].owner).toBe("@axm");
           expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
 
           // Skill entries
@@ -609,7 +609,7 @@ describe("init.handler", () => {
             packs: {
               "@axm/packs/cli": {
                 type: "builtin",
-                profile: "@axm",
+                owner: "@axm",
                 name: "cli",
                 resolvedVersion: "0.0.16",
                 installedAt: "2025-01-01T00:00:00.000Z",

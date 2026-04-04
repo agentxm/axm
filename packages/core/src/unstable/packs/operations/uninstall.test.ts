@@ -108,7 +108,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        // Create pack folder on disk under a profile
+        // Create pack folder on disk under an owner
         const packDir = path.join(base, ".axm", "extensions", "@test", "packs", "testing");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(path.join(packDir, "pack.json"), "{}");

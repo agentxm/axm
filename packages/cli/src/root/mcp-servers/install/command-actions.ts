@@ -42,7 +42,7 @@ export interface InstallMcpServerHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export interface ParsedMcpServerInstallArgs {
-  readonly profile: string;
+  readonly owner: string;
   readonly serverName: string;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
@@ -55,7 +55,7 @@ export interface ParsedMcpServerInstallArgs {
 
 export interface McpServerInstallSourceRequest {
   readonly source: RegistrySource;
-  readonly profile: string;
+  readonly owner: string;
   readonly serverName: string;
   readonly versionConstraint: Option.Option<string>;
 }
@@ -112,7 +112,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         const trimmed = args.source.trim();
         const parsed = parseInputPattern(trimmed);
 
-        // Handle @profile/mcp-servers/name[@version]
+        // Handle @owner/mcp-servers/name[@version]
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
           const pat = parsed.value.pattern;
           if (Option.isSome(pat.type) && pat.type.value !== "mcp-servers") {
@@ -120,7 +120,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
               what: "MCP server source must include /mcp-servers/ segment",
               details: [`Provided: ${trimmed}`],
-              howToFix: "Use @profile/mcp-servers/server-name format.",
+              howToFix: "Use @owner/mcp-servers/server-name format.",
             });
           }
           if (Option.isNone(pat.name)) {
@@ -128,11 +128,11 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               code: "MCP_SERVER_SOURCE_MISSING_NAME",
               what: "MCP server source must include a server name",
               details: [`Provided: ${trimmed}`],
-              howToFix: "Use @profile/mcp-servers/server-name format.",
+              howToFix: "Use @owner/mcp-servers/server-name format.",
             });
           }
           return {
-            profile: pat.profile,
+            owner: pat.owner,
             serverName: pat.name.value,
             versionConstraint: pat.versionConstraint,
             resolvedInput: trimmed,
@@ -142,12 +142,12 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
         // Handle bare name (e.g., "my-server")
         if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
-          const profile = yield* ws.getConfiguredProfile();
+          const owner = yield* ws.getConfiguredProfile();
           return {
-            profile,
+            owner,
             serverName: parsed.value.pattern.name,
             versionConstraint: Option.none<string>(),
-            resolvedInput: `${profile}/mcp-servers/${parsed.value.pattern.name}`,
+            resolvedInput: `${owner}/mcp-servers/${parsed.value.pattern.name}`,
             force: false,
           };
         }
@@ -156,7 +156,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
           what: "MCP servers can only be installed from a registry",
           details: [`Provided: ${trimmed}`],
-          howToFix: "Use @profile/mcp-servers/server-name or just server-name.",
+          howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
         });
       });
 
@@ -171,7 +171,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 code: "INVALID_SOURCE",
                 what: `Invalid source: ${error.message}`,
                 details: [`Provided: ${parsed.resolvedInput}`],
-                howToFix: "Use @profile/mcp-servers/server-name or just server-name.",
+                howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
                 cause: error,
               }),
             ),
@@ -182,14 +182,14 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
               what: "MCP servers can only be installed from a registry",
               details: [`Provided source type: ${source.type}`],
-              howToFix: "Use a registry source: @profile/mcp-servers/server-name",
+              howToFix: "Use a registry source: @owner/mcp-servers/server-name",
             });
           }
 
           return [
             {
               source,
-              profile: parsed.profile,
+              owner: parsed.owner,
               serverName: parsed.serverName,
               versionConstraint: parsed.versionConstraint,
             },
@@ -209,7 +209,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 .find(req.source, {
                   skillNames: [req.serverName],
                   type: "mcp-server",
-                  profile: Option.some(req.profile),
+                  owner: Option.some(req.owner),
                   versionConstraint: req.versionConstraint,
                 })
                 .pipe(
@@ -217,7 +217,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                     makeAppError({
                       code: "MCP_SERVER_FETCH_FAILED",
                       what: "Failed to fetch MCP server from registry",
-                      details: [`Server: ${req.profile}/mcp-servers/${req.serverName}`],
+                      details: [`Server: ${req.owner}/mcp-servers/${req.serverName}`],
                       howToFix: "Verify the server name and registry configuration.",
                       cause: error,
                     }),

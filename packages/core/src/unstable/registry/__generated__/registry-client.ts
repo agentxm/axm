@@ -776,7 +776,7 @@ export const TokensDelete403 = ForbiddenError;
 export type ExtensionsListByProfile200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
-    readonly profile: string;
+    readonly owner: string;
     readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
     readonly latestVersion: string;
     readonly description?: string | null;
@@ -796,7 +796,7 @@ export const ExtensionsListByProfile200 = Schema.Struct({
   extensions: Schema.Array(
     Schema.Struct({
       name: Schema.String,
-      profile: Schema.String,
+      owner: Schema.String,
       type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
       latestVersion: Schema.String,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -834,7 +834,7 @@ export const ExtensionsListByProfile400 = DecodeErrorResponse;
 export type ExtensionsListByType200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: string;
-    readonly profile: string;
+    readonly owner: string;
     readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
     readonly latestVersion: string;
     readonly description?: string | null;
@@ -854,7 +854,7 @@ export const ExtensionsListByType200 = Schema.Struct({
   extensions: Schema.Array(
     Schema.Struct({
       name: Schema.String,
-      profile: Schema.String,
+      owner: Schema.String,
       type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
       latestVersion: Schema.String,
       description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -891,7 +891,7 @@ export type ExtensionsListByType400 = DecodeErrorResponse;
 export const ExtensionsListByType400 = DecodeErrorResponse;
 export type ExtensionsGet200 = {
   readonly name: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly type: "skill" | "command" | "mcp-server" | "subagent" | "file" | "rule" | "pack";
   readonly description?: string | null;
   readonly repository?: string | null;
@@ -918,7 +918,7 @@ export type ExtensionsGet200 = {
 };
 export const ExtensionsGet200 = Schema.Struct({
   name: Schema.String,
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.Literals(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"]),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -985,7 +985,7 @@ export const ExtensionsUpdateVisibilityRequestJson = Schema.Struct({
 });
 export type ExtensionsUpdateVisibility200 = {
   readonly id: ExtensionId;
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly visibility: string;
@@ -993,7 +993,7 @@ export type ExtensionsUpdateVisibility200 = {
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
   id: ExtensionId,
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   visibility: Schema.String,
@@ -1012,7 +1012,7 @@ export type ExtensionsUpdateVisibility404 = NotFoundError;
 export const ExtensionsUpdateVisibility404 = NotFoundError;
 export type ExtensionsGetVersion200 = {
   readonly name: string;
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly version: string;
   readonly status: "pending" | "available" | "failed";
@@ -1036,7 +1036,7 @@ export type ExtensionsGetVersion200 = {
 };
 export const ExtensionsGetVersion200 = Schema.Struct({
   name: Schema.String,
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   version: Schema.String,
   status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
@@ -1089,7 +1089,7 @@ export const ExtensionsPublishVersionRequestFormData = Schema.Struct({
   integrity: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type ExtensionsPublishVersion200 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly version: string;
@@ -1099,7 +1099,7 @@ export type ExtensionsPublishVersion200 = {
   readonly publish_status: string;
 };
 export const ExtensionsPublishVersion200 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
@@ -1109,7 +1109,7 @@ export const ExtensionsPublishVersion200 = Schema.Struct({
   publish_status: Schema.String.annotate({ readOnly: true }),
 });
 export type ExtensionsPublishVersion201 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly version: string;
@@ -1119,7 +1119,7 @@ export type ExtensionsPublishVersion201 = {
   readonly publish_status: string;
 };
 export const ExtensionsPublishVersion201 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
@@ -1170,7 +1170,7 @@ export type ExtensionsGetHandleProfile200 = {
   readonly ok: true;
   readonly mock: true;
   readonly method: "GET";
-  readonly route: "/v1/extensions/{handle}/profile";
+  readonly route: "/v1/extensions/{handle}/owner";
   readonly message: string;
   readonly params: { readonly handle: string };
 };
@@ -1178,7 +1178,7 @@ export const ExtensionsGetHandleProfile200 = Schema.Struct({
   ok: Schema.Literal(true),
   mock: Schema.Literal(true),
   method: Schema.Literal("GET"),
-  route: Schema.Literal("/v1/extensions/{handle}/profile"),
+  route: Schema.Literal("/v1/extensions/{handle}/owner"),
   message: Schema.String,
   params: Schema.Struct({ handle: Schema.String }),
 });
@@ -1189,14 +1189,14 @@ export const ExtensionsDeprecateRequestJson = Schema.Struct({
   notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type ExtensionsDeprecate200 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly deprecatedAt: string | null;
   readonly deprecationNotice: string | null;
 };
 export const ExtensionsDeprecate200 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   deprecatedAt: Schema.Union([
@@ -1214,14 +1214,14 @@ export const ExtensionsDeprecate403 = ForbiddenError;
 export type ExtensionsDeprecate404 = NotFoundError;
 export const ExtensionsDeprecate404 = NotFoundError;
 export type ExtensionsUndeprecate200 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly deprecatedAt: null;
   readonly deprecationNotice: null;
 };
 export const ExtensionsUndeprecate200 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   deprecatedAt: Schema.Null,
@@ -1236,14 +1236,14 @@ export const ExtensionsUndeprecate403 = ForbiddenError;
 export type ExtensionsUndeprecate404 = NotFoundError;
 export const ExtensionsUndeprecate404 = NotFoundError;
 export type ExtensionsYankVersion200 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly version: string;
   readonly yankedAt: string | null;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
@@ -1261,14 +1261,14 @@ export const ExtensionsYankVersion403 = ForbiddenError;
 export type ExtensionsYankVersion404 = NotFoundError;
 export const ExtensionsYankVersion404 = NotFoundError;
 export type ExtensionsUnyankVersion200 = {
-  readonly profile: string;
+  readonly owner: string;
   readonly type: string;
   readonly name: string;
   readonly version: string;
   readonly yankedAt: null;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
-  profile: Schema.String,
+  owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
   version: Schema.String,
@@ -1833,7 +1833,7 @@ export const make = (
         binaryRequest,
       ),
     ExtensionsGetHandleProfile: (handle, options) =>
-      HttpClientRequest.get(`/v1/extensions/${handle}/profile`).pipe(
+      HttpClientRequest.get(`/v1/extensions/${handle}/owner`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsGetHandleProfile200),
@@ -2167,7 +2167,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
   >;
   /**
-   * List profile extensions
+   * List owner extensions
    */
   readonly ExtensionsListByProfile: <Config extends OperationConfig>(
     handle: string,
@@ -2179,7 +2179,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsListByProfile400", typeof ExtensionsListByProfile400.Type>
   >;
   /**
-   * List extensions by profile and type
+   * List extensions by owner and type
    */
   readonly ExtensionsListByType: <Config extends OperationConfig>(
     handle: string,
@@ -2347,7 +2347,7 @@ export interface RegistryClient {
     version: string,
   ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
   /**
-   * Returns the current mock handle profile payload.
+   * Returns the current mock handle owner payload.
    */
   readonly ExtensionsGetHandleProfile: <Config extends OperationConfig>(
     handle: string,

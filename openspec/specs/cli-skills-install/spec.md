@@ -44,12 +44,12 @@ Installing a skill that is already installed SHALL be a safe no-op that produces
 
 ### Requirement: Source input forms
 
-`axm skills install` SHALL accept registry skill names in the fully qualified form `@profile/skills/name`, optionally with a `@<version>` suffix, bare skill names resolved through the default profile, local filesystem paths, `file://` URLs, and explicit git-hosted sources such as `github:owner/repo` or `git:https://example.com/repo.git`.
+`axm skills install` SHALL accept registry skill names in the fully qualified form `@owner/skills/name`, optionally with a `@<version>` suffix, bare skill names resolved through the default owner, local filesystem paths, `file://` URLs, and explicit git-hosted sources such as `github:owner/repo` or `git:https://example.com/repo.git`.
 
 #### Scenario: Fully qualified registry skill name
 
 - **WHEN** user runs `axm skills install @acme/skills/code-review`
-- **THEN** the command SHALL install the `code-review` skill from the `@acme` profile
+- **THEN** the command SHALL install the `code-review` skill from the `@acme` owner
 
 #### Scenario: Fully qualified registry skill with version constraint
 
@@ -66,37 +66,37 @@ Installing a skill that is already installed SHALL be a safe no-op that produces
 - **WHEN** user runs `axm skills install file:///Users/dev/skills/code-review`
 - **THEN** the command SHALL treat the input as a local filesystem source
 
-### Requirement: Bare-name lookup uses default profile
+### Requirement: Bare-name lookup uses default owner
 
-When the user provides a bare skill name, install SHALL resolve it under the default profile. Project settings SHALL take precedence over user settings when both define a default profile.
+When the user provides a bare skill name, install SHALL resolve it under the default owner. Project settings SHALL take precedence over user settings when both define a default owner.
 
-#### Scenario: Bare name resolved from project default profile
+#### Scenario: Bare name resolved from project default owner
 
 - **WHEN** user runs `axm skills install code-review`
-- **AND** project settings define default profile `@acme`
+- **AND** project settings define default owner `@acme`
 - **THEN** the command SHALL resolve the request as `@acme/skills/code-review`
 
-#### Scenario: Bare name resolved from user default profile
+#### Scenario: Bare name resolved from user default owner
 
 - **WHEN** user runs `axm skills install code-review`
-- **AND** project settings do not define a profile
-- **AND** user settings define default profile `@acme`
+- **AND** project settings do not define an owner
+- **AND** user settings define default owner `@acme`
 - **THEN** the command SHALL resolve the request as `@acme/skills/code-review`
 
-#### Scenario: Bare name without any default profile fails
+#### Scenario: Bare name without any default owner fails
 
 - **WHEN** user runs `axm skills install code-review`
-- **AND** neither project nor user settings define a default profile
-- **THEN** the command SHALL fail with guidance to configure a profile or use a fully qualified name
+- **AND** neither project nor user settings define a default owner
+- **THEN** the command SHALL fail with guidance to configure an owner or use a fully qualified name
 
 ### Requirement: Registry source selection
 
-When resolving a registry install, profile-matched registry sources SHALL be preferred over catch-all sources. Project source definitions with the same name SHALL override user-scope definitions. A built-in default registry SHALL be available when no override is present.
+When resolving a registry install, owner-matched registry sources SHALL be preferred over catch-all sources. Project source definitions with the same name SHALL override user-scope definitions. A built-in default registry SHALL be available when no override is present.
 
 #### Scenario: Profile-matched registry source used first
 
 - **WHEN** `@corp/skills/code-review` can be resolved by a registry source configured for `@corp`
-- **THEN** install SHALL use the profile-matched registry source before any catch-all registry sources
+- **THEN** install SHALL use the owner-matched registry source before any catch-all registry sources
 
 #### Scenario: Project registry source overrides user source of the same name
 

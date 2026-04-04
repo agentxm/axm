@@ -1508,20 +1508,26 @@
                   },
                   "resolvedSkills": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   },
                   "resolvedCommands": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   },
                   "resolvedMcpServers": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   }
                 },
@@ -1564,20 +1570,26 @@
                   },
                   "resolvedSkills": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   },
                   "resolvedCommands": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   },
                   "resolvedMcpServers": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
+                    "patternProperties": {
+                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+                        "type": "string"
+                      }
                     }
                   }
                 },

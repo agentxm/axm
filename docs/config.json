@@ -1,3 +1,1 @@
-{
-  "nav": [{ "label": "Quickstart", "to": "quickstart" }]
-}
+../packages/core/site-content/docs/config.json

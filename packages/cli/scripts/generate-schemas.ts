@@ -2,8 +2,10 @@
  * Generate JSON Schema files from Effect schemas.
  *
  * This script generates JSON Schema files for all manifest types,
- * settings, and lockfile schemas. Each generated file is placed
- * in a `__generated__/` folder next to its source file.
+ * settings, and lockfile schemas. The published public schema surface
+ * lives under `packages/core/site-content/schemas`, so generation
+ * writes there directly instead of scattering files across package
+ * internals and re-exporting them one by one.
  */
 
 import * as fs from "node:fs";
@@ -17,8 +19,9 @@ import { PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
 import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 
-const CLI_SRC = path.join(import.meta.dirname, "../src");
-const CORE_SRC = path.join(import.meta.dirname, "../../core/src/unstable");
+const CLI_ROOT = path.join(import.meta.dirname, "..");
+const CORE_ROOT = path.join(import.meta.dirname, "../../core");
+const SITE_CONTENT_SCHEMAS_DIR = path.join(CORE_ROOT, "site-content/__generated__/schemas");
 
 interface SchemaConfig {
   name: string;
@@ -30,32 +33,32 @@ const schemas: SchemaConfig[] = [
   {
     name: "axm-lock.schema.json",
     schema: LockfileSchema,
-    outputDir: path.join(CORE_SRC, "lockfile/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
     name: "settings.schema.json",
     schema: SettingsSchema,
-    outputDir: path.join(CORE_SRC, "settings/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
     name: "axm-skill.schema.json",
     schema: SkillManifestSchema,
-    outputDir: path.join(CLI_SRC, "extensions/skills/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
     name: "axm-command.schema.json",
     schema: CommandManifestSchema,
-    outputDir: path.join(CLI_SRC, "extensions/commands/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
     name: "axm-mcp-server.schema.json",
     schema: McpServerManifestSchema,
-    outputDir: path.join(CLI_SRC, "extensions/mcp-servers/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
     name: "axm-pack.schema.json",
     schema: PackManifestSchema,
-    outputDir: path.join(CLI_SRC, "extensions/packs/__generated__"),
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
 ];
 
@@ -77,7 +80,7 @@ for (const { name, schema, outputDir } of schemas) {
   const jsonSchema = toDraft07SchemaFile(schema);
   const outputPath = path.join(outputDir, name);
   fs.writeFileSync(outputPath, `${JSON.stringify(jsonSchema, null, 2)}\n`);
-  console.log(`Generated: ${path.relative(CLI_SRC, outputPath)}`);
+  console.log(`Generated: ${path.relative(CLI_ROOT, outputPath)}`);
   count++;
 }
 

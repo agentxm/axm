@@ -35,163 +35,47 @@
         {
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["adal"]
-              },
-              {
-                "type": "string",
-                "enum": ["amp"]
-              },
-              {
-                "type": "string",
-                "enum": ["antigravity"]
-              },
-              {
-                "type": "string",
-                "enum": ["augment"]
-              },
-              {
-                "type": "string",
-                "enum": ["claude-code"]
-              },
-              {
-                "type": "string",
-                "enum": ["cline"]
-              },
-              {
-                "type": "string",
-                "enum": ["codebuddy"]
-              },
-              {
-                "type": "string",
-                "enum": ["codex"]
-              },
-              {
-                "type": "string",
-                "enum": ["command-code"]
-              },
-              {
-                "type": "string",
-                "enum": ["continue"]
-              },
-              {
-                "type": "string",
-                "enum": ["crush"]
-              },
-              {
-                "type": "string",
-                "enum": ["cursor"]
-              },
-              {
-                "type": "string",
-                "enum": ["droid"]
-              },
-              {
-                "type": "string",
-                "enum": ["gemini-cli"]
-              },
-              {
-                "type": "string",
-                "enum": ["github-copilot"]
-              },
-              {
-                "type": "string",
-                "enum": ["goose"]
-              },
-              {
-                "type": "string",
-                "enum": ["iflow-cli"]
-              },
-              {
-                "type": "string",
-                "enum": ["junie"]
-              },
-              {
-                "type": "string",
-                "enum": ["kilo"]
-              },
-              {
-                "type": "string",
-                "enum": ["kimi-cli"]
-              },
-              {
-                "type": "string",
-                "enum": ["kiro-cli"]
-              },
-              {
-                "type": "string",
-                "enum": ["kode"]
-              },
-              {
-                "type": "string",
-                "enum": ["mcpjam"]
-              },
-              {
-                "type": "string",
-                "enum": ["mistral-vibe"]
-              },
-              {
-                "type": "string",
-                "enum": ["mux"]
-              },
-              {
-                "type": "string",
-                "enum": ["neovate"]
-              },
-              {
-                "type": "string",
-                "enum": ["openclaw"]
-              },
-              {
-                "type": "string",
-                "enum": ["opencode"]
-              },
-              {
-                "type": "string",
-                "enum": ["openhands"]
-              },
-              {
-                "type": "string",
-                "enum": ["pi"]
-              },
-              {
-                "type": "string",
-                "enum": ["pochi"]
-              },
-              {
-                "type": "string",
-                "enum": ["qoder"]
-              },
-              {
-                "type": "string",
-                "enum": ["qwen-code"]
-              },
-              {
-                "type": "string",
-                "enum": ["replit"]
-              },
-              {
-                "type": "string",
-                "enum": ["roo"]
-              },
-              {
-                "type": "string",
-                "enum": ["trae"]
-              },
-              {
-                "type": "string",
-                "enum": ["trae-cn"]
-              },
-              {
-                "type": "string",
-                "enum": ["windsurf"]
-              },
-              {
-                "type": "string",
-                "enum": ["zencoder"]
-              }
+            "type": "string",
+            "enum": [
+              "adal",
+              "amp",
+              "antigravity",
+              "augment",
+              "claude-code",
+              "cline",
+              "codebuddy",
+              "codex",
+              "command-code",
+              "continue",
+              "crush",
+              "cursor",
+              "droid",
+              "gemini-cli",
+              "github-copilot",
+              "goose",
+              "iflow-cli",
+              "junie",
+              "kilo",
+              "kimi-cli",
+              "kiro-cli",
+              "kode",
+              "mcpjam",
+              "mistral-vibe",
+              "mux",
+              "neovate",
+              "openclaw",
+              "opencode",
+              "openhands",
+              "pi",
+              "pochi",
+              "qoder",
+              "qwen-code",
+              "replit",
+              "roo",
+              "trae",
+              "trae-cn",
+              "windsurf",
+              "zencoder"
             ]
           }
         },

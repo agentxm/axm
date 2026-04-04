@@ -132,8 +132,10 @@
       "anyOf": [
         {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
+          "patternProperties": {
+            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+              "type": "string"
+            }
           }
         },
         {
@@ -145,8 +147,10 @@
       "anyOf": [
         {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
+          "patternProperties": {
+            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+              "type": "string"
+            }
           }
         },
         {
@@ -158,8 +162,10 @@
       "anyOf": [
         {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
+          "patternProperties": {
+            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+              "type": "string"
+            }
           }
         },
         {

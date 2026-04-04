@@ -147,7 +147,7 @@
   },
   "devDependencies": {
     "@axm.sh/utils": "workspace:*",
-    "@effect/openapi-generator": "4.0.0-beta.42",
+    "@effect/openapi-generator": "4.0.0-beta.43",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "^7.5.8",

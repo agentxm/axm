@@ -1,5 +1,5 @@
 diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
-index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788db31d276 100644
+index 8680867..7014e49 100644
 --- a/dist/OpenApiGenerator.js
 +++ b/dist/OpenApiGenerator.js
 @@ -231,6 +231,12 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
@@ -15,33 +15,43 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
          if (isHttpApi) {
            const representableRequestBody = [];
            for (const [contentType, mediaType] of Object.entries(content)) {
-@@ -277,12 +283,14 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -276,21 +282,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+           });
          }
          const representable = [];
++        const jsonResponseEntries = findContentEntriesByMediaType(content, isJsonMediaType);
          let jsonSchemaName;
 -        const jsonResponseSchema = content?.["application/json"]?.schema;
-+        // Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Detect +json types (e.g. application/problem+json)
-+        const jsonResponseEntry = findContentByMediaType(content, isJsonMediaType);
-+        const jsonResponseSchema = jsonResponseEntry?.[1]?.schema;
-         if (Predicate.isNotUndefined(jsonResponseSchema)) {
+-        if (Predicate.isNotUndefined(jsonResponseSchema)) {
++        if (jsonResponseEntries.length > 0) {
++          const jsonResponseSchema = combineJsonResponseSchemas(jsonResponseEntries);
            jsonSchemaName = addSchema(`${schemaId}${status}`, jsonResponseSchema, op);
            if (isHttpApi) {
-             representable.push({
+-            representable.push({
 -              contentType: "application/json",
-+              contentType: jsonResponseEntry[0],
-               encoding: "json",
-               schema: jsonSchemaName
-             });
-@@ -290,7 +298,7 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+-              encoding: "json",
+-              schema: jsonSchemaName
+-            });
++            const multipleJsonRepresentations = jsonResponseEntries.length > 1;
++            for (const [contentType, mediaType] of jsonResponseEntries) {
++              const schema = mediaType.schema;
++              const schemaName = multipleJsonRepresentations ? addSchema(`${schemaId}${status}${mediaTypeToSuffix(contentType)}`, schema, op) : jsonSchemaName;
++              representable.push({
++                contentType,
++                encoding: "json",
++                schema: schemaName
++              });
++            }
+           }
          }
          if (isHttpApi) {
            for (const [contentType, mediaType] of Object.entries(content ?? {})) {
 -            if (contentType === "application/json") {
-+            if (jsonResponseEntry && contentType === jsonResponseEntry[0]) {
++            if (isJsonMediaType(contentType.toLowerCase())) {
                continue;
              }
              if (!Predicate.isObject(mediaType) || Predicate.isUndefined(mediaType.schema)) {
-@@ -345,10 +353,20 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -345,10 +357,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
              op.sseSchema = addSchema(`${schemaId}${status}Sse`, sseResponseSchema, op);
            }
          }
@@ -49,54 +59,70 @@ index 868086706d4c6915c22a59db50021276b76a9350..4f5dc025ad6130ae89f1a2244340d788
 -          const statusMajorNumber = Number(parsedStatus[0]);
 -          if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
 -            op.binaryResponse = true;
-+        // Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Iterate all content types for binary detection (not just application/octet-stream)
-+        // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916: Track binary success statuses for decodeBinary handler in matchStatus
-+        if (!op.binaryResponse && Predicate.isNotUndefined(content)) {
++        // Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979: Preserve response representations per status
++        // Includes broader binary detection plus explicit binary success decoding in matchStatus
++        if (Predicate.isNotUndefined(content)) {
 +          for (const [contentType, mediaType] of Object.entries(content)) {
 +            const schema = Predicate.isObject(mediaType) ? mediaType.schema : undefined;
 +            const isBinary = isBinaryMediaType(contentType.toLowerCase()) || Predicate.isObject(schema) && schema.type === "string" && schema.format === "binary";
-+            if (isBinary) {
-+              const statusMajorNumber = Number(parsedStatus[0]);
-+              if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
-+                op.binaryResponse = true;
-+                op.binarySuccessStatuses.add(parsedStatus.toLowerCase());
-+              }
-+              break;
++            if (!isBinary) {
++              continue;
 +            }
++            const statusMajorNumber = Number(parsedStatus[0]);
++            if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
++              op.binaryResponse = true;
++              op.binarySuccessStatuses.add(parsedStatus.toLowerCase());
++            }
++            break;
            }
          }
          if (isEmptyResponse) {
-@@ -571,9 +589,20 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
+@@ -571,9 +594,28 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
    const items = value.items;
    return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
  };
-+// Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Search content entries by media type predicate
-+const findContentByMediaType = (content, predicate) => {
-+  if (Predicate.isUndefined(content)) return undefined;
++const combineJsonResponseSchemas = entries => {
++  const schemas = entries.map(([, mediaType]) => mediaType.schema);
++  return schemas.length === 1 ? schemas[0] : {
++    anyOf: schemas
++  };
++};
++const findContentEntriesByMediaType = (content, predicate) => {
++  if (Predicate.isUndefined(content)) {
++    return [];
++  }
++  const matches = [];
 +  for (const [contentType, mediaType] of Object.entries(content)) {
-+    if (predicate(contentType.toLowerCase())) {
-+      return [contentType, mediaType];
++    if (predicate(contentType.toLowerCase()) && Predicate.isObject(mediaType) && Predicate.isNotUndefined(mediaType.schema)) {
++      matches.push([contentType, mediaType]);
 +    }
 +  }
-+  return undefined;
++  return matches;
 +};
  const isJsonMediaType = contentType => contentType === "application/json" || contentType.startsWith("application/") && contentType.endsWith("+json");
  const isTextMediaType = contentType => contentType.startsWith("text/");
 -const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
-+// Effect-TS/effect-smol#1911 / Effect-TS/effect-smol#1912: Broadened to recognize zip, gzip, pdf, image/*, audio/*, video/*
++// Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979: Broadened binary media-type recognition
 +const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType === "application/zip" || contentType === "application/gzip" || contentType === "application/pdf" || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
  const getRequestMediaTypeEncoding = contentType => {
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
+@@ -736,4 +778,4 @@ const processPath = path => {
+     pathTemplate
+   };
+ };
+-//# sourceMappingURL=OpenApiGenerator.js.map
+\ No newline at end of file
++//# sourceMappingURL=OpenApiGenerator.js.map
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe231794529adc7491 100644
+index 4763452..3231486 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
 @@ -6,6 +6,7 @@ export class OpenApiTransformer extends /*#__PURE__*/ServiceMap.Service()("OpenA
  const computeImportRequirements = operations => {
    let eventStream = false;
    let octetStream = false;
-+  let binarySuccess = false; // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
++  let binarySuccess = false; // Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979
    for (const op of operations) {
      if (op.sseSchema) {
        eventStream = true;
@@ -150,7 +176,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      if (requirements.octetStream) {
        helpers.push(binaryRequestSource);
      }
-+    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
++    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979
 +      helpers.push(decodeBinarySource);
 +    }
 +    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914
@@ -253,7 +279,7 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
      if (requirements.octetStream) {
        helpers.push(binaryRequestSourceTs);
      }
-+    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
++    if (requirements.binarySuccess) { // Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979
 +      helpers.push(decodeBinarySource);
 +    }
 +    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914
@@ -352,14 +378,14 @@ index 4763452e1d500234db28f5cd4f9c11f938e94c9b..f058e5a3081cec958777bdfe23179452
        Effect.map((response) => response.stream),
        Stream.unwrap
      )`;
-+// Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916: Decode binary success responses as Uint8Array
++// Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979: Decode binary success responses as Uint8Array
 +const decodeBinarySource = `const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
 +    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer))`;
  const clientErrorSource = name => `export interface ${name}Error<Tag extends string, E> {
    readonly _tag: Tag
    readonly request: HttpClientRequest.HttpClientRequest
 diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
-index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..fce9116333c99e8f2b36c580fc3fce17173f80b1 100644
+index 97dd00a..bf628f6 100644
 --- a/dist/ParsedOperation.js
 +++ b/dist/ParsedOperation.js
 @@ -23,6 +23,7 @@ export const makeDeepMutable = options => ({
@@ -376,21 +402,7 @@ index 97dd00a9d7f6e018e2263d2876f284c5431bae0f..fce9116333c99e8f2b36c580fc3fce17
    paramsOptional: true,
 -  binaryResponse: false
 +  binaryResponse: false,
-+  binarySuccessStatuses: new Set() // Effect-TS/effect-smol#1915 / Effect-TS/effect-smol#1916
++  binarySuccessStatuses: new Set() // Effect-TS/effect-smol#1978 / Effect-TS/effect-smol#1979
  });
  //# sourceMappingURL=ParsedOperation.js.map
 \ No newline at end of file
-diff --git a/dist/Utils.js b/dist/Utils.js
-index a50c4ce0f563a52f2641a50e77f08ed51c922405..d31b3d35f8e79c5c2e86e1d1c6dc50efa46909f9 100644
---- a/dist/Utils.js
-+++ b/dist/Utils.js
-@@ -39,4 +39,9 @@ export const spreadElementsInto = (source, destination) => {
-     destination.push(source[i]);
-   }
- };
-+// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: Classify 4xx/5xx as error statuses
-+export const isErrorStatus = status => {
-+  const major = Number(status[0]);
-+  return !Number.isNaN(major) && major >= 4;
-+};
- //# sourceMappingURL=Utils.js.map

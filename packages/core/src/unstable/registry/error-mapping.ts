@@ -84,6 +84,20 @@ export const isHttpClientError = (e: unknown): e is HttpClientError.HttpClientEr
   HttpClientError.isHttpClientError(e);
 
 /**
+ * Type predicate matching HttpClientErrors that are reasonable to retry:
+ * transport-level failures (ECONNREFUSED, DNS, etc.) and 5xx status codes.
+ * Deterministic failures — encode errors, invalid URLs, decode errors,
+ * 4xx statuses — are excluded so they fail fast.
+ */
+export const isTransientHttpClientError = (e: unknown): e is HttpClientError.HttpClientError => {
+  if (!HttpClientError.isHttpClientError(e)) return false;
+  const reason = e.reason;
+  if (reason._tag === "TransportError") return true;
+  if (reason._tag === "StatusCodeError" && reason.response.status >= 500) return true;
+  return false;
+};
+
+/**
  * Type predicate for SchemaError from effect/Schema.
  */
 export const isSchemaError = (e: unknown): boolean =>

@@ -12,9 +12,11 @@
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as Data from "effect/Data";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schedule from "effect/Schedule";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
@@ -24,6 +26,7 @@ import {
   isAnyRegistryClientError,
   hasTagSuffix,
   getString,
+  isTransientHttpClientError,
 } from "../registry/error-mapping.js";
 
 // -----------------------------------------------------------------------------
@@ -35,6 +38,8 @@ const DEVICE_CODE_SCOPES =
   "extensions:read extensions:publish:new extensions:publish:version extensions:yank extensions:admin account:read account:write";
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
+const TRANSIENT_DEVICE_POLL_RETRY_COUNT = 2;
+const TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY = "250 millis";
 
 // -----------------------------------------------------------------------------
 // Response types
@@ -95,6 +100,10 @@ export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService
 // Internal helpers
 // -----------------------------------------------------------------------------
 
+class RetryableDevicePollError extends Data.TaggedError("RetryableDevicePollError")<{
+  readonly cause: unknown;
+}> {}
+
 /** Normalize a generated token response to our domain NormalizedTokenResponse. */
 const normalizeTokenResponse = (token: {
   readonly access_token: string;
@@ -107,27 +116,64 @@ const normalizeTokenResponse = (token: {
 });
 
 /**
- * Extract the OAuth error code from an AuthExchangeDeviceCode400 RegistryClientError.
- * The cause is a union of InvalidRequestError | DecodeErrorResponse, both have a `code` field.
+ * Extract the semantic OAuth error from an AuthExchangeDeviceCode400 RegistryClientError.
+ *
+ * The generated 400 union can carry either a problem-style `{ code }` payload or
+ * the RFC 8628 device-flow payload `{ error, error_description }`.
  */
 const getOAuthErrorCode = (
   error: GeneratedRegistryClient.RegistryClientError<"AuthExchangeDeviceCode400", unknown>,
-): string | undefined => getString(error.cause, "code");
+): string | undefined => getString(error.cause, "error") ?? getString(error.cause, "code");
+
+const isRetryableDevicePollError = (
+  error: AppError | RetryableDevicePollError,
+): error is RetryableDevicePollError => error._tag === "RetryableDevicePollError";
+
+const makeTransientDevicePollAppError = (cause: unknown) =>
+  makeAppError({
+    code: "AUTH_LOGIN_FAILED",
+    what: "Lost connection to the registry during login",
+    howToFix: "Verify the registry is running and reachable, then try `axm login` again.",
+    cause,
+  });
+
+/**
+ * Retry transient device-poll failures with exponential backoff, capped at
+ * TRANSIENT_DEVICE_POLL_RETRY_COUNT attempts. Non-retryable AppErrors bypass
+ * the retry via the `while` predicate, and any RetryableDevicePollError that
+ * survives retry exhaustion is translated to a user-facing AppError.
+ */
+const retryTransientDevicePollFailure = <A>(
+  effect: Effect.Effect<A, AppError | RetryableDevicePollError>,
+): Effect.Effect<A, AppError> =>
+  effect.pipe(
+    Effect.retry({
+      times: TRANSIENT_DEVICE_POLL_RETRY_COUNT,
+      schedule: Schedule.exponential(TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY),
+      while: isRetryableDevicePollError,
+    }),
+    Effect.catchTag("RetryableDevicePollError", (e) =>
+      Effect.fail(makeTransientDevicePollAppError(e.cause)),
+    ),
+  );
 
 // -----------------------------------------------------------------------------
-// Single poll step (exported for testing)
+// Single poll step
 // -----------------------------------------------------------------------------
 
 /**
- * Execute a single device token poll against the generated client.
+ * Internal: execute a single device token poll against the generated client.
+ *
+ * Surfaces transient HTTP failures as RetryableDevicePollError so callers can
+ * decide whether to retry; other failures are mapped to AppError directly.
  *
  * @param client - Generated registry client instance
  * @param deviceCode - Device verification code from the initial authorization
  */
-export const pollOnce = (
+const pollOnceInternal = (
   client: GeneratedRegistryClient.RegistryClient,
   deviceCode: string,
-): Effect.Effect<PollResult, AppError> =>
+): Effect.Effect<PollResult, AppError | RetryableDevicePollError> =>
   client
     .AuthExchangeDeviceCode({
       payload: {
@@ -143,7 +189,7 @@ export const pollOnce = (
           token: normalizeTokenResponse(token),
         }),
       ),
-      Effect.catch((error): Effect.Effect<PollResult, AppError> => {
+      Effect.catch((error): Effect.Effect<PollResult, AppError | RetryableDevicePollError> => {
         if (isRegistryClientError("AuthExchangeDeviceCode400")(error)) {
           const code = getOAuthErrorCode(error);
           switch (code) {
@@ -168,16 +214,36 @@ export const pollOnce = (
           }
         }
 
+        if (isTransientHttpClientError(error)) {
+          return Effect.fail(new RetryableDevicePollError({ cause: error }));
+        }
+
         return Effect.fail(
           makeAppError({
             code: "AUTH_LOGIN_FAILED",
-            what: "Lost connection to the registry during login",
-            howToFix: "Verify the registry is running and reachable, then try `axm login` again.",
+            what: "Device token exchange failed with an unexpected error",
+            howToFix: "Try running `axm login` again.",
             cause: error,
           }),
         );
       }),
     );
+
+/**
+ * Execute a single device token poll (exported for testing).
+ *
+ * Transient HTTP failures are collapsed into AUTH_LOGIN_FAILED; this seam does
+ * not retry on its own. For the retrying variant, use `pollDeviceToken`.
+ */
+export const pollOnce = (
+  client: GeneratedRegistryClient.RegistryClient,
+  deviceCode: string,
+): Effect.Effect<PollResult, AppError> =>
+  pollOnceInternal(client, deviceCode).pipe(
+    Effect.catchTag("RetryableDevicePollError", (e) =>
+      Effect.fail(makeTransientDevicePollAppError(e.cause)),
+    ),
+  );
 
 // -----------------------------------------------------------------------------
 // Live layer
@@ -228,7 +294,7 @@ export const AuthClientLive = Layer.effect(
 
       while (true) {
         yield* Effect.sleep(currentInterval);
-        const result = yield* pollOnce(client, deviceCode);
+        const result = yield* retryTransientDevicePollFailure(pollOnceInternal(client, deviceCode));
 
         switch (result._tag) {
           case "Success":

@@ -53,14 +53,11 @@ const makeTokenResponse = (overrides?: {
   expires_at: overrides?.expires_at ?? new Date(Date.now() + 3600 * 1000).toISOString(),
 });
 
-/** Build an RFC 9457 InvalidRequestError-compatible JSON error body. */
-const makeOAuthError = (code: string) => ({
-  kind: "InvalidRequestError",
-  type: "urn:ietf:params:oauth:error",
-  title: "OAuth Error",
-  status: 400,
-  detail: `OAuth error: ${code}`,
-  code,
+/** Build a valid DeviceTokenOAuthError-compatible JSON error body. */
+const makeOAuthError = (error: GeneratedRegistryClient.DeviceTokenOAuthError["error"]) => ({
+  kind: "DeviceTokenOAuthError",
+  error,
+  error_description: `OAuth error: ${error}`,
 });
 
 /** Build an RFC 9457 DecodeErrorResponse-compatible JSON error body. */
@@ -296,7 +293,9 @@ describe("pollOnce", () => {
     });
   });
 
-  it.effect("fails with AUTH_LOGIN_FAILED on unexpected 500 error", () => {
+  it.effect("maps transient HttpClientError (500) to AUTH_LOGIN_FAILED", () => {
+    // pollOnce does not retry on its own; a 5xx StatusCodeError is classified
+    // as transient and collapses into the "Lost connection" AppError message.
     const client = makeMockClient(
       () =>
         new Response(JSON.stringify({ message: "internal error" }), {
@@ -310,6 +309,28 @@ describe("pollOnce", () => {
         Effect.catchTag("AppError", (e) => Effect.succeed(e)),
       );
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.what).toBe("Lost connection to the registry during login");
+    });
+  });
+
+  it.effect("fails with AUTH_LOGIN_FAILED on schema decode error (malformed 200 body)", () => {
+    // A 200 with a body that does not match AuthExchangeDeviceCode200 surfaces
+    // a SchemaError (not an HttpClientError), which is NOT considered transient
+    // and must flow through the "unexpected error" branch.
+    const client = makeMockClient(
+      () =>
+        new Response(JSON.stringify({ not: "a token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    return Effect.gen(function* () {
+      const error = yield* pollOnce(client, "dev_123").pipe(
+        Effect.catchTag("AppError", (e) => Effect.succeed(e)),
+      );
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.what).toBe("Device token exchange failed with an unexpected error");
     });
   });
 });
@@ -362,6 +383,72 @@ describe("AuthClient.pollDeviceToken", () => {
       const client = yield* AuthClient;
       const result = yield* client.pollDeviceToken("dev_123", 0);
       expect(result.access_token).toBe("axm_ses_after_pending");
+      expect(callCount).toBe(3);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("retries transient poll failures before succeeding", () => {
+    let callCount = 0;
+    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+
+    const layer = makeTestLayer(() => {
+      callCount++;
+      if (callCount < 3) {
+        return new Response(JSON.stringify({ message: "internal error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify(
+          makeTokenResponse({ access_token: "axm_ses_after_retry", expires_at: expiresAt }),
+        ),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      // Fork so we can advance the TestClock past the exponential retry
+      // backoff (250 ms + 500 ms = 750 ms across two retries).
+      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0));
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("1 second");
+      const result = yield* Fiber.join(fiber);
+      expect(result.access_token).toBe("axm_ses_after_retry");
+      expect(callCount).toBe(3);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("fails after exhausting transient poll retries", () => {
+    let callCount = 0;
+
+    const layer = makeTestLayer(() => {
+      callCount++;
+      return new Response(JSON.stringify({ message: "internal error" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const fiber = yield* Effect.forkChild(
+        client
+          .pollDeviceToken("dev_123", 0)
+          .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e))),
+      );
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("1 second");
+      const result = yield* Fiber.join(fiber);
+
+      // After catchTag, the success channel carries TokenResponse | AppError.
+      // Narrow via the AppError discriminant.
+      if (!("_tag" in result) || result._tag !== "AppError") {
+        throw new Error("expected pollDeviceToken to fail with AppError");
+      }
+      expect(result.code).toBe("AUTH_LOGIN_FAILED");
+      expect(result.what).toBe("Lost connection to the registry during login");
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
   });

@@ -63,6 +63,27 @@ export const InvalidRequestError = Schema.Struct({
     }),
   ),
 });
+export type DeviceTokenOAuthError = {
+  readonly kind: "DeviceTokenOAuthError";
+  readonly error:
+    | "invalid_request"
+    | "authorization_pending"
+    | "slow_down"
+    | "expired_token"
+    | "access_denied";
+  readonly error_description: string;
+};
+export const DeviceTokenOAuthError = Schema.Struct({
+  kind: Schema.Literal("DeviceTokenOAuthError"),
+  error: Schema.Literals([
+    "invalid_request",
+    "authorization_pending",
+    "slow_down",
+    "expired_token",
+    "access_denied",
+  ]),
+  error_description: Schema.String,
+});
 export type RefreshTokenError = {
   readonly kind: "RefreshTokenError";
   readonly type: string;
@@ -582,8 +603,14 @@ export const AuthExchangeDeviceCode200 = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
-export type AuthExchangeDeviceCode400 = InvalidRequestError | DecodeErrorResponse;
-export const AuthExchangeDeviceCode400 = Schema.Union([InvalidRequestError, DecodeErrorResponse]);
+export type AuthExchangeDeviceCode400 =
+  | InvalidRequestError
+  | DecodeErrorResponse
+  | DeviceTokenOAuthError;
+export const AuthExchangeDeviceCode400 = Schema.Union([
+  Schema.Union([InvalidRequestError, DecodeErrorResponse]),
+  DeviceTokenOAuthError,
+]);
 export type AuthRefreshTokenRequestFormUrlEncoded = {
   readonly grant_type: "refresh_token";
   readonly refresh_token: string;

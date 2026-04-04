@@ -26,16 +26,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { withAuthGuard } from "@axm.sh/core/unstable/auth";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
-import {
-  annotateCommandMeta,
-  registryCommandMeta,
-  withCommandRuntime,
-} from "../../command-meta.js";
+import { annotateCommandMeta, authCommandMeta, withCommandRuntime } from "../../command-meta.js";
 import { withWorkspace } from "../../runtime.js";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -384,11 +381,17 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  const resolution = yield* resolvePlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
+  const resolution = yield* withAuthGuard(
+    resolvePlan(plan, {
+      yes: args.yes,
+      force: args.force,
+      preview: args.preview,
+    }),
+    {
+      yes: args.yes,
+      registryUrl: registrySource.location.href,
+    },
+  );
   yield* emitPlanResolutionResult("skills.fork", resolution);
 
   yield* renderer.success("Done");
@@ -414,7 +417,7 @@ const forkConfig = {
     Flag.withDescription("Show what would be forked without making changes"),
   ),
 } as const;
-const commandMeta = registryCommandMeta("skills fork", { json: true });
+const commandMeta = authCommandMeta("skills fork", { json: true });
 
 export const forkCommand = Command.make(
   "fork",

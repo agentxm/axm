@@ -106,6 +106,10 @@
       "types": "./src/unstable/workflows/index.ts",
       "default": "./dist/src/unstable/workflows/index.js"
     },
+    "./unstable/publish": {
+      "types": "./src/unstable/publish/index.ts",
+      "default": "./dist/src/unstable/publish/index.js"
+    },
     "./unstable/install-method": {
       "types": "./src/unstable/install-method/index.ts",
       "default": "./dist/src/unstable/install-method/index.js"

@@ -17,6 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import { RegistryUrl } from "@axm.sh/core/unstable/auth";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../../builtin-pack/index.js";
@@ -104,6 +105,7 @@ describe("fork.handler", () => {
       rendererLayer,
       promptLayer,
       TestFlagsLayer(),
+      Layer.succeed(RegistryUrl, "https://registry.example.com"),
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",

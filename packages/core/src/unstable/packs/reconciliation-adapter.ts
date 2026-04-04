@@ -240,9 +240,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
             sourceName: "default",
             installedAt: context.now,
             updatedAt: context.now,
-            resolvedSkills: {},
-            resolvedCommands: {},
-            resolvedMcpServers: {},
+            resolvedSkills: { ...(manifest.skills ?? {}) },
+            resolvedCommands: { ...(manifest.commands ?? {}) },
+            resolvedMcpServers: { ...(manifest["mcp-servers"] ?? {}) },
           },
         },
       } satisfies DeclarationResolution;

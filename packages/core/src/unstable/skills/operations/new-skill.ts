@@ -55,6 +55,8 @@ description: A new skill
 Describe what this skill does and when to use it.
 `;
 
+const INITIAL_SKILL_VERSION = "0.0.1";
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -117,7 +119,7 @@ export const newSkill: OperationHandler<
       profile,
       type: "skill",
       name,
-      version: "0.0.1",
+      version: INITIAL_SKILL_VERSION,
     };
 
     yield* fs
@@ -165,6 +167,23 @@ export const newSkill: OperationHandler<
         }),
       { concurrency: "unbounded" },
     );
+
+    const now = new Date();
+    yield* ws.setSkillLock({
+      name,
+      versionConstraint: Option.none(),
+      lockEntry: {
+        type: "registry",
+        profile,
+        name,
+        resolvedVersion: INITIAL_SKILL_VERSION,
+        integrity: "",
+        sourceName: "local",
+        agents,
+        installedAt: now,
+        updatedAt: now,
+      },
+    });
 
     return {
       result: "success",

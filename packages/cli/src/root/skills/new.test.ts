@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
@@ -120,6 +121,18 @@ describe("skills-new.handler", () => {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeDefined();
           expect(settings.skills["my-skill"]).toBe("@acme/skills/my-skill");
+
+          // Verify lockfile registration
+          const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
+          expect(lockfile.skills["my-skill"]).toMatchObject({
+            type: "registry",
+            profile: "@acme",
+            name: "my-skill",
+            resolvedVersion: "0.0.1",
+            sourceName: "local",
+            agents: ["claude-code"],
+          });
 
           // Verify symlink
           const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");

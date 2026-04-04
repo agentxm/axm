@@ -32,7 +32,7 @@ const deriveSourceString = (lockEntry: SkillLockEntry): string => {
     case "local":
       return lockEntry.path;
     case "registry":
-      return lockEntry.name;
+      return `${lockEntry.profile}/skills/${lockEntry.name}`;
     case "github":
       return `${lockEntry.owner}/${lockEntry.repo}`;
     case "gitlab":

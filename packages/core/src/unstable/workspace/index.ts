@@ -95,6 +95,21 @@ export {
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
 
+// Doctor
+export {
+  diagnoseWorkspaceDoctor,
+  type WorkspaceDoctorCheck,
+  type WorkspaceDoctorCheckStatus,
+  type WorkspaceDoctorDiagnosis,
+} from "./doctor.js";
+
+// Sync
+export {
+  getWorkspaceLockfileSyncReadiness,
+  syncWorkspaceLockfile,
+  type WorkspaceLockfileSyncReadiness,
+} from "./sync.js";
+
 // Reconciliation types
 export type {
   AdapterEnvironment,

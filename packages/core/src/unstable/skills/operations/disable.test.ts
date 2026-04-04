@@ -502,6 +502,92 @@ describe("disableSkill", () => {
       }),
     );
 
+    it.effect("derives a registry FQN when promoting an implicit registry skill", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
+
+        const mockWs: WorkspaceContextService = {
+          ...taxonomyStubs,
+          scope: "project",
+          path: axmDir,
+          baseDir: path.dirname(axmDir),
+          getConfiguredSources: () => Effect.succeed([]),
+          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+          getRegistrySourceHosts: () => Effect.succeed([]),
+          getConfiguredProfile: () => Effect.succeed("@community"),
+          getDefaultProfile: () => Effect.succeed(Option.none()),
+          addConfiguredSource: () => Effect.void,
+          getConfiguredSkills: () => Effect.succeed({}),
+          getInstalledSkills: () =>
+            Effect.succeed({
+              "my-skill": {
+                lifecycle: "implicit" as const,
+                source: Option.none(),
+                enabled: true as const,
+                packagingKind: "native" as const,
+                isBuiltIn: false,
+              },
+            }),
+          getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+          getLockedSkills: () =>
+            Effect.succeed({ "my-skill": makeRegistryLockEntry(["claude-code"]) }),
+          getLockedSkill: () => Effect.succeed(Option.some(makeRegistryLockEntry(["claude-code"]))),
+          getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
+          setSkill: () => Effect.void,
+          setSkillLock: () => Effect.void,
+          removeSkill: () => Effect.void,
+          removeSkillFromSettings: () => Effect.void,
+          updateSkillEntry: () => Effect.void,
+          setSkillEntry: setSkillEntryFn,
+          renameSkill: () => Effect.void,
+          updateLockEntryAgents: () => Effect.void,
+          addConfiguredAgent: () => Effect.void,
+          getConfiguredPacks: () => Effect.succeed({}),
+          getInstalledPacks: () => Effect.succeed({}),
+          getLockedPacks: () => Effect.succeed({}),
+          getLockedPack: () => Effect.succeed(Option.none()),
+          setPack: () => Effect.void,
+          removePack: () => Effect.void,
+          getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+          getLockedCommands: () => Effect.succeed({}),
+          getLockedCommand: () => Effect.succeed(Option.none()),
+          setCommand: () => Effect.void,
+          setCommandLock: () => Effect.void,
+          removeCommand: () => Effect.void,
+          getLockedMcpServers: () => Effect.succeed({}),
+          getLockedMcpServer: () => Effect.succeed(Option.none()),
+          setMcpServer: () => Effect.void,
+          setMcpServerLock: () => Effect.void,
+          removeMcpServer: () => Effect.void,
+          removeSkillLock: () => Effect.void,
+          removeCommandSettings: () => Effect.void,
+          removeCommandLock: () => Effect.void,
+          removeMcpServerSettings: () => Effect.void,
+          removeMcpServerLock: () => Effect.void,
+          removePackSettings: () => Effect.void,
+          removePackLock: () => Effect.void,
+          isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+          markDependencyRetainedInLockfile: () => Effect.void,
+          getConfiguredCommands: () => Effect.succeed({}),
+          getConfiguredMcpServers: () => Effect.succeed({}),
+        };
+
+        const result = yield* disableSkill(makeOp()).pipe(
+          Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
+        );
+
+        expect(result.result).toBe("success");
+        expect(setSkillEntryFn).toHaveBeenCalledWith("my-skill", {
+          source: "@community/skills/my-skill",
+          enabled: false,
+        });
+      }),
+    );
+
     it.effect("fails when implicit skill has no derivable source", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");

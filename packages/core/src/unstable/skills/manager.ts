@@ -15,27 +15,23 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { type AppError, makeAppError } from "../app-error/index.js";
-import { validatePathSafety } from "../extensions/index.js";
+import { makeAppError } from "../app-error/index.js";
 import { sourceToLockEntry } from "../sources/index.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { Workspace } from "../workspace/service-interface.js";
 import { existsInAnyCanonicalLocation } from "./disk-check.js";
-import { computeSkillPaths, type SkillPathSource } from "./paths.js";
-import { copyExtensionDirectory, sanitizeName } from "../extensions/utils.js";
-import {
-  computeIntegrity,
-  createSymlink,
-  removeFromAllCanonicalLocations,
-  stripFileProtocol,
-  isPathSafe,
-} from "../utils/index.js";
+import { sanitizeName } from "../extensions/utils.js";
+import { removeFromAllCanonicalLocations } from "../utils/index.js";
 import { CodingAgentRepository } from "../agents/index.js";
-import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
+import {
+  ensureSkillAgentArtifact,
+  materializeSkillCanonical,
+  removeSkillAgentArtifact,
+  type ProvideFs,
+} from "./materialization.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -82,22 +78,22 @@ export const SkillManagerLive = Layer.effect(
     );
 
     // Provide FileSystem + Path to an effect that needs them
-    const provide: ProvideFS = (effect) => Effect.provide(effect, fsPathLayer);
+    const provide: ProvideFs = (effect) => Effect.provide(effect, fsPathLayer);
 
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
     )(function* ({ ref }) {
       const sanitized = sanitizeName(ref.skill.name);
 
-      const skillSrcPath = yield* materializeByRefType(
+      const skillSrcPath = yield* materializeSkillCanonical({
         ref,
-        sanitized,
+        sanitizedName: sanitized,
         fs,
-        path,
+        pathService: path,
         baseDir,
         sources,
         provide,
-      );
+      });
 
       const configuredAgents = yield* agentRepo
         .getConfiguredAgents()
@@ -139,7 +135,15 @@ export const SkillManagerLive = Layer.effect(
 
       yield* Effect.forEach(
         distinctDirs,
-        (dir) => installForDirectory(skillSrcPath, dir, sanitized, path, baseDir, provide),
+        (dir) =>
+          ensureSkillAgentArtifact({
+            canonicalSkillSrcPath: skillSrcPath,
+            targetDir: dir,
+            sanitizedName: sanitized,
+            pathService: path,
+            baseDir,
+            provide,
+          }),
         { concurrency: "unbounded" },
       );
     });
@@ -171,12 +175,13 @@ export const SkillManagerLive = Layer.effect(
 
         yield* Effect.forEach(
           distinctDirs,
-          (dir) => {
-            const agentSkillPath = path.join(dir, sanitized);
-            return fs
-              .remove(agentSkillPath, { recursive: true })
-              .pipe(Effect.catch(() => Effect.void));
-          },
+          (dir) =>
+            removeSkillAgentArtifact({
+              fs,
+              pathService: path,
+              targetDir: dir,
+              sanitizedName: sanitized,
+            }),
           { concurrency: "unbounded" },
         );
 
@@ -265,260 +270,3 @@ export const SkillManagerLive = Layer.effect(
 // -----------------------------------------------------------------------------
 // Internal materialization helpers
 // -----------------------------------------------------------------------------
-
-type ProvideFS = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path>>;
-
-const materializeByRefType = (
-  ref: SkillExtensionRef,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  sources: SourceHostProvidersService,
-  provide: ProvideFS,
-): Effect.Effect<string, AppError, never> => {
-  switch (ref.refType) {
-    case "git-hosted":
-      return materializeGitHosted(ref, sanitizedName, fs, pathService, baseDir, provide);
-    case "local":
-      return materializeLocal(ref, sanitizedName, fs, pathService, baseDir, provide);
-    case "builtin":
-      return materializeBuiltin(ref, sanitizedName, fs, pathService, baseDir, sources, provide);
-    case "registry":
-      return materializeRegistry(ref, sanitizedName, fs, pathService, baseDir, provide);
-  }
-};
-
-const preCleanAndCopy = (
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  sanitizedName: string,
-  sourcePath: string,
-  copyTarget: string,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    yield* removeFromAllCanonicalLocations(fs, baseDir, sanitizedName, pathService);
-    yield* provide(
-      copyExtensionDirectory(sourcePath, copyTarget).pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "INSTALL_SKILL_COPY_FAILED",
-            what: `Failed to copy skill files to ${copyTarget}`,
-            cause: e,
-          }),
-        ),
-      ),
-    );
-  });
-
-const materializeGitHosted = (
-  ref: Extract<SkillExtensionRef, { refType: "git-hosted" }>,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    const { skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      { refType: ref.refType },
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-    const sourcePath = stripFileProtocol(ref.location);
-    yield* preCleanAndCopy(
-      fs,
-      pathService,
-      baseDir,
-      sanitizedName,
-      sourcePath,
-      skillSrcPath,
-      provide,
-    );
-    return skillSrcPath;
-  });
-
-const materializeLocal = (
-  ref: Extract<SkillExtensionRef, { refType: "local" }>,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    const { skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      { refType: ref.refType },
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-    const sourcePath = stripFileProtocol(ref.location);
-    const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
-    if (!isSelfCopy) {
-      yield* preCleanAndCopy(
-        fs,
-        pathService,
-        baseDir,
-        sanitizedName,
-        sourcePath,
-        skillSrcPath,
-        provide,
-      );
-    }
-    return skillSrcPath;
-  });
-
-const materializeBuiltin = (
-  ref: Extract<SkillExtensionRef, { refType: "builtin" }>,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  sources: SourceHostProvidersService,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    const { skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      { refType: ref.refType },
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-    const fetched = yield* sources.fetch(ref).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
-          what: `Failed to fetch files for ${ref.skill.name}`,
-          cause: error,
-        }),
-      ),
-      Effect.scoped,
-    );
-    yield* preCleanAndCopy(
-      fs,
-      pathService,
-      baseDir,
-      sanitizedName,
-      fetched.directory,
-      skillSrcPath,
-      provide,
-    );
-    return skillSrcPath;
-  });
-
-const materializeRegistry = (
-  ref: Extract<SkillExtensionRef, { refType: "registry" }>,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    const source: SkillPathSource = { refType: "registry", owner: ref.owner };
-    const { canonicalPath, skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      source,
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, canonicalPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "INSTALL_SKILL_PATH_CHECK_FAILED",
-          what: `Failed to check if canonical path exists: ${canonicalPath}`,
-          cause: e,
-        }),
-      ),
-    );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
-
-    if (!useExisting) {
-      const locationStr =
-        ref.source.location.protocol === "file:"
-          ? ref.source.location.pathname
-          : ref.source.location.href;
-      const client = yield* provide(createRegistryClient(locationStr));
-      const { archive } = yield* client.getExtensionPackage({
-        handle: ref.owner,
-        type: "skill",
-        name: ref.name,
-        version: Option.some(ref.version),
-      });
-
-      if (Option.isSome(ref.integrity)) {
-        const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity.value) {
-          return yield* makeAppError({
-            code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
-            what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            details: [`Expected ${ref.integrity.value}, got ${actualIntegrity}`],
-          });
-        }
-      }
-
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "INSTALL_SKILL_TEMP_DIR_FAILED",
-            what: `Failed to create temporary directory for registry install`,
-            cause: e,
-          }),
-        ),
-      );
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* provide(extractZip(archive, tmpDir));
-          yield* preCleanAndCopy(
-            fs,
-            pathService,
-            baseDir,
-            sanitizedName,
-            tmpDir,
-            canonicalPath,
-            provide,
-          );
-        }),
-        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
-      );
-    }
-
-    return skillSrcPath;
-  });
-
-const installForDirectory = (
-  canonicalSkillSrcPath: string,
-  targetDir: string,
-  sanitizedName: string,
-  pathService: Path.Path,
-  baseDir: string,
-  provide: ProvideFS,
-) =>
-  Effect.gen(function* () {
-    const agentSkillPath = pathService.join(targetDir, sanitizedName);
-    if (!isPathSafe(baseDir, agentSkillPath)) {
-      return;
-    }
-
-    yield* provide(
-      createSymlink({
-        target: canonicalSkillSrcPath,
-        link: agentSkillPath,
-      }).pipe(
-        Effect.catch(() =>
-          copyExtensionDirectory(canonicalSkillSrcPath, agentSkillPath).pipe(Effect.ignore),
-        ),
-      ),
-    );
-  });

@@ -8,10 +8,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepositoryLive } from "../agents/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
+import { SourceHostProvidersLive } from "../source-resolution/index.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
+import { getWorkspaceSyncReadiness, syncWorkspace } from "./sync.js";
 import { layer as workspaceLayer } from "./service.js";
-import { getWorkspaceLockfileSyncReadiness, syncWorkspaceLockfile } from "./sync.js";
 
 describe("workspace sync", () => {
   let tempDir: string;
@@ -39,96 +41,44 @@ describe("workspace sync", () => {
         }),
         baseLayer,
       );
-      return Layer.mergeAll(baseLayer, wsLayer);
+      const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
+      const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceFoundation);
+      return Layer.mergeAll(workspaceFoundation, sourceProvidersLayer, CodingAgentRepositoryLive);
     })();
 
-  const createManagedSkillWorkspace = (opts?: {
+  const createSourceSkillDir = (name = "manage-extensions") => {
+    const sourceRoot = path.join(tempDir, "source-skills");
+    const sourceDir = path.join(sourceRoot, name);
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sourceDir, "SKILL.md"),
+      `---\nname: "${name}"\ndescription: "Test skill"\n---\n\n# ${name}\n`,
+    );
+    return sourceRoot;
+  };
+
+  const createWorkspace = (opts: {
+    readonly skillSource: string;
+    readonly enabled?: boolean;
     readonly lockfileSkills?: Record<string, unknown>;
   }) => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
-      owner: "@axm",
+      profile: "@axm",
       skills: {
-        "manage-extensions": "@axm/skills/manage-extensions",
+        "manage-extensions":
+          opts.enabled === false ? { source: opts.skillSource, enabled: false } : opts.skillSource,
       },
-      lockfileSkills: opts?.lockfileSkills,
+      lockfileSkills: opts.lockfileSkills,
     });
-
-    const canonicalDir = path.join(axmDir, "extensions", "@axm", "skills", "manage-extensions");
-    fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(canonicalDir, "axm-skill.json"),
-      JSON.stringify(
-        {
-          owner: "@axm",
-          type: "skill",
-          name: "manage-extensions",
-          version: "0.0.1",
-        },
-        null,
-        2,
-      ) + "\n",
-    );
-    fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), "name: manage-extensions\n");
   };
 
-  const createManagedPackWorkspace = () => {
-    const axmDir = path.join(tempDir, ".axm");
-    writeWorkspaceFiles(axmDir, {
-      agents: ["claude-code"],
-      owner: "@acme",
-      skills: {
-        "code-review": {
-          source: "@acme/skills/code-review",
-          enabled: false,
-        },
-      },
-      packs: {
-        starter: "@acme/packs/starter",
-      },
-    });
-
-    const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "code-review");
-    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(skillDir, "axm-skill.json"),
-      JSON.stringify(
-        {
-          owner: "@acme",
-          type: "skill",
-          name: "code-review",
-          version: "1.2.0",
-        },
-        null,
-        2,
-      ) + "\n",
-    );
-    fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "name: code-review\n");
-
-    const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter");
-    fs.mkdirSync(packDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(packDir, "axm-pack.json"),
-      JSON.stringify(
-        {
-          owner: "@acme",
-          type: "pack",
-          name: "starter",
-          version: "1.0.0",
-          skills: {
-            "@acme/skills/code-review": "^1.2.0",
-          },
-        },
-        null,
-        2,
-      ) + "\n",
-    );
-  };
-
-  it.effect("replaces lockfile contents from settings-backed desired state", () =>
+  it.effect("installs declared skills, enables agent artifacts, and rewrites the lockfile", () =>
     (() => {
-      createManagedSkillWorkspace({
+      const sourceDir = createSourceSkillDir();
+      createWorkspace({
+        skillSource: sourceDir,
         lockfileSkills: {
           stale: {
             type: "local",
@@ -141,9 +91,25 @@ describe("workspace sync", () => {
       });
 
       return Effect.gen(function* () {
-        const entryCount = yield* syncWorkspaceLockfile();
+        const entryCount = yield* syncWorkspace();
 
         expect(entryCount).toBe(1);
+        expect(
+          fs.existsSync(
+            path.join(
+              tempDir,
+              ".axm",
+              "extensions",
+              "external",
+              "skills",
+              "manage-extensions",
+              "SKILL.md",
+            ),
+          ),
+        ).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "manage-extensions"))).toBe(
+          true,
+        );
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8"),
@@ -151,11 +117,8 @@ describe("workspace sync", () => {
 
         expect(lockfile.skills).toEqual({
           "manage-extensions": expect.objectContaining({
-            type: "registry",
-            owner: "@axm",
-            name: "manage-extensions",
-            resolvedVersion: "0.0.1",
-            sourceName: "default",
+            type: "local",
+            path: sourceDir,
             agents: ["claude-code"],
           }),
         });
@@ -163,59 +126,62 @@ describe("workspace sync", () => {
     })(),
   );
 
-  it.effect("keeps pack-owned dependencies nested under the synchronized pack entry", () =>
+  it.effect("keeps disabled skills installed but removes their agent artifacts", () =>
     (() => {
-      createManagedPackWorkspace();
+      const sourceDir = createSourceSkillDir();
+      createWorkspace({
+        skillSource: sourceDir,
+        enabled: false,
+      });
+
+      const staleArtifact = path.join(tempDir, ".claude", "skills", "manage-extensions");
+      fs.mkdirSync(staleArtifact, { recursive: true });
+      fs.writeFileSync(path.join(staleArtifact, "SKILL.md"), "stale\n");
 
       return Effect.gen(function* () {
-        const entryCount = yield* syncWorkspaceLockfile();
+        const entryCount = yield* syncWorkspace();
 
-        expect(entryCount).toBe(2);
+        expect(entryCount).toBe(1);
+        expect(
+          fs.existsSync(
+            path.join(
+              tempDir,
+              ".axm",
+              "extensions",
+              "external",
+              "skills",
+              "manage-extensions",
+              "SKILL.md",
+            ),
+          ),
+        ).toBe(true);
+        expect(fs.existsSync(staleArtifact)).toBe(false);
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8"),
         );
 
-        expect(Object.keys(lockfile.skills)).toEqual(["code-review"]);
-        expect(lockfile.skills["code-review"]).toMatchObject({
-          type: "registry",
-          owner: "@acme",
-          name: "code-review",
-          resolvedVersion: "1.2.0",
-          sourceName: "default",
-          agents: ["claude-code"],
-        });
-        expect(lockfile.packs.starter).toMatchObject({
-          type: "registry",
-          owner: "@acme",
-          name: "starter",
-          resolvedVersion: "1.0.0",
-          sourceName: "default",
-          resolvedSkills: {
-            "@acme/skills/code-review": "1.2.0",
-          },
+        expect(lockfile.skills["manage-extensions"]).toMatchObject({
+          type: "local",
+          path: sourceDir,
+          agents: [],
         });
       }).pipe(Effect.provide(makeLayers()));
     })(),
   );
 
-  it.effect("reports unresolved declarations without consulting the existing lockfile", () =>
+  it.effect("reports unresolved skills without consulting the current lockfile", () =>
     (() => {
-      const axmDir = path.join(tempDir, ".axm");
-      writeWorkspaceFiles(axmDir, {
-        agents: ["claude-code"],
-        owner: "@axm",
-        skills: {
-          "manage-extensions": "@axm/skills/manage-extensions",
-        },
+      createWorkspace({
+        skillSource: path.join(tempDir, "missing-skill"),
       });
 
       return Effect.gen(function* () {
-        const readiness = yield* getWorkspaceLockfileSyncReadiness();
+        const readiness = yield* getWorkspaceSyncReadiness();
 
         expect(readiness.canSync).toBe(false);
         expect(readiness.unresolvedCount).toBe(1);
-        expect(readiness.unresolved[0]).toContain("skills:@axm/manage-extensions");
+        expect(readiness.unresolved[0]).toContain("manage-extensions");
       }).pipe(Effect.provide(makeLayers()));
     })(),
   );

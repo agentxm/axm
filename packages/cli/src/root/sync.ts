@@ -3,16 +3,18 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
+import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   applyPlan,
   displayPlan,
-  getWorkspaceLockfileSyncReadiness,
+  getWorkspaceSyncReadiness,
   scanPlanReadiness,
-  syncWorkspaceLockfile,
+  syncWorkspace,
   type JobStepResult,
   type Plan,
   type PlanResolution,
@@ -97,28 +99,32 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: SyncHandlerA
   const ws = yield* Workspace;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const syncReadiness = yield* getWorkspaceLockfileSyncReadiness();
+  const sources = yield* SourceHostProviders;
+  const agentRepo = yield* CodingAgentRepository;
+  const syncReadiness = yield* getWorkspaceSyncReadiness();
 
   const step: PlannedJobStep = syncReadiness.canSync
     ? {
         readiness: "ready",
-        label: "axm-lock.yaml",
-        run: syncWorkspaceLockfile().pipe(
+        label: "Managed skills and axm-lock.yaml",
+        run: syncWorkspace().pipe(
           Effect.map(
             (entryCount): JobStepResult => ({
               result: "success",
-              message: `Synchronized axm-lock.yaml (${formatEntryCount(entryCount)})`,
+              message: `Synchronized managed workspace state (${formatEntryCount(entryCount)} in axm-lock.yaml)`,
             }),
           ),
           Effect.provideService(Workspace, ws),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
+          Effect.provideService(SourceHostProviders, sources),
+          Effect.provideService(CodingAgentRepository, agentRepo),
         ),
       }
     : {
         readiness: "error",
-        label: "axm-lock.yaml",
-        errorMessage: `Cannot synchronize while ${syncReadiness.unresolvedCount} declaration(s) are unresolved.`,
+        label: "Managed skills and axm-lock.yaml",
+        errorMessage: `Cannot synchronize while ${syncReadiness.unresolvedCount} skill declaration(s) are unresolved.`,
       };
 
   const plan = makeSyncPlan(step);

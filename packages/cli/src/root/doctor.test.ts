@@ -7,8 +7,15 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { TestMachineRenderer, TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
+import {
+  type SourceHostProvidersService,
+  SourceHostProviders,
+} from "@axm.sh/core/unstable/source-resolution";
+import { buildRegistrySkillRef } from "@axm.sh/core/unstable/skills";
+import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { resolveBuiltinPack } from "../builtin-pack/index.js";
@@ -30,7 +37,32 @@ describe("doctor handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const createManagedSkillWorkspace = () => {
+  const makeSourceProviders = (skillNames: ReadonlyArray<string>): SourceHostProvidersService => ({
+    find: (_source, options) =>
+      Effect.succeed(
+        skillNames
+          .filter(
+            (skillName) =>
+              options.skillNames.length === 0 || options.skillNames.includes(skillName),
+          )
+          .map((skillName) =>
+            buildRegistrySkillRef(
+              `@axm/skills/${skillName}`,
+              decodeExactSemverVersionSync("0.0.1"),
+              {
+                type: "registry",
+                location: new URL("https://registry.agentxm.ai"),
+                owner: Option.none(),
+              },
+            ),
+          ),
+      ),
+    fetch: () => Effect.die("unused in doctor handler tests"),
+    cloneUrl: () => Option.none(),
+    origin: () => "test",
+  });
+
+  const createSkillWorkspace = () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       agents: ["claude-code"],
@@ -39,26 +71,9 @@ describe("doctor handler", () => {
         "manage-extensions": "@axm/skills/manage-extensions",
       },
     });
-
-    const canonicalDir = path.join(axmDir, "extensions", "@axm", "skills", "manage-extensions");
-    fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(canonicalDir, "axm-skill.json"),
-      JSON.stringify(
-        {
-          owner: "@axm",
-          type: "skill",
-          name: "manage-extensions",
-          version: "0.0.1",
-        },
-        null,
-        2,
-      ) + "\n",
-    );
-    fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), "name: manage-extensions\n");
   };
 
-  const makeLayers = (opts?: { machine?: boolean }) => {
+  const makeLayers = (providers: SourceHostProvidersService, opts?: { machine?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
@@ -68,10 +83,25 @@ describe("doctor handler", () => {
       agents: Option.none(),
     };
     const wsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        builtInSources: [
+          {
+            name: "default",
+            type: "registry",
+            location: new URL("https://registry.agentxm.ai"),
+          },
+        ],
+        resolveBuiltinPack: resolveBuiltinPack(),
+      }),
       baseLayer,
     );
-    const fullLayer = Layer.mergeAll(baseLayer, wsLayer);
+    const fullLayer = Layer.mergeAll(
+      baseLayer,
+      wsLayer,
+      CodingAgentRepositoryLive,
+      Layer.succeed(SourceHostProviders, providers),
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -81,8 +111,10 @@ describe("doctor handler", () => {
   };
 
   it.effect("emits machine-readable checklist diagnostics", () => {
-    const { provide, rendererState } = makeLayers({ machine: true });
-    createManagedSkillWorkspace();
+    const { provide, rendererState } = makeLayers(makeSourceProviders(["manage-extensions"]), {
+      machine: true,
+    });
+    createSkillWorkspace();
 
     return provide(
       Effect.gen(function* () {
@@ -96,19 +128,20 @@ describe("doctor handler", () => {
             healthy: false,
             canSync: true,
             failed: 1,
-            passed: 2,
+            passed: 1,
+            skipped: 1,
             checks: [
               {
-                name: "Lockfile",
+                name: "Skills Resolvable",
                 status: "pass",
               },
               {
-                name: "Declared Extensions on Disk",
-                status: "pass",
-              },
-              {
-                name: "Settings/Lockfile Sync",
+                name: "Skills Installed",
                 status: "fail",
+              },
+              {
+                name: "Skills Enabled",
+                status: "skip",
               },
             ],
           },

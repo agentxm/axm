@@ -9,20 +9,31 @@ import { writeLockfile } from "../lockfile/index.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { createDefaultSettings, DEFAULT_PROFILE, readSettings } from "../settings/index.js";
+import {
+  ensureSkillAgentArtifact,
+  materializeSkillCanonical,
+  removeSkillAgentArtifact,
+  type ProvideFs,
+} from "../skills/materialization.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
+import { sourceToLockEntry } from "../sources/index.js";
+import { SourceHostProviders } from "../source-resolution/index.js";
 import {
   buildReconciliationSnapshot,
   getReconciliationAdapters,
   setReconciliationAdapters,
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
+import { buildWorkspaceSkillState, isResolvedWorkspaceSkill } from "./skill-state.js";
 import { Workspace } from "./service-interface.js";
 
-export interface WorkspaceLockfileSyncReadiness {
+export interface WorkspaceSyncReadiness {
   readonly canSync: boolean;
   readonly unresolvedCount: number;
   readonly unresolved: ReadonlyArray<string>;
 }
+
+export type WorkspaceLockfileSyncReadiness = WorkspaceSyncReadiness;
 
 interface SyncState {
   readonly workspacePath: string;
@@ -53,13 +64,16 @@ const countLockfileEntries = (lockfile: ReconciliationSnapshot["lockfile"]): num
   Object.keys(lockfile.mcpServers ?? {}).length +
   Object.keys(lockfile.packs ?? {}).length;
 
-const formatUnresolved = (snapshot: ReconciliationSnapshot) =>
-  snapshot.unresolved.map(
-    ({ declaration, reason }) =>
-      `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
+const formatUnresolvedSkills = () =>
+  buildWorkspaceSkillState().pipe(
+    Effect.map(({ skills }) =>
+      skills
+        .filter((skill) => skill._tag === "unresolved")
+        .map((skill) => `${skill.name} (${skill.reason})`),
+    ),
   );
 
-const buildWorkspaceSyncState = () =>
+const buildLockfileSyncState = () =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
@@ -80,31 +94,132 @@ const buildWorkspaceSyncState = () =>
     } satisfies SyncState;
   });
 
-export const getWorkspaceLockfileSyncReadiness = () =>
+export const getWorkspaceSyncReadiness = () =>
   Effect.gen(function* () {
-    const state = yield* buildWorkspaceSyncState();
-    const unresolved = formatUnresolved(state.snapshot);
+    const unresolved = yield* formatUnresolvedSkills();
     return {
       canSync: unresolved.length === 0,
       unresolvedCount: unresolved.length,
       unresolved,
-    } satisfies WorkspaceLockfileSyncReadiness;
+    } satisfies WorkspaceSyncReadiness;
   });
 
-export const syncWorkspaceLockfile = () =>
+export const getWorkspaceLockfileSyncReadiness = getWorkspaceSyncReadiness;
+
+export const syncWorkspace = () =>
   Effect.gen(function* () {
-    const state = yield* buildWorkspaceSyncState();
-    const unresolved = formatUnresolved(state.snapshot);
+    const ws = yield* Workspace;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const sources = yield* SourceHostProviders;
+    const fsLayer = makeFsLayer(fs, path);
+    const provide: ProvideFs = (effect) => Effect.provide(effect, fsLayer);
+
+    const skillState = yield* buildWorkspaceSkillState();
+    const unresolved = skillState.skills
+      .filter((skill) => skill._tag === "unresolved")
+      .map((skill) => `${skill.name} (${skill.reason})`);
 
     if (unresolved.length > 0) {
       return yield* makeAppError({
         code: "WORKSPACE_SYNC_BLOCKED",
-        what: "Cannot sync workspace while declarations are unresolved",
+        what: "Cannot sync workspace while skill declarations are unresolved",
         details: unresolved,
+        howToFix: "Fix the declared skill sources in settings.json first.",
+      });
+    }
+
+    if (skillState.agentState.issues.length > 0) {
+      return yield* makeAppError({
+        code: "WORKSPACE_SYNC_BLOCKED",
+        what: "Cannot sync workspace while configured agent skill directories are unavailable",
+        details: skillState.agentState.issues,
+        howToFix: "Fix the configured agent setup or remove unsupported agents from settings.json.",
+      });
+    }
+
+    const resolvedSkills = skillState.skills.filter(isResolvedWorkspaceSkill);
+
+    yield* Effect.forEach(
+      resolvedSkills,
+      (skill) =>
+        materializeSkillCanonical({
+          ref: skill.ref,
+          sanitizedName: path.basename(skill.canonicalPath),
+          fs,
+          pathService: path,
+          baseDir: ws.baseDir,
+          sources,
+          provide,
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    yield* Effect.forEach(
+      resolvedSkills,
+      (skill) =>
+        Effect.forEach(
+          skillState.agentState.supportedDirs,
+          ({ dir }) =>
+            skill.enabled
+              ? ensureSkillAgentArtifact({
+                  canonicalSkillSrcPath: skill.skillSrcPath,
+                  targetDir: dir,
+                  sanitizedName: path.basename(skill.canonicalPath),
+                  pathService: path,
+                  baseDir: ws.baseDir,
+                  provide,
+                })
+              : removeSkillAgentArtifact({
+                  fs,
+                  pathService: path,
+                  targetDir: dir,
+                  sanitizedName: path.basename(skill.canonicalPath),
+                }),
+          { concurrency: "unbounded" },
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    const lockfileState = yield* buildLockfileSyncState();
+    const nonSkillUnresolved = lockfileState.snapshot.unresolved.filter(
+      ({ declaration }) => declaration.extensionType !== "skills",
+    );
+
+    if (nonSkillUnresolved.length > 0) {
+      return yield* makeAppError({
+        code: "WORKSPACE_SYNC_BLOCKED",
+        what: "Cannot sync workspace while non-skill declarations are unresolved",
+        details: nonSkillUnresolved.map(
+          ({ declaration, reason }) =>
+            `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
+        ),
         howToFix: "Restore the missing extension files or remove the stale settings entries first.",
       });
     }
 
-    yield* writeLockfile(state.workspacePath, state.snapshot.lockfile);
-    return countLockfileEntries(state.snapshot.lockfile);
+    const settings = yield* readSettingsSafe(ws.path, fsLayer);
+    const configuredAgents = settings.agents ?? [];
+    const synchronizedSkills = Object.fromEntries(
+      resolvedSkills.map((skill) => [
+        skill.name,
+        sourceToLockEntry({
+          ref: skill.ref,
+          agents: skill.enabled ? configuredAgents : [],
+          now: new Date(),
+          sourceName: Option.none(),
+          existingInstalledAt: Option.none(),
+        }),
+      ]),
+    );
+
+    const synchronizedLockfile = {
+      ...lockfileState.snapshot.lockfile,
+      skills: synchronizedSkills,
+    };
+
+    yield* writeLockfile(lockfileState.workspacePath, synchronizedLockfile);
+    return countLockfileEntries(synchronizedLockfile);
   });
+
+export const syncWorkspaceLockfile = syncWorkspace;

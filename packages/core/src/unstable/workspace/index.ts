@@ -106,8 +106,11 @@ export {
 // Sync
 export {
   getWorkspaceLockfileSyncReadiness,
+  getWorkspaceSyncReadiness,
+  syncWorkspace,
   syncWorkspaceLockfile,
   type WorkspaceLockfileSyncReadiness,
+  type WorkspaceSyncReadiness,
 } from "./sync.js";
 
 // Reconciliation types

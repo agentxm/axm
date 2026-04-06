@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { ExtensionType } from "../extensions/index.js";
+import { parseFullyQualifiedNameParts, type ExtensionType } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type { PackExtensionRef } from "./refs.js";
 import type {
@@ -27,8 +27,7 @@ import { resolvePackDependencies } from "./dependency-resolution.js";
 // -----------------------------------------------------------------------------
 
 const nameFromFqn = (fqn: string): string => {
-  const parts = fqn.split("/");
-  return parts[parts.length - 1] ?? fqn;
+  return parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
 };
 
 /**

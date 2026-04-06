@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { AGENT_IDS } from "../agents/types.js";
-import { HANDLE_PATTERN, HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
+import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import {
   ExactSemverVersionSchema,
   VersionConstraintSchema,
@@ -138,19 +138,9 @@ export const FQN_PATTERN = new RegExp(
 );
 
 /**
- * Manifest handle regex: `@<handle>`.
- */
-export const MANIFEST_HANDLE_PATTERN = HANDLE_PATTERN;
-
-/**
  * Extension short name regex: `<name>` with alphanumeric, hyphen, underscore.
  */
 export const EXTENSION_NAME_PATTERN = new RegExp(`^${EXTENSION_NAME_PATTERN_SOURCE}$`);
-
-/**
- * Manifest handle schema.
- */
-export const ManifestHandleSchema = HandleSchema;
 
 /**
  * Canonical extension short name schema.
@@ -270,7 +260,7 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestFields = {
-  owner: ManifestHandleSchema,
+  owner: HandleSchema,
   name: ExtensionNameSchema,
   version: ExactSemverVersionSchema,
   description: Schema.optional(Schema.String),

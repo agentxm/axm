@@ -11,11 +11,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
-import {
-  parseInputPattern,
-  type InputPattern,
-  type RegistrySource,
-} from "@axm.sh/core/unstable/sources";
+import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -27,7 +23,12 @@ import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { REGISTRY_EXTENSIONS_DIR, type Handle } from "@axm.sh/core/unstable/extensions";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  parseRegistrySourcePatternParts,
+  type Handle,
+  type RegistrySourcePatternParts,
+} from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -66,16 +67,15 @@ export interface UpdateHandlerArgs {
   readonly preview: boolean;
 }
 
-type RegistrySkillPattern = Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>;
+type RegistrySkillPattern = RegistrySourcePatternParts;
 
 const toRegistrySkillPattern = (source: string): Option.Option<RegistrySkillPattern> => {
-  const parsed = parseInputPattern(source);
-  if (Option.isNone(parsed)) return Option.none();
-  if (parsed.value.pattern.pattern !== "registry-pattern-input") return Option.none();
-  if (Option.isSome(parsed.value.pattern.type) && parsed.value.pattern.type.value !== "skills") {
+  const parsed = parseRegistrySourcePatternParts(source);
+  if (parsed === undefined) return Option.none();
+  if (parsed.type !== undefined && parsed.type !== "skills") {
     return Option.none();
   }
-  return Option.some(parsed.value.pattern);
+  return Option.some(parsed);
 };
 
 // -----------------------------------------------------------------------------
@@ -338,12 +338,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             const registryPattern = toRegistrySkillPattern(sourceStr);
 
             if (source.type === "registry" && Option.isSome(registryPattern)) {
-              const lookupName = Option.getOrElse(registryPattern.value.name, () => name);
+              const lookupName = registryPattern.value.name ?? name;
               const registryResolved = yield* resolveRegistrySkillWithConstraints({
                 source,
                 owner: registryPattern.value.owner,
                 lookupName,
-                userConstraint: registryPattern.value.versionConstraint,
+                userConstraint:
+                  registryPattern.value.versionConstraint === undefined
+                    ? Option.none()
+                    : Option.some(registryPattern.value.versionConstraint),
                 packConstraints:
                   packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ??
                   [],
@@ -403,7 +406,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                   source,
                   owner: registryPattern.value.owner,
                   lookupName: newRef.skill.name,
-                  userConstraint: registryPattern.value.versionConstraint,
+                  userConstraint:
+                    registryPattern.value.versionConstraint === undefined
+                      ? Option.none()
+                      : Option.some(registryPattern.value.versionConstraint),
                   packConstraints:
                     packConstraintMap.get(
                       `${registryPattern.value.owner}/skills/${newRef.skill.name}`,

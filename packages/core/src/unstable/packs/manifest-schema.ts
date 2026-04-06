@@ -8,7 +8,6 @@ import * as Schema from "effect/Schema";
 import {
   CommonManifestFields,
   ExtensionDependencyConstraintMapSchema,
-  type ExtensionDependencyConstraintMap,
 } from "../extensions/common.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 
@@ -44,21 +43,6 @@ export const RawPackManifestSchema = Schema.Struct({
 });
 
 /**
- * Version specifier map: FQN keys to semver range values.
- * Used for skills, commands, and mcp-servers in pack manifests.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const PackDependencyConstraintMapSchema = ExtensionDependencyConstraintMapSchema;
-
-/**
- * Inferred type for pack dependency constraint maps.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type PackDependencyConstraintMap = ExtensionDependencyConstraintMap;
-
-/**
  * Schema for pack manifest files (axm-pack.json).
  *
  * Packs bundle multiple extensions (skills, commands, MCP servers)
@@ -70,9 +54,9 @@ export type PackDependencyConstraintMap = ExtensionDependencyConstraintMap;
 export const PackManifestSchema = Schema.Struct({
   ...CommonManifestFields,
   type: Schema.Literal("pack"),
-  skills: Schema.optional(PackDependencyConstraintMapSchema),
-  commands: Schema.optional(PackDependencyConstraintMapSchema),
-  "mcp-servers": Schema.optional(PackDependencyConstraintMapSchema),
+  skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),
 });
 
 /**

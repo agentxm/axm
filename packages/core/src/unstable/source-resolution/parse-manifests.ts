@@ -10,11 +10,24 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 // -----------------------------------------------------------------------------
 // Path Validation
 // -----------------------------------------------------------------------------
+
+const RelativeManifestPathSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((input) => {
+      if (!input.startsWith("./")) return "Expected a relative manifest path starting with ./";
+      if (input.includes("..")) return "Manifest paths must not contain .. segments";
+      return undefined;
+    }),
+  ),
+);
+
+const decodeRelativeManifestPath = Schema.decodeUnknownResult(RelativeManifestPathSchema);
 
 /**
  * Validate a raw skill path from a manifest.
@@ -26,10 +39,7 @@ const validatePath = (
   basePath: string,
   path: Path.Path,
 ): Option.Option<string> => {
-  // Must start with ./
-  if (!rawPath.startsWith("./")) return Option.none();
-  // Must not contain ..
-  if (rawPath.includes("..")) return Option.none();
+  if (Result.isFailure(decodeRelativeManifestPath(rawPath))) return Option.none();
   // Resolve and check within basePath
   const resolved = path.resolve(basePath, rawPath);
   const normalizedBase = path.resolve(basePath);
@@ -61,19 +71,21 @@ const PluginManifest = Schema.Struct({
 /**
  * Read a file and parse as JSON, returning None on any failure.
  */
-const readJsonFile = (
+const readDecodedJsonFile = <S extends Schema.Optic<unknown, unknown>>(
   filePath: string,
-): Effect.Effect<Option.Option<unknown>, never, FileSystem.FileSystem> =>
+  schema: S,
+): Effect.Effect<Option.Option<S["Type"]>, never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const content = yield* fs.readFileString(filePath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none();
+    const decode = Schema.decodeUnknownSync(Schema.fromJsonString(schema));
+
     return yield* Effect.sync(() => {
       try {
-        const parsed: unknown = JSON.parse(content.value);
-        return Option.some(parsed);
+        return Option.some(decode(content.value));
       } catch {
-        return Option.none<unknown>();
+        return Option.none<S["Type"]>();
       }
     });
   });
@@ -88,8 +100,7 @@ const validateDirPath = (
   basePath: string,
   path: Path.Path,
 ): Option.Option<string> => {
-  if (!rawPath.startsWith("./")) return Option.none();
-  if (rawPath.includes("..")) return Option.none();
+  if (Result.isFailure(decodeRelativeManifestPath(rawPath))) return Option.none();
   const resolved = path.resolve(basePath, rawPath);
   const normalizedBase = path.resolve(basePath);
   if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
@@ -135,17 +146,13 @@ const parseMarketplaceJson = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const manifestPath = path.join(basePath, ".claude-plugin", "marketplace.json");
-    const json = yield* readJsonFile(manifestPath);
-    if (Option.isNone(json)) return [];
-
-    const data = yield* Schema.decodeUnknownEffect(MarketplaceManifest)(json.value).pipe(
-      Effect.option,
-    );
+    const data = yield* readDecodedJsonFile(manifestPath, MarketplaceManifest);
     if (Option.isNone(data)) return [];
 
-    // pluginRoot validation: if present and doesn't start with ./, skip entire manifest
     const pluginRoot = data.value.metadata?.pluginRoot;
-    if (pluginRoot !== undefined && !pluginRoot.startsWith("./")) return [];
+    if (pluginRoot !== undefined && Result.isFailure(decodeRelativeManifestPath(pluginRoot))) {
+      return [];
+    }
 
     return data.value.plugins.flatMap((plugin) => {
       const pluginBase = resolvePluginBase(plugin.source, basePath, pluginRoot, path);
@@ -175,10 +182,7 @@ const parsePluginJson = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const manifestPath = path.join(basePath, ".claude-plugin", "plugin.json");
-    const json = yield* readJsonFile(manifestPath);
-    if (Option.isNone(json)) return [];
-
-    const data = yield* Schema.decodeUnknownEffect(PluginManifest)(json.value).pipe(Effect.option);
+    const data = yield* readDecodedJsonFile(manifestPath, PluginManifest);
     if (Option.isNone(data)) return [];
 
     const validatedPaths: Array<string> = [];

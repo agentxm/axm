@@ -16,7 +16,12 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { formatFqn, normalizeHandle, unsafeExtensionName } from "@axm.sh/core/unstable/extensions";
+import {
+  formatFqn,
+  normalizeHandle,
+  parseRegistrySourcePatternParts,
+  unsafeExtensionName,
+} from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
 import { addToPack } from "@axm.sh/core/unstable/packs";
@@ -92,10 +97,11 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   // Resolve pack owner from the entry (format: "@owner/packs/name" or { source: "@owner/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const hasProfile = packSource.startsWith("@") && packSource.includes("/");
-  const [packOwnerFromSource] = packSource.split("/");
+  const packOwnerFromSource = packSource.startsWith("@")
+    ? parseRegistrySourcePatternParts(packSource)?.owner
+    : undefined;
   const packOwner =
-    hasProfile && packOwnerFromSource !== undefined
+    packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)
       : yield* ws.getConfiguredProfile();
   const base = ws.baseDir;

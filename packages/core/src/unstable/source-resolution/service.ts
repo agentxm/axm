@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import type { AppError } from "../app-error/index.js";
-import { unsafeHandle } from "../extensions/index.js";
+import { parseRegistrySourcePatternParts } from "../extensions/index.js";
 import { Workspace } from "../workspace/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
 import type {
@@ -142,11 +142,13 @@ export const createRegistryMetaProvider = () => ({
         : Option.isSome(source.owner)
           ? source.owner
           : options.skillNames.length > 0
-            ? Option.map(
-                Option.fromNullOr(
-                  options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
-                ),
-                unsafeHandle,
+            ? Option.fromUndefinedOr(
+                (() => {
+                  const requestedName = options.skillNames.find((name) => name.startsWith("@"));
+                  return requestedName === undefined
+                    ? undefined
+                    : parseRegistrySourcePatternParts(requestedName)?.owner;
+                })(),
               )
             : Option.none();
 

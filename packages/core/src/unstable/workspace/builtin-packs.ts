@@ -32,6 +32,7 @@ import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
 } from "../version-constraints/version-constraints.js";
+import { parseFullyQualifiedNameParts } from "../extensions/index.js";
 import { unsafeHandle } from "../extensions/handle.js";
 
 /**
@@ -51,8 +52,8 @@ export const BUILTIN_PACK_SCOPE = unsafeHandle("@axm");
 export const BUILTIN_PACK_NAME = "cli";
 
 const getSkillNameFromFqn = (fqn: string): Option.Option<string> => {
-  const [, , skillName] = fqn.split("/");
-  return Option.fromUndefinedOr(skillName);
+  const parsed = parseFullyQualifiedNameParts(fqn);
+  return parsed?.type === "skills" ? Option.some(parsed.name) : Option.none<string>();
 };
 
 /**

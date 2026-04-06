@@ -17,8 +17,8 @@ import {
   extensionTypeLabels,
   extensionTypePluralLabels,
   FullyQualifiedNameSchema,
-  ManifestHandleSchema,
 } from "./common.js";
+import { HandleSchema } from "./handle.js";
 
 describe("common schemas", () => {
   describe("Author", () => {
@@ -271,14 +271,14 @@ describe("common schemas", () => {
     });
   });
 
-  describe("ManifestHandle", () => {
+  describe("Handle", () => {
     it("accepts @-prefixed owner", () => {
-      const result = Schema.decodeUnknownResult(ManifestHandleSchema)("@wayne");
+      const result = Schema.decodeUnknownResult(HandleSchema)("@wayne");
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects owner without @", () => {
-      const result = Schema.decodeUnknownResult(ManifestHandleSchema)("wayne");
+      const result = Schema.decodeUnknownResult(HandleSchema)("wayne");
       expect(Result.isFailure(result)).toBe(true);
     });
   });

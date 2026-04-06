@@ -33,8 +33,6 @@ export interface WorkspaceSyncReadiness {
   readonly unresolved: ReadonlyArray<string>;
 }
 
-export type WorkspaceLockfileSyncReadiness = WorkspaceSyncReadiness;
-
 interface SyncState {
   readonly workspacePath: string;
   readonly snapshot: ReconciliationSnapshot;
@@ -103,8 +101,6 @@ export const getWorkspaceSyncReadiness = () =>
       unresolved,
     } satisfies WorkspaceSyncReadiness;
   });
-
-export const getWorkspaceLockfileSyncReadiness = getWorkspaceSyncReadiness;
 
 export const syncWorkspace = () =>
   Effect.gen(function* () {
@@ -221,5 +217,3 @@ export const syncWorkspace = () =>
     yield* writeLockfile(lockfileState.workspacePath, synchronizedLockfile);
     return countLockfileEntries(synchronizedLockfile);
   });
-
-export const syncWorkspaceLockfile = syncWorkspace;

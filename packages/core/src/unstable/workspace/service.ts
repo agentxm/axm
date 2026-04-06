@@ -43,6 +43,8 @@ import { sanitizeName } from "../extensions/utils.js";
 import {
   AgentIdSchema,
   formatFqn,
+  parseFullyQualifiedNameParts,
+  parseRegistrySourcePatternParts,
   unsafeExtensionName,
   type ExtensionType,
 } from "../extensions/index.js";
@@ -62,7 +64,7 @@ import {
   type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
-import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
+import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 
 type WorkspaceManagedExtensionType = Extract<
   ExtensionType,
@@ -371,18 +373,10 @@ const make = (options: WorkspaceLayerOptions) =>
         const entry = skills[name];
         if (entry !== undefined) {
           const sourceStr = getSkillEntrySource(entry);
-          if (sourceStr !== undefined) {
-            const parts = sourceStr.split(":");
-            if (parts.length >= 2 && parts[0] === "registry") {
-              const parsed = parseInputPattern(parts.slice(1).join(":"));
-              if (
-                Option.isSome(parsed) &&
-                parsed.value.pattern.pattern === "registry-pattern-input"
-              ) {
-                if (Option.isSome(parsed.value.pattern.name)) {
-                  return parsed.value.pattern.name.value;
-                }
-              }
+          if (sourceStr?.startsWith("registry:")) {
+            const parsed = parseRegistrySourcePatternParts(sourceStr.slice("registry:".length));
+            if (parsed?.name !== undefined) {
+              return parsed.name;
             }
           }
         }
@@ -1262,8 +1256,7 @@ const make = (options: WorkspaceLayerOptions) =>
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
-              const parts = fqn.split("/");
-              const resolvedName = parts[parts.length - 1];
+              const resolvedName = parseFullyQualifiedNameParts(fqn)?.name;
               if (resolvedName === target.name) return true;
             }
           }

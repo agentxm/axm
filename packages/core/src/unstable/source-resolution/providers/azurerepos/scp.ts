@@ -1,13 +1,18 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import type { AzureReposSourceParams } from "../../../sources/types.js";
+import {
+  AzureReposSourceParamsSchema,
+  type AzureReposSourceParams,
+} from "../../../sources/types.js";
 
 const CANONICAL_SSH_HOSTNAME = "ssh.dev.azure.com";
 
 /** Matches: git@{hostname}:v3/{org}/{project}/{repo} */
 const SCP_PATTERN = /^git@([^:]+):v3\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/;
+const decodeAzureReposSourceParams = Schema.decodeUnknownResult(AzureReposSourceParamsSchema);
 
 export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAME) => {
   const match = input.match(SCP_PATTERN);
@@ -20,12 +25,19 @@ export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAM
       }),
     );
   }
-  return Effect.succeed({
+  const decoded = decodeAzureReposSourceParams({
     type: "azurerepos",
     organization: match[2],
     project: match[3],
     repo: match[4],
-    ref: Option.none(),
-    subPath: Option.none(),
-  } satisfies AzureReposSourceParams);
+  });
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success satisfies AzureReposSourceParams)
+    : Effect.fail(
+        makeAppError({
+          code: "SOURCE_PARSE_FAILED",
+          what: "Invalid Azure Repos SSH URL format",
+          details: [input],
+        }),
+      );
 };

@@ -13,6 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { parseFullyQualifiedNameParts } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile, PackLockEntry } from "@axm.sh/core/unstable/lockfile";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
@@ -40,8 +41,7 @@ export type PackUninstallOp =
  * E.g., `@acme/skills/code-review` -> `code-review`
  */
 const simpleNameFromFqn = (fqn: string): string => {
-  const parts = fqn.split("/");
-  return parts[parts.length - 1] ?? fqn;
+  return parseFullyQualifiedNameParts(fqn)?.name ?? fqn;
 };
 
 /**

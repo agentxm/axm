@@ -26,7 +26,7 @@ import {
   formatFqn,
   parseFqn,
   parseFqnOrThrow,
-  type Fqn,
+  type FullyQualifiedNameParts,
   REGISTRY_EXTENSIONS_DIR,
   unsafeExtensionName,
 } from "@axm.sh/core/unstable/extensions";
@@ -389,7 +389,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
 /** Create a per-type publish dependency step from a parsed FQN. */
 const makeDependencyStep = (
-  parsed: Fqn,
+  parsed: FullyQualifiedNameParts,
   depFqn: string,
   registryName: string,
   provideServices: <A, E>(

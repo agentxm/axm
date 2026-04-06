@@ -6,9 +6,9 @@ import {
 import {
   PackManifestSchema,
   PACK_MANIFEST_FILENAME,
-  type PackDependencyConstraintMap,
   type PackManifest,
 } from "./manifest-schema.js";
+import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -258,7 +258,7 @@ const readInstalledDependencyVersion = (
 
 const resolveInstalledDependencyMap = (
   type: "skills" | "commands" | "mcp-servers",
-  dependencies: PackDependencyConstraintMap | undefined,
+  dependencies: ExtensionDependencyConstraintMap | undefined,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
 ): Effect.Effect<

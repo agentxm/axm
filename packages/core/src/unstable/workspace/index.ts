@@ -104,14 +104,7 @@ export {
 } from "./doctor.js";
 
 // Sync
-export {
-  getWorkspaceLockfileSyncReadiness,
-  getWorkspaceSyncReadiness,
-  syncWorkspace,
-  syncWorkspaceLockfile,
-  type WorkspaceLockfileSyncReadiness,
-  type WorkspaceSyncReadiness,
-} from "./sync.js";
+export { getWorkspaceSyncReadiness, syncWorkspace, type WorkspaceSyncReadiness } from "./sync.js";
 
 // Reconciliation types
 export type {

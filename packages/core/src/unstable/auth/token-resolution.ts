@@ -15,8 +15,9 @@ import { envOption } from "../utils/index.js";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { normalizeHandle } from "../extensions/handle.js";
-import { type TokenResponse, AuthClient } from "./auth-client.js";
+import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
+import type { NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   CredentialStoreTokenSource,
   EnvVarTokenSource,
@@ -52,7 +53,7 @@ const makeStoredTokenSource = (
     registryUrl,
   });
 
-const persistRefreshedCredentials = (registryUrl: string, token: TokenResponse) =>
+const persistRefreshedCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {
     const store = yield* CredentialStore;
     const existing = yield* store.load(registryUrl);

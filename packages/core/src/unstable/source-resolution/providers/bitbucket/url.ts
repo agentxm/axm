@@ -1,13 +1,15 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import type { BitbucketSourceParams } from "../../../sources/types.js";
+import { BitbucketSourceParamsSchema, type BitbucketSourceParams } from "../../../sources/types.js";
 
 export const CANONICAL_HOSTNAME = "bitbucket.org";
 
 /** Matches: /owner/repo[/src/ref/path] */
 const BITBUCKET_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;
+const decodeBitbucketSourceParams = Schema.decodeUnknownResult(BitbucketSourceParamsSchema);
 
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
@@ -29,11 +31,20 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
-  return Effect.succeed({
+  const decoded = decodeBitbucketSourceParams({
     type: "bitbucket",
     owner: match[1],
     repo: match[2],
-    ref: Option.fromUndefinedOr(match[3]),
-    subPath: Option.fromUndefinedOr(match[4]),
-  } satisfies BitbucketSourceParams);
+    ...(match[3] === undefined ? {} : { ref: match[3] }),
+    ...(match[4] === undefined ? {} : { subPath: match[4] }),
+  });
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success satisfies BitbucketSourceParams)
+    : Effect.fail(
+        makeAppError({
+          code: "SOURCE_PARSE_FAILED",
+          what: "Invalid Bitbucket URL format",
+          details: [url.href],
+        }),
+      );
 };

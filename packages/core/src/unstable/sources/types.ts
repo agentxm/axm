@@ -67,6 +67,63 @@ export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local",
  */
 export type RefType = Schema.Schema.Type<typeof RefTypeSchema>;
 
+const noSlashSegmentMessage = "Expected non-empty segment without '/' characters";
+
+export const SourceSegmentSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => (value.includes("/") ? noSlashSegmentMessage : undefined)),
+  ),
+);
+
+export const SourceRefSchema = Schema.NonEmptyString;
+
+export const SourceSubPathSchema = Schema.NonEmptyString;
+
+const GitHostedSourceParamFields = {
+  owner: SourceSegmentSchema,
+  repo: SourceSegmentSchema,
+  ref: Schema.OptionFromOptionalKey(SourceRefSchema),
+  subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
+} satisfies Schema.Struct.Fields;
+
+export const GitHostedSourceParamPartsSchema = Schema.Struct(GitHostedSourceParamFields);
+
+export type GitHostedSourceParamParts = Schema.Schema.Type<typeof GitHostedSourceParamPartsSchema>;
+
+const AzureReposSourceParamFields = {
+  organization: SourceSegmentSchema,
+  project: SourceSegmentSchema,
+  repo: SourceSegmentSchema,
+  ref: Schema.OptionFromOptionalKey(SourceRefSchema),
+  subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
+} satisfies Schema.Struct.Fields;
+
+export const AzureReposSourceParamPartsSchema = Schema.Struct(AzureReposSourceParamFields);
+
+export type AzureReposSourceParamParts = Schema.Schema.Type<
+  typeof AzureReposSourceParamPartsSchema
+>;
+
+export const GitHubSourceParamsSchema = Schema.Struct({
+  type: Schema.Literal("github"),
+  ...GitHostedSourceParamFields,
+});
+
+export const GitLabSourceParamsSchema = Schema.Struct({
+  type: Schema.Literal("gitlab"),
+  ...GitHostedSourceParamFields,
+});
+
+export const BitbucketSourceParamsSchema = Schema.Struct({
+  type: Schema.Literal("bitbucket"),
+  ...GitHostedSourceParamFields,
+});
+
+export const AzureReposSourceParamsSchema = Schema.Struct({
+  type: Schema.Literal("azurerepos"),
+  ...AzureReposSourceParamFields,
+});
+
 // =============================================================================
 // Source Domain Model (source-host-domain-modeling)
 // =============================================================================

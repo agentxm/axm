@@ -39,6 +39,10 @@ const JsonMcpConfigSchema = Schema.Struct({
 });
 type JsonMcpConfig = typeof JsonMcpConfigSchema.Type;
 
+const decodeJsonMcpConfigFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(JsonMcpConfigSchema),
+);
+
 const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
 
 const redactSecrets = (value: string): string =>
@@ -178,28 +182,16 @@ const decodeJsonConfig = (
   configPath: string,
   raw: string,
 ): Effect.Effect<JsonMcpConfig, AppError> =>
-  Effect.gen(function* () {
-    const json = yield* Effect.try({
-      try: (): unknown => JSON.parse(raw),
-      catch: (error) =>
-        makeAppError({
-          code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
-          what: `Failed to parse MCP config JSON: ${configPath}`,
-          cause: error,
-        }),
-    });
-
-    return yield* Schema.decodeUnknownEffect(JsonMcpConfigSchema)(json).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
-          what: `Invalid MCP config format: ${configPath}`,
-          details: [error.message],
-          cause: error,
-        }),
-      ),
-    );
-  });
+  decodeJsonMcpConfigFromJsonString(raw).pipe(
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "CODING_AGENT_MCP_CONFIG_PARSE_FAILED",
+        what: `Invalid MCP config format: ${configPath}`,
+        details: [error.message],
+        cause: error,
+      }),
+    ),
+  );
 
 const upsertJsonConfigServer = (
   configPath: string,

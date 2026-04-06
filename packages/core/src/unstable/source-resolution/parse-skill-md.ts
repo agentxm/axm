@@ -13,7 +13,19 @@ import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 import type { Skill } from "../skills/types.js";
 
-const MetadataSchema = Schema.Record(Schema.String, Schema.Unknown);
+const NonEmptyTrimmedStringSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((input) =>
+      input.trim().length > 0 ? undefined : "Expected a non-empty string",
+    ),
+  ),
+);
+const SkillFrontmatterSchema = Schema.Struct({
+  name: NonEmptyTrimmedStringSchema,
+  description: NonEmptyTrimmedStringSchema,
+  metadata: Schema.optionalKey(Schema.Unknown),
+});
+const decodeMetadata = Schema.decodeUnknownResult(Schema.Record(Schema.String, Schema.Unknown));
 
 /**
  * Parse a SKILL.md file's content and extract skill metadata from frontmatter.
@@ -25,33 +37,25 @@ const MetadataSchema = Schema.Record(Schema.String, Schema.Unknown);
 export const parseSkillMd = (content: string): Option.Option<Skill> => {
   try {
     const { data } = matter(content);
-
-    const name = data["name"];
-    const description = data["description"];
-    const rawMetadata = data["metadata"];
-
-    // Require non-empty name
-    if (typeof name !== "string" || name.trim() === "") {
+    const frontmatter = Result.match(Schema.decodeUnknownResult(SkillFrontmatterSchema)(data), {
+      onFailure: () => undefined,
+      onSuccess: (validated) => validated,
+    });
+    if (frontmatter === undefined) {
       return Option.none();
     }
 
-    // Require non-empty description
-    if (typeof description !== "string" || description.trim() === "") {
-      return Option.none();
-    }
-
-    // Extract optional metadata (validated via Schema)
     const metadata: Option.Option<Record.ReadonlyRecord<string, unknown>> =
-      rawMetadata != null
-        ? Result.match(Schema.decodeUnknownResult(MetadataSchema)(rawMetadata), {
+      frontmatter.metadata === undefined
+        ? Option.none()
+        : Result.match(decodeMetadata(frontmatter.metadata), {
             onFailure: () => Option.none(),
-            onSuccess: (validated) => Option.some(validated),
-          })
-        : Option.none();
+            onSuccess: (value) => Option.some(value),
+          });
 
     return Option.some({
-      name,
-      description,
+      name: frontmatter.name,
+      description: frontmatter.description,
       metadata,
     });
   } catch {

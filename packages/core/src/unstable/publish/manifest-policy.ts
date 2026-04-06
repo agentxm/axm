@@ -6,12 +6,11 @@ import * as SchemaIssue from "effect/SchemaIssue";
 import { CommandManifestSchema, COMMAND_MANIFEST_FILENAME } from "../commands/manifest-schema.js";
 import {
   ExtensionNameSchema,
-  ManifestHandleSchema,
   ExtensionTypeSchema,
   type ExtensionName,
   type ExtensionType,
 } from "../extensions/common.js";
-import type { Handle } from "../extensions/handle.js";
+import { HandleSchema, type Handle } from "../extensions/handle.js";
 import {
   McpServerManifestSchema,
   MCP_SERVER_MANIFEST_FILENAME,
@@ -54,7 +53,7 @@ export const manifestFilenameForType = (type: string): string | undefined => {
 };
 
 export const ManifestIdentitySchema = Schema.Struct({
-  owner: ManifestHandleSchema,
+  owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
   version: ExactSemverVersionSchema,

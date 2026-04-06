@@ -8,25 +8,27 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as SchemaGetter from "effect/SchemaGetter";
+import * as Result from "effect/Result";
+import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import { FullyQualifiedNameSchema, HandleSchema } from "../extensions/index.js";
+import { ExtensionNameSchema } from "../extensions/common.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
 
 // =============================================================================
 // Date Transform
 // =============================================================================
 
-/**
- * Schema that transforms ISO 8601 strings to Date objects.
- * Stored as string in YAML, decoded to Date in TypeScript.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DateFromString = Schema.String.pipe(
-  Schema.decodeTo(Schema.DateValid, {
-    decode: SchemaGetter.Date<string>(),
-    encode: SchemaGetter.transform((date: Date) => date.toISOString()),
-  }),
+const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
+
+const ExtensionNameStringSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      Result.isSuccess(decodeExtensionName(value))
+        ? undefined
+        : `Expected canonical extension name, got: ${value}`,
+    ),
+  ),
 );
 
 // =============================================================================
@@ -37,8 +39,8 @@ export const DateFromString = Schema.String.pipe(
  * Common fields shared by all lock entries (without agents).
  */
 const BaseCommonFields = {
-  installedAt: DateFromString,
-  updatedAt: DateFromString,
+  installedAt: DateFromIsoDateTimeStringSchema,
+  updatedAt: DateFromIsoDateTimeStringSchema,
   gitTreeHash: Schema.optional(Schema.String),
   retainedByPack: Schema.optional(Schema.Boolean),
 };
@@ -66,49 +68,49 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
-      owner: Schema.String,
-      repo: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
+      owner: SourceSegmentSchema,
+      repo: SourceSegmentSchema,
+      ref: Schema.optional(SourceRefSchema),
+      path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("gitlab"),
-      owner: Schema.String,
-      repo: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
+      owner: SourceSegmentSchema,
+      repo: SourceSegmentSchema,
+      ref: Schema.optional(SourceRefSchema),
+      path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("bitbucket"),
-      owner: Schema.String,
-      repo: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
+      owner: SourceSegmentSchema,
+      repo: SourceSegmentSchema,
+      ref: Schema.optional(SourceRefSchema),
+      path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("azurerepos"),
-      organization: Schema.String,
-      project: Schema.String,
-      repo: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
+      organization: SourceSegmentSchema,
+      project: SourceSegmentSchema,
+      repo: SourceSegmentSchema,
+      ref: Schema.optional(SourceRefSchema),
+      path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("git"),
       url: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
+      ref: Schema.optional(SourceRefSchema),
+      path: Schema.optional(SourceSubPathSchema),
       ...extraFields,
     }),
     Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...extraFields }),
     Schema.Struct({
       type: Schema.Literal("registry"),
       owner: HandleSchema,
-      name: Schema.String,
+      name: ExtensionNameStringSchema,
       resolvedVersion: ExactSemverVersionSchema,
       integrity: Schema.String,
       sourceName: Schema.String,
@@ -270,12 +272,12 @@ export type ResolvedExtensionMap = Schema.Schema.Type<typeof ResolvedExtensionMa
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   owner: HandleSchema,
-  name: Schema.String,
+  name: ExtensionNameStringSchema,
   resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
-  installedAt: DateFromString,
-  updatedAt: DateFromString,
+  installedAt: DateFromIsoDateTimeStringSchema,
+  updatedAt: DateFromIsoDateTimeStringSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
@@ -316,10 +318,10 @@ export const makeRegistryPackLockEntry = (
 export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
   owner: HandleSchema,
-  name: Schema.String,
+  name: ExtensionNameStringSchema,
   resolvedVersion: ExactSemverVersionSchema,
-  installedAt: DateFromString,
-  updatedAt: DateFromString,
+  installedAt: DateFromIsoDateTimeStringSchema,
+  updatedAt: DateFromIsoDateTimeStringSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,

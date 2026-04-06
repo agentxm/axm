@@ -29,7 +29,6 @@ export {
   BuiltinPackLockEntrySchema,
   CommandLockEntrySchema,
   CommandsLockMapSchema,
-  DateFromString,
   makeBuiltinPackLockEntry,
   makeRegistryPackLockEntry,
   LockfileSchema,

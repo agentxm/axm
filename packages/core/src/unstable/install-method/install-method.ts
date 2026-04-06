@@ -56,6 +56,10 @@ const InstallMetaSchema = Schema.Struct({
   method: InstallMethodLiteral,
 });
 
+const decodeInstallMetaFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(InstallMetaSchema),
+);
+
 // -----------------------------------------------------------------------------
 // Service interface
 // -----------------------------------------------------------------------------
@@ -193,19 +197,7 @@ const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
     const contentResult = yield* fs.readFileString(metaPath).pipe(Effect.option);
     if (Option.isNone(contentResult)) return Option.none<string>();
 
-    const parsed = yield* Effect.sync(() => {
-      try {
-        const json: unknown = JSON.parse(contentResult.value);
-        return json;
-      } catch {
-        return null;
-      }
-    });
-    if (parsed === null) return Option.none<string>();
-
-    const decoded = yield* Schema.decodeUnknownEffect(InstallMetaSchema)(parsed).pipe(
-      Effect.option,
-    );
+    const decoded = yield* decodeInstallMetaFromJsonString(contentResult.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<string>();
 
     return Option.some(decoded.value.method);

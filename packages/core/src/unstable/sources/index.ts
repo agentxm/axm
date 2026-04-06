@@ -11,7 +11,20 @@
 
 // Types — Core
 export type { RefType, SourceType } from "./types.js";
-export { RefTypeSchema, SourceTypeSchema } from "./types.js";
+export {
+  RefTypeSchema,
+  SourceTypeSchema,
+  SourceSegmentSchema,
+  SourceRefSchema,
+  SourceSubPathSchema,
+  GitHostedSourceParamPartsSchema,
+  AzureReposSourceParamPartsSchema,
+  GitHubSourceParamsSchema,
+  GitLabSourceParamsSchema,
+  BitbucketSourceParamsSchema,
+  AzureReposSourceParamsSchema,
+} from "./types.js";
+export type { GitHostedSourceParamParts, AzureReposSourceParamParts } from "./types.js";
 
 // Types — Source domain model
 export type {

@@ -8,13 +8,28 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as Result from "effect/Result";
+import { IsoDateTimeStringSchema } from "../date-time.js";
 import {
   AuthorSchema,
   ExtensionDependencyConstraintMapSchema,
   ExtensionTypeSchema,
 } from "../extensions/index.js";
+import { ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
+
+const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
+
+const ExtensionNameStringSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      Result.isSuccess(decodeExtensionName(value))
+        ? undefined
+        : `Expected canonical extension name, got: ${value}`,
+    ),
+  ),
+);
 
 // =============================================================================
 // Version Entry
@@ -33,7 +48,7 @@ import { ExactSemverVersionSchema } from "../version-constraints/version-constra
  */
 export const VersionEntrySchema = Schema.Struct({
   version: ExactSemverVersionSchema,
-  published: Schema.String,
+  published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   integrity: Schema.String,
 });
@@ -65,7 +80,7 @@ export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionIndexSchema = Schema.Struct({
-  name: Schema.String,
+  name: ExtensionNameStringSchema,
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   description: Schema.optional(Schema.String),

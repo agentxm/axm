@@ -41,6 +41,10 @@ export const UpdateCheckCacheSchema = Schema.Struct({
 /** Decoded cache shape. */
 export type UpdateCheckCache = typeof UpdateCheckCacheSchema.Type;
 
+const decodeUpdateCheckCacheFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(UpdateCheckCacheSchema),
+);
+
 // -----------------------------------------------------------------------------
 // Skip-check context
 // -----------------------------------------------------------------------------
@@ -175,19 +179,7 @@ export const readCacheFromPath = (cachePath: string) =>
     const content = yield* fs.readFileString(cachePath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<UpdateCheckCache>();
 
-    const parsed = yield* Effect.sync(() => {
-      try {
-        const json: unknown = JSON.parse(content.value);
-        return json;
-      } catch {
-        return null;
-      }
-    });
-    if (parsed === null) return Option.none<UpdateCheckCache>();
-
-    const decoded = yield* Schema.decodeUnknownEffect(UpdateCheckCacheSchema)(parsed).pipe(
-      Effect.option,
-    );
+    const decoded = yield* decodeUpdateCheckCacheFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<UpdateCheckCache>();
 
     const now = yield* Effect.sync(() => new Date());

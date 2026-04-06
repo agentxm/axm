@@ -1,13 +1,18 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import type { AzureReposSourceParams } from "../../../sources/types.js";
+import {
+  AzureReposSourceParamsSchema,
+  type AzureReposSourceParams,
+} from "../../../sources/types.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";
 
 /** Matches: /{org}/{project}/_git/{repo} */
 const AZUREREPOS_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/;
+const decodeAzureReposSourceParams = Schema.decodeUnknownResult(AzureReposSourceParamsSchema);
 
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
@@ -29,12 +34,19 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
-  return Effect.succeed({
+  const decoded = decodeAzureReposSourceParams({
     type: "azurerepos",
     organization: match[1],
     project: match[2],
     repo: match[3],
-    ref: Option.none(),
-    subPath: Option.none(),
-  } satisfies AzureReposSourceParams);
+  });
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success satisfies AzureReposSourceParams)
+    : Effect.fail(
+        makeAppError({
+          code: "SOURCE_PARSE_FAILED",
+          what: "Invalid Azure Repos URL format",
+          details: [url.href],
+        }),
+      );
 };

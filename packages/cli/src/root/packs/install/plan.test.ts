@@ -14,13 +14,16 @@ import {
 } from "@axm.sh/core/unstable/agents";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import {
+  normalizeHandle,
+  type ExtensionDependencyConstraintMap,
+} from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { PackDependencyConstraintMap, RegistryPackRef } from "@axm.sh/core/unstable/packs";
+import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -42,9 +45,9 @@ const ACME = normalizeHandle("@acme");
 const makePackRef = (
   name: string,
   opts?: {
-    skills?: PackDependencyConstraintMap;
-    commands?: PackDependencyConstraintMap;
-    mcpServers?: PackDependencyConstraintMap;
+    skills?: ExtensionDependencyConstraintMap;
+    commands?: ExtensionDependencyConstraintMap;
+    mcpServers?: ExtensionDependencyConstraintMap;
     version?: ExactSemverVersion;
   },
 ): RegistryPackRef => ({

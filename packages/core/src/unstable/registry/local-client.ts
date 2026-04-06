@@ -28,6 +28,10 @@ import { toAuthor, type Author, type ExtensionType } from "../extensions/index.j
 import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
+const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(ExtensionIndexSchema),
+);
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -46,20 +50,7 @@ const readExtensionIndex = (
         }),
       ),
     );
-    const json = yield* Effect.try({
-      try: () => {
-        const parsed: unknown = JSON.parse(content);
-        return parsed;
-      },
-      catch: (e) =>
-        makeAppError({
-          code: "REGISTRY_FETCH_FAILED",
-          what: `Invalid JSON in index: ${idxPath}`,
-          cause: e,
-        }),
-    });
-
-    return yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
+    return yield* decodeExtensionIndexFromJsonString(content).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "REGISTRY_FETCH_FAILED",
@@ -314,19 +305,7 @@ export const createLocalRegistryClient = (
             }),
           ),
         );
-        const json = yield* Effect.try({
-          try: () => {
-            const parsed: unknown = JSON.parse(content);
-            return parsed;
-          },
-          catch: (e) =>
-            makeAppError({
-              code: "REGISTRY_PUBLISH_FAILED",
-              what: `Invalid JSON in index`,
-              cause: e,
-            }),
-        });
-        const existingIndex = yield* Schema.decodeUnknownEffect(ExtensionIndexSchema)(json).pipe(
+        const existingIndex = yield* decodeExtensionIndexFromJsonString(content).pipe(
           Effect.mapError((e) =>
             makeAppError({
               code: "REGISTRY_PUBLISH_FAILED",

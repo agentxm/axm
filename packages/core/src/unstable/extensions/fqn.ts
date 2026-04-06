@@ -11,13 +11,6 @@ import { makeAppError } from "../app-error/index.js";
 import { parseFullyQualifiedNameParts, type FullyQualifiedNameParts } from "./common.js";
 
 /**
- * Parsed fully qualified name.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type Fqn = FullyQualifiedNameParts;
-
-/**
  * Parse a 3-segment FQN string into its parts.
  *
  * @experimental This API is unstable and may change without notice.
@@ -42,7 +35,7 @@ export const parseFqn = (input: string) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseFqnOrThrow = (input: string): Fqn => {
+export const parseFqnOrThrow = (input: string): FullyQualifiedNameParts => {
   const parsed = parseFullyQualifiedNameParts(input);
   if (parsed === undefined) {
     throw new Error(
@@ -57,4 +50,5 @@ export const parseFqnOrThrow = (input: string): Fqn => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const formatFqn = (fqn: Fqn): string => `${fqn.owner}/${fqn.type}/${fqn.name}`;
+export const formatFqn = (fqn: FullyQualifiedNameParts): string =>
+  `${fqn.owner}/${fqn.type}/${fqn.name}`;

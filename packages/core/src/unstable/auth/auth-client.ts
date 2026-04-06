@@ -55,8 +55,6 @@ export interface DeviceFlowResponse {
   readonly expires_in: number;
 }
 
-export type TokenResponse = NormalizedTokenResponse;
-
 export interface MeResponse {
   readonly userId: string;
   readonly userHandle: Handle;
@@ -74,7 +72,7 @@ export interface MeResponse {
 export type PollResult =
   | { readonly _tag: "Pending" }
   | { readonly _tag: "SlowDown" }
-  | { readonly _tag: "Success"; readonly token: TokenResponse }
+  | { readonly _tag: "Success"; readonly token: NormalizedTokenResponse }
   | { readonly _tag: "AccessDenied" }
   | { readonly _tag: "ExpiredToken" };
 
@@ -87,8 +85,10 @@ export interface AuthClientService {
   readonly pollDeviceToken: (
     deviceCode: string,
     interval: number,
-  ) => Effect.Effect<TokenResponse, AppError>;
-  readonly refreshToken: (refreshTokenValue: string) => Effect.Effect<TokenResponse, AppError>;
+  ) => Effect.Effect<NormalizedTokenResponse, AppError>;
+  readonly refreshToken: (
+    refreshTokenValue: string,
+  ) => Effect.Effect<NormalizedTokenResponse, AppError>;
   readonly revokeToken: (accessToken: string) => Effect.Effect<void, AppError>;
   readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AppError>;
 }

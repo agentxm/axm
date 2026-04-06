@@ -9,7 +9,7 @@ import type { RegistrySource } from "../sources/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackExtensionRef } from "./refs.js";
-import type { PackDependencyConstraintMap } from "./manifest-schema.js";
+import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcp-servers/registry-ref-builder.js";
@@ -127,7 +127,7 @@ const toResolvedMap = <T extends ExtensionType>(
 
 const resolveDependencyGroup = <T extends ExtensionType>(
   pack: PackExtensionRef,
-  dependencies: PackDependencyConstraintMap,
+  dependencies: ExtensionDependencyConstraintMap,
   expectedType: T,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>

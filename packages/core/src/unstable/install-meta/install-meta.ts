@@ -40,6 +40,10 @@ export const InstallMetaDataSchema = Schema.Struct({
  */
 export type InstallMetaData = typeof InstallMetaDataSchema.Type;
 
+const decodeInstallMetaDataFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(InstallMetaDataSchema),
+);
+
 // -----------------------------------------------------------------------------
 // Service interface
 // -----------------------------------------------------------------------------
@@ -96,19 +100,7 @@ export const readInstallMeta = (dataDir: string) =>
     const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<InstallMetaData>();
 
-    const parsed = yield* Effect.sync(() => {
-      try {
-        const json: unknown = JSON.parse(content.value);
-        return json;
-      } catch {
-        return null;
-      }
-    });
-    if (parsed === null) return Option.none<InstallMetaData>();
-
-    const decoded = yield* Schema.decodeUnknownEffect(InstallMetaDataSchema)(parsed).pipe(
-      Effect.option,
-    );
+    const decoded = yield* decodeInstallMetaDataFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<InstallMetaData>();
 
     return Option.some(decoded.value);

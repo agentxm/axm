@@ -24,6 +24,10 @@ import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js"
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 
+const decodeCredentialFileFromJsonString = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(CredentialFileSchema),
+);
+
 // -----------------------------------------------------------------------------
 // Service interface
 // -----------------------------------------------------------------------------
@@ -136,12 +140,9 @@ const readCredentialFile = (
       ),
     );
 
-    const json = yield* Effect.try({
-      try: () => {
-        const parsed: unknown = JSON.parse(content);
-        return parsed;
-      },
-      catch: (error) =>
+    return yield* decodeCredentialFileFromJsonString(content).pipe(
+      Effect.map((file) => Option.some(file)),
+      Effect.mapError((error) =>
         makeAppError({
           code: "AUTH_CREDENTIAL_STORE_FAILED",
           what: "Failed to parse credential file",
@@ -150,10 +151,7 @@ const readCredentialFile = (
             "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
           cause: error,
         }),
-    });
-
-    return yield* Schema.decodeUnknownEffect(CredentialFileSchema)(json).pipe(
-      Effect.map((file) => Option.some(file)),
+      ),
       Effect.catch(() =>
         Effect.logWarning("Credential file failed schema validation, treating as empty.").pipe(
           Effect.map(() => Option.none<CredentialFile>()),

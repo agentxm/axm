@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 import { parseProviderShorthand } from "../parse-provider-shorthand.js";
 import type { GitHubSourceParams } from "../../../sources/types.js";
@@ -10,9 +9,6 @@ export const parseShorthand = (input: string) =>
     const parts = yield* parseProviderShorthand(body, input);
     return {
       type: "github",
-      owner: parts.owner,
-      repo: parts.repo,
-      ref: Option.fromUndefinedOr(parts.ref),
-      subPath: Option.fromUndefinedOr(parts.subPath),
+      ...parts,
     } satisfies GitHubSourceParams;
   });

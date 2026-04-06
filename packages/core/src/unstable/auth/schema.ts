@@ -6,6 +6,7 @@
 
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
+import { IsoDateTimeStringSchema } from "../date-time.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
@@ -15,7 +16,7 @@ import { HandleSchema, type Handle } from "../extensions/handle.js";
 export const CredentialEntrySchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
-  expires_at: Schema.String,
+  expires_at: IsoDateTimeStringSchema,
   active: Schema.Boolean,
 });
 
@@ -57,7 +58,7 @@ export class FlagTokenSource extends Data.TaggedClass("Flag")<{
 export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStore")<{
   readonly token: string;
   readonly refresh_token: string;
-  readonly expires_at: string;
+  readonly expires_at: Schema.Schema.Type<typeof IsoDateTimeStringSchema>;
   readonly registryUrl: string;
 }> {}
 
@@ -71,7 +72,7 @@ export interface StoredCredentials {
   readonly handle: Handle;
   readonly access_token: string;
   readonly refresh_token: string;
-  readonly expires_at: string;
+  readonly expires_at: Schema.Schema.Type<typeof IsoDateTimeStringSchema>;
 }
 
 // -----------------------------------------------------------------------------

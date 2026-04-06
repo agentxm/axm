@@ -1,13 +1,15 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import type { GitHubSourceParams } from "../../../sources/types.js";
+import { GitHubSourceParamsSchema, type GitHubSourceParams } from "../../../sources/types.js";
 
 export const CANONICAL_HOSTNAME = "github.com";
 
 /** Matches: /owner/repo[/tree/ref/path] */
 const GITHUB_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?$/;
+const decodeGitHubSourceParams = Schema.decodeUnknownResult(GitHubSourceParamsSchema);
 
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
   if (url.hostname !== hostname) {
@@ -29,11 +31,20 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
-  return Effect.succeed({
+  const decoded = decodeGitHubSourceParams({
     type: "github",
     owner: match[1],
     repo: match[2],
-    ref: Option.fromUndefinedOr(match[3]),
-    subPath: Option.fromUndefinedOr(match[4]),
-  } satisfies GitHubSourceParams);
+    ...(match[3] === undefined ? {} : { ref: match[3] }),
+    ...(match[4] === undefined ? {} : { subPath: match[4] }),
+  });
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success satisfies GitHubSourceParams)
+    : Effect.fail(
+        makeAppError({
+          code: "SOURCE_PARSE_FAILED",
+          what: "Invalid GitHub URL format",
+          details: [url.href],
+        }),
+      );
 };

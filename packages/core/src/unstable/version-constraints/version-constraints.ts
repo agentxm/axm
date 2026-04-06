@@ -62,6 +62,8 @@ export const unsafeExactSemverVersion = (version: string): ExactSemverVersion =>
 export const unsafeVersionConstraint = (constraint: string): VersionConstraint =>
   decodeVersionConstraintSync(constraint);
 
+const parseSemverVersion = (version: string): semver.SemVer | null => semver.parse(version);
+
 /**
  * Extract a version constraint suffix from a source string.
  *
@@ -96,6 +98,23 @@ export const parseVersionConstraint = (sourceString: string): Option.Option<Vers
  */
 export const isValidConstraint = (constraint: string): boolean =>
   semver.validRange(constraint) !== null;
+
+/**
+ * Check whether moving from `previousVersion` to `currentVersion` includes at
+ * least a minor version bump.
+ */
+export const hasMinorOrMajorVersionBump = (
+  previousVersion: string,
+  currentVersion: string,
+): boolean => {
+  const previous = parseSemverVersion(previousVersion);
+  const current = parseSemverVersion(currentVersion);
+  if (previous === null || current === null) {
+    return false;
+  }
+
+  return current.major > previous.major || current.minor > previous.minor;
+};
 
 /**
  * Check whether a version satisfies a semver constraint.

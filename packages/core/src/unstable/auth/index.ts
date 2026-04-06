@@ -59,7 +59,6 @@ export type {
   DeviceFlowResponse,
   MeResponse,
   PollResult,
-  TokenResponse,
 } from "./auth-client.js";
 export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-client.js";
 

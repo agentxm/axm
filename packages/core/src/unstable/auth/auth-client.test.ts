@@ -442,7 +442,7 @@ describe("AuthClient.pollDeviceToken", () => {
       yield* TestClock.adjust("1 second");
       const result = yield* Fiber.join(fiber);
 
-      // After catchTag, the success channel carries TokenResponse | AppError.
+      // After catchTag, the success channel carries NormalizedTokenResponse | AppError.
       // Narrow via the AppError discriminant.
       if (!("_tag" in result) || result._tag !== "AppError") {
         throw new Error("expected pollDeviceToken to fail with AppError");

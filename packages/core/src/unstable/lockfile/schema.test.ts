@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
+import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   BuiltinPackLockEntrySchema,
-  DateFromString,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -12,29 +12,33 @@ import {
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
-  describe("DateFromString", () => {
+  describe("DateFromIsoDateTimeStringSchema", () => {
     it("accepts valid ISO 8601 date string", () => {
-      const result = Schema.decodeUnknownSync(DateFromString)("2025-01-15T10:30:00Z");
+      const result = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(
+        "2025-01-15T10:30:00Z",
+      );
       expect(result).toBeInstanceOf(Date);
       expect(result.toISOString()).toBe("2025-01-15T10:30:00.000Z");
     });
 
     it("rejects invalid date string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromString)("garbage")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("garbage")).toThrow();
     });
 
     it("rejects empty string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromString)("")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("")).toThrow();
     });
 
     it("rejects string that produces Invalid Date", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromString)("not-a-date")).toThrow();
+      expect(() =>
+        Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("not-a-date"),
+      ).toThrow();
     });
 
     it("round-trips valid date string", () => {
       const input = "2025-01-15T10:30:00.000Z";
-      const decoded = Schema.decodeUnknownSync(DateFromString)(input);
-      const encoded = Schema.encodeSync(DateFromString)(decoded);
+      const decoded = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(input);
+      const encoded = Schema.encodeSync(DateFromIsoDateTimeStringSchema)(decoded);
       expect(encoded).toBe(input);
     });
   });

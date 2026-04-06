@@ -19,14 +19,14 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { Handle } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -35,6 +35,7 @@ import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
+import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -50,7 +51,7 @@ export interface InstallCommandHandlerArgs {
 
 export interface ParsedCommandInstallArgs {
   readonly owner: Handle;
-  readonly commandName: string;
+  readonly commandName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
@@ -63,7 +64,7 @@ export interface ParsedCommandInstallArgs {
 export interface CommandInstallSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
-  readonly commandName: string;
+  readonly commandName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -117,54 +118,55 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<ParsedCommandInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
-        const parsed = parseInputPattern(trimmed);
+        const parsed = parseRegistryInstallTarget(trimmed, {
+          expectedType: "commands",
+          allowBareName: true,
+        });
 
-        // Handle @owner/commands/name[@version]
-        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
-          const pat = parsed.value.pattern;
-          if (Option.isSome(pat.type) && pat.type.value !== "commands") {
+        if (Result.isSuccess(parsed)) {
+          if (parsed.success.kind === "registry") {
+            return {
+              owner: parsed.success.owner,
+              commandName: parsed.success.name,
+              versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+              resolvedInput: trimmed,
+              force: false,
+            };
+          }
+
+          const owner = yield* ws.getConfiguredProfile();
+          return {
+            owner,
+            commandName: parsed.success.name,
+            versionConstraint: Option.none<string>(),
+            resolvedInput: `${owner}/commands/${parsed.success.name}`,
+            force: false,
+          };
+        }
+
+        switch (parsed.failure.kind) {
+          case "wrong-type":
             return yield* makeAppError({
               code: "COMMAND_SOURCE_INVALID_FORMAT",
               what: "Command source must include /commands/ segment",
               details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/commands/command-name format.",
             });
-          }
-          if (Option.isNone(pat.name)) {
+          case "missing-name":
             return yield* makeAppError({
               code: "COMMAND_SOURCE_MISSING_NAME",
               what: "Command source must include a command name",
               details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/commands/command-name format.",
             });
-          }
-          return {
-            owner: pat.owner,
-            commandName: pat.name.value,
-            versionConstraint: pat.versionConstraint,
-            resolvedInput: trimmed,
-            force: false,
-          };
+          default:
+            return yield* makeAppError({
+              code: "COMMAND_SOURCE_NOT_REGISTRY",
+              what: "Commands can only be installed from a registry",
+              details: [`Provided: ${trimmed}`],
+              howToFix: "Use @owner/commands/command-name or just command-name.",
+            });
         }
-
-        // Handle bare name (e.g., "my-cmd")
-        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
-          const owner = yield* ws.getConfiguredProfile();
-          return {
-            owner,
-            commandName: parsed.value.pattern.name,
-            versionConstraint: Option.none<string>(),
-            resolvedInput: `${owner}/commands/${parsed.value.pattern.name}`,
-            force: false,
-          };
-        }
-
-        return yield* makeAppError({
-          code: "COMMAND_SOURCE_NOT_REGISTRY",
-          what: "Commands can only be installed from a registry",
-          details: [`Provided: ${trimmed}`],
-          howToFix: "Use @owner/commands/command-name or just command-name.",
-        });
       });
 
     const resolveSourceRequests = (

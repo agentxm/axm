@@ -12,8 +12,9 @@ import * as Layer from "effect/Layer";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { normalizeHandle } from "../extensions/handle.js";
 
-import { type TokenResponse, AuthClient } from "./auth-client.js";
+import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
+import type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 // -----------------------------------------------------------------------------
 // DeviceLoginInteraction service — platform integration abstraction
@@ -69,7 +70,7 @@ export const DeviceLoginInteractionTest = (overrides?: {
 
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 
-const persistLoginCredentials = (registryUrl: string, token: TokenResponse) =>
+const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;

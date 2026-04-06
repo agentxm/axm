@@ -15,12 +15,12 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { Handle } from "@axm.sh/core/unstable/extensions";
+import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -29,6 +29,7 @@ import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
+import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -44,7 +45,7 @@ export interface InstallMcpServerHandlerArgs {
 
 export interface ParsedMcpServerInstallArgs {
   readonly owner: Handle;
-  readonly serverName: string;
+  readonly serverName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
@@ -57,7 +58,7 @@ export interface ParsedMcpServerInstallArgs {
 export interface McpServerInstallSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
-  readonly serverName: string;
+  readonly serverName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -111,54 +112,55 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
-        const parsed = parseInputPattern(trimmed);
+        const parsed = parseRegistryInstallTarget(trimmed, {
+          expectedType: "mcp-servers",
+          allowBareName: true,
+        });
 
-        // Handle @owner/mcp-servers/name[@version]
-        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
-          const pat = parsed.value.pattern;
-          if (Option.isSome(pat.type) && pat.type.value !== "mcp-servers") {
+        if (Result.isSuccess(parsed)) {
+          if (parsed.success.kind === "registry") {
+            return {
+              owner: parsed.success.owner,
+              serverName: parsed.success.name,
+              versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+              resolvedInput: trimmed,
+              force: false,
+            };
+          }
+
+          const owner = yield* ws.getConfiguredProfile();
+          return {
+            owner,
+            serverName: parsed.success.name,
+            versionConstraint: Option.none<string>(),
+            resolvedInput: `${owner}/mcp-servers/${parsed.success.name}`,
+            force: false,
+          };
+        }
+
+        switch (parsed.failure.kind) {
+          case "wrong-type":
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_INVALID_FORMAT",
               what: "MCP server source must include /mcp-servers/ segment",
               details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/mcp-servers/server-name format.",
             });
-          }
-          if (Option.isNone(pat.name)) {
+          case "missing-name":
             return yield* makeAppError({
               code: "MCP_SERVER_SOURCE_MISSING_NAME",
               what: "MCP server source must include a server name",
               details: [`Provided: ${trimmed}`],
               howToFix: "Use @owner/mcp-servers/server-name format.",
             });
-          }
-          return {
-            owner: pat.owner,
-            serverName: pat.name.value,
-            versionConstraint: pat.versionConstraint,
-            resolvedInput: trimmed,
-            force: false,
-          };
+          default:
+            return yield* makeAppError({
+              code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
+              what: "MCP servers can only be installed from a registry",
+              details: [`Provided: ${trimmed}`],
+              howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
+            });
         }
-
-        // Handle bare name (e.g., "my-server")
-        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
-          const owner = yield* ws.getConfiguredProfile();
-          return {
-            owner,
-            serverName: parsed.value.pattern.name,
-            versionConstraint: Option.none<string>(),
-            resolvedInput: `${owner}/mcp-servers/${parsed.value.pattern.name}`,
-            force: false,
-          };
-        }
-
-        return yield* makeAppError({
-          code: "MCP_SERVER_SOURCE_NOT_REGISTRY",
-          what: "MCP servers can only be installed from a registry",
-          details: [`Provided: ${trimmed}`],
-          howToFix: "Use @owner/mcp-servers/server-name or just server-name.",
-        });
       });
 
     const resolveSourceRequests = (

@@ -14,10 +14,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import type { ExtensionRef, Handle } from "@axm.sh/core/unstable/extensions";
-import { parseInputPattern } from "@axm.sh/core/unstable/sources";
+import type { ExtensionName, ExtensionRef, Handle } from "@axm.sh/core/unstable/extensions";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -34,6 +34,7 @@ import { buildInstallOperation, targetFromRef, toLabel } from "@axm.sh/core/unst
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
+import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -47,7 +48,7 @@ export interface InstallPackHandlerArgs {
 /** Parsed and validated pack install args. */
 export interface ParsedPackInstallArgs {
   readonly owner: Handle;
-  readonly packName: string;
+  readonly packName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
   readonly resolvedInput: string;
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
@@ -57,7 +58,7 @@ export interface ParsedPackInstallArgs {
 export interface PackSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
-  readonly packName: string;
+  readonly packName: ExtensionName;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -188,48 +189,46 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           const trimmed = args.source.trim();
-          const parsed = parseInputPattern(trimmed);
+          const parsed = parseRegistryInstallTarget(trimmed, {
+            expectedType: "packs",
+            allowBareName: true,
+            allowBareVersionConstraint: true,
+          });
 
-          // Handle bare name (e.g., "my-pack")
-          if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
+          if (Result.isSuccess(parsed)) {
+            if (parsed.success.kind === "registry") {
+              return {
+                inputKind: "registry-pattern-input" as const,
+                owner: parsed.success.owner,
+                packName: parsed.success.name,
+                versionConstraint: Option.fromUndefinedOr(parsed.success.versionConstraint),
+                resolvedInput: trimmed,
+              };
+            }
+
             const owner = yield* ws.getConfiguredProfile();
-            yield* renderer.info(
-              `Source resolution: ${trimmed} -> ${owner}/packs/${parsed.value.pattern.name}`,
-            );
+            const versionConstraint = Option.fromUndefinedOr(parsed.success.versionConstraint);
+            const resolvedInput = Option.match(versionConstraint, {
+              onNone: () => `${owner}/packs/${parsed.success.name}`,
+              onSome: (constraint) => `${owner}/packs/${parsed.success.name}@${constraint}`,
+            });
+
+            yield* renderer.info(`Source resolution: ${trimmed} -> ${resolvedInput}`);
+
             return {
-              inputKind: "name-input" as const,
+              inputKind:
+                parsed.success.versionConstraint === undefined
+                  ? ("name-input" as const)
+                  : ("name-input-with-version" as const),
               owner,
-              packName: parsed.value.pattern.name,
-              versionConstraint: Option.none<string>(),
-              resolvedInput: `${owner}/packs/${parsed.value.pattern.name}`,
+              packName: parsed.success.name,
+              versionConstraint,
+              resolvedInput,
             };
           }
 
-          // Handle bare name with version constraint (e.g., "my-pack@^2.0.0")
-          if (Option.isNone(parsed) && !trimmed.startsWith("@") && trimmed.includes("@")) {
-            const atIndex = trimmed.indexOf("@");
-            const name = trimmed.slice(0, atIndex);
-            const constraint = trimmed.slice(atIndex + 1);
-            if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
-              const owner = yield* ws.getConfiguredProfile();
-              yield* renderer.info(
-                `Source resolution: ${trimmed} -> ${owner}/packs/${name}@${constraint}`,
-              );
-              return {
-                inputKind: "name-input-with-version" as const,
-                owner,
-                packName: name,
-                versionConstraint: Option.some(constraint),
-                resolvedInput: `${owner}/packs/${name}@${constraint}`,
-              };
-            }
-          }
-
-          // Handle @owner/packs/pack-name[@constraint]
-          if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
-            const pat = parsed.value.pattern;
-
-            if (Option.isNone(pat.type) || pat.type.value !== "packs") {
+          switch (parsed.failure.kind) {
+            case "wrong-type":
               return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
                 what: "Pack source must include /packs/ segment",
@@ -237,33 +236,22 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 howToFix:
                   "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
               });
-            }
-
-            if (Option.isNone(pat.name)) {
+            case "missing-name":
               return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
                 what: "Pack source must include a pack name",
                 details: [`Provided: ${trimmed}`],
                 howToFix: "Use @owner/packs/pack-name format.",
               });
-            }
-
-            return {
-              inputKind: "registry-pattern-input" as const,
-              owner: pat.owner,
-              packName: pat.name.value,
-              versionConstraint: pat.versionConstraint,
-              resolvedInput: trimmed,
-            };
+            default:
+              return yield* makeAppError({
+                code: "PACK_SOURCE_NOT_REGISTRY",
+                what: "Packs can only be installed from a registry",
+                details: [`Provided: ${trimmed}`],
+                howToFix:
+                  "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
+              });
           }
-
-          // Reject everything else
-          return yield* makeAppError({
-            code: "PACK_SOURCE_NOT_REGISTRY",
-            what: "Packs can only be installed from a registry",
-            details: [`Provided: ${trimmed}`],
-            howToFix: "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
-          });
         }),
       );
 

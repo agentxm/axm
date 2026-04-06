@@ -22,6 +22,10 @@
       "types": "./src/unstable/version-constraints/version-constraints.ts",
       "default": "./dist/src/unstable/version-constraints/version-constraints.js"
     },
+    "./unstable/date-time": {
+      "types": "./src/unstable/date-time.ts",
+      "default": "./dist/src/unstable/date-time.js"
+    },
     "./unstable/utils": {
       "types": "./src/unstable/utils/index.ts",
       "default": "./dist/src/unstable/utils/index.js"

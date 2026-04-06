@@ -18,8 +18,6 @@ export {
   FQN_PATTERN,
   FullyQualifiedNamePartsSchema,
   FullyQualifiedNameSchema,
-  MANIFEST_HANDLE_PATTERN,
-  ManifestHandleSchema,
   extensionTypeFromPlural,
   extensionTypeLabels,
   extensionTypePluralSegments,
@@ -28,6 +26,7 @@ export {
   extensionTypes,
   isExtensionType,
   isExtensionTypePlural,
+  parseFullyQualifiedNameParts,
   toExtensionType,
   toExtensionTypePlural,
   toAuthor,
@@ -72,7 +71,6 @@ export {
 } from "./handle.js";
 
 // FQN parsing
-export type { Fqn } from "./fqn.js";
 export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 
 // Constants

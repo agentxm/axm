@@ -2,7 +2,7 @@
 
 AXM manages skills, commands, MCP servers, and packs across coding agents — but has no concept of a **subagent** extension type. Every major coding agent now supports subagents, each with its own configuration format and directory convention. Teams building reusable subagents today must manually duplicate configuration across agents. AXM should treat subagents as a first-class extension type — installable, publishable, and portable — just like skills.
 
-**Ecosystem momentum.** Twelve agents now support subagents natively: Claude Code, GitHub Copilot, Codex, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro, and Roo Code — up from two (Claude Code and Codex) a year ago. The format landscape is fragmented: most use Markdown + YAML frontmatter but with different field names and semantics; Codex uses TOML; Kiro CLI uses JSON; Roo Code uses YAML/JSON mode definitions. This fragmentation is accelerating as each agent adds agent-specific features (hooks, permissions, isolation, background execution).
+**Ecosystem momentum.** Thirty agents now support subagents natively — up from two (Claude Code and Codex) a year ago. Fifteen are in scope for this change: Claude Code, GitHub Copilot, Codex, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro, Roo Code, Amp, Goose, Kimi CLI, and OpenClaw. The format landscape is fragmented: most use Markdown + YAML frontmatter but with different field names and semantics; Codex uses TOML; Kiro CLI uses JSON; Roo Code uses YAML/JSON mode definitions. This fragmentation is accelerating as each agent adds agent-specific features (hooks, permissions, isolation, background execution).
 
 **Concrete pain.** A team author writes a code-review subagent for Claude Code (`.claude/agents/code-reviewer.md`), then must manually port it to Cursor (different `readonly` field), Codex (TOML with `developer_instructions` and `sandbox_mode`), Gemini CLI (different tool wildcard syntax), and OpenCode (permission object with `ask`/`allow`/`deny`). When they update the prompt, they update it in five places. When a new team member onboards, they discover the copies have drifted. When a sixth agent is adopted, the cycle repeats.
 
@@ -23,7 +23,7 @@ AXM manages skills, commands, MCP servers, and packs across coding agents — bu
 
 ## Non-Goals
 
-- **Recursive subagent support** — AXM does not model subagents-spawning-subagents. The portable schema targets depth-1 delegation (the common denominator across agents). Agents with native recursion (Codex `max_depth`, Roo `new_task` chains) can use overrides.
+- **Recursive subagent support** — AXM does not model subagents-spawning-subagents. The portable schema targets depth-1 delegation (the common denominator across agents). Agents with native recursion (Codex `max_depth`, OpenClaw `maxSpawnDepth`, Roo `new_task` chains) can use overrides.
 - **Remote / A2A subagents** — Gemini CLI's `kind: remote` and Agent-to-Agent protocol support are out of scope. AXM manages local agent configuration files, not remote service orchestration.
 - **Runtime orchestration** — AXM manages subagent _configuration_, not execution. It does not spawn, route, or monitor subagent runs. The host agent handles all runtime behavior.
 - **Importing existing agent-native files** — An `axm subagents import` command (converting `.claude/agents/foo.md` into AXM managed format) is a useful follow-on but not part of this change.
@@ -403,7 +403,7 @@ All agents in the AXM registry, showing subagent support status and whether they
 | Kiro           | Yes                | MD + YAML (IDE), JSON (CLI) | **Yes**  | [J](#j-kiro-aws)        | [kiro.dev](https://kiro.dev/docs/chat/subagents/)                                           |
 | Roo Code       | Yes                | YAML or JSON                | **Yes**  | [K](#k-roo-code)        | [docs.roocode.com](https://docs.roocode.com/features/boomerang-tasks)                       |
 | AdaL           | Unknown            | —                           | No       | —                       | [docs.sylph.ai](https://docs.sylph.ai/)                                                     |
-| Amp            | Yes                | —                           | No       | —                       | [ampcode.com](https://ampcode.com/agents-for-the-agent)                                     |
+| Amp            | Yes                | —                           | **Yes**  | [L](#l-amp)             | [ampcode.com](https://ampcode.com/agents-for-the-agent)                                     |
 | Antigravity    | Partial            | —                           | No       | —                       | [antigravity.google](https://antigravity.google/docs/agent)                                 |
 | Cline          | Yes (experimental) | —                           | No       | —                       | [docs.cline.bot](https://docs.cline.bot/features/subagents)                                 |
 | CodeBuddy      | Yes                | —                           | No       | —                       | [codebuddy.ai](https://www.codebuddy.ai/docs/cli/sub-agents)                                |
@@ -411,15 +411,15 @@ All agents in the AXM registry, showing subagent support status and whether they
 | Continue       | Yes                | —                           | No       | —                       | [github.com](https://github.com/continuedev/continue/issues/9550)                           |
 | Crush          | Partial            | —                           | No       | —                       | [github.com](https://github.com/charmbracelet/crush)                                        |
 | Droid          | Yes                | —                           | No       | —                       | [docs.factory.ai](https://docs.factory.ai/cli/configuration/custom-droids)                  |
-| Goose          | Yes                | —                           | No       | —                       | [block.github.io](https://block.github.io/goose/docs/guides/subagents/)                     |
+| Goose          | Yes                | —                           | **Yes**  | [M](#m-goose)           | [block.github.io](https://block.github.io/goose/docs/guides/subagents/)                     |
 | iFlow CLI      | Yes (EOL)          | —                           | No       | —                       | [platform.iflow.cn](https://platform.iflow.cn/en/cli/examples/subagent)                     |
-| Kimi CLI       | Yes                | —                           | No       | —                       | [moonshotai.github.io](https://moonshotai.github.io/kimi-cli/en/customization/agents.html)  |
+| Kimi CLI       | Yes                | YAML                        | **Yes**  | [N](#n-kimi-cli)        | [moonshotai.github.io](https://moonshotai.github.io/kimi-cli/en/customization/agents.html)  |
 | Kode           | Yes                | —                           | No       | —                       | [github.com](https://github.com/shareAI-lab/Kode-cli)                                       |
 | MCPJam         | N/A                | —                           | No       | —                       | [mcpjam.com](https://www.mcpjam.com)                                                        |
 | Mistral Vibe   | Yes                | —                           | No       | —                       | [docs.mistral.ai](https://docs.mistral.ai/mistral-vibe/agents-skills)                       |
 | Mux            | Yes                | —                           | No       | —                       | [mux.coder.com](https://mux.coder.com/agents)                                               |
 | Neovate        | Yes                | —                           | No       | —                       | [neovateai.dev](https://neovateai.dev/en/docs/features)                                     |
-| OpenClaw       | Yes                | —                           | No       | —                       | [docs.openclaw.ai](https://docs.openclaw.ai/tools/subagents)                                |
+| OpenClaw       | Yes                | JSON5                       | **Yes**  | [O](#o-openclaw)        | [docs.openclaw.ai](https://docs.openclaw.ai/tools/subagents)                                |
 | OpenHands      | Yes                | —                           | No       | —                       | [docs.openhands.dev](https://docs.openhands.dev/sdk/guides/agent-delegation)                |
 | Pi             | No                 | —                           | No       | —                       | [github.com](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)           |
 | Pochi          | No                 | —                           | No       | —                       | [docs.getpochi.com](https://docs.getpochi.com/custom-agent/)                                |
@@ -431,22 +431,22 @@ All agents in the AXM registry, showing subagent support status and whether they
 | Windsurf       | Partial            | —                           | No       | —                       | [windsurf.com](https://windsurf.com/blog/windsurf-wave-13)                                  |
 | Zencoder       | Yes                | —                           | No       | —                       | [docs.zencoder.ai](https://docs.zencoder.ai/features/ai-agents)                             |
 
-**30 of 39** agents fully support subagents; **4** have partial support (Antigravity, Crush, Replit, Windsurf). 11 are in scope for this change. Notable exceptions: **MCPJam** is an MCP platform (N/A); **Pi**, **Pochi**, and **Command Code** lack native support; **AdaL** has no documented support; **iFlow CLI** supports subagents but is EOL (service shutdown April 17, 2026). Many out-of-scope agents use MD + YAML in `.<agent>/agents/*.md` — follow-on adapters would be mechanically similar.
+**30 of 39** agents fully support subagents; **4** have partial support (Antigravity, Crush, Replit, Windsurf). 15 are in scope for this change. Notable exceptions: **MCPJam** is an MCP platform (N/A); **Pi**, **Pochi**, and **Command Code** lack native support; **AdaL** has no documented support; **iFlow CLI** supports subagents but is EOL (service shutdown April 17, 2026). Many out-of-scope agents use MD + YAML in `.<agent>/agents/*.md` — follow-on adapters would be mechanically similar.
 
 ### Cross-Agent Feature Matrix
 
 The **AXM portable** column shows which features the portable schema covers directly. Features marked "override" require per-agent `overrides`; "—" means the feature is not modeled by AXM.
 
-| Feature           | AXM portable | Claude Code  | Copilot       | Codex        | Cursor               | Gemini CLI     | OpenCode       | Augment     | Junie                                   | Kilo           | Kiro           | Roo            |
-| ----------------- | ------------ | ------------ | ------------- | ------------ | -------------------- | -------------- | -------------- | ----------- | --------------------------------------- | -------------- | -------------- | -------------- |
-| Auto-delegation   | description  | description  | context       | natural lang | description          | description    | Task tool      | auto-detect | description                             | Task tool      | description    | Orchestrator   |
-| Manual invocation | —            | `@"name"`    | dropdown      | `/agent`     | —                    | `@name`        | `@name`        | by name     | —                                       | `@name`        | `/name`        | `new_task`     |
-| Tool control      | toolAccess   | allow+deny   | allow+aliases | sandbox enum | readonly bool        | wildcards      | permission obj | allow+deny  | allow+deny                              | permission obj | allow+settings | groups+regex   |
-| MCP servers       | override     | yes          | cloud only    | yes          | —                    | yes (isolated) | —              | —           | —                                       | —              | yes (CLI)      | —              |
-| Background mode   | background   | yes          | —             | —            | yes (worktree)       | —              | —              | parallel    | —                                       | —              | —              | —              |
-| Model override    | model        | yes          | yes           | yes          | yes                  | yes            | yes            | yes         | yes                                     | yes            | yes            | —              |
-| Recursion         | —            | no (depth 1) | —             | configurable | —                    | no (depth 1)   | Task tool      | parallel    | —                                       | Task tool      | configurable   | via `new_task` |
-| Fallback paths    | —            | —            | —             | —            | `.claude/`,`.codex/` | —              | —              | —           | imports `.claude/`,`.cursor/`,`.codex/` | `.opencode/`   | —              | —              |
+| Feature           | AXM portable | Claude Code  | Copilot       | Codex        | Cursor               | Gemini CLI     | OpenCode       | Augment     | Junie                                   | Kilo           | Kiro           | Roo            | Amp                | Goose         | Kimi CLI             | OpenClaw           |
+| ----------------- | ------------ | ------------ | ------------- | ------------ | -------------------- | -------------- | -------------- | ----------- | --------------------------------------- | -------------- | -------------- | -------------- | ------------------ | ------------- | -------------------- | ------------------ |
+| Auto-delegation   | description  | description  | context       | natural lang | description          | description    | Task tool      | auto-detect | description                             | Task tool      | description    | Orchestrator   | model-driven       | model-driven  | model-driven         | explicit only      |
+| Manual invocation | —            | `@"name"`    | dropdown      | `/agent`     | —                    | `@name`        | `@name`        | by name     | —                                       | `@name`        | `/name`        | `new_task`     | —                  | natural lang  | —                    | `/subagents spawn` |
+| Tool control      | toolAccess   | allow+deny   | allow+aliases | sandbox enum | readonly bool        | wildcards      | permission obj | allow+deny  | allow+deny                              | permission obj | allow+settings | groups+regex   | permissions+checks | extensions+NL | explicit list        | allow+deny         |
+| MCP servers       | override     | yes          | cloud only    | yes          | —                    | yes (isolated) | —              | —           | —                                       | —              | yes (CLI)      | —              | via skills         | inherited     | —                    | —                  |
+| Background mode   | background   | yes          | —             | —            | yes (worktree)       | —              | —              | parallel    | —                                       | —              | —              | —              | —                  | —             | yes                  | yes (always)       |
+| Model override    | model        | yes          | yes           | yes          | yes                  | yes            | yes            | yes         | yes                                     | yes            | yes            | —              | —                  | yes (recipe)  | yes                  | yes                |
+| Recursion         | —            | no (depth 1) | —             | configurable | —                    | no (depth 1)   | Task tool      | parallel    | —                                       | Task tool      | configurable   | via `new_task` | —                  | no (depth 1)  | no (depth 1)         | configurable (1–5) |
+| Fallback paths    | —            | —            | —             | —            | `.claude/`,`.codex/` | —              | —              | —           | imports `.claude/`,`.cursor/`,`.codex/` | `.opencode/`   | —              | —              | `.claude/skills/`  | —             | `.claude/`,`.codex/` | —                  |
 
 ### A. Claude Code
 
@@ -917,3 +917,211 @@ Also reads: `.opencode/agents/` (compatibility).
 **Built-in modes:** Code (full tools), Ask (read-only), Architect (read + markdown edit), Debug (full tools), Orchestrator (delegates only).
 
 **Notable:** Different model from other agents — uses "modes" not "agents". No MD+YAML frontmatter agent files. Orchestrator has no tools itself (prevents context poisoning). Context isolation is strict — all context must be explicitly passed in `message`. Supports `.agents/skills/` cross-agent skill path.
+
+---
+
+### L. Amp
+
+**Docs:**
+
+- [Agents for the Agent](https://ampcode.com/agents-for-the-agent) (blog post introducing subagent support)
+- [Owner's Manual](https://ampcode.com/manual) (canonical reference; covers skills, checks, Task tool, AGENTS.md, modes)
+
+**Format:** No user-defined subagent files. Subagents are spawned dynamically by the model via the built-in **Task tool**. The closest analogs are **skills** (`SKILL.md` with YAML frontmatter) that load instructions on demand, and **checks** (Markdown with YAML frontmatter in `.agents/checks/`) that each run as an isolated subagent during code review.
+
+**File paths:**
+
+| Scope          | Path                                                                      | Notes                                                   |
+| -------------- | ------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Project skills | `.agents/skills/<name>/SKILL.md`                                          | also reads `.claude/skills/`                            |
+| Global skills  | `~/.config/agents/skills/`, `~/.config/amp/skills/`, `~/.claude/skills/`  | precedence: `agents/` > `amp/` > `.claude/`             |
+| Project checks | `.agents/checks/*.md`                                                     | subtree-scoped (e.g. `api/.agents/checks/`)             |
+| Global checks  | `~/.config/amp/checks/`, `~/.config/agents/checks/`                       | apply to all repos                                      |
+| Agent guidance | `AGENTS.md` (or `AGENT.md`, `CLAUDE.md`) in CWD and parents up to `$HOME` | glob-scoped via `globs:` frontmatter                    |
+| MCP in skills  | `<skill-dir>/mcp.json`                                                    | servers start at launch; tools hidden until skill loads |
+
+**Skill fields (SKILL.md frontmatter):**
+
+| Field         | Required | Type   | Notes                                                        |
+| ------------- | -------- | ------ | ------------------------------------------------------------ |
+| `name`        | Yes      | string | unique identifier; user-wide skills override project by name |
+| `description` | Yes      | string | always visible to model; determines when skill is invoked    |
+
+**Check fields (check file frontmatter):**
+
+| Field              | Required | Type     | Notes                                     |
+| ------------------ | -------- | -------- | ----------------------------------------- |
+| `name`             | Yes      | string   | check identifier                          |
+| `description`      | No       | string   | explains what the check looks for         |
+| `severity-default` | No       | string   | `low` \| `medium` \| `high` \| `critical` |
+| `tools`            | No       | string[] | tool names the check subagent can access  |
+
+**Built-in subagents:**
+
+| Name      | Purpose                                 | Tool access                          |
+| --------- | --------------------------------------- | ------------------------------------ |
+| Task      | Complex tasks, parallel work            | full (same as main agent)            |
+| Librarian | Cross-repository code search            | read-only                            |
+| Oracle    | Second opinion using GPT-5.4            | not documented                       |
+| Painter   | Image generation via Gemini 3 Pro Image | not documented                       |
+| Checks    | One per check during code review        | restricted via check's `tools` field |
+
+**Notable:** No user-defined subagent definition files — no equivalent to `.claude/agents/*.md`. The Task tool spawns generic subagents with the main agent's full capabilities; the model decides the task via prompt. Each subagent gets a fresh context window (full isolation). Subagents cannot communicate with each other and return only a final summary. Skills serve as the closest analog to named subagents — instruction packages that load on demand and can bundle MCP servers. The checks system is the only place where user-defined subagent-like behavior exists (per-check isolated execution with tool restrictions). AXM portable schema has no direct render target; closest mapping would be a skill directory or check file, neither of which covers the full subagent concept.
+
+---
+
+### M. Goose
+
+**Docs:**
+
+- [Subagents](https://block.github.io/goose/docs/guides/subagents/) (canonical guide — spawning, settings, security, recipes)
+- [Recipes](https://block.github.io/goose/docs/guides/recipes/) (reusable workflow definitions including subagent recipes)
+- [Prompt Templates](https://block.github.io/goose/docs/guides/prompt-templates) (customizing `subagent_system.md`)
+- [Permissions](https://block.github.io/goose/docs/guides/goose-permissions) (autonomy modes that gate subagent spawning)
+- [Config Files](https://block.github.io/goose/docs/guides/config-files) (external subagent config in `config.yaml`)
+
+**Format:** No per-file agent definitions. Subagents are either (a) spawned dynamically via natural language by the model, or (b) defined as YAML recipe files with structured fields. External subagents (e.g., Codex as a subprocess) are configured in `config.yaml` as MCP server extension entries.
+
+**File paths:**
+
+| Scope                  | Path                                         | Notes                                                |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| Subagent system prompt | `~/.config/goose/prompts/subagent_system.md` | Jinja2 template; overrides built-in default          |
+| Recipe files           | `GOOSE_RECIPE_PATH` or working directory     | YAML recipes that can define subagent behavior       |
+| External subagent      | `~/.config/goose/config.yaml`                | `stdio`-type entries for external agent subprocesses |
+| Global config          | `~/.config/goose/config.yaml`                | provider, model, extensions, settings                |
+
+**Recipe fields (YAML):**
+
+| Field                | Required | Type     | Notes                                                                      |
+| -------------------- | -------- | -------- | -------------------------------------------------------------------------- |
+| `version`            | No       | string   | semver; defaults to `1.0.0`                                                |
+| `title`              | Yes      | string   | display name                                                               |
+| `description`        | Yes      | string   | purpose description                                                        |
+| `instructions`       | No       | string   | behavioral guidelines for the agent                                        |
+| `activities`         | No       | string[] | task descriptions                                                          |
+| `extensions`         | No       | object[] | available tools; each has `type`, `name`, `cmd`, `args`, `available_tools` |
+| `parameters`         | No       | object[] | input config with `key`, `input_type`, `requirement`, `default`            |
+| `prompt`             | No       | string   | execution template with `{{variable}}` substitution                        |
+| `sub_recipes`        | No       | object[] | nested subrecipe definitions (auto-generated as tools)                     |
+| `settings.max_turns` | No       | number   | turn limit override (default: 25)                                          |
+
+**External subagent config fields (in `config.yaml`):**
+
+| Field         | Required | Type     | Notes                                              |
+| ------------- | -------- | -------- | -------------------------------------------------- |
+| `name`        | Yes      | string   | identifier                                         |
+| `description` | No       | string   | human-readable purpose                             |
+| `cmd`         | Yes      | string   | executable command (e.g., `codex`)                 |
+| `args`        | No       | string[] | command arguments                                  |
+| `type`        | Yes      | string   | `"stdio"` or `"mcp-server"` (MCP-style subprocess) |
+| `timeout`     | No       | number   | seconds (default: 300)                             |
+| `env_keys`    | No       | string[] | required env vars (e.g., `[OPENAI_API_KEY]`)       |
+
+**Notable:** No project-directory agent files — no `.goose/agents/*.md` convention; subagents are runtime-only or recipe-defined. Tool control is via natural language at spawn time or the `available_tools` field on recipe extensions. External subagents connect via MCP server protocol, enabling tools like Codex as a subprocess. Recursion hard-blocked at depth 1 (subrecipes also cannot nest). Parallel execution supported with partial failure handling. Auto-spawning only available in completely autonomous permission mode. Recipes can be triggered via slash commands (`/command-name` mapped in config). Model override supported via recipe `settings.goose_provider`/`settings.goose_model`.
+
+---
+
+### N. Kimi CLI
+
+**Docs:**
+
+- [Agents and Subagents](https://moonshotai.github.io/kimi-cli/en/customization/agents.html) (canonical; agent files, built-in agents, subagent types, tool inventory)
+- [Agent Skills](https://moonshotai.github.io/kimi-cli/en/customization/skills.html) (skill format, discovery hierarchy)
+- [Hooks](https://moonshotai.github.io/kimi-cli/en/customization/hooks.html) (`SubagentStart`/`SubagentStop` lifecycle hooks)
+- [kimi Command](https://moonshotai.github.io/kimi-cli/en/reference/kimi-command.html) (`--agent-file`, `--agent`, `--skills-dir` flags)
+
+**Format:** YAML agent files loaded via `--agent-file` flag. Custom agents define `version: 1` plus an `agent` object with name, system prompt path, tools, and optional subagent definitions. Subagents are defined as entries in the parent agent's YAML under the `subagents` key, each pointing to a separate agent YAML file via `path`. Agents can inherit from built-in agents (`extend: default`) or other files. System prompts are Markdown templates with variable interpolation.
+
+**File paths:**
+
+| Scope            | Path                                                                                                        | Notes                                   |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Main config      | `~/.kimi/config.toml`                                                                                       | TOML; override with `--config-file`     |
+| Agent file       | any path via `--agent-file`                                                                                 | YAML; mutually exclusive with `--agent` |
+| Built-in agents  | `--agent default` or `--agent okabe`                                                                        | CLI flag selection only                 |
+| Skills (user)    | `~/.kimi/skills/`, `~/.claude/skills/`, `~/.codex/skills/`, `~/.config/agents/skills/`, `~/.agents/skills/` | loaded automatically                    |
+| Skills (project) | `.kimi/skills/`, `.claude/skills/`, `.codex/skills/`, `.agents/skills/`                                     | loaded automatically                    |
+
+**Agent YAML fields:**
+
+| Field                      | Required               | Type     | Notes                                                      |
+| -------------------------- | ---------------------- | -------- | ---------------------------------------------------------- |
+| `version`                  | Yes                    | `1`      | schema version                                             |
+| `agent.name`               | Yes                    | string   | agent identifier                                           |
+| `agent.extend`             | No                     | string   | inherit from `"default"` or relative path                  |
+| `agent.system_prompt_path` | Yes (unless extending) | path     | Markdown template for system prompt                        |
+| `agent.system_prompt_args` | No                     | map      | custom template variables injected into prompt             |
+| `agent.tools`              | Yes (unless extending) | string[] | `module:ClassName` format                                  |
+| `agent.exclude_tools`      | No                     | string[] | tools to remove when extending                             |
+| `agent.subagents`          | No                     | map      | subagent definitions: `<name>.path` + `<name>.description` |
+
+**Built-in subagent types:**
+
+| Type      | Purpose                           | Tool access                                                                 |
+| --------- | --------------------------------- | --------------------------------------------------------------------------- |
+| `coder`   | software engineering (read/write) | Shell, ReadFile, Glob, Grep, WriteFile, StrReplaceFile, SearchWeb, FetchURL |
+| `explore` | read-only exploration             | ReadFile, Glob, Grep, SearchWeb, FetchURL                                   |
+| `plan`    | architecture design               | ReadFile, Glob, Grep, SearchWeb, FetchURL                                   |
+
+**Notable:** Subagents are not standalone Markdown files with frontmatter — they are defined as entries in the parent's YAML config, each referencing a separate agent YAML file. No `@name` syntax; subagents invoked exclusively by the model via the `Agent` tool. Recursion hard-blocked at depth 1. Background mode supported (`run_in_background: true` returns task ID immediately). `SubagentStart`/`SubagentStop` lifecycle hooks enable monitoring at subagent boundaries. Python tool module system (`module:ClassName`) for tool identity. Built-in agents: `default` (general-purpose) and `okabe` (experimental with `SendDMail` checkpoint rollback).
+
+---
+
+### O. OpenClaw
+
+**Docs:**
+
+- [Sub-agents](https://docs.openclaw.ai/tools/subagents) (canonical; spawning, tool policy, announce, slash commands)
+- [Configuration reference](https://docs.openclaw.ai/gateway/configuration-reference) (all `agents.defaults.subagents.*` fields)
+- [Multi-agent](https://docs.openclaw.ai/concepts/multi-agent) (session isolation, agent directories, auth resolution)
+- [ACP agents](https://docs.openclaw.ai/tools/acp-agents) (external harness runtime — Claude Code, Codex, Copilot, Cursor, Gemini CLI, and others via ACP)
+- [Configuration examples](https://docs.openclaw.ai/gateway/configuration-examples) (orchestrator pattern recipes)
+
+**Format:** JSON5 gateway configuration. Subagents are not standalone agent files; they are spawned sessions of agents configured in the gateway's `agents.list[]`. The `sessions_spawn` tool creates a delegated session at runtime.
+
+**File paths:**
+
+| Scope           | Path                                       | Notes                                                         |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| Gateway config  | `openclaw.config.json5`                    | `agents.defaults.subagents.*` and `agents.list[].subagents.*` |
+| Agent workspace | configured via `agents.defaults.workspace` | Bootstrap files: `AGENTS.md`, `TOOLS.md`                      |
+| Agent state     | `~/.openclaw/agents/<agentId>/`            | auth, sessions, per-agent config                              |
+
+**Gateway subagent config fields:**
+
+| Field                 | Required | Type          | Default         | Notes                                         |
+| --------------------- | -------- | ------------- | --------------- | --------------------------------------------- |
+| `model`               | No       | string        | inherits caller | `provider/model-id` format                    |
+| `thinking`            | No       | string        | inherits caller | thinking level override                       |
+| `runTimeoutSeconds`   | No       | number        | 0 (no timeout)  | fallback when `sessions_spawn` omits timeout  |
+| `maxSpawnDepth`       | No       | number (1–5)  | 1               | nesting depth; 2 enables orchestrator pattern |
+| `maxChildrenPerAgent` | No       | number (1–20) | 5               | active children cap per session               |
+| `maxConcurrent`       | No       | number        | 4               | global concurrency lane cap                   |
+| `archiveAfterMinutes` | No       | number        | 60              | auto-archive delay; best-effort               |
+| `allowAgents`         | No       | string[]      | same agent only | permitted spawn targets; `["*"]` allows any   |
+| `requireAgentId`      | No       | boolean       | false           | force explicit `agentId` in spawn calls       |
+
+**`sessions_spawn` tool parameters:**
+
+| Parameter           | Required | Type    | Default         | Notes                                   |
+| ------------------- | -------- | ------- | --------------- | --------------------------------------- |
+| `task`              | Yes      | string  | —               | the task to execute                     |
+| `label`             | No       | string  | —               | identifier for the run                  |
+| `agentId`           | No       | string  | same agent      | target agent (must be in `allowAgents`) |
+| `model`             | No       | string  | inherits config | model override                          |
+| `thinking`          | No       | string  | inherits config | thinking level override                 |
+| `runTimeoutSeconds` | No       | number  | config default  | abort after N seconds                   |
+| `mode`              | No       | string  | `"run"`         | `"run"` or `"session"`                  |
+| `cleanup`           | No       | string  | `"keep"`        | `"delete"` archives immediately         |
+| `thread`            | No       | boolean | false           | request channel thread binding          |
+| `sandbox`           | No       | string  | `"inherit"`     | `"inherit"` or `"require"`              |
+
+**Tool policy (`tools.subagents.tools`):**
+
+| Field   | Type     | Notes                                   |
+| ------- | -------- | --------------------------------------- |
+| `allow` | string[] | permitted tool names/groups (allowlist) |
+| `deny`  | string[] | blocked tool names/groups (deny wins)   |
+
+**Notable:** Server-side gateway architecture — no per-subagent config files; subagents are runtime-spawned sessions of configured agents. Always non-blocking (`sessions_spawn` returns run ID immediately). Configurable recursion up to depth 5 — unique among agents surveyed. Explicit invocation via `/subagents spawn` slash command; no auto-delegation. Context isolation is strict: only `AGENTS.md` + `TOOLS.md` injected; `SOUL.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `BOOTSTRAP.md` excluded. ACP harness mode delegates to 14+ external coding agents (Claude Code, Codex, Copilot, Cursor, Gemini CLI, and others). AXM's render-on-install model does not directly apply; would need gateway config mutation or override-only approach.

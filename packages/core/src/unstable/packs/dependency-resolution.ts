@@ -9,10 +9,14 @@ import type { RegistrySource } from "../sources/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackExtensionRef } from "./refs.js";
+import type { PackDependencyConstraintMap } from "./manifest-schema.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcp-servers/registry-ref-builder.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
+import {
+  decodeExactSemverVersionSync,
+  type VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
   readonly fqn: string;
@@ -74,7 +78,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   pack: PackExtensionRef,
   expectedType: T,
   fqn: string,
-  constraint: string,
+  constraint: VersionConstraint,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
@@ -87,7 +91,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
         skillNames: [parsed.name],
         type: expectedType,
         owner: Option.some(parsed.owner),
-        versionConstraint: Option.some(constraint),
+        versionConstraint: Option.some<string>(constraint),
       }),
     );
 
@@ -123,7 +127,7 @@ const toResolvedMap = <T extends ExtensionType>(
 
 const resolveDependencyGroup = <T extends ExtensionType>(
   pack: PackExtensionRef,
-  dependencies: Readonly<Record<string, string>>,
+  dependencies: PackDependencyConstraintMap,
   expectedType: T,
   sources: SourceHostProvidersService,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>

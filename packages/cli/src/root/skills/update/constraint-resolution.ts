@@ -10,7 +10,11 @@
  */
 
 import * as Option from "effect/Option";
-import { satisfiesConstraint } from "@axm.sh/core/unstable/version-constraints";
+import {
+  satisfiesConstraint,
+  unsafeExactSemverVersion,
+  unsafeVersionConstraint,
+} from "@axm.sh/core/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -79,7 +83,10 @@ export const resolveConstrainedVersion = (
 
   // Case 1: User has explicit constraint
   if (!isWildcard) {
-    const matched = versions.find((v) => satisfiesConstraint(v, userConstraintStr));
+    const userConstraint = unsafeVersionConstraint(userConstraintStr);
+    const matched = versions.find((v) =>
+      satisfiesConstraint(unsafeExactSemverVersion(v), userConstraint),
+    );
     if (matched === undefined) return Option.none();
     return Option.some({ resolvedVersion: matched, warnings: [] });
   }
@@ -93,7 +100,10 @@ export const resolveConstrainedVersion = (
   // Try each version (newest first) against all pack constraints
   for (const version of versions) {
     const allSatisfied = constraints.packConstraints.every((pc) =>
-      satisfiesConstraint(version, pc.constraint),
+      satisfiesConstraint(
+        unsafeExactSemverVersion(version),
+        unsafeVersionConstraint(pc.constraint),
+      ),
     );
     if (allSatisfied) {
       return Option.some({ resolvedVersion: version, warnings: [] });
@@ -102,7 +112,13 @@ export const resolveConstrainedVersion = (
 
   // No version satisfies all pack constraints — use newest, warn
   const warnings = constraints.packConstraints
-    .filter((pc) => !satisfiesConstraint(newest, pc.constraint))
+    .filter(
+      (pc) =>
+        !satisfiesConstraint(
+          unsafeExactSemverVersion(newest),
+          unsafeVersionConstraint(pc.constraint),
+        ),
+    )
     .map((pc) => `${skillName} held at ${newest} by pack "${pc.packName}" (${pc.constraint})`);
 
   return Option.some({ resolvedVersion: newest, warnings });
@@ -139,7 +155,13 @@ export const detectHoldbackWarnings = (
   if (constraints.packConstraints.length === 0) return [];
 
   return constraints.packConstraints
-    .filter((pc) => !satisfiesConstraint(latestVersion, pc.constraint))
+    .filter(
+      (pc) =>
+        !satisfiesConstraint(
+          unsafeExactSemverVersion(latestVersion),
+          unsafeVersionConstraint(pc.constraint),
+        ),
+    )
     .map(
       (pc) =>
         `${skillName} held at ${resolvedVersion} by pack "${pc.packName}" (${pc.constraint}), latest is ${latestVersion}`,

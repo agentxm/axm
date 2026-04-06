@@ -15,8 +15,6 @@ import {
   type InstallCommandHandlerArgs,
 } from "./command-actions.js";
 
-export type { InstallCommandHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm commands install` command.
  *

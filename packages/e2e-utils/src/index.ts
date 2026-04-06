@@ -15,7 +15,7 @@ export {
   isHumanInteractive,
   isInteractive,
   type InteractionEnvOptions,
-} from "./interaction.js";
+} from "@axm.sh/utils/unstable/interaction";
 export { createBinaryRunner, createCliRunner, runCommand } from "./runner.js";
 export { createTempDir } from "./temp-dir.js";
 export type { CliResult, RunCliOptions, TempDirContext } from "./types.js";

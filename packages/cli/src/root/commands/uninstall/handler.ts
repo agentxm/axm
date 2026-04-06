@@ -15,8 +15,6 @@ import {
   type UninstallCommandHandlerArgs,
 } from "./command-actions.js";
 
-export type { UninstallCommandHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm commands uninstall` command.
  *

@@ -93,7 +93,7 @@ describe("PackManifestSchema", () => {
       version: "1.0.0",
       skills: { "@wayne/grappling-hook": "^1.0.0" },
     };
-    expect(() => decode(input)).toThrow(/Expected a string matching the RegExp/);
+    expect(() => decode(input)).toThrow(/Expected fully qualified name/);
   });
 
   it("rejects manifest missing required fields", () => {

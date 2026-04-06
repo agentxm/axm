@@ -10,7 +10,7 @@
 import * as Schema from "effect/Schema";
 import * as SchemaGetter from "effect/SchemaGetter";
 import { FullyQualifiedNameSchema, HandleSchema } from "../extensions/index.js";
-import { ExactSemverVersionSchema } from "../version-constraints/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 
 // =============================================================================
 // Date Transform

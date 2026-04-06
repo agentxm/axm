@@ -25,7 +25,7 @@ import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import type { ExactSemverVersion } from "../version-constraints/index.js";
+import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -64,7 +64,7 @@ export interface GetExtensionPackageArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: string;
-  readonly version: Option.Option<string>;
+  readonly version: Option.Option<ExactSemverVersion>;
 }
 
 // -----------------------------------------------------------------------------

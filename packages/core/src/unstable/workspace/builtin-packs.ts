@@ -31,7 +31,7 @@ import type { PackManifest } from "../packs/manifest-schema.js";
 import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
-} from "../version-constraints/index.js";
+} from "../version-constraints/version-constraints.js";
 import { unsafeHandle } from "../extensions/handle.js";
 
 /**

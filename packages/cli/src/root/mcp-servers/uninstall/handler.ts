@@ -15,8 +15,6 @@ import {
   type UninstallMcpServerHandlerArgs,
 } from "./command-actions.js";
 
-export type { UninstallMcpServerHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm mcp-servers uninstall` command.
  *

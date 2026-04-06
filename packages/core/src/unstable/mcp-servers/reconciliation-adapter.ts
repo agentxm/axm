@@ -4,7 +4,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { type Handle } from "../extensions/handle.js";
+import { parseRegistrySourceRef } from "../extensions/registry-source.js";
+import {
+  unsafeVersionConstraint,
+  type VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -16,32 +21,30 @@ const parseRegistryMcpSource = (
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: string;
-  readonly constraint: string;
+  readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
     return Option.none();
   }
 
-  const match = /^(@[^/]+)\/mcp-servers\/([^@/]+)(?:@(.+))?$/.exec(source);
-  if (!match) {
+  const parsed = parseRegistrySourceRef(source);
+  if (parsed === undefined || parsed.type !== "mcp-servers") {
     return Option.none();
   }
 
-  const owner = match[1];
-  const name = match[2];
-  if (owner === undefined || name === undefined) {
+  try {
+    return Option.some({
+      owner: parsed.owner,
+      name: parsed.name,
+      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
+    });
+  } catch {
     return Option.none();
   }
-
-  return Option.some({
-    owner: unsafeHandle(owner),
-    name,
-    constraint: match[3] ?? "*",
-  });
 };
 
 export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
-  extensionType: "mcp-servers",
+  type: "mcp-servers",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
     const servers = context.settings.mcpServers ?? {};
@@ -49,7 +52,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
     for (const [name, source] of Object.entries(servers)) {
       const parsed = parseRegistryMcpSource(source);
       declarations.push({
-        extensionType: "mcp-servers",
+        type: "mcp-servers",
         owner: Option.match(parsed, {
           onNone: () => context.defaultProfile,
           onSome: (value) => value.owner,
@@ -167,7 +170,7 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
       return {
         _tag: "Compatible",
         reconstructed: {
-          extensionType: "mcp-servers",
+          type: "mcp-servers",
           name: declaration.name,
           entry: {
             type: "registry",

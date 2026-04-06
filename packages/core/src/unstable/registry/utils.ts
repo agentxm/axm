@@ -16,8 +16,8 @@ import * as Option from "effect/Option";
 
 import { makeAppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
-import { resolveVersionWithConstraint } from "../version-constraints/index.js";
-import type { ExtensionType } from "../extensions/index.js";
+import { resolveVersionWithConstraint } from "../version-constraints/version-constraints.js";
+import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -60,18 +60,7 @@ export const resolveVersionEntry = (
 // -----------------------------------------------------------------------------
 
 /** Pluralize extension type for directory segments. */
-export const pluralizeType = (type: ExtensionType): string => {
-  switch (type) {
-    case "skill":
-      return "skills";
-    case "command":
-      return "commands";
-    case "pack":
-      return "packs";
-    case "mcp-server":
-      return "mcp-servers";
-  }
-};
+export const pluralizeType = (type: ExtensionType): string => toExtensionTypePlural(type);
 
 // -----------------------------------------------------------------------------
 // Extension Directory

@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { type Handle } from "../extensions/handle.js";
+import { parseRegistrySourceRef } from "../extensions/registry-source.js";
+import {
+  unsafeVersionConstraint,
+  type VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 import { readAndDecodeManifest } from "../extensions/index.js";
 import { SkillManifestSchema, MANIFEST_FILENAME, type SkillManifest } from "./manifest-schema.js";
 import { computeSkillPaths } from "./paths.js";
@@ -16,28 +21,26 @@ const parseRegistrySkillSource = (
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: string;
-  readonly constraint: string;
+  readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
     return Option.none();
   }
 
-  const match = /^(@[^/]+)\/skills\/([^@/]+)(?:@(.+))?$/.exec(source);
-  if (!match) {
+  const parsed = parseRegistrySourceRef(source);
+  if (parsed === undefined || parsed.type !== "skills") {
     return Option.none();
   }
 
-  const owner = match[1];
-  const name = match[2];
-  if (owner === undefined || name === undefined) {
+  try {
+    return Option.some({
+      owner: parsed.owner,
+      name: parsed.name,
+      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
+    });
+  } catch {
     return Option.none();
   }
-
-  return Option.some({
-    owner: unsafeHandle(owner),
-    name,
-    constraint: match[3] ?? "*",
-  });
 };
 
 const toSkillSource = (
@@ -45,7 +48,7 @@ const toSkillSource = (
 ): string => (typeof entry === "string" ? entry : entry.source);
 
 export const skillReconciliationAdapter: ReconciliationAdapter = {
-  extensionType: "skills",
+  type: "skills",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
 
@@ -55,7 +58,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       const parsed = parseRegistrySkillSource(source);
 
       declarations.push({
-        extensionType: "skills",
+        type: "skills",
         owner: Option.match(parsed, {
           onNone: () => context.defaultProfile,
           onSome: (value) => value.owner,
@@ -133,7 +136,7 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       return {
         _tag: "Compatible",
         reconstructed: {
-          extensionType: "skills",
+          type: "skills",
           name: declaration.name,
           entry: {
             type: "registry",

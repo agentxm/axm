@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import * as semver from "semver";
 
-import type { InstallMethodType } from "../install-method/index.js";
+import type { InstallMethodType } from "../install-method/install-method.js";
 import { resolveAxmDataDir } from "../utils/index.js";
 
 // -----------------------------------------------------------------------------

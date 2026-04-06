@@ -15,7 +15,7 @@ export type ReconcileExtensionType = "skills" | "commands" | "mcp-servers" | "pa
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 
 export interface ReconciliationDeclaration {
-  readonly extensionType: ReconcileExtensionType;
+  readonly type: ReconcileExtensionType;
   readonly owner: Handle;
   readonly name: string;
   readonly declarationSourceOrConstraint: string;
@@ -46,22 +46,22 @@ export interface AdapterEnvironment {
 
 export type ReconstructedLockEntry =
   | {
-      readonly extensionType: "skills";
+      readonly type: "skills";
       readonly name: string;
       readonly entry: SkillLockEntry;
     }
   | {
-      readonly extensionType: "commands";
+      readonly type: "commands";
       readonly name: string;
       readonly entry: CommandLockEntry;
     }
   | {
-      readonly extensionType: "mcp-servers";
+      readonly type: "mcp-servers";
       readonly name: string;
       readonly entry: McpServerLockEntry;
     }
   | {
-      readonly extensionType: "packs";
+      readonly type: "packs";
       readonly name: string;
       readonly entry: PackLockEntry;
     };
@@ -83,7 +83,7 @@ export interface DeclarationScanResult {
 }
 
 export interface ReconciliationAdapter {
-  readonly extensionType: ReconcileExtensionType;
+  readonly type: ReconcileExtensionType;
   readonly scanDeclarations: (
     context: ReconciliationContext,
     env: AdapterEnvironment,

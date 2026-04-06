@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { ExactSemverVersionSchema } from "../version-constraints/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 import type { ResolvedExtensionMap } from "./schema.js";
 
 const decodeExactSemverVersion = Schema.decodeUnknownEffect(ExactSemverVersionSchema);

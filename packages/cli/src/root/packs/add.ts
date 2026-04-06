@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { formatFqn, normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import { formatFqn, normalizeHandle, unsafeExtensionName } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
 import { addToPack } from "@axm.sh/core/unstable/packs";
@@ -193,7 +193,11 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;
 
-    const fqn = formatFqn({ owner: lockEntry.owner, type: "skills", name: lockEntry.name });
+    const fqn = formatFqn({
+      owner: lockEntry.owner,
+      type: "skills",
+      name: unsafeExtensionName(lockEntry.name),
+    });
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)

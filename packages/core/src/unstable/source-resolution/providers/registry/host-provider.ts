@@ -39,7 +39,7 @@ import type {
   RegistrySourceHost,
 } from "../../../sources/index.js";
 import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
-import type { ExactSemverVersion } from "../../../version-constraints/index.js";
+import type { ExactSemverVersion } from "../../../version-constraints/version-constraints.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
@@ -51,6 +51,17 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
     metadata: VersionEntry,
   ) => Effect.Effect<void, AppError, R>;
 };
+
+type RegistryManagedExtensionType = Extract<
+  ExtensionType,
+  "skill" | "command" | "mcp-server" | "pack"
+>;
+
+const registryManagedExtensionTypes = new Set<string>(["skill", "command", "mcp-server", "pack"]);
+
+const isRegistryManagedExtensionType = (
+  type: ExtensionType,
+): type is RegistryManagedExtensionType => registryManagedExtensionTypes.has(type);
 
 // -----------------------------------------------------------------------------
 // Type Mapping Helpers
@@ -81,6 +92,12 @@ const authorToMetadata = (author: Author): Record<string, string> => ({
   ...(Option.isSome(author.email) && { email: author.email.value }),
   ...(Option.isSome(author.url) && { url: author.url.value }),
 });
+
+const getSupportedExtensionRefs = (
+  entries: ReadonlyArray<RegistryExtensionManifest>,
+  source: RegistrySource,
+): ReadonlyArray<ExtensionRef> =>
+  Array.getSomes(entries.map((entry) => toExtensionRef(entry, source)));
 
 const manifestFromIndex = (
   index: ExtensionIndex,
@@ -145,7 +162,7 @@ const findWithVersionConstraint = (
             { concurrency: "unbounded" },
           );
 
-          return Array.getSomes(resolved).map((entry) => toExtensionRef(entry, source));
+          return getSupportedExtensionRefs(Array.getSomes(resolved), source);
         }
 
         const resolved = yield* Effect.forEach(
@@ -170,7 +187,7 @@ const findWithVersionConstraint = (
         return resolved.flat().flatMap((entry) =>
           Option.match(entry, {
             onNone: () => [],
-            onSome: (manifest) => [toExtensionRef(manifest, source)],
+            onSome: (manifest) => getSupportedExtensionRefs([manifest], source),
           }),
         );
       }),
@@ -178,7 +195,14 @@ const findWithVersionConstraint = (
   ).pipe(Effect.map((results) => results.flat()));
 
 /** Map RegistryExtensionManifest to ExtensionRef, stamped with the source. */
-const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource): ExtensionRef => {
+const toExtensionRef = (
+  entry: RegistryExtensionManifest,
+  source: RegistrySource,
+): Option.Option<ExtensionRef> => {
+  if (!isRegistryManagedExtensionType(entry.type)) {
+    return Option.none();
+  }
+
   const repository = Option.getOrUndefined(entry.repository);
   const license = Option.getOrUndefined(entry.license);
   const authors = entry.authors.map((author) => authorToMetadata(author));
@@ -199,7 +223,7 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
 
   switch (entry.type) {
     case "skill":
-      return {
+      return Option.some({
         type: "skill",
         refType: "registry" as const,
         skill: {
@@ -210,23 +234,23 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
         },
         source,
         ...details,
-      };
+      });
     case "mcp-server":
-      return {
+      return Option.some({
         type: "mcp-server",
         refType: "registry" as const,
         server: { name: entry.name },
         source,
         ...details,
-      };
+      });
     case "command":
-      return {
+      return Option.some({
         type: "command",
         refType: "registry" as const,
         command: { name: entry.name },
         source,
         ...details,
-      };
+      });
     case "pack": {
       const skills: Record<string, ExtensionDependencyConstraintMap[string]> = {};
       const commands: Record<string, ExtensionDependencyConstraintMap[string]> = {};
@@ -236,13 +260,13 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
         else if (key.includes("/commands/")) commands[key] = version;
         else if (key.includes("/mcp-servers/")) mcpServers[key] = version;
       }
-      return {
+      return Option.some({
         type: "pack",
         refType: "registry" as const,
         pack: { name: entry.name, skills, commands, mcpServers },
         source,
         ...details,
-      };
+      });
     }
   }
 };
@@ -358,7 +382,7 @@ export const createLocalRegistrySourceHostProvider = (
             const result = yield* client.getExtensionsByScope(
               toRegistrySearchOptions(owner, options),
             );
-            return result.extensions.map((entry) => toExtensionRef(entry, source));
+            return getSupportedExtensionRefs(result.extensions, source);
           }),
         { concurrency: "unbounded" },
       );
@@ -405,7 +429,7 @@ export const createRemoteRegistrySourceHostProvider = (
       const searchOptions =
         owner === "*" ? toSearchOptions("*", options) : toRegistrySearchOptions(owner, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
-      return result.extensions.map((entry) => toExtensionRef(entry, source));
+      return getSupportedExtensionRefs(result.extensions, source);
     }),
 
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),

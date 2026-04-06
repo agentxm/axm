@@ -15,8 +15,6 @@ import {
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
 
-export type { InstallMcpServerHandlerArgs } from "./command-actions.js";
-
 /**
  * Handles the `axm mcp-servers install` command.
  *

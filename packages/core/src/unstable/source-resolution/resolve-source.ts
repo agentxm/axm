@@ -34,8 +34,13 @@ import type {
 } from "../sources/index.js";
 import { createRegistryClient } from "../registry/index.js";
 import { type Handle, unsafeHandle } from "../extensions/handle.js";
-import type { ExtensionType } from "../extensions/index.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/index.js";
+import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+  isExtensionTypePlural,
+  toExtensionType,
+} from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -401,9 +406,9 @@ export const routeNameInput = (
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 export const routeRegistryInput = (
   pattern: {
-    readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
+    readonly type: Option.Option<ExtensionTypePlural>;
     readonly owner: Handle;
-    readonly name: Option.Option<string>;
+    readonly name: Option.Option<ExtensionName>;
   },
   input: string,
 ) =>
@@ -449,16 +454,11 @@ export const routeRegistryInput = (
  * shorthand, try each provider in config order. First success wins.
  */
 const registryExtensionTypeFromSegment = (segment: string): Option.Option<ExtensionType> => {
-  switch (segment) {
-    case "skills":
-      return Option.some("skill");
-    case "mcp-servers":
-      return Option.some("mcp-server");
-    case "packs":
-      return Option.some("pack");
-    default:
-      return Option.none();
+  if (!isExtensionTypePlural(segment)) {
+    return Option.none();
   }
+
+  return Option.some(toExtensionType(segment));
 };
 
 export const resolveSlashInputSource = (
@@ -475,8 +475,8 @@ export const resolveSlashInputSource = (
     const shorthandBody = `${pattern.first}/${pattern.second}`;
 
     if (Option.isSome(pattern.third)) {
-      const extensionType = registryExtensionTypeFromSegment(pattern.second);
-      if (Option.isSome(extensionType)) {
+      const type = registryExtensionTypeFromSegment(pattern.second);
+      if (Option.isSome(type)) {
         const ws = yield* Workspace;
         const owner = pattern.first.startsWith("@") ? unsafeHandle(pattern.first) : undefined;
         const extensionName = pattern.third.value;
@@ -494,7 +494,7 @@ export const resolveSlashInputSource = (
           for (const regSource of registrySources) {
             const client = yield* createRegistryClient(regSource.location.href);
             const exists = yield* client
-              .extensionExists({ owner, type: extensionType.value, name: extensionName })
+              .extensionExists({ owner, type: type.value, name: extensionName })
               .pipe(Effect.orElseSucceed(() => false));
             if (exists) {
               return {

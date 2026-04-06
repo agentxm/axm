@@ -11,7 +11,7 @@ const makeDeclaredIdentity = (
   overrides?: Partial<DeclaredPublishIdentity>,
 ): DeclaredPublishIdentity => ({
   owner: "@acme",
-  extensionType: "skill",
+  type: "skill",
   name: "code-review",
   version: "1.0.0",
   ...overrides,
@@ -122,13 +122,13 @@ describe("normalizePublishInput", () => {
 
       const result = yield* normalizePublishInput({
         declaredIdentity: makeDeclaredIdentity({
-          extensionType: "pack",
+          type: "pack",
           name: "my-pack",
         }),
         archive: makeBody(zip),
       });
 
-      expect(result.extensionType).toBe("pack");
+      expect(result.type).toBe("pack");
     }),
   );
 });

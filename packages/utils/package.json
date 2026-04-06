@@ -15,8 +15,8 @@
       "default": "./dist/src/unstable/env/index.js"
     },
     "./unstable/interaction": {
-      "types": "./src/unstable/interaction/index.ts",
-      "default": "./dist/src/unstable/interaction/index.js"
+      "types": "./src/unstable/interaction/interaction.ts",
+      "default": "./dist/src/unstable/interaction/interaction.js"
     }
   },
   "files": [

@@ -189,7 +189,7 @@ export const SkillManagerLive = Layer.effect(
       });
 
     return {
-      extensionType: "skill",
+      type: "skill",
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {

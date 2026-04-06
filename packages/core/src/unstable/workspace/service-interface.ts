@@ -127,7 +127,7 @@ export type ExtensionTargetFor<TRef extends ExtensionRef> = Extract<
  * All methods have `R = never` — dependencies are captured during construction.
  */
 export interface ExtensionManager<TRef extends ExtensionRef> {
-  readonly extensionType: TRef["type"];
+  readonly type: TRef["type"];
   readonly isInstalled: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<boolean, AppError, never>;

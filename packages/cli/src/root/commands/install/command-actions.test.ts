@@ -30,7 +30,7 @@ const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
 });
 
 const mockCommandManager = {
-  extensionType: "command",
+  type: "command",
   isInstalled: vi.fn(() => Effect.succeed(true)),
   materializeInstall: vi.fn(),
   materializeUninstall: vi.fn(),

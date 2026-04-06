@@ -17,9 +17,15 @@ describe("registry guard", () => {
   describe("fork command with built-in registry", () => {
     it("succeeds in non-interactive mode using the built-in registry source", async () => {
       const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace without explicit registry source
         await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.profile = "@test";
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill first (so fork has something to work with)
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
@@ -29,12 +35,19 @@ describe("registry guard", () => {
         // Fork should succeed because the built-in registry source is always present
         const forkResult = await runCli(
           ["skills", "fork", "my-skill", "--yes", "--non-interactive"],
-          { cwd: temp.path },
+          {
+            cwd: temp.path,
+            env: {
+              AXM_REGISTRY_URL: `file://${registryDir.path}`,
+              AXM_TOKEN: "e2e-test-token",
+            },
+          },
         );
 
         expect(forkResult.exitCode).toBe(0);
       } finally {
         temp.cleanup();
+        registryDir.cleanup();
       }
     });
   });

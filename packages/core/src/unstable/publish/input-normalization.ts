@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { inflateRawSync } from "node:zlib";
-import type { ExtensionType } from "../extensions/index.js";
+import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import {
   ArchiveGuardrailError,
@@ -21,12 +21,13 @@ import {
   resolveManifest,
   validateDeclaredManifestAlignment,
 } from "./manifest-policy.js";
+import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 
 export interface DeclaredPublishIdentity {
   readonly owner: Handle;
-  readonly extensionType: ExtensionType;
-  readonly name: string;
-  readonly version: string;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
 }
 
 export interface PublishArchiveInput {
@@ -48,9 +49,9 @@ export interface NormalizePublishInputArgs {
 
 export interface PublishInput {
   readonly owner: Handle;
-  readonly extensionType: ExtensionType;
-  readonly name: string;
-  readonly version: string;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
   readonly archiveBytes: Uint8Array;
   readonly archiveContentType: string;
   readonly manifest: ResolvedManifest;
@@ -137,7 +138,7 @@ export const normalizePublishInput = (
     const entries = yield* validateArchive(archive.archiveBytes, guardrailLimits);
 
     const manifest = yield* resolveManifest({
-      extensionType: declaredIdentity.extensionType,
+      type: declaredIdentity.type,
       entries,
       readEntry: (fileName) => {
         const entry = entries.find((candidate) => candidate.fileName === fileName);
@@ -158,7 +159,7 @@ export const normalizePublishInput = (
 
     return {
       owner: declaredIdentity.owner,
-      extensionType: declaredIdentity.extensionType,
+      type: declaredIdentity.type,
       name: declaredIdentity.name,
       version: declaredIdentity.version,
       archiveBytes: archive.archiveBytes,

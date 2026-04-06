@@ -19,8 +19,8 @@
       "default": "./dist/src/unstable/cli-prompt/prompt-cancelled.js"
     },
     "./unstable/version-constraints": {
-      "types": "./src/unstable/version-constraints/index.ts",
-      "default": "./dist/src/unstable/version-constraints/index.js"
+      "types": "./src/unstable/version-constraints/version-constraints.ts",
+      "default": "./dist/src/unstable/version-constraints/version-constraints.js"
     },
     "./unstable/utils": {
       "types": "./src/unstable/utils/index.ts",
@@ -113,20 +113,20 @@
     "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
     "./unstable/site-content/*": "./site-content/*",
     "./unstable/install-method": {
-      "types": "./src/unstable/install-method/index.ts",
-      "default": "./dist/src/unstable/install-method/index.js"
+      "types": "./src/unstable/install-method/install-method.ts",
+      "default": "./dist/src/unstable/install-method/install-method.js"
     },
     "./unstable/install-meta": {
-      "types": "./src/unstable/install-meta/index.ts",
-      "default": "./dist/src/unstable/install-meta/index.js"
+      "types": "./src/unstable/install-meta/install-meta.ts",
+      "default": "./dist/src/unstable/install-meta/install-meta.js"
     },
     "./unstable/update-check": {
-      "types": "./src/unstable/update-check/index.ts",
-      "default": "./dist/src/unstable/update-check/index.js"
+      "types": "./src/unstable/update-check/update-check.ts",
+      "default": "./dist/src/unstable/update-check/update-check.js"
     },
     "./unstable/version-resolution": {
-      "types": "./src/unstable/version-resolution/index.ts",
-      "default": "./dist/src/unstable/version-resolution/index.js"
+      "types": "./src/unstable/version-resolution/version-resolution.ts",
+      "default": "./dist/src/unstable/version-resolution/version-resolution.js"
     }
   },
   "files": [

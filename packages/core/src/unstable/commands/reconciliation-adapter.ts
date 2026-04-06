@@ -4,7 +4,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { type Handle } from "../extensions/handle.js";
+import { parseRegistrySourceRef } from "../extensions/registry-source.js";
+import {
+  unsafeVersionConstraint,
+  type VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -16,32 +21,30 @@ const parseRegistryCommandSource = (
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: string;
-  readonly constraint: string;
+  readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
     return Option.none();
   }
 
-  const match = /^(@[^/]+)\/commands\/([^@/]+)(?:@(.+))?$/.exec(source);
-  if (!match) {
+  const parsed = parseRegistrySourceRef(source);
+  if (parsed === undefined || parsed.type !== "commands") {
     return Option.none();
   }
 
-  const owner = match[1];
-  const name = match[2];
-  if (owner === undefined || name === undefined) {
+  try {
+    return Option.some({
+      owner: parsed.owner,
+      name: parsed.name,
+      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
+    });
+  } catch {
     return Option.none();
   }
-
-  return Option.some({
-    owner: unsafeHandle(owner),
-    name,
-    constraint: match[3] ?? "*",
-  });
 };
 
 export const commandReconciliationAdapter: ReconciliationAdapter = {
-  extensionType: "commands",
+  type: "commands",
   scanDeclarations: (context) => {
     const declarations: ReconciliationDeclaration[] = [];
     const commands = context.settings.commands ?? {};
@@ -49,7 +52,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
     for (const [name, source] of Object.entries(commands)) {
       const parsed = parseRegistryCommandSource(source);
       declarations.push({
-        extensionType: "commands",
+        type: "commands",
         owner: Option.match(parsed, {
           onNone: () => context.defaultProfile,
           onSome: (value) => value.owner,
@@ -167,7 +170,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
       return {
         _tag: "Compatible",
         reconstructed: {
-          extensionType: "commands",
+          type: "commands",
           name: declaration.name,
           entry: {
             type: "registry",

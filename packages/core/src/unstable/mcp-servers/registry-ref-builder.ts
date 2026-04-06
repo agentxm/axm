@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import { parseFqnOrThrow } from "../extensions/index.js";
 import type { RegistryMcpServerRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
-import type { ExactSemverVersion } from "../version-constraints/index.js";
+import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 
 export const buildRegistryMcpServerRef = (
   fqn: string,

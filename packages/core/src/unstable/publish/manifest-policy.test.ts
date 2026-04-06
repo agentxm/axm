@@ -57,7 +57,7 @@ describe("resolveManifest", () => {
       });
 
       const resolved = yield* resolveManifest({
-        extensionType: "skill",
+        type: "skill",
         entries: [makeEntry("axm-skill.json"), makeEntry("index.js")],
         readEntry: makeReadEntry({ "axm-skill.json": manifest }),
       });
@@ -78,7 +78,7 @@ describe("resolveManifest", () => {
       });
 
       const resolved = yield* resolveManifest({
-        extensionType: "pack",
+        type: "pack",
         entries: [makeEntry("axm-pack.json")],
         readEntry: makeReadEntry({ "axm-pack.json": manifest }),
       });
@@ -91,7 +91,7 @@ describe("resolveManifest", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         resolveManifest({
-          extensionType: "skill",
+          type: "skill",
           entries: [makeEntry("index.js")],
           readEntry: makeReadEntry({}),
         }),
@@ -110,7 +110,7 @@ describe("validateDeclaredManifestAlignment", () => {
     const result = validateDeclaredManifestAlignment(
       {
         owner: "@acme",
-        extensionType: "skill",
+        type: "skill",
         name: "code-review",
         version: "1.0.0",
       },
@@ -129,7 +129,7 @@ describe("validateDeclaredManifestAlignment", () => {
     const result = validateDeclaredManifestAlignment(
       {
         owner: "@acme",
-        extensionType: "skill",
+        type: "skill",
         name: "code-review",
         version: "1.0.0",
       },

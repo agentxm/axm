@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { formatFqn, normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import { formatFqn, normalizeHandle, unsafeExtensionName } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/packs";
 import type { NewPackOperation } from "@axm.sh/core/unstable/packs";
 import { newPack } from "@axm.sh/core/unstable/packs";
@@ -79,7 +79,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = formatFqn({ owner, type: "packs", name: args.name });
+  const fqn = formatFqn({ owner, type: "packs", name: unsafeExtensionName(args.name) });
   const base = ws.baseDir;
 
   // Check if pack already exists

@@ -14,7 +14,7 @@ import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 import type { RefType, Source } from "../sources/types.js";
 import type { ExtensionDependencyConstraintMap } from "./common.js";
-import type { ExactSemverVersion } from "../version-constraints/index.js";
+import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 import type { Handle } from "./handle.js";
 
 // -----------------------------------------------------------------------------

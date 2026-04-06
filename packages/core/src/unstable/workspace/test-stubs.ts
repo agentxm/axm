@@ -39,7 +39,7 @@ import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
-} from "../version-constraints/index.js";
+} from "../version-constraints/version-constraints.js";
 import type * as Record from "effect/Record";
 
 type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;

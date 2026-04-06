@@ -30,7 +30,7 @@ const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
 });
 
 const mockMcpServerManager = {
-  extensionType: "mcp-server",
+  type: "mcp-server",
   isInstalled: vi.fn(() => Effect.succeed(true)),
   materializeInstall: vi.fn(),
   materializeUninstall: vi.fn(),

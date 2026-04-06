@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { Homebrew, Npm, Script, Unknown } from "../install-method/index.js";
+import { Homebrew, Npm, Script, Unknown } from "../install-method/install-method.js";
 
 import {
   type SkipCheckContext,

@@ -10,7 +10,9 @@
  */
 
 import * as Option from "effect/Option";
-import { HANDLE_PATTERN, type Handle, unsafeHandle } from "../extensions/handle.js";
+import type { VersionConstraint } from "../version-constraints/version-constraints.js";
+import type { ExtensionName, ExtensionTypePlural, Handle } from "../extensions/index.js";
+import { parseRegistrySourcePatternParts } from "../extensions/registry-source.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -25,10 +27,10 @@ type NameInput = { readonly pattern: "name-input"; readonly name: string };
 /** A namespaced registry source: `@owner/(skills|commands|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
-  readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
+  readonly type: Option.Option<ExtensionTypePlural>;
   readonly owner: Handle;
-  readonly name: Option.Option<string>;
-  readonly versionConstraint: Option.Option<string>;
+  readonly name: Option.Option<ExtensionName>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 };
 
 /** A valid URL (validated via `Schema.URL`). */
@@ -96,23 +98,6 @@ const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
  */
 export const parseInputPattern = (input: string): Option.Option<InputParseResult> => {
   const wrap = (pattern: InputPattern): InputParseResult => ({ pattern, originalInput: input });
-  const parseNameAndConstraint = (
-    raw: string,
-  ): Option.Option<{
-    readonly name: Option.Option<string>;
-    readonly versionConstraint: Option.Option<string>;
-  }> => {
-    const atIndex = raw.indexOf("@");
-    if (atIndex === 0) return Option.none();
-    if (atIndex > 0) {
-      return Option.some({
-        name: Option.some(raw.slice(0, atIndex)),
-        versionConstraint: Option.some(raw.slice(atIndex + 1)),
-      });
-    }
-    return Option.some({ name: Option.some(raw), versionConstraint: Option.none() });
-  };
-
   // 1. SCP-style git address (user@host:path) — must check before URL
   const scpMatch = input.match(SCP_PATTERN);
   if (scpMatch && scpMatch[1] && scpMatch[2] && scpMatch[3]) {
@@ -159,66 +144,17 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   //    - @owner/{type}
   //    - @owner/{type}/{name}@constraint
   if (input.startsWith("@")) {
-    const segments = input.split("/");
-    const owner = segments.at(0);
-    if (owner !== undefined && HANDLE_PATTERN.test(owner)) {
-      const handle = unsafeHandle(owner);
-      if (segments.length === 1) {
-        return Option.some(
-          wrap({
-            pattern: "registry-pattern-input",
-            type: Option.none(),
-            owner: handle,
-            name: Option.none(),
-            versionConstraint: Option.none(),
-          }),
-        );
-      }
-
-      if (segments.length === 2) {
-        const second = segments.at(1);
-        if (
-          second === "skills" ||
-          second === "commands" ||
-          second === "mcp-servers" ||
-          second === "packs"
-        ) {
-          return Option.some(
-            wrap({
-              pattern: "registry-pattern-input",
-              type: Option.some(second),
-              owner: handle,
-              name: Option.none(),
-              versionConstraint: Option.none(),
-            }),
-          );
-        }
-      }
-
-      if (segments.length === 3) {
-        const second = segments.at(1);
-        const third = segments.at(2);
-        if (
-          third !== undefined &&
-          (second === "skills" ||
-            second === "commands" ||
-            second === "mcp-servers" ||
-            second === "packs")
-        ) {
-          const parsedName = parseNameAndConstraint(third);
-          if (Option.isSome(parsedName)) {
-            return Option.some(
-              wrap({
-                pattern: "registry-pattern-input",
-                type: Option.some(second),
-                owner: handle,
-                name: parsedName.value.name,
-                versionConstraint: parsedName.value.versionConstraint,
-              }),
-            );
-          }
-        }
-      }
+    const parsed = parseRegistrySourcePatternParts(input);
+    if (parsed !== undefined) {
+      return Option.some(
+        wrap({
+          pattern: "registry-pattern-input",
+          type: Option.fromUndefinedOr(parsed.type),
+          owner: parsed.owner,
+          name: Option.fromUndefinedOr(parsed.name),
+          versionConstraint: Option.fromUndefinedOr(parsed.versionConstraint),
+        }),
+      );
     }
   }
 

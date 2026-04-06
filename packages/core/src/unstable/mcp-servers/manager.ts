@@ -22,7 +22,7 @@ import { Workspace } from "../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
+import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -227,7 +227,7 @@ export const McpServerManagerLive = Layer.effect(
       }, Effect.asVoid);
 
     return {
-      extensionType: "mcp-server",
+      type: "mcp-server",
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {

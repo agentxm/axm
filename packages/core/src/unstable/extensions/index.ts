@@ -10,20 +10,49 @@ export {
   AgentIdSchema,
   AuthorSchema,
   CommonManifestFields,
+  EXTENSION_NAME_PATTERN,
+  ExtensionNameSchema,
+  ExtensionTypePluralSchema,
   ExtensionDependencyConstraintMapSchema,
   ExtensionTypeSchema,
   FQN_PATTERN,
+  FullyQualifiedNamePartsSchema,
   FullyQualifiedNameSchema,
-  MANIFEST_NAME_PATTERN,
   MANIFEST_HANDLE_PATTERN,
-  ManifestNameSchema,
   ManifestHandleSchema,
+  extensionTypeFromPlural,
+  extensionTypeLabels,
+  extensionTypePluralSegments,
+  extensionTypePluralLabels,
+  extensionTypeToPlural,
+  extensionTypes,
+  isExtensionType,
+  isExtensionTypePlural,
+  toExtensionType,
+  toExtensionTypePlural,
   toAuthor,
+  unsafeExtensionName,
   type Author,
+  type ExtensionName,
   type ExtensionDependencyConstraintMap,
+  type FullyQualifiedNameParts,
   type ExtensionType,
+  type ExtensionTypePlural,
   type FullyQualifiedName,
 } from "./common.js";
+
+export {
+  RegistrySourcePatternPartsSchema,
+  RegistrySourcePatternSchema,
+  RegistrySourceRefPartsSchema,
+  RegistrySourceRefSchema,
+  formatRegistrySourcePatternParts,
+  formatRegistrySourceRef,
+  parseRegistrySourcePatternParts,
+  parseRegistrySourceRef,
+  type RegistrySourcePatternParts,
+  type RegistrySourceRefParts,
+} from "./registry-source.js";
 
 export {
   HANDLE_PATTERN,
@@ -43,7 +72,7 @@ export {
 } from "./handle.js";
 
 // FQN parsing
-export type { ExtensionTypePlural, Fqn } from "./fqn.js";
+export type { Fqn } from "./fqn.js";
 export { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 
 // Constants

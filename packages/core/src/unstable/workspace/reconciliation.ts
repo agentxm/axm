@@ -48,10 +48,10 @@ const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
-  `${declaration.extensionType}:${declaration.owner}:${declaration.name}:${declaration.declarationSourceOrConstraint}`;
+  `${declaration.type}:${declaration.owner}:${declaration.name}:${declaration.declarationSourceOrConstraint}`;
 
 const dedupeConflictKey = (declaration: ReconciliationDeclaration): string =>
-  `${declaration.extensionType}:${declaration.owner}:${declaration.name}`;
+  `${declaration.type}:${declaration.owner}:${declaration.name}`;
 
 export interface ReconciliationSnapshot {
   readonly lockfile: Lockfile;
@@ -75,7 +75,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
 
     const reconstructed = result.reconstructed;
 
-    switch (reconstructed.extensionType) {
+    switch (reconstructed.type) {
       case "skills":
         skills[reconstructed.name] = reconstructed.entry;
         break;
@@ -111,7 +111,7 @@ export const dedupeDeclarations = (
   const warnings: string[] = [];
 
   const ordered = [...declarations].sort((a, b) => {
-    const byType = reconcileTypeOrder[a.extensionType] - reconcileTypeOrder[b.extensionType];
+    const byType = reconcileTypeOrder[a.type] - reconcileTypeOrder[b.type];
     if (byType !== 0) {
       return byType;
     }
@@ -174,14 +174,12 @@ export const buildReconciliationSnapshot = (
     const checked = yield* Effect.forEach(
       deduped.declarations,
       (declaration) => {
-        const adapter = adapters.find(
-          (candidate) => candidate.extensionType === declaration.extensionType,
-        );
+        const adapter = adapters.find((candidate) => candidate.type === declaration.type);
         if (adapter === undefined) {
           return Effect.fail(
             makeAppError({
               code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
-              what: `No reconciliation adapter for ${declaration.extensionType}`,
+              what: `No reconciliation adapter for ${declaration.type}`,
             }),
           );
         }
@@ -205,7 +203,7 @@ export const buildReconciliationSnapshot = (
 const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<string> =>
   snapshot.unresolved.map(
     ({ declaration, reason }) =>
-      `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
+      `${declaration.type}:${declaration.owner}/${declaration.name} (${reason})`,
   );
 
 export const runReadRecoverOperation = (

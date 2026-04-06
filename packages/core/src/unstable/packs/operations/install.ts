@@ -18,7 +18,7 @@ import {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,
 } from "../../lockfile/index.js";
-import type { ExactSemverVersion } from "../../version-constraints/index.js";
+import type { ExactSemverVersion } from "../../version-constraints/version-constraints.js";
 import type { PackExtensionRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";

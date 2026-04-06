@@ -5,9 +5,11 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import { CommandManifestSchema, COMMAND_MANIFEST_FILENAME } from "../commands/manifest-schema.js";
 import {
+  ExtensionNameSchema,
   ManifestHandleSchema,
-  ManifestNameSchema,
   ExtensionTypeSchema,
+  type ExtensionName,
+  type ExtensionType,
 } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
 import {
@@ -19,7 +21,10 @@ import {
   SkillManifestSchema,
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
 } from "../skills/manifest-schema.js";
-import { ExactSemverVersionSchema } from "../version-constraints/index.js";
+import {
+  ExactSemverVersionSchema,
+  type ExactSemverVersion,
+} from "../version-constraints/version-constraints.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 
 export class ManifestError extends Data.TaggedError("ManifestError")<{
@@ -33,8 +38,8 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
   readonly details?: unknown;
 }> {}
 
-export const manifestFilenameForType = (extensionType: string): string | undefined => {
-  switch (extensionType) {
+export const manifestFilenameForType = (type: string): string | undefined => {
+  switch (type) {
     case "skill":
       return SKILL_MANIFEST_FILENAME;
     case "command":
@@ -51,14 +56,14 @@ export const manifestFilenameForType = (extensionType: string): string | undefin
 export const ManifestIdentitySchema = Schema.Struct({
   owner: ManifestHandleSchema,
   type: ExtensionTypeSchema,
-  name: ManifestNameSchema,
+  name: ExtensionNameSchema,
   version: ExactSemverVersionSchema,
 });
 
 export type ManifestIdentity = Schema.Schema.Type<typeof ManifestIdentitySchema>;
 
-export const manifestSchemaForType = (extensionType: string) => {
-  switch (extensionType) {
+export const manifestSchemaForType = (type: string) => {
+  switch (type) {
     case "skill":
       return SkillManifestSchema;
     case "command":
@@ -73,16 +78,16 @@ export const manifestSchemaForType = (extensionType: string) => {
 };
 
 export interface ManifestResolutionInput {
-  readonly extensionType: string;
+  readonly type: string;
   readonly entries: readonly ZipEntry[];
   readonly readEntry: (fileName: string) => Effect.Effect<Uint8Array, ArchiveGuardrailError>;
 }
 
 export interface DeclaredPublishIdentity {
   readonly owner: Handle;
-  readonly extensionType: string;
-  readonly name: string;
-  readonly version: string;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: ExactSemverVersion;
 }
 
 export interface ResolvedManifest {
@@ -95,11 +100,11 @@ export const resolveManifest = (
   input: ManifestResolutionInput,
 ): Effect.Effect<ResolvedManifest, ManifestError | ArchiveGuardrailError> =>
   Effect.gen(function* () {
-    const expectedFilename = manifestFilenameForType(input.extensionType);
+    const expectedFilename = manifestFilenameForType(input.type);
     if (expectedFilename === undefined) {
       return yield* new ManifestError({
         code: "manifest_missing",
-        detail: `No manifest filename policy for extension type "${input.extensionType}".`,
+        detail: `No manifest filename policy for extension type "${input.type}".`,
       });
     }
 
@@ -122,7 +127,7 @@ export const resolveManifest = (
       const allCandidates = [manifestEntry, ...rest];
       return yield* new ManifestError({
         code: "manifest_multiple",
-        detail: `Multiple manifest candidates found for type "${input.extensionType}": ${allCandidates.map((candidate) => candidate.fileName).join(", ")}.`,
+        detail: `Multiple manifest candidates found for type "${input.type}": ${allCandidates.map((candidate) => candidate.fileName).join(", ")}.`,
       });
     }
 
@@ -139,14 +144,14 @@ export const resolveManifest = (
       ),
     );
 
-    const schema = manifestSchemaForType(input.extensionType);
+    const schema = manifestSchemaForType(input.type);
     if (schema !== undefined) {
       yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
         Effect.mapError(
           (error) =>
             new ManifestError({
               code: "manifest_schema_invalid",
-              detail: `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.extensionType} manifest schema.`,
+              detail: `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.type} manifest schema.`,
               details: SchemaIssue.makeFormatterDefault()(error.issue),
             }),
         ),
@@ -182,10 +187,8 @@ export const validateDeclaredManifestAlignment = (
   if (declaredIdentity.owner !== manifest.owner) {
     mismatches.push(`owner: declared="${declaredIdentity.owner}" manifest="${manifest.owner}"`);
   }
-  if (declaredIdentity.extensionType !== manifest.type) {
-    mismatches.push(
-      `type: declared="${declaredIdentity.extensionType}" manifest="${manifest.type}"`,
-    );
+  if (declaredIdentity.type !== manifest.type) {
+    mismatches.push(`type: declared="${declaredIdentity.type}" manifest="${manifest.type}"`);
   }
   if (declaredIdentity.version !== manifest.version) {
     mismatches.push(

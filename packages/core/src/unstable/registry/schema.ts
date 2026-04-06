@@ -14,7 +14,7 @@ import {
   ExtensionTypeSchema,
 } from "../extensions/index.js";
 import { HandleSchema } from "../extensions/handle.js";
-import { ExactSemverVersionSchema } from "../version-constraints/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 
 // =============================================================================
 // Version Entry

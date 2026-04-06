@@ -183,7 +183,7 @@ export const syncWorkspace = () =>
 
     const lockfileState = yield* buildLockfileSyncState();
     const nonSkillUnresolved = lockfileState.snapshot.unresolved.filter(
-      ({ declaration }) => declaration.extensionType !== "skills",
+      ({ declaration }) => declaration.type !== "skills",
     );
 
     if (nonSkillUnresolved.length > 0) {
@@ -192,7 +192,7 @@ export const syncWorkspace = () =>
         what: "Cannot sync workspace while non-skill declarations are unresolved",
         details: nonSkillUnresolved.map(
           ({ declaration, reason }) =>
-            `${declaration.extensionType}:${declaration.owner}/${declaration.name} (${reason})`,
+            `${declaration.type}:${declaration.owner}/${declaration.name} (${reason})`,
         ),
         howToFix: "Restore the missing extension files or remove the stale settings entries first.",
       });

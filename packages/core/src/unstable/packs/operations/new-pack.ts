@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { formatFqn } from "../../extensions/index.js";
+import { formatFqn, unsafeExtensionName } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
@@ -18,7 +18,7 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/index.js";
+import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -66,7 +66,8 @@ export const newPack: OperationHandler<
     const initialVersion = decodeExactSemverVersionSync("0.0.1");
 
     const { name, owner } = op.args;
-    const fqn = formatFqn({ owner, type: "packs", name });
+    const extensionName = unsafeExtensionName(name);
+    const fqn = formatFqn({ owner, type: "packs", name: extensionName });
 
     // 1. Compute pack directory path
     const packDir = computePackPaths(path.join, base, owner, name);
@@ -106,7 +107,7 @@ export const newPack: OperationHandler<
     const manifest = {
       owner,
       type: "pack",
-      name,
+      name: extensionName,
       version: initialVersion,
       skills: {},
       commands: {},

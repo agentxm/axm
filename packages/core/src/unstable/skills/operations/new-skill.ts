@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
+import { unsafeExtensionName } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
@@ -19,7 +20,7 @@ import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
-import { decodeExactSemverVersionSync } from "../../version-constraints/index.js";
+import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -120,7 +121,7 @@ export const newSkill: OperationHandler<
     const manifest: SkillManifest = {
       owner,
       type: "skill",
-      name,
+      name: unsafeExtensionName(name),
       version: INITIAL_SKILL_VERSION,
     };
 

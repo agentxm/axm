@@ -33,6 +33,18 @@ describe("parseFqn", () => {
       input: "@acme/commands/deploy",
       expected: { owner: "@acme", type: "commands", name: "deploy" },
     },
+    {
+      input: "@acme/subagents/reviewer",
+      expected: { owner: "@acme", type: "subagents", name: "reviewer" },
+    },
+    {
+      input: "@acme/files/project-rules",
+      expected: { owner: "@acme", type: "files", name: "project-rules" },
+    },
+    {
+      input: "@acme/rules/review-checklist",
+      expected: { owner: "@acme", type: "rules", name: "review-checklist" },
+    },
   ].forEach(({ input, expected }) => {
     it.effect(`parses valid FQN: ${input}`, () =>
       Effect.gen(function* () {
@@ -89,6 +101,9 @@ describe("formatFqn", () => {
     expect(formatFqn({ owner: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
     expect(formatFqn({ owner: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
     expect(formatFqn({ owner: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
+    expect(formatFqn({ owner: "@x", type: "subagents", name: "y" })).toBe("@x/subagents/y");
+    expect(formatFqn({ owner: "@x", type: "files", name: "y" })).toBe("@x/files/y");
+    expect(formatFqn({ owner: "@x", type: "rules", name: "y" })).toBe("@x/rules/y");
   });
 });
 
@@ -98,6 +113,9 @@ describe("round-trip", () => {
     "@acme/packs/fullstack",
     "@acme/commands/deploy",
     "@acme/mcp-servers/database",
+    "@acme/subagents/reviewer",
+    "@acme/files/project-rules",
+    "@acme/rules/review-checklist",
   ])("formatFqn(parseFqnOrThrow(%s)) === %s", (input) => {
     expect(formatFqn(parseFqnOrThrow(input))).toBe(input);
   });

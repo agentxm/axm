@@ -9,7 +9,7 @@ import {
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
-import { ExactSemverVersionSchema } from "../version-constraints/index.js";
+import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
   describe("DateFromString", () => {

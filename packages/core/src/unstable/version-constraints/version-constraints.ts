@@ -7,7 +7,7 @@ import * as semver from "semver";
  * Compatible with the full VersionEntry from the registry module.
  */
 export interface VersionEntryLike {
-  readonly version: string;
+  readonly version: ExactSemverVersion;
 }
 
 /**
@@ -56,25 +56,39 @@ export const decodeExactSemverVersionSync = Schema.decodeUnknownSync(ExactSemver
  */
 export const decodeVersionConstraintSync = Schema.decodeUnknownSync(VersionConstraintSchema);
 
+export const unsafeExactSemverVersion = (version: string): ExactSemverVersion =>
+  decodeExactSemverVersionSync(version);
+
+export const unsafeVersionConstraint = (constraint: string): VersionConstraint =>
+  decodeVersionConstraintSync(constraint);
+
 /**
  * Extract a version constraint suffix from a source string.
  *
  * Handles both namespaced (`@handle/name@^1.0.0`) and non-namespaced (`name@^1.0.0`) names.
  * Returns `Option.none()` when no version suffix is present.
  */
-export const parseVersionConstraint = (sourceString: string): Option.Option<string> => {
+export const parseVersionConstraint = (sourceString: string): Option.Option<VersionConstraint> => {
+  const decodeConstraint = (value: string): Option.Option<VersionConstraint> => {
+    try {
+      return Option.some(unsafeVersionConstraint(value));
+    } catch {
+      return Option.none();
+    }
+  };
+
   // For namespaced packages (@handle/name@constraint), find the @ after the handle
   if (sourceString.startsWith("@")) {
     const slashIndex = sourceString.indexOf("/");
     if (slashIndex === -1) return Option.none();
     const afterHandle = sourceString.indexOf("@", slashIndex + 1);
     if (afterHandle === -1) return Option.none();
-    return Option.some(sourceString.slice(afterHandle + 1));
+    return decodeConstraint(sourceString.slice(afterHandle + 1));
   }
   // For non-namespaced packages (name@constraint)
   const atIndex = sourceString.indexOf("@");
   if (atIndex === -1) return Option.none();
-  return Option.some(sourceString.slice(atIndex + 1));
+  return decodeConstraint(sourceString.slice(atIndex + 1));
 };
 
 /**
@@ -86,8 +100,10 @@ export const isValidConstraint = (constraint: string): boolean =>
 /**
  * Check whether a version satisfies a semver constraint.
  */
-export const satisfiesConstraint = (version: string, constraint: string): boolean =>
-  semver.satisfies(version, constraint);
+export const satisfiesConstraint = (
+  version: ExactSemverVersion,
+  constraint: VersionConstraint,
+): boolean => semver.satisfies(version, constraint);
 
 /**
  * Select the first version (newest-first) that satisfies the constraint.

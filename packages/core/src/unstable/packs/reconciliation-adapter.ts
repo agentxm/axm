@@ -13,7 +13,8 @@ import { computePackPaths } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { type Handle } from "../extensions/handle.js";
+import { parseRegistrySourceRef } from "../extensions/registry-source.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
@@ -30,65 +31,66 @@ import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
 } from "../mcp-servers/manifest-schema.js";
-import { satisfiesConstraint } from "../version-constraints/index.js";
+import { satisfiesConstraint } from "../version-constraints/version-constraints.js";
 import type { AppError } from "../app-error/index.js";
 import { makeRegistryPackLockEntry, type ResolvedExtensionMap } from "../lockfile/index.js";
-import type { ExactSemverVersion } from "../version-constraints/index.js";
+import {
+  unsafeVersionConstraint,
+  type ExactSemverVersion,
+  type VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 
 const parseRegistryPackSource = (
   source: string,
 ): Option.Option<{
   readonly owner: Handle;
   readonly name: string;
-  readonly constraint: string;
+  readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
     return Option.none();
   }
 
-  const match = /^(@[^/]+)\/packs\/([^@/]+)(?:@(.+))?$/.exec(source);
-  if (!match) {
+  const parsed = parseRegistrySourceRef(source);
+  if (parsed === undefined || parsed.type !== "packs") {
     return Option.none();
   }
 
-  const owner = match[1];
-  const name = match[2];
-  if (owner === undefined || name === undefined) {
+  try {
+    return Option.some({
+      owner: parsed.owner,
+      name: parsed.name,
+      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
+    });
+  } catch {
     return Option.none();
   }
-
-  return Option.some({
-    owner: unsafeHandle(owner),
-    name,
-    constraint: match[3] ?? "*",
-  });
 };
 
 const toPackSource = (entry: string | { readonly source: string }): string =>
   typeof entry === "string" ? entry : entry.source;
 
 const parsePackDependency = (
-  extensionType: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers",
   fqn: string,
-  constraint: string,
+  constraint: VersionConstraint,
   order: number,
 ): Option.Option<ReconciliationDeclaration> => {
-  const regex = new RegExp(`^(@[^/]+)\\/${extensionType}\\/([^@/]+)$`);
-  const match = regex.exec(fqn);
-  if (!match) {
+  let parsed;
+  try {
+    parsed = parseFqnOrThrow(fqn);
+  } catch {
     return Option.none();
   }
 
-  const owner = match[1];
-  const name = match[2];
-  if (owner === undefined || name === undefined) {
+  if (parsed.type !== type) {
     return Option.none();
   }
 
   return Option.some({
-    extensionType,
-    owner: unsafeHandle(owner),
-    name,
+    type,
+    owner: parsed.owner,
+    name: parsed.name,
     source: fqn,
     declarationSourceOrConstraint: constraint,
     order,
@@ -97,7 +99,7 @@ const parsePackDependency = (
 };
 
 const collectPackDependencyDeclarations = (
-  extensionType: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers",
   candidates: unknown,
   declarations: Array<ReconciliationDeclaration>,
 ) => {
@@ -109,7 +111,13 @@ const collectPackDependencyDeclarations = (
     if (typeof constraint !== "string") {
       continue;
     }
-    const parsedDep = parsePackDependency(extensionType, fqn, constraint, declarations.length);
+    let versionConstraint: VersionConstraint;
+    try {
+      versionConstraint = unsafeVersionConstraint(constraint);
+    } catch {
+      continue;
+    }
+    const parsedDep = parsePackDependency(type, fqn, versionConstraint, declarations.length);
     if (Option.isSome(parsedDep)) {
       declarations.push(parsedDep.value);
     }
@@ -150,9 +158,9 @@ const decodeCommandManifest = makeManifestDecoder(CommandManifestSchema);
 const decodeMcpServerManifest = makeManifestDecoder(McpServerManifestSchema);
 
 const readInstalledDependencyVersion = (
-  extensionType: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers",
   fqn: string,
-  constraint: string,
+  constraint: VersionConstraint,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
 ): Effect.Effect<DependencyResolution, AppError> =>
@@ -165,7 +173,7 @@ const readInstalledDependencyVersion = (
       }
     })();
 
-    if (parsed === undefined || parsed.type !== extensionType) {
+    if (parsed === undefined || parsed.type !== type) {
       return {
         _tag: "Unresolved",
         reason: "declaration-mismatch",
@@ -173,7 +181,7 @@ const readInstalledDependencyVersion = (
     }
 
     const dependencyDeclaration: ReconciliationDeclaration = {
-      extensionType,
+      type,
       owner: parsed.owner,
       name: parsed.name,
       source: fqn,
@@ -183,23 +191,17 @@ const readInstalledDependencyVersion = (
     };
 
     const canonicalPath =
-      extensionType === "skills"
+      type === "skills"
         ? computeSkillPaths(
             env.path.join,
             context.baseDir,
             { refType: "registry", owner: parsed.owner },
             parsed.name,
           ).canonicalPath
-        : env.path.join(
-            context.baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            parsed.owner,
-            extensionType,
-            parsed.name,
-          );
+        : env.path.join(context.baseDir, REGISTRY_EXTENSIONS_DIR, parsed.owner, type, parsed.name);
 
     const result =
-      extensionType === "skills"
+      type === "skills"
         ? yield* readAndDecodeManifest(
             dependencyDeclaration,
             canonicalPath,
@@ -208,7 +210,7 @@ const readInstalledDependencyVersion = (
             "skill",
             env,
           )
-        : extensionType === "commands"
+        : type === "commands"
           ? yield* readAndDecodeManifest(
               dependencyDeclaration,
               canonicalPath,
@@ -255,7 +257,7 @@ const readInstalledDependencyVersion = (
   });
 
 const resolveInstalledDependencyMap = (
-  extensionType: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers",
   dependencies: PackDependencyConstraintMap | undefined,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
@@ -274,13 +276,7 @@ const resolveInstalledDependencyMap = (
     const resolvedEntries: Array<readonly [string, ExactSemverVersion]> = [];
 
     for (const [fqn, constraint] of Object.entries(dependencies ?? {})) {
-      const result = yield* readInstalledDependencyVersion(
-        extensionType,
-        fqn,
-        constraint,
-        context,
-        env,
-      );
+      const result = yield* readInstalledDependencyVersion(type, fqn, constraint, context, env);
 
       if (result._tag === "Unresolved") {
         return result;
@@ -296,7 +292,7 @@ const resolveInstalledDependencyMap = (
   });
 
 export const packReconciliationAdapter: ReconciliationAdapter = {
-  extensionType: "packs",
+  type: "packs",
   scanDeclarations: (context, env) =>
     Effect.gen(function* () {
       const declarations: ReconciliationDeclaration[] = [];
@@ -316,7 +312,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
         });
 
         declarations.push({
-          extensionType: "packs",
+          type: "packs",
           owner,
           name,
           source,
@@ -471,7 +467,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       return {
         _tag: "Compatible",
         reconstructed: {
-          extensionType: "packs",
+          type: "packs",
           name: declaration.name,
           entry: makeRegistryPackLockEntry({
             owner,

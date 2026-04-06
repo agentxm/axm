@@ -44,7 +44,7 @@ describe("reconciliation", () => {
   it("dedupes declarations by deterministic key and warns on conflicts", () => {
     const result = dedupeDeclarations([
       {
-        extensionType: "skills",
+        type: "skills",
         owner: "@acme",
         name: "tool",
         source: "@acme/skills/tool@^1",
@@ -53,7 +53,7 @@ describe("reconciliation", () => {
         origin: "settings",
       },
       {
-        extensionType: "skills",
+        type: "skills",
         owner: "@acme",
         name: "tool",
         source: "@acme/skills/tool@~2",
@@ -62,7 +62,7 @@ describe("reconciliation", () => {
         origin: "pack",
       },
       {
-        extensionType: "skills",
+        type: "skills",
         owner: "@acme",
         name: "tool",
         source: "@acme/skills/tool@^1",
@@ -80,7 +80,7 @@ describe("reconciliation", () => {
   it("orders declarations deterministically by type then name", () => {
     const result = dedupeDeclarations([
       {
-        extensionType: "commands",
+        type: "commands",
         owner: "@acme",
         name: "zeta",
         source: "@acme/commands/zeta@^1",
@@ -89,7 +89,7 @@ describe("reconciliation", () => {
         origin: "settings",
       },
       {
-        extensionType: "skills",
+        type: "skills",
         owner: "@acme",
         name: "beta",
         source: "@acme/skills/beta@^1",
@@ -98,7 +98,7 @@ describe("reconciliation", () => {
         origin: "settings",
       },
       {
-        extensionType: "skills",
+        type: "skills",
         owner: "@acme",
         name: "alpha",
         source: "@acme/skills/alpha@^1",
@@ -108,7 +108,7 @@ describe("reconciliation", () => {
       },
     ]);
 
-    expect(result.declarations.map((d) => `${d.extensionType}:${d.name}`)).toEqual([
+    expect(result.declarations.map((d) => `${d.type}:${d.name}`)).toEqual([
       "skills:alpha",
       "skills:beta",
       "commands:zeta",

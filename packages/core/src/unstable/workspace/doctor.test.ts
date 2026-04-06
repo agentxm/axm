@@ -17,7 +17,7 @@ import { buildRegistrySkillRef } from "../skills/index.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { diagnoseWorkspaceDoctor } from "./doctor.js";
 import { layer as workspaceLayer } from "./service.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
+import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
 
 describe("workspace doctor", () => {
   let tempDir: string;

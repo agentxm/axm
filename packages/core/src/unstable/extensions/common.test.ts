@@ -12,9 +12,11 @@ import {
   AgentIdSchema,
   AuthorSchema,
   CommonManifestFields,
+  ExtensionNameSchema,
   ExtensionTypeSchema,
+  extensionTypeLabels,
+  extensionTypePluralLabels,
   FullyQualifiedNameSchema,
-  ManifestNameSchema,
   ManifestHandleSchema,
 } from "./common.js";
 
@@ -104,6 +106,30 @@ describe("common schemas", () => {
     it("accepts mcp-servers type segment", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
         "@wayne/mcp-servers/bat-signal",
+      );
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts subagents type segment", () => {
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+        "@wayne/subagents/reviewer",
+      );
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts files type segment", () => {
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+        "@wayne/files/project-rules",
+      );
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts rules type segment", () => {
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+        "@wayne/rules/review-checklist",
       );
 
       expect(Result.isSuccess(result)).toBe(true);
@@ -257,20 +283,22 @@ describe("common schemas", () => {
     });
   });
 
-  describe("ManifestName", () => {
+  describe("ExtensionName", () => {
     it("accepts simple short name", () => {
-      const result = Schema.decodeUnknownResult(ManifestNameSchema)("grappling-hook");
+      const result = Schema.decodeUnknownResult(ExtensionNameSchema)("grappling-hook");
       expect(Result.isSuccess(result)).toBe(true);
     });
 
     it("rejects FQN as short name", () => {
-      const result = Schema.decodeUnknownResult(ManifestNameSchema)("@wayne/skills/grappling-hook");
+      const result = Schema.decodeUnknownResult(ExtensionNameSchema)(
+        "@wayne/skills/grappling-hook",
+      );
       expect(Result.isFailure(result)).toBe(true);
     });
   });
 
   describe("ExtensionType", () => {
-    it.each(["skill", "pack", "mcp-server"] as const)(
+    it.each(["skill", "command", "mcp-server", "subagent", "file", "rule", "pack"] as const)(
       "accepts valid extension type: %s",
       (type) => {
         const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(type);
@@ -298,6 +326,18 @@ describe("common schemas", () => {
       const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(123);
 
       expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("provides canonical singular display labels", () => {
+      expect(extensionTypeLabels.skill).toBe("Skill");
+      expect(extensionTypeLabels["mcp-server"]).toBe("MCP Server");
+      expect(extensionTypeLabels.pack).toBe("Pack");
+    });
+
+    it("provides canonical plural display labels", () => {
+      expect(extensionTypePluralLabels.skills).toBe("Skills");
+      expect(extensionTypePluralLabels["mcp-servers"]).toBe("MCP Servers");
+      expect(extensionTypePluralLabels.packs).toBe("Packs");
     });
   });
 

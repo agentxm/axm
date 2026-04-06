@@ -40,7 +40,12 @@ import { computeSkillPaths } from "../skills/paths.js";
 import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
-import { AgentIdSchema, formatFqn, type ExtensionType } from "../extensions/index.js";
+import {
+  AgentIdSchema,
+  formatFqn,
+  unsafeExtensionName,
+  type ExtensionType,
+} from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseSkillEntry,
@@ -58,6 +63,11 @@ import {
   writeSettings,
 } from "../settings/index.js";
 import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
+
+type WorkspaceManagedExtensionType = Extract<
+  ExtensionType,
+  "skill" | "command" | "mcp-server" | "pack"
+>;
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -260,7 +270,7 @@ const make = (options: WorkspaceLayerOptions) =>
     /**
      * Classify extensions by type using the shared classifier.
      */
-    const getClassifiedExtensions = (type: ExtensionType) =>
+    const getClassifiedExtensions = (type: WorkspaceManagedExtensionType) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
         const lockfile = yield* readLockfileSafe(workspaceDir);
@@ -544,7 +554,11 @@ const make = (options: WorkspaceLayerOptions) =>
             const source =
               lockEntry.type === "registry"
                 ? (() => {
-                    const fqn = formatFqn({ owner: lockEntry.owner, type: "skills", name });
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "skills",
+                      name: unsafeExtensionName(name),
+                    });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
                       : fqn;
@@ -882,7 +896,11 @@ const make = (options: WorkspaceLayerOptions) =>
               name,
             });
             // Update settings — thread versionConstraint through so it's preserved
-            const fqn = formatFqn({ owner: args.owner, type: "packs", name });
+            const fqn = formatFqn({
+              owner: args.owner,
+              type: "packs",
+              name: unsafeExtensionName(name),
+            });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`
               : fqn;

@@ -29,7 +29,7 @@ import { removeIfExists } from "../utils/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
-import { decodeExactSemverVersionSync } from "../version-constraints/index.js";
+import { decodeExactSemverVersionSync } from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -220,7 +220,7 @@ export const PackManagerLive = Layer.effect(
       });
 
     return {
-      extensionType: "pack",
+      type: "pack",
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {

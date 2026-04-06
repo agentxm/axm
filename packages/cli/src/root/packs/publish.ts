@@ -28,6 +28,7 @@ import {
   parseFqnOrThrow,
   type Fqn,
   REGISTRY_EXTENSIONS_DIR,
+  unsafeExtensionName,
 } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -193,7 +194,9 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const packName = yield* hasProfile
     ? Effect.succeed(args.pack)
     : ws.getConfiguredProfile().pipe(
-        Effect.map((owner) => formatFqn({ owner, type: "packs", name: args.pack })),
+        Effect.map((owner) =>
+          formatFqn({ owner, type: "packs", name: unsafeExtensionName(args.pack) }),
+        ),
         Effect.mapError((e) =>
           makeAppError({
             code: "NAMESPACE_RESOLUTION_FAILED",
@@ -439,6 +442,15 @@ const makeDependencyStep = (
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
           what: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
+        }),
+      );
+    case "subagents":
+    case "files":
+    case "rules":
+      return Effect.fail(
+        makeAppError({
+          code: "PACK_DEPENDENCY_UNSUPPORTED",
+          what: `Publishing ${parsed.type} from pack dependencies is not supported: ${depFqn}`,
         }),
       );
   }

@@ -16,9 +16,6 @@ import {
   type UninstallHandlerArgs,
 } from "./command-actions.js";
 
-// Re-export the type so existing imports keep working
-export type { UninstallHandlerArgs } from "./command-actions.js";
-
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------

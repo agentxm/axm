@@ -362,6 +362,453 @@ The `renderedFiles` map enables sync to detect drift (rendered file modified man
 
 The render step is the key difference from skill reconciliation. It means subagent sync is not idempotent in the filesystem sense — even unchanged subagents produce a write (though the content is identical). Design should consider whether to skip writes when the content hash matches.
 
+### CLI Commands
+
+The `axm subagents` command group mirrors the skills command group. All subcommands share the global `--non-interactive` flag and respect the `CI` / `!stdin.isTTY` resolution chain. Subagents-specific behavior (render-on-install, per-agent drift detection) is noted where it diverges from skills.
+
+#### `axm subagents` (parent)
+
+```
+axm subagents <subcommand>
+```
+
+**Description:** Install, update, and manage subagents
+
+**Subcommands:** `install`, `uninstall`, `list`, `update`, `new`, `publish`, `enable`, `disable`, `rename`
+
+**Examples:**
+
+```
+axm subagents install @acme/subagents/code-reviewer     Add a subagent to your agents
+axm subagents install @acme/subagents/code-reviewer@^1   Pin to a version range
+axm subagents install owner/repo                         Install from a GitHub repository
+axm subagents list                                       See what subagents are installed
+```
+
+---
+
+#### `axm subagents install`
+
+```
+axm subagents install <source> [flags]
+```
+
+**Description:** Install subagents from a registry, GitHub, or local path. Renders agent-native configuration files into each configured agent's `agents/` directory.
+
+**Arguments:**
+
+| Argument | Required | Description                                                                                       |
+| -------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `source` | Yes      | Registry reference (`@owner/subagents/name`), GitHub shorthand (`owner/repo`), local path, or URL |
+
+**Flags:**
+
+| Flag         | Type              | Default   | Description                                                                                                                   |
+| ------------ | ----------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--scope`    | `project \| user` | `project` | Install to project (default) or user-level configuration                                                                      |
+| `--subagent` | `string[]`        | —         | Cherry-pick specific subagent(s) from a multi-subagent source. Repeatable                                                     |
+| `--agent`    | `string[]`        | —         | Render only for specific agent(s) instead of all configured agents. Repeatable                                                |
+| `--all`      | `boolean`         | `false`   | Install every subagent found in the source without prompting                                                                  |
+| `--yes`      | `boolean`         | `false`   | Skip confirmation after reviewing the install plan                                                                            |
+| `--force`    | `boolean`         | `false`   | Reinstall even if the subagent already exists. Also overrides conflict detection (overwrites unmanaged files at render paths) |
+| `--preview`  | `boolean`         | `false`   | Show what would be installed and which files would be rendered, without making changes                                        |
+
+**Behavior notes:**
+
+- After resolving the source and writing the canonical `SUBAGENT.md` to `.axm/extensions/`, renders agent-native files for each configured agent (or `--agent` subset)
+- Checks for existing unmanaged files at each render path before writing. Fails with a conflict error if found; `--force` overrides
+- Records `renderedFiles` map (path + content hash per agent) in the lockfile
+- `--preview` shows the full plan including rendered file paths and formats per agent
+
+**Examples:**
+
+```
+axm subagents install @acme/subagents/code-reviewer
+  Add a code review subagent to all configured agents
+
+axm subagents install @acme/subagents/code-reviewer@^1.0.0
+  Pin to a specific version range
+
+axm subagents install owner/repo
+  Install from a GitHub repository
+
+axm subagents install owner/repo --subagent code-reviewer --subagent security-audit
+  Cherry-pick specific subagents from a multi-subagent repo
+
+axm subagents install @acme/subagents/code-reviewer --agent claude-code --agent cursor
+  Install but only render for Claude Code and Cursor
+
+axm subagents install ./path/to/subagents
+  Install from a local directory during development
+
+axm subagents install owner/repo --all --yes
+  CI: install all subagents without prompts
+
+axm subagents install @acme/subagents/code-reviewer --preview
+  See what would be installed and rendered before committing
+```
+
+---
+
+#### `axm subagents uninstall`
+
+```
+axm subagents uninstall <subagent> [flags]
+```
+
+**Description:** Remove a subagent from the workspace. Deletes the canonical source from `.axm/extensions/` and all rendered agent-native files tracked in the lockfile.
+
+**Arguments:**
+
+| Argument   | Required | Description                       |
+| ---------- | -------- | --------------------------------- |
+| `subagent` | Yes      | Name of the subagent to uninstall |
+
+**Flags:**
+
+| Flag        | Type      | Default | Description                                                |
+| ----------- | --------- | ------- | ---------------------------------------------------------- |
+| `--yes`     | `boolean` | `false` | Skip confirmation prompt                                   |
+| `--force`   | `boolean` | `false` | Remove even if rendered files have been modified (drifted) |
+| `--preview` | `boolean` | `false` | Show what would be removed without making changes          |
+
+**Behavior notes:**
+
+- Uses `renderedFiles` from the lockfile to locate and remove all rendered agent-native files
+- Detects drift (rendered file content differs from lockfile hash). Without `--force`, warns and requires confirmation for drifted files
+- Removes the subagent entry from settings and lockfile
+
+**Examples:**
+
+```
+axm subagents uninstall code-reviewer
+  Remove the code-reviewer subagent and all its rendered files
+
+axm subagents uninstall code-reviewer --preview
+  See which files would be deleted
+
+axm subagents uninstall code-reviewer --yes
+  Remove without confirmation
+```
+
+---
+
+#### `axm subagents list`
+
+```
+axm subagents list [flags]
+```
+
+**Alias:** `ls`
+
+**Description:** List installed subagents, their source, enabled status, and which agents they are rendered for.
+
+**Flags:**
+
+| Flag      | Type              | Default   | Description                                                       |
+| --------- | ----------------- | --------- | ----------------------------------------------------------------- |
+| `--scope` | `project \| user` | `project` | List subagents from project (default) or user-level configuration |
+| `--agent` | `string[]`        | —         | Show only subagents rendered for specific agent(s). Repeatable    |
+
+**Output columns:** name, source type (registry/github/local), enabled/disabled, agents list
+
+**Behavior notes:**
+
+- Reads the lockfile `subagents` section
+- When `--agent` is specified, filters to subagents whose `renderedFiles` include that agent (OR logic for multiple `--agent` values)
+- JSON output via `--json` emits structured `subagents.list` items
+
+**Examples:**
+
+```
+axm subagents list
+  See what subagents are installed
+
+axm subagents list --scope user
+  Check user-level subagents
+
+axm subagents list --agent claude-code
+  See subagents rendered for Claude Code
+
+axm subagents list --agent claude-code --agent cursor
+  See subagents rendered for either Claude Code or Cursor
+```
+
+---
+
+#### `axm subagents update`
+
+```
+axm subagents update [source] [flags]
+```
+
+**Description:** Update installed subagents to their latest matching versions and re-render agent-native files.
+
+**Arguments:**
+
+| Argument | Required | Description                                                          |
+| -------- | -------- | -------------------------------------------------------------------- |
+| `source` | No       | Limit update to subagents from a specific source. Omit to update all |
+
+**Flags:**
+
+| Flag         | Type              | Default   | Description                                             |
+| ------------ | ----------------- | --------- | ------------------------------------------------------- |
+| `--scope`    | `project \| user` | `project` | Update in project (default) or user-level configuration |
+| `--subagent` | `string[]`        | —         | Update only specific subagent(s) by name. Repeatable    |
+| `--agent`    | `string[]`        | —         | Re-render only for specific agent(s). Repeatable        |
+| `--yes`      | `boolean`         | `false`   | Skip confirmation after reviewing the update plan       |
+| `--force`    | `boolean`         | `false`   | Update even when rendered files have drifted            |
+| `--preview`  | `boolean`         | `false`   | Show what would be updated without making changes       |
+
+**Behavior notes:**
+
+- Fetches latest versions matching the version constraint in settings
+- After updating the canonical `SUBAGENT.md`, re-renders all agent-native files
+- `--preview` shows version changes and which rendered files would change
+
+**Examples:**
+
+```
+axm subagents update
+  Update all subagents to latest matching versions
+
+axm subagents update --subagent code-reviewer
+  Update a specific subagent only
+
+axm subagents update owner/repo
+  Update subagents from a specific source
+
+axm subagents update --preview
+  See what would change before updating
+```
+
+---
+
+#### `axm subagents new`
+
+```
+axm subagents new <name> [flags]
+```
+
+**Description:** Scaffold a new subagent for authoring. Creates both `axm-subagent.json` (manifest) and `src/SUBAGENT.md` (instructions with frontmatter) in `.axm/extensions/<owner>/subagents/<name>/`.
+
+**Arguments:**
+
+| Argument | Required | Description                                                                         |
+| -------- | -------- | ----------------------------------------------------------------------------------- |
+| `name`   | Yes      | Name of the subagent (without owner). Must match `[a-z0-9][a-z0-9-]*`, max 64 chars |
+
+**Flags:**
+
+| Flag            | Type                                     | Default           | Description                                            |
+| --------------- | ---------------------------------------- | ----------------- | ------------------------------------------------------ |
+| `--profile`     | `string`                                 | workspace default | Override the workspace profile / owner (e.g., `@acme`) |
+| `--agent`       | `string[]`                               | all configured    | Agent IDs to target for initial rendering. Repeatable  |
+| `--model`       | `fast \| default \| powerful \| inherit` | `default`         | Initial model hint                                     |
+| `--tool-access` | `full \| readonly \| none`               | `full`            | Initial tool access level                              |
+| `--background`  | `boolean`                                | `false`           | Whether the subagent runs in background mode           |
+| `--yes`         | `boolean`                                | `false`           | Create the subagent without confirmation               |
+| `--force`       | `boolean`                                | `false`           | Overwrite if a subagent with this name already exists  |
+| `--preview`     | `boolean`                                | `false`           | Show what files would be created without creating them |
+
+**Behavior notes:**
+
+- Validates name format and checks for name collisions in settings
+- Scaffolds `axm-subagent.json` with identity/distribution fields and `SUBAGENT.md` with frontmatter (model, toolAccess, background, description placeholder) and a starter instructions body
+- Renders agent-native files for configured agents immediately (so the subagent is usable right away)
+- Adds the subagent entry to settings and lockfile
+
+**Examples:**
+
+```
+axm subagents new code-reviewer
+  Scaffold a new subagent
+
+axm subagents new code-reviewer --profile @acme
+  Create under a specific owner
+
+axm subagents new code-reviewer --tool-access readonly --model fast
+  Create a read-only subagent using the fast model tier
+
+axm subagents new security-audit --background
+  Create a background subagent for async execution
+
+axm subagents new code-reviewer --agent claude-code --agent cursor
+  Render only for specific agents
+```
+
+---
+
+#### `axm subagents publish`
+
+```
+axm subagents publish <extensions...> [flags]
+```
+
+**Description:** Publish subagent extensions to a registry. Validates both `axm-subagent.json` and `SUBAGENT.md`, syncs the manifest description from frontmatter, and uploads both files.
+
+**Arguments:**
+
+| Argument     | Required | Description                                                      |
+| ------------ | -------- | ---------------------------------------------------------------- |
+| `extensions` | Yes (1+) | FQN(s) or glob pattern(s) identifying the subagent(s) to publish |
+
+**Flags:**
+
+| Flag         | Type      | Default            | Description                                        |
+| ------------ | --------- | ------------------ | -------------------------------------------------- |
+| `--registry` | `string`  | configured default | Target registry (e.g., `local`, a registry URL)    |
+| `--yes`      | `boolean` | `false`            | Skip confirmation after reviewing the publish plan |
+| `--force`    | `boolean` | `false`            | Publish even if validation warnings are present    |
+| `--preview`  | `boolean` | `false`            | Show what would be published without uploading     |
+
+**Behavior notes:**
+
+- Validates manifest completeness (required fields, version bump from published version)
+- Syncs `description` from `SUBAGENT.md` frontmatter to `axm-subagent.json` before upload
+- Publishes both files as the extension package
+- Supports glob patterns (e.g., `axm subagents publish "code-*"`) for batch publishing
+
+**Examples:**
+
+```
+axm subagents publish @acme/subagents/code-reviewer
+  Publish a single subagent
+
+axm subagents publish "code-*"
+  Publish all subagents matching a pattern
+
+axm subagents publish code-reviewer --registry local
+  Publish to a local registry for testing
+
+axm subagents publish code-reviewer --preview
+  Review what would be published
+```
+
+---
+
+#### `axm subagents enable`
+
+```
+axm subagents enable <name> [flags]
+```
+
+**Description:** Enable a previously disabled subagent. Re-renders agent-native files for all configured agents.
+
+**Arguments:**
+
+| Argument | Required | Description                    |
+| -------- | -------- | ------------------------------ |
+| `name`   | Yes      | Name of the subagent to enable |
+
+**Flags:**
+
+| Flag        | Type              | Default   | Description                                  |
+| ----------- | ----------------- | --------- | -------------------------------------------- |
+| `--scope`   | `project \| user` | `project` | Target project or user-level configuration   |
+| `--yes`     | `boolean`         | `false`   | Skip confirmation                            |
+| `--force`   | `boolean`         | `false`   | Enable even if rendered file conflicts exist |
+| `--preview` | `boolean`         | `false`   | Show what would change without applying      |
+
+**Behavior notes:**
+
+- Sets `enabled: true` in settings
+- Re-renders agent-native files (since disable removes them)
+
+**Examples:**
+
+```
+axm subagents enable code-reviewer
+  Re-enable a disabled subagent
+
+axm subagents enable code-reviewer --preview
+  See which files would be rendered
+```
+
+---
+
+#### `axm subagents disable`
+
+```
+axm subagents disable <name> [flags]
+```
+
+**Description:** Disable a subagent without uninstalling it. Removes rendered agent-native files but preserves the canonical source and settings entry.
+
+**Arguments:**
+
+| Argument | Required | Description                     |
+| -------- | -------- | ------------------------------- |
+| `name`   | Yes      | Name of the subagent to disable |
+
+**Flags:**
+
+| Flag        | Type              | Default   | Description                                 |
+| ----------- | ----------------- | --------- | ------------------------------------------- |
+| `--scope`   | `project \| user` | `project` | Target project or user-level configuration  |
+| `--yes`     | `boolean`         | `false`   | Skip confirmation                           |
+| `--force`   | `boolean`         | `false`   | Disable even if rendered files have drifted |
+| `--preview` | `boolean`         | `false`   | Show what would change without applying     |
+
+**Behavior notes:**
+
+- Sets `enabled: false` in settings
+- Removes all rendered agent-native files (tracked via lockfile `renderedFiles`)
+- Canonical source in `.axm/extensions/` is preserved — `enable` restores it
+
+**Examples:**
+
+```
+axm subagents disable code-reviewer
+  Disable without uninstalling
+
+axm subagents disable code-reviewer --scope user
+  Disable in user-level config
+```
+
+---
+
+#### `axm subagents rename`
+
+```
+axm subagents rename <old-name> <new-name> [flags]
+```
+
+**Description:** Rename a subagent. Updates the canonical source, re-renders all agent-native files with the new name, and removes the old rendered files.
+
+**Arguments:**
+
+| Argument   | Required | Description                                                      |
+| ---------- | -------- | ---------------------------------------------------------------- |
+| `old-name` | Yes      | Current subagent name                                            |
+| `new-name` | Yes      | New subagent name. Must match `[a-z0-9][a-z0-9-]*`, max 64 chars |
+
+**Flags:**
+
+| Flag        | Type              | Default   | Description                                                   |
+| ----------- | ----------------- | --------- | ------------------------------------------------------------- |
+| `--scope`   | `project \| user` | `project` | Target project or user-level configuration                    |
+| `--yes`     | `boolean`         | `false`   | Skip confirmation                                             |
+| `--force`   | `boolean`         | `false`   | Overwrite if the new name conflicts with an existing subagent |
+| `--preview` | `boolean`         | `false`   | Show what would change without applying                       |
+
+**Behavior notes:**
+
+- Renames the extension directory, updates `axm-subagent.json` and `SUBAGENT.md` frontmatter `name` field
+- Removes old rendered files (e.g., `.claude/agents/old-name.md`) and renders new ones (e.g., `.claude/agents/new-name.md`)
+- Updates settings and lockfile entries
+
+**Examples:**
+
+```
+axm subagents rename old-name new-name
+  Rename a subagent
+
+axm subagents rename old-name new-name --preview
+  See what files would change
+```
+
 ## Capabilities
 
 ### New Capabilities
@@ -372,6 +819,10 @@ The render step is the key difference from skill reconciliation. It means subage
 - `cli-subagents-list`: List installed subagents and their agent mappings
 - `cli-subagents-new`: Scaffold a new subagent extension for authoring
 - `cli-subagents-publish`: Publish subagent extensions to a registry
+- `cli-subagents-update`: Update installed subagents to latest matching versions and re-render
+- `cli-subagents-enable`: Enable a disabled subagent and re-render agent-native files
+- `cli-subagents-disable`: Disable a subagent without uninstalling — removes rendered files, preserves source
+- `cli-subagents-rename`: Rename a subagent — updates source, settings, lockfile, and re-renders
 
 ### Modified Capabilities
 

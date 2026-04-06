@@ -7,7 +7,7 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { AGENT_IDS } from "../agents/index.js";
+import { AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN, HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import {
   ExactSemverVersionSchema,

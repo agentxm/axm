@@ -23,6 +23,8 @@ Community-declared compatibility resolves through the axm registry. Author recom
 
 A library author ships recommendation metadata alongside their package using the ecosystem's idiomatic metadata mechanism (e.g., `"axm"` field in `package.json`, `[package.metadata.axm]` in `Cargo.toml`, `axm.json` sidecar). When users install the package, axm can read this metadata locally to surface recommendations. These appear as `recommended: true` in discover results.
 
+**Trust model:** The "author-recommended" trust signal derives from ecosystem publish permissions. Whoever can publish a package to its ecosystem registry (e.g., the `next` package on npm is controlled by Vercel) controls its recommendation metadata. axm does not independently verify authorship — it trusts the ecosystem's access control as the authority. This is the same trust model users already rely on when installing the package itself.
+
 ### JTBD 3: Define compatible packages for an extension
 
 **Persona**: Extension author (someone publishing a skill, command, or MCP server)
@@ -96,6 +98,8 @@ Version constraints use VERS syntax when specified. Exact versions (without VERS
 
 When a manifest specifies an exact version, it is included in the detected purl. When a manifest specifies a semver range, the version component is omitted — the axm registry handles matching against versionless purls.
 
+Versionless detection (from semver ranges) matches any declaration, including VERS-constrained ones. This means a user on React 18 with `"react": "^18.2.0"` could see extensions declaring `pkg:npm/react@vers:npm/>=19.0.0`. This is acceptable: discovery is advisory, not a compatibility gate. False positives are preferable to missed recommendations, and users make the final install decision. Extensions with version constraints appear with their constraint in the output so users can self-filter.
+
 | Source         | Example              | Detected purl            |
 | -------------- | -------------------- | ------------------------ |
 | `package.json` | `"react": "18.2.0"`  | `pkg:npm/react@18.2.0`   |
@@ -105,7 +109,7 @@ When a manifest specifies an exact version, it is included in the detected purl.
 
 ### axm Registry Matching
 
-The axm registry resolves version matching server-side. The CLI sends detected purls (with versions from lock files when available) and the axm registry returns matching extensions.
+The axm registry resolves version matching server-side. The CLI sends detected purls from manifest parsing and the axm registry returns matching extensions.
 
 | Project detected       | Extension declares                | Match? | Reason                                        |
 | ---------------------- | --------------------------------- | ------ | --------------------------------------------- |
@@ -188,6 +192,32 @@ Package compatibility involves three mechanisms: **declaration** (extension auth
 
 - **`cli-discover`**: New `axm discover` command that orchestrates discovery. Scans local manifests for dependencies (via ecosystem parsers), reads locally installed package metadata for author recommendations (via ecosystem readers), queries the axm registry discover endpoint, and presents results with per-package attribution. (JTBD 1)
 
+Example output:
+
+```
+$ axm discover
+
+  Scanning dependencies...
+  Found 12 packages across 1 ecosystem (npm)
+
+  react
+    @acme/skills/react-testing        community
+    @acme/mcp-servers/react-devtools  community
+
+  next
+    @vercel/skills/nextjs             recommended
+    @vercel/mcp-servers/nextjs        recommended
+    @community/skills/next-seo        community
+
+  prisma
+    @prisma/skills/prisma             recommended
+
+  Found 6 extensions for 3 of 12 detected packages.
+  Run axm skills install <name> to install.
+```
+
+`recommended` indicates the package author shipped the recommendation. `community` indicates an extension author declared compatibility.
+
 ### CLI — Dependency File Parsers
 
 Each parser reads a project's manifest files, extracts direct dependencies, and produces purls. Each ecosystem has distinct file formats, naming conventions, and edge cases — each is a distinct spec.
@@ -251,8 +281,8 @@ Each reader inspects locally installed packages for author-provided recommendati
 
 ### Modified Capabilities
 
-- **`extension-packs`**: Packs may include package-compatibility metadata that aggregates across their contained extensions.
-- **`cli-skills-install`**: Preview mode surfaces package-compatibility context when available.
+- **`extension-packs`**: Packs may include package-compatibility metadata that aggregates across their contained extensions. Detail in design.
+- **`cli-skills-install`**: Preview mode surfaces package-compatibility context when available. Detail in design.
 
 ## Scope
 
@@ -280,6 +310,33 @@ Tier 2–5 ecosystem parsers and readers are delivered incrementally after the c
 ### Deferred
 
 - **axm remote registry ecosystem indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for author recommendation metadata. When implemented, the discover endpoint will return `recommended: true` for author-recommended extensions even for packages not yet installed locally.
+
+### Non-Goals
+
+- **Auto-installation** — `axm discover` surfaces recommendations; it does not install extensions automatically
+- **Ecosystem file modification** — axm reads manifest files and installed package metadata but never writes to them
+- **Replacing `axm skills search`** — discover is project-contextual (what fits my dependencies); search is intent-driven (find by keyword). They are complementary
+- **Compatibility enforcement** — discovery is advisory. axm does not prevent installing an extension that declares incompatible packages
+- **Recommendation ranking or scoring** — results are grouped by package, not ranked by relevance. No recommendation engine
+
+## Open Questions
+
+1. **Conflicting recommendations** — When an author-recommended extension and a community-declared extension both target the same package, they appear together under that package's heading. Should the CLI visually distinguish confidence levels beyond the `recommended` badge, or is the binary distinction sufficient?
+2. **Caching and offline behavior** — Should discover results be cached locally? If so, for how long? When the axm registry is unreachable, the CLI can still surface author recommendations from local package metadata. Should it warn that community-declared results are unavailable, or silently show only local results?
+3. **Scoped npm packages as privacy signal** — Scoped npm packages (e.g., `@my-company/internal-lib`) reveal organization names. Should the CLI warn before sending scoped packages to the registry, or is the user's invocation of `axm discover` sufficient consent?
+4. **Monorepo detection** — In monorepos with many `package.json` files, should `axm discover` scan only the root manifest, the nearest manifest, or all manifests? Scanning all could produce a very large purl set.
+5. **Ecosystem parser plugin model** — With 51 eventual capabilities, should parsers and readers be pluggable (e.g., community-contributed adapters) rather than built into the CLI?
+
+## Privacy
+
+`axm discover` sends detected purls to the axm registry. This reveals the user's direct dependency set — framework choices, library versions, and potentially organization-scoped package names. Mitigations:
+
+- **Explicit invocation** — discovery only runs when the user invokes `axm discover`; it is never automatic
+- **Local-only fallback** — author recommendations are read entirely from local package metadata with no network access. If the registry is unreachable, these still surface
+- **No transitive dependencies** — only direct dependencies from manifests are sent, limiting exposure
+- **Scoped packages** — scoped npm names (e.g., `@my-company/foo`) may reveal organization identity. The CLI should note this in `--verbose` output
+
+The axm remote registry's data retention and privacy policy for discover queries is out of scope for this proposal but must be defined before the remote registry ships.
 
 ## Impact
 
@@ -536,28 +593,20 @@ axm:
 
 #### Tier 4+5 Ecosystems
 
-**C/C++ (Conan):** Inline: custom keys in [`conandata.yml`](https://docs.conan.io/2/reference/conandata_yml.html) work for private repos, but [ConanCenter](https://conan.io/center) rejects non-standard keys. Conan 2.x also offers [`extension_properties`](https://docs.conan.io/2/reference/conanfile/attributes.html) on `conanfile.py` and experimental [`recipe_metadata_folder`/`package_metadata_folder`](https://docs.conan.io/2/devops/metadata.html) for arbitrary metadata files. Ecosystem-registry-discoverable: no. External file: `axm.json` sidecar.
+Tier 4 and 5 ecosystems are summarized in the summary table above. Detailed per-ecosystem metadata mechanisms, precedents, and detection notes are documented below for reference. These ecosystems are delivered incrementally after Tiers 1–3 are proven.
 
-**R (CRAN):** Inline: [`Config/axm`](https://r-pkgs.org/description.html) prefixed fields in DESCRIPTION (the `Config/` prefix is the [recommended convention](https://r-pkgs.org/description.html); `X-` is not officially documented). Ecosystem-registry-discoverable: partial — custom fields are not in CRAN's standard [PACKAGES index](https://stat.ethz.ch/R-manual/R-devel/library/utils/html/available.packages.html) but are queryable via [R-universe API](https://docs.r-universe.dev/) or custom repositories. External file: `axm.json` in `inst/` as fallback.
-
-**HuggingFace:** Inline: custom YAML frontmatter in [model cards](https://huggingface.co/docs/hub/model-cards) is fully supported. Ecosystem-registry-discoverable: yes, via the [Hub API](https://huggingface.co/docs/hub/api). External file: not needed.
-
-**MLflow:** Inline: [model/version tags](https://mlflow.org/docs/latest/model-registry.html) (key-value strings). Ecosystem-registry-discoverable: instance-local only. External file: not applicable.
-
-**Perl (CPAN):** Inline: [`x_`](https://metacpan.org/pod/CPAN::Meta::Spec) prefixed keys in META.json are formally specified extension fields (consumers MAY ignore them). Ecosystem-registry-discoverable: partial — stored in [MetaCPAN](https://metacpan.org/)'s Elasticsearch backing store and queryable via [Elasticsearch DSL](https://github.com/metacpan/metacpan-api/blob/master/docs/API-docs.md), but not surfaced in standard search. Only [`x_contributors` and `x_chat`](https://metacpan.org/about/metadata) are explicitly recognized. External file: not needed. Note: the `pkg:cpan` purl type requires the [PAUSE author ID](https://pause.perl.org/) as namespace and uses distribution names (not module names with `::`).
-
-**Haskell (Hackage):** Inline: [`x-`](https://cabal.readthedocs.io/en/stable/cabal-package-description-file.html) prefixed .cabal fields are preserved. Ecosystem-registry-discoverable: no (raw file only). External file: `axm.json` sidecar as alternative.
-
-**Julia:** Inline: custom TOML sections in [Project.toml](https://pkgdocs.julialang.org/v1/toml-files/) are ignored by Pkg but preserved (verified in [Pkg.jl source](https://github.com/JuliaLang/Pkg.jl/blob/master/src/project.jl); relied upon by [Preferences.jl](https://github.com/JuliaPackaging/Preferences.jl)). Ecosystem-registry-discoverable: no (raw file only). External file: `axm.json` sidecar as alternative.
-
-**Lua (LuaRocks):** Inline: custom fields in [rockspec](https://github.com/luarocks/luarocks/wiki/Rockspec-format) files are technically global variable assignments in Lua (not formal extension points) and are ignored by LuaRocks at runtime, but there is no guarantee they will remain tolerated across versions. Parsing requires a Lua interpreter. Ecosystem-registry-discoverable: no. External file: `axm.json` sidecar (recommended primary mechanism).
-
-**OCaml (opam):** Inline: [`x-`](https://opam.ocaml.org/doc/Manual.html) prefixed fields are first-class extension fields, preserved but not surfaced by default in `opam show`. Ecosystem-registry-discoverable: partial — `x-` fields are preserved in [opam-repository](https://github.com/ocaml/opam-repository) raw `.opam` files and queryable locally via [`opam list --field-match`](https://opam.ocaml.org/doc/man/opam-list.html), but not via any web API. External file: `axm.json` sidecar as alternative.
-
-**Bazel:** Inline: not viable. [`MODULE.bazel`](https://bazel.build/rules/lib/globals/module) has no extension fields. [BCR `metadata.json`](https://bazel.build/external/registry) requires maintainer approval. Ecosystem-registry-discoverable: no. External file: `axm.json` sidecar. The primary dependency file is `MODULE.bazel` (Bzlmod); `BUILD` files declare build targets, not external dependencies. `WORKSPACE` is the legacy mechanism.
-
-**Zig:** Inline: not viable. [`build.zig.zon`](https://ziglang.org/documentation/master/) is a strict Zig struct literal — unrecognized fields cause compile errors. Ecosystem-registry-discoverable: no. External file: `axm.json` sidecar.
-
-**Deno/JSR:** Inline: [`deno.json`](https://docs.deno.com/runtime/fundamentals/configuration/) tolerates unknown **top-level** keys (nested custom keys in sections like `lint` or `fmt` will error; see [denoland/deno#18970](https://github.com/denoland/deno/issues/18970)). Ecosystem-registry-discoverable: no — [JSR](https://jsr.io/docs/package-configuration) does not index custom fields. External file: `axm.json` sidecar as fallback.
-
-**Mojo:** `mojoproject.toml` is [deprecated](https://github.com/prefix-dev/pixi/pull/3942) (legacy format for Modular's Magic tool). New Mojo projects use [`pixi.toml`](https://docs.modular.com/pixi/) for configuration. `pixi.toml` does not document a `[tool.*]` section. Ecosystem-registry-discoverable: no (no ecosystem registry). External file: `axm.json` sidecar (only viable mechanism). Mojo dependencies are conda packages from `conda.modular.com` or `conda-forge` — consider using `pkg:conda` instead of `pkg:generic/mojo`.
+| Ecosystem         | Inline mechanism                                                                                                                                                                       | Sidecar                  | Ecosystem-registry-discoverable?                                                   | Key notes                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| C/C++ (Conan)     | [`conandata.yml`](https://docs.conan.io/2/reference/conandata_yml.html) custom keys; [`extension_properties`](https://docs.conan.io/2/reference/conanfile/attributes.html) (Conan 2.x) | `axm.json`               | No                                                                                 | [ConanCenter](https://conan.io/center) rejects non-standard keys                                                     |
+| R (CRAN)          | [`Config/axm`](https://r-pkgs.org/description.html) DESCRIPTION fields                                                                                                                 | `axm.json` in `inst/`    | Partial ([R-universe API](https://docs.r-universe.dev/))                           | `Config/` prefix is the [recommended convention](https://r-pkgs.org/description.html)                                |
+| HuggingFace       | YAML frontmatter in [model cards](https://huggingface.co/docs/hub/model-cards)                                                                                                         | Not needed               | Yes ([Hub API](https://huggingface.co/docs/hub/api))                               |                                                                                                                      |
+| MLflow            | [Model/version tags](https://mlflow.org/docs/latest/model-registry.html)                                                                                                               | N/A                      | Instance-local only                                                                | No local file; API only                                                                                              |
+| Perl (CPAN)       | [`x_`](https://metacpan.org/pod/CPAN::Meta::Spec) META.json keys                                                                                                                       | Not needed               | Partial ([MetaCPAN](https://metacpan.org/))                                        | `pkg:cpan` requires [PAUSE author ID](https://pause.perl.org/) namespace; distribution names (not `::` module names) |
+| Haskell (Hackage) | [`x-`](https://cabal.readthedocs.io/en/stable/cabal-package-description-file.html) .cabal fields                                                                                       | `axm.json`               | No                                                                                 |                                                                                                                      |
+| Julia             | Custom [TOML sections](https://pkgdocs.julialang.org/v1/toml-files/) in Project.toml                                                                                                   | `axm.json`               | No                                                                                 | Relied upon by [Preferences.jl](https://github.com/JuliaPackaging/Preferences.jl)                                    |
+| Lua (LuaRocks)    | [Rockspec](https://github.com/luarocks/luarocks/wiki/Rockspec-format) globals (not formal extension points)                                                                            | `axm.json` (primary)     | No                                                                                 | Parsing requires Lua; sidecar preferred                                                                              |
+| OCaml (opam)      | [`x-`](https://opam.ocaml.org/doc/Manual.html) .opam fields                                                                                                                            | `axm.json`               | Partial (raw files in [opam-repository](https://github.com/ocaml/opam-repository)) | Queryable locally via [`opam list --field-match`](https://opam.ocaml.org/doc/man/opam-list.html)                     |
+| Bazel             | Not viable ([`MODULE.bazel`](https://bazel.build/rules/lib/globals/module) has no extension fields)                                                                                    | `axm.json`               | No                                                                                 | `MODULE.bazel` (Bzlmod) is primary; `WORKSPACE` is legacy                                                            |
+| Zig               | Not viable ([`build.zig.zon`](https://ziglang.org/documentation/master/) rejects unknown fields)                                                                                       | `axm.json`               | No                                                                                 |                                                                                                                      |
+| Deno/JSR          | [`deno.json`](https://docs.deno.com/runtime/fundamentals/configuration/) top-level keys (nested keys error; [denoland/deno#18970](https://github.com/denoland/deno/issues/18970))      | `axm.json`               | No                                                                                 | [JSR](https://jsr.io/docs/package-configuration) does not index custom fields                                        |
+| Mojo              | Not viable ([`pixi.toml`](https://docs.modular.com/pixi/) has no `[tool.*]`; `mojoproject.toml` [deprecated](https://github.com/prefix-dev/pixi/pull/3942))                            | `axm.json` (only viable) | No                                                                                 | Deps are conda packages — consider `pkg:conda` over `pkg:generic/mojo`                                               |

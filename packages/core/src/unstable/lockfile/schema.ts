@@ -252,7 +252,7 @@ export type ResolvedExtensionMap = Schema.Schema.Type<typeof ResolvedExtensionMa
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RegistryPackLockEntrySchema = Schema.Struct({
+export const RegistryExtensionPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   owner: HandleSchema,
   name: ExtensionNameSchema,
@@ -265,33 +265,35 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
 }).annotate({
-  identifier: "RegistryPackLockEntry",
-  title: "Registry Pack Lock Entry",
-  description: "Pinned version info for a pack installed from a registry.",
+  identifier: "RegistryExtensionPackLockEntry",
+  title: "Registry Extension Pack Lock Entry",
+  description: "Pinned version info for an extension pack installed from a registry.",
 });
 
 /**
- * Inferred type for RegistryPackLockEntry schema.
+ * Inferred type for RegistryExtensionPackLockEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
+export type RegistryExtensionPackLockEntry = Schema.Schema.Type<
+  typeof RegistryExtensionPackLockEntrySchema
+>;
 
 /**
  * Constructor args for a registry pack lock entry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntryArgs = Omit<RegistryPackLockEntry, "type">;
+export type RegistryExtensionPackLockEntryArgs = Omit<RegistryExtensionPackLockEntry, "type">;
 
 /**
  * Build a registry pack lock entry from typed args.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeRegistryPackLockEntry = (
-  args: RegistryPackLockEntryArgs,
-): RegistryPackLockEntry => ({
+export const makeRegistryExtensionPackLockEntry = (
+  args: RegistryExtensionPackLockEntryArgs,
+): RegistryExtensionPackLockEntry => ({
   type: "registry",
   ...args,
 });
@@ -302,7 +304,7 @@ export const makeRegistryPackLockEntry = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const BuiltinPackLockEntrySchema = Schema.Struct({
+export const BuiltinExtensionPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
   owner: HandleSchema,
   name: ExtensionNameSchema,
@@ -313,9 +315,9 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
 }).annotate({
-  identifier: "BuiltinPackLockEntry",
-  title: "Builtin Pack Lock Entry",
-  description: "Pinned version info for a built-in pack that ships with axm.",
+  identifier: "BuiltinExtensionPackLockEntry",
+  title: "Builtin Extension Pack Lock Entry",
+  description: "Pinned version info for a built-in extension pack that ships with axm.",
 });
 
 /**
@@ -323,21 +325,25 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type BuiltinPackLockEntry = Schema.Schema.Type<typeof BuiltinPackLockEntrySchema>;
+export type BuiltinExtensionPackLockEntry = Schema.Schema.Type<
+  typeof BuiltinExtensionPackLockEntrySchema
+>;
 
 /**
  * Constructor args for a builtin pack lock entry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type BuiltinPackLockEntryArgs = Omit<BuiltinPackLockEntry, "type">;
+export type BuiltinExtensionPackLockEntryArgs = Omit<BuiltinExtensionPackLockEntry, "type">;
 
 /**
  * Build a builtin pack lock entry from typed args.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeBuiltinPackLockEntry = (args: BuiltinPackLockEntryArgs): BuiltinPackLockEntry => ({
+export const makeBuiltinExtensionPackLockEntry = (
+  args: BuiltinExtensionPackLockEntryArgs,
+): BuiltinExtensionPackLockEntry => ({
   type: "builtin",
   ...args,
 });
@@ -348,21 +354,21 @@ export const makeBuiltinPackLockEntry = (args: BuiltinPackLockEntryArgs): Builti
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackLockEntrySchema = Schema.Union([
-  RegistryPackLockEntrySchema,
-  BuiltinPackLockEntrySchema,
+export const ExtensionPackLockEntrySchema = Schema.Union([
+  RegistryExtensionPackLockEntrySchema,
+  BuiltinExtensionPackLockEntrySchema,
 ]).annotate({
-  identifier: "PackLockEntry",
-  title: "Pack Lock Entry",
-  description: "Pinned version info for an installed pack (from a registry or built-in).",
+  identifier: "ExtensionPackLockEntry",
+  title: "Extension Pack Lock Entry",
+  description: "Pinned version info for an installed extension pack (from a registry or built-in).",
 });
 
 /**
- * Inferred type for PackLockEntry schema.
+ * Inferred type for ExtensionPackLockEntry schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
+export type ExtensionPackLockEntry = Schema.Schema.Type<typeof ExtensionPackLockEntrySchema>;
 
 // =============================================================================
 // Packs Lock Map
@@ -373,14 +379,17 @@ export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySchema);
+export const ExtensionPacksLockMapSchema = Schema.Record(
+  Schema.String,
+  ExtensionPackLockEntrySchema,
+);
 
 /**
- * Inferred type for PacksLockMap schema.
+ * Inferred type for ExtensionPacksLockMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
+export type ExtensionPacksLockMap = Schema.Schema.Type<typeof ExtensionPacksLockMapSchema>;
 
 // =============================================================================
 // Lockfile
@@ -408,7 +417,7 @@ export const LockfileSchema = Schema.Struct({
   ),
   commands: Schema.optional(CommandsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
-  packs: Schema.optional(PacksLockMapSchema),
+  packs: Schema.optional(ExtensionPacksLockMapSchema),
 }).annotate({
   identifier: "Lockfile",
   title: "AXM Lockfile",

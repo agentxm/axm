@@ -28,16 +28,16 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
-  makeRegistryPackLockEntry,
+  makeRegistryExtensionPackLockEntry,
   readLockfile,
   writeLockfile,
   type CommandsLockMap,
   type McpServersLockMap,
-  type PacksLockMap,
-  type RegistryPackLockEntry,
+  type ExtensionPacksLockMap,
+  type RegistryExtensionPackLockEntry,
 } from "../lockfile/index.js";
 import { computeSkillPaths } from "../skills/paths.js";
-import { computePackPaths } from "../packs/paths.js";
+import { computeExtensionPackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
@@ -58,7 +58,7 @@ import {
   type McpServersMap,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
-  type PacksMap,
+  type ExtensionPacksMap,
   readSettings,
   type Settings,
   type SkillsMap,
@@ -78,7 +78,7 @@ import {
   Workspace,
   type WorkspaceContextOptions,
   type SetSkillArgs,
-  type SetPackArgs,
+  type SetExtensionPackArgs,
   type SetCommandArgs,
   type SetMcpServerArgs,
   type SkillPathSource,
@@ -119,7 +119,7 @@ import {
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
 } from "./classifier-records.js";
-import type { ResolvedBuiltinPack } from "./builtin-packs.js";
+import type { ResolvedBuiltinExtensionPack } from "./builtin-packs.js";
 
 /**
  * Options for creating workspace context, including the builtin pack resolver.
@@ -130,8 +130,8 @@ export interface WorkspaceLayerOptions extends WorkspaceContextOptions {
    * Provided by the CLI package since the bundled skill assets live in the CLI distribution.
    * May require FileSystem and Path services (resolved by the surrounding layer context).
    */
-  readonly resolveBuiltinPack: Effect.Effect<
-    ResolvedBuiltinPack,
+  readonly resolveBuiltinExtensionPack: Effect.Effect<
+    ResolvedBuiltinExtensionPack,
     AppError,
     FileSystem.FileSystem | Path.Path
   >;
@@ -162,7 +162,11 @@ const make = (options: WorkspaceLayerOptions) =>
     if (options.scope === "user") {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
-      yield* ensureProjectWorkspaceInitialized(localDir, options, options.resolveBuiltinPack);
+      yield* ensureProjectWorkspaceInitialized(
+        localDir,
+        options,
+        options.resolveBuiltinExtensionPack,
+      );
     }
 
     // Capture FileSystem and Path for use in closures
@@ -331,7 +335,7 @@ const make = (options: WorkspaceLayerOptions) =>
           }
           case "pack": {
             const packSettings = settings.packs ?? {};
-            const packLockEntries: PacksLockMap = lockfile.packs ?? {};
+            const packLockEntries: ExtensionPacksLockMap = lockfile.packs ?? {};
             const configured = Object.fromEntries(
               Object.entries(packSettings).map(([name, entry]) => {
                 const source = typeof entry === "string" ? entry : entry.source;
@@ -875,18 +879,19 @@ const make = (options: WorkspaceLayerOptions) =>
           Effect.map((s): ReadonlyArray<string> => s.ignored?.packs ?? []),
         ),
 
-      getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
+      getLockedExtensionPacks: () =>
+        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
 
-      getLockedPack: (name: string) =>
+      getLockedExtensionPack: (name: string) =>
         readLockfileSafe(workspaceDir).pipe(
           Effect.map((lf) => Option.fromUndefinedOr((lf.packs ?? {})[name])),
         ),
 
-      setPack: (args: SetPackArgs) =>
+      setExtensionPack: (args: SetExtensionPackArgs) =>
         withMutex(
           Effect.gen(function* () {
             const { name, versionConstraint, ...lockFields } = args;
-            const lockEntry: RegistryPackLockEntry = makeRegistryPackLockEntry({
+            const lockEntry: RegistryExtensionPackLockEntry = makeRegistryExtensionPackLockEntry({
               ...lockFields,
               name,
             });
@@ -900,7 +905,7 @@ const make = (options: WorkspaceLayerOptions) =>
               ? `${fqn}@${versionConstraint.value}`
               : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: PacksMap = currentSettings.packs ?? {};
+            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
             const updatedSettings = {
               ...currentSettings,
               packs: { ...currentPacks, [name]: source },
@@ -922,14 +927,14 @@ const make = (options: WorkspaceLayerOptions) =>
             };
             yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
-        ).pipe(Effect.withSpan("Workspace.setPack")),
+        ).pipe(Effect.withSpan("Workspace.setExtensionPack")),
 
-      removePack: (name: string) =>
+      removeExtensionPack: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: PacksMap = currentSettings.packs ?? {};
+            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
             if (!(name in currentPacks)) return; // no-op
 
             const { [name]: _, ...remainingPacks } = currentPacks;
@@ -947,10 +952,10 @@ const make = (options: WorkspaceLayerOptions) =>
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
           }),
-        ).pipe(Effect.withSpan("Workspace.removePack")),
+        ).pipe(Effect.withSpan("Workspace.removeExtensionPack")),
 
-      getPackDir: (name: string, owner: Handle) =>
-        Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
+      getExtensionPackDir: (name: string, owner: Handle) =>
+        Effect.succeed(computeExtensionPackPaths(path.join, baseDir, owner, name)),
 
       // -----------------------------------------------------------------------
       // Command methods
@@ -1209,11 +1214,11 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      removePackSettings: (name: string) =>
+      removeExtensionPackSettings: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentPacks: PacksMap = currentSettings.packs ?? {};
+            const currentPacks: ExtensionPacksMap = currentSettings.packs ?? {};
             if (!(name in currentPacks)) return;
             const { [name]: _, ...remainingPacks } = currentPacks;
             void _;
@@ -1222,7 +1227,7 @@ const make = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      removePackLock: (name: string) =>
+      removeExtensionPackLock: (name: string) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1239,7 +1244,7 @@ const make = (options: WorkspaceLayerOptions) =>
       // Pack dependency queries
       // -----------------------------------------------------------------------
 
-      isExtensionRequiredByInstalledPack: (target: ExtensionTarget) =>
+      isExtensionRequiredByInstalledExtensionPack: (target: ExtensionTarget) =>
         Effect.gen(function* () {
           // Packs don't depend on other packs in this model
           if (target.type === "pack") return false;
@@ -1327,7 +1332,7 @@ const make = (options: WorkspaceLayerOptions) =>
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
  * CliPrompt service is required for agent selection.
  *
- * @param options - Workspace layer options (includes resolveBuiltinPack)
+ * @param options - Workspace layer options (includes resolveBuiltinExtensionPack)
  * @returns Layer providing WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.

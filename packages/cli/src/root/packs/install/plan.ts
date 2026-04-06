@@ -1,7 +1,7 @@
 /**
  * Pack-specific install plan builder.
  *
- * Accepts a PackExtensionRef and constructs the full install plan with inline
+ * Accepts a ExtensionPackRef and constructs the full install plan with inline
  * run closures that capture workspace services and materialization dependencies.
  *
  * @experimental This API is unstable and may change without notice.
@@ -15,10 +15,13 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
-import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
+import type { RegistryExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
-import { installPack, type InstallPackOperation } from "@axm.sh/core/unstable/packs";
+import {
+  installExtensionPack,
+  type InstallExtensionPackOperation,
+} from "@axm.sh/core/unstable/packs";
 import { installCommand, type InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import {
   installMcpServer,
@@ -32,7 +35,7 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
  * Union of operation types produced by the pack install plan builder.
  */
 export type PackInstallOp =
-  | InstallPackOperation
+  | InstallExtensionPackOperation
   | InstallSkillOperation
   | InstallCommandOperation
   | InstallMcpServerOperation;
@@ -42,7 +45,7 @@ export type PackInstallOp =
  */
 export interface BuildInstallPlanArgs {
   /** The pack extension ref to install */
-  readonly ref: RegistryPackRef;
+  readonly ref: RegistryExtensionPackRef;
   /** Already-resolved skill install operations */
   readonly skillOps: ReadonlyArray<InstallSkillOperation>;
   /** Already-resolved command install operations */
@@ -156,8 +159,8 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       ),
     );
 
-    // Build InstallPackOperation from the ref
-    const packOp: InstallPackOperation = {
+    // Build InstallExtensionPackOperation from the ref
+    const packOp: InstallExtensionPackOperation = {
       name: "install-pack",
       args: {
         packName: ref.pack.name,
@@ -177,7 +180,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       const runOperation = (() => {
         switch (op.name) {
           case "install-pack":
-            return installPack(op);
+            return installExtensionPack(op);
           case "install-skill":
             return installSkill(op);
           case "install-command":

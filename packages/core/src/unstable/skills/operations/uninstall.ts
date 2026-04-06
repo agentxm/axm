@@ -20,7 +20,7 @@ import { Workspace } from "../../workspace/service-interface.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { existsInAnyCanonicalLocation } from "../disk-check.js";
-import { getSkillFqn, isReferencedByPack } from "../utils.js";
+import { getSkillFqn, isReferencedByExtensionPack } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -139,9 +139,11 @@ export const uninstallSkill: OperationHandler<
     }
 
     // Check if a pack still references this skill
-    const lockedPacks = yield* ws.getLockedPacks().pipe(Effect.catch(() => Effect.succeed({})));
+    const lockedPacks = yield* ws
+      .getLockedExtensionPacks()
+      .pipe(Effect.catch(() => Effect.succeed({})));
     const fqn = getSkillFqn(op.args.skillName, lockEntry);
-    const packOwned = fqn !== undefined && isReferencedByPack(fqn, lockedPacks);
+    const packOwned = fqn !== undefined && isReferencedByExtensionPack(fqn, lockedPacks);
 
     if (packOwned) {
       // Pack still references this skill — remove from settings only, keep lockfile + disk

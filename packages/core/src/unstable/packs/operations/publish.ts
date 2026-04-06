@@ -1,5 +1,5 @@
 /**
- * Publish pack executor -- reads a managed pack's manifest, builds a zip
+ * Publish extension pack executor -- reads a managed extension pack's manifest, builds a zip
  * archive, computes the SRI integrity hash, and publishes to a target registry.
  *
  * Pipeline: validate manifest -> build archive -> compute integrity ->
@@ -15,9 +15,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { parseFqn, type ExtensionDependencyConstraintMap } from "../../extensions/index.js";
 import {
-  PackManifestSchema,
-  type PackManifest,
-  PACK_MANIFEST_FILENAME,
+  ExtensionPackManifestSchema,
+  type ExtensionPackManifest,
+  EXTENSION_PACK_MANIFEST_FILENAME,
 } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
@@ -26,7 +26,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation, JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { computePackPaths } from "../paths.js";
+import { computeExtensionPackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -35,7 +35,7 @@ import { computePackPaths } from "../paths.js";
 /**
  * Args for the publish-pack operation.
  */
-export interface PublishPackOperationArgs {
+export interface PublishExtensionPackOperationArgs {
   /** Extension identity in `@owner/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g., "local"). */
@@ -43,27 +43,30 @@ export interface PublishPackOperationArgs {
 }
 
 /**
- * Publish a pack to a registry.
+ * Publish an extension pack to a registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PublishPackOperation = Operation<"publish-pack", PublishPackOperationArgs>;
+export type PublishExtensionPackOperation = Operation<
+  "publish-pack",
+  PublishExtensionPackOperationArgs
+>;
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * Publish-pack operation handler.
+ * Publish extension pack operation handler.
  *
  * 1. Read and validate `axm-pack.json` manifest
- * 2. Build zip archive of pack directory
+ * 2. Build zip archive of extension pack directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name
  * 5. Publish version (idempotent: same integrity = no-op, different integrity = error)
  */
-export const publishPack: OperationHandler<
-  PublishPackOperation,
+export const publishExtensionPack: OperationHandler<
+  PublishExtensionPackOperation,
   FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
@@ -75,17 +78,17 @@ export const publishPack: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed pack directory
-    const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
+    const packDir = computeExtensionPackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
       return yield* makeAppError({
         code: "PUBLISH_PACK_NOT_FOUND",
-        what: `Managed pack not found: ${packDir}`,
+        what: `Managed extension pack not found: ${packDir}`,
       });
     }
 
     // Read and validate manifest
-    const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+    const manifestPath = path.join(packDir, EXTENSION_PACK_MANIFEST_FILENAME);
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -109,9 +112,9 @@ export const publishPack: OperationHandler<
         }),
     });
 
-    const manifest: PackManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
-      manifestJson,
-    ).pipe(
+    const manifest: ExtensionPackManifest = yield* Schema.decodeUnknownEffect(
+      ExtensionPackManifestSchema,
+    )(manifestJson).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PUBLISH_PACK_MANIFEST_SCHEMA_INVALID",

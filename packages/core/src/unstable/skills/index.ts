@@ -30,8 +30,8 @@ export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./p
 export {
   getSkillDisplayName,
   getSkillFqn,
-  isReferencedByPack,
-  getReferencingPacks,
+  isReferencedByExtensionPack,
+  getReferencingExtensionPacks,
 } from "./utils.js";
 
 // Reconciliation

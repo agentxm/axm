@@ -19,7 +19,7 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../../../builtin-pack/index.js";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import {
@@ -27,7 +27,7 @@ import {
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
@@ -133,12 +133,15 @@ describe("packs uninstall handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       BaseLayer,
     );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const ManagersLayer = Layer.mergeAll(
-      PackManagerLive,
+      ExtensionPackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -359,7 +362,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          expect(logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
+          expect(logs.warn.some((m) => m.includes("No extension packs matched"))).toBe(true);
           expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
         }),
       );

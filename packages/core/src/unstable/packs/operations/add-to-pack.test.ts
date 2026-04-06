@@ -11,8 +11,8 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import type { AddToPackOperation } from "./add-to-pack.js";
-import { addToPack } from "./add-to-pack.js";
+import type { AddToExtensionPackOperation } from "./add-to-pack.js";
+import { addToExtensionPack } from "./add-to-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -69,11 +69,11 @@ const makeWorkspaceMock = (
         },
       ),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+    getLockedExtensionPacks: () => Effect.succeed({}),
+    getLockedExtensionPack: () => Effect.succeed(Option.none()),
+    setExtensionPack: () => Effect.void,
+    removeExtensionPack: () => Effect.void,
+    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -89,9 +89,9 @@ const makeWorkspaceMock = (
     removeCommandLock: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    removeExtensionPackSettings: () => Effect.void,
+    removeExtensionPackLock: () => Effect.void,
+    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
@@ -123,10 +123,10 @@ const createPackManifest = (base: string, owner: string, packName: string) => {
   return { packDir, manifestHash: hashContent(content), content };
 };
 
-/** Creates a minimal AddToPackOperation for testing. */
+/** Creates a minimal AddToExtensionPackOperation for testing. */
 const makeOp = (
-  overrides: Partial<AddToPackOperation["args"]> & { manifestHash: string },
-): AddToPackOperation => ({
+  overrides: Partial<AddToExtensionPackOperation["args"]> & { manifestHash: string },
+): AddToExtensionPackOperation => ({
   name: "add-to-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
@@ -140,7 +140,7 @@ const makeOp = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("addToPack", () => {
+describe("addToExtensionPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -164,7 +164,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash,
@@ -193,7 +193,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: {
               "@acme/skills/skill-a": "^1.0.0",
@@ -225,7 +225,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(makeOp({ additions: {}, manifestHash })).pipe(
+        const result = yield* addToExtensionPack(makeOp({ additions: {}, manifestHash })).pipe(
           Effect.provide(withServices(axmDir)),
         );
 
@@ -241,7 +241,7 @@ describe("addToPack", () => {
         createPackManifest(base, "@myorg", "my-pack");
 
         // Use a stale hash that doesn't match current manifest
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash: "stale-hash-that-does-not-match",
@@ -261,7 +261,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { content } = createPackManifest(base, "@myorg", "my-pack");
 
-        yield* addToPack(
+        yield* addToExtensionPack(
           makeOp({
             additions: { "@acme/skills/my-skill": "^1.0.0" },
             manifestHash: "stale-hash-that-does-not-match",
@@ -293,7 +293,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: { "@acme/commands/my-cmd": "^1.0.0" },
             manifestHash,
@@ -322,7 +322,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: { "@acme/mcp-servers/my-server": "^2.0.0" },
             manifestHash,
@@ -351,7 +351,7 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             additions: {
               "@acme/skills/my-skill": "^1.0.0",
@@ -387,7 +387,7 @@ describe("addToPack", () => {
         const { axmDir } = setupBase();
         // Don't create the manifest on disk
 
-        const result = yield* addToPack(
+        const result = yield* addToExtensionPack(
           makeOp({
             manifestHash: "nonexistent",
           }),

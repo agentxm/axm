@@ -27,7 +27,7 @@ import {
   Workspace,
   type SetCommandArgs,
   type SetMcpServerArgs,
-  type SetPackArgs,
+  type SetExtensionPackArgs,
   type WorkspaceContextOptions,
 } from "./service-interface.js";
 
@@ -86,7 +86,7 @@ describe("WorkspaceContextService", () => {
 
   const toLayerOptions = (options: WorkspaceContextOptions): WorkspaceLayerOptions => ({
     ...options,
-    resolveBuiltinPack: Effect.succeed({
+    resolveBuiltinExtensionPack: Effect.succeed({
       manifest: {
         owner: "@axm",
         name: "cli",
@@ -1626,8 +1626,10 @@ describe("WorkspaceContextService", () => {
   // Pack methods
   // ---------------------------------------------------------------------------
 
-  /** Create sample SetPackArgs for testing. */
-  const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
+  /** Create sample SetExtensionPackArgs for testing. */
+  const makeSampleSetExtensionPackArgs = (
+    overrides?: Partial<SetExtensionPackArgs>,
+  ): SetExtensionPackArgs => ({
     owner: "@acme",
     name: "starter-pack",
     resolvedVersion: "1.0.0",
@@ -1709,7 +1711,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getLockedPacks", () => {
+  describe("getLockedExtensionPacks", () => {
     it.effect("returns packs lock map when lock entries are present", () =>
       Effect.gen(function* () {
         writeLockfileTo(
@@ -1733,7 +1735,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getLockedPacks();
+        const packs = yield* ws.getLockedExtensionPacks();
 
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
@@ -1748,14 +1750,14 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.getLockedPacks();
+        const packs = yield* ws.getLockedExtensionPacks();
 
         expect(packs).toEqual({});
       }),
     );
   });
 
-  describe("getLockedPack", () => {
+  describe("getLockedExtensionPack", () => {
     it.effect("returns Option.some when pack exists in lockfile", () =>
       Effect.gen(function* () {
         writeLockfileTo(
@@ -1779,7 +1781,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const entry = yield* ws.getLockedPack("starter-pack");
+        const entry = yield* ws.getLockedExtensionPack("starter-pack");
 
         expect(Option.isSome(entry)).toBe(true);
         if (Option.isSome(entry)) {
@@ -1794,21 +1796,21 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const entry = yield* ws.getLockedPack("nonexistent");
+        const entry = yield* ws.getLockedExtensionPack("nonexistent");
 
         expect(Option.isNone(entry)).toBe(true);
       }),
     );
   });
 
-  describe("setPack", () => {
+  describe("setExtensionPack", () => {
     it.effect("installs new pack: adds to settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.setPack(makeSampleSetPackArgs());
+        yield* ws.setExtensionPack(makeSampleSetExtensionPackArgs());
 
         // Verify settings on disk
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1832,7 +1834,7 @@ describe("WorkspaceContextService", () => {
 
         const before = new Date();
         const ws = yield* getService(defaultOptions);
-        yield* ws.setPack(makeSampleSetPackArgs());
+        yield* ws.setExtensionPack(makeSampleSetExtensionPackArgs());
         const after = new Date();
 
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1845,7 +1847,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("removePack", () => {
+  describe("removeExtensionPack", () => {
     it.effect("removes existing pack from both settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1889,7 +1891,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePack("starter-pack");
+        yield* ws.removeExtensionPack("starter-pack");
 
         // Verify settings: starter-pack removed, other-pack remains
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1913,7 +1915,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePack("nonexistent");
+        yield* ws.removeExtensionPack("nonexistent");
 
         // Verify nothing changed
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1924,11 +1926,11 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getPackDir", () => {
+  describe("getExtensionPackDir", () => {
     it.effect("returns registry extensions path with owner", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getPackDir("starter-pack", "@acme");
+        const result = yield* ws.getExtensionPackDir("starter-pack", "@acme");
 
         expect(result.canonicalPath).toContain(".axm/extensions/@acme/packs/starter-pack");
       }),
@@ -1937,7 +1939,7 @@ describe("WorkspaceContextService", () => {
     it.effect("handles different namespaces correctly", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getPackDir("my-pack", "@community");
+        const result = yield* ws.getExtensionPackDir("my-pack", "@community");
 
         expect(result.canonicalPath).toContain(".axm/extensions/@community/packs/my-pack");
       }),
@@ -3776,7 +3778,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("removePackSettings", () => {
+  describe("removeExtensionPackSettings", () => {
     it.effect("removes pack from settings only, not lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3804,7 +3806,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePackSettings("starter-pack");
+        yield* ws.removeExtensionPackSettings("starter-pack");
 
         // Settings should NOT have the pack
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -3823,7 +3825,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePackSettings("nonexistent");
+        yield* ws.removeExtensionPackSettings("nonexistent");
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -3832,7 +3834,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("removePackLock", () => {
+  describe("removeExtensionPackLock", () => {
     it.effect("removes pack from lockfile only, not settings", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3860,7 +3862,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePackLock("starter-pack");
+        yield* ws.removeExtensionPackLock("starter-pack");
 
         // Settings should still have the pack
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -3879,7 +3881,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.removePackLock("nonexistent");
+        yield* ws.removeExtensionPackLock("nonexistent");
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.packs).toBeUndefined();
@@ -3891,7 +3893,7 @@ describe("WorkspaceContextService", () => {
   // Pack dependency queries (Phase 3)
   // ---------------------------------------------------------------------------
 
-  describe("isExtensionRequiredByInstalledPack", () => {
+  describe("isExtensionRequiredByInstalledExtensionPack", () => {
     it.effect("returns true when skill is referenced by an installed pack", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -3928,7 +3930,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "skill",
           name: "code-review",
         });
@@ -3973,7 +3975,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "command",
           name: "my-cmd",
         });
@@ -4019,7 +4021,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "mcp-server",
           name: "my-mcp",
         });
@@ -4055,7 +4057,7 @@ describe("WorkspaceContextService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "skill",
           name: "orphan-skill",
         });
@@ -4070,7 +4072,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "skill",
           name: "some-skill",
         });
@@ -4085,7 +4087,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
+        const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "pack",
           name: "some-pack",
           owner: "@acme",

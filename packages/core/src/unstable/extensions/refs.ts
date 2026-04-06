@@ -12,11 +12,11 @@
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
-import type { PackExtensionRef } from "../packs/refs.js";
+import type { ExtensionPackRef } from "../packs/refs.js";
 
 /** @experimental */
 export type ExtensionRef =
   | SkillExtensionRef
   | CommandExtensionRef
   | McpServerExtensionRef
-  | PackExtensionRef;
+  | ExtensionPackRef;

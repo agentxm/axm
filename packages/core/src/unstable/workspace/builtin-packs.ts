@@ -1,8 +1,8 @@
 /**
- * Builtin pack materialization.
+ * Builtin extension pack materialization.
  *
  * Copies bundled skill files to canonical workspace locations, creates
- * agent symlinks, and writes lock entries. No-op if the builtin pack
+ * agent symlinks, and writes lock entries. No-op if the builtin extension pack
  * is already in the lockfile.
  *
  * The resolver function is provided by the CLI package since the bundled
@@ -21,13 +21,13 @@ import { getAgentById } from "../agents/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import {
-  makeBuiltinPackLockEntry,
+  makeBuiltinExtensionPackLockEntry,
   readLockfile,
   type ResolvedExtensionMap,
   writeLockfile,
 } from "../lockfile/index.js";
 import { createSymlink } from "../utils/index.js";
-import type { PackManifest } from "../packs/manifest-schema.js";
+import type { ExtensionPackManifest } from "../packs/manifest-schema.js";
 import {
   decodeExactSemverVersionSync,
   type ExactSemverVersion,
@@ -38,20 +38,20 @@ import { decodeExtensionNameSync } from "../extensions/common.js";
 import type { ExtensionName } from "../extensions/common.js";
 
 /**
- * Resolved builtin pack data — provided by the CLI package.
+ * Resolved builtin extension pack data — provided by the CLI package.
  */
-export interface ResolvedBuiltinPack {
-  readonly manifest: PackManifest;
+export interface ResolvedBuiltinExtensionPack {
+  readonly manifest: ExtensionPackManifest;
   readonly version: ExactSemverVersion;
   readonly skillsDir: string;
 }
 
 /**
- * Builtin pack identity constants.
+ * Builtin extension pack identity constants.
  */
-export const BUILTIN_PACK_FQN = "@axm/packs/cli";
-export const BUILTIN_PACK_SCOPE = decodeHandleSync("@axm");
-export const BUILTIN_PACK_NAME = decodeExtensionNameSync("cli");
+export const BUILTIN_EXTENSION_PACK_FQN = "@axm/packs/cli";
+export const BUILTIN_EXTENSION_PACK_SCOPE = decodeHandleSync("@axm");
+export const BUILTIN_EXTENSION_PACK_NAME = decodeExtensionNameSync("cli");
 
 const getSkillNameFromFqn = (fqn: string): Option.Option<ExtensionName> => {
   const parsed = parseFullyQualifiedNameParts(fqn);
@@ -59,20 +59,20 @@ const getSkillNameFromFqn = (fqn: string): Option.Option<ExtensionName> => {
 };
 
 /**
- * Materialize builtin pack skills into the workspace.
+ * Materialize builtin extension pack skills into the workspace.
  *
  * Copies bundled skill files to canonical locations, creates agent symlinks,
- * and writes lock entries. No-op if the builtin pack is already in the lockfile.
+ * and writes lock entries. No-op if the builtin extension pack is already in the lockfile.
  *
  * @param workspaceDir - Path to the .axm directory
  * @param agentIds - Agent IDs to create symlinks for
- * @param resolveBuiltinPack - Effect that resolves the bundled builtin pack
+ * @param resolveBuiltinExtensionPack - Effect that resolves the bundled builtin extension pack
  */
-export const materializeBuiltinPack = (
+export const materializeBuiltinExtensionPack = (
   workspaceDir: string,
   agentIds: ReadonlyArray<string>,
-  resolveBuiltinPack: Effect.Effect<
-    ResolvedBuiltinPack,
+  resolveBuiltinExtensionPack: Effect.Effect<
+    ResolvedBuiltinExtensionPack,
     AppError,
     FileSystem.FileSystem | Path.Path
   >,
@@ -83,12 +83,12 @@ export const materializeBuiltinPack = (
     // Check if already materialized
     const existingLockfile = yield* readLockfile(workspaceDir);
     const existingPacks = existingLockfile.packs ?? {};
-    if (BUILTIN_PACK_FQN in existingPacks) {
+    if (BUILTIN_EXTENSION_PACK_FQN in existingPacks) {
       return;
     }
 
-    // Resolve builtin pack
-    const builtinPack = yield* resolveBuiltinPack;
+    // Resolve builtin extension pack
+    const builtinPack = yield* resolveBuiltinExtensionPack;
     const base = path.dirname(workspaceDir);
     const now = new Date();
 
@@ -117,7 +117,7 @@ export const materializeBuiltinPack = (
           const canonicalDir = path.join(
             workspaceDir,
             "extensions",
-            BUILTIN_PACK_SCOPE,
+            BUILTIN_EXTENSION_PACK_SCOPE,
             "skills",
             skillName,
           );
@@ -168,9 +168,9 @@ export const materializeBuiltinPack = (
     const resolvedSkills: ResolvedExtensionMap = Object.fromEntries(
       skillEntries.map(([fqn, version]) => [fqn, decodeExactSemverVersionSync(version)]),
     );
-    const packLockEntry = makeBuiltinPackLockEntry({
-      owner: BUILTIN_PACK_SCOPE,
-      name: BUILTIN_PACK_NAME,
+    const packLockEntry = makeBuiltinExtensionPackLockEntry({
+      owner: BUILTIN_EXTENSION_PACK_SCOPE,
+      name: BUILTIN_EXTENSION_PACK_NAME,
       resolvedVersion: builtinPack.version,
       installedAt: now,
       updatedAt: now,
@@ -189,7 +189,7 @@ export const materializeBuiltinPack = (
       },
       packs: {
         ...(currentLockfile.packs ?? {}),
-        [BUILTIN_PACK_FQN]: packLockEntry,
+        [BUILTIN_EXTENSION_PACK_FQN]: packLockEntry,
       },
     };
     yield* writeLockfile(workspaceDir, updatedLockfile);

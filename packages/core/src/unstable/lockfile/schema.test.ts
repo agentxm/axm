@@ -2,10 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
-  BuiltinPackLockEntrySchema,
+  BuiltinExtensionPackLockEntrySchema,
   LockfileSchema,
-  PackLockEntrySchema,
-  PacksLockMapSchema,
+  ExtensionPackLockEntrySchema,
+  ExtensionPacksLockMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
@@ -699,7 +699,7 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("PackLockEntry", () => {
+  describe("ExtensionPackLockEntry", () => {
     it("accepts valid pack lock entry with all resolved maps", () => {
       const input = {
         type: "registry",
@@ -715,7 +715,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
 
       expect(result.type).toBe("registry");
       expect(result.owner).toBe("@acme");
@@ -747,7 +747,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
 
       expect(result.resolvedSkills).toEqual({});
       expect(result.resolvedCommands).toEqual({});
@@ -769,7 +769,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry with range value in resolved maps", () => {
@@ -787,7 +787,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: { "@acme/mcp-servers/local-tools": ">=1.0.0 <2.0.0" },
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing owner", () => {
@@ -804,7 +804,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedSkills", () => {
@@ -821,7 +821,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedCommands", () => {
@@ -838,7 +838,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing resolvedMcpServers", () => {
@@ -855,7 +855,7 @@ describe("lockfile schema", () => {
         resolvedCommands: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry with non-registry type", () => {
@@ -873,11 +873,11 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
     });
   });
 
-  describe("BuiltinPackLockEntry", () => {
+  describe("BuiltinExtensionPackLockEntry", () => {
     it("accepts valid builtin pack lock entry", () => {
       const input = {
         type: "builtin",
@@ -891,7 +891,7 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(BuiltinExtensionPackLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
       expect(result.owner).toBe("@axm");
@@ -919,14 +919,14 @@ describe("lockfile schema", () => {
         sourceName: "default",
       };
 
-      const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(BuiltinExtensionPackLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
       expect("integrity" in result).toBe(false);
       expect("sourceName" in result).toBe(false);
     });
 
-    it("is accepted by PackLockEntrySchema union", () => {
+    it("is accepted by ExtensionPackLockEntrySchema union", () => {
       const input = {
         type: "builtin",
         owner: "@axm",
@@ -939,15 +939,15 @@ describe("lockfile schema", () => {
         resolvedMcpServers: {},
       };
 
-      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
     });
   });
 
-  describe("PacksLockMap", () => {
+  describe("ExtensionPacksLockMap", () => {
     it("accepts empty packs map", () => {
-      const result = Schema.decodeUnknownSync(PacksLockMapSchema)({});
+      const result = Schema.decodeUnknownSync(ExtensionPacksLockMapSchema)({});
 
       expect(result).toEqual({});
     });
@@ -969,7 +969,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(PacksLockMapSchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPacksLockMapSchema)(input);
 
       expect(result["@acme/packs/frontend-pack"]).toBeDefined();
       expect(result["@acme/packs/frontend-pack"]?.resolvedSkills).toEqual({

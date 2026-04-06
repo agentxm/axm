@@ -463,9 +463,9 @@ describe("packs publish.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.what).toContain("Managed pack not found");
+          expect(errorResult.what).toContain("Managed extension pack not found");
           expect(errorResult.howToFix).toContain("axm packs new");
-          expect(rendererState.spinnerMessages).toContain("Validating pack...");
+          expect(rendererState.spinnerMessages).toContain("Validating extension pack...");
           expect(rendererState.spinnerMessages).toContain("Failed");
         }),
       );

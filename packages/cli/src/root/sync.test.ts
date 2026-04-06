@@ -15,7 +15,7 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../builtin-pack/index.js";
 import { writeWorkspaceFiles } from "../test-stubs.js";
 import { handleSync } from "./sync.js";
 
@@ -76,7 +76,10 @@ describe("sync handler", () => {
       agents: Option.none(),
     };
     const wsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       baseLayer,
     );
     const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);

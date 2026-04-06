@@ -19,13 +19,13 @@ import type { AppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type {
-  RegistryPackLockEntryArgs,
+  RegistryExtensionPackLockEntryArgs,
   CommandLockEntry,
   CommandsLockMap,
   McpServerLockEntry,
   McpServersLockMap,
-  PackLockEntry,
-  PacksLockMap,
+  ExtensionPackLockEntry,
+  ExtensionPacksLockMap,
   SkillLockEntry,
   SkillsLockMap,
 } from "../lockfile/index.js";
@@ -75,7 +75,7 @@ export interface SkillDirPaths {
 /**
  * Computed path for an installed pack directory.
  */
-export interface PackDirPath {
+export interface ExtensionPackDirPath {
   readonly canonicalPath: string;
 }
 
@@ -168,10 +168,10 @@ export interface SetSkillArgs {
 }
 
 /**
- * Arguments for `setPack` -- all `PackLockEntry` fields except `type` (always "registry"),
+ * Arguments for `setExtensionPack` -- all `ExtensionPackLockEntry` fields except `type` (always "registry"),
  * plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = RegistryPackLockEntryArgs & {
+export type SetExtensionPackArgs = RegistryExtensionPackLockEntryArgs & {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionConstraint: Option.Option<string>;
 };
@@ -396,15 +396,20 @@ export interface WorkspaceContextService {
   >;
   readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read lockfile and return the packs lock map. */
-  readonly getLockedPacks: () => Effect.Effect<PacksLockMap, AppError>;
+  readonly getLockedExtensionPacks: () => Effect.Effect<ExtensionPacksLockMap, AppError>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
-  readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
+  readonly getLockedExtensionPack: (
+    name: string,
+  ) => Effect.Effect<Option.Option<ExtensionPackLockEntry>, AppError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  readonly setExtensionPack: (args: SetExtensionPackArgs) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removePack: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeExtensionPack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
+  readonly getExtensionPackDir: (
+    name: string,
+    owner: Handle,
+  ) => Effect.Effect<ExtensionPackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
   readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific command, or Option.none(). */
@@ -441,12 +446,12 @@ export interface WorkspaceContextService {
   /** Remove an MCP server from lockfile only (keep settings entry). Serialized by semaphore. */
   readonly removeMcpServerLock: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removePackSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeExtensionPackSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removePackLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeExtensionPackLock: (name: string) => Effect.Effect<void, AppError>;
   // --- Pack dependency queries ---
   /** Check if an extension target is referenced by any installed pack's dependency maps. */
-  readonly isExtensionRequiredByInstalledPack: (
+  readonly isExtensionRequiredByInstalledExtensionPack: (
     target: ExtensionTarget,
   ) => Effect.Effect<boolean, AppError>;
   /** Update lockfile entry for a target to indicate it is retained as a pack dependency. No-op if not found. Serialized by semaphore. */

@@ -14,10 +14,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import {
-  PackManager,
-  expandPackUninstallTargets,
+  ExtensionPackManager,
+  expandExtensionPackUninstallTargets,
   type UninstallSettingsContext,
-  type PackExtensionRef,
+  type ExtensionPackRef,
 } from "@axm.sh/core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
@@ -83,7 +83,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const renderer = yield* CliRenderer;
-    const packMgr = yield* PackManager;
+    const packMgr = yield* ExtensionPackManager;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const mcpServerMgr = yield* McpServerManager;
@@ -92,13 +92,13 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         yield* renderer.info("axm packs uninstall");
 
-        const lockedPacks = yield* ws.getLockedPacks();
+        const lockedPacks = yield* ws.getLockedExtensionPacks();
         const isGlob = args.name.includes("*");
         const packNames = expandGlob(args.name, Object.keys(lockedPacks));
 
         // Handle glob matching zero packs
         if (isGlob && packNames.length === 0) {
-          yield* renderer.warn(`No packs matched pattern "${args.name}"`);
+          yield* renderer.warn(`No extension packs matched pattern "${args.name}"`);
           yield* renderer.success("Nothing to uninstall.");
           return { packNames: [], isGlob, earlyExit: true };
         }
@@ -115,7 +115,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           return { packsToUninstall: [] };
         }
 
-        const lockedPacks = yield* ws.getLockedPacks();
+        const lockedPacks = yield* ws.getLockedExtensionPacks();
         const defaultOwner = yield* ws.getConfiguredProfile();
 
         const targets = parsed.packNames.map((name): PackExtensionTarget => {
@@ -142,13 +142,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
+          isRequiredByInstalledPack: (args) =>
+            ws.isExtensionRequiredByInstalledExtensionPack(args.target),
           markDependencyRetainedInLockfile: (args) =>
             ws.markDependencyRetainedInLockfile(args.target),
         };
 
         // Load lockfile and settings for orphan computation
-        const lockedPacks = yield* ws.getLockedPacks();
+        const lockedPacks = yield* ws.getLockedExtensionPacks();
         const lockedSkills = yield* ws.getLockedSkills();
         const lockedCommands = yield* ws.getLockedCommands();
         const lockedMcpServers = yield* ws.getLockedMcpServers();
@@ -175,7 +176,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const allTargets = new Map<string, ExtensionTarget>();
 
         for (const pack of intent.packsToUninstall) {
-          const targets = yield* expandPackUninstallTargets({
+          const targets = yield* expandExtensionPackUninstallTargets({
             pack,
             supportedDependencyTypes: ["skill", "command", "mcp-server"],
             lockfile,
@@ -197,7 +198,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
         const steps = orderedTargets.map((target): PlannedJobStep => {
           if (target.type === "pack") {
-            return buildUninstallOperation<PackExtensionRef>(packMgr, retentionPolicy, {
+            return buildUninstallOperation<ExtensionPackRef>(packMgr, retentionPolicy, {
               target,
             });
           }

@@ -1,5 +1,5 @@
 /**
- * Unit tests for unpackPack operation handler.
+ * Unit tests for unpackExtensionPack operation handler.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -8,13 +8,13 @@ import * as Option from "effect/Option";
 import { vi } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import { unpackPack, type UnpackPackOperation } from "./unpack.js";
+import { unpackExtensionPack, type UnpackExtensionPackOperation } from "./unpack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeOp = (name: string): UnpackPackOperation => ({
+const makeOp = (name: string): UnpackExtensionPackOperation => ({
   name: "unpack-pack",
   args: { name },
 });
@@ -49,11 +49,11 @@ const makeWorkspaceMock = (
   addConfiguredAgent: () => Effect.void,
   getConfiguredPacks: () => Effect.succeed({}),
   getInstalledPacks: () => Effect.succeed({}),
-  getLockedPacks: () => Effect.succeed({}),
-  getLockedPack: () => Effect.succeed(Option.none()),
-  setPack: () => Effect.void,
-  removePack: () => Effect.void,
-  getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+  getLockedExtensionPacks: () => Effect.succeed({}),
+  getLockedExtensionPack: () => Effect.succeed(Option.none()),
+  setExtensionPack: () => Effect.void,
+  removeExtensionPack: () => Effect.void,
+  getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
   getLockedCommands: () => Effect.succeed({}),
   getLockedCommand: () => Effect.succeed(Option.none()),
   setCommand: () => Effect.void,
@@ -69,9 +69,9 @@ const makeWorkspaceMock = (
   removeCommandLock: () => Effect.void,
   removeMcpServerSettings: () => Effect.void,
   removeMcpServerLock: () => Effect.void,
-  removePackSettings: () => Effect.void,
-  removePackLock: () => Effect.void,
-  isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+  removeExtensionPackSettings: () => Effect.void,
+  removeExtensionPackLock: () => Effect.void,
+  isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
   markDependencyRetainedInLockfile: () => Effect.void,
   getConfiguredCommands: () => Effect.succeed({}),
   getConfiguredMcpServers: () => Effect.succeed({}),
@@ -82,14 +82,14 @@ const makeWorkspaceMock = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("unpackPack", () => {
+describe("unpackExtensionPack", () => {
   it.effect("promotes resolved commands and mcp-servers (not just skills)", () => {
     const setCommand = vi.fn(() => Effect.void);
     const setMcpServer = vi.fn(() => Effect.void);
     const setSkill = vi.fn(() => Effect.void);
 
     const mock = makeWorkspaceMock({
-      getLockedPack: () =>
+      getLockedExtensionPack: () =>
         Effect.succeed(
           Option.some({
             type: "registry" as const,
@@ -111,7 +111,7 @@ describe("unpackPack", () => {
     });
 
     return Effect.gen(function* () {
-      const result = yield* unpackPack(makeOp("full-pack"));
+      const result = yield* unpackExtensionPack(makeOp("full-pack"));
 
       expect(result.result).toBe("success");
       expect(result.message).toContain("3 extension(s)");
@@ -125,7 +125,7 @@ describe("unpackPack", () => {
     const setCommand = vi.fn(() => Effect.void);
 
     const mock = makeWorkspaceMock({
-      getLockedPack: () =>
+      getLockedExtensionPack: () =>
         Effect.succeed(
           Option.some({
             type: "registry" as const,
@@ -154,7 +154,7 @@ describe("unpackPack", () => {
     });
 
     return Effect.gen(function* () {
-      const result = yield* unpackPack(makeOp("pack"));
+      const result = yield* unpackExtensionPack(makeOp("pack"));
 
       expect(result.result).toBe("success");
       // Should not call setCommand because existing-cmd is already configured
@@ -166,7 +166,7 @@ describe("unpackPack", () => {
     const mock = makeWorkspaceMock();
 
     return Effect.gen(function* () {
-      const result = yield* unpackPack(makeOp("nonexistent")).pipe(
+      const result = yield* unpackExtensionPack(makeOp("nonexistent")).pipe(
         Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
       );
 

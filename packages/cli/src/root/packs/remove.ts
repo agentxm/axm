@@ -17,10 +17,13 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { normalizeHandle, parseRegistrySourcePatternParts } from "@axm.sh/core/unstable/extensions";
-import type { RemoveFromPackOperation } from "@axm.sh/core/unstable/packs";
-import { removeFromPack } from "@axm.sh/core/unstable/packs";
-import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
-import { computePackPaths } from "@axm.sh/core/unstable/packs";
+import type { RemoveFromExtensionPackOperation } from "@axm.sh/core/unstable/packs";
+import { removeFromExtensionPack } from "@axm.sh/core/unstable/packs";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  RawExtensionPackManifestSchema,
+} from "@axm.sh/core/unstable/packs";
+import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -81,8 +84,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "PACK_NOT_FOUND",
-      what: `Pack '${args.pack}' not found`,
-      howToFix: "Check available packs or create one with `axm packs new`",
+      what: `Extension pack '${args.pack}' not found`,
+      howToFix: "Check available extension packs or create one with `axm packs new`",
     });
   }
 
@@ -98,15 +101,15 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const packDir = computeExtensionPackPaths(path.join, base, packOwner, args.pack);
+  const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_NOT_FOUND",
-        what: `Pack manifest not found at ${manifestPath}`,
-        howToFix: "Ensure the pack exists on disk",
+        what: `Extension pack manifest not found at ${manifestPath}`,
+        howToFix: "Ensure the extension pack exists on disk",
         cause: e,
       }),
     ),
@@ -122,16 +125,16 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     catch: (e) =>
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
-        what: `Failed to parse pack manifest: ${manifestPath}`,
+        what: `Failed to parse extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
-        what: `Invalid pack manifest: ${manifestPath}`,
+        what: `Invalid extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -159,17 +162,17 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     if (isGlob) {
       return yield* makeAppError({
         code: "NO_EXTENSIONS_MATCHED",
-        what: `No extensions in pack match '${args.extension}'`,
+        what: `No extensions in extension pack match '${args.extension}'`,
         details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],
-        howToFix: "Check pack contents",
+        howToFix: "Check extension pack contents",
       });
     }
 
     return yield* makeAppError({
       code: "EXTENSION_NOT_IN_PACK",
-      what: `Extension '${args.extension}' is not in the pack`,
+      what: `Extension '${args.extension}' is not in the extension pack`,
       details: allNames.length > 0 ? [`Available: ${allNames.join(", ")}`] : [],
-      howToFix: "Check the pack manifest for available extensions",
+      howToFix: "Check the extension pack manifest for available extensions",
     });
   }
 
@@ -182,7 +185,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       removals: matchedNames,
       manifestHash,
     },
-  } satisfies RemoveFromPackOperation;
+  } satisfies RemoveFromExtensionPackOperation;
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
@@ -197,7 +200,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.pack,
-    run: provideServices(removeFromPack(op)).pipe(
+    run: provideServices(removeFromExtensionPack(op)).pipe(
       Effect.map(
         (result): JobStepResult =>
           result.result === "error"
@@ -209,7 +212,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "Remove from pack",
+    name: "Remove from extension pack",
     description: Option.some(`Remove ${matchedNames.length} extension(s) from ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
@@ -234,7 +237,9 @@ const removeConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Remove even if it would leave the pack empty")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Remove even if it would leave the extension pack empty"),
+  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -252,11 +257,11 @@ export const removeCommand = Command.make(
 ).pipe(
   withArgvTracking(removeConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Remove an extension from a pack manifest"),
+  Command.withDescription("Remove an extension from an extension pack manifest"),
   Command.withExamples([
     {
       command: "axm packs remove frontend-tools @acme/skills/code-review",
-      description: "Remove an extension from a pack",
+      description: "Remove an extension from an extension pack",
     },
     {
       command: 'axm packs remove my-pack "@acme/effect-*"',

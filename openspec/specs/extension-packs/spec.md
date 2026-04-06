@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### Requirement: Pack manifest schema
+### Requirement: Extension extension pack manifest schema
 
 Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestFields` with additional fields:
 
@@ -15,7 +15,7 @@ Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestF
 
 All extension entries in the manifest SHALL use three-segment fully qualified names and version-specifier maps (`"@owner/type-plural/name": "<semver-range>"`). No unmanaged markers, enabled flags, or source strings.
 
-#### Scenario: Valid pack manifest with skills and commands
+#### Scenario: Valid extension pack manifest with skills and commands
 
 - **WHEN** `axm-pack.json` contains `name: "@acme/packs/frontend-pack"`, `version: "1.0.0"`, `skills: { "@acme/skills/code-review": "^1.0.0" }`, `commands: { "@acme/commands/formatter": "^1.0.0" }`
 - **THEN** manifest validation succeeds
@@ -30,9 +30,9 @@ All extension entries in the manifest SHALL use three-segment fully qualified na
 - **WHEN** `axm-pack.json` contains `skills: { "@acme/skills/code-review": { "source": "@acme/skills/code-review" } }`
 - **THEN** manifest validation fails (entries must be version-specifier strings, not objects)
 
-### Requirement: Pack directory structure
+### Requirement: Extension extension pack directory structure
 
-Packs SHALL be stored in the managed extensions directory with the layout:
+Extension packs SHALL be stored in the managed extensions directory with the layout:
 
 ```
 .axm/extensions/@<owner>/packs/<name>/
@@ -40,7 +40,7 @@ Packs SHALL be stored in the managed extensions directory with the layout:
   <optional additional files>
 ```
 
-Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
+Extension packs SHALL NOT have a `src/` subdirectory. Extension packs SHALL NOT have agent symlinks.
 
 #### Scenario: Pack installed to managed location
 
@@ -49,33 +49,33 @@ Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
 
 #### Scenario: No agent symlinks for packs
 
-- **WHEN** a pack is installed
+- **WHEN** an extension extension pack is installed
 - **THEN** no symlinks are created in any agent directory
 
 #### Scenario: Additional files preserved
 
-- **WHEN** a pack archive contains `axm-pack.json` and `README.md`
+- **WHEN** an extension pack archive contains `axm-pack.json` and `README.md`
 - **THEN** both files are extracted to `.axm/extensions/@<owner>/packs/<name>/`
 
 ### Requirement: Packs are registry-only
 
-Packs SHALL only support registry sources. GitHub, git, and local path sources SHALL be rejected for pack operations.
+Extension packs SHALL only support registry sources. GitHub, git, and local path sources SHALL be rejected for extension pack operations.
 
 #### Scenario: Registry source accepted
 
-- **WHEN** a pack source resolves to a registry source
+- **WHEN** an extension extension pack source resolves to a registry source
 - **THEN** the operation proceeds normally
 
 #### Scenario: Non-registry source rejected
 
-- **WHEN** a pack source resolves to a GitHub, git, or local path source
+- **WHEN** an extension extension pack source resolves to a GitHub, git, or local path source
 - **THEN** the operation fails with a `AppError` indicating packs only support registry sources
 
 ### Requirement: Transitive skill visibility
 
-Skills provided by installed packs SHALL still appear as installed skills in user-visible skill views. Skills explicitly listed in settings SHALL take precedence over pack-provided entries with the same name.
+Skills provided by installed extension packs SHALL still appear as installed skills in user-visible skill views. Skills explicitly listed in settings SHALL take precedence over pack-provided entries with the same name.
 
-#### Scenario: Pack-provided skill visible in installed skills
+#### Scenario: Extension-pack-provided skill visible in installed skills
 
 - **WHEN** pack `@acme/packs/frontend-pack` is installed with `resolvedSkills: { "@acme/skills/code-review": "1.2.0" }`
 - **AND** `@acme/skills/code-review` has no direct entry in settings.json
@@ -90,7 +90,7 @@ Skills provided by installed packs SHALL still appear as installed skills in use
 
 ### Requirement: Direct entry promotion on disable
 
-When a user disables a skill that only exists transitively (via a pack), the system SHALL create a direct settings.json entry with `enabled: false`.
+When a user disables a skill that only exists transitively (via an extension pack), the system SHALL create a direct settings.json entry with `enabled: false`.
 
 #### Scenario: Disable transitive skill creates direct entry
 
@@ -98,29 +98,29 @@ When a user disables a skill that only exists transitively (via a pack), the sys
 - **AND** user runs `axm skills disable @acme/skills/code-review`
 - **THEN** settings.json gains entry `"code-review": { "source": "@acme/skills/code-review", "enabled": false }`
 
-#### Scenario: Promoted skill survives pack uninstall
+#### Scenario: Promoted skill survives extension pack uninstall
 
 - **WHEN** `@acme/skills/code-review` was promoted to direct (via disable)
-- **AND** the pack that originally provided it is uninstalled
+- **AND** the extension pack that originally provided it is uninstalled
 - **THEN** `@acme/skills/code-review` is NOT orphaned (direct entry exists)
 - **AND** the skill remains installed
 
-### Requirement: Orphan detection for pack uninstall
+### Requirement: Orphan detection for extension pack uninstall
 
-When a pack is uninstalled, the system SHALL identify orphaned extensions — those that are:
+When an extension pack is uninstalled, the system SHALL identify orphaned extensions — those that are:
 
-- Listed in the uninstalled pack's `resolved*` fields
+- Listed in the uninstalled extension pack's `resolved*` fields
 - NOT directly listed in settings.json (`getConfiguredSkills`)
-- NOT referenced by any other installed pack's `resolved*` fields
+- NOT referenced by any other installed extension extension pack's `resolved*` fields
 
 Orphaned extensions SHALL be included in the uninstall plan for removal.
 
-#### Scenario: Extension orphaned after pack uninstall
+#### Scenario: Extension orphaned after extension pack uninstall
 
 - **WHEN** pack `@acme/packs/pack-a` is uninstalled
 - **AND** `@acme/skills/code-review` is in `pack-a`'s `resolvedSkills`
 - **AND** `@acme/skills/code-review` has no direct settings entry
-- **AND** no other installed pack references `@acme/skills/code-review`
+- **AND** no other installed extension pack references `@acme/skills/code-review`
 - **THEN** `@acme/skills/code-review` is included in the uninstall plan as orphaned
 
 #### Scenario: Extension shared by two packs is not orphaned

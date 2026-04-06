@@ -1,5 +1,5 @@
 /**
- * Add-to-pack operation — applies a precomputed manifest-add delta to a pack manifest.
+ * Add-to-extension-pack operation — applies a precomputed manifest-add delta to an extension pack manifest.
  *
  * Validates manifest precondition (stale check) before writing.
  *
@@ -18,11 +18,11 @@ import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { parseFqnOrThrow } from "../../extensions/index.js";
 import {
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-  type RawPackManifest,
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  RawExtensionPackManifestSchema,
+  type RawExtensionPackManifest,
 } from "../manifest-schema.js";
-import { computePackPaths } from "../paths.js";
+import { computeExtensionPackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
@@ -30,9 +30,9 @@ import { hashContent } from "./hash-content.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the add-to-pack operation.
+ * Args for the add-to-extension-pack operation.
  */
-export interface AddToPackOperationArgs {
+export interface AddToExtensionPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
@@ -44,18 +44,18 @@ export interface AddToPackOperationArgs {
 }
 
 /**
- * Add extensions to a pack manifest.
+ * Add extensions to an extension pack manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs>;
+export type AddToExtensionPackOperation = Operation<"add-to-pack", AddToExtensionPackOperationArgs>;
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * Add-to-pack operation handler.
+ * Add-to-extension-pack operation handler.
  *
  * 1. Short-circuit if additions map is empty (no-op)
  * 2. Read current manifest and compute hash
@@ -63,8 +63,8 @@ export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs
  * 4. Apply additions to manifest
  * 5. Write updated manifest
  */
-export const addToPack: OperationHandler<
-  AddToPackOperation,
+export const addToExtensionPack: OperationHandler<
+  AddToExtensionPackOperation,
   FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
@@ -81,15 +81,15 @@ export const addToPack: OperationHandler<
     }
 
     // 2. Read current manifest
-    const packDir = computePackPaths(path.join, base, packOwner, packName);
-    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+    const packDir = computeExtensionPackPaths(path.join, base, packOwner, packName);
+    const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_NOT_FOUND",
-          what: `Pack manifest not found at ${manifestPath}`,
-          howToFix: "Ensure the pack exists on disk",
+          what: `Extension pack manifest not found at ${manifestPath}`,
+          howToFix: "Ensure the extension pack exists on disk",
           cause: e,
         }),
       ),
@@ -100,7 +100,7 @@ export const addToPack: OperationHandler<
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
         code: "PACK_MANIFEST_STALE",
-        what: `Pack manifest is stale — it was modified since the plan was created`,
+        what: `Extension pack manifest is stale — it was modified since the plan was created`,
         howToFix: "Re-run the command to create a fresh plan",
       });
     }
@@ -114,16 +114,16 @@ export const addToPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
-          what: `Failed to parse pack manifest: ${manifestPath}`,
+          what: `Failed to parse extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
-          what: `Invalid pack manifest: ${manifestPath}`,
+          what: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -151,7 +151,7 @@ export const addToPack: OperationHandler<
       }
     }
 
-    const updatedManifest: RawPackManifest = {
+    const updatedManifest: RawExtensionPackManifest = {
       ...manifest,
       owner: manifest.owner,
       type: manifest.type,
@@ -167,7 +167,7 @@ export const addToPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_WRITE_FAILED",
-          what: `Failed to write pack manifest: ${manifestPath}`,
+          what: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -175,6 +175,6 @@ export const addToPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Added ${Object.keys(additions).length} extension(s) to pack`,
+      message: `Added ${Object.keys(additions).length} extension(s) to extension pack`,
     } satisfies JobStepResult;
   });

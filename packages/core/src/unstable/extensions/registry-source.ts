@@ -19,25 +19,32 @@ export const RegistrySourcePatternPartsSchema = Schema.Struct({
   type: Schema.optional(ExtensionTypePluralSchema),
   name: Schema.optional(ExtensionNameSchema),
   versionConstraint: Schema.optional(VersionConstraintSchema),
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((value) => {
-      if (value.type === undefined) {
-        return value.name === undefined && value.versionConstraint === undefined
-          ? undefined
-          : "Registry source pattern cannot include name or versionConstraint without type";
-      }
+})
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((value) => {
+        if (value.type === undefined) {
+          return value.name === undefined && value.versionConstraint === undefined
+            ? undefined
+            : "Registry source pattern cannot include name or versionConstraint without type";
+        }
 
-      if (value.name === undefined) {
-        return value.versionConstraint === undefined
-          ? undefined
-          : "Registry source pattern cannot include versionConstraint without name";
-      }
+        if (value.name === undefined) {
+          return value.versionConstraint === undefined
+            ? undefined
+            : "Registry source pattern cannot include versionConstraint without name";
+        }
 
-      return undefined;
-    }),
-  ),
-);
+        return undefined;
+      }),
+    ),
+  )
+  .annotate({
+    identifier: "RegistrySourcePatternParts",
+    title: "Registry Source Pattern",
+    description:
+      "Structured registry source pattern: @handle, @handle/<type>, or @handle/<type>/<name>@<constraint>.",
+  });
 
 export type RegistrySourcePatternParts = Schema.Schema.Type<
   typeof RegistrySourcePatternPartsSchema
@@ -48,6 +55,11 @@ export const RegistrySourceRefPartsSchema = Schema.Struct({
   type: ExtensionTypePluralSchema,
   name: ExtensionNameSchema,
   versionConstraint: Schema.optional(VersionConstraintSchema),
+}).annotate({
+  identifier: "RegistrySourceRefParts",
+  title: "Registry Source Ref",
+  description:
+    "Structured registry source ref: @handle/<type>/<name> with optional version constraint.",
 });
 
 export type RegistrySourceRefParts = Schema.Schema.Type<typeof RegistrySourceRefPartsSchema>;

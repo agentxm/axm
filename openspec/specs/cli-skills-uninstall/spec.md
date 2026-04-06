@@ -2,19 +2,19 @@
 
 ### Requirement: Ownership-aware skill removal
 
-When uninstalling a skill, the system SHALL resolve the uninstall target from the lockfile and SHALL check pack ownership via the uninstall retention policy before removing lockfile and disk state.
+When uninstalling a skill, the system SHALL resolve the uninstall target from the lockfile and SHALL check extension pack ownership via the uninstall retention policy before removing lockfile and disk state.
 
-#### Scenario: Installed skill removed when no pack references it
+#### Scenario: Installed skill removed when no extension pack references it
 
 - **WHEN** user runs `axm skills uninstall review`
 - **AND** `review` is installed (present in lockfile)
-- **AND** `review` is not referenced by any installed pack's resolved dependencies
+- **AND** `review` is not referenced by any installed extension extension pack's resolved dependencies
 - **THEN** the skill SHALL be removed from settings, lockfile, and disk
 
 #### Scenario: Installed skill kept on disk when pack still references it
 
 - **WHEN** user runs `axm skills uninstall review`
-- **AND** the skill is referenced by one or more installed packs in their resolved dependencies
+- **AND** the skill is referenced by one or more installed extension packs in their resolved dependencies
 - **THEN** the skill SHALL be removed from settings when present
 - **AND** the skill SHALL be marked as retained in the lockfile
 - **AND** the skill SHALL remain on disk

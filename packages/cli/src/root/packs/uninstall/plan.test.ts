@@ -15,7 +15,11 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
-import type { Lockfile, PackLockEntry, ResolvedExtensionMap } from "@axm.sh/core/unstable/lockfile";
+import type {
+  Lockfile,
+  ExtensionPackLockEntry,
+  ResolvedExtensionMap,
+} from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import {
   exactVersion,
@@ -40,7 +44,7 @@ const makePackLockEntry = (
     resolvedCommands?: ResolvedExtensionMap;
     resolvedMcpServers?: ResolvedExtensionMap;
   },
-): PackLockEntry => ({
+): ExtensionPackLockEntry => ({
   type: "registry",
   owner: ACME,
   name: extensionName(name),
@@ -61,7 +65,7 @@ const emptyLockfile: Lockfile = {
   skills: {},
 };
 
-const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => ({
+const lockfileWithPacks = (...entries: [string, ExtensionPackLockEntry][]): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
   packs: Object.fromEntries(entries),

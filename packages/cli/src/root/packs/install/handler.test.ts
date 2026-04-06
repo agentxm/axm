@@ -20,9 +20,9 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../../../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../../../builtin-pack/index.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
-import type { PackExtensionRef } from "@axm.sh/core/unstable/packs";
+import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
 import {
   SourceHostProvidersLive,
@@ -36,7 +36,7 @@ import {
   InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
@@ -138,12 +138,15 @@ describe("packs install handler", () => {
       agents: Option.none(),
     };
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       BaseLayer,
     );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const ManagersLayer = Layer.mergeAll(
-      PackManagerLive,
+      ExtensionPackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -185,12 +188,15 @@ describe("packs install handler", () => {
       agents: Option.none(),
     };
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       BaseLayer,
     );
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
     const ManagersLayer = Layer.mergeAll(
-      PackManagerLive,
+      ExtensionPackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
@@ -404,7 +410,7 @@ describe("packs install handler", () => {
 
   describe("already installed", () => {
     it.effect("creates install plan for already-installed pack", () => {
-      const packRef: PackExtensionRef = {
+      const packRef: ExtensionPackRef = {
         type: "pack",
         refType: "registry",
         pack: {
@@ -519,7 +525,7 @@ describe("packs install handler", () => {
         commands?: ReturnType<typeof dependencyConstraintMap>;
         mcpServers?: ReturnType<typeof dependencyConstraintMap>;
       },
-    ): PackExtensionRef => ({
+    ): ExtensionPackRef => ({
       type: "pack",
       refType: "registry",
       pack: {

@@ -10,8 +10,8 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import type { UninstallPackOperation } from "./uninstall.js";
-import { uninstallPack } from "./uninstall.js";
+import type { UninstallExtensionPackOperation } from "./uninstall.js";
+import { uninstallExtensionPack } from "./uninstall.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -45,11 +45,11 @@ const makeWorkspaceMock = (axmDir: string): WorkspaceContextService => ({
   removeSkillFromSettings: () => Effect.void,
   getConfiguredPacks: () => Effect.succeed({}),
   getInstalledPacks: () => Effect.succeed({}),
-  getLockedPacks: () => Effect.succeed({}),
-  getLockedPack: () => Effect.succeed(Option.none()),
-  setPack: () => Effect.void,
-  removePack: () => Effect.void,
-  getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+  getLockedExtensionPacks: () => Effect.succeed({}),
+  getLockedExtensionPack: () => Effect.succeed(Option.none()),
+  setExtensionPack: () => Effect.void,
+  removeExtensionPack: () => Effect.void,
+  getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
   getLockedCommands: () => Effect.succeed({}),
   getLockedCommand: () => Effect.succeed(Option.none()),
   setCommand: () => Effect.void,
@@ -65,15 +65,15 @@ const makeWorkspaceMock = (axmDir: string): WorkspaceContextService => ({
   removeCommandLock: () => Effect.void,
   removeMcpServerSettings: () => Effect.void,
   removeMcpServerLock: () => Effect.void,
-  removePackSettings: () => Effect.void,
-  removePackLock: () => Effect.void,
-  isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+  removeExtensionPackSettings: () => Effect.void,
+  removeExtensionPackLock: () => Effect.void,
+  isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
   markDependencyRetainedInLockfile: () => Effect.void,
   getConfiguredCommands: () => Effect.succeed({}),
   getConfiguredMcpServers: () => Effect.succeed({}),
 });
 
-const makeOp = (packName = "testing"): UninstallPackOperation => ({
+const makeOp = (packName = "testing"): UninstallExtensionPackOperation => ({
   name: "uninstall-pack",
   args: { packName },
 });
@@ -90,7 +90,7 @@ const makeLayer = (axmDir: string) => {
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("uninstallPack — orphaned folder cleanup", () => {
+describe("uninstallExtensionPack — orphaned folder cleanup", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -113,7 +113,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(path.join(packDir, "pack.json"), "{}");
 
-        const result = yield* uninstallPack(makeOp("testing")).pipe(
+        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 
@@ -130,7 +130,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const result = yield* uninstallPack(makeOp("testing")).pipe(
+        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 
@@ -156,7 +156,7 @@ describe("uninstallPack — orphaned folder cleanup", () => {
         fs.mkdirSync(barPackDir, { recursive: true });
         fs.writeFileSync(path.join(barPackDir, "pack.json"), "{}");
 
-        const result = yield* uninstallPack(makeOp("testing")).pipe(
+        const result = yield* uninstallExtensionPack(makeOp("testing")).pipe(
           Effect.provide(makeLayer(axmDir)),
         );
 

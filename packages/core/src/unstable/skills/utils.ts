@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PacksLockMap } from "../lockfile/index.js";
+import type { ExtensionPacksLockMap } from "../lockfile/index.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { stripFileProtocol } from "../utils/index.js";
 
@@ -35,7 +35,7 @@ export const getSkillDisplayName = (ref: SkillExtensionRef): string =>
     : ref.skill.name);
 
 // -----------------------------------------------------------------------------
-// Pack-reference helpers
+// Extension-pack-reference helpers
 // -----------------------------------------------------------------------------
 
 /**
@@ -53,21 +53,23 @@ export const getSkillFqn = (
 };
 
 /**
- * Check if a skill is referenced by any pack's `resolvedSkills`.
+ * Check if a skill is referenced by any extension pack's `resolvedSkills`.
  *
- * Pure function — scans all pack lock entries for the given FQN.
+ * Pure function — scans all extension pack lock entries for the given FQN.
  */
-export const isReferencedByPack = (skillFqn: string, lockedPacks: PacksLockMap): boolean =>
-  Object.values(lockedPacks).some((pack) => skillFqn in pack.resolvedSkills);
+export const isReferencedByExtensionPack = (
+  skillFqn: string,
+  lockedPacks: ExtensionPacksLockMap,
+): boolean => Object.values(lockedPacks).some((pack) => skillFqn in pack.resolvedSkills);
 
 /**
- * Return the names of packs that reference a skill by its FQN.
+ * Return the names of extension packs that reference a skill by its FQN.
  *
- * Superset of `isReferencedByPack` — returns pack names instead of a boolean.
+ * Superset of `isReferencedByExtensionPack` — returns extension pack names instead of a boolean.
  */
-export const getReferencingPacks = (
+export const getReferencingExtensionPacks = (
   skillFqn: string,
-  lockedPacks: PacksLockMap,
+  lockedPacks: ExtensionPacksLockMap,
 ): ReadonlyArray<string> =>
   Object.entries(lockedPacks)
     .filter(([, pack]) => skillFqn in pack.resolvedSkills)

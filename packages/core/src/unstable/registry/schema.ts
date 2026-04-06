@@ -38,6 +38,10 @@ export const VersionEntrySchema = Schema.Struct({
   published: IsoDateTimeStringSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   integrity: Schema.String,
+}).annotate({
+  identifier: "VersionEntry",
+  title: "Version Entry",
+  description: "A single published version of an extension in the registry.",
 });
 
 /**
@@ -75,6 +79,10 @@ export const ExtensionIndexSchema = Schema.Struct({
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   versions: Schema.Array(VersionEntrySchema),
+}).annotate({
+  identifier: "ExtensionIndex",
+  title: "Extension Index",
+  description: "Registry metadata describing a published extension and its available versions.",
 });
 
 /**

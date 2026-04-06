@@ -27,7 +27,10 @@ import {
   type Settings,
   writeSettings,
 } from "../settings/index.js";
-import { materializeBuiltinPack, type ResolvedBuiltinPack } from "./builtin-packs.js";
+import {
+  materializeBuiltinExtensionPack,
+  type ResolvedBuiltinExtensionPack,
+} from "./builtin-packs.js";
 import type { AppError } from "../app-error/index.js";
 import type { WorkspaceContextOptions } from "./service-interface.js";
 
@@ -36,14 +39,14 @@ import type { WorkspaceContextOptions } from "./service-interface.js";
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
- * @param resolveBuiltinPack - Effect that resolves the bundled builtin pack
+ * @param resolveBuiltinExtensionPack - Effect that resolves the bundled builtin pack
  * @returns Effect yielding selected agent IDs
  */
 export const initializeProjectWorkspace = (
   localDir: string,
   options: WorkspaceContextOptions,
-  resolveBuiltinPack: Effect.Effect<
-    ResolvedBuiltinPack,
+  resolveBuiltinExtensionPack: Effect.Effect<
+    ResolvedBuiltinExtensionPack,
     AppError,
     FileSystem.FileSystem | Path.Path
   >,
@@ -119,7 +122,7 @@ export const initializeProjectWorkspace = (
     yield* writeLockfile(localDir, { lockfileVersion: 1, skills: {} });
 
     // Materialize builtin pack
-    yield* materializeBuiltinPack(localDir, agentIds, resolveBuiltinPack);
+    yield* materializeBuiltinExtensionPack(localDir, agentIds, resolveBuiltinExtensionPack);
 
     return settings;
   });
@@ -175,14 +178,14 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
- * @param resolveBuiltinPack - Effect that resolves the bundled builtin pack
+ * @param resolveBuiltinExtensionPack - Effect that resolves the bundled builtin pack
  * @returns Effect yielding local Settings
  */
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
   options: WorkspaceContextOptions,
-  resolveBuiltinPack: Effect.Effect<
-    ResolvedBuiltinPack,
+  resolveBuiltinExtensionPack: Effect.Effect<
+    ResolvedBuiltinExtensionPack,
     AppError,
     FileSystem.FileSystem | Path.Path
   >,
@@ -199,7 +202,7 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      return yield* initializeProjectWorkspace(localDir, options, resolveBuiltinPack);
+      return yield* initializeProjectWorkspace(localDir, options, resolveBuiltinExtensionPack);
     }
 
     return localSettingsResult.settings;

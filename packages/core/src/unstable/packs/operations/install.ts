@@ -1,8 +1,8 @@
 /**
- * Install-pack operation handler.
+ * Install extension pack operation handler.
  *
- * Fetches the pack archive, extracts to the managed location, and
- * writes pack metadata to settings and lockfile.
+ * Fetches the extension pack archive, extracts to the managed location, and
+ * writes extension pack metadata to settings and lockfile.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -20,7 +20,7 @@ import {
   validateExactResolvedVersionMap,
 } from "../../lockfile/index.js";
 import type { ExactSemverVersion } from "../../version-constraints/version-constraints.js";
-import type { PackExtensionRef } from "../refs.js";
+import type { ExtensionPackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
@@ -28,16 +28,16 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { computePackPaths } from "../paths.js";
+import { computeExtensionPackPaths } from "../paths.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the install-pack operation.
+ * Args for the install extension pack operation.
  */
-export interface InstallPackOperationArgs {
+export interface InstallExtensionPackOperationArgs {
   /** Pack name (e.g., "my-pack") */
   readonly packName: string;
   /** Pack owner (e.g., "@acme") */
@@ -57,25 +57,28 @@ export interface InstallPackOperationArgs {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionConstraint: Option<string>;
   /** Pack extension ref for fetching the archive. */
-  readonly ref: PackExtensionRef;
+  readonly ref: ExtensionPackRef;
 }
 
 /**
- * Add a pack to the workspace.
+ * Add an extension pack to the workspace.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type InstallPackOperation = Operation<"install-pack", InstallPackOperationArgs>;
+export type InstallExtensionPackOperation = Operation<
+  "install-pack",
+  InstallExtensionPackOperationArgs
+>;
 
 /**
- * Install-pack operation handler.
+ * Install extension pack operation handler.
  *
- * Fetches the pack archive via sources.fetch(), extracts to the managed
- * pack location (.axm/extensions/@owner/packs/pack-name/), then records
- * the pack in settings and lockfile.
+ * Fetches the extension pack archive via sources.fetch(), extracts to the managed
+ * extension pack location (.axm/extensions/@owner/packs/pack-name/), then records
+ * the extension pack in settings and lockfile.
  */
-export const installPack: OperationHandler<
-  InstallPackOperation,
+export const installExtensionPack: OperationHandler<
+  InstallExtensionPackOperation,
   Workspace | CliRenderer | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
@@ -102,7 +105,7 @@ export const installPack: OperationHandler<
     );
 
     // Extract to managed location
-    const packDir = computePackPaths(
+    const packDir = computeExtensionPackPaths(
       path.join,
       ws.baseDir,
       op.args.owner,
@@ -116,7 +119,7 @@ export const installPack: OperationHandler<
           Effect.mapError((error) =>
             makeAppError({
               code: "PACK_FETCH_FAILED",
-              what: `Failed to fetch pack archive: ${error.message}`,
+              what: `Failed to fetch extension pack archive: ${error.message}`,
               cause: error,
             }),
           ),
@@ -126,7 +129,7 @@ export const installPack: OperationHandler<
           Effect.mapError((e) =>
             makeAppError({
               code: "PACK_EXTRACT_FAILED",
-              what: `Failed to extract pack to ${packDir}`,
+              what: `Failed to extract extension pack to ${packDir}`,
               cause: e,
             }),
           ),
@@ -136,7 +139,7 @@ export const installPack: OperationHandler<
 
     // Write lockfile + settings
     yield* ws
-      .setPack({
+      .setExtensionPack({
         owner: op.args.owner,
         name: decodeExtensionNameSync(op.args.packName),
         resolvedVersion: op.args.resolvedVersion,
@@ -149,17 +152,19 @@ export const installPack: OperationHandler<
         resolvedMcpServers: op.args.resolvedMcpServers,
         versionConstraint: op.args.versionConstraint,
       })
-      .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));
+      .pipe(
+        Effect.catch((e) => renderer.warn(`Extension pack metadata update failed: ${String(e)}`)),
+      );
 
     return {
       result: "success",
-      message: `Installed pack ${op.args.packName}`,
+      message: `Installed extension pack ${op.args.packName}`,
     } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
-        message: `Failed to install pack: ${error.what}`,
+        message: `Failed to install extension pack: ${error.what}`,
         error,
       } satisfies JobStepResult),
     ),

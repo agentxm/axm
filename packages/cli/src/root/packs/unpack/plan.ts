@@ -1,12 +1,12 @@
 /**
  * Pack-specific unpack plan builder.
  *
- * Accepts pre-built install operations and an UninstallPackOperation,
+ * Accepts pre-built install operations and an UninstallExtensionPackOperation,
  * and constructs the full unpack plan with inline run closures:
  * - InstallSkillOperations for each resolved skill (skipSettings: false)
  * - InstallCommandOperations for each resolved command
  * - InstallMcpServerOperations for each resolved MCP server
- * - UninstallPackOperation to remove the pack
+ * - UninstallExtensionPackOperation to remove the pack
  *
  * Diffs operations against settings state to determine no-op vs new install.
  * Extensions already directly installed become no-op steps.
@@ -27,7 +27,10 @@ import {
   installMcpServer,
   type InstallMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
-import { uninstallPack, type UninstallPackOperation } from "@axm.sh/core/unstable/packs";
+import {
+  uninstallExtensionPack,
+  type UninstallExtensionPackOperation,
+} from "@axm.sh/core/unstable/packs";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -39,7 +42,7 @@ export type PackUnpackOp =
   | InstallSkillOperation
   | InstallCommandOperation
   | InstallMcpServerOperation
-  | UninstallPackOperation;
+  | UninstallExtensionPackOperation;
 
 /**
  * Arguments for building a pack unpack plan.
@@ -52,7 +55,7 @@ export interface BuildUnpackPlanArgs {
   /** Already-resolved MCP server install operations */
   readonly mcpServerOps: ReadonlyArray<InstallMcpServerOperation>;
   /** The uninstall-pack operation */
-  readonly uninstallPackOp: UninstallPackOperation;
+  readonly uninstallPackOp: UninstallExtensionPackOperation;
   /** Current configured skill names (for no-op detection) */
   readonly configuredSkillNames: ReadonlyArray<string>;
   /** Current configured command names (for no-op detection) */
@@ -125,7 +128,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>
           case "install-mcp-server":
             return installMcpServer(op);
           case "uninstall-pack":
-            return uninstallPack(op);
+            return uninstallExtensionPack(op);
         }
       })();
 

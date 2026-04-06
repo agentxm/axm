@@ -15,6 +15,10 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   details: Schema.optional(Schema.Array(Schema.String)),
   howToFix: Schema.optional(Schema.String),
   exitCode: Schema.Number,
+}).annotate({
+  identifier: "JsonErrorEnvelope",
+  title: "JSON Error Envelope",
+  description: "Structured JSON error envelope for machine-readable CLI error output.",
 });
 export type JsonErrorEnvelope = typeof JsonErrorEnvelopeSchema.Type;
 

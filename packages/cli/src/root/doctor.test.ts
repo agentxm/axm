@@ -18,7 +18,7 @@ import { buildRegistrySkillRef } from "@axm.sh/core/unstable/skills";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../builtin-pack/index.js";
 import { writeWorkspaceFiles } from "../test-stubs.js";
 import { handleDoctor } from "./doctor.js";
 
@@ -92,7 +92,7 @@ describe("doctor handler", () => {
             location: new URL("https://registry.agentxm.ai"),
           },
         ],
-        resolveBuiltinPack: resolveBuiltinPack(),
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
       }),
       baseLayer,
     );

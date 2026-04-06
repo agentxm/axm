@@ -70,13 +70,13 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     "Checking pack...",
     () =>
       Effect.gen(function* () {
-        const lockedPack = yield* ws.getLockedPack(args.name);
+        const lockedPack = yield* ws.getLockedExtensionPack(args.name);
 
         if (Option.isNone(lockedPack)) {
           return yield* makeAppError({
             code: "PACK_NOT_INSTALLED",
             what: `Pack "${args.name}" is not installed`,
-            howToFix: "Install the pack first with `axm packs install`.",
+            howToFix: "Install the extension pack first with `axm packs install`.",
           });
         }
 
@@ -85,7 +85,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         if (entry.type !== "registry") {
           return yield* makeAppError({
             code: "PACK_UNPACK_UNSUPPORTED",
-            what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+            what: `Cannot unpack "${args.name}" — only registry extension packs can be unpacked`,
           });
         }
 

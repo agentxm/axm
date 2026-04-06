@@ -7,7 +7,7 @@ import type {
   CommandLockEntry,
   Lockfile,
   McpServerLockEntry,
-  PackLockEntry,
+  ExtensionPackLockEntry,
   SkillLockEntry,
 } from "../lockfile/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
@@ -66,7 +66,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
   const skills: Record<string, SkillLockEntry> = {};
   const commands: Record<string, CommandLockEntry> = {};
   const mcpServers: Record<string, McpServerLockEntry> = {};
-  const packs: Record<string, PackLockEntry> = {};
+  const packs: Record<string, ExtensionPackLockEntry> = {};
 
   for (const result of results) {
     if (result._tag !== "Compatible") {

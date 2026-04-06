@@ -11,8 +11,8 @@ import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import type { RemoveFromPackOperation } from "./remove-from-pack.js";
-import { removeFromPack } from "./remove-from-pack.js";
+import type { RemoveFromExtensionPackOperation } from "./remove-from-pack.js";
+import { removeFromExtensionPack } from "./remove-from-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -65,11 +65,11 @@ const makeWorkspaceMock = (
         },
       }),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+    getLockedExtensionPacks: () => Effect.succeed({}),
+    getLockedExtensionPack: () => Effect.succeed(Option.none()),
+    setExtensionPack: () => Effect.void,
+    removeExtensionPack: () => Effect.void,
+    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -85,9 +85,9 @@ const makeWorkspaceMock = (
     removeCommandLock: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    removeExtensionPackSettings: () => Effect.void,
+    removeExtensionPackLock: () => Effect.void,
+    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
@@ -124,10 +124,10 @@ const createPackManifestWithSkills = (
   return { packDir, manifestHash: hashContent(content), content };
 };
 
-/** Creates a minimal RemoveFromPackOperation for testing. */
+/** Creates a minimal RemoveFromExtensionPackOperation for testing. */
 const makeOp = (
-  overrides: Partial<RemoveFromPackOperation["args"]> & { manifestHash: string },
-): RemoveFromPackOperation => ({
+  overrides: Partial<RemoveFromExtensionPackOperation["args"]> & { manifestHash: string },
+): RemoveFromExtensionPackOperation => ({
   name: "remove-from-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
@@ -141,7 +141,7 @@ const makeOp = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("removeFromPack", () => {
+describe("removeFromExtensionPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -168,7 +168,7 @@ describe("removeFromPack", () => {
           "@acme/skills/other-skill": "^2.0.0",
         });
 
-        const result = yield* removeFromPack(
+        const result = yield* removeFromExtensionPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash,
@@ -202,7 +202,7 @@ describe("removeFromPack", () => {
           "@acme/skills/skill-c": "^3.0.0",
         });
 
-        const result = yield* removeFromPack(
+        const result = yield* removeFromExtensionPack(
           makeOp({
             removals: ["@acme/skills/skill-a", "@acme/skills/skill-c"],
             manifestHash,
@@ -234,7 +234,7 @@ describe("removeFromPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        const result = yield* removeFromPack(makeOp({ removals: [], manifestHash })).pipe(
+        const result = yield* removeFromExtensionPack(makeOp({ removals: [], manifestHash })).pipe(
           Effect.provide(withServices(axmDir)),
         );
 
@@ -251,7 +251,7 @@ describe("removeFromPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        const result = yield* removeFromPack(
+        const result = yield* removeFromExtensionPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash: "stale-hash-that-does-not-match",
@@ -273,7 +273,7 @@ describe("removeFromPack", () => {
           "@acme/skills/my-skill": "^1.0.0",
         });
 
-        yield* removeFromPack(
+        yield* removeFromExtensionPack(
           makeOp({
             removals: ["@acme/skills/my-skill"],
             manifestHash: "stale-hash-that-does-not-match",
@@ -304,7 +304,7 @@ describe("removeFromPack", () => {
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const result = yield* removeFromPack(
+        const result = yield* removeFromExtensionPack(
           makeOp({
             manifestHash: "nonexistent",
           }),

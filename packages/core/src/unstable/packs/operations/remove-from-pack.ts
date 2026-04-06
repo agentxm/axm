@@ -1,5 +1,5 @@
 /**
- * Remove-from-pack operation — applies a precomputed manifest-remove delta to a pack manifest.
+ * Remove-from-extension-pack operation — applies a precomputed manifest-remove delta to an extension pack manifest.
  *
  * Validates manifest precondition (stale check) before writing.
  *
@@ -17,11 +17,11 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import {
-  PACK_MANIFEST_FILENAME,
-  RawPackManifestSchema,
-  type RawPackManifest,
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  RawExtensionPackManifestSchema,
+  type RawExtensionPackManifest,
 } from "../manifest-schema.js";
-import { computePackPaths } from "../paths.js";
+import { computeExtensionPackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
@@ -29,9 +29,9 @@ import { hashContent } from "./hash-content.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the remove-from-pack operation.
+ * Args for the remove-from-extension-pack operation.
  */
-export interface RemoveFromPackOperationArgs {
+export interface RemoveFromExtensionPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */
@@ -43,18 +43,21 @@ export interface RemoveFromPackOperationArgs {
 }
 
 /**
- * Remove extensions from a pack manifest.
+ * Remove extensions from an extension pack manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPackOperationArgs>;
+export type RemoveFromExtensionPackOperation = Operation<
+  "remove-from-pack",
+  RemoveFromExtensionPackOperationArgs
+>;
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
- * Remove-from-pack operation handler.
+ * Remove-from-extension-pack operation handler.
  *
  * 1. Short-circuit if removals list is empty (no-op)
  * 2. Read current manifest and compute hash
@@ -62,8 +65,8 @@ export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPa
  * 4. Apply removals to manifest
  * 5. Write updated manifest
  */
-export const removeFromPack: OperationHandler<
-  RemoveFromPackOperation,
+export const removeFromExtensionPack: OperationHandler<
+  RemoveFromExtensionPackOperation,
   FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
@@ -80,15 +83,15 @@ export const removeFromPack: OperationHandler<
     }
 
     // 2. Read current manifest
-    const packDir = computePackPaths(path.join, base, packOwner, packName);
-    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+    const packDir = computeExtensionPackPaths(path.join, base, packOwner, packName);
+    const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
 
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_NOT_FOUND",
-          what: `Pack manifest not found at ${manifestPath}`,
-          howToFix: "Ensure the pack exists on disk",
+          what: `Extension pack manifest not found at ${manifestPath}`,
+          howToFix: "Ensure the extension pack exists on disk",
           cause: e,
         }),
       ),
@@ -99,7 +102,7 @@ export const removeFromPack: OperationHandler<
     if (currentHash !== manifestHash) {
       return yield* makeAppError({
         code: "PACK_MANIFEST_STALE",
-        what: `Pack manifest is stale — it was modified since the plan was created`,
+        what: `Extension pack manifest is stale — it was modified since the plan was created`,
         howToFix: "Re-run the command to create a fresh plan",
       });
     }
@@ -113,16 +116,16 @@ export const removeFromPack: OperationHandler<
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
-          what: `Failed to parse pack manifest: ${manifestPath}`,
+          what: `Failed to parse extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
-          what: `Invalid pack manifest: ${manifestPath}`,
+          what: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -136,7 +139,7 @@ export const removeFromPack: OperationHandler<
     const updatedSkills = filterSection(manifest["skills"]);
     const updatedCommands = filterSection(manifest["commands"]);
     const updatedMcpServers = filterSection(manifest["mcp-servers"]);
-    const updatedManifest: RawPackManifest = {
+    const updatedManifest: RawExtensionPackManifest = {
       ...manifest,
       owner: manifest.owner,
       type: manifest.type,
@@ -152,7 +155,7 @@ export const removeFromPack: OperationHandler<
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_WRITE_FAILED",
-          what: `Failed to write pack manifest: ${manifestPath}`,
+          what: `Failed to write extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -160,6 +163,6 @@ export const removeFromPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Removed ${removals.length} extension(s) from pack`,
+      message: `Removed ${removals.length} extension(s) from extension pack`,
     } satisfies JobStepResult;
   });

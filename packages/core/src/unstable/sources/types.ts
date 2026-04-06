@@ -35,7 +35,12 @@ export const SourceTypeSchema = Schema.Literals([
   "registry",
   "local",
   "builtin",
-]);
+]).annotate({
+  identifier: "SourceType",
+  title: "Source Type",
+  description:
+    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, or builtin.",
+});
 
 /**
  * Inferred type for SourceTypeSchema.
@@ -58,7 +63,16 @@ export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local", "builtin"]);
+export const RefTypeSchema = Schema.Literals([
+  "git-hosted",
+  "registry",
+  "local",
+  "builtin",
+]).annotate({
+  identifier: "RefType",
+  title: "Ref Type",
+  description: "Ref type category: git-hosted, registry, local, or builtin.",
+});
 
 /**
  * Inferred type for RefTypeSchema.
@@ -73,7 +87,12 @@ export const SourceSegmentSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => (value.includes("/") ? noSlashSegmentMessage : undefined)),
   ),
-);
+).annotate({
+  identifier: "SourceSegment",
+  title: "Source Segment",
+  description:
+    "A non-empty path segment without slash characters, used for owner/repo identifiers.",
+});
 
 export const SourceRefSchema = Schema.NonEmptyString;
 
@@ -86,7 +105,11 @@ const GitHostedSourceParamFields = {
   subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
 } satisfies Schema.Struct.Fields;
 
-export const GitHostedSourceParamPartsSchema = Schema.Struct(GitHostedSourceParamFields);
+export const GitHostedSourceParamPartsSchema = Schema.Struct(GitHostedSourceParamFields).annotate({
+  identifier: "GitHostedSourceParamParts",
+  title: "Git Hosted Source Params",
+  description: "Parameters for a git-hosted source: owner, repo, optional ref and sub-path.",
+});
 
 export type GitHostedSourceParamParts = Schema.Schema.Type<typeof GitHostedSourceParamPartsSchema>;
 
@@ -98,7 +121,14 @@ const AzureReposSourceParamFields = {
   subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
 } satisfies Schema.Struct.Fields;
 
-export const AzureReposSourceParamPartsSchema = Schema.Struct(AzureReposSourceParamFields);
+export const AzureReposSourceParamPartsSchema = Schema.Struct(AzureReposSourceParamFields).annotate(
+  {
+    identifier: "AzureReposSourceParamParts",
+    title: "Azure Repos Source Params",
+    description:
+      "Parameters for an Azure Repos source: organization, project, repo, optional ref and sub-path.",
+  },
+);
 
 export type AzureReposSourceParamParts = Schema.Schema.Type<
   typeof AzureReposSourceParamPartsSchema

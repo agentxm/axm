@@ -2,11 +2,11 @@
 
 ## Purpose
 
-The `axm packs add` command adds managed, registry-sourced extensions to a pack's manifest.
+The `axm packs add` command adds managed, registry-sourced extensions to an extension extension pack's manifest.
 
 ## Requirements
 
-### Requirement: Add extension to pack manifest
+### Requirement: Add extension to extension pack manifest
 
 `axm packs add <pack> <extension>` SHALL add a managed, registry-sourced extension to the specified pack's `axm-pack.json` manifest.
 
@@ -45,7 +45,7 @@ The default version specifier SHALL be `*` (stay current). Authors SHALL specify
 #### Scenario: Extension already in pack
 
 - **WHEN** user runs `axm packs add frontend-tools @acme/code-review`
-- **AND** `@acme/code-review` is already in the pack manifest
+- **AND** `@acme/code-review` is already in the extension extension pack manifest
 - **THEN** the command reports no-op (extension already present)
 
 ### Requirement: Glob pattern expansion for add
@@ -56,7 +56,7 @@ When the extension argument contains a glob pattern, the system SHALL expand it 
 
 - **WHEN** user runs `axm packs add my-pack "effect-*"`
 - **AND** workspace has installed skills `@acme/effect-basics`, `@acme/effect-streams`, and `@acme/effect-testing`
-- **THEN** all three skills are added to the pack manifest
+- **THEN** all three skills are added to the extension extension pack manifest
 
 #### Scenario: Glob matches no extensions
 
@@ -79,7 +79,7 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add my-pack @acme/code-review`
 - **AND** the lockfile contains `@acme/code-review` as a skill
-- **THEN** the extension is added to the `skills` section of the pack manifest
+- **THEN** the extension is added to the `skills` section of the extension extension pack manifest
 
 ### Requirement: Non-registry extension rejected
 
@@ -99,7 +99,7 @@ The system SHALL infer the extension type (skill, command, mcp-server) from the 
 
 - **WHEN** user runs `axm packs add nonexistent-pack @acme/code-review`
 - **AND** no pack named `nonexistent-pack` exists
-- **THEN** the command fails with a `AppError` indicating the pack was not found
+- **THEN** the command fails with a `AppError` indicating the extension pack was not found
 
 ### Requirement: Packs add uses plan execution with precomputed delta
 
@@ -127,4 +127,4 @@ The `axm packs add` command SHALL accept `--preview` and route it through worksp
 
 - **WHEN** the user runs `axm packs add <pack> <extension> --preview`
 - **THEN** the CLI SHALL display planned manifest additions
-- **AND** the pack manifest SHALL remain unchanged
+- **AND** the extension extension pack manifest SHALL remain unchanged

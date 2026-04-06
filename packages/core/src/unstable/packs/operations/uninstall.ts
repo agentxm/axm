@@ -1,7 +1,7 @@
 /**
- * Uninstall-pack operation handler.
+ * Uninstall extension pack operation handler.
  *
- * Removes pack directory from disk and pack entry from settings/lockfile.
+ * Removes extension pack directory from disk and extension pack entry from settings/lockfile.
  * Skill removal is delegated to uninstall-skill operations in the plan.
  *
  * @experimental This API is unstable and may change without notice.
@@ -18,7 +18,7 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
-import { computePackPaths } from "../paths.js";
+import { computeExtensionPackPaths } from "../paths.js";
 import { removeIfExists } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 
@@ -27,29 +27,32 @@ import { sanitizeName } from "../../extensions/utils.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Args for the uninstall-pack operation.
+ * Args for the uninstall extension pack operation.
  */
-export interface UninstallPackOperationArgs {
+export interface UninstallExtensionPackOperationArgs {
   /** Pack name to uninstall */
   readonly packName: string;
 }
 
 /**
- * Remove a pack from the workspace.
+ * Remove an extension pack from the workspace.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type UninstallPackOperation = Operation<"uninstall-pack", UninstallPackOperationArgs>;
+export type UninstallExtensionPackOperation = Operation<
+  "uninstall-pack",
+  UninstallExtensionPackOperationArgs
+>;
 
 /**
- * Uninstall-pack operation handler.
+ * Uninstall extension pack operation handler.
  *
- * 1. Look up pack in lockfile
- * 2. Remove pack directory from disk
- * 3. Remove pack from settings and lockfile
+ * 1. Look up extension pack in lockfile
+ * 2. Remove extension pack directory from disk
+ * 3. Remove extension extension pack from settings and lockfile
  */
-export const uninstallPack: OperationHandler<
-  UninstallPackOperation,
+export const uninstallExtensionPack: OperationHandler<
+  UninstallExtensionPackOperation,
   FileSystem.FileSystem | Path.Path | Workspace | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
@@ -60,7 +63,7 @@ export const uninstallPack: OperationHandler<
     const base = ws.baseDir;
 
     // Read pack lock entry
-    const lockedPackOpt = yield* ws.getLockedPack(op.args.packName).pipe(
+    const lockedPackOpt = yield* ws.getLockedExtensionPack(op.args.packName).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "UNINSTALL_PACK_LOCKFILE_READ_FAILED",
@@ -103,7 +106,7 @@ export const uninstallPack: OperationHandler<
         if (results.some((removed) => removed)) {
           return {
             result: "success",
-            message: "Removed pack directory from disk",
+            message: "Removed extension pack directory from disk",
           } satisfies JobStepResult;
         }
       }
@@ -113,8 +116,8 @@ export const uninstallPack: OperationHandler<
 
     const lockedPack = lockedPackOpt.value;
 
-    // Remove pack directory from disk
-    const packDir = computePackPaths(
+    // Remove extension pack directory from disk
+    const packDir = computeExtensionPackPaths(
       path.join,
       base,
       lockedPack.owner,
@@ -122,20 +125,24 @@ export const uninstallPack: OperationHandler<
     ).canonicalPath;
     yield* removeIfExists(fs, packDir);
 
-    // Remove pack from settings and lockfile
+    // Remove extension extension pack from settings and lockfile
     yield* ws
-      .removePack(op.args.packName)
-      .pipe(Effect.catch((e) => renderer.warn(`Pack removal from settings failed: ${String(e)}`)));
+      .removeExtensionPack(op.args.packName)
+      .pipe(
+        Effect.catch((e) =>
+          renderer.warn(`Extension pack removal from settings failed: ${String(e)}`),
+        ),
+      );
 
     return {
       result: "success",
-      message: `Uninstalled pack ${op.args.packName}`,
+      message: `Uninstalled extension pack ${op.args.packName}`,
     } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({
         result: "error",
-        message: `Failed to uninstall pack: ${error.what}`,
+        message: `Failed to uninstall extension pack: ${error.what}`,
         error,
       } satisfies JobStepResult),
     ),

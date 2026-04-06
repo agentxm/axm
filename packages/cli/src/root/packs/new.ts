@@ -16,10 +16,10 @@ import {
   formatFqn,
   normalizeHandle,
 } from "@axm.sh/core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/packs";
-import type { NewPackOperation } from "@axm.sh/core/unstable/packs";
-import { newPack } from "@axm.sh/core/unstable/packs";
-import { computePackPaths } from "@axm.sh/core/unstable/packs";
+import { EXTENSION_PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/packs";
+import type { NewExtensionPackOperation } from "@axm.sh/core/unstable/packs";
+import { newExtensionPack } from "@axm.sh/core/unstable/packs";
+import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -74,7 +74,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
             ? Effect.fail(
                 makeAppError({
                   code: "NAMESPACE_REQUIRED",
-                  what: "No profile configured for pack creation",
+                  what: "No profile configured for extension pack creation",
                   howToFix:
                     "Configure a profile in settings.json with `axm init`, or use --profile",
                 }),
@@ -87,14 +87,14 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const base = ws.baseDir;
 
   // Check if pack already exists
-  const packDir = computePackPaths(path.join, base, owner, args.name);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const packDir = computeExtensionPackPaths(path.join, base, owner, args.name);
+  const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
 
   const exists = yield* fs.exists(manifestPath).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_CHECK_FAILED",
-        what: `Failed to check if pack exists: ${manifestPath}`,
+        what: `Failed to check if extension pack exists: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -103,8 +103,8 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   if (exists) {
     return yield* makeAppError({
       code: "PACK_ALREADY_EXISTS",
-      what: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-      howToFix: "Choose a different name or remove the existing pack first",
+      what: `Extension pack '${fqn}' already exists at ${packDir.canonicalPath}`,
+      howToFix: "Choose a different name or remove the existing extension pack first",
     });
   }
 
@@ -112,7 +112,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const op = {
     name: "new-pack",
     args: { name: args.name, owner },
-  } satisfies NewPackOperation;
+  } satisfies NewExtensionPackOperation;
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
@@ -127,7 +127,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const step: PlannedJobStep = {
     readiness: "ready",
     label: fqn,
-    run: provideServices(newPack(op)).pipe(
+    run: provideServices(newExtensionPack(op)).pipe(
       Effect.map(
         (result): JobStepResult =>
           result.result === "error"
@@ -139,7 +139,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "New pack",
+    name: "New extension pack",
     description: Option.some(`Create ${fqn}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
@@ -151,7 +151,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   });
   yield* emitPlanResolutionResult("packs.new", resolution);
 
-  yield* renderer.success(`Created pack ${fqn}`);
+  yield* renderer.success(`Created extension pack ${fqn}`);
 });
 
 // -----------------------------------------------------------------------------
@@ -159,13 +159,17 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 // -----------------------------------------------------------------------------
 
 const newConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
+  name: Argument.string("name").pipe(
+    Argument.withDescription("Name of the extension pack (without owner)"),
+  ),
   profile: Flag.string("profile").pipe(
     Flag.withDescription("Override the workspace profile (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the pack without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Overwrite if a pack with this name already exists")),
+  yes: yesFlag.pipe(Flag.withDescription("Create the extension pack without confirmation")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Overwrite if an extension pack with this name already exists"),
+  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
@@ -184,7 +188,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, 
   Command.withExamples([
     {
       command: "axm packs new frontend-tools",
-      description: "Create an empty pack to bundle extensions",
+      description: "Create an empty extension pack to bundle extensions",
     },
     {
       command: "axm packs new frontend-tools --profile @co",

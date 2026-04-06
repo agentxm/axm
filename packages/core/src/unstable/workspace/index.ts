@@ -148,12 +148,12 @@ export {
   type WorkspaceContextError,
   type WorkspaceContextOptions,
   type SetSkillArgs,
-  type SetPackArgs,
+  type SetExtensionPackArgs,
   type SetCommandArgs,
   type SetMcpServerArgs,
   type SkillPathSource,
   type SkillDirPaths,
-  type PackDirPath,
+  type ExtensionPackDirPath,
   type ExtensionTarget,
   type ExtensionTargetFor,
   type ExtensionManager,
@@ -168,11 +168,11 @@ export { layer, type WorkspaceLayerOptions } from "./service.js";
 
 // Builtin packs
 export {
-  materializeBuiltinPack,
-  BUILTIN_PACK_FQN,
-  BUILTIN_PACK_SCOPE,
-  BUILTIN_PACK_NAME,
-  type ResolvedBuiltinPack,
+  materializeBuiltinExtensionPack,
+  BUILTIN_EXTENSION_PACK_FQN,
+  BUILTIN_EXTENSION_PACK_SCOPE,
+  BUILTIN_EXTENSION_PACK_NAME,
+  type ResolvedBuiltinExtensionPack,
 } from "./builtin-packs.js";
 
 // Initialization

@@ -9,9 +9,9 @@ import { describe, expect, it } from "vitest";
 import {
   CommandsMapSchema,
   McpServersMapSchema,
-  PackEntryObjectSchema,
-  PackEntrySchema,
-  PacksMapSchema,
+  ExtensionPackEntryObjectSchema,
+  ExtensionPackEntrySchema,
+  ExtensionPacksMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -676,15 +676,17 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("PackEntrySchema", () => {
+  describe("ExtensionPackEntrySchema", () => {
     it("accepts a plain string", () => {
-      const result = Schema.decodeUnknownSync(PackEntrySchema)("@wayne/packs/utility-belt@^1.0.0");
+      const result = Schema.decodeUnknownSync(ExtensionPackEntrySchema)(
+        "@wayne/packs/utility-belt@^1.0.0",
+      );
 
       expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
     });
 
-    it("accepts a PackEntryObject with source", () => {
-      const result = Schema.decodeUnknownSync(PackEntryObjectSchema)({
+    it("accepts an ExtensionPackEntryObject with source", () => {
+      const result = Schema.decodeUnknownSync(ExtensionPackEntryObjectSchema)({
         source: "@wayne/packs/utility-belt@^1.0.0",
       });
 
@@ -692,35 +694,37 @@ describe("Settings schema", () => {
     });
 
     it("rejects invalid object with managed field", () => {
-      expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ managed: false })).toThrow();
+      expect(() =>
+        Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ managed: false }),
+      ).toThrow();
     });
 
     it("rejects a number", () => {
-      expect(() => Schema.decodeUnknownSync(PackEntrySchema)(42)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)(42)).toThrow();
     });
 
     it("rejects object without source", () => {
-      expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ foo: "bar" })).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPackEntrySchema)({ foo: "bar" })).toThrow();
     });
   });
 
-  describe("PacksMap schema (pack name validation)", () => {
+  describe("ExtensionPacksMap schema (pack name validation)", () => {
     it("accepts valid pack name with string entry", () => {
       const input = { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" };
-      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
       expect(result).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
     });
 
     it("accepts valid pack name with object entry", () => {
       const input = { "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } };
-      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
+      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input);
 
       expect(result).toEqual({ "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } });
     });
 
     it("accepts empty packs map", () => {
-      const result = Schema.decodeUnknownSync(PacksMapSchema)({});
+      const result = Schema.decodeUnknownSync(ExtensionPacksMapSchema)({});
 
       expect(result).toEqual({});
     });
@@ -728,20 +732,20 @@ describe("Settings schema", () => {
     it("rejects pack name starting with hyphen", () => {
       const input = { "-invalid": "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name with uppercase letters", () => {
       const input = { MyPack: "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name over 64 characters", () => {
       const name = "a".repeat(65);
       const input = { [name]: "@wayne/packs/pack@^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionPacksMapSchema)(input)).toThrow();
     });
   });
 

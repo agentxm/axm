@@ -82,7 +82,7 @@ export type {
   SkillExtensionRefBase,
   CommandExtensionRefBase,
   McpServerExtensionRefBase,
-  PackExtensionRefBase,
+  ExtensionPackRefBase,
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,

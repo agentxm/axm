@@ -20,7 +20,7 @@ import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { RegistryUrl } from "@axm.sh/core/unstable/auth";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../../builtin-pack/index.js";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { handleFork, type ForkHandlerArgs } from "./fork.js";
 import { expectDefined, stringArrayProperty, stringProperty } from "../../test-helpers.js";
@@ -113,7 +113,10 @@ describe("fork.handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       BaseLayer,
     );
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));

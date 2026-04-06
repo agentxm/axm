@@ -10,8 +10,8 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import type { NewPackOperation } from "./new-pack.js";
-import { newPack } from "./new-pack.js";
+import type { NewExtensionPackOperation } from "./new-pack.js";
+import { newExtensionPack } from "./new-pack.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -55,11 +55,11 @@ const makeWorkspaceMock = (
     addConfiguredAgent: () => Effect.void,
     getConfiguredPacks: () => Effect.succeed({}),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: opts.setPackFn ?? (() => Effect.void),
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+    getLockedExtensionPacks: () => Effect.succeed({}),
+    getLockedExtensionPack: () => Effect.succeed(Option.none()),
+    setExtensionPack: opts.setPackFn ?? (() => Effect.void),
+    removeExtensionPack: () => Effect.void,
+    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -75,9 +75,9 @@ const makeWorkspaceMock = (
     removeCommandLock: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    removeExtensionPackSettings: () => Effect.void,
+    removeExtensionPackLock: () => Effect.void,
+    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
@@ -91,8 +91,10 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs), outputLayer);
 };
 
-/** Creates a minimal NewPackOperation for testing. */
-const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOperation => ({
+/** Creates a minimal NewExtensionPackOperation for testing. */
+const makeOp = (
+  overrides: Partial<NewExtensionPackOperation["args"]> = {},
+): NewExtensionPackOperation => ({
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
@@ -104,7 +106,7 @@ const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOpera
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("newPack", () => {
+describe("newExtensionPack", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -127,7 +129,7 @@ describe("newPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* newExtensionPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -142,7 +144,7 @@ describe("newPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* newExtensionPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -166,12 +168,12 @@ describe("newPack", () => {
       }),
     );
 
-    it.effect("registers pack in settings via setPack", () =>
+    it.effect("registers pack in settings via setExtensionPack", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
         const setPackFn = vi.fn((_args: unknown) => Effect.void);
 
-        const result = yield* newPack(makeOp()).pipe(
+        const result = yield* newExtensionPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { setPackFn })),
         );
 
@@ -200,7 +202,7 @@ describe("newPack", () => {
           JSON.stringify({ owner: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 
-        const result = yield* newPack(makeOp()).pipe(
+        const result = yield* newExtensionPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir)),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );

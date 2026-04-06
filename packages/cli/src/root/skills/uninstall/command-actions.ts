@@ -113,7 +113,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
         (() => {
           const retentionPolicy: UninstallRetentionPolicy = {
             isRequiredByInstalledPack: (policyArgs) =>
-              ws.isExtensionRequiredByInstalledPack(policyArgs.target),
+              ws.isExtensionRequiredByInstalledExtensionPack(policyArgs.target),
             markDependencyRetainedInLockfile: (policyArgs) =>
               ws.markDependencyRetainedInLockfile(policyArgs.target),
           };

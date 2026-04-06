@@ -30,7 +30,10 @@ import {
   type ExtensionName,
   type Handle,
 } from "@axm.sh/core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@axm.sh/core/unstable/packs";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  ExtensionPackManifestSchema,
+} from "@axm.sh/core/unstable/packs";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -605,7 +608,7 @@ const collectPackConstraints = () =>
     const base = ws.baseDir;
 
     // Read lockfile to find installed packs
-    const lockedPacks = yield* ws.getLockedPacks();
+    const lockedPacks = yield* ws.getLockedExtensionPacks();
 
     const constraintMap = new Map<string, Array<PackConstraint>>();
 
@@ -622,7 +625,7 @@ const collectPackConstraints = () =>
           "packs",
           packName,
         );
-        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+        const manifestPath = path.join(packDir, EXTENSION_PACK_MANIFEST_FILENAME);
 
         const exists = yield* fs
           .exists(manifestPath)
@@ -643,9 +646,9 @@ const collectPackConstraints = () =>
         );
         if (Option.isNone(json)) return;
 
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json.value).pipe(
-          Effect.option,
-        );
+        const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(
+          json.value,
+        ).pipe(Effect.option);
         if (Option.isNone(manifest)) return;
 
         // Collect skill constraints from manifest

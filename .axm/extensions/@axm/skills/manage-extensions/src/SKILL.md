@@ -2,7 +2,7 @@
 name: manage-extensions
 description: |
   Manage AI agent extensions via the axm CLI. Install, publish,
-  and manage skills, commands, MCP servers, packs, and other extension types.
+  and manage skills, commands, MCP servers, extension packs, and other extension types.
   Use for ANY axm or AgentXM question or action.
 cli-version-audited: "0.1.4"
 triggers:
@@ -112,8 +112,8 @@ Want to find/install an extension?
 
 Want to publish?
 ├── New skill → axm skills new name → edit SKILL.md → axm skills publish name
-├── New pack → axm packs new name → axm packs add → axm packs publish name
-└── Include pack deps → axm packs publish name -d --yes
+├── New extension pack → axm packs new name → axm packs add → axm packs publish name
+└── Include extension pack deps → axm packs publish name -d --yes
 ```
 
 ## Common Workflows
@@ -331,7 +331,7 @@ Source: `@profile/packs/name[@version]` or bare name.
 axm packs publish <pack> [--registry] [--include-dependencies|-d] [--yes] [--force] [--preview]
 ```
 
-`-d` also publishes local extensions referenced by the pack.
+`-d` also publishes local extensions referenced by the extension pack.
 
 ### packs unpack
 
@@ -339,7 +339,7 @@ axm packs publish <pack> [--registry] [--include-dependencies|-d] [--yes] [--for
 axm packs unpack <name> [--yes] [--force] [--preview] [--strict-agent-sync]
 ```
 
-Ejects pack into individual extension entries in settings. Use `--preview`
+Ejects extension pack into individual extension entries in settings. Use `--preview`
 first.
 
 ### packs new / add / remove / uninstall

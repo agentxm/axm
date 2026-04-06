@@ -9,7 +9,7 @@ import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";
 
 export const packsCommand = Command.make("packs").pipe(
-  Command.withDescription("Bundle and manage extension packs"),
+  Command.withDescription("Bundle and manage extension packs (curated extension collections)"),
   Command.withExamples([
     {
       command: "axm packs install @acme/packs/frontend-tools",
@@ -17,15 +17,15 @@ export const packsCommand = Command.make("packs").pipe(
     },
     {
       command: "axm packs new my-pack",
-      description: "Create a new pack to bundle your extensions",
+      description: "Create a new extension pack to bundle your extensions",
     },
     {
       command: "axm packs add my-pack @acme/skills/code-review",
-      description: "Add extensions to your pack",
+      description: "Add extensions to your extension pack",
     },
     {
       command: "axm packs publish @acme/frontend-tools",
-      description: "Share your pack on the registry",
+      description: "Share your extension pack on the registry",
     },
   ]),
   Command.withSubcommands([

@@ -103,7 +103,7 @@ export type McpServerExtensionRefBase<
 };
 
 /** @experimental */
-export type PackExtensionRefBase<
+export type ExtensionPackRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"pack", TRefType, TSource> & {

@@ -95,7 +95,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<Plan, AppError> => {
       const retentionPolicy = {
         isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-          ws.isExtensionRequiredByInstalledPack(args.target),
+          ws.isExtensionRequiredByInstalledExtensionPack(args.target),
         markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
           ws.markDependencyRetainedInLockfile(args.target),
       };

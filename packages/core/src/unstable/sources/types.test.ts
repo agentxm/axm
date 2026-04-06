@@ -27,7 +27,7 @@ import type {
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
-import type { PackExtensionRef, BuiltinPackRef } from "../packs/refs.js";
+import type { ExtensionPackRef, BuiltinExtensionPackRef } from "../packs/refs.js";
 
 // -----------------------------------------------------------------------------
 // SourceType
@@ -498,12 +498,12 @@ describe("McpServerExtensionRef", () => {
 });
 
 // -----------------------------------------------------------------------------
-// PackExtensionRef
+// ExtensionPackRef
 // -----------------------------------------------------------------------------
 
-describe("PackExtensionRef", () => {
-  it("RegistryPackRef carries version and integrity via refType narrowing", () => {
-    const ref: PackExtensionRef = {
+describe("ExtensionPackRef", () => {
+  it("RegistryExtensionPackRef carries version and integrity via refType narrowing", () => {
+    const ref: ExtensionPackRef = {
       type: "pack",
       refType: "registry",
       pack: { name: "my-pack", skills: {}, commands: {}, mcpServers: {} },
@@ -523,8 +523,8 @@ describe("PackExtensionRef", () => {
     }
   });
 
-  it("BuiltinPackRef has pack name and owner", () => {
-    const ref: BuiltinPackRef = {
+  it("BuiltinExtensionPackRef has pack name and owner", () => {
+    const ref: BuiltinExtensionPackRef = {
       type: "pack",
       refType: "builtin",
       owner: "@axm",
@@ -567,7 +567,7 @@ describe("ExtensionRef", () => {
     }
   });
 
-  it("narrows to PackExtensionRef via type", () => {
+  it("narrows to ExtensionPackRef via type", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "builtin",

@@ -22,10 +22,13 @@ import {
   parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
 } from "@axm.sh/core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
-import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
-import { addToPack } from "@axm.sh/core/unstable/packs";
-import { computePackPaths } from "@axm.sh/core/unstable/packs";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  RawExtensionPackManifestSchema,
+} from "@axm.sh/core/unstable/packs";
+import type { AddToExtensionPackOperation } from "@axm.sh/core/unstable/packs";
+import { addToExtensionPack } from "@axm.sh/core/unstable/packs";
+import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -90,8 +93,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (packEntry === undefined) {
     return yield* makeAppError({
       code: "PACK_NOT_FOUND",
-      what: `Pack '${args.pack}' not found`,
-      howToFix: "Run `axm packs new <name>` to create a pack first",
+      what: `Extension pack '${args.pack}' not found`,
+      howToFix: "Run `axm packs new <name>` to create an extension pack first",
     });
   }
 
@@ -107,15 +110,15 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const packDir = computeExtensionPackPaths(path.join, base, packOwner, args.pack);
+  const manifestPath = path.join(packDir.canonicalPath, EXTENSION_PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_NOT_FOUND",
-        what: `Pack manifest not found at ${manifestPath}`,
-        howToFix: "Ensure the pack exists on disk",
+        what: `Extension pack manifest not found at ${manifestPath}`,
+        howToFix: "Ensure the extension pack exists on disk",
         cause: e,
       }),
     ),
@@ -131,16 +134,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     catch: (e) =>
       makeAppError({
         code: "PACK_MANIFEST_PARSE_FAILED",
-        what: `Failed to parse pack manifest: ${manifestPath}`,
+        what: `Failed to parse extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
-        what: `Invalid pack manifest: ${manifestPath}`,
+        what: `Invalid extension pack manifest: ${manifestPath}`,
         cause: e,
       }),
     ),
@@ -175,7 +178,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       return yield* makeAppError({
         code: "EXTENSION_NOT_REGISTRY",
         what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
-        howToFix: "Only managed, registry-sourced extensions can be added to packs",
+        howToFix: "Only managed, registry-sourced extensions can be added to extension packs",
       });
     }
 
@@ -208,7 +211,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     // Check if already in pack (by FQN)
     if (fqn in currentSkills) {
-      yield* renderer.info(`Extension '${fqn}' already in pack`);
+      yield* renderer.info(`Extension '${fqn}' already in extension pack`);
       continue;
     }
 
@@ -219,7 +222,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (Object.keys(additions).length === 0) {
     if (
       yield* emitNoOpResult("packs.add", {
-        planName: "Add to pack",
+        planName: "Add to extension pack",
         planDescription: `Add extension(s) to ${args.pack}`,
         message: "Nothing to do.",
       })
@@ -240,7 +243,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       additions,
       manifestHash,
     },
-  } satisfies AddToPackOperation;
+  } satisfies AddToExtensionPackOperation;
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
@@ -255,7 +258,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.pack,
-    run: provideServices(addToPack(op)).pipe(
+    run: provideServices(addToExtensionPack(op)).pipe(
       Effect.map(
         (result): JobStepResult =>
           result.result === "error"
@@ -267,7 +270,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "Add to pack",
+    name: "Add to extension pack",
     description: Option.some(`Add ${Object.keys(additions).length} extension(s) to ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
@@ -292,7 +295,9 @@ const addConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Add without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Add even if the extension is already in the pack")),
+  force: forceFlag.pipe(
+    Flag.withDescription("Add even if the extension is already in the extension pack"),
+  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -310,11 +315,11 @@ export const addCommand = Command.make(
 ).pipe(
   withArgvTracking(addConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Add an extension to a pack manifest"),
+  Command.withDescription("Add an extension to an extension pack manifest"),
   Command.withExamples([
     {
       command: "axm packs add frontend-tools @acme/skills/code-review",
-      description: "Bundle a skill into your pack",
+      description: "Bundle a skill into your extension pack",
     },
     {
       command: 'axm packs add my-pack "effect-*"',

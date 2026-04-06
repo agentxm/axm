@@ -114,7 +114,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
   subagent: "Subagent",
   file: "File",
   rule: "Rule",
-  pack: "Pack",
+  pack: "Extension Pack",
 };
 
 export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
@@ -124,7 +124,7 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   subagents: "Subagents",
   files: "Files",
   rules: "Rules",
-  packs: "Packs",
+  packs: "Extension Packs",
 };
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");

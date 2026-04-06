@@ -24,7 +24,7 @@ import {
   quietFlag,
 } from "@axm.sh/core/unstable/cli-flags";
 import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
-import { PackManagerLive } from "@axm.sh/core/unstable/packs";
+import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
@@ -47,7 +47,7 @@ import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstal
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
 import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "./builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "./builtin-pack/index.js";
 import { loadVersion } from "./version.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
@@ -152,7 +152,7 @@ const makeWorkspaceProgramLayer = (
   const wsLayer = coreWorkspaceLayer({
     ...workspace,
     builtInSources: getBuiltInSources(registryUrl),
-    resolveBuiltinPack: resolveBuiltinPack(),
+    resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
   });
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(
@@ -186,7 +186,7 @@ const makeWorkspaceProgramLayer = (
   );
   const packsLayer = Layer.provideMerge(
     Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
-    PackManagerLive,
+    ExtensionPackManagerLive,
   );
   const coreExtensions = Layer.mergeAll(commandsLayer, mcpServersLayer, skillsLayer);
   const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);

@@ -38,8 +38,8 @@ import {
   normalizeHandle,
 } from "@axm.sh/core/unstable/extensions";
 import {
-  makeRegistryPackLockEntry as buildRegistryPackLockEntry,
-  type RegistryPackLockEntry,
+  makeRegistryExtensionPackLockEntry as buildRegistryExtensionPackLockEntry,
+  type RegistryExtensionPackLockEntry,
   ResolvedExtensionMapSchema,
   type ResolvedExtensionMap,
   type SkillLockEntry,
@@ -153,11 +153,12 @@ export const makeBaseWorkspaceMock = (
     renameSkill: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
+    getLockedExtensionPacks: () => Effect.succeed({}),
+    getLockedExtensionPack: () => Effect.succeed(Option.none()),
+    setExtensionPack: () => Effect.void,
+    removeExtensionPack: () => Effect.void,
+    getExtensionPackDir: () =>
+      Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -173,9 +174,9 @@ export const makeBaseWorkspaceMock = (
     removeCommandLock: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    removeExtensionPackSettings: () => Effect.void,
+    removeExtensionPackLock: () => Effect.void,
+    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceContextService;
   return { ...base, ...overrides };
@@ -280,7 +281,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });
 
-export const makeRegistryPackLockEntry = (opts: {
+export const makeRegistryExtensionPackLockEntry = (opts: {
   readonly owner: string;
   readonly name: string;
   readonly resolvedVersion?: ExactSemverVersion;
@@ -291,8 +292,8 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedMcpServers?: ResolvedExtensionMap;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
-}): RegistryPackLockEntry =>
-  buildRegistryPackLockEntry({
+}): RegistryExtensionPackLockEntry =>
+  buildRegistryExtensionPackLockEntry({
     owner: normalizeHandle(opts.owner),
     name: extensionName(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),

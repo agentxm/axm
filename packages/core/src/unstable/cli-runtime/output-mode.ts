@@ -28,14 +28,26 @@ export const ProgressEventSchema = Schema.Struct({
   phase: Schema.String,
   percent: Schema.Number,
   message: Schema.String,
+}).annotate({
+  identifier: "ProgressEvent",
+  title: "Progress Event",
+  description: "NDJSON progress event for driving progress bars in machine mode.",
 });
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
 export const LogEventSchema = Schema.Struct({
   schemaVersion: JsonSchemaVersionSchema,
   type: Schema.Literal("log"),
-  level: Schema.Literals(["info", "warn", "error"] as const),
+  level: Schema.Literals(["info", "warn", "error"] as const).annotate({
+    identifier: "LogLevel",
+    title: "Log Level",
+    description: "Severity level for log events.",
+  }),
   message: Schema.String,
+}).annotate({
+  identifier: "LogEvent",
+  title: "Log Event",
+  description: "NDJSON log event for informational messages at different severity levels.",
 });
 export type LogEvent = typeof LogEventSchema.Type;
 
@@ -47,6 +59,10 @@ export const ErrorEventSchema = Schema.Struct({
   details: Schema.optional(Schema.Array(Schema.String)),
   howToFix: Schema.optional(Schema.String),
   exitCode: Schema.optional(Schema.Number),
+}).annotate({
+  identifier: "ErrorEvent",
+  title: "Error Event",
+  description: "NDJSON error event with a stable error code for programmatic handling.",
 });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 

@@ -390,7 +390,7 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
 
-          expect(logs.info.some((m) => m.includes("already in pack"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already in extension pack"))).toBe(true);
           expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
         }),
       );

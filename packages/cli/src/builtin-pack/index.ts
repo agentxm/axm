@@ -9,8 +9,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { PackManifestSchema } from "@axm.sh/core/unstable/packs";
-import type { ResolvedBuiltinPack } from "@axm.sh/core/unstable/workspace";
+import { ExtensionPackManifestSchema } from "@axm.sh/core/unstable/packs";
+import type { ResolvedBuiltinExtensionPack } from "@axm.sh/core/unstable/workspace";
 
 // -----------------------------------------------------------------------------
 // Resolution
@@ -20,7 +20,7 @@ import type { ResolvedBuiltinPack } from "@axm.sh/core/unstable/workspace";
  * Resolves the bundled builtin pack manifest and CLI version.
  * Reads axm-pack.json relative to this module's location.
  */
-export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () {
+export const resolveBuiltinExtensionPack = Effect.fn("BuiltinPack.resolve")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
@@ -53,7 +53,7 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "BUILTIN_PACK_PARSE_FAILED",
@@ -63,5 +63,5 @@ export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () 
     ),
   );
 
-  return { manifest, version: manifest.version, skillsDir } satisfies ResolvedBuiltinPack;
+  return { manifest, version: manifest.version, skillsDir } satisfies ResolvedBuiltinExtensionPack;
 });

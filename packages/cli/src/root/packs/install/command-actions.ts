@@ -24,9 +24,9 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import {
-  PackManager,
-  expandPackInstallRefs,
-  type PackExtensionRef,
+  ExtensionPackManager,
+  expandExtensionPackInstallRefs,
+  type ExtensionPackRef,
 } from "@axm.sh/core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
@@ -144,7 +144,7 @@ export class InstallPackCommandWorkflowActions extends ServiceMap.Service<
     InstallPackHandlerArgs,
     ParsedPackInstallArgs,
     PackSourceRequest,
-    PackExtensionRef,
+    ExtensionPackRef,
     InstallPackCommandIntent
   >
 >()("InstallPackCommandWorkflowActions") {}
@@ -164,7 +164,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const ws = yield* Workspace;
     const renderer = yield* CliRenderer;
     const fsSvc = yield* FileSystem.FileSystem;
-    const packMgr = yield* PackManager;
+    const packMgr = yield* ExtensionPackManager;
     const pathSvc = yield* Path.Path;
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
@@ -231,7 +231,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             case "wrong-type":
               return yield* makeAppError({
                 code: "PACK_SOURCE_INVALID_FORMAT",
-                what: "Pack source must include /packs/ segment",
+                what: "Extension pack source must include /packs/ segment",
                 details: [`Provided: ${trimmed}`],
                 howToFix:
                   "Use @owner/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
@@ -239,7 +239,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             case "missing-name":
               return yield* makeAppError({
                 code: "PACK_SOURCE_MISSING_NAME",
-                what: "Pack source must include a pack name",
+                what: "Extension pack source must include a pack name",
                 details: [`Provided: ${trimmed}`],
                 howToFix: "Use @owner/packs/pack-name format.",
               });
@@ -337,12 +337,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         },
                   );
 
-                  let resolvedRefs: ReadonlyArray<PackExtensionRef> | undefined;
+                  let resolvedRefs: ReadonlyArray<ExtensionPackRef> | undefined;
                   let resolvedSource: RegistrySource = req.source;
 
                   if (initialResult._tag === "Success" && initialResult.success.length > 0) {
                     resolvedRefs = initialResult.success.filter(
-                      (ref): ref is PackExtensionRef => ref.type === "pack",
+                      (ref): ref is ExtensionPackRef => ref.type === "pack",
                     );
                   } else if (
                     initialResult._tag === "Failure" &&
@@ -381,7 +381,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
                       if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
                         resolvedRefs = fallbackResult.success.filter(
-                          (ref): ref is PackExtensionRef => ref.type === "pack",
+                          (ref): ref is ExtensionPackRef => ref.type === "pack",
                         );
                         resolvedSource = fallbackSource;
                         break;
@@ -408,7 +408,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         `Pack: ${req.owner}/packs/${req.packName}`,
                         `Reason: ${summarizeLookupError(initialResult.failure)}`,
                       ],
-                      howToFix: "Verify the pack name and registry configuration.",
+                      howToFix: "Verify the extension pack name and registry configuration.",
                       cause: initialResult.failure,
                     });
                   }
@@ -428,8 +428,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   if (!resolvedRefs || resolvedRefs.length === 0) {
                     return yield* makeAppError({
                       code: "PACK_NOT_FOUND",
-                      what: `Pack "${req.packName}" not found in registry`,
-                      howToFix: "Verify the pack name and check available packs.",
+                      what: `Extension pack "${req.packName}" not found in registry`,
+                      howToFix:
+                        "Verify the extension pack name and check available extension packs.",
                     });
                   }
 
@@ -443,20 +444,20 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         ),
       );
 
-    const finalizeIntent = (parsed: ParsedPackInstallArgs, refs: ReadonlyArray<PackExtensionRef>) =>
+    const finalizeIntent = (parsed: ParsedPackInstallArgs, refs: ReadonlyArray<ExtensionPackRef>) =>
       Effect.gen(function* () {
         const packRef = refs[0];
         if (!packRef) {
           return yield* makeAppError({
             code: "PACK_NOT_FOUND",
-            what: "No pack reference found",
+            what: "No extension pack reference found",
           });
         }
 
         if (packRef.type !== "pack") {
           return yield* makeAppError({
             code: "PACK_FETCH_FAILED",
-            what: "Registry did not return a valid pack reference",
+            what: "Registry did not return a valid extension pack reference",
           });
         }
 
@@ -468,7 +469,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallPackCommandIntent) =>
       Effect.gen(function* () {
-        const refs = yield* expandPackInstallRefs({
+        const refs = yield* expandExtensionPackInstallRefs({
           pack: intent.packToInstall,
           supportedDependencyTypes: ["skill", "command", "mcp-server"],
           sources,
@@ -478,7 +479,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           const target = targetFromRef(ref);
 
           if (ref.type === "pack") {
-            return buildInstallOperation<PackExtensionRef>(packMgr, {
+            return buildInstallOperation<ExtensionPackRef>(packMgr, {
               ref,
               versionConstraint: intent.versionConstraint,
             });

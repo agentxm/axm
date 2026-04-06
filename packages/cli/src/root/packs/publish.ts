@@ -30,12 +30,15 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
 } from "@axm.sh/core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  RawExtensionPackManifestSchema,
+} from "@axm.sh/core/unstable/packs";
 import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
 import {
-  publishPack,
-  type PublishPackOperation,
-  computePackPaths,
+  publishExtensionPack,
+  type PublishExtensionPackOperation,
+  computeExtensionPackPaths,
 } from "@axm.sh/core/unstable/packs";
 import {
   publishCommand as publishCommandOp,
@@ -79,7 +82,7 @@ export interface PublishPackHandlerArgs {
  * Union of operation types used in the publish plan.
  */
 export type PackPublishOp =
-  | PublishPackOperation
+  | PublishExtensionPackOperation
   | PublishSkillOperation
   | PublishCommandOperation
   | PublishMcpServerOperation;
@@ -212,24 +215,29 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   // Step 2: Validate managed pack exists
   const manifestPath = yield* renderer.withSpinner(
-    "Validating pack...",
+    "Validating extension pack...",
     () =>
       Effect.gen(function* () {
-        const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
+        const packDir = computeExtensionPackPaths(
+          path.join,
+          base,
+          fqn.owner,
+          fqn.name,
+        ).canonicalPath;
         const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
         if (!packDirExists) {
           return yield* makeAppError({
             code: "EXTENSION_NOT_FOUND",
-            what: `Managed pack not found: ${packName}`,
+            what: `Managed extension pack not found: ${packName}`,
             details: [`Expected at: ${packDir}`],
             howToFix:
-              "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+              "Only managed extension packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
           });
         }
 
         // Validate manifest exists
-        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+        const manifestPath = path.join(packDir, EXTENSION_PACK_MANIFEST_FILENAME);
         const manifestExists = yield* fs
           .exists(manifestPath)
           .pipe(Effect.orElseSucceed(() => false));
@@ -237,7 +245,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         if (!manifestExists) {
           return yield* makeAppError({
             code: "MISSING_MANIFEST",
-            what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+            what: `Missing manifest: ${EXTENSION_PACK_MANIFEST_FILENAME}`,
             details: [`Expected at: ${manifestPath}`],
             howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
           });
@@ -256,7 +264,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_READ_FAILED",
-          what: `Failed to read pack manifest: ${manifestPath}`,
+          what: `Failed to read extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -270,16 +278,16 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       catch: (e) =>
         makeAppError({
           code: "PACK_MANIFEST_PARSE_FAILED",
-          what: `Invalid JSON in pack manifest: ${manifestPath}`,
+          what: `Invalid JSON in extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
-          what: `Invalid pack manifest: ${manifestPath}`,
+          what: `Invalid extension pack manifest: ${manifestPath}`,
           cause: e,
         }),
       ),
@@ -325,7 +333,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   }
 
   // Step 4: Build plan with inline run closures
-  const packOp: PublishPackOperation = {
+  const packOp: PublishExtensionPackOperation = {
     name: "publish-pack",
     args: {
       name: packName,
@@ -336,7 +344,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const packStep: PlannedJobStep = {
     readiness: "ready",
     label: `Publish ${packName}`,
-    run: provideServices(publishPack(packOp)).pipe(Effect.map(toJobStepResult)),
+    run: provideServices(publishExtensionPack(packOp)).pipe(Effect.map(toJobStepResult)),
   };
 
   const jobs: ReadonlyArray<Job> =
@@ -349,7 +357,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "Publish pack",
+    name: "Publish extension pack",
     description: Option.some(`Publish ${packName} to registry "${targetRegistry.registryName}"`),
     jobs,
   };
@@ -372,7 +380,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     if (failedStepDetails.length > 0) {
       return yield* makeAppError({
         code: "PUBLISH_PLAN_FAILED",
-        what: `Failed to publish ${failedStepDetails.length} pack item${failedStepDetails.length === 1 ? "" : "s"}`,
+        what: `Failed to publish ${failedStepDetails.length} extension pack item${failedStepDetails.length === 1 ? "" : "s"}`,
         details: failedStepDetails,
       });
     }
@@ -441,7 +449,7 @@ const makeDependencyStep = (
       return Effect.fail(
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
-          what: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
+          what: `Extension pack dependencies of extension packs are not supported for publishing: ${depFqn}`,
         }),
       );
     case "subagents":
@@ -462,7 +470,7 @@ const makeDependencyStep = (
 
 const publishConfig = {
   pack: Argument.string("pack").pipe(
-    Argument.withDescription("Pack name (@owner/name or bare name)"),
+    Argument.withDescription("Extension pack name (@owner/name or bare name)"),
   ),
   registry: Flag.string("registry").pipe(
     Flag.withDescription("Target a specific named registry instead of the default"),
@@ -470,7 +478,7 @@ const publishConfig = {
   ),
   includeDependencies: Flag.boolean("include-dependencies").pipe(
     Flag.withAlias("d"),
-    Flag.withDescription("Also publish local extensions referenced by the pack"),
+    Flag.withDescription("Also publish local extensions referenced by the extension pack"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   force: forceFlag.pipe(
@@ -491,11 +499,11 @@ export const publishCommand = Command.make(
 ).pipe(
   withArgvTracking(publishConfig),
   annotateCommandMeta(commandMeta),
-  Command.withDescription("Publish a pack to a registry"),
+  Command.withDescription("Publish an extension pack to a registry"),
   Command.withExamples([
     {
       command: "axm packs publish @acme/frontend-tools",
-      description: "Share your pack on the registry",
+      description: "Share your extension pack on the registry",
     },
     {
       command: "axm packs publish frontend-tools --registry local",
@@ -503,7 +511,7 @@ export const publishCommand = Command.make(
     },
     {
       command: "axm packs publish @acme/frontend-tools --include-dependencies",
-      description: "Also publish the pack's local dependency extensions",
+      description: "Also publish the extension pack's local dependency extensions",
     },
     {
       command: "",

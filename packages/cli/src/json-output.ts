@@ -26,18 +26,32 @@ const StepStatusSchema = Schema.Literals([
   "applied",
   "failed",
   "blocked",
-] as const);
+] as const).annotate({
+  identifier: "StepStatus",
+  title: "Step Status",
+  description:
+    "Execution status of a plan step: ready, warning, error, applied, failed, or blocked.",
+});
 
 const StepSchema = Schema.Struct({
   label: Schema.String,
   status: StepStatusSchema,
   message: Schema.optional(Schema.String),
   code: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "Step",
+  title: "Plan Step",
+  description:
+    "A single step in a plan resolution result with label, status, and optional details.",
 });
 type Step = typeof StepSchema.Type;
 
 export const PlanResolutionResultSchema = Schema.Struct({
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const).annotate({
+    identifier: "PlanOutcome",
+    title: "Plan Outcome",
+    description: "Final outcome of a plan resolution: previewed, cancelled, applied, or no-op.",
+  }),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -49,6 +63,11 @@ export const PlanResolutionResultSchema = Schema.Struct({
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
   steps: Schema.Array(StepSchema),
+}).annotate({
+  identifier: "PlanResolutionResult",
+  title: "Plan Resolution Result",
+  description:
+    "Result of a plan resolution including outcome, step counts, and individual step details.",
 });
 export type PlanResolutionResult = typeof PlanResolutionResultSchema.Type;
 

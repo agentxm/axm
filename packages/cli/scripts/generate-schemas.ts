@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 import { SkillManifestSchema } from "@axm.sh/core/unstable/skills";
 import { CommandManifestSchema } from "@axm.sh/core/unstable/commands";
 import { McpServerManifestSchema } from "@axm.sh/core/unstable/mcp-servers";
-import { PackManifestSchema } from "@axm.sh/core/unstable/packs";
+import { ExtensionPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
 import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 
@@ -57,7 +57,7 @@ const schemas: SchemaConfig[] = [
   },
   {
     name: "axm-pack.schema.json",
-    schema: PackManifestSchema,
+    schema: ExtensionPackManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
 ];

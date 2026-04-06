@@ -26,7 +26,7 @@ import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinPack } from "../builtin-pack/index.js";
+import { resolveBuiltinExtensionPack } from "../builtin-pack/index.js";
 import { expectDefined } from "../test-helpers.js";
 import { handleInit } from "./init.js";
 
@@ -66,7 +66,10 @@ describe("init.handler", () => {
    */
   const withLayers = (wsOptions: WorkspaceContextOptions) => {
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+      coreWorkspaceLayer({
+        ...wsOptions,
+        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+      }),
       TestLayer,
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -214,7 +217,7 @@ describe("init.handler", () => {
               coreWorkspaceLayer({
                 ...defaultWsOptions,
                 scope: "user",
-                resolveBuiltinPack: resolveBuiltinPack(),
+                resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
               }),
               TestLayer,
             );
@@ -272,7 +275,7 @@ describe("init.handler", () => {
               coreWorkspaceLayer({
                 ...defaultWsOptions,
                 scope: "user",
-                resolveBuiltinPack: resolveBuiltinPack(),
+                resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
               }),
               TestLayer,
             );
@@ -311,7 +314,7 @@ describe("init.handler", () => {
         coreWorkspaceLayer({
           scope: "project",
           agents: Option.none(),
-          resolveBuiltinPack: resolveBuiltinPack(),
+          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         InteractiveTestLayer,
       );
@@ -359,7 +362,10 @@ describe("init.handler", () => {
         TestFlagsLayer({ nonInteractive: false }),
       );
       const WsLayer = Layer.provide(
-        coreWorkspaceLayer({ ...wsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        coreWorkspaceLayer({
+          ...wsOptions,
+          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+        }),
         BaseLayer,
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -432,7 +438,10 @@ describe("init.handler", () => {
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
-        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        coreWorkspaceLayer({
+          ...defaultWsOptions,
+          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+        }),
         BaseLayer,
       );
       return Effect.gen(function* () {
@@ -460,7 +469,10 @@ describe("init.handler", () => {
         TestFlagsLayer(),
       );
       const WsLayer = Layer.provide(
-        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        coreWorkspaceLayer({
+          ...defaultWsOptions,
+          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+        }),
         BaseLayer,
       );
       return Effect.gen(function* () {
@@ -489,7 +501,10 @@ describe("init.handler", () => {
   describe("error handling", () => {
     it.effect("returns error when settings file is invalid JSON", () => {
       const WsLayer = Layer.provide(
-        coreWorkspaceLayer({ ...defaultWsOptions, resolveBuiltinPack: resolveBuiltinPack() }),
+        coreWorkspaceLayer({
+          ...defaultWsOptions,
+          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
+        }),
         TestLayer,
       );
       return Effect.gen(function* () {

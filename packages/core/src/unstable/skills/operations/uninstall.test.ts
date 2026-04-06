@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
+import type { ExtensionPackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
 import {
   Workspace,
@@ -34,7 +34,7 @@ const makeWorkspaceMock = (
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    lockedPacks?: Record<string, PackLockEntry>;
+    lockedPacks?: Record<string, ExtensionPackLockEntry>;
   },
 ): WorkspaceContextService => {
   let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
@@ -43,7 +43,7 @@ const makeWorkspaceMock = (
   const removeSkillFn = overrides?.removeSkillFn;
   const removeSkillErrorOverride = overrides?.removeSkillErrorOverride;
   const removeSkillFromSettingsFn = overrides?.removeSkillFromSettingsFn;
-  const lockedPacks: Record<string, PackLockEntry> = overrides?.lockedPacks ?? {};
+  const lockedPacks: Record<string, ExtensionPackLockEntry> = overrides?.lockedPacks ?? {};
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
@@ -133,11 +133,11 @@ const makeWorkspaceMock = (
             }),
     getConfiguredPacks: () => Effect.succeed({}),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed(lockedPacks),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+    getLockedExtensionPacks: () => Effect.succeed(lockedPacks),
+    getLockedExtensionPack: () => Effect.succeed(Option.none()),
+    setExtensionPack: () => Effect.void,
+    removeExtensionPack: () => Effect.void,
+    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
     setCommand: () => Effect.void,
@@ -153,9 +153,9 @@ const makeWorkspaceMock = (
     removeCommandLock: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    removeExtensionPackSettings: () => Effect.void,
+    removeExtensionPackLock: () => Effect.void,
+    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
@@ -172,7 +172,7 @@ const withServices = (
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    lockedPacks?: Record<string, PackLockEntry>;
+    lockedPacks?: Record<string, ExtensionPackLockEntry>;
   },
 ) => {
   return Layer.mergeAll(

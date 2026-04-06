@@ -89,28 +89,28 @@ axm skills uninstall my-skill    # Remove completely
 
 ## Extension Packs
 
-Packs bundle multiple skills into a single installable unit — a curated set of extensions your team can share and keep in sync.
+Extension packs bundle multiple skills into a single installable unit — a curated set of extensions your team can share and keep in sync.
 
-### Create a pack
+### Create an extension pack
 
 ```bash
 axm packs new my-pack
 ```
 
-### Add skills to a pack
+### Add skills to an extension pack
 
 ```bash
 axm packs add my-pack @acme/code-review      # Add a single skill
 axm packs add my-pack "effect-*"             # Add skills matching a pattern
 ```
 
-### Install a pack
+### Install an extension pack
 
 ```bash
 axm packs install @acme/frontend-tools
 ```
 
-### Publish a pack
+### Publish an extension pack
 
 ```bash
 axm packs publish my-pack

@@ -23,7 +23,7 @@ import type { ExactSemverVersion } from "@axm.sh/core/unstable/version-constrain
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
-import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
+import type { RegistryExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -31,7 +31,7 @@ import {
   extensionName,
   exactVersion,
   makeBaseWorkspaceMock,
-  makeRegistryPackLockEntry,
+  makeRegistryExtensionPackLockEntry,
 } from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildInstallPlan } from "./plan.js";
@@ -51,7 +51,7 @@ const makePackRef = (
     mcpServers?: ExtensionDependencyConstraintMap;
     version?: ExactSemverVersion;
   },
-): RegistryPackRef => ({
+): RegistryExtensionPackRef => ({
   type: "pack",
   refType: "registry",
   source: { type: "registry", location: new URL("file:///tmp/registry"), owner: Option.none() },
@@ -101,7 +101,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      makeRegistryPackLockEntry({ owner: ACME, name, sourceName: "local" }),
+      makeRegistryExtensionPackLockEntry({ owner: ACME, name, sourceName: "local" }),
     ]),
   ),
 });

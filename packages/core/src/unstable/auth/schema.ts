@@ -14,10 +14,20 @@ import { HandleSchema, type Handle } from "../extensions/handle.js";
 // -----------------------------------------------------------------------------
 
 export const CredentialEntrySchema = Schema.Struct({
-  access_token: Schema.String,
-  refresh_token: Schema.String,
-  expires_at: IsoDateTimeStringSchema,
-  active: Schema.Boolean,
+  access_token: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "access_token is required" }),
+  ),
+  refresh_token: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "refresh_token is required" }),
+  ),
+  expires_at: IsoDateTimeStringSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "expires_at is required" }),
+  ),
+  active: Schema.Boolean.pipe(Schema.annotateKey({ messageMissingKey: "active is required" })),
+}).annotate({
+  identifier: "CredentialEntry",
+  title: "Credential Entry",
+  description: "A saved login credential with access token, refresh token, and expiration time.",
 });
 
 export type CredentialEntry = Schema.Schema.Type<typeof CredentialEntrySchema>;
@@ -27,7 +37,13 @@ export type CredentialEntry = Schema.Schema.Type<typeof CredentialEntrySchema>;
 // -----------------------------------------------------------------------------
 
 export const RegistryAccountsSchema = Schema.Struct({
-  accounts: Schema.Record(HandleSchema, CredentialEntrySchema),
+  accounts: Schema.Record(HandleSchema, CredentialEntrySchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "accounts is required" }),
+  ),
+}).annotate({
+  identifier: "RegistryAccounts",
+  title: "Registry Accounts",
+  description: "Accounts you're logged into on a registry, keyed by handle.",
 });
 
 export type RegistryAccounts = Schema.Schema.Type<typeof RegistryAccountsSchema>;
@@ -37,8 +53,14 @@ export type RegistryAccounts = Schema.Schema.Type<typeof RegistryAccountsSchema>
 // -----------------------------------------------------------------------------
 
 export const CredentialFileSchema = Schema.Struct({
-  version: Schema.Literal(1),
-  registries: Schema.Record(Schema.String, RegistryAccountsSchema),
+  version: Schema.Literal(1).pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
+  registries: Schema.Record(Schema.String, RegistryAccountsSchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "registries is required" }),
+  ),
+}).annotate({
+  identifier: "CredentialFile",
+  title: "Credential File",
+  description: "Your saved credentials, organized by registry URL.",
 });
 
 export type CredentialFile = Schema.Schema.Type<typeof CredentialFileSchema>;

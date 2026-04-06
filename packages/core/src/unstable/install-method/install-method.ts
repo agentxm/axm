@@ -50,10 +50,24 @@ export type InstallMethodType = Script | Homebrew | Npm | Unknown;
 // -----------------------------------------------------------------------------
 
 /** Literal schema for valid install method names. */
-export const InstallMethodLiteral = Schema.Literals(["script", "homebrew", "npm"] as const);
+export const InstallMethodLiteral = Schema.Literals([
+  "script",
+  "homebrew",
+  "npm",
+] as const).annotate({
+  identifier: "InstallMethodLiteral",
+  title: "Install Method",
+  description: "How axm was installed: script, homebrew, or npm.",
+});
 
 const InstallMetaSchema = Schema.Struct({
-  method: InstallMethodLiteral,
+  method: InstallMethodLiteral.pipe(
+    Schema.annotateKey({ messageMissingKey: "method is required" }),
+  ),
+}).annotate({
+  identifier: "InstallMeta",
+  title: "Install Meta",
+  description: "How axm was installed on this machine.",
 });
 
 const decodeInstallMetaFromJsonString = Schema.decodeUnknownEffect(

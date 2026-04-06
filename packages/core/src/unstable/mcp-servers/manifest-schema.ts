@@ -25,7 +25,13 @@ export const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
 export const McpServerManifestSchema = Schema.Struct({
   ...CommonManifestBaseFields,
   type: Schema.Literal("mcp-server"),
-  name: ExtensionNameSchema,
+  name: ExtensionNameSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "MCP server name is required" }),
+  ),
+}).annotate({
+  identifier: "McpServerManifest",
+  title: "MCP Server Manifest",
+  description: "Configuration file (axm-mcp-server.json) that defines an MCP server extension.",
 });
 
 /**

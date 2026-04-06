@@ -264,6 +264,10 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
+}).annotate({
+  identifier: "RegistryPackLockEntry",
+  title: "Registry Pack Lock Entry",
+  description: "Pinned version info for a pack installed from a registry.",
 });
 
 /**
@@ -308,6 +312,10 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
+}).annotate({
+  identifier: "BuiltinPackLockEntry",
+  title: "Builtin Pack Lock Entry",
+  description: "Pinned version info for a built-in pack that ships with axm.",
 });
 
 /**
@@ -343,7 +351,11 @@ export const makeBuiltinPackLockEntry = (args: BuiltinPackLockEntryArgs): Builti
 export const PackLockEntrySchema = Schema.Union([
   RegistryPackLockEntrySchema,
   BuiltinPackLockEntrySchema,
-]);
+]).annotate({
+  identifier: "PackLockEntry",
+  title: "Pack Lock Entry",
+  description: "Pinned version info for an installed pack (from a registry or built-in).",
+});
 
 /**
  * Inferred type for PackLockEntry schema.
@@ -388,11 +400,20 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const LockfileSchema = Schema.Struct({
-  lockfileVersion: Schema.Number,
-  skills: SkillsLockMapSchema,
+  lockfileVersion: Schema.Number.pipe(
+    Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),
+  ),
+  skills: SkillsLockMapSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "skills map is required" }),
+  ),
   commands: Schema.optional(CommandsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
+}).annotate({
+  identifier: "Lockfile",
+  title: "AXM Lockfile",
+  description:
+    "Records the exact versions of all installed extensions so installs are reproducible.",
 });
 
 /**

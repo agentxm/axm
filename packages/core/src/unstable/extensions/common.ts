@@ -20,9 +20,13 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 export const AuthorSchema = Schema.Struct({
-  name: Schema.String,
+  name: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "author name is required" })),
   email: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "Author",
+  title: "Author",
+  description: "Author details: name, email, and URL.",
 });
 
 /**
@@ -138,6 +142,15 @@ const makeExtensionNameSchema = () =>
         EXTENSION_NAME_PATTERN.test(value) ? undefined : invalidExtensionName(value),
       ),
     ),
+    Schema.annotate({
+      identifier: "ExtensionName",
+      title: "Extension Name",
+      description:
+        "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+      examples: ["my-skill", "code-review", "prettier"],
+      message:
+        "Expected a valid extension name (lowercase letters, numbers, and hyphens, e.g., my-skill)",
+    }),
     Schema.brand(EXTENSION_NAME_BRAND),
   );
 
@@ -170,14 +183,24 @@ export const decodeExtensionNameSync = Schema.decodeUnknownSync(ExtensionNameSch
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionTypeSchema = Schema.Literals(extensionTypes);
+export const ExtensionTypeSchema = Schema.Literals(extensionTypes).annotate({
+  identifier: "ExtensionType",
+  title: "Extension Type",
+  description:
+    "What kind of extension this is: skill, command, mcp-server, subagent, file, rule, or pack.",
+});
 
 /**
  * Plural extension-type segment enumeration used by route/FQN surfaces.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionTypePluralSchema = Schema.Literals(extensionTypePluralSegments);
+export const ExtensionTypePluralSchema = Schema.Literals(extensionTypePluralSegments).annotate({
+  identifier: "ExtensionTypePlural",
+  title: "Extension Type (Plural)",
+  description:
+    "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs).",
+});
 
 /**
  * Structured FQN parts schema composed from the canonical handle, type, and name schemas.
@@ -188,6 +211,10 @@ export const FullyQualifiedNamePartsSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypePluralSchema,
   name: ExtensionNameSchema,
+}).annotate({
+  identifier: "FullyQualifiedNameParts",
+  title: "Fully Qualified Name Parts",
+  description: "The parts of a full extension identifier like @my-org/skills/code-review.",
 });
 
 /**
@@ -269,8 +296,10 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestBaseFields = {
-  owner: HandleSchema,
-  version: ExactSemverVersionSchema,
+  owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
+  version: ExactSemverVersionSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "version is required" }),
+  ),
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),
   repository: Schema.optional(Schema.String),

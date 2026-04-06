@@ -21,9 +21,19 @@ const NonEmptyTrimmedStringSchema = Schema.String.pipe(
   ),
 );
 const SkillFrontmatterSchema = Schema.Struct({
-  name: NonEmptyTrimmedStringSchema,
-  description: NonEmptyTrimmedStringSchema,
+  name: NonEmptyTrimmedStringSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "skill name is required in SKILL.md frontmatter" }),
+  ),
+  description: NonEmptyTrimmedStringSchema.pipe(
+    Schema.annotateKey({
+      messageMissingKey: "skill description is required in SKILL.md frontmatter",
+    }),
+  ),
   metadata: Schema.optionalKey(Schema.Unknown),
+}).annotate({
+  identifier: "SkillFrontmatter",
+  title: "Skill Frontmatter",
+  description: "Metadata at the top of a SKILL.md file — must include a name and description.",
 });
 const decodeMetadata = Schema.decodeUnknownResult(Schema.Record(Schema.String, Schema.Unknown));
 

@@ -20,6 +20,13 @@ export const ExactSemverVersionSchema = Schema.String.pipe(
       return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
     }),
   ),
+  Schema.annotate({
+    identifier: "ExactSemverVersion",
+    title: "Exact Semver Version",
+    description: "An exact version number like 1.0.0 (no ranges allowed).",
+    examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+    message: "Expected an exact semver version (e.g., 1.0.0)",
+  }),
   Schema.brand("ExactSemverVersion"),
 );
 
@@ -38,6 +45,13 @@ export const VersionConstraintSchema = Schema.String.pipe(
       return normalized !== null ? undefined : `Expected semver constraint, got: ${value}`;
     }),
   ),
+  Schema.annotate({
+    identifier: "VersionConstraint",
+    title: "Version Constraint",
+    description: "A version requirement like ^1.0.0, ~2.3.0, or an exact version.",
+    examples: ["^1.0.0", "~2.3.0", ">=1.0.0 <3.0.0", "1.2.3"],
+    message: "Expected a valid semver constraint (e.g., ^1.0.0)",
+  }),
   Schema.brand("VersionConstraint"),
 );
 

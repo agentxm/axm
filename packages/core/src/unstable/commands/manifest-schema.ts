@@ -25,7 +25,13 @@ export const COMMAND_MANIFEST_FILENAME = "axm-command.json";
 export const CommandManifestSchema = Schema.Struct({
   ...CommonManifestBaseFields,
   type: Schema.Literal("command"),
-  name: ExtensionNameSchema,
+  name: ExtensionNameSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "command name is required" }),
+  ),
+}).annotate({
+  identifier: "CommandManifest",
+  title: "Command Manifest",
+  description: "Configuration file (axm-command.json) that defines a CLI command extension.",
 });
 
 /**

@@ -29,8 +29,16 @@ import { resolveAxmDataDir } from "../utils/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const InstallMetaDataSchema = Schema.Struct({
-  method: InstallMethodLiteral,
-  installedAt: Schema.String,
+  method: InstallMethodLiteral.pipe(
+    Schema.annotateKey({ messageMissingKey: "method is required" }),
+  ),
+  installedAt: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "installedAt is required" }),
+  ),
+}).annotate({
+  identifier: "InstallMetaData",
+  title: "Install Metadata",
+  description: "How and when axm was installed.",
 });
 
 /**

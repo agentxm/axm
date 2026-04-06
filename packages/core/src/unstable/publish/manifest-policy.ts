@@ -53,10 +53,17 @@ export const manifestFilenameForType = (type: string): string | undefined => {
 };
 
 export const ManifestIdentitySchema = Schema.Struct({
-  owner: HandleSchema,
-  type: ExtensionTypeSchema,
-  name: ExtensionNameSchema,
-  version: ExactSemverVersionSchema,
+  owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
+  type: ExtensionTypeSchema.pipe(Schema.annotateKey({ messageMissingKey: "type is required" })),
+  name: ExtensionNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "name is required" })),
+  version: ExactSemverVersionSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "version is required" }),
+  ),
+}).annotate({
+  identifier: "ManifestIdentity",
+  title: "Manifest Identity",
+  description:
+    "The key identity fields from a manifest: who owns it, what type, its name, and version.",
 });
 
 export type ManifestIdentity = Schema.Schema.Type<typeof ManifestIdentitySchema>;

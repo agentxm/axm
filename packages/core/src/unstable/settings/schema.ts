@@ -22,7 +22,18 @@ import { HandleSchema } from "../extensions/handle.js";
  */
 const SOURCE_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;
 
-const SourceNameSchema = Schema.String.check(Schema.isPattern(SOURCE_NAME_PATTERN));
+const SourceNameSchema = Schema.String.check(
+  Schema.isPattern(SOURCE_NAME_PATTERN, {
+    message:
+      "source name must start with a letter or digit and contain only lowercase alphanumeric characters, hyphens, and dots",
+  }),
+).annotate({
+  identifier: "SourceName",
+  title: "Source Name",
+  description:
+    "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+  examples: ["github", "my-registry.dev"],
+});
 
 /**
  * GitHub source host configuration.
@@ -30,9 +41,15 @@ const SourceNameSchema = Schema.String.check(Schema.isPattern(SOURCE_NAME_PATTER
  * @experimental This API is unstable and may change without notice.
  */
 const GitHubSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema,
+  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
   type: Schema.Literal("github"),
-  url: Schema.URLFromString,
+  url: Schema.URLFromString.pipe(
+    Schema.annotateKey({ messageMissingKey: "source url is required" }),
+  ),
+}).annotate({
+  identifier: "GitHubSourceHostConfig",
+  title: "GitHub Source Host",
+  description: "Configuration for a GitHub source.",
 });
 
 /**
@@ -41,9 +58,15 @@ const GitHubSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const GitLabSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema,
+  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
   type: Schema.Literal("gitlab"),
-  url: Schema.URLFromString,
+  url: Schema.URLFromString.pipe(
+    Schema.annotateKey({ messageMissingKey: "source url is required" }),
+  ),
+}).annotate({
+  identifier: "GitLabSourceHostConfig",
+  title: "GitLab Source Host",
+  description: "Configuration for a GitLab source.",
 });
 
 /**
@@ -52,9 +75,15 @@ const GitLabSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const BitbucketSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema,
+  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
   type: Schema.Literal("bitbucket"),
-  url: Schema.URLFromString,
+  url: Schema.URLFromString.pipe(
+    Schema.annotateKey({ messageMissingKey: "source url is required" }),
+  ),
+}).annotate({
+  identifier: "BitbucketSourceHostConfig",
+  title: "Bitbucket Source Host",
+  description: "Configuration for a Bitbucket source.",
 });
 
 /**
@@ -63,9 +92,15 @@ const BitbucketSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const AzureReposSourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema,
+  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
   type: Schema.Literal("azurerepos"),
-  url: Schema.URLFromString,
+  url: Schema.URLFromString.pipe(
+    Schema.annotateKey({ messageMissingKey: "source url is required" }),
+  ),
+}).annotate({
+  identifier: "AzureReposSourceHostConfig",
+  title: "Azure Repos Source Host",
+  description: "Configuration for an Azure Repos source.",
 });
 
 /**
@@ -74,9 +109,15 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 const RegistrySourceHostConfigSchema = Schema.Struct({
-  name: SourceNameSchema,
+  name: SourceNameSchema.pipe(Schema.annotateKey({ messageMissingKey: "source name is required" })),
   type: Schema.Literal("registry"),
-  location: Schema.URLFromString,
+  location: Schema.URLFromString.pipe(
+    Schema.annotateKey({ messageMissingKey: "source location is required" }),
+  ),
+}).annotate({
+  identifier: "RegistrySourceHostConfig",
+  title: "Registry Source Host",
+  description: "Configuration for a package registry source.",
 });
 
 /**
@@ -92,7 +133,12 @@ export const SourceHostConfigSchema = Schema.Union([
   BitbucketSourceHostConfigSchema,
   AzureReposSourceHostConfigSchema,
   RegistrySourceHostConfigSchema,
-]);
+]).annotate({
+  identifier: "SourceHostConfig",
+  title: "Source Host Config",
+  description:
+    "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry.",
+});
 
 /**
  * Inferred type for SourceHostConfig schema.
@@ -138,8 +184,12 @@ const validateNamedRecordKeys =
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillEntryObjectSchema = Schema.Struct({
-  source: Schema.String,
+  source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "skill source is required" })),
   enabled: Schema.optional(Schema.Boolean),
+}).annotate({
+  identifier: "SkillEntryObject",
+  title: "Skill Entry Object",
+  description: "A skill with its source location and whether it's enabled.",
 });
 
 /**
@@ -149,7 +199,12 @@ export const SkillEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]);
+export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema]).annotate({
+  identifier: "SkillEntry",
+  title: "Skill Entry",
+  description:
+    "A skill reference — either a source string like @owner/skills/name or an object with source and enabled.",
+});
 
 /**
  * Inferred type for SkillEntry schema.
@@ -170,9 +225,13 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema).check(
-  Schema.makeFilter(validateNamedRecordKeys("skill", decodeExtensionNameSync)),
-);
+export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
+  .check(Schema.makeFilter(validateNamedRecordKeys("skill", decodeExtensionNameSync)))
+  .annotate({
+    identifier: "SkillsMap",
+    title: "Skills Map",
+    description: "Your installed skills, keyed by name.",
+  });
 
 /**
  * Inferred type for SkillsMap schema.
@@ -188,9 +247,13 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandsMapSchema = Schema.Record(Schema.String, Schema.String).check(
-  Schema.makeFilter(validateNamedRecordKeys("command", decodeExtensionNameSync)),
-);
+export const CommandsMapSchema = Schema.Record(Schema.String, Schema.String)
+  .check(Schema.makeFilter(validateNamedRecordKeys("command", decodeExtensionNameSync)))
+  .annotate({
+    identifier: "CommandsMap",
+    title: "Commands Map",
+    description: "Your installed commands, keyed by name.",
+  });
 
 /**
  * Inferred type for CommandsMap schema.
@@ -206,9 +269,13 @@ export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersMapSchema = Schema.Record(Schema.String, Schema.String).check(
-  Schema.makeFilter(validateNamedRecordKeys("MCP server", decodeExtensionNameSync)),
-);
+export const McpServersMapSchema = Schema.Record(Schema.String, Schema.String)
+  .check(Schema.makeFilter(validateNamedRecordKeys("MCP server", decodeExtensionNameSync)))
+  .annotate({
+    identifier: "McpServersMap",
+    title: "MCP Servers Map",
+    description: "Your installed MCP servers, keyed by name.",
+  });
 
 /**
  * Inferred type for McpServersMap schema.
@@ -227,7 +294,11 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const PackEntryObjectSchema = Schema.Struct({
-  source: Schema.String,
+  source: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "pack source is required" })),
+}).annotate({
+  identifier: "PackEntryObject",
+  title: "Pack Entry Object",
+  description: "A pack with its source location.",
 });
 
 /**
@@ -235,7 +306,11 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = Schema.Union([Schema.String, PackEntryObjectSchema]);
+export const PackEntrySchema = Schema.Union([Schema.String, PackEntryObjectSchema]).annotate({
+  identifier: "PackEntry",
+  title: "Pack Entry",
+  description: "A pack reference — either a source string or an object with source.",
+});
 
 /**
  * Inferred type for PackEntry schema.
@@ -256,9 +331,13 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema).check(
-  Schema.makeFilter(validateNamedRecordKeys("pack", decodeExtensionNameSync)),
-);
+export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
+  .check(Schema.makeFilter(validateNamedRecordKeys("pack", decodeExtensionNameSync)))
+  .annotate({
+    identifier: "PacksMap",
+    title: "Packs Map",
+    description: "Your installed packs, keyed by name.",
+  });
 
 /**
  * Inferred type for PacksMap schema.
@@ -282,6 +361,10 @@ export const IgnoredSettingsSchema = Schema.Struct({
   commands: Schema.optional(Schema.Array(Schema.String)),
   mcpServers: Schema.optional(Schema.Array(Schema.String)),
   packs: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "IgnoredSettings",
+  title: "Ignored Settings",
+  description: "Glob patterns for extensions to ignore, grouped by type (e.g. skills, commands).",
 });
 
 /**
@@ -335,6 +418,11 @@ export const SettingsSchema = Schema.Struct({
   packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
   ignored: Schema.optional(IgnoredSettingsSchema),
+}).annotate({
+  identifier: "Settings",
+  title: "AXM Settings",
+  description:
+    "Your workspace configuration — profile, sources, installed extensions, and ignore patterns.",
 });
 
 /**

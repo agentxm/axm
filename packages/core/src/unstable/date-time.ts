@@ -10,11 +10,23 @@ export const IsoDateTimeStringSchema = Schema.NonEmptyString.pipe(
       isIsoDateTimeString(value) ? undefined : `Expected ISO 8601 date-time string, got: ${value}`,
     ),
   ),
-).annotate({ format: "date-time" });
+).annotate({
+  identifier: "IsoDateTimeString",
+  title: "ISO Date-Time String",
+  description: "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+  format: "date-time",
+  examples: ["2024-01-15T12:00:00.000Z"],
+  message: "Expected an ISO 8601 date-time string (e.g., 2024-01-15T12:00:00.000Z)",
+});
 
 export const DateFromIsoDateTimeStringSchema = IsoDateTimeStringSchema.pipe(
   Schema.decodeTo(Schema.DateValid, {
     decode: SchemaGetter.Date<string>(),
     encode: SchemaGetter.transform((date: Date) => date.toISOString()),
+  }),
+  Schema.annotate({
+    identifier: "DateFromIsoDateTimeString",
+    title: "Date from ISO String",
+    description: "Converts a date-time string into a Date object.",
   }),
 );

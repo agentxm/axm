@@ -20,8 +20,15 @@ export const MANIFEST_FILENAME = "axm-skill.json";
 export const SkillManifestSchema = Schema.Struct({
   ...CommonManifestBaseFields,
   type: Schema.Literal("skill"),
-  name: ExtensionNameSchema,
+  name: ExtensionNameSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "skill name is required" }),
+  ),
   agents: Schema.optional(Schema.Array(Schema.String)),
+}).annotate({
+  identifier: "SkillManifest",
+  title: "Skill Manifest",
+  description:
+    "Configuration file (axm-skill.json) that defines a skill — reusable prompts and context for coding agents.",
 });
 
 /**

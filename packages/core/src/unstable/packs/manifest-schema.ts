@@ -34,13 +34,19 @@ export interface RawPackManifest {
  * Used for read-then-edit workflows where the full PackManifestSchema is too strict.
  */
 export const RawPackManifestSchema = Schema.Struct({
-  owner: HandleSchema,
-  type: Schema.String,
-  name: Schema.String,
-  version: Schema.String,
+  owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "pack owner is required" })),
+  type: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "pack type is required" })),
+  name: Schema.String.pipe(Schema.annotateKey({ messageMissingKey: "pack name is required" })),
+  version: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "pack version is required" }),
+  ),
   skills: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   commands: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   "mcp-servers": Schema.optional(Schema.Record(Schema.String, Schema.String)),
+}).annotate({
+  identifier: "RawPackManifest",
+  title: "Raw Pack Manifest",
+  description: "Loosely validated pack manifest for editing workflows.",
 });
 
 /**
@@ -55,10 +61,17 @@ export const RawPackManifestSchema = Schema.Struct({
 export const PackManifestSchema = Schema.Struct({
   ...CommonManifestBaseFields,
   type: Schema.Literal("pack"),
-  name: ExtensionNameSchema,
+  name: ExtensionNameSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "pack name is required" }),
+  ),
   skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
   commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
   "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),
+}).annotate({
+  identifier: "PackManifest",
+  title: "Pack Manifest",
+  description:
+    "Configuration file (axm-pack.json) that bundles multiple extensions into a single installable pack.",
 });
 
 /**

@@ -19,7 +19,7 @@ import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { exactVersion, makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
@@ -33,7 +33,11 @@ const makeLocalSkillRef = (name: string) =>
   ({
     type: "skill",
     refType: "local",
-    skill: { name, description: Option.some(`${name} skill`), metadata: Option.none() },
+    skill: {
+      name: extensionName(name),
+      description: Option.some(`${name} skill`),
+      metadata: Option.none(),
+    },
     source: { type: "local", path: "/fake" },
     location: `file:///fake/${name}`,
   }) satisfies LocalSkillRef;
@@ -42,14 +46,18 @@ const makeRegistrySkillRef = (name: string) =>
   ({
     type: "skill",
     refType: "registry",
-    skill: { name, description: Option.some(`${name} skill`), metadata: Option.none() },
+    skill: {
+      name: extensionName(name),
+      description: Option.some(`${name} skill`),
+      metadata: Option.none(),
+    },
     source: {
       type: "registry",
       location: new URL("https://registry.example.com"),
       owner: Option.none(),
     },
     owner: ACME,
-    name,
+    name: extensionName(name),
     version: exactVersion("1.2.3"),
     integrity: Option.some("sha512-deadbeef"),
   }) satisfies RegistrySkillRef;

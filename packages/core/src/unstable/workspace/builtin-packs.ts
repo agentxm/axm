@@ -34,6 +34,8 @@ import {
 } from "../version-constraints/version-constraints.js";
 import { parseFullyQualifiedNameParts } from "../extensions/index.js";
 import { decodeHandleSync } from "../extensions/handle.js";
+import { decodeExtensionNameSync } from "../extensions/common.js";
+import type { ExtensionName } from "../extensions/common.js";
 
 /**
  * Resolved builtin pack data — provided by the CLI package.
@@ -49,11 +51,11 @@ export interface ResolvedBuiltinPack {
  */
 export const BUILTIN_PACK_FQN = "@axm/packs/cli";
 export const BUILTIN_PACK_SCOPE = decodeHandleSync("@axm");
-export const BUILTIN_PACK_NAME = "cli";
+export const BUILTIN_PACK_NAME = decodeExtensionNameSync("cli");
 
-const getSkillNameFromFqn = (fqn: string): Option.Option<string> => {
+const getSkillNameFromFqn = (fqn: string): Option.Option<ExtensionName> => {
   const parsed = parseFullyQualifiedNameParts(fqn);
-  return parsed?.type === "skills" ? Option.some(parsed.name) : Option.none<string>();
+  return parsed?.type === "skills" ? Option.some(parsed.name) : Option.none<ExtensionName>();
 };
 
 /**

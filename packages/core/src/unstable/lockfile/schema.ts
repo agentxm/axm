@@ -8,28 +8,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as Result from "effect/Result";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import { FullyQualifiedNameSchema, HandleSchema } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
-
-// =============================================================================
-// Date Transform
-// =============================================================================
-
-const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
-
-const ExtensionNameStringSchema = Schema.NonEmptyString.pipe(
-  Schema.check(
-    Schema.makeFilter((value: string) =>
-      Result.isSuccess(decodeExtensionName(value))
-        ? undefined
-        : `Expected canonical extension name, got: ${value}`,
-    ),
-  ),
-);
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -110,7 +93,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     Schema.Struct({
       type: Schema.Literal("registry"),
       owner: HandleSchema,
-      name: ExtensionNameStringSchema,
+      name: ExtensionNameSchema,
       resolvedVersion: ExactSemverVersionSchema,
       integrity: Schema.String,
       sourceName: Schema.String,
@@ -272,7 +255,7 @@ export type ResolvedExtensionMap = Schema.Schema.Type<typeof ResolvedExtensionMa
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   owner: HandleSchema,
-  name: ExtensionNameStringSchema,
+  name: ExtensionNameSchema,
   resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
@@ -318,7 +301,7 @@ export const makeRegistryPackLockEntry = (
 export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
   owner: HandleSchema,
-  name: ExtensionNameStringSchema,
+  name: ExtensionNameSchema,
   resolvedVersion: ExactSemverVersionSchema,
   installedAt: DateFromIsoDateTimeStringSchema,
   updatedAt: DateFromIsoDateTimeStringSchema,

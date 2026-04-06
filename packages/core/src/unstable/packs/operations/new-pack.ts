@@ -129,7 +129,7 @@ export const newPack: OperationHandler<
     yield* ws
       .setPack({
         owner,
-        name,
+        name: extensionName,
         resolvedVersion: initialVersion,
         integrity: "",
         sourceName: "",

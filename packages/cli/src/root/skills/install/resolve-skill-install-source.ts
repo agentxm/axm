@@ -1,7 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { Handle } from "@axm.sh/core/unstable/extensions";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+  type Handle,
+} from "@axm.sh/core/unstable/extensions";
 import { createRegistryClient, type RegistryClient } from "@axm.sh/core/unstable/registry";
 import type { InputParseResult, InputPattern, RegistrySource } from "@axm.sh/core/unstable/sources";
 import {
@@ -78,7 +82,7 @@ const checkRegistryMatch = ({
 }: {
   readonly client: RegistryClient;
   readonly owner: Handle;
-  readonly skillName: Option.Option<string>;
+  readonly skillName: Option.Option<ExtensionName>;
 }) =>
   Option.match(skillName, {
     onNone: () => client.ownerExists(owner),
@@ -89,7 +93,7 @@ const resolveRegistrySource = (
   owner: Handle,
   input: string,
   options: {
-    readonly skillName: Option.Option<string>;
+    readonly skillName: Option.Option<ExtensionName>;
     readonly resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>;
   },
 ) =>
@@ -206,6 +210,18 @@ const resolveSkillRegistrySourceByName = (
   resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>,
 ) =>
   Effect.gen(function* () {
+    const extensionName = yield* Effect.try({
+      try: () => decodeExtensionNameSync(name),
+      catch: () =>
+        makeAppError({
+          code: "INVALID_SOURCE",
+          what: `Invalid skill name: "${name}"`,
+          details: [`Provided: ${input}`],
+          howToFix:
+            "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
+        }),
+    });
+
     const ws = yield* Workspace;
 
     // DefaultProfile: project settings > user settings > logged-in identity > none
@@ -214,7 +230,7 @@ const resolveSkillRegistrySourceByName = (
     if (Option.isNone(maybeProfile)) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${name}" could not be looked up (no default owner)`,
+        what: `Skill "${extensionName}" could not be looked up (no default owner)`,
         details: [`Provided: ${input}`, `No default owner configured and not logged in`],
         howToFix:
           "Configure an owner in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @owner/skills/name",
@@ -227,7 +243,7 @@ const resolveSkillRegistrySourceByName = (
     if (registryHosts.length === 0) {
       return yield* makeAppError({
         code: "REGISTRY_SKILL_NOT_FOUND",
-        what: `Skill "${owner}/${name}" could not be looked up (no registry sources)`,
+        what: `Skill "${owner}/${extensionName}" could not be looked up (no registry sources)`,
         details: [
           `Provided: ${input}`,
           `Default owner: ${owner}`,
@@ -247,7 +263,7 @@ const resolveSkillRegistrySourceByName = (
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
       const existsResult = yield* client
-        .extensionExists({ owner, type: "skill", name })
+        .extensionExists({ owner, type: "skill", name: extensionName })
         .pipe(Effect.result);
       if (existsResult._tag === "Failure") {
         if (Option.isSome(resolutionOptions)) {
@@ -287,7 +303,7 @@ const resolveSkillRegistrySourceByName = (
 
     return yield* makeAppError({
       code: "REGISTRY_SKILL_NOT_FOUND",
-      what: `Skill "${owner}/${name}" was not found in configured registries`,
+      what: `Skill "${owner}/${extensionName}" was not found in configured registries`,
       details: [
         `Provided: ${input}`,
         `Default owner: ${owner}`,

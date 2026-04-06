@@ -19,13 +19,11 @@ import { expandGlob } from "../utils/index.js";
 // Types
 // ---------------------------------------------------------------------------
 
-type ClassifierExtensionType = ExtensionType;
-
 type PackagingKind = "native" | "non-native";
 
 type ClassifiedExtension =
   | {
-      readonly type: ClassifierExtensionType;
+      readonly type: ExtensionType;
       readonly name: string;
       readonly source: string;
       readonly enabled: boolean;
@@ -34,7 +32,7 @@ type ClassifiedExtension =
       readonly lifecycle: "configured";
     }
   | {
-      readonly type: ClassifierExtensionType;
+      readonly type: ExtensionType;
       readonly name: string;
       readonly source: Option.Option<string>;
       readonly enabled: true;
@@ -44,7 +42,7 @@ type ClassifiedExtension =
     };
 
 interface ClassifierInput {
-  readonly type: ClassifierExtensionType;
+  readonly type: ExtensionType;
   readonly configured: Readonly<
     Record<string, { readonly source: string; readonly enabled?: boolean }>
   >;
@@ -184,7 +182,6 @@ export {
   classifyExtensions,
   isIgnoredName,
   type ClassifiedExtension,
-  type ClassifierExtensionType,
   type ClassifierInput,
   type PackagingKind,
 };

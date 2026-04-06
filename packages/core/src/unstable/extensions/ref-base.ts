@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-import type { ExtensionType } from "./common.js";
+import type { ExtensionName, ExtensionType } from "./common.js";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 import type { RefType, Source } from "../sources/types.js";
@@ -38,7 +38,7 @@ export interface RegistryRefDetails {
    * This may differ from the extension-specific display name (e.g., skill.name, pack.name,
    * server.name) which is the user-facing name parsed from the extension's manifest.
    */
-  readonly name: string;
+  readonly name: ExtensionName;
   /** Resolved semver version */
   readonly version: ExactSemverVersion;
   /** SRI integrity string in `sha512-<base64>` format. None for synthetic refs (fork/publish). */
@@ -80,7 +80,7 @@ export type SkillExtensionRefBase<
   TSource extends Source,
 > = ExtensionRefBase<"skill", TRefType, TSource> & {
   readonly skill: {
-    readonly name: string;
+    readonly name: ExtensionName;
     readonly description: Option.Option<string>;
     readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
   };
@@ -91,7 +91,7 @@ export type CommandExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"command", TRefType, TSource> & {
-  readonly command: { readonly name: string };
+  readonly command: { readonly name: ExtensionName };
 };
 
 /** @experimental */
@@ -99,7 +99,7 @@ export type McpServerExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"mcp-server", TRefType, TSource> & {
-  readonly server: { readonly name: string };
+  readonly server: { readonly name: ExtensionName };
 };
 
 /** @experimental */
@@ -109,7 +109,7 @@ export type PackExtensionRefBase<
 > = ExtensionRefBase<"pack", TRefType, TSource> & {
   readonly owner: Handle;
   readonly pack: {
-    readonly name: string;
+    readonly name: ExtensionName;
     readonly skills: ExtensionDependencyConstraintMap;
     readonly commands: ExtensionDependencyConstraintMap;
     readonly mcpServers: ExtensionDependencyConstraintMap;

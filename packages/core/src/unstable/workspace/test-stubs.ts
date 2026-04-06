@@ -35,6 +35,7 @@ import {
   type ResolvedExtensionMap,
   type SkillLockEntry,
 } from "../lockfile/index.js";
+import { decodeExtensionNameSync } from "../extensions/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import {
   decodeExactSemverVersionSync,
@@ -241,7 +242,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 }): SkillLockEntry => ({
   type: "registry",
   owner: opts.owner,
-  name: opts.name,
+  name: decodeExtensionNameSync(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
@@ -264,7 +265,7 @@ export const makeRegistryPackLockEntry = (opts: {
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     owner: opts.owner,
-    name: opts.name,
+    name: decodeExtensionNameSync(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",

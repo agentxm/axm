@@ -15,7 +15,7 @@ import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { UninstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
-import { exactVersion } from "../../../test-stubs.js";
+import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 
 const AXM = normalizeHandle("@axm");
@@ -56,7 +56,11 @@ const getFirstStep = (plan: Plan) => getStep(getSteps(plan), 0);
 
 const skillBase = (name: string) => ({
   type: "skill" as const,
-  skill: { name, description: Option.some(`${name} skill`), metadata: Option.none() },
+  skill: {
+    name: extensionName(name),
+    description: Option.some(`${name} skill`),
+    metadata: Option.none(),
+  },
 });
 
 const makeOp = (
@@ -168,7 +172,7 @@ const makeOp = (
           owner: Option.none(),
         },
         owner: AXM,
-        name,
+        name: extensionName(name),
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
       };
@@ -280,7 +284,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
       return {
         type: "registry",
         owner: registryOverrides?.owner ?? AXM,
-        name: registryOverrides?.name ?? "skill",
+        name: registryOverrides?.name ?? extensionName("skill"),
         resolvedVersion: registryOverrides?.resolvedVersion ?? exactVersion("0.0.0"),
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
         sourceName: registryOverrides?.sourceName ?? "default",
@@ -533,7 +537,7 @@ describe("buildUpdatePlan", () => {
         commit: makeLockEntry({
           type: "registry",
           owner: AXM,
-          name: "commit",
+          name: extensionName("commit"),
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
@@ -556,7 +560,7 @@ describe("buildUpdatePlan", () => {
         commit: makeLockEntry({
           type: "registry",
           owner: AXM,
-          name: "commit",
+          name: extensionName("commit"),
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
@@ -653,7 +657,7 @@ describe("buildUpdatePlan", () => {
         commit: makeLockEntry({
           type: "registry",
           owner: AXM,
-          name: "commit",
+          name: extensionName("commit"),
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",

@@ -86,6 +86,7 @@ export const newSkill: OperationHandler<
     const base = ws.baseDir;
 
     const { name, owner, agents } = op.args;
+    const extensionName = decodeExtensionNameSync(name);
     const fqn = `${owner}/skills/${name}`;
 
     // 1. Check if skill already exists in settings
@@ -178,7 +179,7 @@ export const newSkill: OperationHandler<
       lockEntry: {
         type: "registry",
         owner,
-        name,
+        name: extensionName,
         resolvedVersion: INITIAL_SKILL_VERSION,
         integrity: "",
         sourceName: "local",

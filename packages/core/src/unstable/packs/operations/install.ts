@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
+import { decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import {
   type ResolvedExtensionMap,
@@ -137,7 +138,7 @@ export const installPack: OperationHandler<
     yield* ws
       .setPack({
         owner: op.args.owner,
-        name: op.args.packName,
+        name: decodeExtensionNameSync(op.args.packName),
         resolvedVersion: op.args.resolvedVersion,
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,

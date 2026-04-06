@@ -1,5 +1,7 @@
 import {
+  decodeExtensionNameSync,
   REGISTRY_EXTENSIONS_DIR,
+  type ExtensionName,
   parseFqnOrThrow,
   readAndDecodeManifest,
 } from "../extensions/index.js";
@@ -44,7 +46,7 @@ const parseRegistryPackSource = (
   source: string,
 ): Option.Option<{
   readonly owner: Handle;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
@@ -122,7 +124,7 @@ const collectPackDependencyDeclarations = (
 
 type DependencyManifest = {
   readonly owner: Handle;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly version: ExactSemverVersion;
 };
 
@@ -303,14 +305,14 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           onSome: (value) => value.owner,
         });
         const diskName = Option.match(parsed, {
-          onNone: () => name,
+          onNone: () => decodeExtensionNameSync(name),
           onSome: (value) => value.name,
         });
 
         declarations.push({
           type: "packs",
           owner,
-          name,
+          name: diskName,
           source,
           declarationSourceOrConstraint: Option.match(parsed, {
             onNone: () => source,

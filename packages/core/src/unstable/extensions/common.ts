@@ -124,12 +124,26 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
 };
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
-const EXTENSION_NAME_PATTERN_SOURCE = "[\\w-]+";
+const EXTENSION_NAME_MAX_LENGTH = 64;
+const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
+const EXTENSION_NAME_BRAND = "ExtensionName" as const;
+
+const invalidExtensionName = (value: string) =>
+  `Expected extension name to be max ${EXTENSION_NAME_MAX_LENGTH} characters, use lowercase letters, numbers, and hyphens only, and not start or end with a hyphen, got: ${value}`;
+
+const makeExtensionNameSchema = () =>
+  Schema.String.pipe(
+    Schema.check(
+      Schema.makeFilter((value: string) =>
+        EXTENSION_NAME_PATTERN.test(value) ? undefined : invalidExtensionName(value),
+      ),
+    ),
+    Schema.brand(EXTENSION_NAME_BRAND),
+  );
 
 /**
  * Fully qualified name regex: `@<handle>/<type>/<name>` where handle and name
- * contain only alphanumeric characters, hyphens, and underscores, and type is one
- * of the canonical plural extension segments.
+ * use the canonical handle, plural extension type, and extension name grammar.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -138,17 +152,14 @@ export const FQN_PATTERN = new RegExp(
 );
 
 /**
- * Extension short name regex: `<name>` with alphanumeric, hyphen, underscore.
+ * Canonical extension short name regex.
  */
 export const EXTENSION_NAME_PATTERN = new RegExp(`^${EXTENSION_NAME_PATTERN_SOURCE}$`);
 
 /**
- * Canonical extension short name schema.
+ * Canonical extension short name schema shared by generic extension surfaces.
  */
-export const ExtensionNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(EXTENSION_NAME_PATTERN)),
-  Schema.brand("ExtensionName"),
-);
+export const ExtensionNameSchema = makeExtensionNameSchema();
 
 export type ExtensionName = Schema.Schema.Type<typeof ExtensionNameSchema>;
 
@@ -252,14 +263,13 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
 >;
 
 /**
- * Common fields shared across all manifest types.
- * Used as a spread in manifest struct definitions.
+ * Common base fields shared across manifest types.
+ * Type-specific manifests provide their own `type` and `name` fields explicitly.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommonManifestFields = {
+export const CommonManifestBaseFields = {
   owner: HandleSchema,
-  name: ExtensionNameSchema,
   version: ExactSemverVersionSchema,
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),

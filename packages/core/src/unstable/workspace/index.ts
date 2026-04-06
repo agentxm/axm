@@ -37,7 +37,6 @@ export {
   classifyExtensions,
   isIgnoredName,
   type ClassifiedExtension,
-  type ClassifierExtensionType,
   type ClassifierInput,
   type PackagingKind,
 } from "./classifier.js";

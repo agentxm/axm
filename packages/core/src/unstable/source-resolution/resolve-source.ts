@@ -36,6 +36,7 @@ import { createRegistryClient } from "../registry/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/index.js";
 import {
+  decodeExtensionNameSync,
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   isExtensionTypePlural,
@@ -479,7 +480,13 @@ export const resolveSlashInputSource = (
       if (Option.isSome(type)) {
         const ws = yield* Workspace;
         const owner = pattern.first.startsWith("@") ? decodeHandleSync(pattern.first) : undefined;
-        const extensionName = pattern.third.value;
+        const extensionName = (() => {
+          try {
+            return decodeExtensionNameSync(pattern.third.value);
+          } catch {
+            return undefined;
+          }
+        })();
         const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
             makeAppError({
@@ -490,7 +497,7 @@ export const resolveSlashInputSource = (
           ),
         );
 
-        if (owner !== undefined) {
+        if (owner !== undefined && extensionName !== undefined) {
           for (const regSource of registrySources) {
             const client = yield* createRegistryClient(regSource.location.href);
             const exists = yield* client

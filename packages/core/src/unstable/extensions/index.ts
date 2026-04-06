@@ -9,7 +9,7 @@
 export {
   AgentIdSchema,
   AuthorSchema,
-  CommonManifestFields,
+  CommonManifestBaseFields,
   EXTENSION_NAME_PATTERN,
   ExtensionNameSchema,
   ExtensionTypePluralSchema,

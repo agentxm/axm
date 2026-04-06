@@ -1,6 +1,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
+import type { ExtensionName } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type {
   CommandLockEntry,
@@ -17,7 +18,7 @@ export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 export interface ReconciliationDeclaration {
   readonly type: ReconcileExtensionType;
   readonly owner: Handle;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly declarationSourceOrConstraint: string;
   readonly source: string;
   readonly order: number;
@@ -47,22 +48,22 @@ export interface AdapterEnvironment {
 export type ReconstructedLockEntry =
   | {
       readonly type: "skills";
-      readonly name: string;
+      readonly name: ExtensionName;
       readonly entry: SkillLockEntry;
     }
   | {
       readonly type: "commands";
-      readonly name: string;
+      readonly name: ExtensionName;
       readonly entry: CommandLockEntry;
     }
   | {
       readonly type: "mcp-servers";
-      readonly name: string;
+      readonly name: ExtensionName;
       readonly entry: McpServerLockEntry;
     }
   | {
       readonly type: "packs";
-      readonly name: string;
+      readonly name: ExtensionName;
       readonly entry: PackLockEntry;
     };
 

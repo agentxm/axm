@@ -6,8 +6,9 @@
 
 import * as Schema from "effect/Schema";
 import {
-  CommonManifestFields,
+  CommonManifestBaseFields,
   ExtensionDependencyConstraintMapSchema,
+  ExtensionNameSchema,
 } from "../extensions/common.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 
@@ -52,8 +53,9 @@ export const RawPackManifestSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const PackManifestSchema = Schema.Struct({
-  ...CommonManifestFields,
+  ...CommonManifestBaseFields,
   type: Schema.Literal("pack"),
+  name: ExtensionNameSchema,
   skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
   commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
   "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),

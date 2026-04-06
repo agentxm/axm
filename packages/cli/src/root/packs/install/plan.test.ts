@@ -28,6 +28,7 @@ import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import {
+  extensionName,
   exactVersion,
   makeBaseWorkspaceMock,
   makeRegistryPackLockEntry,
@@ -55,13 +56,13 @@ const makePackRef = (
   refType: "registry",
   source: { type: "registry", location: new URL("file:///tmp/registry"), owner: Option.none() },
   pack: {
-    name,
+    name: extensionName(name),
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
   owner: ACME,
-  name,
+  name: extensionName(name),
   version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
 });
@@ -77,7 +78,11 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
     ref: {
       type: "skill",
       refType: "local",
-      skill: { name, description: Option.some(`Skill ${name}`), metadata: Option.none() },
+      skill: {
+        name: extensionName(name),
+        description: Option.some(`Skill ${name}`),
+        metadata: Option.none(),
+      },
       source: { type: "local", path: `/tmp/skills/${name}` },
       location: `file:///tmp/skills/${name}`,
     },
@@ -107,14 +112,14 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
     ref: {
       type: "command",
       refType: "registry",
-      command: { name },
+      command: { name: extensionName(name) },
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
@@ -130,14 +135,14 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
     ref: {
       type: "mcp-server",
       refType: "registry",
-      server: { name },
+      server: { name: extensionName(name) },
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
@@ -156,7 +161,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
       {
         type: "registry" as const,
         owner: ACME,
-        name,
+        name: extensionName(name),
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
@@ -176,7 +181,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
       {
         type: "registry" as const,
         owner: ACME,
-        name,
+        name: extensionName(name),
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
@@ -682,7 +687,7 @@ describe("buildInstallPlan", () => {
           "cmd-a": {
             type: "registry" as const,
             owner: ACME,
-            name: "cmd-a",
+            name: extensionName("cmd-a"),
             resolvedVersion: exactVersion("1.0.0"),
             integrity: "",
             sourceName: "default",

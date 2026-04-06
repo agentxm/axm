@@ -21,7 +21,7 @@ import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-re
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { exactVersion, makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import type { InstallSkillOperation } from "@axm.sh/core/unstable/skills";
 import type { InstallCommandOperation } from "@axm.sh/core/unstable/commands";
 import type { InstallMcpServerOperation } from "@axm.sh/core/unstable/mcp-servers";
@@ -40,14 +40,14 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
     ref: {
       type: "skill",
       refType: "registry",
-      skill: { name, description: Option.none(), metadata: Option.none() },
+      skill: { name: extensionName(name), description: Option.none(), metadata: Option.none() },
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
@@ -66,14 +66,14 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
     ref: {
       type: "command",
       refType: "registry",
-      command: { name },
+      command: { name: extensionName(name) },
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },
@@ -89,14 +89,14 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
     ref: {
       type: "mcp-server",
       refType: "registry",
-      server: { name },
+      server: { name: extensionName(name) },
       source: {
         type: "registry",
         location: new URL("file:///tmp/registry"),
         owner: Option.none(),
       },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     },

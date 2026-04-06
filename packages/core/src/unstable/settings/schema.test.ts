@@ -7,7 +7,8 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
-  NonSkillExtensionsMapSchema,
+  CommandsMapSchema,
+  McpServersMapSchema,
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
@@ -585,78 +586,93 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("NonSkillExtensionsMap schema (agentskills.io spec - legacy)", () => {
-    it("accepts valid skill name", () => {
+  describe("CommandsMap schema (command name validation)", () => {
+    it("accepts valid command name", () => {
       const input = { commit: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({ commit: "^1.0.0" });
     });
 
-    it("accepts skill name with hyphens", () => {
+    it("accepts command name with hyphens", () => {
       const input = { "my-extension": "^1.0.0" };
-      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({ "my-extension": "^1.0.0" });
     });
 
-    it("accepts skill name with numbers", () => {
+    it("accepts command name with numbers", () => {
       const input = { skill123: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({ skill123: "^1.0.0" });
     });
 
-    it("accepts single character skill name", () => {
+    it("accepts single character command name", () => {
       const input = { a: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({ a: "^1.0.0" });
     });
 
-    it("accepts 64 character skill name (max length)", () => {
+    it("accepts 64 character command name (max length)", () => {
       const name = "a".repeat(64);
       const input = { [name]: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({ [name]: "^1.0.0" });
     });
 
-    it("rejects skill name over 64 characters", () => {
+    it("rejects command name over 64 characters", () => {
       const name = "a".repeat(65);
       const input = { [name]: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
-    it("rejects skill name starting with hyphen", () => {
+    it("rejects command name starting with hyphen", () => {
       const input = { "-invalid": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
-    it("rejects skill name ending with hyphen", () => {
+    it("rejects command name ending with hyphen", () => {
       const input = { "invalid-": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
-    it("rejects skill name with uppercase letters", () => {
+    it("rejects command name with uppercase letters", () => {
       const input = { MySkill: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
-    it("rejects skill name with underscores", () => {
+    it("rejects command name with underscores", () => {
       const input = { my_skill: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
 
-    it("rejects skill name with special characters", () => {
+    it("rejects command name with special characters", () => {
       const input = { "my@skill": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
+    });
+  });
+
+  describe("McpServersMap schema (MCP server name validation)", () => {
+    it("accepts valid MCP server name", () => {
+      const input = { batcomputer: "^2.0.0" };
+      const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
+
+      expect(result).toEqual({ batcomputer: "^2.0.0" });
+    });
+
+    it("rejects MCP server names with underscores", () => {
+      const input = { bat_computer: "^2.0.0" };
+
+      expect(() => Schema.decodeUnknownSync(McpServersMapSchema)(input)).toThrow();
     });
   });
 

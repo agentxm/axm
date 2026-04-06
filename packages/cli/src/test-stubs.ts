@@ -32,7 +32,9 @@ import type {
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
+  decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
+  type ExtensionName,
   normalizeHandle,
 } from "@axm.sh/core/unstable/extensions";
 import {
@@ -192,6 +194,8 @@ const hasEntries = (
 export const exactVersion = (value: string): ExactSemverVersion =>
   decodeExactSemverVersionSync(value);
 
+export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
+
 export const versionConstraint = (value: string): VersionConstraint =>
   decodeVersionConstraintSync(value);
 
@@ -267,7 +271,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 }): SkillLockEntry => ({
   type: "registry",
   owner: normalizeHandle(opts.owner),
-  name: opts.name,
+  name: extensionName(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
@@ -290,7 +294,7 @@ export const makeRegistryPackLockEntry = (opts: {
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     owner: normalizeHandle(opts.owner),
-    name: opts.name,
+    name: extensionName(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",

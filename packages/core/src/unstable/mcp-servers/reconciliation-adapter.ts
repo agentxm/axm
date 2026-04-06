@@ -1,4 +1,4 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "./manifest-schema.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -54,7 +54,10 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
           onNone: () => context.defaultProfile,
           onSome: (value) => value.owner,
         }),
-        name,
+        name: Option.match(parsed, {
+          onNone: () => decodeExtensionNameSync(name),
+          onSome: (value) => value.name,
+        }),
         source,
         declarationSourceOrConstraint: Option.match(parsed, {
           onNone: () => source,

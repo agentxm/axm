@@ -5,7 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields } from "../extensions/common.js";
+import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
 
 /**
  * Filename for MCP server manifest files.
@@ -23,8 +23,9 @@ export const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerManifestSchema = Schema.Struct({
-  ...CommonManifestFields,
+  ...CommonManifestBaseFields,
   type: Schema.Literal("mcp-server"),
+  name: ExtensionNameSchema,
 });
 
 /**

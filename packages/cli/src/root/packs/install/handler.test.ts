@@ -41,7 +41,7 @@ import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
-import { dependencyConstraintMap, exactVersion } from "../../../test-stubs.js";
+import { dependencyConstraintMap, exactVersion, extensionName } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 
 const ACME = normalizeHandle("@acme");
@@ -408,7 +408,7 @@ describe("packs install handler", () => {
         type: "pack",
         refType: "registry",
         pack: {
-          name: "my-pack",
+          name: extensionName("my-pack"),
           skills: {},
           commands: {},
           mcpServers: {},
@@ -419,7 +419,7 @@ describe("packs install handler", () => {
           owner: Option.none(),
         },
         owner: ACME,
-        name: "my-pack",
+        name: extensionName("my-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
       };
@@ -523,14 +523,14 @@ describe("packs install handler", () => {
       type: "pack",
       refType: "registry",
       pack: {
-        name,
+        name: extensionName(name),
         skills: opts?.skills ?? {},
         commands: opts?.commands ?? {},
         mcpServers: opts?.mcpServers ?? {},
       },
       source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
       owner: ACME,
-      name,
+      name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
     });
@@ -550,7 +550,7 @@ describe("packs install handler", () => {
                 type: "skill",
                 refType: "registry",
                 skill: {
-                  name: "code-review",
+                  name: extensionName("code-review"),
                   description: Option.none(),
                   metadata: Option.none(),
                 },
@@ -560,7 +560,7 @@ describe("packs install handler", () => {
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "code-review",
+                name: extensionName("code-review"),
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
               },
@@ -651,7 +651,7 @@ describe("packs install handler", () => {
                 type: "skill",
                 refType: "registry",
                 skill: {
-                  name: "existing-skill",
+                  name: extensionName("existing-skill"),
                   description: Option.none(),
                   metadata: Option.none(),
                 },
@@ -661,7 +661,7 @@ describe("packs install handler", () => {
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "existing-skill",
+                name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },
@@ -672,14 +672,14 @@ describe("packs install handler", () => {
               {
                 type: "command",
                 refType: "registry",
-                command: { name: "existing-cmd" },
+                command: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "existing-cmd",
+                name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },
@@ -888,7 +888,7 @@ describe("packs install handler", () => {
                 type: "skill",
                 refType: "registry",
                 skill: {
-                  name: "code-review",
+                  name: extensionName("code-review"),
                   description: Option.none(),
                   metadata: Option.none(),
                 },
@@ -898,7 +898,7 @@ describe("packs install handler", () => {
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "code-review",
+                name: extensionName("code-review"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },
@@ -909,14 +909,14 @@ describe("packs install handler", () => {
               {
                 type: "command",
                 refType: "registry",
-                command: { name: "lint" },
+                command: { name: extensionName("lint") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "lint",
+                name: extensionName("lint"),
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
               },
@@ -927,14 +927,14 @@ describe("packs install handler", () => {
               {
                 type: "mcp-server",
                 refType: "registry",
-                server: { name: "analytics" },
+                server: { name: extensionName("analytics") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "analytics",
+                name: extensionName("analytics"),
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
               },
@@ -990,7 +990,7 @@ describe("packs install handler", () => {
                 type: "skill",
                 refType: "registry",
                 skill: {
-                  name: "existing-skill",
+                  name: extensionName("existing-skill"),
                   description: Option.none(),
                   metadata: Option.none(),
                 },
@@ -1000,7 +1000,7 @@ describe("packs install handler", () => {
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "existing-skill",
+                name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },
@@ -1011,14 +1011,14 @@ describe("packs install handler", () => {
               {
                 type: "command",
                 refType: "registry",
-                command: { name: "existing-cmd" },
+                command: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
                 owner: ACME,
-                name: "existing-cmd",
+                name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
               },

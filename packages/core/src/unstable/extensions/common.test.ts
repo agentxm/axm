@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   AgentIdSchema,
   AuthorSchema,
-  CommonManifestFields,
+  CommonManifestBaseFields,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   extensionTypeLabels,
@@ -135,14 +135,6 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("accepts pattern with underscores", () => {
-      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
-        "@wayne_corp/skills/bat_signal",
-      );
-
-      expect(Result.isSuccess(result)).toBe(true);
-    });
-
     it("accepts pattern with numbers", () => {
       const result =
         Schema.decodeUnknownResult(FullyQualifiedNameSchema)("@wayne123/packs/tool456");
@@ -184,6 +176,14 @@ describe("common schemas", () => {
       expect(Result.isFailure(result)).toBe(true);
     });
 
+    it("rejects names with underscores", () => {
+      const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)(
+        "@wayne/skills/bat_signal",
+      );
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
     it("rejects empty string", () => {
       const result = Schema.decodeUnknownResult(FullyQualifiedNameSchema)("");
 
@@ -191,8 +191,11 @@ describe("common schemas", () => {
     });
   });
 
-  describe("CommonManifestFields", () => {
-    const TestManifest = Schema.Struct(CommonManifestFields);
+  describe("CommonManifestBaseFields", () => {
+    const TestManifest = Schema.Struct({
+      ...CommonManifestBaseFields,
+      name: ExtensionNameSchema,
+    });
 
     it("accepts valid full manifest", () => {
       const input = {
@@ -293,6 +296,21 @@ describe("common schemas", () => {
       const result = Schema.decodeUnknownResult(ExtensionNameSchema)(
         "@wayne/skills/grappling-hook",
       );
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects names with underscores", () => {
+      const result = Schema.decodeUnknownResult(ExtensionNameSchema)("bat_signal");
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects names with uppercase letters", () => {
+      const result = Schema.decodeUnknownResult(ExtensionNameSchema)("BatSignal");
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects names longer than 64 characters", () => {
+      const result = Schema.decodeUnknownResult(ExtensionNameSchema)("a".repeat(65));
       expect(Result.isFailure(result)).toBe(true);
     });
   });

@@ -17,7 +17,12 @@ import * as Option from "effect/Option";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile, PackLockEntry, ResolvedExtensionMap } from "@axm.sh/core/unstable/lockfile";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { exactVersion, makeBaseWorkspaceMock, resolvedExtensionMap } from "../../../test-stubs.js";
+import {
+  exactVersion,
+  extensionName,
+  makeBaseWorkspaceMock,
+  resolvedExtensionMap,
+} from "../../../test-stubs.js";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { buildUninstallPlan, type BuildUninstallPlanArgs } from "./plan.js";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -38,7 +43,7 @@ const makePackLockEntry = (
 ): PackLockEntry => ({
   type: "registry",
   owner: ACME,
-  name,
+  name: extensionName(name),
   resolvedVersion: exactVersion("1.0.0"),
   integrity: "sha512-AAAA==",
   sourceName: "local",

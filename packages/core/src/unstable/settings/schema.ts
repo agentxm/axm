@@ -7,7 +7,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { AgentIdSchema } from "../extensions/common.js";
+import { AgentIdSchema, ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
@@ -113,52 +113,24 @@ export type AzureReposSourceHostConfig = Schema.Schema.Type<
 >;
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
-/**
- * Pattern for skill names per agentskills.io specification:
- * - Max 64 characters
- * - Lowercase letters, numbers, and hyphens only
- * - Must not start or end with a hyphen
- *
- * @see https://agentskills.io/specification
- */
-const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
+const decodeExtensionNameSync = Schema.decodeUnknownSync(ExtensionNameSchema);
 
-/**
- * Shared validation callback for skill name keys per agentskills.io spec.
- * Used by both NonSkillExtensionsMapSchema and SkillsMapSchema via Schema.filter.
- */
-const validateSkillNameKeys = (record: { readonly [x: string]: unknown }) => {
-  const invalidKeys = Object.keys(record).filter(
-    (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
-  );
-  if (invalidKeys.length > 0) {
-    return `Invalid skill name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`;
-  }
-  return undefined;
-};
+const validateNamedRecordKeys =
+  (entryLabel: string, decodeName: (input: string) => unknown) =>
+  (record: { readonly [x: string]: unknown }) => {
+    const invalidKeys = Object.keys(record).filter((key) => {
+      try {
+        decodeName(key);
+        return false;
+      } catch {
+        return true;
+      }
+    });
 
-/**
- * Extension map - maps skill names to version specifiers.
- *
- * Keys must be valid skill names per agentskills.io specification:
- * - Max 64 characters
- * - Lowercase letters, numbers, and hyphens only
- * - Must not start or end with a hyphen
- *
- * Values are semver range strings (e.g., "^1.0.0", "~2.1.0", ">=1.0.0") or "*".
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const NonSkillExtensionsMapSchema = Schema.Record(Schema.String, Schema.String).pipe(
-  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
-);
-
-/**
- * Inferred type for NonSkillExtensionsMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type NonSkillExtensionsMap = Schema.Schema.Type<typeof NonSkillExtensionsMapSchema>;
+    return invalidKeys.length > 0
+      ? `Invalid ${entryLabel} name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`
+      : undefined;
+  };
 
 /**
  * Managed skill with source and optional config flags.
@@ -198,8 +170,8 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema).pipe(
-  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
+export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema).check(
+  Schema.makeFilter(validateNamedRecordKeys("skill", decodeExtensionNameSync)),
 );
 
 /**
@@ -208,6 +180,42 @@ export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema).pi
  * @experimental This API is unstable and may change without notice.
  */
 export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
+
+/**
+ * Commands map - maps command names to source strings.
+ *
+ * Keys use the canonical command name schema from the shared kernel.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CommandsMapSchema = Schema.Record(Schema.String, Schema.String).check(
+  Schema.makeFilter(validateNamedRecordKeys("command", decodeExtensionNameSync)),
+);
+
+/**
+ * Inferred type for CommandsMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
+
+/**
+ * MCP servers map - maps MCP server names to source strings.
+ *
+ * Keys use the canonical MCP server name schema from the shared kernel.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServersMapSchema = Schema.Record(Schema.String, Schema.String).check(
+  Schema.makeFilter(validateNamedRecordKeys("MCP server", decodeExtensionNameSync)),
+);
+
+/**
+ * Inferred type for McpServersMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Pack Entry Schemas
@@ -248,8 +256,8 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema).pipe(
-  Schema.check(Schema.makeFilter(validateSkillNameKeys)),
+export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema).check(
+  Schema.makeFilter(validateNamedRecordKeys("pack", decodeExtensionNameSync)),
 );
 
 /**
@@ -317,15 +325,13 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-const ProfileSchema = HandleSchema;
-
 export const SettingsSchema = Schema.Struct({
   telemetry: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("errors")])),
-  profile: Schema.optional(ProfileSchema),
+  profile: Schema.optional(HandleSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
-  commands: Schema.optional(NonSkillExtensionsMapSchema),
-  mcpServers: Schema.optional(NonSkillExtensionsMapSchema),
+  commands: Schema.optional(CommandsMapSchema),
+  mcpServers: Schema.optional(McpServersMapSchema),
   packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
   ignored: Schema.optional(IgnoredSettingsSchema),

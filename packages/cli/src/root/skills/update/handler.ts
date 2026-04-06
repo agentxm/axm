@@ -25,9 +25,10 @@ import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
+  type ExtensionName,
   type Handle,
-  type RegistrySourcePatternParts,
 } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { createRegistryClient } from "@axm.sh/core/unstable/registry";
@@ -67,9 +68,7 @@ export interface UpdateHandlerArgs {
   readonly preview: boolean;
 }
 
-type RegistrySkillPattern = RegistrySourcePatternParts;
-
-const toRegistrySkillPattern = (source: string): Option.Option<RegistrySkillPattern> => {
+const toRegistrySkillPattern = (source: string) => {
   const parsed = parseRegistrySourcePatternParts(source);
   if (parsed === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== "skills") {
@@ -244,7 +243,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   }: {
     readonly source: RegistrySource;
     readonly owner: Handle;
-    readonly lookupName: string;
+    readonly lookupName: ExtensionName;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
   }) =>
@@ -327,6 +326,19 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       });
     });
 
+  const decodeConfiguredSkillName = (name: string, sourceStr: string) =>
+    Effect.try({
+      try: () => decodeExtensionNameSync(name),
+      catch: () =>
+        makeAppError({
+          code: "INVALID_SOURCE",
+          what: `Configured skill name "${name}" is invalid`,
+          details: [`Source: ${sourceStr}`],
+          howToFix:
+            "Use lowercase letters, numbers, and hyphens only, with a maximum length of 64 characters.",
+        }),
+    });
+
   const results = yield* renderer.withSpinner(
     "Resolving sources...",
     () =>
@@ -338,7 +350,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             const registryPattern = toRegistrySkillPattern(sourceStr);
 
             if (source.type === "registry" && Option.isSome(registryPattern)) {
-              const lookupName = registryPattern.value.name ?? name;
+              const lookupName =
+                registryPattern.value.name ?? (yield* decodeConfiguredSkillName(name, sourceStr));
               const registryResolved = yield* resolveRegistrySkillWithConstraints({
                 source,
                 owner: registryPattern.value.owner,

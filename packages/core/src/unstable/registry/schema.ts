@@ -8,7 +8,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as Result from "effect/Result";
 import { IsoDateTimeStringSchema } from "../date-time.js";
 import {
   AuthorSchema,
@@ -18,18 +17,6 @@ import {
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
-
-const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
-
-const ExtensionNameStringSchema = Schema.NonEmptyString.pipe(
-  Schema.check(
-    Schema.makeFilter((value: string) =>
-      Result.isSuccess(decodeExtensionName(value))
-        ? undefined
-        : `Expected canonical extension name, got: ${value}`,
-    ),
-  ),
-);
 
 // =============================================================================
 // Version Entry
@@ -80,7 +67,7 @@ export type VersionEntry = Schema.Schema.Type<typeof VersionEntrySchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionIndexSchema = Schema.Struct({
-  name: ExtensionNameStringSchema,
+  name: ExtensionNameSchema,
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   description: Schema.optional(Schema.String),

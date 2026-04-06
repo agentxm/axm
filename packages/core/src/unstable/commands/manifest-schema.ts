@@ -5,7 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields } from "../extensions/common.js";
+import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
 
 /**
  * Filename for command manifest files.
@@ -23,8 +23,9 @@ export const COMMAND_MANIFEST_FILENAME = "axm-command.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandManifestSchema = Schema.Struct({
-  ...CommonManifestFields,
+  ...CommonManifestBaseFields,
   type: Schema.Literal("command"),
+  name: ExtensionNameSchema,
 });
 
 /**

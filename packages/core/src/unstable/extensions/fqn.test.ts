@@ -22,8 +22,8 @@ describe("parseFqn", () => {
       expected: { owner: "@acme", type: "mcp-servers", name: "database" },
     },
     {
-      input: "@wayne_corp/skills/bat_signal",
-      expected: { owner: "@wayne_corp", type: "skills", name: "bat_signal" },
+      input: "@wayne_corp/skills/bat-signal",
+      expected: { owner: "@wayne_corp", type: "skills", name: "bat-signal" },
     },
     {
       input: "@test123/packs/tool456",
@@ -60,6 +60,7 @@ describe("parseFqn", () => {
     { input: "code-review", desc: "bare name" },
     { input: "@acme/widgets/foo", desc: "invalid type segment" },
     { input: "@acme/skill/foo", desc: "singular type (not plural)" },
+    { input: "@acme/skills/code_review", desc: "name with underscore" },
     { input: "", desc: "empty string" },
     { input: "@acme/skills/", desc: "trailing slash, no name" },
     { input: "@acme//code-review", desc: "missing type segment" },

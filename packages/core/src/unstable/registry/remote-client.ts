@@ -15,7 +15,12 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { toAuthor, ExtensionTypeSchema, type ExtensionType } from "../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  toAuthor,
+  ExtensionTypeSchema,
+  type ExtensionType,
+} from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
@@ -252,11 +257,23 @@ export const createRemoteRegistryClient = (
             Effect.forEach(
               requestedTypes,
               (type) =>
-                getExtensionIndex({
-                  owner,
-                  type,
-                  name,
-                }),
+                Effect.sync(() => {
+                  try {
+                    return decodeExtensionNameSync(name);
+                  } catch {
+                    return undefined;
+                  }
+                }).pipe(
+                  Effect.flatMap((decodedName) =>
+                    decodedName === undefined
+                      ? Effect.succeed(Option.none<ExtensionIndex>())
+                      : getExtensionIndex({
+                          owner,
+                          type,
+                          name: decodedName,
+                        }),
+                  ),
+                ),
               { concurrency: "unbounded" },
             ),
           { concurrency: "unbounded" },
@@ -307,7 +324,7 @@ export const createRemoteRegistryClient = (
           getExtensionIndex({
             owner: decodeHandleSync(summary.owner),
             type: narrowExtensionType(summary.type),
-            name: summary.name,
+            name: decodeExtensionNameSync(summary.name),
           }),
         { concurrency: "unbounded" },
       );

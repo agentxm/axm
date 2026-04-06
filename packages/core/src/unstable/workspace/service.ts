@@ -51,10 +51,11 @@ import {
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseSkillEntry,
+  type CommandsMap,
   createDefaultSettings,
   DEFAULT_PROFILE,
   getSkillEntrySource,
-  type NonSkillExtensionsMap,
+  type McpServersMap,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
   type PacksMap,
@@ -970,7 +971,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const sourceInput = lockEntryToSourceParams(lockEntry);
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            const currentCommands: CommandsMap = currentSettings.commands ?? {};
             const updatedSettings = {
               ...currentSettings,
               commands: { ...currentCommands, [name]: source },
@@ -1019,7 +1020,7 @@ const make = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             // Update settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            const currentCommands: CommandsMap = currentSettings.commands ?? {};
             const hasSettingsEntry = name in currentCommands;
 
             if (hasSettingsEntry) {
@@ -1063,7 +1064,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const sourceInput = lockEntryToSourceParams(lockEntry);
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
+            const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const updatedSettings = {
               ...currentSettings,
               mcpServers: { ...currentMcpServers, [name]: source },
@@ -1112,7 +1113,7 @@ const make = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
+            const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const hasSettingsEntry = name in currentMcpServers;
 
             if (hasSettingsEntry) {
@@ -1160,7 +1161,7 @@ const make = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            const currentCommands: CommandsMap = currentSettings.commands ?? {};
             if (!(name in currentCommands)) return;
             const { [name]: _, ...remainingCommands } = currentCommands;
             void _;
@@ -1186,7 +1187,7 @@ const make = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
+            const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             if (!(name in currentMcpServers)) return;
             const { [name]: _, ...remainingMcpServers } = currentMcpServers;
             void _;

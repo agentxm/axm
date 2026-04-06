@@ -5,7 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields } from "../extensions/common.js";
+import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
 
 export const MANIFEST_FILENAME = "axm-skill.json";
 
@@ -18,8 +18,9 @@ export const MANIFEST_FILENAME = "axm-skill.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillManifestSchema = Schema.Struct({
-  ...CommonManifestFields,
+  ...CommonManifestBaseFields,
   type: Schema.Literal("skill"),
+  name: ExtensionNameSchema,
   agents: Schema.optional(Schema.Array(Schema.String)),
 });
 

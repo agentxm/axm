@@ -12,10 +12,11 @@
 export type {
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
-  NonSkillExtensionsMap,
+  CommandsMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
   IgnoredSettings,
+  McpServersMap,
   PackEntry,
   PacksMap,
   RegistrySourceHostConfig,
@@ -25,8 +26,9 @@ export type {
   SourceHostConfig,
 } from "./schema.js";
 export {
+  CommandsMapSchema,
   IgnoredSettingsSchema,
-  NonSkillExtensionsMapSchema,
+  McpServersMapSchema,
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,

@@ -8,7 +8,7 @@ import {
   decodeVersionConstraintSync,
   type VersionConstraint,
 } from "../version-constraints/version-constraints.js";
-import { readAndDecodeManifest } from "../extensions/index.js";
+import { decodeExtensionNameSync, readAndDecodeManifest } from "../extensions/index.js";
 import { SkillManifestSchema, MANIFEST_FILENAME, type SkillManifest } from "./manifest-schema.js";
 import { computeSkillPaths } from "./paths.js";
 import type {
@@ -60,7 +60,10 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
           onNone: () => context.defaultProfile,
           onSome: (value) => value.owner,
         }),
-        name,
+        name: Option.match(parsed, {
+          onNone: () => decodeExtensionNameSync(name),
+          onSome: (value) => value.name,
+        }),
         source,
         declarationSourceOrConstraint: Option.match(parsed, {
           onNone: () => source,

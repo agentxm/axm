@@ -19,6 +19,7 @@ import type { AppError } from "../app-error/index.js";
 import type {
   Author,
   ExtensionDependencyConstraintMap,
+  ExtensionName,
   ExtensionType,
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
@@ -63,7 +64,7 @@ export interface GetExtensionsByOwnerArgs {
 export interface GetExtensionPackageArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly version: Option.Option<ExactSemverVersion>;
 }
 
@@ -81,7 +82,7 @@ export interface GetExtensionPackageArgs {
 export interface GetExtensionIndexArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly name: string;
+  readonly name: ExtensionName;
 }
 
 // -----------------------------------------------------------------------------
@@ -101,7 +102,7 @@ export interface GetExtensionIndexArgs {
 export interface PublishExtensionArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly version: ExactSemverVersion;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
@@ -121,7 +122,7 @@ export interface PublishExtensionArgs {
 export interface ExtensionExistsArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly name: string;
+  readonly name: ExtensionName;
 }
 
 // -----------------------------------------------------------------------------
@@ -192,7 +193,7 @@ export interface ExtensionExistsResponse {
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
   readonly owner: Handle;
   readonly type: T;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly description: Option.Option<string>;
   readonly repository: Option.Option<string>;
   readonly license: Option.Option<string>;

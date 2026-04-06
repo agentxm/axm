@@ -25,9 +25,11 @@ import type {
 import { createRegistryClient, extractZip, resolveVersionEntry } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
+  decodeExtensionNameSync,
   toAuthor,
   type Author,
   type ExtensionDependencyConstraintMap,
+  type ExtensionName,
   type ExtensionType,
 } from "../../../extensions/index.js";
 import type { ExtensionRef } from "../../../extensions/index.js";
@@ -45,7 +47,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
   readonly publishExtension: (
     owner: Handle,
     type: ExtensionType,
-    name: string,
+    name: ExtensionName,
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
@@ -171,12 +173,25 @@ const findWithVersionConstraint = (
             Effect.forEach(
               requestedTypes,
               (type) =>
-                client.getExtensionIndex({ owner, type, name }).pipe(
-                  Effect.map((indexOption) =>
-                    Option.match(indexOption, {
-                      onNone: () => Option.none<RegistryExtensionManifest>(),
-                      onSome: (index) => manifestFromIndex(index, options.versionConstraint),
-                    }),
+                Effect.sync(() => {
+                  try {
+                    return decodeExtensionNameSync(name);
+                  } catch {
+                    return undefined;
+                  }
+                }).pipe(
+                  Effect.flatMap((decodedName) =>
+                    decodedName === undefined
+                      ? Effect.succeed(Option.none<RegistryExtensionManifest>())
+                      : client.getExtensionIndex({ owner, type, name: decodedName }).pipe(
+                          Effect.map((indexOption) =>
+                            Option.match(indexOption, {
+                              onNone: () => Option.none<RegistryExtensionManifest>(),
+                              onSome: (index) =>
+                                manifestFromIndex(index, options.versionConstraint),
+                            }),
+                          ),
+                        ),
                   ),
                 ),
               { concurrency: "unbounded" },
@@ -272,7 +287,7 @@ const toExtensionRef = (
 };
 
 /** Extract extension name from an ExtensionRef. */
-const refName = (ref: ExtensionRef): string => {
+const refName = (ref: ExtensionRef): ExtensionName => {
   switch (ref.type) {
     case "skill":
       return ref.skill.name;
@@ -394,7 +409,7 @@ export const createLocalRegistrySourceHostProvider = (
   publishExtension: (
     owner: Handle,
     type: ExtensionType,
-    name: string,
+    name: ExtensionName,
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,
@@ -437,7 +452,7 @@ export const createRemoteRegistrySourceHostProvider = (
   publishExtension: (
     owner: Handle,
     type: ExtensionType,
-    name: string,
+    name: ExtensionName,
     version: ExactSemverVersion,
     archive: Uint8Array,
     metadata: VersionEntry,

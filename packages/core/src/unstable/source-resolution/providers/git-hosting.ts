@@ -15,6 +15,7 @@ import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../discover-skills.js";
 import { makeAppError } from "../../app-error/index.js";
+import { decodeExtensionNameSync } from "../../extensions/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -111,7 +112,7 @@ export const createGitHostingSourceHostProvider = <
               type: "skill" as const,
               refType: "git-hosted" as const,
               skill: {
-                name: d.skill.name,
+                name: decodeExtensionNameSync(d.skill.name),
                 description: Option.some(d.skill.description),
                 metadata: d.skill.metadata,
               },

@@ -5,12 +5,12 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 ## What Changes
 
 - **Fleshed-out `command` extension type** with a proper manifest schema (`axm-command.json`), command-specific metadata fields, and registry support beyond the current stub.
-- **Cross-agent command installation** — `axm commands install` writes agent-native command files into each agent's commands directory:
+- **Cross-agent command installation** — `axm commands install` writes agent-native command files into each agent's **commands directory**, including agents where commands are deprecated but still functional (Claude Code, Codex). AXM explicitly supports these deprecated command paths — they remain fully operational, offer a rich feature set (frontmatter, arguments, file references, shell injection, hooks), and their single-file format maps cleanly to the AXM portable model. AXM's `command` and `skill` extension types are orthogonal: commands target the commands path, skills target the skills path. If a skill and command share a name, the skill wins (by agent convention), which is desirable when a richer version exists.
   - **Markdown with YAML frontmatter** — Claude Code (`.claude/commands/`), Cursor (`.cursor/commands/`), OpenCode (`.opencode/commands/`), Augment (`.augment/commands/`), Junie (`.junie/commands/`), Roo Code (`.roo/commands/`)
   - **`.prompt.md` with YAML frontmatter** — Copilot (`.github/prompts/`)
+  - **Markdown with YAML frontmatter** — Codex (`~/.codex/prompts/`)
   - **TOML** — Gemini CLI (`.gemini/commands/`)
   - **Plain text** — Kiro (`.kiro/prompts/`)
-  - **SKILL.md** — Claude Code skills path (`.claude/skills/<name>/SKILL.md`), Codex skills path (`.agents/skills/<name>/SKILL.md`)
 - **Command manifest schema** capturing the portable subset of command metadata: name, description, prompt body, argument definitions, and optional agent-specific hints (model override, tool restrictions, subagent forking).
 - **Agent-specific rendering** — each agent adapter translates the portable manifest into its native format, mapping fields like `argument-hint`, `model`, `allowed-tools`, `context`/`subtask`, and variable substitution syntax to agent-native equivalents where supported.
 - **`axm commands` command group** — `install`, `uninstall`, `list`, `new`, `publish` commands mirroring the existing skills command group.
@@ -39,11 +39,10 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 
 - **Core extension model** — `CommandManifestSchema` gains command-specific fields (prompt body, arguments, agent hints). The existing `ExtensionTypeSchema`, `ExtensionTypePlural`, and FQN parsing already include `command`; no changes needed there.
 - **Agent adapters** — each `CodingAgent` implementation gains `addCommand` / `removeCommand` methods and a `commandsDir` property alongside the existing `skillsDir`.
-- **Agent rendering** — new per-agent renderers that translate the portable command manifest into agent-native formats:
-  - **Markdown + YAML frontmatter** — Claude Code, Cursor, OpenCode, Augment, Junie, Roo Code
+- **Agent rendering** — new per-agent renderers that translate the portable command manifest into agent-native **command** formats (not skills paths — AXM `command` and `skill` are orthogonal extension types). For agents with deprecated-but-functional command paths (Claude Code, Codex), renderers target the full feature set of the deprecated system:
+  - **Markdown + YAML frontmatter** — Claude Code (`.claude/commands/`, deprecated but functional — supports frontmatter, `$ARGUMENTS`, `@file` refs, `` !`cmd` `` shell injection, hooks), Codex (`~/.codex/prompts/`), Cursor, OpenCode, Augment, Junie, Roo Code
   - **`.prompt.md` + YAML frontmatter** — Copilot
   - **TOML** — Gemini CLI
-  - **SKILL.md directory** — Claude Code skills path, Codex skills path
   - **Plain text** — Kiro
 - **Variable substitution normalization** — the portable manifest uses a canonical argument syntax; renderers translate to each agent's native syntax (`$ARGUMENTS`, `{{args}}`, `${input:name}`, `$argName`, etc.).
 - **Registry** — registry API and publish flow already support the `command` extension type; command-specific metadata fields are added to the payload.
@@ -62,49 +61,51 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 
 All agents in the AXM registry, showing command/reusable-prompt support status and whether they are in scope for this change. In-scope agents have detailed reference sections (A–K) below. Out-of-scope agents with command support are candidates for follow-on rendering adapters.
 
-| Agent          | Command Support | Format             | In Scope | Detail                  | Command Docs                                                                                   |
-| -------------- | --------------- | ------------------ | -------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| Claude Code    | Yes             | MD + YAML          | **Yes**  | [A](#a-claude-code)     | [code.claude.com](https://code.claude.com/docs/en/skills)                                      |
-| GitHub Copilot | Yes             | MD + YAML          | **Yes**  | [B](#b-github-copilot)  | [code.visualstudio.com](https://code.visualstudio.com/docs/copilot/customization/prompt-files) |
-| Codex          | Yes             | SKILL.md + YAML    | **Yes**  | [C](#c-openai-codex)    | [developers.openai.com](https://developers.openai.com/codex/skills)                            |
-| Cursor         | Yes             | MD                 | **Yes**  | [D](#d-cursor)          | [cursor.com](https://cursor.com/changelog/1-6)                                                 |
-| Gemini CLI     | Yes             | TOML               | **Yes**  | [E](#e-gemini-cli)      | [geminicli.com](https://geminicli.com/docs/cli/custom-commands/)                               |
-| OpenCode       | Yes             | MD + YAML or JSONC | **Yes**  | [F](#f-opencode)        | [opencode.ai](https://opencode.ai/docs/commands/)                                              |
-| Augment        | Yes             | MD + YAML          | **Yes**  | [G](#g-augment-code)    | [docs.augmentcode.com](https://docs.augmentcode.com/cli/custom-commands)                       |
-| Junie          | Yes             | MD + YAML          | **Yes**  | [H](#h-junie-jetbrains) | [junie.jetbrains.com](https://junie.jetbrains.com/docs/custom-slash-commands.html)             |
-| Kilo Code      | Yes             | MD + YAML          | **Yes**  | [I](#i-kilo-code)       | [kilo.ai](https://kilo.ai/docs/cli)                                                            |
-| Kiro           | Yes             | Plain text         | **Yes**  | [J](#j-kiro-aws)        | [kiro.dev](https://kiro.dev/docs/cli/chat/manage-prompts/)                                     |
-| Roo Code       | Yes             | MD + YAML          | **Yes**  | [K](#k-roo-code)        | [docs.roocode.com](https://docs.roocode.com/features/slash-commands)                           |
-| AdaL           | Unknown         | —                  | No       | —                       | [docs.sylph.ai](https://docs.sylph.ai/)                                                        |
-| Amp            | Yes             | MD                 | No       | —                       | [ampcode.com](https://ampcode.com/docs)                                                        |
-| Antigravity    | Unknown         | —                  | No       | —                       | [antigravity.google](https://antigravity.google/)                                              |
-| Cline          | Partial         | —                  | No       | —                       | [docs.cline.bot](https://docs.cline.bot/features/customization)                                |
-| CodeBuddy      | Unknown         | —                  | No       | —                       | [codebuddy.ai](https://www.codebuddy.ai/)                                                      |
-| Command Code   | Unknown         | —                  | No       | —                       | [commandcode.ai](https://commandcode.ai/)                                                      |
-| Continue       | Yes             | JSON config        | No       | —                       | [docs.continue.dev](https://docs.continue.dev/customize/slash-commands)                        |
-| Crush          | Partial         | —                  | No       | —                       | [github.com](https://github.com/charmbracelet/crush)                                           |
-| Droid          | Unknown         | —                  | No       | —                       | [docs.factory.ai](https://docs.factory.ai/)                                                    |
-| Goose          | Partial         | —                  | No       | —                       | [block.github.io](https://block.github.io/goose/)                                              |
-| iFlow CLI      | Unknown         | —                  | No       | —                       | [platform.iflow.cn](https://platform.iflow.cn/)                                                |
-| Kimi CLI       | Unknown         | —                  | No       | —                       | [moonshotai.github.io](https://moonshotai.github.io/kimi-cli/)                                 |
-| Kode           | Yes             | SKILL.md           | No       | —                       | [github.com](https://github.com/shareAI-lab/Kode-cli)                                          |
-| MCPJam         | N/A             | —                  | No       | —                       | [mcpjam.com](https://www.mcpjam.com)                                                           |
-| Mistral Vibe   | Unknown         | —                  | No       | —                       | [docs.mistral.ai](https://docs.mistral.ai/)                                                    |
-| Mux            | Unknown         | —                  | No       | —                       | [mux.coder.com](https://mux.coder.com/)                                                        |
-| Neovate        | Unknown         | —                  | No       | —                       | [neovateai.dev](https://neovateai.dev/)                                                        |
-| OpenClaw       | Unknown         | —                  | No       | —                       | [docs.openclaw.ai](https://docs.openclaw.ai/)                                                  |
-| OpenHands      | Partial         | —                  | No       | —                       | [docs.openhands.dev](https://docs.openhands.dev/)                                              |
-| Pi             | Yes             | MD                 | No       | —                       | [github.com](https://github.com/badlogic/pi-mono)                                              |
-| Pochi          | Unknown         | —                  | No       | —                       | [docs.getpochi.com](https://docs.getpochi.com/)                                                |
-| Qoder          | Unknown         | —                  | No       | —                       | [docs.qoder.com](https://docs.qoder.com/)                                                      |
-| Qwen Code      | Unknown         | —                  | No       | —                       | [qwenlm.github.io](https://qwenlm.github.io/qwen-code-docs/)                                   |
-| Replit         | Partial         | —                  | No       | —                       | [docs.replit.com](https://docs.replit.com/)                                                    |
-| Trae           | Partial         | —                  | No       | —                       | [docs.trae.ai](https://docs.trae.ai/)                                                          |
-| Trae CN        | Partial         | —                  | No       | —                       | [docs.trae.ai](https://docs.trae.ai/)                                                          |
-| Windsurf       | Yes             | —                  | No       | —                       | [docs.windsurf.com](https://docs.windsurf.com/)                                                |
-| Zencoder       | Unknown         | —                  | No       | —                       | [docs.zencoder.ai](https://docs.zencoder.ai/)                                                  |
+| Agent          | Command Support                             | Format             | In Scope | Detail                  | Command Docs                                                                                   |
+| -------------- | ------------------------------------------- | ------------------ | -------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| Claude Code    | Yes ("Commands", deprecated but functional) | MD + YAML          | **Yes**  | [A](#a-claude-code)     | [Slash commands (archived)](reference/slash-commands.md)                                       |
+| GitHub Copilot | Yes ("Prompt Files")                        | MD + YAML          | **Yes**  | [B](#b-github-copilot)  | [code.visualstudio.com](https://code.visualstudio.com/docs/copilot/customization/prompt-files) |
+| Codex          | Yes ("Custom Prompts", deprecated→Skills)   | MD + YAML          | **Yes**  | [C](#c-openai-codex)    | [developers.openai.com](https://developers.openai.com/codex/custom-prompts)                    |
+| Cursor         | Yes                                         | MD                 | **Yes**  | [D](#d-cursor)          | [cursor.com](https://cursor.com/docs/context/commands)                                         |
+| Gemini CLI     | Yes ("Custom Commands")                     | TOML               | **Yes**  | [E](#e-gemini-cli)      | [geminicli.com](https://geminicli.com/docs/cli/custom-commands/)                               |
+| OpenCode       | Yes                                         | MD + YAML or JSONC | **Yes**  | [F](#f-opencode)        | [opencode.ai](https://opencode.ai/docs/commands/)                                              |
+| Augment        | Yes ("Custom Slash Commands")               | MD + YAML          | **Yes**  | [G](#g-augment-code)    | [docs.augmentcode.com](https://docs.augmentcode.com/cli/custom-commands)                       |
+| Junie          | Yes ("Custom Slash Commands")               | MD + YAML          | **Yes**  | [H](#h-junie-jetbrains) | [junie.jetbrains.com](https://junie.jetbrains.com/docs/custom-slash-commands.html)             |
+| Kilo Code      | Yes† (undocumented)                         | MD + YAML          | **Yes**  | [I](#i-kilo-code)       | [kilo.ai](https://kilo.ai/docs/customize/skills)                                               |
+| Kiro           | Yes ("Prompts")                             | Plain text         | **Yes**  | [J](#j-kiro-aws)        | [kiro.dev](https://kiro.dev/docs/cli/chat/manage-prompts/)                                     |
+| Roo Code       | Yes ("Slash Commands")                      | MD + YAML          | **Yes**  | [K](#k-roo-code)        | [docs.roocode.com](https://docs.roocode.com/features/slash-commands)                           |
+| AdaL           | Yes ("Slash Commands")                      | —                  | No       | —                       | [docs.sylph.ai](https://docs.sylph.ai/)                                                        |
+| Amp            | Partial ("Agent Skills")                    | SKILL.md           | No       | —                       | [ampcode.com](https://ampcode.com/docs)                                                        |
+| Antigravity    | Unknown                                     | —                  | No       | —                       | [antigravity.google](https://antigravity.google/)                                              |
+| Cline          | Yes ("Workflows")                           | MD                 | No       | —                       | [docs.cline.bot](https://docs.cline.bot/customization/overview)                                |
+| CodeBuddy      | Unknown                                     | —                  | No       | —                       | [codebuddy.ai](https://www.codebuddy.ai/)                                                      |
+| Command Code   | No                                          | —                  | No       | —                       | [commandcode.ai](https://commandcode.ai/)                                                      |
+| Continue       | Yes ("Prompts")                             | MD + YAML          | No       | —                       | [docs.continue.dev](https://docs.continue.dev/customize/deep-dives/prompts)                    |
+| Crush          | Partial ("Agent Skills")                    | SKILL.md           | No       | —                       | [github.com](https://github.com/charmbracelet/crush)                                           |
+| Droid          | Unknown                                     | —                  | No       | —                       | [docs.factory.ai](https://docs.factory.ai/)                                                    |
+| Goose          | Yes ("Recipes")                             | YAML               | No       | —                       | [block.github.io](https://block.github.io/goose/)                                              |
+| iFlow CLI      | Unknown                                     | —                  | No       | —                       | [platform.iflow.cn](https://platform.iflow.cn/)                                                |
+| Kimi CLI       | Yes ("Slash Commands")                      | —                  | No       | —                       | [moonshotai.github.io](https://moonshotai.github.io/kimi-cli/)                                 |
+| Kode           | Yes (AGENTS.md)                             | MD                 | No       | —                       | [github.com](https://github.com/shareAI-lab/Kode-cli)                                          |
+| MCPJam         | N/A                                         | —                  | No       | —                       | [mcpjam.com](https://www.mcpjam.com)                                                           |
+| Mistral Vibe   | Yes ("Skills")                              | SKILL.md + YAML    | No       | —                       | [docs.mistral.ai](https://docs.mistral.ai/)                                                    |
+| Mux            | Unknown                                     | —                  | No       | —                       | [mux.coder.com](https://mux.coder.com/)                                                        |
+| Neovate        | Yes ("Slash Commands")                      | MD + YAML          | No       | —                       | [neovateai.dev](https://neovateai.dev/)                                                        |
+| OpenClaw       | N/A                                         | —                  | No       | —                       | [docs.openclaw.ai](https://docs.openclaw.ai/)                                                  |
+| OpenHands      | Unknown                                     | —                  | No       | —                       | [docs.openhands.dev](https://docs.openhands.dev/)                                              |
+| Pi             | Yes                                         | MD                 | No       | —                       | [github.com](https://github.com/badlogic/pi-mono)                                              |
+| Pochi          | Unknown                                     | —                  | No       | —                       | [docs.getpochi.com](https://docs.getpochi.com/)                                                |
+| Qoder          | Unknown                                     | —                  | No       | —                       | [docs.qoder.com](https://docs.qoder.com/)                                                      |
+| Qwen Code      | Yes ("Custom Commands")                     | MD + YAML          | No       | —                       | [qwenlm.github.io](https://qwenlm.github.io/qwen-code-docs/)                                   |
+| Replit         | No                                          | —                  | No       | —                       | [docs.replit.com](https://docs.replit.com/)                                                    |
+| Trae           | Yes ("Skills")                              | SKILL.md           | No       | —                       | [docs.trae.ai](https://docs.trae.ai/)                                                          |
+| Trae CN        | Yes ("Skills")                              | SKILL.md           | No       | —                       | [docs.trae.ai](https://docs.trae.ai/)                                                          |
+| Windsurf       | Yes ("Workflows")                           | MD                 | No       | —                       | [docs.windsurf.com](https://docs.windsurf.com/)                                                |
+| Zencoder       | Unknown                                     | —                  | No       | —                       | [docs.zencoder.ai](https://docs.zencoder.ai/)                                                  |
 
-**17 of 39** agents support custom commands (Yes or Partial). 11 are in scope for this change. Notable observations: **MCPJam** is an MCP platform (N/A); many smaller agents have undocumented or absent command support; **Continue** uses JSON config rather than Markdown files; **Kode** follows the Agent Skills standard (SKILL.md); **Amp**, **Pi**, and **Windsurf** have confirmed support but are out of scope for the initial adapter set. Several agents marked "Partial" support custom instructions/rules but not true user-invocable slash commands.
+†Kilo Code inherits OpenCode's command system at the code level (as a fork) but does not document custom commands — only Skills (SKILL.md) are documented.
+
+**25 of 39** agents support custom commands (Yes or Partial). 11 are in scope for this change. Notable observations: **Claude Code** and **Codex** have deprecated commands in favor of skills, but their command paths remain fully functional — AXM targets these deprecated-but-working paths for the `command` extension type (see [A](#a-claude-code), [C](#c-openai-codex)); **MCPJam** is an MCP platform and **OpenClaw** is a gateway (both N/A); **Amp** deprecated custom commands in favor of Agent Skills; **Continue** uses Markdown with YAML frontmatter (not JSON config as previously stated); **Kode** follows the AGENTS.md standard (not SKILL.md); **Goose** has a full Recipes system with slash commands (YAML format); **Kimi CLI**, **Mistral Vibe**, **Neovate**, **Qwen Code**, **AdaL**, and **Cline** all have confirmed command support previously marked Unknown or Partial; **Replit** and **Command Code** have no command support; **Trae**/**Trae CN** support Skills (SKILL.md); **Windsurf** supports Workflows (MD). Several agents use different feature names — "Skills", "Prompts", "Workflows", "Recipes" — but all serve the same function as reusable prompt commands.
 
 ### Cross-Agent Feature Matrix
 
@@ -114,7 +115,7 @@ The **AXM portable** column shows which features the portable schema covers dire
 | ------------------ | --------------- | --------------- | ------------- | ------------ | ------------ | ---------- | --------------- | ------------------- | -------------- | --------------- | ------------ | ------------ |
 | Arguments          | `{{arguments}}` | `$ARGUMENTS`    | `${input:}`   | `$ARGUMENTS` | `$ARGUMENTS` | `{{args}}` | `$ARGUMENTS`    | `$ARGUMENTS`        | `$argName=val` | `$ARGUMENTS`    | None (files) | `$ARGUMENTS` |
 | Shell injection    | override        | `` !`cmd` ``    | —             | —            | —            | `!{cmd}`   | `` !`cmd` ``    | —                   | —              | `` !`cmd` ``    | —            | —            |
-| File injection     | override        | —               | —             | —            | —            | `@{path}`  | `@filename`     | —                   | —              | `@filename`     | —            | —            |
+| File injection     | override        | `@filepath`     | —             | —            | —            | `@{path}`  | `@filename`     | —                   | —              | `@filename`     | —            | —            |
 | Model override     | model           | Yes             | Yes           | —            | —            | —          | Yes             | Yes                 | —              | —               | —            | —            |
 | Tool restrictions  | allowedTools    | `allowed-tools` | `tools`       | —            | —            | —          | —               | —                   | —              | `allowed-tools` | —            | —            |
 | AI auto-invoke     | autoInvocable   | Yes             | —             | Yes          | —            | —          | —               | —                   | —              | —               | —            | Yes (tool)   |
@@ -124,30 +125,42 @@ The **AXM portable** column shows which features the portable schema covers dire
 
 ### Cross-Agent Command Format Summary
 
-| Agent       | Format     | Project Path                       | User Path                               | Invocation |
-| ----------- | ---------- | ---------------------------------- | --------------------------------------- | ---------- |
-| Claude Code | MD + YAML  | `.claude/skills/<name>/SKILL.md`   | `~/.claude/skills/<name>/SKILL.md`      | `/name`    |
-| Copilot     | MD + YAML  | `.github/prompts/<name>.prompt.md` | VS Code profile                         | `/name`    |
-| Codex       | SKILL.md   | `.agents/skills/<name>/SKILL.md`   | `~/.agents/skills/<name>/SKILL.md`      | `$name`    |
-| Cursor      | MD         | `.cursor/commands/<name>.md`       | Global library                          | `/name`    |
-| Gemini CLI  | TOML       | `.gemini/commands/<name>.toml`     | `~/.gemini/commands/<name>.toml`        | `/name`    |
-| OpenCode    | MD + YAML  | `.opencode/commands/<name>.md`     | `~/.config/opencode/commands/<name>.md` | `/name`    |
-| Augment     | MD + YAML  | `.augment/commands/<name>.md`      | `~/.augment/commands/<name>.md`         | `/name`    |
-| Junie       | MD + YAML  | `.junie/commands/<name>.md`        | `~/.junie/commands/<name>.md`           | `/name`    |
-| Kilo Code   | MD + YAML  | `.opencode/commands/<name>.md`     | `~/.config/kilo/commands/<name>.md`     | `/name`    |
-| Kiro        | Plain text | `.kiro/prompts/`                   | `~/.kiro/prompts/`                      | `@name`    |
-| Roo Code    | MD + YAML  | `.roo/commands/<name>.md`          | `~/.roo/commands/<name>.md`             | `/name`    |
+| Agent       | Format     | Project Path                       | User Path                               | Invocation      |
+| ----------- | ---------- | ---------------------------------- | --------------------------------------- | --------------- |
+| Claude Code | MD + YAML  | `.claude/commands/<name>.md`       | `~/.claude/commands/<name>.md`          | `/name`         |
+| Copilot     | MD + YAML  | `.github/prompts/<name>.prompt.md` | VS Code profile                         | `/name`         |
+| Codex       | MD + YAML  | —                                  | `~/.codex/prompts/<name>.md`            | `/prompts:name` |
+| Cursor      | MD         | `.cursor/commands/<name>.md`       | Global library                          | `/name`         |
+| Gemini CLI  | TOML       | `.gemini/commands/<name>.toml`     | `~/.gemini/commands/<name>.toml`        | `/name`         |
+| OpenCode    | MD + YAML  | `.opencode/commands/<name>.md`     | `~/.config/opencode/commands/<name>.md` | `/name`         |
+| Augment     | MD + YAML  | `.augment/commands/<name>.md`      | `~/.augment/commands/<name>.md`         | `/name`         |
+| Junie       | MD + YAML  | `.junie/commands/<name>.md`        | `~/.junie/commands/<name>.md`           | `/name`         |
+| Kilo Code   | MD + YAML  | `.opencode/commands/<name>.md`     | `~/.config/kilo/commands/<name>.md`     | `/name`         |
+| Kiro        | Plain text | `.kiro/prompts/`                   | `~/.kiro/prompts/`                      | `@name`         |
+| Roo Code    | MD + YAML  | `.roo/commands/<name>.md`          | `~/.roo/commands/<name>.md`             | `/name`         |
 
 ### A. Claude Code
 
 **Docs:**
 
-- [Skills](https://code.claude.com/docs/en/skills) (canonical; commands merged into skills)
+- [Slash commands (archived)](reference/slash-commands.md) — full reference for the deprecated commands system (**AXM rendering target**)
+- [Skills](https://code.claude.com/docs/en/skills) (current canonical; commands merged into skills)
 - [Built-in commands](https://code.claude.com/docs/en/commands)
 
-**Format:** Markdown with YAML frontmatter. Two equivalent paths: `.claude/commands/<name>.md` (legacy) and `.claude/skills/<name>/SKILL.md` (recommended). Skills support a directory with supporting files (templates, scripts, examples); commands are single files.
+> **AXM targets the deprecated commands path.** Claude Code deprecated standalone commands (`.claude/commands/`) in favor of Skills (`.claude/skills/`), but the commands path remains fully functional. AXM renders the `command` extension type to `.claude/commands/` — the simpler, single-file format that maps directly to the AXM portable command model. AXM's `skill` extension type separately targets `.claude/skills/`. If both exist for the same name, the skill wins (by Claude Code convention), which is desirable when a richer version exists.
 
-**File paths:**
+**Format:** Markdown with YAML frontmatter. Single `.md` file per command.
+
+**File paths (commands — AXM rendering target):**
+
+| Scope    | Path                           | Notes                |
+| -------- | ------------------------------ | -------------------- |
+| Project  | `.claude/commands/<name>.md`   | Version-controllable |
+| Personal | `~/.claude/commands/<name>.md` | All projects         |
+
+Project commands take precedence over personal commands with the same name. Subdirectories create namespaced groupings visible in descriptions (e.g., `frontend/component.md` shows as "(project:frontend)") but do not affect the command name.
+
+**File paths (skills — for reference, handled by AXM `skill` type):**
 
 | Scope                | Path                               | Notes                     |
 | -------------------- | ---------------------------------- | ------------------------- |
@@ -155,43 +168,46 @@ The **AXM portable** column shows which features the portable schema covers dire
 | Personal             | `~/.claude/skills/<name>/SKILL.md` | All projects              |
 | Project              | `.claude/skills/<name>/SKILL.md`   | Version-controllable      |
 | Plugin               | `<plugin>/skills/<name>/SKILL.md`  | Namespaced `plugin:skill` |
-| Legacy (personal)    | `~/.claude/commands/<name>.md`     | Still works               |
-| Legacy (project)     | `.claude/commands/<name>.md`       | Still works               |
 
-Priority: enterprise > personal > project. If a skill and a command share a name, the skill wins.
+Priority across both systems: enterprise skills > personal skills > project skills > personal commands > project commands. If a skill and a command share a name, the skill wins.
 
-**Invocation:** `/skill-name [args]` in chat input. Claude can auto-invoke based on `description` matching.
+**Invocation:** `/command-name [args]` in chat input. Autocomplete works anywhere in input, not just at the start. Claude can auto-invoke commands via the Skill tool based on `description` matching (unless `disable-model-invocation: true`).
 
-**Frontmatter fields:**
+**Frontmatter fields (commands):**
 
-| Field                      | Required    | Type     | Default        | Notes                                                       |
-| -------------------------- | ----------- | -------- | -------------- | ----------------------------------------------------------- |
-| `name`                     | No          | string   | directory name | lowercase letters, numbers, hyphens (max 64 chars)          |
-| `description`              | Recommended | string   | —              | truncated at 250 chars in listing; used for auto-invocation |
-| `argument-hint`            | No          | string   | —              | hint shown during autocomplete                              |
-| `disable-model-invocation` | No          | boolean  | `false`        | prevents AI auto-selection                                  |
-| `user-invocable`           | No          | boolean  | `true`         | `false` = hidden from `/` menu                              |
-| `allowed-tools`            | No          | string[] | —              | tools usable without approval                               |
-| `model`                    | No          | string   | —              | model override                                              |
-| `effort`                   | No          | string   | —              | `low`, `medium`, `high`, `max`                              |
-| `context`                  | No          | string   | —              | `fork` to run in subagent context                           |
-| `agent`                    | No          | string   | —              | subagent type when `context: fork`                          |
-| `hooks`                    | No          | object   | —              | scoped hooks for skill lifecycle                            |
-| `paths`                    | No          | string[] | —              | glob patterns limiting auto-activation                      |
-| `shell`                    | No          | string   | `bash`         | `bash` or `powershell`                                      |
+| Field                      | Required | Type     | Default              | Notes                                                   |
+| -------------------------- | -------- | -------- | -------------------- | ------------------------------------------------------- |
+| `description`              | No       | string   | first line of prompt | shown in `/help`; used for AI auto-invocation           |
+| `argument-hint`            | No       | string   | —                    | hint shown during autocomplete                          |
+| `allowed-tools`            | No       | string[] | inherited            | tools usable without approval (e.g., `Bash(git add:*)`) |
+| `model`                    | No       | string   | inherited            | model override (e.g., `claude-3-5-haiku-20241022`)      |
+| `context`                  | No       | string   | inline               | `fork` to run in a forked subagent context              |
+| `agent`                    | No       | string   | general-purpose      | subagent type when `context: fork`                      |
+| `disable-model-invocation` | No       | boolean  | `false`              | prevents AI auto-selection via Skill tool               |
+| `hooks`                    | No       | object   | —                    | scoped hooks (`PreToolUse`, `PostToolUse`, `Stop`)      |
+
+**Additional frontmatter fields (skills only — not applicable to commands):**
+
+| Field            | Type     | Notes                                         |
+| ---------------- | -------- | --------------------------------------------- |
+| `name`           | string   | explicit name (commands derive from filename) |
+| `user-invocable` | boolean  | `false` = hidden from `/` menu                |
+| `effort`         | string   | `low`, `medium`, `high`, `max`                |
+| `paths`          | string[] | glob patterns limiting auto-activation        |
+| `shell`          | string   | `bash` or `powershell`                        |
 
 **Variable substitution:**
 
-| Syntax                 | Description                                          |
-| ---------------------- | ---------------------------------------------------- |
-| `$ARGUMENTS`           | All arguments passed when invoking                   |
-| `$ARGUMENTS[N]` / `$N` | Positional argument (0-based)                        |
-| `${CLAUDE_SESSION_ID}` | Current session ID                                   |
-| `${CLAUDE_SKILL_DIR}`  | Directory containing the SKILL.md                    |
-| `` !`command` ``       | Inline shell execution (output replaces placeholder) |
-| ` ```! ` fenced block  | Multi-line shell execution                           |
+| Syntax           | Description                                          |
+| ---------------- | ---------------------------------------------------- |
+| `$ARGUMENTS`     | All arguments passed when invoking                   |
+| `$1`, `$2`, etc. | Positional arguments (1-based)                       |
+| `@filepath`      | File content injection (reference files in prompt)   |
+| `` !`command` `` | Inline shell execution (output replaces placeholder) |
 
-**Notable:** Richest feature set. Skills can include supporting files (templates, scripts, examples). Supports `context: fork` to run as subagent. Claude can auto-invoke based on description matching. Shell preprocessing with `` !`command` `` syntax. Follows the [Agent Skills](https://agentskills.io) open standard.
+**Hooks in commands:** Commands can define scoped hooks via frontmatter that run during execution and are cleaned up when the command finishes. The `once: true` option runs a hook only once per session. See [reference/slash-commands.md](reference/slash-commands.md#define-hooks-for-commands) for examples.
+
+**Notable:** Although deprecated, the commands system remains fully functional and supports a rich feature set: frontmatter metadata, argument substitution (`$ARGUMENTS`, positional `$1`/`$2`), file references (`@path`), shell preprocessing (`` !`cmd` ``), model overrides, tool restrictions, subagent forking (`context: fork`), scoped hooks, and AI auto-invocation via the Skill tool. The single-file Markdown format maps cleanly to the AXM portable command model. The Skills system adds multi-file directories, `paths`-based auto-activation, and richer metadata — these are handled by the AXM `skill` extension type.
 
 ---
 
@@ -240,31 +256,28 @@ Priority: enterprise > personal > project. If a skill and a command share a name
 
 **Docs:**
 
-- [Custom Prompts (deprecated)](https://developers.openai.com/codex/custom-prompts)
-- [Skills](https://developers.openai.com/codex/skills)
+- [Custom Prompts (deprecated)](https://developers.openai.com/codex/custom-prompts) — AXM command rendering target
+- [Skills](https://developers.openai.com/codex/skills) — separate system, handled by AXM `skill` extension type
+- [Slash Commands](https://developers.openai.com/codex/cli/slash-commands) — built-in only, not user-defined
 
-**Format:** Two systems. **Custom prompts** (deprecated): Markdown in `~/.codex/prompts/`. **Skills** (replacement): directory with `SKILL.md` plus optional `scripts/`, `references/`, `assets/`, and `agents/openai.yaml`.
+**Format:** Two systems. **Custom prompts** (deprecated but functional): Markdown with YAML frontmatter in `~/.codex/prompts/`. **Skills** (replacement): directory with `SKILL.md` plus optional `scripts/`, `references/`, `assets/`, and `agents/openai.yaml`. AXM `command` targets the custom prompts path; AXM `skill` targets the skills path.
 
-**File paths (skills — current):**
+**File paths (custom prompts — AXM command target):**
 
-| Scope         | Path                             | Notes               |
-| ------------- | -------------------------------- | ------------------- |
-| Repo (CWD)    | `.agents/skills/<name>/SKILL.md` | Folder-specific     |
-| Repo (parent) | `../.agents/skills/`             | Nested lookup       |
-| Repo (root)   | `$REPO_ROOT/.agents/skills/`     | Org-wide            |
-| User          | `~/.agents/skills/`              | Personal cross-repo |
-| Admin         | `/etc/codex/skills/`             | System-level        |
+| Scope | Path                | Notes                       |
+| ----- | ------------------- | --------------------------- |
+| User  | `~/.codex/prompts/` | Local-only, not repo-shared |
 
-**Invocation:** `$skill-name` mention in chat or `/skills skill-name`.
+**Invocation:** `/prompts:prompt-name [args]` in chat.
 
-**Frontmatter fields (SKILL.md):**
+**Frontmatter fields (custom prompts):**
 
-| Field         | Required | Type   | Default | Notes                |
-| ------------- | -------- | ------ | ------- | -------------------- |
-| `name`        | Yes      | string | —       | skill name           |
-| `description` | Yes      | string | —       | scope and boundaries |
+| Field           | Required | Type   | Default | Notes                    |
+| --------------- | -------- | ------ | ------- | ------------------------ |
+| `description`   | No       | string | —       | shown in command popup   |
+| `argument-hint` | No       | string | —       | expected argument format |
 
-**Variable substitution (legacy custom prompts):**
+**Variable substitution:**
 
 | Syntax             | Description                               |
 | ------------------ | ----------------------------------------- |
@@ -273,7 +286,7 @@ Priority: enterprise > personal > project. If a skill and a command share a name
 | `$$`               | Literal dollar sign                       |
 | Named placeholders | Uppercase keys like `$FILE`, `$TICKET_ID` |
 
-**Notable:** Custom prompts deprecated in favor of skills. Skills follow Agent Skills standard (same as Claude Code). Uses `.agents/skills/` path (shared cross-agent convention). Built-in `$skill-creator` and `$skill-installer`.
+**Notable:** Custom prompts deprecated in favor of skills but still functional. AXM renders commands to `~/.codex/prompts/` (the command path); skills go to `.agents/skills/` (handled separately by the `skill` extension type). Custom prompts are local-only — not shareable via repo. If a user also installs the same extension as a skill, the skill takes precedence (richer format wins).
 
 ---
 

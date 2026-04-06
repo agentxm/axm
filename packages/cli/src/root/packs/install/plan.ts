@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
-import { formatFqn, unsafeExtensionName } from "@axm.sh/core/unstable/extensions";
+import { decodeExtensionNameSync, formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
 import type { RegistryPackRef } from "@axm.sh/core/unstable/packs";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -113,7 +113,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                 formatFqn({
                   owner: op.args.ref.owner,
                   type: "skills",
-                  name: unsafeExtensionName(op.args.ref.name),
+                  name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,
               ],
@@ -130,7 +130,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                 formatFqn({
                   owner: op.args.ref.owner,
                   type: "commands",
-                  name: unsafeExtensionName(op.args.ref.name),
+                  name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,
               ],
@@ -147,7 +147,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                 formatFqn({
                   owner: op.args.ref.owner,
                   type: "mcp-servers",
-                  name: unsafeExtensionName(op.args.ref.name),
+                  name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,
               ],

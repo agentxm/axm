@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { toAuthor, ExtensionTypeSchema, type ExtensionType } from "../extensions/index.js";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
@@ -305,7 +305,7 @@ export const createRemoteRegistryClient = (
         summaries,
         (summary) =>
           getExtensionIndex({
-            owner: unsafeHandle(summary.owner),
+            owner: decodeHandleSync(summary.owner),
             type: narrowExtensionType(summary.type),
             name: summary.name,
           }),

@@ -20,7 +20,7 @@ import {
   formatFqn,
   normalizeHandle,
   parseRegistrySourcePatternParts,
-  unsafeExtensionName,
+  decodeExtensionNameSync,
 } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import type { AddToPackOperation } from "@axm.sh/core/unstable/packs";
@@ -202,7 +202,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     const fqn = formatFqn({
       owner: lockEntry.owner,
       type: "skills",
-      name: unsafeExtensionName(lockEntry.name),
+      name: decodeExtensionNameSync(lockEntry.name),
     });
     const version = toVersionRange(lockEntry.resolvedVersion);
 

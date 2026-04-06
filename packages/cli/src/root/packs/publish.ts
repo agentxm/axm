@@ -28,7 +28,7 @@ import {
   parseFqnOrThrow,
   type FullyQualifiedNameParts,
   REGISTRY_EXTENSIONS_DIR,
-  unsafeExtensionName,
+  decodeExtensionNameSync,
 } from "@axm.sh/core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, RawPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -195,7 +195,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     ? Effect.succeed(args.pack)
     : ws.getConfiguredProfile().pipe(
         Effect.map((owner) =>
-          formatFqn({ owner, type: "packs", name: unsafeExtensionName(args.pack) }),
+          formatFqn({ owner, type: "packs", name: decodeExtensionNameSync(args.pack) }),
         ),
         Effect.mapError((e) =>
           makeAppError({

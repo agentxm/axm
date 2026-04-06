@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import { type AppError, makeAppError } from "../../../app-error/index.js";
-import { type Handle, unsafeHandle } from "../../../extensions/handle.js";
+import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -369,7 +369,7 @@ export const createLocalRegistrySourceHostProvider = (
         .pipe(Effect.orElseSucceed((): readonly string[] => []));
       const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
         ? [options.owner.value]
-        : entries.filter((d) => d.startsWith("@")).map(unsafeHandle);
+        : entries.filter((d) => d.startsWith("@")).map((entry) => decodeHandleSync(entry));
 
       if (Option.isSome(options.versionConstraint)) {
         return yield* findWithVersionConstraint(client, source, namespaces, options);

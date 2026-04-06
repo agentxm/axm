@@ -42,10 +42,10 @@ import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   AgentIdSchema,
+  decodeExtensionNameSync,
   formatFqn,
   parseFullyQualifiedNameParts,
   parseRegistrySourcePatternParts,
-  unsafeExtensionName,
   type ExtensionType,
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
@@ -551,7 +551,7 @@ const make = (options: WorkspaceLayerOptions) =>
                     const fqn = formatFqn({
                       owner: lockEntry.owner,
                       type: "skills",
-                      name: unsafeExtensionName(name),
+                      name: decodeExtensionNameSync(name),
                     });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
@@ -893,7 +893,7 @@ const make = (options: WorkspaceLayerOptions) =>
             const fqn = formatFqn({
               owner: args.owner,
               type: "packs",
-              name: unsafeExtensionName(name),
+              name: decodeExtensionNameSync(name),
             });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`

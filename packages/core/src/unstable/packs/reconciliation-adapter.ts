@@ -35,7 +35,7 @@ import { satisfiesConstraint } from "../version-constraints/version-constraints.
 import type { AppError } from "../app-error/index.js";
 import { makeRegistryPackLockEntry, type ResolvedExtensionMap } from "../lockfile/index.js";
 import {
-  unsafeVersionConstraint,
+  decodeVersionConstraintSync,
   type ExactSemverVersion,
   type VersionConstraint,
 } from "../version-constraints/version-constraints.js";
@@ -56,15 +56,11 @@ const parseRegistryPackSource = (
     return Option.none();
   }
 
-  try {
-    return Option.some({
-      owner: parsed.owner,
-      name: parsed.name,
-      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
-    });
-  } catch {
-    return Option.none();
-  }
+  return Option.some({
+    owner: parsed.owner,
+    name: parsed.name,
+    constraint: parsed.versionConstraint ?? decodeVersionConstraintSync("*"),
+  });
 };
 
 const toPackSource = (entry: string | { readonly source: string }): string =>
@@ -113,7 +109,7 @@ const collectPackDependencyDeclarations = (
     }
     let versionConstraint: VersionConstraint;
     try {
-      versionConstraint = unsafeVersionConstraint(constraint);
+      versionConstraint = decodeVersionConstraintSync(constraint);
     } catch {
       continue;
     }

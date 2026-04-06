@@ -1,10 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { type ExtensionName } from "../extensions/common.js";
 import { type Handle } from "../extensions/handle.js";
 import { parseRegistrySourceRef } from "../extensions/registry-source.js";
 import {
-  unsafeVersionConstraint,
+  decodeVersionConstraintSync,
   type VersionConstraint,
 } from "../version-constraints/version-constraints.js";
 import { readAndDecodeManifest } from "../extensions/index.js";
@@ -20,7 +21,7 @@ const parseRegistrySkillSource = (
   source: string,
 ): Option.Option<{
   readonly owner: Handle;
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly constraint: VersionConstraint;
 }> => {
   if (source === "registry") {
@@ -32,15 +33,11 @@ const parseRegistrySkillSource = (
     return Option.none();
   }
 
-  try {
-    return Option.some({
-      owner: parsed.owner,
-      name: parsed.name,
-      constraint: unsafeVersionConstraint(parsed.versionConstraint ?? "*"),
-    });
-  } catch {
-    return Option.none();
-  }
+  return Option.some({
+    owner: parsed.owner,
+    name: parsed.name,
+    constraint: parsed.versionConstraint ?? decodeVersionConstraintSync("*"),
+  });
 };
 
 const toSkillSource = (

@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { unsafeExtensionName } from "../../extensions/index.js";
+import { decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
@@ -121,7 +121,7 @@ export const newSkill: OperationHandler<
     const manifest: SkillManifest = {
       owner,
       type: "skill",
-      name: unsafeExtensionName(name),
+      name: decodeExtensionNameSync(name),
       version: INITIAL_SKILL_VERSION,
     };
 

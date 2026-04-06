@@ -33,7 +33,7 @@ import type {
   SourceType,
 } from "../sources/index.js";
 import { createRegistryClient } from "../registry/index.js";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -478,7 +478,7 @@ export const resolveSlashInputSource = (
       const type = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(type)) {
         const ws = yield* Workspace;
-        const owner = pattern.first.startsWith("@") ? unsafeHandle(pattern.first) : undefined;
+        const owner = pattern.first.startsWith("@") ? decodeHandleSync(pattern.first) : undefined;
         const extensionName = pattern.third.value;
         const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>

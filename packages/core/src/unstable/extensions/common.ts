@@ -152,9 +152,7 @@ export const ExtensionNameSchema = Schema.String.pipe(
 
 export type ExtensionName = Schema.Schema.Type<typeof ExtensionNameSchema>;
 
-const decodeExtensionNameSync = Schema.decodeUnknownSync(ExtensionNameSchema);
-
-export const unsafeExtensionName = (name: string): ExtensionName => decodeExtensionNameSync(name);
+export const decodeExtensionNameSync = Schema.decodeUnknownSync(ExtensionNameSchema);
 
 /**
  * Extension type enumeration.

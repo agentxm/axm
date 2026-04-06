@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { isCI } from "../cli-flags/index.js";
-import { type Handle, unsafeHandle } from "../extensions/handle.js";
+import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
 import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
@@ -306,7 +306,7 @@ export const CredentialStoreLive = Layer.effect(
         for (const [handle, entry] of Object.entries(registry.accounts)) {
           if (entry?.active) {
             return Option.some<StoredCredentials>({
-              handle: unsafeHandle(handle),
+              handle: decodeHandleSync(handle),
               access_token: entry.access_token,
               refresh_token: entry.refresh_token,
               expires_at: entry.expires_at,
@@ -394,7 +394,7 @@ export const CredentialStoreTest = (
         for (const [handle, entry] of Object.entries(registry.accounts)) {
           if (entry?.active) {
             return Option.some<StoredCredentials>({
-              handle: unsafeHandle(handle),
+              handle: decodeHandleSync(handle),
               access_token: entry.access_token,
               refresh_token: entry.refresh_token,
               expires_at: entry.expires_at,

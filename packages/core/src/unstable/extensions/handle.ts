@@ -22,8 +22,8 @@ export const HandleSchema = Schema.String.pipe(
 
 export type Handle = Schema.Schema.Type<typeof HandleSchema>;
 
-const decodeHandleSync = Schema.decodeUnknownSync(HandleSchema);
-const decodeSlugSync = Schema.decodeUnknownSync(SlugSchema);
+export const decodeHandleSync = Schema.decodeUnknownSync(HandleSchema);
+export const decodeSlugSync = Schema.decodeUnknownSync(SlugSchema);
 
 export const handleFromSlug = (slug: Slug): Handle => decodeHandleSync(`@${slug}`);
 
@@ -33,9 +33,3 @@ export const normalizeSlug = (slug: string): Slug => decodeSlugSync(slug.trim().
 
 export const normalizeHandle = (handle: string): Handle =>
   decodeHandleSync(handle.trim().toLowerCase());
-
-// Internal escape hatch for call sites migrating from plain strings.
-export const unsafeHandle = (handle: string): Handle => decodeHandleSync(handle);
-
-// Internal escape hatch for call sites migrating from plain strings.
-export const unsafeSlug = (slug: string): Slug => decodeSlugSync(slug);

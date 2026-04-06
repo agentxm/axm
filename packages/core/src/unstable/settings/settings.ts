@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { unsafeHandle } from "../extensions/handle.js";
+import { decodeHandleSync } from "../extensions/handle.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -31,7 +31,7 @@ export const SETTINGS_FILENAME = "settings.json";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const DEFAULT_PROFILE = unsafeHandle("@community");
+export const DEFAULT_PROFILE = decodeHandleSync("@community");
 
 // -----------------------------------------------------------------------------
 // Default Settings

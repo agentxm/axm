@@ -11,9 +11,9 @@
 
 import * as Option from "effect/Option";
 import {
+  decodeExactSemverVersionSync,
+  decodeVersionConstraintSync,
   satisfiesConstraint,
-  unsafeExactSemverVersion,
-  unsafeVersionConstraint,
 } from "@axm.sh/core/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
@@ -83,9 +83,9 @@ export const resolveConstrainedVersion = (
 
   // Case 1: User has explicit constraint
   if (!isWildcard) {
-    const userConstraint = unsafeVersionConstraint(userConstraintStr);
+    const userConstraint = decodeVersionConstraintSync(userConstraintStr);
     const matched = versions.find((v) =>
-      satisfiesConstraint(unsafeExactSemverVersion(v), userConstraint),
+      satisfiesConstraint(decodeExactSemverVersionSync(v), userConstraint),
     );
     if (matched === undefined) return Option.none();
     return Option.some({ resolvedVersion: matched, warnings: [] });
@@ -101,8 +101,8 @@ export const resolveConstrainedVersion = (
   for (const version of versions) {
     const allSatisfied = constraints.packConstraints.every((pc) =>
       satisfiesConstraint(
-        unsafeExactSemverVersion(version),
-        unsafeVersionConstraint(pc.constraint),
+        decodeExactSemverVersionSync(version),
+        decodeVersionConstraintSync(pc.constraint),
       ),
     );
     if (allSatisfied) {
@@ -115,8 +115,8 @@ export const resolveConstrainedVersion = (
     .filter(
       (pc) =>
         !satisfiesConstraint(
-          unsafeExactSemverVersion(newest),
-          unsafeVersionConstraint(pc.constraint),
+          decodeExactSemverVersionSync(newest),
+          decodeVersionConstraintSync(pc.constraint),
         ),
     )
     .map((pc) => `${skillName} held at ${newest} by pack "${pc.packName}" (${pc.constraint})`);
@@ -158,8 +158,8 @@ export const detectHoldbackWarnings = (
     .filter(
       (pc) =>
         !satisfiesConstraint(
-          unsafeExactSemverVersion(latestVersion),
-          unsafeVersionConstraint(pc.constraint),
+          decodeExactSemverVersionSync(latestVersion),
+          decodeVersionConstraintSync(pc.constraint),
         ),
     )
     .map(

@@ -56,12 +56,6 @@ export const decodeExactSemverVersionSync = Schema.decodeUnknownSync(ExactSemver
  */
 export const decodeVersionConstraintSync = Schema.decodeUnknownSync(VersionConstraintSchema);
 
-export const unsafeExactSemverVersion = (version: string): ExactSemverVersion =>
-  decodeExactSemverVersionSync(version);
-
-export const unsafeVersionConstraint = (constraint: string): VersionConstraint =>
-  decodeVersionConstraintSync(constraint);
-
 const parseSemverVersion = (version: string): semver.SemVer | null => semver.parse(version);
 
 /**
@@ -73,7 +67,7 @@ const parseSemverVersion = (version: string): semver.SemVer | null => semver.par
 export const parseVersionConstraint = (sourceString: string): Option.Option<VersionConstraint> => {
   const decodeConstraint = (value: string): Option.Option<VersionConstraint> => {
     try {
-      return Option.some(unsafeVersionConstraint(value));
+      return Option.some(decodeVersionConstraintSync(value));
     } catch {
       return Option.none();
     }

@@ -33,7 +33,7 @@ import {
   type ExactSemverVersion,
 } from "../version-constraints/version-constraints.js";
 import { parseFullyQualifiedNameParts } from "../extensions/index.js";
-import { unsafeHandle } from "../extensions/handle.js";
+import { decodeHandleSync } from "../extensions/handle.js";
 
 /**
  * Resolved builtin pack data — provided by the CLI package.
@@ -48,7 +48,7 @@ export interface ResolvedBuiltinPack {
  * Builtin pack identity constants.
  */
 export const BUILTIN_PACK_FQN = "@axm/packs/cli";
-export const BUILTIN_PACK_SCOPE = unsafeHandle("@axm");
+export const BUILTIN_PACK_SCOPE = decodeHandleSync("@axm");
 export const BUILTIN_PACK_NAME = "cli";
 
 const getSkillNameFromFqn = (fqn: string): Option.Option<string> => {

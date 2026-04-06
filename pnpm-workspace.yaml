@@ -10,6 +10,8 @@ catalog:
   vitest: ^4.0.0
 
 onlyBuiltDependencies:
+  - "@fission-ai/openspec"
+  - "@swc/core"
   - esbuild
   - nx
 

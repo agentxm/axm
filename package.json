@@ -45,11 +45,6 @@
     "*.{js,ts,mjs,cjs}": "eslint --fix",
     "*.{md,json,jsonc,yml,yaml}": "prettier --write"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@swc/core"
-    ]
-  },
   "packageManager": "pnpm@10.29.3",
   "devDependencies": {
     "@axm.sh/utils": "workspace:*",
@@ -57,6 +52,7 @@
     "@effect/language-service": "^0.84.1",
     "@effect/vitest": "catalog:",
     "@eslint/js": "^10.0.0",
+    "@fission-ai/openspec": "^1.2.0",
     "@nx/eslint": "22.6.3",
     "@nx/eslint-plugin": "22.6.3",
     "@nx/js": "22.6.3",

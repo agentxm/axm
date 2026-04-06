@@ -8,26 +8,26 @@ Agent extensions (skills, commands, MCP servers) are often designed for specific
 
 **Persona**: User (developer using axm in a project)
 
-A user runs `axm discover` in their project. axm scans their local dependency files, identifies the packages in use, and surfaces two categories of results:
+A user runs `axm discover` in their project. axm scans their local dependency files, identifies the packages in use, and surfaces extensions with per-package attribution:
 
-- **(a) Compatible extensions** — extensions whose authors have declared compatibility with detected packages. axm resolves detected purls against the axm registry, which indexes `compatiblePackages` declarations at publish time. Community-contributed: "this extension works well with this package."
-- **(b) Recommended extensions** — extensions that a package's own author or maintainer has officially recommended. The CLI inspects locally installed package metadata (e.g., the `"axm"` field in `node_modules/next/package.json`, `[package.metadata.axm]` in a downloaded `.crate`, `x_axm` in a CPAN distribution's `META.json`) to discover recommendations without network access. Stronger trust signal: "the library author themselves suggests this extension."
+- **Community-declared compatibility** — an extension author declared `compatiblePackages` in their extension manifest. axm resolves detected purls against the axm registry, which indexes these declarations at publish time. "This extension works well with this package."
+- **Author-recommended** (`recommended: true`) — a package's own author or maintainer has officially recommended the extension. The CLI inspects locally installed package metadata (e.g., the `"axm"` field in `node_modules/next/package.json`, `[package.metadata.axm]` in a downloaded `.crate`, `x_axm` in a CPAN distribution's `META.json`) to discover recommendations without network access. Stronger trust signal: "the library author themselves suggests this extension." Author-recommended implies compatible — no separate `compatiblePackages` declaration is needed.
 
-Both categories appear in discovery results, distinguished by attribution. `axm skills install --preview` and pack browsing also surface this context when available.
+Results appear with per-package attribution. `axm skills install --preview` and pack browsing also surface this context when available.
 
-Discovery for (a) resolves through the axm registry. For (b), the CLI reads recommendation metadata directly from locally installed packages — no ecosystem registry queries are needed. The axm registry protocol also defines a package-recommendations endpoint so that a future axm remote registry implementation can index ecosystem registries and serve recommendations for packages not yet installed locally.
+Community-declared compatibility resolves through the axm registry. Author recommendations are read by the CLI directly from locally installed packages — no ecosystem registry queries are needed. The axm registry discover endpoint returns both in a single response, so a future axm remote registry implementation can also index ecosystem registries and serve author recommendations for packages not yet installed locally.
 
 ### JTBD 2: Recommend extensions for a package
 
 **Persona**: Library/framework author (e.g. the Prisma team, the Next.js team)
 
-A library author ships recommendation metadata alongside their package using the ecosystem's idiomatic metadata mechanism (e.g., `"axm"` field in `package.json`, `[package.metadata.axm]` in `Cargo.toml`, `axm.json` sidecar). When users install the package, axm can read this metadata locally to surface recommendations. This supports JTBD 1b.
+A library author ships recommendation metadata alongside their package using the ecosystem's idiomatic metadata mechanism (e.g., `"axm"` field in `package.json`, `[package.metadata.axm]` in `Cargo.toml`, `axm.json` sidecar). When users install the package, axm can read this metadata locally to surface recommendations. These appear as `recommended: true` in discover results.
 
 ### JTBD 3: Define compatible packages for an extension
 
 **Persona**: Extension author (someone publishing a skill, command, or MCP server)
 
-An extension author declares which packages their extension is designed for via a `compatiblePackages` field in their extension manifest. The axm registry indexes this at publish time. This supports JTBD 1a.
+An extension author declares which packages their extension is designed for via a `compatiblePackages` field in their extension manifest. The axm registry indexes this at publish time. These appear as community-declared compatibility in discover results.
 
 ## Terminology: Registries
 
@@ -175,41 +175,121 @@ Package compatibility involves three mechanisms: **declaration** (extension auth
 
 ## Capabilities
 
-### New Capabilities
+### Extension Manifest
 
-- `extension-package-compatibility`: Schema and semantics for `compatiblePackages` in extension manifests using purl strings (JTBD 3), version constraints via VERS, and dependency-file-to-purl mapping for discovery (JTBD 1a)
-- `package-recommendations`: Schema for library/framework authors to define recommended extensions (JTBD 2), local installed-package metadata reading for each ecosystem, and surfacing in discovery results (JTBD 1b)
-- `cli-discover`: The `axm discover` command (JTBD 1) that detects project dependencies from local manifest files, resolves them to purls, reads locally installed package metadata for recommendations (1b), and queries the axm registry for compatible extensions (1a)
-- `registry-package-recommendations-protocol`: axm registry API protocol for querying package recommendations by purl, so that a future axm remote registry implementation can index ecosystem registries and serve recommendations for packages not installed locally. Implemented in the axm local registry.
+- **`extension-package-compatibility`**: New optional `compatiblePackages` field (array of purl strings with optional VERS version constraints) on skill, command, and MCP server manifests. Extension authors declare which ecosystem packages their extension is designed for. (JTBD 3)
+
+### axm Registry
+
+- **`registry-discover-query`**: Single axm registry endpoint that accepts detected purls and returns matching extensions with per-package attribution. Each extension result includes a `compatiblePackages` array where each entry is a `{ purl, recommended? }` pair. `recommended: true` indicates the package author themselves recommended the extension; absence or `false` indicates community-declared compatibility via the extension's `compatiblePackages` manifest field. The registry resolves version matching server-side. Implemented in the axm local registry for end-to-end testing; defines the contract for the axm remote registry.
+- **`registry-publish-compatibility-indexing`**: axm registry indexes `compatiblePackages` purl metadata at extension publish time, feeding the discover query.
+
+### CLI — `axm discover`
+
+- **`cli-discover`**: New `axm discover` command that orchestrates discovery. Scans local manifests for dependencies (via ecosystem parsers), reads locally installed package metadata for author recommendations (via ecosystem readers), queries the axm registry discover endpoint, and presents results with per-package attribution. (JTBD 1)
+
+### CLI — Dependency File Parsers
+
+Each parser reads a project's manifest files, extracts direct dependencies, and produces purls. Each ecosystem has distinct file formats, naming conventions, and edge cases — each is a distinct spec.
+
+- **`cli-detect-npm`**: Parse `package.json` → `pkg:npm` purls. Handles scoped packages (`@` percent-encoding), `npm:` aliases (map to real package name), skips `file:`/`link:`/`workspace:`/`git:`/URL specifiers. Considers `peerDependencies`.
+- **`cli-detect-pypi`**: Parse `requirements.txt`, `pyproject.toml`, `setup.py`, `setup.cfg`, `Pipfile` → `pkg:pypi` purls. Lowercased names, underscores replaced with dashes.
+- **`cli-detect-golang`**: Parse `go.mod` → `pkg:golang` purls. Uses `require` directive module paths, filters `// indirect`, handles v2+ module path splitting.
+- **`cli-detect-cargo`**: Parse `Cargo.toml` → `pkg:cargo` purls. Case-sensitive names.
+- **`cli-detect-gem`**: Parse `Gemfile`, `*.gemspec` → `pkg:gem` purls. Optional `platform` qualifier.
+- **`cli-detect-maven`**: Parse `pom.xml`, `build.gradle`, `build.gradle.kts`, `gradle/libs.versions.toml` → `pkg:maven` purls. Namespace = groupId, name = artifactId.
+- **`cli-detect-nuget`**: Parse `*.csproj`, `*.fsproj`, `*.vbproj`, `Directory.Packages.props`, `packages.config` → `pkg:nuget` purls. Case-insensitive names.
+- **`cli-detect-composer`**: Parse `composer.json` → `pkg:composer` purls. Vendor namespace required, lowercased.
+- **`cli-detect-swift`**: Parse `Package.swift` (via `swift package dump-package` JSON output) → `pkg:swift` purls. Namespace = host + org.
+- **`cli-detect-hex`**: Parse `mix.exs`, `gleam.toml` → `pkg:hex` purls. Covers Elixir, Erlang, Gleam.
+- **`cli-detect-pub`**: Parse `pubspec.yaml` → `pkg:pub` purls. Lowercase, `[a-z0-9_]` only.
+- **`cli-detect-docker`**: Parse `Dockerfile`, `docker-compose.yml`, `docker-compose.yaml` → `pkg:docker` purls. Skips `FROM ${VARIABLE}` without default.
+- **`cli-detect-cocoapods`**: Parse `Podfile`, `*.podspec` → `pkg:cocoapods` purls. Subspecs via subpath.
+- **`cli-detect-conda`**: Parse `environment.yml`, `meta.yaml` → `pkg:conda` purls. Maps `pip:` sub-list items to `pkg:pypi`.
+- **`cli-detect-conan`**: Parse `conanfile.txt`, `conanfile.py` → `pkg:conan` purls.
+- **`cli-detect-cran`**: Parse `DESCRIPTION` → `pkg:cran` purls.
+- **`cli-detect-cpan`**: Parse `cpanfile`, `Makefile.PL` → `pkg:cpan` purls. PAUSE author ID as namespace, distribution names.
+- **`cli-detect-hackage`**: Parse `*.cabal`, `stack.yaml` → `pkg:hackage` purls.
+- **`cli-detect-julia`**: Parse `Project.toml` → `pkg:julia` purls.
+- **`cli-detect-luarocks`**: Parse `*.rockspec` → `pkg:luarocks` purls.
+- **`cli-detect-opam`**: Parse `*.opam`, `dune-project` → `pkg:opam` purls.
+- **`cli-detect-bazel`**: Parse `MODULE.bazel`, `WORKSPACE` → `pkg:bazel` purls.
+- **`cli-detect-zig`**: Parse `build.zig.zon` → `pkg:generic/zig` purls.
+- **`cli-detect-jsr`**: Parse `deno.json`, `deno.jsonc` → `pkg:generic/jsr` purls. npm imports covered by `cli-detect-npm`.
+- **`cli-detect-mojo`**: Parse `pixi.toml`, `mojoproject.toml` → `pkg:generic/mojo` or `pkg:conda` purls.
+
+### CLI — Installed-Package Metadata Readers
+
+Each reader inspects locally installed packages for author-provided recommendation metadata (`axm.json` schema). Each ecosystem has a distinct installed-package layout and metadata format — each is a distinct spec.
+
+- **`cli-read-npm`**: Read `"axm"` field from `node_modules/<pkg>/package.json`.
+- **`cli-read-pypi`**: Read `axm` entry point group from `.dist-info/entry_points.txt`, then locate `axm.json` from package data.
+- **`cli-read-golang`**: Read `axm.json` from `$GOPATH/pkg/mod/<module>@<version>/`.
+- **`cli-read-cargo`**: Read `[package.metadata.axm]` from `cargo metadata` JSON output.
+- **`cli-read-gem`**: Read `axm_*` keys from gemspec `metadata` hash in `<gem-dir>/specifications/<gem>.gemspec`.
+- **`cli-read-maven`**: Extract `META-INF/axm.json` from local `.jar` in `~/.m2/repository/` or Gradle cache.
+- **`cli-read-nuget`**: Read `axm.json` from `~/.nuget/packages/{id}/{version}/`.
+- **`cli-read-composer`**: Read `extra.axm` from `vendor/<pkg>/composer.json`.
+- **`cli-read-swift`**: Read `axm.json` from `.build/checkouts/<pkg>/`.
+- **`cli-read-hex`**: Read `axm.json` from `deps/<pkg>/` or parse `extra` from `hex_metadata.config`.
+- **`cli-read-pub`**: Read `axm` field from pubspec.yaml via `.dart_tool/package_config.json` → package root.
+- **`cli-read-docker`**: Read OCI annotations from pulled image manifests.
+- **`cli-read-cocoapods`**: Read `axm.json` from `Pods/<pkg>/`.
+- **`cli-read-conda`**: Read `axm.json` from `$CONDA_PREFIX/share/axm/` or `info/about.json` in package.
+- **`cli-read-conan`**: Read from `conandata.yml` or `extension_properties` in Conan cache.
+- **`cli-read-cran`**: Read `Config/axm` fields from `<lib-path>/<pkg>/DESCRIPTION`.
+- **`cli-read-huggingface`**: Read YAML frontmatter from model cards in `~/.cache/huggingface/hub/models--<id>/`.
+- **`cli-read-cpan`**: Read `x_axm` from `<lib-path>/.meta/<dist>/MYMETA.json`.
+- **`cli-read-hackage`**: Read `x-axm` fields from `.cabal` in `~/.cabal/store/` or `dist-newstyle/`.
+- **`cli-read-julia`**: Read `[axm]` section from `~/.julia/packages/<pkg>/<hash>/Project.toml`.
+- **`cli-read-luarocks`**: Read `axm.json` sidecar from LuaRocks tree (rockspec parsing requires Lua).
+- **`cli-read-opam`**: Read `x-axm` fields from `.opam` file in opam switch.
+- **`cli-read-bazel`**: Read `axm.json` from module cache or `external/<repo>/` in output base.
+- **`cli-read-zig`**: Read `axm.json` from `~/.cache/zig/` package cache.
+- **`cli-read-deno`**: Read `axm` field from `deno.json` in `$DENO_DIR/` cache.
+- **`cli-read-mojo`**: Read `axm.json` from `.pixi/envs/` cache.
 
 ### Modified Capabilities
 
-- `extension-packs`: Packs may include package-compatibility metadata that aggregates across their contained extensions
-- `cli-skills-install`: Preview mode surfaces package-compatibility context when available
-- `registry-publish`: axm registry accepts and indexes purl-based compatibility metadata at publish time
+- **`extension-packs`**: Packs may include package-compatibility metadata that aggregates across their contained extensions.
+- **`cli-skills-install`**: Preview mode surfaces package-compatibility context when available.
 
 ## Scope
 
 ### Initial scope
 
-- **Local recommendation reading**: The CLI inspects locally installed package metadata for each supported ecosystem to discover author-provided extension recommendations (JTBD 1b). This requires ecosystem-specific readers for installed package formats (e.g., `node_modules/*/package.json`, Python `.dist-info/`, Cargo's `cargo metadata` output, `axm.json` sidecars).
-- **axm registry protocol definition**: The axm registry API protocol for package-recommendations queries is defined and documented, enabling a future axm remote registry implementation to index ecosystem registries.
-- **axm local registry implementation**: The axm local registry implements the package-recommendations protocol, enabling end-to-end testing of the full flow.
-- **Compatible extensions via axm registry**: The CLI queries the axm registry for compatible extensions (JTBD 1a) using `compatiblePackages` declarations indexed at publish time.
+- Extension manifest `compatiblePackages` field schema and validation
+- axm registry discover query endpoint (unified, with per-package attribution)
+- axm registry publish-time compatibility indexing
+- axm local registry discover endpoint implementation
+- `axm discover` command orchestration
+- Tier 1 dependency file parsers: `cli-detect-npm`, `cli-detect-pypi`
+- Tier 1 installed-package metadata readers: `cli-read-npm`, `cli-read-pypi`
+- Enhanced preview output in `axm skills install` and pack browsing
+- purl parsing/validation library integration (e.g. `packageurl-js`)
+
+### Incremental
+
+Tier 2–5 ecosystem parsers and readers are delivered incrementally after the core flow is proven with Tier 1. Each ecosystem's parser and reader can ship independently.
+
+- **Tier 2** (Major): Go, Rust, Ruby, Java/Kotlin, .NET
+- **Tier 3** (Extended): PHP, Swift, Elixir/Gleam, Dart/Flutter, Docker, CocoaPods, Conda
+- **Tier 4** (Specialized): Conan, CRAN, HuggingFace, MLflow, CPAN, Hackage, Julia, LuaRocks, OCI, opam, Bazel
+- **Tier 5** (Emerging): Zig, Deno/JSR, Mojo
 
 ### Deferred
 
-- **axm remote registry indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for recommendation metadata. When implemented, this will enable recommendations for packages not yet installed locally, using the same protocol already defined and implemented in the axm local registry.
+- **axm remote registry ecosystem indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for author recommendation metadata. When implemented, the discover endpoint will return `recommended: true` for author-recommended extensions even for packages not yet installed locally.
 
 ## Impact
 
-- **Extension manifest schema**: New optional `compatiblePackages` field (array of purl strings) added to skill, command, and MCP server manifests
-- **axm registry API**: New package-recommendations query protocol; compatible-extensions query by purl; indexing for compatibility metadata at publish time
-- **CLI**: New `discover` command with dependency file parsers and installed-package metadata readers for 28 ecosystems; enhanced preview output in install and pack commands
-- **Ecosystem files**: Reads local project manifest files to detect direct dependencies and inspects installed package metadata for recommendations (does not modify any files)
-- **axm local registry**: Implements the package-recommendations protocol for development and testing
-- **Third-party integration point**: Recommendation metadata spec for library authors to include in their published packages
-- **Dependencies**: purl parsing/validation library needed (e.g. `packageurl-js`)
+- **Extension manifest schema**: New optional `compatiblePackages` field added to skill, command, and MCP server manifests
+- **axm registry**: Two new protocol capabilities (discover query with per-package attribution, publish-time compatibility indexing)
+- **axm local registry**: Implements the discover endpoint for development and testing
+- **CLI**: New `discover` command; up to 25 dependency file parsers and 26 installed-package metadata readers across ecosystems; enhanced preview output in install and pack commands
+- **Ecosystem files**: Reads local project manifest files and installed package metadata (does not modify any files)
+- **Third-party integration point**: `axm-package-meta.json` schema for library authors to include recommendation metadata in their published packages
+- **Dependencies**: purl parsing/validation library (e.g. `packageurl-js`)
 
 ---
 

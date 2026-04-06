@@ -34,6 +34,22 @@
       "types": "./src/unstable/extensions/index.ts",
       "default": "./dist/src/unstable/extensions/index.js"
     },
+    "./unstable/extensions/common": {
+      "types": "./src/unstable/extensions/common.ts",
+      "default": "./dist/src/unstable/extensions/common.js"
+    },
+    "./unstable/extensions/fqn": {
+      "types": "./src/unstable/extensions/fqn.ts",
+      "default": "./dist/src/unstable/extensions/fqn.js"
+    },
+    "./unstable/extensions/handle": {
+      "types": "./src/unstable/extensions/handle.ts",
+      "default": "./dist/src/unstable/extensions/handle.js"
+    },
+    "./unstable/extensions/registry-source": {
+      "types": "./src/unstable/extensions/registry-source.ts",
+      "default": "./dist/src/unstable/extensions/registry-source.js"
+    },
     "./unstable/lockfile": {
       "types": "./src/unstable/lockfile/index.ts",
       "default": "./dist/src/unstable/lockfile/index.js"

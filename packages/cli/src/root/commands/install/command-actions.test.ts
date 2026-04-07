@@ -63,6 +63,8 @@ const testLayer = Layer.mergeAll(
 
 const actionsLayer = Layer.provide(InstallCommandCommandWorkflowActionsLive, testLayer);
 
+const defaultFlags = { yes: false, force: false, preview: false } as const;
+
 const runWithActions = <A, E>(
   fn: (
     actions: ServiceMap.Service.Shape<typeof InstallCommandCommandWorkflowActions>,
@@ -79,6 +81,7 @@ describe("parseCommandInstallArgs", () => {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/commands/my-cmd",
+          ...defaultFlags,
         }),
       );
       expect(result.owner).toBe("@acme");
@@ -93,6 +96,7 @@ describe("parseCommandInstallArgs", () => {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/commands/my-cmd@^1.0.0",
+          ...defaultFlags,
         }),
       );
       expect(result.owner).toBe("@acme");
@@ -106,6 +110,7 @@ describe("parseCommandInstallArgs", () => {
       const result = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "my-cmd",
+          ...defaultFlags,
         }),
       );
       expect(result.owner).toBe("@test-ns");
@@ -119,6 +124,7 @@ describe("parseCommandInstallArgs", () => {
       const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "@acme/skills/my-skill",
+          ...defaultFlags,
         }),
       ).pipe(Effect.flip);
       expect(error).toBeDefined();
@@ -130,6 +136,7 @@ describe("parseCommandInstallArgs", () => {
       const error = yield* runWithActions((actions) =>
         actions.parseArgs({
           source: "https://example.com/repo",
+          ...defaultFlags,
         }),
       ).pipe(Effect.flip);
       expect(error).toBeDefined();
@@ -153,6 +160,7 @@ describe("parseCommandInstallArgs", () => {
         const actions = yield* InstallCommandCommandWorkflowActions;
         return yield* actions.parseArgs({
           source: "my-cmd",
+          ...defaultFlags,
         });
       }).pipe(Effect.provide(forceActionsLayer));
       expect(result.force).toBe(false);

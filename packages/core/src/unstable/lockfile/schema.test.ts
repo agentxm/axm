@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
+  CommandLockEntrySchema,
   LockfileSchema,
   ExtensionPackLockEntrySchema,
   ExtensionPacksLockMapSchema,
@@ -91,6 +92,7 @@ describe("lockfile schema", () => {
             resolvedVersion: "^1.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+            agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
           },
@@ -660,6 +662,82 @@ describe("lockfile schema", () => {
 
       expect(result["my-skill"]).toBeDefined();
       expect(result["another-skill"]).toBeDefined();
+    });
+  });
+
+  describe("CommandLockEntry", () => {
+    const decode = Schema.decodeUnknownSync(CommandLockEntrySchema);
+    const encode = Schema.encodeUnknownSync(CommandLockEntrySchema);
+
+    it("accepts valid local command lock entry with agents", () => {
+      const input = {
+        type: "local",
+        path: "./commands/deploy",
+        agents: ["claude-code", "cursor"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+      const result = decode(input);
+      expect(result.type).toBe("local");
+      expect(result.agents).toEqual(["claude-code", "cursor"]);
+    });
+
+    it("accepts command lock entry with sourceHash and renderedFiles", () => {
+      const input = {
+        type: "local",
+        path: "./commands/deploy",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        sourceHash: "abc123def456",
+        renderedFiles: {
+          "claude-code": [{ path: ".claude/commands/deploy.md" }],
+        },
+      };
+      const result = decode(input);
+      expect(result.sourceHash).toBe("abc123def456");
+      expect(result.renderedFiles).toBeDefined();
+    });
+
+    it("accepts command lock entry without optional sourceHash and renderedFiles", () => {
+      const input = {
+        type: "github",
+        owner: "acme",
+        repo: "commands",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+      const result = decode(input);
+      expect(result.sourceHash).toBeUndefined();
+      expect(result.renderedFiles).toBeUndefined();
+    });
+
+    it("roundtrips command lock entry with all fields", () => {
+      const input = {
+        type: "local",
+        path: "./commands/deploy",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+        sourceHash: "abc123",
+        renderedFiles: {
+          "claude-code": [{ path: ".claude/commands/deploy.md" }],
+        },
+      };
+      const decoded = decode(input);
+      const encoded = encode(decoded);
+      expect(encoded).toEqual(input);
+    });
+
+    it("rejects command lock entry missing agents", () => {
+      const input = {
+        type: "local",
+        path: "./commands/deploy",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+      expect(() => decode(input)).toThrow();
     });
   });
 

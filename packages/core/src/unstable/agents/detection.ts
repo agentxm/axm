@@ -44,18 +44,28 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
     const home = yield* getHome;
 
     // Project-level: first segment of skills.dir in projectDir
-    const firstSegment = agent.skills.dir.split("/")[0] ?? "";
-    const projectPath = p.join(projectDir, firstSegment);
+    const skillsFirstSegment = agent.skills.dir.split("/")[0] ?? "";
+    const skillsProjectPath = p.join(projectDir, skillsFirstSegment);
+
+    // Project-level: first segment of commands.dir in projectDir (if agent supports commands)
+    const commandsFirstSegment = agent.commands?.dir.split("/")[0] ?? "";
 
     // Global: ~/.{agent-id} in home directory
     const globalPath = p.join(home, `.${agent.id}`);
 
-    const [projectExists, globalExists] = yield* Effect.all(
-      [fs.exists(projectPath), fs.exists(globalPath)],
-      { concurrency: "unbounded" },
-    );
+    // Build list of paths to check concurrently
+    const pathsToCheck = [
+      fs.exists(skillsProjectPath),
+      fs.exists(globalPath),
+      // Only check commands dir if it differs from skills dir first segment
+      ...(commandsFirstSegment !== "" && commandsFirstSegment !== skillsFirstSegment
+        ? [fs.exists(p.join(projectDir, commandsFirstSegment))]
+        : []),
+    ];
 
-    return projectExists || globalExists;
+    const results = yield* Effect.all(pathsToCheck, { concurrency: "unbounded" });
+
+    return results.some((exists) => exists);
   }).pipe(
     Effect.mapError((error) =>
       makeAppError({

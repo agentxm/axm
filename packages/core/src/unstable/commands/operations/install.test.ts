@@ -15,22 +15,24 @@ import type { ExtensionRef } from "../../extensions/index.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { Workspace } from "../../workspace/service-interface.js";
 import { expectRecord } from "../../test-helpers.js";
+import { CodingAgentRepository } from "../../agents/index.js";
+import type { CodingAgent } from "../../agents/coding-agent.js";
 import type { InstallCommandOperation } from "./install.js";
 import { installCommand } from "./install.js";
+import { makeStubAgent, makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeWorkspaceMock = (
+const makeInstallWorkspaceMock = (
   axmDir: string,
-  overrides?: {
+  wsOverrides?: {
     setCommandFn?: ReturnType<typeof vi.fn>;
   },
-): WorkspaceContextService => {
+) => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
     if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, commands: {} };
@@ -40,102 +42,37 @@ const makeWorkspaceMock = (
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(data));
   };
 
-  const setCommandFn = overrides?.setCommandFn;
+  const setCommandFn = wsOverrides?.setCommandFn;
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
+  const setCommandImpl = setCommandFn
+    ? (args: { name: string; lockEntry: unknown }) => setCommandFn(args)
+    : (args: { name: string; lockEntry: unknown }) =>
+        Effect.try({
+          try: () => {
+            const lf = readLf();
+            if (!lf.commands) lf.commands = {};
+            lf.commands[args.name] = {
+              ...expectRecord(args.lockEntry),
+              updatedAt: new Date().toISOString(),
+            };
+            writeLf(lf);
+          },
+          catch: (error) =>
+            makeAppError({
+              code: "LOCKFILE_WRITE_FAILED",
+              what: "Mock write failed",
+              cause: error,
+            }),
+        });
+
+  return makeWorkspaceMock(axmDir, {
     getConfiguredAgents: () => Effect.succeed([]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(readLf().commands ?? {}),
     getLockedCommand: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().commands?.[name])),
-    setCommand: setCommandFn
-      ? (args: { name: string; lockEntry: unknown }) => setCommandFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
-          Effect.try({
-            try: () => {
-              const lf = readLf();
-              if (!lf.commands) lf.commands = {};
-              lf.commands[args.name] = {
-                ...expectRecord(args.lockEntry),
-                updatedAt: new Date().toISOString(),
-              };
-              writeLf(lf);
-            },
-            catch: (error) =>
-              makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                what: "Mock write failed",
-                cause: error,
-              }),
-          }),
-    setCommandLock: setCommandFn
-      ? (args: { name: string; lockEntry: unknown }) => setCommandFn(args)
-      : (args: { name: string; lockEntry: unknown }) =>
-          Effect.try({
-            try: () => {
-              const lf = readLf();
-              if (!lf.commands) lf.commands = {};
-              lf.commands[args.name] = {
-                ...expectRecord(args.lockEntry),
-                updatedAt: new Date().toISOString(),
-              };
-              writeLf(lf);
-            },
-            catch: (error) =>
-              makeAppError({
-                code: "LOCKFILE_WRITE_FAILED",
-                what: "Mock write failed",
-                cause: error,
-              }),
-          }),
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+    setCommand: setCommandImpl,
+    setCommandLock: setCommandImpl,
+  });
 };
 
 const withServices = (
@@ -143,8 +80,9 @@ const withServices = (
   wsOverrides?: {
     setCommandFn?: ReturnType<typeof vi.fn>;
   },
+  agents?: ReadonlyArray<CodingAgent>,
 ) => {
-  const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
+  const mockWs = makeInstallWorkspaceMock(axmDir, wsOverrides);
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
@@ -166,6 +104,7 @@ const withServices = (
     Workspace.layer(mockWs),
     TestRenderer.make().layer,
     Layer.succeed(SourceHostProviders, sourceProviders),
+    Layer.succeed(CodingAgentRepository, makeAgentRepoMock(agents ?? [])),
   );
 };
 
@@ -236,7 +175,7 @@ describe("installCommand", () => {
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "command.json"),
-      JSON.stringify({ name, version: "1.0.0" }),
+      JSON.stringify({ name, version: "1.0.0", type: "command", owner }),
     );
     return canonicalPath;
   };
@@ -368,7 +307,23 @@ describe("installCommand", () => {
       }),
     );
 
-    it.effect("swallows Workspace.setCommand failure without failing installation", () =>
+    it.effect("lock entry includes agents and sourceHash", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        yield* installCommand(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+          Effect.provide(withServices(axmDir, { setCommandFn })),
+        );
+
+        const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
+        expect(lockEntry.agents).toEqual(expect.any(Array));
+        expect(lockEntry.sourceHash).toEqual(expect.any(String));
+      }),
+    );
+
+    it.effect("returns error when Workspace.setCommand fails", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -386,7 +341,7 @@ describe("installCommand", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
         ).pipe(Effect.provide(withServices(axmDir, { setCommandFn })));
 
-        expect(result.result).toBe("success");
+        expect(result.result).toBe("error");
       }),
     );
 
@@ -474,6 +429,64 @@ describe("installCommand", () => {
         if (result.result === "error") {
           expect(result.error.code).toBe("INSTALL_COMMAND_PATH_TRAVERSAL");
         }
+      }),
+    );
+  });
+
+  describe("agent rendering", () => {
+    it.effect("renders to configured agents and includes renderedFiles in lockfile", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        // Add a COMMAND.md
+        fs.writeFileSync(
+          path.join(canonicalPath, "COMMAND.md"),
+          "---\ndescription: test command\n---\nHello world",
+        );
+
+        const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+        const agents = [makeStubAgent("claude-code")];
+
+        yield* installCommand(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+          Effect.provide(withServices(axmDir, { setCommandFn }, agents)),
+        );
+
+        expect(setCommandFn).toHaveBeenCalledOnce();
+        const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
+        expect(lockEntry.agents).toEqual(["claude-code"]);
+        expect(lockEntry.renderedFiles).toBeDefined();
+        expect(lockEntry.sourceHash).toBeDefined();
+      }),
+    );
+
+    it.effect("filters agents by manifest agents field", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        // Add a COMMAND.md and manifest with agents filter
+        fs.writeFileSync(path.join(canonicalPath, "COMMAND.md"), "Hello world");
+        fs.writeFileSync(
+          path.join(canonicalPath, "command.json"),
+          JSON.stringify({
+            name: "my-command",
+            version: "1.0.0",
+            type: "command",
+            owner: "@community",
+            agents: ["codex"], // Only codex, not claude-code
+          }),
+        );
+
+        const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+        const agents = [makeStubAgent("claude-code"), makeStubAgent("codex")];
+
+        yield* installCommand(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+          Effect.provide(withServices(axmDir, { setCommandFn }, agents)),
+        );
+
+        const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
+        // Only codex should be rendered
+        const agentsList = lockEntry.agents as ReadonlyArray<string>;
+        expect(agentsList).toEqual(["codex"]);
       }),
     );
   });

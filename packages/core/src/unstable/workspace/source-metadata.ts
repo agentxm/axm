@@ -78,18 +78,29 @@ export const deriveSourceMetaForSkills = (
 };
 
 /**
+ * Extract the source string from an entry that may be a plain string
+ * or an object with a `source` property.
+ */
+const getEntrySource = (entry: string | { readonly source: string }): string =>
+  typeof entry === "string" ? entry : entry.source;
+
+/**
  * Build source metadata map for non-skill extension types.
+ *
+ * Accepts entries that are either plain source strings or objects with
+ * a `source` property (e.g. `{ source, enabled? }`).
  */
 export const deriveSourceMetaForNonSkill = (
-  settingsEntries: Readonly<Record<string, string>>,
+  settingsEntries: Readonly<Record<string, string | { readonly source: string }>>,
   lockEntries: Readonly<Record<string, { type: string }>>,
 ): Readonly<Record<string, SourceMeta>> => {
   const result: Record<string, SourceMeta> = {};
   for (const [name, entry] of Object.entries(lockEntries)) {
     result[name] = deriveSourceMetaFromLockType(entry.type);
   }
-  for (const [name, source] of Object.entries(settingsEntries)) {
+  for (const [name, entry] of Object.entries(settingsEntries)) {
     if (name in result) continue;
+    const source = getEntrySource(entry);
     if (source.includes("/") && source.startsWith("@")) {
       result[name] = { packagingKind: "native" };
     } else {

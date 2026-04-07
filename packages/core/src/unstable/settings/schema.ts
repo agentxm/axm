@@ -241,13 +241,53 @@ export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
 export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
 
 /**
- * Commands map - maps command names to source strings.
- *
- * Keys use the canonical command name schema from the shared kernel.
+ * Managed command with source and optional config flags.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandsMapSchema = Schema.Record(Schema.String, Schema.String)
+export const CommandEntryObjectSchema = Schema.Struct({
+  source: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "command source is required" }),
+  ),
+  enabled: Schema.optional(Schema.Boolean),
+}).annotate({
+  identifier: "CommandEntryObject",
+  title: "Command Entry Object",
+  description: "A command with its source location and whether it's enabled.",
+});
+
+/**
+ * Union of command entry forms: plain source string or object with source + enabled.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CommandEntrySchema = Schema.Union([Schema.String, CommandEntryObjectSchema]).annotate({
+  identifier: "CommandEntry",
+  title: "Command Entry",
+  description:
+    "A command reference — either a source string like @owner/commands/name or an object with source and enabled.",
+});
+
+/**
+ * Inferred type for CommandEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
+
+/**
+ * Commands map - maps command names to command entries.
+ *
+ * Keys must be valid command names per extension naming conventions:
+ * - Max 64 characters
+ * - Lowercase letters, numbers, and hyphens only
+ * - Must not start or end with a hyphen
+ *
+ * Values are command entries: plain source strings or objects with source + enabled.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema)
   .check(Schema.makeFilter(validateNamedRecordKeys("command", decodeExtensionNameSync)))
   .annotate({
     identifier: "CommandsMap",

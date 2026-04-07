@@ -22,6 +22,20 @@ export interface AgentSkillsDescriptor {
 }
 
 // -----------------------------------------------------------------------------
+// Agent Commands Configuration
+// -----------------------------------------------------------------------------
+
+/**
+ * Commands-specific configuration for an agent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface AgentCommandsDescriptor {
+  /** Primary commands directory, relative to cwd (e.g., ".claude/commands") */
+  readonly dir: string;
+}
+
+// -----------------------------------------------------------------------------
 // Agent Identifiers
 // -----------------------------------------------------------------------------
 
@@ -95,6 +109,8 @@ export interface AgentDescriptor {
   readonly name: string;
   /** Skills installation configuration */
   readonly skills: AgentSkillsDescriptor;
+  /** Commands installation configuration (optional — not all agents support commands) */
+  readonly commands?: AgentCommandsDescriptor;
 }
 
 // -----------------------------------------------------------------------------

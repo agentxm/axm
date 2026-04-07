@@ -44,6 +44,12 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 
 export interface InstallCommandHandlerArgs {
   readonly source: string;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
 }
 
 // -----------------------------------------------------------------------------

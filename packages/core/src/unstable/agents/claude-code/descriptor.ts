@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".claude/skills",
   },
+  commands: {
+    dir: ".claude/commands",
+  },
 };

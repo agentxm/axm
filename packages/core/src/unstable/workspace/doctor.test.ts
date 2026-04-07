@@ -68,7 +68,6 @@ describe("workspace doctor", () => {
       const wsLayer = Layer.provide(
         workspaceLayer({
           scope: "project",
-          agents: Option.none(),
           builtInSources: [
             {
               name: "default",

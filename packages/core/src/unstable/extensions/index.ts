@@ -112,3 +112,33 @@ export {
   toLabel,
   toLabelWithCompatibility,
 } from "./operations.js";
+
+// Managed markers
+export {
+  ManagedMarkerSchema,
+  generateMarker,
+  isManagedByAxm,
+  stripMarker,
+  type ManagedMarker,
+} from "./managed-marker.js";
+
+// Rendered files tracking
+export {
+  RenderedFilePathSchema,
+  RenderedFilesMapSchema,
+  SourceHashSchema,
+  computeSourceHash,
+  type RenderedFilePath,
+  type RenderedFilesMap,
+  type SourceHash,
+} from "./rendered-files.js";
+
+// Conflict detection
+export { detectConflict, type ConflictDetectionResult } from "./conflict-detection.js";
+
+// Frontmatter parsing
+export {
+  parseFrontmatterEffect,
+  parseFrontmatterSync,
+  type FrontmatterResult,
+} from "./frontmatter.js";

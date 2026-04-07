@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".opencode/skills",
   },
+  commands: {
+    dir: ".opencode/commands",
+  },
 };

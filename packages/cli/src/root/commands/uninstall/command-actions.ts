@@ -92,27 +92,44 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallCommandCommandIntent,
-    ): Effect.Effect<Plan, AppError> => {
-      const retentionPolicy = {
-        isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-          ws.isExtensionRequiredByInstalledExtensionPack(args.target),
-        markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
-          ws.markDependencyRetainedInLockfile(args.target),
-      };
+    ): Effect.Effect<Plan, AppError> =>
+      Effect.gen(function* () {
+        const retentionPolicy = {
+          isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
+            ws.isExtensionRequiredByInstalledExtensionPack(args.target),
+          markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
+            ws.markDependencyRetainedInLockfile(args.target),
+        };
 
-      const steps = intent.targets.map((target) =>
-        buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, { target }),
-      );
+        const steps = intent.targets.map((target) =>
+          buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, { target }),
+        );
 
-      return Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall command",
-        description: Option.some(
-          `Uninstall command ${intent.targets.map((t) => t.name).join(", ")}`,
-        ),
-        jobs: [{ concurrency: 1 as const, steps }],
-      } satisfies Plan);
-    };
+        // Collect affected agents from lockfile for confirmation display
+        const agentNames = yield* Effect.forEach(
+          intent.targets,
+          (target) =>
+            ws
+              .getLockedCommand(target.name)
+              .pipe(
+                Effect.map((lockEntry) =>
+                  Option.isSome(lockEntry) && lockEntry.value.agents ? lockEntry.value.agents : [],
+                ),
+              ),
+          { concurrency: "inherit" },
+        ).pipe(Effect.map((nested) => nested.flat()));
+
+        const targetNames = intent.targets.map((t) => t.name).join(", ");
+        const agentSuffix =
+          agentNames.length > 0 ? `\nAffected agents: ${[...new Set(agentNames)].join(", ")}` : "";
+
+        return {
+          _tag: "Plan",
+          name: "Uninstall command",
+          description: Option.some(`Uninstall command ${targetNames}${agentSuffix}`),
+          jobs: [{ concurrency: 1 as const, steps }],
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

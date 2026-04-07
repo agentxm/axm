@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".augment/rules",
   },
+  commands: {
+    dir: ".augment/commands",
+  },
 };

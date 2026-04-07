@@ -1,8 +1,8 @@
 /**
  * Uninstall command executor — orchestrates per-command removal pipeline.
  *
- * Pipeline: read lockfile -> remove canonical dir -> remove lockfile/settings entry.
- * Simpler than skills — no agent symlinks.
+ * Pipeline: read lockfile -> remove rendered files from agents -> remove
+ * canonical dir -> remove lockfile/settings entry.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -14,7 +14,9 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { CodingAgentRepository } from "../../agents/index.js";
+import { checkInstalledOnDisk } from "./shared-command-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -45,16 +47,22 @@ export type UninstallCommandOperation = Operation<
  * Uninstall-command operation handler.
  *
  * 1. Read lockfile to determine if command is installed
- * 2. Remove canonical directory from disk (if exists)
- * 3. Remove lockfile + settings entry
+ * 2. Remove rendered files from agents (using renderedFiles from lockfile)
+ * 3. Remove canonical directory from disk (if exists)
+ * 4. Remove lockfile + settings entry
  */
 export const uninstallCommand: (
   op: UninstallCommandOperation,
-) => Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path | Workspace> = (op) =>
+) => Effect.Effect<
+  JobStepResult,
+  AppError,
+  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+> = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
+    const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
 
     const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
@@ -75,7 +83,41 @@ export const uninstallCommand: (
       return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
-    // Determine canonical path from lock entry or scan
+    // --- Remove rendered files from agents ---
+    if (lockEntry?.renderedFiles) {
+      const renderedFiles = lockEntry.renderedFiles;
+      yield* Effect.forEach(
+        Object.entries(renderedFiles),
+        ([_agentId, files]) =>
+          Effect.forEach(
+            files,
+            (file) =>
+              fs.remove(file.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+            { concurrency: "unbounded" },
+          ),
+        { concurrency: "unbounded" },
+      );
+    } else if (lockEntry?.agents && lockEntry.agents.length > 0) {
+      // Fallback: remove via agent removeCommand
+      const configuredAgents = yield* agentRepo
+        .getConfiguredAgents()
+        .pipe(Effect.provideService(Workspace, ws));
+
+      yield* Effect.forEach(
+        configuredAgents,
+        (agent) =>
+          agent
+            .removeCommand({
+              workspaceRoot: base,
+              scope: "project",
+              commandName: op.args.commandName,
+            })
+            .pipe(Effect.catch(() => Effect.void)),
+        { concurrency: "unbounded" },
+      );
+    }
+
+    // --- Remove canonical directory ---
     if (lockEntry?.type === "registry") {
       const canonicalPath = path.join(
         base,
@@ -90,6 +132,10 @@ export const uninstallCommand: (
       yield* removeFromAllCommandLocations(fs, path, base, op.args.commandName);
     }
 
+    // Remove from external extensions dir too
+    const externalPath = path.join(base, EXTERNAL_EXTENSIONS_DIR, "commands", op.args.commandName);
+    yield* fs.remove(externalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+
     // Remove from settings + lockfile (swallow errors)
     yield* ws.removeCommand(op.args.commandName).pipe(Effect.catch(() => Effect.void));
 
@@ -103,37 +149,6 @@ export const uninstallCommand: (
 // Helpers
 // -----------------------------------------------------------------------------
 
-const checkInstalledOnDisk = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  base: string,
-  commandName: string,
-) =>
-  Effect.gen(function* () {
-    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-
-    if (!extensionsDirExists) return false;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
-        return fsService.exists(cmdPath).pipe(Effect.catch(() => Effect.succeed(false)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  });
-
 const removeFromAllCommandLocations = (
   fsService: FileSystem.FileSystem,
   pathService: Path.Path,
@@ -146,19 +161,27 @@ const removeFromAllCommandLocations = (
       .exists(extensionsDir)
       .pipe(Effect.catch(() => Effect.succeed(false)));
 
-    if (!extensionsDirExists) return;
+    if (extensionsDirExists) {
+      const scopeDirs = yield* fsService
+        .readDirectory(extensionsDir)
+        .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+      yield* Effect.forEach(
+        scopeDirs,
+        (scopeDir) => {
+          if (!scopeDir.startsWith("@")) return Effect.void;
+          const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
+          return fsService
+            .remove(cmdPath, { recursive: true })
+            .pipe(Effect.catch(() => Effect.void));
+        },
+        { concurrency: "unbounded" },
+      );
+    }
 
-    yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.void;
-        const cmdPath = pathService.join(extensionsDir, scopeDir, "commands", commandName);
-        return fsService.remove(cmdPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-      },
-      { concurrency: "unbounded" },
-    );
+    // Also remove from external
+    const externalPath = pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "commands", commandName);
+    yield* fsService
+      .remove(externalPath, { recursive: true })
+      .pipe(Effect.catch(() => Effect.void));
   });

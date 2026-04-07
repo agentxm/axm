@@ -586,6 +586,41 @@ describe("Settings schema", () => {
     });
   });
 
+  describe("CommandsMap schema (command entry forms)", () => {
+    it("accepts string shorthand", () => {
+      const input = { deploy: "@acme/commands/deploy" };
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
+      expect(result).toEqual({ deploy: "@acme/commands/deploy" });
+    });
+
+    it("accepts object entry with source", () => {
+      const input = { deploy: { source: "@acme/commands/deploy" } };
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
+      expect(result.deploy).toEqual({ source: "@acme/commands/deploy" });
+    });
+
+    it("accepts object entry with source and enabled", () => {
+      const input = { deploy: { source: "@acme/commands/deploy", enabled: false } };
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
+      expect(result.deploy).toEqual({ source: "@acme/commands/deploy", enabled: false });
+    });
+
+    it("accepts object entry with enabled defaulting to undefined (treated as true)", () => {
+      const input = { deploy: { source: "@acme/commands/deploy" } };
+      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
+      const entry = result.deploy;
+      expect(typeof entry).toBe("object");
+      if (typeof entry === "object" && entry !== null) {
+        expect(entry.enabled).toBeUndefined();
+      }
+    });
+
+    it("rejects object entry without source", () => {
+      const input = { deploy: { enabled: true } };
+      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
+    });
+  });
+
   describe("CommandsMap schema (command name validation)", () => {
     it("accepts valid command name", () => {
       const input = { commit: "^1.0.0" };

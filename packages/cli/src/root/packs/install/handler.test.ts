@@ -137,7 +137,6 @@ describe("packs install handler", () => {
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      agents: Option.none(),
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
@@ -186,7 +185,6 @@ describe("packs install handler", () => {
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      agents: Option.none(),
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({

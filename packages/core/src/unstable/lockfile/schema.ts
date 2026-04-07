@@ -9,7 +9,11 @@
 
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
-import { FullyQualifiedNameSchema, HandleSchema } from "../extensions/index.js";
+import {
+  FullyQualifiedNameSchema,
+  HandleSchema,
+  RenderedFilesMapSchema,
+} from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
 import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
@@ -45,7 +49,8 @@ const CommonFields = {
  * parameterized by extra fields to spread into each variant.
  *
  * Used to produce SkillLockEntrySchema (with `agents`),
- * CommandLockEntrySchema and McpServerLockEntrySchema (without `agents`).
+ * CommandLockEntrySchema (with `agents` + extra fields) and
+ * McpServerLockEntrySchema (without `agents`).
  */
 const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
   Schema.Union([
@@ -149,18 +154,28 @@ export const SkillsLockMapSchema = Schema.Record(Schema.String, SkillLockEntrySc
 export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
 
 // =============================================================================
-// Command Lock Entry (union of all source types, no agents)
+// Command Lock Entry (union of all source types, with agents)
 // =============================================================================
+
+/**
+ * Common fields for command lock entries (includes agents + rendered files).
+ */
+const CommandCommonFields = {
+  ...CommonFields,
+  sourceHash: Schema.optional(Schema.String),
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+};
 
 /**
  * Lock entry for a single installed command.
  * Discriminated union by the `type` field.
  *
- * Same structure as SkillLockEntry but without the `agents` field.
+ * Includes `agents` array (like skills), plus `sourceHash` and `renderedFiles`
+ * for tracking rendered output.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
+export const CommandLockEntrySchema = makeSourceLockUnion(CommandCommonFields);
 
 /**
  * Inferred type for CommandLockEntry schema.

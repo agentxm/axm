@@ -43,30 +43,32 @@ const parseRegistryCommandSource = (
 export const commandReconciliationAdapter: ReconciliationAdapter = {
   type: "commands",
   scanDeclarations: (context) => {
-    const declarations: ReconciliationDeclaration[] = [];
     const commands = context.settings.commands ?? {};
 
-    for (const [name, source] of Object.entries(commands)) {
-      const parsed = parseRegistryCommandSource(source);
-      declarations.push({
-        type: "commands",
-        owner: Option.match(parsed, {
-          onNone: () => context.defaultProfile,
-          onSome: (value) => value.owner,
-        }),
-        name: Option.match(parsed, {
-          onNone: () => decodeExtensionNameSync(name),
-          onSome: (value) => value.name,
-        }),
-        source,
-        declarationSourceOrConstraint: Option.match(parsed, {
-          onNone: () => source,
-          onSome: (value) => value.constraint,
-        }),
-        order: declarations.length,
-        origin: "settings",
-      });
-    }
+    const declarations: ReadonlyArray<ReconciliationDeclaration> = Object.entries(commands).map(
+      ([name, entry], index): ReconciliationDeclaration => {
+        const source = typeof entry === "string" ? entry : entry.source;
+        const parsed = parseRegistryCommandSource(source);
+        return {
+          type: "commands",
+          owner: Option.match(parsed, {
+            onNone: () => context.defaultProfile,
+            onSome: (value) => value.owner,
+          }),
+          name: Option.match(parsed, {
+            onNone: () => decodeExtensionNameSync(name),
+            onSome: (value) => value.name,
+          }),
+          source,
+          declarationSourceOrConstraint: Option.match(parsed, {
+            onNone: () => source,
+            onSome: (value) => value.constraint,
+          }),
+          order: index,
+          origin: "settings",
+        };
+      },
+    );
 
     return Effect.succeed({ declarations, warnings: [] });
   },
@@ -179,6 +181,7 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
             resolvedVersion: manifest.version,
             integrity: "",
             sourceName: "default",
+            agents: manifest.agents ?? [],
             installedAt: context.now,
             updatedAt: context.now,
           },

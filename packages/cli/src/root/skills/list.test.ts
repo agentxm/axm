@@ -11,7 +11,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "@axm.sh/core/unstable/cli-renderer";
@@ -77,7 +76,6 @@ describe("list.handler", () => {
     );
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      agents: Option.none(),
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(

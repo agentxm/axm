@@ -4,10 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Path from "effect/Path";
-import * as Effect from "effect/Effect";
-import type { CodingAgent } from "../coding-agent.js";
+import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
+
+/** @experimental */
+export const CURSOR_COMMANDS_PROJECT_DIR = ".cursor/commands";
 
 export const cursorMcpStrategy: MixedStrategyConfig = {
   configPath: "{workspaceRoot}/.cursor/mcp.json",
@@ -15,16 +16,13 @@ export const cursorMcpStrategy: MixedStrategyConfig = {
   cliRemove: ["cursor", "mcp", "remove", "{serverName}"],
 };
 
-export const cursorCodingAgent: CodingAgent = {
-  id: "cursor",
-  resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      return {
-        _tag: "supported",
-        dir: path.resolve(workspaceRoot, ".cursor/skills"),
-      } as const;
-    }),
-  addMcpServer: (args) => addMcpServerMixed(cursorMcpStrategy, args),
-  removeMcpServer: (args) => removeMcpServerMixed(cursorMcpStrategy, args),
-};
+export const cursorCodingAgent = makeProjectOnlyCodingAgent({
+  agentId: "cursor",
+  displayName: "Cursor",
+  skillsProjectDir: ".cursor/skills",
+  commandsProjectDir: CURSOR_COMMANDS_PROJECT_DIR,
+  mcp: {
+    addMcpServer: (args) => addMcpServerMixed(cursorMcpStrategy, args),
+    removeMcpServer: (args) => removeMcpServerMixed(cursorMcpStrategy, args),
+  },
+});

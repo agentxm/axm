@@ -10,22 +10,23 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { Workspace } from "../../workspace/service-interface.js";
+import { CodingAgentRepository } from "../../agents/index.js";
 import type { UninstallCommandOperation } from "./uninstall.js";
 import { uninstallCommand } from "./uninstall.js";
+import { makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeWorkspaceMock = (
+const makeUninstallWorkspaceMock = (
   axmDir: string,
   lockfileCommands: Record<string, CommandLockEntry> = {},
   overrides?: {
     removeCommandFn?: ReturnType<typeof vi.fn>;
   },
-): WorkspaceContextService => {
+) => {
   let commands: Record<string, CommandLockEntry> = { ...lockfileCommands };
   const removeCommandFn = overrides?.removeCommandFn;
 
@@ -44,43 +45,10 @@ const makeWorkspaceMock = (
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
   };
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
+  return makeWorkspaceMock(axmDir, {
     getConfiguredAgents: () => Effect.succeed([]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
     getLockedCommands: () => Effect.succeed(commands),
     getLockedCommand: (name: string) => Effect.succeed(Option.fromUndefinedOr(commands[name])),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
     removeCommand:
       removeCommandFn !== undefined
         ? (name: string) => removeCommandFn(name)
@@ -91,23 +59,7 @@ const makeWorkspaceMock = (
               commands = rest;
               writeToDisk();
             }),
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 const withServices = (
@@ -119,7 +71,8 @@ const withServices = (
 ) =>
   Layer.mergeAll(
     NodeServices.layer,
-    Workspace.layer(makeWorkspaceMock(axmDir, lockfileCommands, wsOverrides)),
+    Workspace.layer(makeUninstallWorkspaceMock(axmDir, lockfileCommands, wsOverrides)),
+    Layer.succeed(CodingAgentRepository, makeAgentRepoMock()),
   );
 
 const makeOp = (overrides: { commandName?: string } = {}): UninstallCommandOperation => ({
@@ -136,6 +89,7 @@ const makeRegistryLockEntry = () => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+  agents: [] as ReadonlyArray<string>,
   installedAt: new Date(),
   updatedAt: new Date(),
 });
@@ -223,6 +177,34 @@ describe("uninstallCommand", () => {
         expect(result.result).toBe("success");
         expect(removeCommandFn).toHaveBeenCalledOnce();
         expect(removeCommandFn).toHaveBeenCalledWith("my-command");
+      }),
+    );
+  });
+
+  describe("uninstall with rendered files in lockfile", () => {
+    it.effect("removes rendered files from agents", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupWorkspace();
+
+        // Create rendered files
+        const renderedPath = path.join(base, ".claude-code", "commands", "my-command.md");
+        fs.mkdirSync(path.dirname(renderedPath), { recursive: true });
+        fs.writeFileSync(renderedPath, "rendered content");
+
+        const lockEntry = {
+          ...makeRegistryLockEntry(),
+          agents: ["claude-code"],
+          renderedFiles: {
+            "claude-code": [{ path: renderedPath }],
+          },
+        };
+
+        const result = yield* uninstallCommand(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, { "my-command": lockEntry as CommandLockEntry })),
+        );
+
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(renderedPath)).toBe(false);
       }),
     );
   });

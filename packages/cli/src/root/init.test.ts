@@ -17,7 +17,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
@@ -76,7 +75,6 @@ describe("init.handler", () => {
 
   const defaultWsOptions: WorkspaceContextOptions = {
     scope: "project",
-    agents: Option.none(),
   };
 
   // ---------------------------------------------------------------------------
@@ -289,7 +287,6 @@ describe("init.handler", () => {
     it.effect("--non-interactive auto-selects all detected agents", () =>
       withLayers({
         scope: "project",
-        agents: Option.none(),
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -308,7 +305,6 @@ describe("init.handler", () => {
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
           scope: "project",
-          agents: Option.none(),
         }),
         InteractiveTestLayer,
       );
@@ -341,7 +337,6 @@ describe("init.handler", () => {
       },
       wsOptions: WorkspaceContextOptions = {
         scope: "project",
-        agents: Option.none(),
       },
     ) => {
       const { layer: iRendererLayer } = TestRenderer.make();

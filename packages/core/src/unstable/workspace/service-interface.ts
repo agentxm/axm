@@ -29,7 +29,11 @@ import type {
   SkillLockEntry,
   SkillsLockMap,
 } from "../lockfile/index.js";
-import type { NormalizedSkillEntry, SourceHostConfig } from "../settings/index.js";
+import type {
+  NormalizedCommandEntry,
+  NormalizedSkillEntry,
+  SourceHostConfig,
+} from "../settings/index.js";
 import type {
   ClassifiedCommand,
   ClassifiedExtensionRef,
@@ -422,6 +426,16 @@ export interface WorkspaceContextService {
   readonly setCommandLock: (args: SetCommandArgs) => Effect.Effect<void, AppError>;
   /** Remove a command from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeCommand: (name: string) => Effect.Effect<void, AppError>;
+  /** Update a command entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
+  readonly updateCommandEntry: (
+    name: string,
+    updater: (entry: NormalizedCommandEntry) => NormalizedCommandEntry,
+  ) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a command entry in settings only (no lockfile). Serialized by semaphore. */
+  readonly setCommandEntry: (
+    name: string,
+    entry: NormalizedCommandEntry,
+  ) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the MCP servers lock map. */
   readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, AppError>;
   /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */
@@ -488,7 +502,7 @@ export interface WorkspaceContextOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
   /** Explicit agent IDs to use during initialization (overrides detection and prompting) */
-  readonly agents?: Option.Option<readonly string[]>;
+  readonly agents?: ReadonlyArray<string>;
   /** Built-in source host configs (defaults to git forges only when not provided) */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
 }

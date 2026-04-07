@@ -30,7 +30,7 @@ export const installCommand = Command.make(
   "install",
   installConfig,
   ({ source, scope, yes, force, preview }) =>
-    handleInstallCommand({ source }, { yes, force, preview }).pipe(
+    handleInstallCommand({ source, yes, force, preview }).pipe(
       withWorkspace(scope),
       withCommandRuntime(commandMeta),
     ),

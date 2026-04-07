@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".kilocode/skills",
   },
+  commands: {
+    dir: ".kilo/commands",
+  },
 };

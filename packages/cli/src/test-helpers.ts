@@ -161,7 +161,6 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   const cliTestContext = makeCliTestContext(opts);
   const wsOptions = {
     scope: "project",
-    agents: Option.none(),
     ...opts?.wsOptions,
   } satisfies WorkspaceContextOptions;
   const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);

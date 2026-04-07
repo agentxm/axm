@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".cursor/skills",
   },
+  commands: {
+    dir: ".cursor/commands",
+  },
 };

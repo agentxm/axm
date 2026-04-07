@@ -16,17 +16,29 @@ export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 
 // Types and constants
 export { AGENT_IDS } from "./types.js";
-export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";
+export type {
+  AgentCommandsDescriptor,
+  AgentDescriptor,
+  AgentId,
+  AgentRegistry,
+  AgentSkillsDescriptor,
+} from "./types.js";
 
 // Coding agent service contracts (used by extension managers)
 export type {
+  AddCommandArgs,
   AddMcpServerArgs,
   CodingAgent,
   CodingAgentRepositoryService,
   CodingAgentRepositoryShape,
+  CommandScope,
+  CommandSyncOutcome,
   McpServerSyncFallbackSource,
   McpServerSyncOutcome,
+  RemoveCommandArgs,
   RemoveMcpServerArgs,
+  ResolveCommandsDirArgs,
+  ResolveCommandsDirOutcome,
   ResolveSkillsDirArgs,
   ResolveSkillsDirOutcome,
 } from "./coding-agent.js";
@@ -34,6 +46,19 @@ export { CodingAgentRepository } from "./coding-agent.js";
 
 // Constants (path helpers)
 export { getHome, getConfigHome } from "./constants.js";
+
+// Command sync helpers
+export {
+  writeCommandFile,
+  removeCommandFile,
+  addCommandViaResolve,
+  removeCommandViaResolve,
+  resolveFileExtension,
+  type CommandSyncConfig,
+} from "./command-sync.js";
+
+// Agent factory
+export { makeProjectOnlyCodingAgent, type ProjectOnlyAgentConfig } from "./project-only-agent.js";
 
 // MCP sync helpers
 export {
@@ -51,12 +76,17 @@ export {
 } from "./mcp-sync.js";
 
 // Agent service implementations
+export { augmentCodingAgent } from "./augment/service.js";
 export { claudeCodeCodingAgent, claudeCodeMcpStrategy } from "./claude-code/service.js";
 export { codexCodingAgent, codexMcpStrategy } from "./codex/service.js";
 export { cursorCodingAgent, cursorMcpStrategy } from "./cursor/service.js";
 export { geminiCliCodingAgent, geminiCliMcpStrategy } from "./gemini-cli/service.js";
 export { githubCopilotCodingAgent, githubCopilotMcpStrategy } from "./github-copilot/service.js";
+export { junieCodingAgent } from "./junie/service.js";
+export { kiloCodingAgent } from "./kilo/service.js";
+export { kiroCliCodingAgent } from "./kiro-cli/service.js";
 export { opencodeCodingAgent, opencodeMcpStrategy } from "./opencode/service.js";
+export { rooCodingAgent } from "./roo/service.js";
 
 // Repository implementation
 export { DefaultCodingAgentRepository, CodingAgentRepositoryLive } from "./repository.js";

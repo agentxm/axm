@@ -16,12 +16,17 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "./coding-agent.js";
+import { augmentCodingAgent } from "./augment/service.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
 import { cursorCodingAgent } from "./cursor/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
 import { githubCopilotCodingAgent } from "./github-copilot/service.js";
+import { junieCodingAgent } from "./junie/service.js";
+import { kiloCodingAgent } from "./kilo/service.js";
+import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
+import { rooCodingAgent } from "./roo/service.js";
 import { getAgentById, getAgentIds } from "./registry.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
 
@@ -45,10 +50,27 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
       _tag: "unsupported",
       reason: `MCP remove is not supported for ${descriptor.id}`,
     } as const),
+  resolveEffectiveCommandsDir: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Commands are not supported for ${descriptor.id}`,
+    } as const),
+  addCommand: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Command add is not supported for ${descriptor.id}`,
+    } as const),
+  removeCommand: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Command remove is not supported for ${descriptor.id}`,
+    } as const),
 });
 
 const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
   switch (id) {
+    case "augment":
+      return Effect.succeed(augmentCodingAgent);
     case "claude-code":
       return Effect.succeed(claudeCodeCodingAgent);
     case "codex":
@@ -59,8 +81,16 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
       return Effect.succeed(geminiCliCodingAgent);
     case "github-copilot":
       return Effect.succeed(githubCopilotCodingAgent);
+    case "junie":
+      return Effect.succeed(junieCodingAgent);
+    case "kilo":
+      return Effect.succeed(kiloCodingAgent);
+    case "kiro-cli":
+      return Effect.succeed(kiroCliCodingAgent);
     case "opencode":
       return Effect.succeed(opencodeCodingAgent);
+    case "roo":
+      return Effect.succeed(rooCodingAgent);
     default:
       return Option.match(getAgentById(id), {
         onNone: () =>
@@ -75,17 +105,7 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
   }
 };
 
-const get = (id: AgentId) =>
-  Option.match(getAgentById(id), {
-    onNone: () =>
-      Effect.fail(
-        makeAppError({
-          code: "CODING_AGENT_NOT_SUPPORTED",
-          what: `Unsupported coding agent: ${id}`,
-        }),
-      ),
-    onSome: () => fromId(id),
-  });
+const get = (id: AgentId) => fromId(id);
 
 const all = Effect.forEach(getAgentIds(), (id) => fromId(id));
 

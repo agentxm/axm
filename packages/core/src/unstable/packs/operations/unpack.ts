@@ -78,6 +78,8 @@ export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation,
       });
     }
 
+    const now = new Date();
+
     // Read current configured extensions to preserve existing direct entries
     const currentSkills = yield* ws.getConfiguredSkills();
     const currentCommands = yield* ws.getConfiguredCommands();
@@ -86,6 +88,7 @@ export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation,
     // Add resolved skills as direct entries (only if not already present)
     // Use the short name from the FQN as the settings key since SkillsMapSchema
     // validates keys against agentskills.io naming (no @ or / allowed).
+    // Integrity unknown for individual extensions unpacked from a pack
     yield* Effect.forEach(
       Object.entries(entry.resolvedSkills),
       ([skillFqn, version]) =>
@@ -102,8 +105,8 @@ export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation,
               integrity: "",
               sourceName: entry.sourceName,
               agents: [],
-              installedAt: new Date(),
-              updatedAt: new Date(),
+              installedAt: now,
+              updatedAt: now,
             } satisfies SkillLockEntry,
             versionConstraint: Option.none(),
           });
@@ -125,10 +128,12 @@ export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation,
               owner: parsed.owner,
               name: parsed.name,
               resolvedVersion: version,
+              // Integrity unknown for individual extensions unpacked from a pack
               integrity: "",
               sourceName: entry.sourceName,
-              installedAt: new Date(),
-              updatedAt: new Date(),
+              agents: [],
+              installedAt: now,
+              updatedAt: now,
             } satisfies CommandLockEntry,
           });
         }),
@@ -149,10 +154,11 @@ export const unpackExtensionPack: OperationHandler<UnpackExtensionPackOperation,
               owner: parsed.owner,
               name: parsed.name,
               resolvedVersion: version,
+              // Integrity unknown for individual extensions unpacked from a pack
               integrity: "",
               sourceName: entry.sourceName,
-              installedAt: new Date(),
-              updatedAt: new Date(),
+              installedAt: now,
+              updatedAt: now,
             } satisfies McpServerLockEntry,
           });
         }),

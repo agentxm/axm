@@ -107,7 +107,6 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const ws = yield* getService({
           scope: "project",
-          agents: Option.none(),
         });
 
         expect(ws.baseDir).toBe(path.dirname(ws.path));
@@ -121,7 +120,6 @@ describe("WorkspaceContextService", () => {
   /** Default options for tests that don't care about prompting/preview. */
   const defaultOptions: WorkspaceContextOptions = {
     scope: "project",
-    agents: Option.none(),
   };
 
   /**
@@ -1097,7 +1095,7 @@ describe("WorkspaceContextService", () => {
         multiselectResponses: [[]],
       });
       const flagsLayer = TestFlagsLayer(flags);
-      const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
+      const wsOptions: WorkspaceContextOptions = { scope: "project" };
       const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
       const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
@@ -2253,6 +2251,7 @@ describe("WorkspaceContextService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2307,6 +2306,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "configured-cmd",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2317,6 +2317,7 @@ describe("WorkspaceContextService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2327,6 +2328,129 @@ describe("WorkspaceContextService", () => {
 
         expect(recordEntry(installed, "configured-cmd").lifecycle).toBe("configured");
         expect(recordEntry(installed, "implicit-cmd").lifecycle).toBe("implicit");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // getInstalledCommands with transitive pack commands
+  // ---------------------------------------------------------------------------
+
+  describe("getInstalledCommands (transitive pack commands)", () => {
+    it.effect("pack-resolved commands appear as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "@acme/packs/my-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "my-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledCommands();
+
+        expect(installed).toHaveProperty("formatter");
+        expect(recordEntry(installed, "formatter").lifecycle).toBe("implicit");
+      }),
+    );
+
+    it.effect("direct settings entry takes precedence over transitive pack command", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+          commands: { formatter: "github:acme/formatter" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "@acme/packs/my-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "my-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+              resolvedMcpServers: {},
+            },
+          },
+          {
+            formatter: {
+              type: "github",
+              owner: "acme",
+              repo: "formatter",
+              agents: ["claude-code"],
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledCommands();
+
+        expect(recordEntry(installed, "formatter").lifecycle).toBe("configured");
+      }),
+    );
+
+    it.effect("multiple pack-resolved commands appear as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "@acme/packs/my-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "my-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {
+                "@acme/commands/formatter": "1.0.0",
+                "@acme/commands/linter": "2.0.0",
+              },
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledCommands();
+
+        expect(installed).toHaveProperty("formatter");
+        expect(installed).toHaveProperty("linter");
+        expect(recordEntry(installed, "formatter").lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "linter").lifecycle).toBe("implicit");
       }),
     );
   });
@@ -2934,6 +3058,7 @@ describe("WorkspaceContextService", () => {
     type: "github" as const,
     owner: "acme",
     repo: "my-command",
+    agents: ["claude-code"],
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
     updatedAt: new Date("2025-01-01T00:00:00.000Z"),
   });
@@ -2953,6 +3078,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2986,6 +3112,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3067,6 +3194,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3077,6 +3205,7 @@ describe("WorkspaceContextService", () => {
           type: "github",
           owner: "acme",
           repo: "my-command-v2",
+          agents: ["claude-code"],
           installedAt: new Date("2025-01-01T00:00:00.000Z"),
           updatedAt: new Date("2025-01-01T00:00:00.000Z"),
         };
@@ -3138,12 +3267,14 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "other-command": {
             type: "local",
             path: "/tmp/other",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3175,6 +3306,7 @@ describe("WorkspaceContextService", () => {
           "other-command": {
             type: "local",
             path: "/tmp/other",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3204,6 +3336,7 @@ describe("WorkspaceContextService", () => {
           implicit: {
             type: "local",
             path: "/tmp/implicit-cmd",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3584,6 +3717,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3630,6 +3764,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3944,6 +4079,7 @@ describe("WorkspaceContextService", () => {
               type: "github",
               owner: "acme",
               repo: "my-cmd",
+              agents: ["claude-code"],
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -4103,6 +4239,7 @@ describe("WorkspaceContextService", () => {
             type: "github",
             owner: "acme",
             repo: "my-cmd",
+            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },

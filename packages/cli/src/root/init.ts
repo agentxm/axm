@@ -124,7 +124,7 @@ const commandMeta = registryCommandMeta("init", { json: true });
 
 export const initCommand = Command.make("init", initConfig, ({ scope, agent }) =>
   handleInit().pipe(
-    withWorkspace(agent.length > 0 ? { scope, agents: Option.some(agent) } : scope),
+    withWorkspace(agent.length > 0 ? { scope, agents: agent } : scope),
     withCommandRuntime(commandMeta),
   ),
 ).pipe(

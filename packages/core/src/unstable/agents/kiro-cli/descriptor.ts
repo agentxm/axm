@@ -18,4 +18,7 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".kiro/skills",
   },
+  commands: {
+    dir: ".kiro/prompts",
+  },
 };

@@ -12,6 +12,7 @@
 export type {
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
+  CommandEntry,
   CommandsMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
@@ -26,6 +27,8 @@ export type {
   SourceHostConfig,
 } from "./schema.js";
 export {
+  CommandEntryObjectSchema,
+  CommandEntrySchema,
   CommandsMapSchema,
   IgnoredSettingsSchema,
   McpServersMapSchema,
@@ -43,6 +46,14 @@ export {
 // Skill entry normalization
 export type { NormalizedSkillEntry } from "./skill-entry.js";
 export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./skill-entry.js";
+
+// Command entry normalization
+export type { NormalizedCommandEntry } from "./command-entry.js";
+export {
+  collapseCommandEntry,
+  getCommandEntrySource,
+  normalizeCommandEntry,
+} from "./command-entry.js";
 
 // Ignored patterns
 export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";

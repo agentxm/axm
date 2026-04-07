@@ -82,7 +82,6 @@ describe("doctor handler", () => {
     const baseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
     const wsOptions: WorkspaceContextOptions = {
       scope: "project",
-      agents: Option.none(),
     };
     const wsLayer = Layer.provide(
       coreWorkspaceLayer({

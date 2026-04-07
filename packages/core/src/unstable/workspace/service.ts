@@ -49,12 +49,16 @@ import {
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
+  collapseCommandEntry,
   collapseSkillEntry,
   type CommandsMap,
   createDefaultSettings,
   DEFAULT_PROFILE,
+  getCommandEntrySource,
   getSkillEntrySource,
   type McpServersMap,
+  type NormalizedCommandEntry,
+  normalizeCommandEntry,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
   type ExtensionPacksMap,
@@ -118,6 +122,29 @@ import {
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
 } from "./classifier-records.js";
+/**
+ * Collect extension names from pack resolvedExtension maps.
+ *
+ * Extracts the short name from each FQN key (e.g. "@acme/commands/formatter" -> "formatter")
+ * across all pack lockfile entries for the given resolved map key.
+ */
+const collectTransitiveNames = (
+  packLockEntries: ExtensionPacksLockMap,
+  resolvedKey: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers",
+): ReadonlyArray<string> => {
+  const names: Array<string> = [];
+  for (const packEntry of Object.values(packLockEntries)) {
+    const resolvedMap = packEntry[resolvedKey];
+    for (const fqn of Object.keys(resolvedMap)) {
+      const parsed = parseFullyQualifiedNameParts(fqn);
+      if (parsed !== undefined) {
+        names.push(parsed.name);
+      }
+    }
+  }
+  return names;
+};
+
 /**
  * Options for creating workspace context.
  */
@@ -188,6 +215,19 @@ const make = (options: WorkspaceLayerOptions) =>
      * Read lockfile from a directory, returning empty lockfile if not found.
      */
     const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
+
+    /**
+     * Look up `key` in `record`, failing with an `AppError` when absent.
+     */
+    const getEntryOrFail = <T>(
+      record: Readonly<Record<string, T>>,
+      key: string,
+      code: AppError["code"],
+      what: string,
+    ): Effect.Effect<T, AppError> =>
+      key in record && record[key] !== undefined
+        ? Effect.succeed(record[key])
+        : Effect.fail(makeAppError({ code, what }));
 
     /**
      * Probe lockfile state without mutating disk.
@@ -286,18 +326,47 @@ const make = (options: WorkspaceLayerOptions) =>
             const commandSettings = settings.commands ?? {};
             const commandLockEntries: CommandsLockMap = lockfile.commands ?? {};
             const configured = Object.fromEntries(
-              Object.entries(commandSettings).map(([name, source]) => [
-                name,
-                { source, enabled: true },
-              ]),
+              Object.entries(commandSettings).map(([name, entry]) => {
+                const normalized = normalizeCommandEntry(entry);
+                return [name, { source: normalized.source, enabled: normalized.enabled }];
+              }),
             );
+
+            // Collect transitive command names from pack resolvedCommands
+            const directLockedNames = Object.keys(commandLockEntries);
+            const transitiveNames = collectTransitiveNames(
+              lockfile.packs ?? {},
+              "resolvedCommands",
+            );
+            const allLockedNames = Array.dedupe([...directLockedNames, ...transitiveNames]);
+
+            // Build source metadata including transitive commands as native
+            const directSourceMeta = deriveSourceMetaForNonSkill(
+              Object.fromEntries(
+                Object.entries(commandSettings).map(([name, entry]) => [
+                  name,
+                  getCommandEntrySource(entry),
+                ]),
+              ),
+              commandLockEntries,
+            );
+            const sourceMetaByName: Record<
+              string,
+              { readonly packagingKind: "native" | "non-native" }
+            > = { ...directSourceMeta };
+            for (const name of transitiveNames) {
+              if (!(name in sourceMetaByName)) {
+                sourceMetaByName[name] = { packagingKind: "native" };
+              }
+            }
+
             return yield* classifyExtensions({
               type,
               configured,
-              lockedNames: Object.keys(commandLockEntries),
+              lockedNames: allLockedNames,
               detectedNames: [],
               ignoredPatterns: settings.ignored?.commands ?? [],
-              sourceMetaByName: deriveSourceMetaForNonSkill(commandSettings, commandLockEntries),
+              sourceMetaByName,
             });
           }
           case "mcp-server": {
@@ -635,19 +704,12 @@ const make = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            if (!(name in currentSkills)) {
-              return yield* makeAppError({
-                code: "SKILL_NOT_FOUND",
-                what: `Skill "${name}" not found in settings`,
-              });
-            }
-            const currentEntry = currentSkills[name];
-            if (currentEntry === undefined) {
-              return yield* makeAppError({
-                code: "SKILL_NOT_FOUND",
-                what: `Skill "${name}" not found in settings`,
-              });
-            }
+            const currentEntry = yield* getEntryOrFail(
+              currentSkills,
+              name,
+              "SKILL_NOT_FOUND",
+              `Skill "${name}" not found in settings`,
+            );
             const normalized = normalizeSkillEntry(currentEntry);
             const updated = updater(normalized);
             const collapsed = collapseSkillEntry(updated);
@@ -679,21 +741,12 @@ const make = (options: WorkspaceLayerOptions) =>
             // Read and validate settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            if (!(oldName in currentSkills)) {
-              return yield* makeAppError({
-                code: "SKILL_NOT_FOUND",
-                what: `Skill "${oldName}" not found in settings`,
-              });
-            }
-
-            // Rename in settings
-            const oldEntry = currentSkills[oldName];
-            if (oldEntry === undefined) {
-              return yield* makeAppError({
-                code: "SKILL_NOT_FOUND",
-                what: `Skill "${oldName}" not found in settings`,
-              });
-            }
+            const oldEntry = yield* getEntryOrFail(
+              currentSkills,
+              oldName,
+              "SKILL_NOT_FOUND",
+              `Skill "${oldName}" not found in settings`,
+            );
             const { [oldName]: _, ...remainingSkills } = currentSkills;
             void _;
             const updatedSettings = {
@@ -721,19 +774,12 @@ const make = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            if (!(name in currentLockfile.skills)) {
-              return yield* makeAppError({
-                code: "LOCK_ENTRY_NOT_FOUND",
-                what: `Lock entry "${name}" not found in lockfile`,
-              });
-            }
-            const oldEntry = currentLockfile.skills[name];
-            if (oldEntry === undefined) {
-              return yield* makeAppError({
-                code: "LOCK_ENTRY_NOT_FOUND",
-                what: `Lock entry "${name}" not found in lockfile`,
-              });
-            }
+            const oldEntry = yield* getEntryOrFail(
+              currentLockfile.skills,
+              name,
+              "LOCK_ENTRY_NOT_FOUND",
+              `Lock entry "${name}" not found in lockfile`,
+            );
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
@@ -1029,6 +1075,41 @@ const make = (options: WorkspaceLayerOptions) =>
             }
           }),
         ).pipe(Effect.withSpan("Workspace.removeCommand")),
+
+      updateCommandEntry: (
+        name: string,
+        updater: (entry: NormalizedCommandEntry) => NormalizedCommandEntry,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentCommands: CommandsMap = currentSettings.commands ?? {};
+            const existingEntry = currentCommands[name];
+            if (existingEntry === undefined) return;
+            const normalized = normalizeCommandEntry(existingEntry);
+            const updated = updater(normalized);
+            const collapsed = collapseCommandEntry(updated);
+            const updatedSettings = {
+              ...currentSettings,
+              commands: { ...currentCommands, [name]: collapsed },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.updateCommandEntry")),
+
+      setCommandEntry: (name: string, entry: NormalizedCommandEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentCommands: CommandsMap = currentSettings.commands ?? {};
+            const collapsed = collapseCommandEntry(entry);
+            const updatedSettings = {
+              ...currentSettings,
+              commands: { ...currentCommands, [name]: collapsed },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.setCommandEntry")),
 
       // -----------------------------------------------------------------------
       // MCP Server methods

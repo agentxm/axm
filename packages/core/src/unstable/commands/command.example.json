@@ -6,5 +6,11 @@
   "version": "1.0.0",
   "description": "Deploy application to cloud infrastructure",
   "keywords": ["deploy", "cloud", "ci-cd"],
-  "license": "MIT"
+  "license": "MIT",
+  "agents": ["claude-code", "codex"],
+  "agentOverrides": {
+    "codex": {
+      "model": "o3"
+    }
+  }
 }

@@ -127,6 +127,52 @@ describe("detectAgent", () => {
     );
   });
 
+  describe("project-level detection (commands.dir first segment in project dir)", () => {
+    it.effect(
+      "detects kilo when .kilo/ exists in project dir (commands dir differs from skills dir)",
+      () =>
+        Effect.gen(function* () {
+          // kilo has skills.dir: ".kilocode/skills" (first segment: .kilocode)
+          // but commands.dir: ".kilo/commands" (first segment: .kilo)
+          // Detection should succeed from the commands dir alone
+          const projectPath = path.join(testProjectDir, ".kilo");
+          const existingPaths = new Set([projectPath]);
+          const result = yield* detectAgent(AGENTS["kilo"], testProjectDir).pipe(
+            Effect.provide(createMockFileSystem(existingPaths)),
+          );
+          expect(result).toBe(true);
+        }),
+    );
+
+    it.effect("detects agent when only commands dir exists (not skills dir)", () =>
+      Effect.gen(function* () {
+        // gemini-cli: skills.dir: ".gemini/skills", commands.dir: ".gemini/commands"
+        // Both share first segment ".gemini", so this test uses kilo which has different first segments
+        const projectPath = path.join(testProjectDir, ".kilo");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["kilo"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect(
+      "does not duplicate detection when commands dir shares first segment with skills dir",
+      () =>
+        Effect.gen(function* () {
+          // claude-code: skills=".claude/skills", commands=".claude/commands"
+          // Both share ".claude" — detection should still work correctly
+          const projectPath = path.join(testProjectDir, ".claude");
+          const existingPaths = new Set([projectPath]);
+          const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
+            Effect.provide(createMockFileSystem(existingPaths)),
+          );
+          expect(result).toBe(true);
+        }),
+    );
+  });
+
   describe("global detection (~/.{agent-id})", () => {
     it.effect("detects claude-code when ~/.claude-code exists", () =>
       Effect.gen(function* () {
@@ -204,6 +250,19 @@ describe("detectAgent", () => {
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(false);
+      }),
+    );
+
+    it.effect("detects kilo via commands dir when skills dir does not exist", () =>
+      Effect.gen(function* () {
+        // kilo: skills=".kilocode/skills", commands=".kilo/commands"
+        // Only .kilo/ exists, not .kilocode/
+        const commandsPath = path.join(testProjectDir, ".kilo");
+        const existingPaths = new Set([commandsPath]);
+        const result = yield* detectAgent(AGENTS["kilo"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
       }),
     );
   });

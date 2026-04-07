@@ -2,7 +2,7 @@
 
 ### Requirement: Publish subagent to registry
 
-`axm subagents publish` SHALL validate both `axm-subagent.json` and `src/SUBAGENT.md`, sync the manifest from frontmatter, and upload both files to the target registry.
+`axm subagents publish` SHALL validate both `subagent.json` and `src/SUBAGENT.md`, sync the manifest from frontmatter, and upload both files to the target registry.
 
 #### Scenario: Successful publish
 

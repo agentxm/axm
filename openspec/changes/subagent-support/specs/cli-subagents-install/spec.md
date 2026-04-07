@@ -24,7 +24,7 @@ Subagent installation SHALL follow this sequence: resolve source, materialize su
 #### Scenario: Full install flow
 
 - **WHEN** user runs `axm subagents install @acme/subagents/code-reviewer`
-- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `axm-subagent.json` and `src/SUBAGENT.md`, render to each configured agent's subagents directory, write a subagent entry to `settings.json`, and write a lock entry with the `renderedFiles` map
+- **THEN** the CLI SHALL resolve the source, materialize the package to `.axm/extensions/`, read `subagent.json` and `src/SUBAGENT.md`, render to each configured agent's subagents directory, write a subagent entry to `settings.json`, and write a lock entry with the `renderedFiles` map
 
 #### Scenario: Rendered files placed in agent directories
 
@@ -89,12 +89,12 @@ Registry installs SHALL accept valid semver ranges. Omitting the version SHALL m
 
 ### Requirement: Multi-subagent discovery
 
-When the source is a GitHub repo or local directory containing multiple subagents, AXM SHALL discover them by scanning for `axm-subagent.json` files. Without `--subagent` or `--all`, the user SHALL be prompted to select which subagents to install.
+When the source is a GitHub repo or local directory containing multiple subagents, AXM SHALL discover them by scanning for `subagent.json` files. Without `--subagent` or `--all`, the user SHALL be prompted to select which subagents to install.
 
 #### Scenario: Multi-subagent repo prompts selection
 
 - **WHEN** user runs `axm subagents install owner/repo`
-- **AND** the repo contains `code-reviewer/axm-subagent.json` and `security-audit/axm-subagent.json`
+- **AND** the repo contains `code-reviewer/subagent.json` and `security-audit/subagent.json`
 - **THEN** the CLI SHALL prompt the user to select which subagents to install
 
 #### Scenario: Cherry-pick with --subagent flag

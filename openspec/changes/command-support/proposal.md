@@ -50,7 +50,7 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
   - **Plain text** — Kiro
 - **Variable substitution normalization** — the portable manifest uses a canonical argument syntax; renderers translate to each agent's native syntax (`$ARGUMENTS`, `{{args}}`, `${input:name}`, `$argName`, etc.).
 - **Registry** — registry API and publish flow already support the `command` extension type; command-specific metadata fields are added to the payload.
-- **Settings schema** — `SettingsSchema` adds `commands: Record<string, CommandEntry>`.
+- **Settings schema** — `SettingsSchema` adds `commands: Record<string, CommandSettingsEntry>`.
 - **Workspace reconciliation** — reconciliation engine handles command install/uninstall/sync across agents.
 - **Packs** — pack manifest schema and resolution logic gain full command metadata support.
 - **CLI surface** — new `axm commands` parent command with install, uninstall, list, enable, disable, new, publish subcommands. Per-agent install granularity follows the existing skills pattern (agents configured in settings).
@@ -87,7 +87,7 @@ All 11 in-scope agents support user-scope commands. 10 of 11 also support projec
 - **Name collisions error on install.** Installing a command whose name matches an already-installed command requires `--force`. Collisions with agent built-in commands are not detected — AXM does not maintain built-in command lists per agent. If a command shadows a built-in, the agent decides the behavior.
 - **Namespace support is deferred.** Flat names only for v1. Directory-based namespacing (Gemini, Augment) is a follow-on.
 - **Import from native format is deferred.** `axm commands new` scaffolds from scratch. Native → portable import is inherently lossy and complex; re-rendering portable → native is the designed direction.
-- **Rendered files include a managed-by header with sync timestamp.** `<!-- Managed by axm — last synced 2026-04-06T12:00:00Z -->` (or TOML/plain text equivalent). The timestamp records when the file was last written by AXM. Drift detection (manual edits to managed files) is not handled — sync always overwrites.
+- **Rendered files include a static managed-by marker with CLI help hint.** `<!-- Managed by axm — see "axm commands --help" -->` (or format-appropriate equivalent: `# Managed by axm — see "axm commands --help"` for TOML/text). The marker identifies AXM ownership and points users to the relevant CLI help. No timestamp — source hash in the lockfile tracks staleness. Drift detection is not handled — sync always overwrites.
 - **Deprecation of agent command paths is an adapter concern.** If Claude Code or Codex removes deprecated command paths, the adapter is updated. The portable manifest is the source of truth; re-rendering to a new path is trivial.
 - **`agentOverrides` schema is `Record<AgentId, Record<string, unknown>>`**, validated per-adapter. Each adapter knows which override keys it accepts and ignores the rest. Overrides can contain any field the agent natively supports (Claude Code `hooks`, Gemini TOML fields, Roo `mode`, etc.). Known override keys are documented per agent in the spec.
 
@@ -577,6 +577,8 @@ Project commands override global commands with same name.
 ---
 
 ## Appendix: AXM Managed Format (Draft)
+
+> **Superseded by design.** The format below reflects the original proposal where the manifest was the sole source of truth. The alignment analysis (finding 1) and design (decision 3) changed this: COMMAND.md frontmatter is now the source of truth for authoring/behavioral fields; the manifest holds packaging/distribution fields only. See design decision 3 and the delta spec for the current model.
 
 ### Manifest File
 

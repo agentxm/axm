@@ -274,11 +274,11 @@ The agent config step uses `Effect.forEach(..., { concurrency: "unbounded" })` t
 
 Enable/disable controls whether an installed MCP server is actively configured in agent config files, without removing it from the axm lockfile or deleting the canonical directory.
 
-**State tracking:** Rename the settings key from `mcp-servers` to `mcpServers` (aligning with the lockfile key and camelCase convention for multi-word keys). Upgrade from `NonSkillExtensionsMapSchema` (`Record<string, string>`, name → version specifier) to a new `McpServersMapSchema` supporting an object form with `enabled` state and resolved env values. Follows the existing `SkillEntry` pattern:
+**State tracking:** Rename the settings key from `mcp-servers` to `mcpServers` (aligning with the lockfile key and camelCase convention for multi-word keys). Upgrade from `NonSkillExtensionsMapSchema` (`Record<string, string>`, name → version specifier) to a new `McpServerSettingsEntrySchema` supporting an object form with `enabled` state and resolved env values. Each extension type defines its own entry schema aligned on the `string | { source, enabled? }` baseline; MCP servers extend it with `env`:
 
 ```typescript
 // New: MCP server entry in settings can be string or object
-McpServerEntrySchema = Schema.Union(
+McpServerSettingsEntrySchema = Schema.Union(
   Schema.String, // "^1.0.0" — enabled by default, no env
   Schema.Struct({
     source: Schema.String, // version specifier (e.g., "^1.0.0")
@@ -314,23 +314,23 @@ The canonical directory with the manifest stays on disk for both operations — 
 
 **Why a settings flag over a lockfile flag:** Settings is the user-facing, editable config. Lockfile is the resolved, reproducible state. Enable/disable is a user preference, not a resolution detail.
 
-**Normalized entry pattern:** Following the `SkillEntry` → `NormalizedSkillEntry` pattern, introduce `NormalizedMcpServerEntry` as the canonical internal representation:
+**Normalized entry pattern:** Following the normalize/collapse pattern established for skills, introduce `NormalizedMcpServerSettingsEntry` as the canonical internal representation:
 
 ```typescript
-interface NormalizedMcpServerEntry {
+interface NormalizedMcpServerSettingsEntry {
   readonly source: Option.Option<string>;
   readonly enabled: boolean;
   readonly env: Record.ReadonlyRecord<string, string>;
 }
 ```
 
-With `normalizeMcpServerEntry` (settings form → normalized) and `collapseMcpServerEntry` (normalized → settings form) functions. The collapsed form uses the compact string when `enabled: true` and `env` is empty. Scope (project vs user) is determined by the workspace service's `global` flag, not stored per-entry.
+With `normalizeMcpServerSettingsEntry` (settings form → normalized) and `collapseMcpServerSettingsEntry` (normalized → settings form) functions. The collapsed form uses the compact string when `enabled: true` and `env` is empty. Scope (project vs user) is determined by the workspace service's `global` flag, not stored per-entry.
 
 **Workspace service methods:** New methods on `WorkspaceContextService` following the existing skill pattern:
 
 ```typescript
 // Reading
-readonly getConfiguredMcpServers: () => Effect<Record.ReadonlyRecord<string, NormalizedMcpServerEntry>, AppError>;
+readonly getConfiguredMcpServers: () => Effect<Record.ReadonlyRecord<string, NormalizedMcpServerSettingsEntry>, AppError>;
 readonly getLockedMcpServers: () => Effect<McpServersLockMap, AppError>;
 readonly getLockedMcpServer: (name: string) => Effect<Option<McpServerLockEntry>, AppError>;
 
@@ -338,11 +338,11 @@ readonly getLockedMcpServer: (name: string) => Effect<Option<McpServerLockEntry>
 readonly setMcpServer: (args: SetMcpServerArgs) => Effect<void, AppError>;
 readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect<void, AppError>;
 readonly removeMcpServer: (name: string) => Effect<void, AppError>;
-readonly updateMcpServerEntry: (name: string, updater: (entry: NormalizedMcpServerEntry) => NormalizedMcpServerEntry) => Effect<void, AppError>;
-readonly setMcpServerEntry: (name: string, entry: NormalizedMcpServerEntry) => Effect<void, AppError>;
+readonly updateMcpServerSettingsEntry: (name: string, updater: (entry: NormalizedMcpServerSettingsEntry) => NormalizedMcpServerSettingsEntry) => Effect<void, AppError>;
+readonly setMcpServerSettingsEntry: (name: string, entry: NormalizedMcpServerSettingsEntry) => Effect<void, AppError>;
 ```
 
-`setMcpServer` and `setMcpServerLock` already exist in the workspace service. New additions: `getConfiguredMcpServers`, `getLockedMcpServers`, `getLockedMcpServer`, `updateMcpServerEntry`, and `setMcpServerEntry`. `updateMcpServerEntry` is the key method for enable/disable — it normalizes, applies the updater, and collapses back to settings form.
+`setMcpServer` and `setMcpServerLock` already exist in the workspace service. New additions: `getConfiguredMcpServers`, `getLockedMcpServers`, `getLockedMcpServer`, `updateMcpServerSettingsEntry`, and `setMcpServerSettingsEntry`. `updateMcpServerSettingsEntry` is the key method for enable/disable — it normalizes, applies the updater, and collapses back to settings form.
 
 ### 7. CLI command structure
 
@@ -865,7 +865,7 @@ const installMcpServer: OperationHandler<InstallMcpServerOperation, ...> = (op) 
 
     // 7. Store resolved env values in settings entry
     if (Object.keys(envValues).length > 0) {
-      yield* ws.updateMcpServerEntry(ref.server.name, (e) => ({ ...e, env: envValues }))
+      yield* ws.updateMcpServerSettingsEntry(ref.server.name, (e) => ({ ...e, env: envValues }))
     }
 
     // 8. Write to all configured agents (concurrent)
@@ -1114,7 +1114,7 @@ const enableMcpServer: OperationHandler<EnableMcpServerOperation, ...> = (op) =>
     )
 
     // 5. Update settings: set enabled: true
-    yield* ws.updateMcpServerEntry(op.args.serverName, (e) => ({ ...e, enabled: true }))
+    yield* ws.updateMcpServerSettingsEntry(op.args.serverName, (e) => ({ ...e, enabled: true }))
       .pipe(Effect.catchAll(() => Effect.void))
 
     return { result: "success", message: `Enabled ${op.args.serverName}` } satisfies OperationResult
@@ -1217,7 +1217,7 @@ const disableMcpServer: OperationHandler<DisableMcpServerOperation, ...> = (op) 
     )
 
     // 3. Update settings: set enabled: false
-    yield* ws.updateMcpServerEntry(op.args.serverName, (e) => ({ ...e, enabled: false }))
+    yield* ws.updateMcpServerSettingsEntry(op.args.serverName, (e) => ({ ...e, enabled: false }))
       .pipe(Effect.catchAll(() => Effect.void))
 
     return { result: "success", message: `Disabled ${op.args.serverName}` } satisfies OperationResult
@@ -1517,7 +1517,7 @@ const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerAr
   );
 
   // 7. Register in settings
-  yield* ws.setMcpServerEntry(args.name, {
+  yield* ws.setMcpServerSettingsEntry(args.name, {
     source: Option.some(fqn),
     enabled: true,
     env: {},

@@ -3,6 +3,8 @@
 Companion reference for the [subagent-support proposal](./proposal.md). Contains detailed per-agent field tables, file paths, built-in subagents, and notable behaviors for all 11 in-scope agents plus 4 out-of-scope agents with subagent support.
 
 > **Sourcing methodology.** Field tables are sourced from official documentation where available. Fields documented from community sources, changelogs, or source code inspection are noted with a confidence indicator where certainty varies (see Cursor section for an example). Documentation URLs were verified at time of writing; agent ecosystems move fast and links may drift.
+>
+> **Last verified:** 2026-04-06
 
 ## Agent Inventory
 

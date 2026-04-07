@@ -10,13 +10,13 @@
 - **AND** `code-reviewer` is in settings with `enabled: true`
 - **THEN** the sync engine SHALL read `.axm/extensions/.../SUBAGENT.md`
 - **AND** SHALL render agent-native files for each configured agent
-- **AND** SHALL compute content hashes and update `renderedFiles` in the lockfile
+- **AND** SHALL update the entry-level `sourceHash` and `renderedFiles` paths in the lockfile
 
-#### Scenario: Skip write when content unchanged
+#### Scenario: Skip re-render when source unchanged
 
-- **WHEN** `axm sync` renders a subagent
-- **AND** the rendered content hash matches the lockfile hash
-- **THEN** the sync engine SHOULD skip the file write (optimization)
+- **WHEN** `axm sync` computes the source hash of SUBAGENT.md
+- **AND** the hash matches the lockfile's entry-level `sourceHash`
+- **THEN** the sync engine SHOULD skip re-rendering for that subagent (optimization)
 
 ### Requirement: Frontmatter-to-manifest sync during reconciliation
 
@@ -28,22 +28,22 @@
 - **AND** SUBAGENT.md frontmatter has `model: "fast"` but manifest has `model: "default"`
 - **THEN** sync SHALL update the manifest to `model: "fast"`
 
-### Requirement: Drift detection and re-rendering
+### Requirement: Re-rendering on source change
 
-`axm sync` SHALL detect drift by comparing rendered file content hashes against lockfile values. Drifted files SHALL be re-rendered with a warning.
+`axm sync` SHALL re-render subagent files when the source has changed (source hash mismatch). Rendered files with the managed marker are always overwritten — there is no per-file drift detection via content hashing. Manually edited rendered files are overwritten when the source changes; to stop AXM from managing a file, uninstall or disable the extension.
 
-#### Scenario: Drifted file re-rendered
-
-- **WHEN** `axm sync` runs
-- **AND** `.claude/agents/code-reviewer.md` has been manually modified (hash differs from lockfile)
-- **THEN** sync SHALL re-render the file from the canonical source
-- **AND** SHALL warn: `Re-rendered .claude/agents/code-reviewer.md (local modifications overwritten)`
-
-#### Scenario: Non-drifted files preserved
+#### Scenario: Source changed, rendered file re-rendered
 
 - **WHEN** `axm sync` runs
-- **AND** all rendered files match their lockfile hashes
-- **THEN** sync SHALL either skip writes or write identical content
+- **AND** the SUBAGENT.md source hash differs from the lockfile's `sourceHash`
+- **THEN** sync SHALL re-render agent-native files for all configured agents
+- **AND** SHALL overwrite rendered files that contain the managed marker
+
+#### Scenario: Source unchanged, rendering skipped
+
+- **WHEN** `axm sync` runs
+- **AND** the SUBAGENT.md source hash matches the lockfile's `sourceHash`
+- **THEN** sync SHALL skip re-rendering for that subagent (optimization)
 
 ### Requirement: Agent list change reconciliation
 

@@ -2,7 +2,7 @@
 
 ### Requirement: Subagent manifest schema
 
-The subagent manifest (`axm-subagent.json`) SHALL extend `CommonManifestFields` with subagent-specific fields:
+The subagent manifest (`subagent.json`) SHALL extend `CommonManifestFields` with subagent-specific fields:
 
 - `model`: optional string enum (`"fast"` | `"default"` | `"powerful"` | `"inherit"`) or concrete model ID string, default `"default"`. Agents map abstract tiers to native model values; concrete IDs pass through verbatim.
 - `toolAccess`: optional string enum (`"full"` | `"readonly"` | `"none"`), default `"full"`. Controls the portable tool access level rendered into each agent's native format.
@@ -11,23 +11,23 @@ The subagent manifest (`axm-subagent.json`) SHALL extend `CommonManifestFields` 
 
 #### Scenario: Valid manifest with all subagent-specific fields
 
-- **WHEN** `axm-subagent.json` contains `model: "powerful"`, `toolAccess: "readonly"`, `background: true`, `agents: ["claude-code", "cursor"]`
+- **WHEN** `subagent.json` contains `model: "powerful"`, `toolAccess: "readonly"`, `background: true`, `agents: ["claude-code", "cursor"]`
 - **THEN** manifest validation SHALL succeed
 
 #### Scenario: Valid manifest with minimal fields
 
-- **WHEN** `axm-subagent.json` contains only `CommonManifestFields` with `type: "subagent"` and no subagent-specific fields
+- **WHEN** `subagent.json` contains only `CommonManifestFields` with `type: "subagent"` and no subagent-specific fields
 - **THEN** manifest validation SHALL succeed with defaults applied (`model: "default"`, `toolAccess: "full"`, `background: false`)
 
 #### Scenario: Concrete model ID accepted
 
-- **WHEN** `axm-subagent.json` contains `model: "claude-opus-4-6"`
+- **WHEN** `subagent.json` contains `model: "claude-opus-4-6"`
 - **THEN** manifest validation SHALL succeed
 - **AND** the model value SHALL pass through verbatim to agent adapters
 
 #### Scenario: Invalid toolAccess rejected
 
-- **WHEN** `axm-subagent.json` contains `toolAccess: "limited"`
+- **WHEN** `subagent.json` contains `toolAccess: "limited"`
 - **THEN** manifest validation SHALL fail with an error indicating the valid values
 
 ### Requirement: Subagent content file (SUBAGENT.md)
@@ -45,14 +45,14 @@ SUBAGENT.md frontmatter SHALL support these fields:
 
 #### Scenario: SUBAGENT.md with frontmatter and body
 
-- **WHEN** a subagent package contains `axm-subagent.json` and `src/SUBAGENT.md`
+- **WHEN** a subagent package contains `subagent.json` and `src/SUBAGENT.md`
 - **AND** `SUBAGENT.md` has YAML frontmatter with `name`, `description`, and a Markdown body
 - **THEN** the frontmatter SHALL be parsed for portable metadata
 - **AND** the Markdown body SHALL be used as the subagent's instructions/system prompt
 
 #### Scenario: Missing SUBAGENT.md
 
-- **WHEN** a subagent package contains `axm-subagent.json` but no `src/SUBAGENT.md`
+- **WHEN** a subagent package contains `subagent.json` but no `src/SUBAGENT.md`
 - **THEN** materialization SHALL fail with an error indicating the content file is missing
 
 #### Scenario: SUBAGENT.md with agent-specific overrides
@@ -76,14 +76,14 @@ Between sync points, local edits to SUBAGENT.md frontmatter may drift from the m
 #### Scenario: Sync overwrites manifest from frontmatter
 
 - **WHEN** `SUBAGENT.md` frontmatter has `description: "Updated description"`
-- **AND** `axm-subagent.json` has `description: "Old description"`
+- **AND** `subagent.json` has `description: "Old description"`
 - **AND** `axm sync` is run
-- **THEN** `axm-subagent.json` SHALL be updated to `description: "Updated description"`
+- **THEN** `subagent.json` SHALL be updated to `description: "Updated description"`
 
 #### Scenario: Publish syncs before upload
 
 - **WHEN** `SUBAGENT.md` frontmatter has `model: "fast"`
-- **AND** `axm-subagent.json` has `model: "default"`
+- **AND** `subagent.json` has `model: "default"`
 - **AND** `axm subagents publish` is run
 - **THEN** the manifest SHALL be synced to `model: "fast"` before the upload occurs
 
@@ -124,7 +124,42 @@ The format families SHALL be:
 - **THEN** the renderer SHALL merge a mode entry into `.roomodes`
 - **AND** the body's first paragraph SHALL become `roleDefinition`
 - **AND** the remainder SHALL become `customInstructions`
-- **AND** the mode entry SHALL include `"_axm_managed": true`
+- **AND** the mode entry SHALL include `"_axm_managed": "axm subagents --help"`
+
+#### Scenario: Roo Code body split with single paragraph
+
+- **WHEN** rendering a subagent for Roo Code
+- **AND** the SUBAGENT.md body contains only a single paragraph (no blank line)
+- **THEN** the entire body SHALL become `roleDefinition`
+- **AND** `customInstructions` SHALL be empty or omitted
+
+#### Scenario: Codex TOML multiline instructions
+
+- **WHEN** rendering a subagent for Codex
+- **AND** the SUBAGENT.md body contains multiple lines and Markdown formatting
+- **THEN** the `developer_instructions` TOML field SHALL use a multiline literal string (triple-quoted `"""..."""`)
+- **AND** the Markdown content SHALL be preserved verbatim (no escaping of `#`, `*`, etc.)
+
+#### Scenario: Managed marker survives formatter reformatting
+
+- **WHEN** a rendered Markdown file is reformatted by Prettier or an editor
+- **THEN** the HTML comment `<!-- Managed by axm — see "axm subagents --help" -->` SHALL remain on the first line
+- **AND** sync SHALL still recognize the file as AXM-managed
+
+#### Scenario: Override and portable field set same native field
+
+- **WHEN** a subagent has `toolAccess: "readonly"` (portable)
+- **AND** `overrides: { "claude-code": { "disallowedTools": "Write" } }` (agent-native)
+- **AND** rendering for Claude Code
+- **THEN** the override value SHALL take precedence — rendered frontmatter SHALL contain `disallowedTools: Write` (not the portable mapping of `Edit,Write,Bash`)
+
+#### Scenario: Partial render failure keeps successful renders
+
+- **WHEN** rendering a subagent for agents `["claude-code", "codex", "cursor"]`
+- **AND** Codex rendering fails (e.g., TOML serialization error)
+- **THEN** Claude Code and Cursor rendered files SHALL be written successfully
+- **AND** the error for Codex SHALL be reported
+- **AND** the lockfile `renderedFiles` SHALL include entries for Claude Code and Cursor but NOT Codex
 
 ### Requirement: Model tier mapping
 
@@ -210,29 +245,29 @@ When SUBAGENT.md frontmatter contains an `overrides` map, the agent adapter SHAL
 
 ### Requirement: Managed-file header
 
-Each rendered subagent file SHALL start with a managed-by header appropriate to its format:
+Each rendered subagent file SHALL start with a static managed-by header appropriate to its format. The header identifies AXM ownership and points to the relevant CLI help for discoverability.
 
-| Format                  | Header                                            |
-| ----------------------- | ------------------------------------------------- |
-| Markdown (all variants) | `<!-- managed by axm -- do not edit -->`          |
-| TOML                    | `# managed by axm -- do not edit`                 |
-| JSON (Kiro CLI)         | `"_axm_managed": true` metadata field             |
-| Roo `.roomodes`         | `"_axm_managed": true` on each managed mode entry |
+| Format                  | Header                                                              |
+| ----------------------- | ------------------------------------------------------------------- |
+| Markdown (all variants) | `<!-- Managed by axm — see "axm subagents --help" -->`              |
+| TOML                    | `# Managed by axm — see "axm subagents --help"`                     |
+| JSON (Kiro CLI)         | `"_axm_managed": "axm subagents --help"` metadata field             |
+| Roo `.roomodes`         | `"_axm_managed": "axm subagents --help"` on each managed mode entry |
 
 #### Scenario: Markdown rendered file includes managed header
 
 - **WHEN** a subagent is rendered for Claude Code
-- **THEN** the first line of the rendered file SHALL be `<!-- managed by axm -- do not edit -->`
+- **THEN** the first line of the rendered file SHALL be `<!-- Managed by axm — see "axm subagents --help" -->`
 
 #### Scenario: TOML rendered file includes managed header
 
 - **WHEN** a subagent is rendered for Codex
-- **THEN** the first line of the rendered file SHALL be `# managed by axm -- do not edit`
+- **THEN** the first line of the rendered file SHALL be `# Managed by axm — see "axm subagents --help"`
 
 #### Scenario: JSON managed marker
 
 - **WHEN** a subagent is rendered for Kiro CLI
-- **THEN** the rendered JSON SHALL contain `"_axm_managed": true`
+- **THEN** the rendered JSON SHALL contain `"_axm_managed": "axm subagents --help"`
 
 ### Requirement: Kiro dual-format rendering
 
@@ -251,17 +286,17 @@ Kiro SHALL produce two rendered files per subagent: a `.md` file for the IDE and
 
 ### Requirement: Roo Code read-modify-write
 
-When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes. Each AXM-managed mode entry SHALL include `"_axm_managed": true` to distinguish it from manual entries.
+When rendering for Roo Code, the adapter SHALL use read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope), preserving manually-defined modes. Each AXM-managed mode entry SHALL include `"_axm_managed": "axm subagents --help"` to distinguish it from manual entries.
 
 #### Scenario: Existing manual modes preserved
 
 - **WHEN** `.roomodes` contains a manually-defined mode `"architect"`
 - **AND** a subagent `code-reviewer` is rendered for Roo Code
-- **THEN** `.roomodes` SHALL contain both the `architect` mode (unchanged) and the `code-reviewer` mode (with `"_axm_managed": true`)
+- **THEN** `.roomodes` SHALL contain both the `architect` mode (unchanged) and the `code-reviewer` mode (with `"_axm_managed": "axm subagents --help"`)
 
 #### Scenario: Managed mode updated on re-render
 
-- **WHEN** `.roomodes` contains an AXM-managed mode `code-reviewer` with `"_axm_managed": true`
+- **WHEN** `.roomodes` contains an AXM-managed mode `code-reviewer` with `"_axm_managed": "axm subagents --help"`
 - **AND** the subagent's instructions have changed
 - **THEN** re-rendering SHALL update only the `code-reviewer` entry
 - **AND** manual modes SHALL remain unchanged
@@ -334,24 +369,36 @@ Subagent rendering SHALL respect workspace scope. Project scope renders to proje
 
 ### Requirement: Lockfile subagent entries
 
-`SubagentLockEntry` SHALL include a `renderedFiles` map tracking per-agent rendered paths and content hashes for drift detection. The `renderedFiles` map SHALL be keyed by agent ID and contain `path` and `contentHash` fields.
+`SubagentLockEntry` SHALL include:
 
-#### Scenario: Lock entry records rendered files
+- An entry-level `sourceHash` — hash of SUBAGENT.md portable inputs (frontmatter + body). Used to decide whether re-rendering is needed. Entry-level because all agents share the same canonical source
+- A `renderedFiles` map keyed by agent ID, where each value is an array of `{ path }` objects tracking rendered file locations
+
+This is the same shared rendered-file tracking model used by `CommandLockEntry` and `SkillLockEntry` (copy mode), defined in the shared `RenderedFilesMapSchema`. No per-agent `contentHash` — drift detection uses the managed marker and source hash, not output hashing.
+
+#### Scenario: Lock entry records source hash and rendered files
 
 - **WHEN** a subagent is installed to a workspace with agents `["claude-code", "cursor"]`
-- **THEN** the lockfile entry SHALL include `renderedFiles: { "claude-code": { "path": ".claude/agents/<name>.md", "contentHash": "sha256:..." }, "cursor": { "path": ".cursor/agents/<name>.md", "contentHash": "sha256:..." } }`
+- **THEN** the lockfile entry SHALL include `sourceHash: "sha256:..."` at the entry level
+- **AND** SHALL include `renderedFiles: { "claude-code": [{ "path": ".claude/agents/<name>.md" }], "cursor": [{ "path": ".cursor/agents/<name>.md" }] }`
 
 #### Scenario: Kiro lock entry has multiple rendered files
 
 - **WHEN** a subagent is installed with Kiro configured
-- **THEN** the lockfile `renderedFiles` for `kiro` SHALL be an array of entries for both the `.md` and `.json` files
+- **THEN** the lockfile `renderedFiles` for `kiro` SHALL be an array containing entries for both the `.md` and `.json` files: `[{ "path": ".kiro/agents/<name>.md" }, { "path": ".kiro/agents/<name>.json" }]`
 
-#### Scenario: Content hash enables drift detection
+#### Scenario: Source hash enables re-render skip
 
-- **WHEN** a rendered file is manually modified after install
-- **AND** `axm sync` computes the current file's hash
-- **THEN** the hash SHALL differ from the lockfile's `contentHash`
-- **AND** sync SHALL detect the drift
+- **WHEN** `axm sync` computes the current SUBAGENT.md source hash
+- **AND** the hash matches the lockfile's `sourceHash`
+- **THEN** sync SHALL skip re-rendering for that subagent (optimization)
+
+#### Scenario: Source hash mismatch triggers re-render
+
+- **WHEN** `axm sync` computes the current SUBAGENT.md source hash
+- **AND** the hash differs from the lockfile's `sourceHash`
+- **THEN** sync SHALL re-render the subagent to all configured agents
+- **AND** SHALL overwrite rendered files that have the managed marker (including manually edited ones)
 
 ### Requirement: Lossy rendering warnings
 
@@ -403,7 +450,7 @@ A subagent extension SHALL follow this directory layout within `.axm/extensions/
 
 ```
 .axm/extensions/<owner>/subagents/<name>/
-  axm-subagent.json          # Manifest
+  subagent.json          # Manifest
   src/
     SUBAGENT.md              # Instructions
 ```
@@ -411,7 +458,7 @@ A subagent extension SHALL follow this directory layout within `.axm/extensions/
 #### Scenario: Standard layout resolved
 
 - **WHEN** AXM resolves a subagent extension at `@acme/subagents/code-reviewer`
-- **THEN** the manifest SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/axm-subagent.json`
+- **THEN** the manifest SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/subagent.json`
 - **AND** the content file SHALL be at `.axm/extensions/@acme/subagents/code-reviewer/src/SUBAGENT.md`
 
 ### Requirement: FQN segment

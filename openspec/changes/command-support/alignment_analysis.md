@@ -32,11 +32,32 @@ d) **Hybrid: manifest is always source of truth** but content files MAY have
 frontmatter as convenience that syncs FROM manifest (opposite of current
 subagent direction)
 
-**Recommendation:** (c) or (d) — The subagent rationale is sound (authors
-iterate on system prompt + behavioral config together), but having frontmatter
-sync in opposite directions between types will confuse contributors. If keeping
-both, document the "why" explicitly in each design. Option (d) is the cleanest
-mental model if frontmatter is desired for authoring convenience.
+**Decision: (b) — Content file is SOT for authoring; manifest is SOT for
+packaging/distribution.** This aligns both commands and subagents to a single
+model and matches the dominant industry practice (7 of 11 agents use
+frontmatter in the command file for behavioral config).
+
+The dividing line: "Is this about what the extension does, or about how it's
+packaged and distributed?"
+
+Content file frontmatter (SOT — authoring):
+
+- `description`
+- `model`
+- `allowedTools` / `toolAccess`
+- `isolatedContext`
+- `arguments`
+
+Manifest (SOT — packaging/distribution):
+
+- `name`
+- `version`
+- `agents` (which agents to render for)
+- `agentOverrides` (per-agent rendering tweaks)
+
+The manifest may contain copies of frontmatter fields for registry/tooling use,
+but they are derived from the content file during build/publish — never edited
+directly in the manifest. This applies uniformly to commands and subagents.
 
 ---
 
@@ -44,29 +65,34 @@ mental model if frontmatter is desired for authoring convenience.
 
 Currently in the settings schema (`packages/core/src/unstable/settings/schema.ts`):
 
-| Extension   | Schema                        | Entry format                     | Supports `enabled`? |
-| ----------- | ----------------------------- | -------------------------------- | ------------------- |
-| Skills      | `SkillsMapSchema`             | `string \| { source, enabled? }` | Yes                 |
-| Commands    | `NonSkillExtensionsMapSchema` | `string` (version specifier)     | **No**              |
-| MCP Servers | `NonSkillExtensionsMapSchema` | `string` (version specifier)     | **No**              |
-| Packs       | `PacksMapSchema`              | `string \| { source }`           | **No**              |
+| Extension   | Schema                | Entry format                     | Supports `enabled`? |
+| ----------- | --------------------- | -------------------------------- | ------------------- |
+| Skills      | `SkillsMapSchema`     | `string \| { source, enabled? }` | Yes                 |
+| Commands    | `CommandsMapSchema`   | `string` (version specifier)     | **No**              |
+| MCP Servers | `McpServersMapSchema` | `string` (version specifier)     | **No**              |
+| Packs       | `PacksMapSchema`      | `string \| { source }`           | **No**              |
 
 The command-support proposal specifies `axm commands enable/disable` and the
 subagent-support proposal specifies `axm subagents enable/disable` — both need
-an `enabled` field in settings. The current `NonSkillExtensionsMapSchema =
-Record(String, String)` cannot represent this.
+an `enabled` field in settings. `CommandsMapSchema` and `McpServersMapSchema`
+are both `Record(String, String)` and cannot represent this.
 
-a) **Promote all extension types to the skills-style entry schema** —
-`string | { source, enabled? }` for commands, subagents, MCP servers
-b) **Create per-type entry schemas** — each type gets its own entry shape
-(risks further divergence)
+a) **Promote all extension types to the skills-style entry schema** — reuse
+`SkillSettingsEntrySchema` (`string | { source, enabled? }`) for commands, subagents,
+MCP servers
+b) **Per-type entry schemas following a shared pattern** — each type defines
+its own schema with `string | { source, enabled? }` as the common baseline,
+free to add type-specific fields (e.g. MCP servers add `env`)
 c) **Unified `ExtensionEntrySchema`** — one shared entry schema used by all
 extension types
 
-**Recommendation:** (a) — The skills entry schema is already proven. Commands
-and subagents need `enabled` for their proposed enable/disable commands. Using
-the same `string | { source, enabled? }` pattern avoids inventing something new.
-The naming `NonSkillExtensionsMapSchema` already signals this was a stopgap.
+**Decision: (b) — Each extension type defines its own entry schema, aligned on
+the `string | { source, enabled? }` baseline.** The common fields (`source`,
+`enabled`) follow the same pattern across all types, but each type owns its
+schema and can extend it with type-specific fields. MCP servers already need
+`env` for environment variable persistence; other types may grow their own
+fields over time. A single shared schema would either be too generic or
+accumulate fields irrelevant to most types.
 
 ---
 
@@ -91,9 +117,9 @@ b) **Add `agents` to ALL extension types** universally (including MCP
 servers), for consistency even if not immediately needed
 c) **Keep current state** — add `agents` only where the design says to
 
-**Recommendation:** (a) — Both designs already call for it. Implement it for
-commands and subagents. MCP servers can stay on `BaseCommonFields` until they
-need per-agent tracking.
+**Decision: (a) — Add `agents` to commands and subagents during
+implementation.** Both designs already call for it. MCP servers stay on
+`BaseCommonFields` until they need per-agent tracking.
 
 ---
 
@@ -122,10 +148,33 @@ on real-world pain
 c) **Shared rendered-extension infrastructure** — extract the
 renderedFiles/drift/conflict pattern into shared types used by both
 
-**Recommendation:** (c) — The pattern is identical. Designing it once as a
-shared concern (perhaps in the lockfile schema or a `RenderedExtensionFields`
-type) prevents commands from shipping with a known gap and avoids duplicating
-the design later.
+**Decision: (c) with a revised tracking model.** Shared infrastructure for both
+commands and subagents, but with a simpler approach than the original subagent
+proposal:
+
+- **Managed-by marker** in rendered files (format-appropriate, e.g.
+  `<!-- Managed by axm — see "axm <type> --help" -->` for markdown,
+  `# Managed by axm — see "axm <type> --help"` for TOML/text,
+  `"_axm_managed": "axm <type> --help"` for JSON).
+  Static — no timestamp or hash in the file itself. The marker identifies AXM
+  ownership and points to the relevant CLI help for discoverability.
+- **Source hash** in the lockfile — hash of the portable inputs (content file +
+  relevant manifest fields), not the rendered output. Used to decide when
+  re-rendering is needed. Avoids false drift from Prettier/editor reformatting.
+- **Rendered file paths** tracked in the lockfile per agent for clean
+  uninstall/sync.
+
+Lifecycle rules:
+
+- **Install**: file exists without marker → conflict, block unless `--force`.
+  File exists with marker → re-render. File doesn't exist → render with marker.
+- **Sync**: marker present → re-render when source hash changes, overwrite.
+  File missing but extension installed → re-render (recreate).
+- **Uninstall/disable**: delete all rendered files axm created.
+
+No "user took ownership by removing the marker" state. The extension is either
+installed or it isn't — `settings.json` is the single source of truth for that.
+To stop managing a file, uninstall or disable the extension via the CLI.
 
 ---
 
@@ -156,9 +205,11 @@ upstream fixes
 c) **Add update to commands, keep rename as non-goal** — update is essential;
 rename is genuinely optional for commands
 
-**Recommendation:** (c) — `update` is a fundamental lifecycle operation. Without
-it, users must `uninstall` + `reinstall` to get fixes, losing any agent
-configuration. `rename` and `fork` are less critical for commands.
+**Decision: (c) — Add `update` to commands in the initial implementation.**
+It's a standard lifecycle primitive, enables batch updates, and matches user
+expectations from skills/subagents. `rename` and `fork` remain non-goals —
+commands are short prompt files where writing from scratch is easier than
+forking.
 
 ---
 
@@ -182,9 +233,9 @@ for an agent, it's supported
 c) **Accept the gap** — commands render to all configured agents;
 lossy-rendering warnings serve as the signal
 
-**Recommendation:** (a) — The `agents` field is a simple, proven pattern already
-in skills and subagents. Without it, command authors have no way to express
-agent compatibility in the manifest.
+**Decision: (a) — Add `agents` filter to command manifest.** Consistent with
+skills and subagents. Without it, command authors cannot express agent
+compatibility constraints.
 
 ---
 
@@ -207,10 +258,15 @@ maybe it's not needed for subagents either
 c) **Add `--preview` to both, retroactively to skills** — establish it as a
 universal flag for state-changing operations
 
-**Recommendation:** (c) — `--preview` is useful for any operation that modifies
-agent files. Making it a standard flag across all extension types gives users a
-consistent way to inspect before committing. This is especially important for
-rendered extensions (commands/subagents) where the output varies by agent.
+**Decision: (c) — Standardize `--preview` across all extension types
+(skills, commands, subagents) on workspace state-changing operations.**
+
+Applies to: `install`, `uninstall`, `update`, `enable`, `disable`, `sync`.
+Does not apply to: `new`, `publish`, `rename`, `fork` (authoring/registry
+operations, not workspace state changes).
+
+Skills benefit too — they render (rather than symlink) on systems without
+symlink support, so `--preview` is useful there as well.
 
 ---
 
@@ -227,25 +283,26 @@ added to the FQN pattern, and `subagent` (singular) to the `ExtensionTypeSchema`
 a) **Add during subagent implementation** — natural part of the work
 b) **Add now as preparation** — unblock parallel development
 
-**Recommendation:** (a) — No need to add stubs prematurely. The implementation
-will naturally add these.
+**Decision: (a) — No action needed.** `subagent` is already in the
+`extensionTypes` array. The FQN pattern will be updated naturally during
+subagent implementation.
 
 ---
 
 ## Summary of recommendations
 
-| #   | Finding                                                            | Action                                                                          |
-| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| 1   | Content file source-of-truth divergence                            | Document rationale explicitly or standardize on manifest-as-source-of-truth     |
-| 2   | Settings entry schema can't represent `enabled` for cmds/subagents | Promote commands and subagents to `string \| { source, enabled? }` entry schema |
-| 3   | Lockfile `agents` array missing from commands                      | Add during command-support implementation (already in design)                   |
-| 4   | Rendered file tracking only in subagents                           | Extract shared `RenderedExtensionFields` for both commands and subagents        |
-| 5   | Commands missing `update` subcommand                               | Add `update`; keep `rename`/`fork` as non-goals                                 |
-| 6   | Commands missing manifest `agents` filter                          | Add `agents` field to command manifest                                          |
-| 7   | `--preview` flag only on subagents                                 | Standardize `--preview` across all extension types                              |
-| 8   | FQN/ExtensionType don't include subagent                           | Add during implementation                                                       |
+| #   | Finding                                                            | Action                                                                                   |
+| --- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 1   | Content file source-of-truth divergence                            | **Decided:** Content file is SOT for authoring; manifest is SOT for packaging            |
+| 2   | Settings entry schema can't represent `enabled` for cmds/subagents | **Decided:** Per-type entry schemas aligned on `string \| { source, enabled? }` baseline |
+| 3   | Lockfile `agents` array missing from commands                      | **Decided:** Add during implementation (already in both designs)                         |
+| 4   | Rendered file tracking only in subagents                           | **Decided:** Shared infra, marker + source hash, no output hash                          |
+| 5   | Commands missing `update` subcommand                               | **Decided:** Add `update`; keep `rename`/`fork` as non-goals                             |
+| 6   | Commands missing manifest `agents` filter                          | **Decided:** Add `agents` field to command manifest                                      |
+| 7   | `--preview` flag only on subagents                                 | **Decided:** Standardize `--preview` on state-changing ops, all extension types          |
+| 8   | FQN/ExtensionType don't include subagent                           | **Decided:** Already present; no action needed                                           |
 
-The biggest structural risk is **#4** — commands and subagents share the
-render-on-install pattern but only subagents specify the tracking/drift
-infrastructure. Designing this as shared infrastructure avoids duplicating the
-work and ensures consistency.
+All findings have been reviewed and decided. The most impactful decisions are
+**#1** (content file as SOT for authoring, manifest for packaging) and **#4**
+(shared rendered-file infrastructure with marker + source hash). These two
+establish the consistent model that commands and subagents both follow.

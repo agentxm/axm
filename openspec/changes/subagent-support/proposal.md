@@ -8,7 +8,7 @@ AXM manages skills, commands, MCP servers, and packs across coding agents — bu
 
 ## What Changes
 
-- **New `subagent` extension type** with its own manifest schema (`axm-subagent.json`), FQN segment (`subagents`), and registry support. Touches `ExtensionTypeSchema`, `ExtensionTypePlural`, FQN parsing, and manifest resolution.
+- **New `subagent` extension type** with its own manifest schema (`subagent.json`), FQN segment (`subagents`), and registry support. Touches `ExtensionTypeSchema`, `ExtensionTypePlural`, FQN parsing, and manifest resolution.
 - **Cross-agent subagent installation** — `axm subagents install` writes agent-native configuration files into each agent's `agents/` directory. Each `CodingAgent` implementation gains `addSubagent` / `removeSubagent` methods (or a generalized `addExtension` pattern) and an `agentsDir` property alongside the existing `skillsDir`.
 - **Agent-specific rendering** — new per-agent renderers translate the portable manifest into agent-native config formats:
   - **Markdown + YAML frontmatter** — Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE
@@ -18,7 +18,7 @@ AXM manages skills, commands, MCP servers, and packs across coding agents — bu
 - **`axm subagents` command group** — nine subcommands: `install`, `uninstall`, `list`, `update`, `new`, `publish`, `enable`, `disable`, and `rename`. The first five mirror the existing skills command group. `update` adds re-rendering after version bumps. `enable`, `disable`, and `rename` are new patterns not present in other extension CLI groups — they establish conventions that may generalize to skills and commands in future work.
 - **Pack support** — pack manifest schema and resolution logic include `subagents` alongside skills, commands, and MCP servers.
 - **Workspace reconciliation** — `axm sync` reconciles subagent files across configured agents using render-on-install (not symlinks, since each agent expects a different format).
-- **Settings integration** — `SettingsSchema` adds `subagents: Record<string, SubagentEntry>` analogous to `skills`.
+- **Settings integration** — `SettingsSchema` adds `subagents: Record<string, SubagentSettingsEntry>` analogous to `skills`.
 - **Registry** — registry API and publish flow support the `subagent` extension type.
 
 ## Non-Goals
@@ -29,21 +29,35 @@ AXM manages skills, commands, MCP servers, and packs across coding agents — bu
 - **Importing existing agent-native files** — An `axm subagents import` command (converting `.claude/agents/foo.md` into AXM managed format) is a useful follow-on but not part of this change.
 - **Agent-native features without portable equivalents** — Features like Claude Code's `memory`, `hooks`, and `isolation` or OpenCode's `{file:./path}` interpolation have no portable mapping. They are accessible only via the per-agent `overrides` escape hatch, not modeled in the portable schema.
 
-## Open Questions
-
-These questions are flagged for resolution during design:
-
-1. **`toolAccess` granularity** — Is the three-level enum (`full` / `readonly` / `none`) sufficient, or should the portable schema support an object form with allow/deny lists using portable tool categories (`read`, `edit`, `execute`, `search`, `web`, `agent`)? The richer form maps cleanly to most agents' native tool control (Copilot's aliases, Gemini's wildcards, OpenCode/Kilo's permission objects) and would reduce override burden for common cases. Trade-off: more complex schema and rendering logic.
-
-2. **Partial render failure atomicity** — If rendering succeeds for some agents but fails for others (e.g., TOML serialization error for Codex), should the install be atomic (rollback all rendered files) or partial (keep successful renders, report failures)? Partial success is more useful for development; atomicity is safer for CI. Design should define the failure model and whether `--force` affects it.
-
-3. **`rename` scope and interaction model** — `rename` updates the canonical source, settings, lockfile, and re-renders all agent-native files. But the proposal doesn't define how rename interacts with registry-installed or pack-installed subagents. If a user renames `@acme/subagents/code-reviewer` to `security-checker`, the lockfile loses the name→FQN correspondence and `update` can't match the renamed entry to its upstream. For pack-installed subagents, the pack's declared reference breaks. Design should decide: restrict rename to locally-authored subagents only? Track original name/FQN in the lockfile to preserve the update link? Or allow rename freely and document that it severs the upstream relationship?
-
 ## Decisions
+
+### `toolAccess`: Enum-Only; Object Form Deferred
+
+**Decision:** The portable `toolAccess` field uses the three-level enum (`"full"` | `"readonly"` | `"none"`) only. The object form with allow/deny lists and portable tool categories is deferred to a follow-on change.
+
+**Rationale:** The enum covers the common denominator across all 11 agents. Most subagents fall into one of three buckets: full access, read-only analysis, or no-tool reasoning. Authors who need finer-grained control use `overrides` with agent-native field names — this already works and doesn't require a new portable abstraction. The object form adds schema complexity, per-agent category mapping logic, and validation surface for a minority of subagents. If demand materializes (e.g., many subagents needing "read + search but not execute" across agents), it can be added as a backwards-compatible schema extension.
+
+### Partial Render Failure: Best-Effort with Report
+
+**Decision:** Multi-agent rendering uses best-effort semantics — successful renders are kept, failed renders are reported as errors. Install succeeds if at least one agent renders successfully. `--force` does not affect this behavior (it controls conflict detection, not failure handling).
+
+**Rationale:** Partial success is more useful in practice. A TOML serialization error for Codex should not prevent the subagent from being usable in Claude Code and Cursor. Atomic rollback would require tracking rendered files for undo, adding complexity for a scenario that is rare (rendering is deterministic and failures are typically configuration errors, not transient). The error report gives the author actionable information to fix the failing adapter. In CI, teams can assert zero errors in their pipeline if they want atomic-like guarantees.
+
+### `rename` Restricted to Locally-Authored Subagents
+
+**Decision:** `axm subagents rename` is restricted to locally-authored subagents (those without a registry or pack origin in the lockfile). Attempting to rename a registry-installed or pack-installed subagent fails with an error explaining why.
+
+**Rationale:** Renaming a registry-installed subagent severs the update link — the lockfile can no longer match the renamed entry to its upstream FQN, so `axm subagents update` breaks. For pack-installed subagents, the pack's declared reference breaks entirely. Tracking the original name/FQN in the lockfile is possible but adds complexity for a niche use case. Authors who want a different local name for a registry subagent should request a rename upstream or use a local fork. Locally-authored subagents have no upstream link to break, so rename is safe.
+
+### Design Artifact Skipped
+
+**Decision:** This change skips the design artifact. The proposal's "Proposed Design" section provides sufficient implementation guidance (manifest schema, rendering tables, adapter mapping, CLI commands, lockfile schema, reconciliation flow). The companion [agent-reference.md](./agent-reference.md) supplies the agent-specific detail that a design would normally research.
+
+**Rationale:** The design artifact's primary value is resolving "how" after the proposal defines "what." This proposal's design section already resolves the how in detail — including per-agent rendering tables, override mechanics, lockfile schema, and reconciliation flow — because the feasibility analysis required working through these details. A separate design would largely duplicate this content. The cross-change coordination note (see below) identifies the one design-level question that spans changes; it is addressed as a scoping decision rather than requiring a full design artifact.
 
 ### Roo Code Rendering: Read-Modify-Write with Managed Markers
 
-**Decision:** AXM uses read-modify-write for `.roomodes` (and user-scope `settings/custom_modes.yaml`), preserving manually-defined modes. Each AXM-managed mode entry includes an `"_axm_managed": true` field (JSON mode) or `# managed by axm` prefix (YAML mode) to distinguish AXM entries from manual ones.
+**Decision:** AXM uses read-modify-write for `.roomodes` (and user-scope `settings/custom_modes.yaml`), preserving manually-defined modes. Each AXM-managed mode entry includes an `"_axm_managed": "axm subagents --help"` field (JSON mode) or `# Managed by axm — see "axm subagents --help"` prefix (YAML mode) to distinguish AXM entries from manual ones.
 
 **Rationale:** Owning the entire `.roomodes` file would be hostile to users with manually-defined modes — a common Roo Code workflow. Read-modify-write respects existing content while giving AXM a clean way to identify and reconcile its own entries. The `_axm_managed` marker enables sync to add, update, and remove AXM modes without touching manual ones. The MCP server management change faces the same question with agent config files and should adopt the same approach.
 
@@ -82,9 +96,9 @@ Three agents have additional scopes beyond project+user (Claude Code: org-manage
 
 ### Manifest File
 
-**Filename:** `axm-subagent.json`
+**Filename:** `subagent.json`
 
-Following the existing convention (`skill.json`, `command.json`, `mcp-server.json`), the subagent manifest uses the same common fields plus subagent-specific metadata.
+Following the existing convention (`skill.json`, `command.json`, `mcp-server.json`), the subagent manifest uses the simplified (non-prefixed) filename with the same common fields plus subagent-specific metadata.
 
 ```jsonc
 {
@@ -111,16 +125,8 @@ Following the existing convention (`skill.json`, `command.json`, `mcp-server.jso
 
   // Tool access constraints — portable abstraction over agent-native
   // tool control (allow/deny lists, readonly, sandbox_mode, permission).
-  //
-  // Enum form (simple):
+  // Three-level enum; object form with allow/deny lists deferred.
   "toolAccess": "full", // "full" | "readonly" | "none"
-  //
-  // Object form (richer — open question for design):
-  // "toolAccess": { "allow": ["read", "search", "web"], "deny": ["execute"] }
-  // Portable categories: "read", "edit", "execute", "search", "web", "agent"
-  // Each adapter maps categories to agent-native tool names.
-  // Design should decide whether the enum form is sufficient or whether
-  // the object form earns its complexity. See "Open Questions" below.
 
   // Whether this subagent can run in the background (async).
   // Only rendered for agents that support it (Claude Code, Cursor).
@@ -147,7 +153,7 @@ Following the existing convention (`skill.json`, `command.json`, `mcp-server.jso
 
 ```
 .axm/extensions/@acme/subagents/code-reviewer/
-  axm-subagent.json          # Manifest (metadata, version, portable config)
+  subagent.json          # Manifest (metadata, version, portable config)
   src/
     SUBAGENT.md              # Instructions — Markdown body becomes the system prompt
 ```
@@ -182,7 +188,7 @@ Present each finding as a numbered item with:
 
 ### Relationship: Manifest vs Content File
 
-| Concern               | `axm-subagent.json`                   | `SUBAGENT.md`                                     |
+| Concern               | `subagent.json`                       | `SUBAGENT.md`                                     |
 | --------------------- | ------------------------------------- | ------------------------------------------------- |
 | Purpose               | Registry metadata, version, ownership | Agent-facing content (canonical for behavior)     |
 | Read by               | AXM CLI, registry, pack resolution    | Agent adapters during rendering                   |
@@ -190,7 +196,7 @@ Present each finding as a numbered item with:
 | Published to registry | Yes                                   | Yes (as content artifact)                         |
 | Canonical for         | Identity and distribution             | Subagent-specific fields and instructions         |
 
-**`SUBAGENT.md` is the source of truth for subagent behavior** — its frontmatter defines `model`, `toolAccess`, `background`, `description`, and agent-specific `overrides`. The manifest (`axm-subagent.json`) owns identity and distribution fields: `owner`, `name`, `version`, `type`, `agents`, `keywords`, `license`, `repository`, and `authors`. The manifest also contains synced copies of `description`, `model`, `toolAccess`, and `background` for registry search and filtering. During `axm subagents new`, both files are scaffolded in sync. During publish, both are included. During install, the agent adapter reads `SUBAGENT.md` and renders it into the agent-native format. **Sync direction: frontmatter always wins for `description`, `model`, `toolAccess`, and `background`.** Sync points: `axm subagents new` scaffolds both in sync; `axm sync` overwrites manifest values with frontmatter values for all four synced fields; `axm subagents publish` syncs before upload. Between sync points, local edits to SUBAGENT.md frontmatter may drift from the manifest — this is expected during development. Authors should edit these fields in `SUBAGENT.md` frontmatter, not in `axm-subagent.json`.
+**`SUBAGENT.md` is the source of truth for subagent behavior** — its frontmatter defines `model`, `toolAccess`, `background`, `description`, and agent-specific `overrides`. The manifest (`subagent.json`) owns identity and distribution fields: `owner`, `name`, `version`, `type`, `agents`, `keywords`, `license`, `repository`, and `authors`. The manifest also contains synced copies of `description`, `model`, `toolAccess`, and `background` for registry search and filtering. During `axm subagents new`, both files are scaffolded in sync. During publish, both are included. During install, the agent adapter reads `SUBAGENT.md` and renders it into the agent-native format. **Sync direction: frontmatter always wins for `description`, `model`, `toolAccess`, and `background`.** Sync points: `axm subagents new` scaffolds both in sync; `axm sync` overwrites manifest values with frontmatter values for all four synced fields; `axm subagents publish` syncs before upload. Between sync points, local edits to SUBAGENT.md frontmatter may drift from the manifest — this is expected during development. Authors should edit these fields in `SUBAGENT.md` frontmatter, not in `subagent.json`.
 
 ### Installation — Render-on-Install
 
@@ -198,13 +204,13 @@ Skills use **symlinks** from the agent's skills directory to the managed extensi
 
 1. AXM stores the canonical `SUBAGENT.md` in `.axm/extensions/...`
 2. On install (and on `axm sync`), AXM **renders** agent-native files into each agent's directory
-3. Rendered files include an AXM header comment marking them as managed (do not edit)
+3. Rendered files include a static AXM managed marker (e.g. `<!-- Managed by axm — see "axm subagents --help" -->`)
 4. On uninstall, AXM removes the rendered files
 5. On sync, AXM re-renders to pick up any changes
 
 ```
 .axm/extensions/@acme/subagents/code-reviewer/    # canonical source
-  axm-subagent.json
+  subagent.json
   src/SUBAGENT.md
 
 .claude/agents/code-reviewer.md                    # rendered for Claude Code
@@ -245,13 +251,13 @@ Roo Code user-scope modes go in the global `settings/custom_modes.yaml` rather t
 
 **Principle:** AXM-managed rendered files must not silently overwrite manually-created agent files. Install and sync fail with an actionable error when a name collision is detected; `--force` overrides.
 
-- **Manual file exists at render path** — `axm subagents install` checks for an existing file _without_ the AXM managed header before writing. If found, the install fails with: `Conflict: .claude/agents/code-reviewer.md already exists and is not managed by axm. Use --force to overwrite.`
+- **Manual file exists at render path** — `axm subagents install` checks for an existing file _without_ the AXM managed marker before writing. If found, the install fails with: `Conflict: .claude/agents/code-reviewer.md already exists and is not managed by axm. Use --force to overwrite.`
 - **Duplicate subagent names across packs** — two packs declaring the same subagent name is an error at pack resolution time, before any rendering occurs.
-- **Rendered file modified after install (drift)** — `axm sync` detects drift by comparing the rendered file's content hash against the expected hash stored in the lockfile. Drifted files are re-rendered with a warning: `Re-rendered .claude/agents/code-reviewer.md (local modifications overwritten)`. Users who need manual customization should use unmanaged agent files instead.
+- **Re-render on source change** — `axm sync` compares the source hash (hash of SUBAGENT.md frontmatter + body) against the lockfile. When the source has changed, rendered files are re-rendered. No content hash comparison on the rendered output — reformatting by Prettier or editor tooling does not trigger false drift. To stop AXM from managing a file, uninstall or disable the extension.
 
 ### Git Workflow for Rendered Files
 
-Rendered agent-native files (`.claude/agents/code-reviewer.md`, `.codex/agents/code-reviewer.toml`, etc.) **should be committed to the repository**. This ensures teammates and CI get subagent definitions without needing AXM installed — the same reasoning behind committing any agent-native config today. The managed header comment (`<!-- managed by axm — do not edit -->`) makes ownership clear and discourages manual edits.
+Rendered agent-native files (`.claude/agents/code-reviewer.md`, `.codex/agents/code-reviewer.toml`, etc.) **should be committed to the repository**. This ensures teammates and CI get subagent definitions without needing AXM installed — the same reasoning behind committing any agent-native config today. The managed marker (`<!-- Managed by axm — see "axm subagents --help" -->`) makes ownership clear.
 
 Trade-off: updates to a subagent produce rendered file churn across all configured agents. This is acceptable because (a) the diff is mechanical and reviewable, (b) it's the same churn teams currently accept when manually maintaining multi-agent configs, and (c) AXM eliminates the duplication effort that causes it.
 
@@ -390,7 +396,10 @@ Packs gain a `subagents` field alongside existing `skills`, `commands`, and `mcp
 
 ### Lockfile Integration
 
-Subagent lockfile entries follow the existing lock entry pattern (`SkillLockEntry`, `CommandLockEntry`) with an additional `renderedFiles` map tracking per-agent rendered paths and content hashes for drift detection:
+Subagent lockfile entries follow the existing lock entry pattern (`SkillLockEntry`, `CommandLockEntry`) with an entry-level `sourceHash` and a `renderedFiles` map tracking per-agent rendered paths. This is the same shared model used by command lock entries and skill lock entries (copy mode).
+
+- **`sourceHash`** — hash of SUBAGENT.md portable inputs (frontmatter + body). Used to decide whether re-rendering is needed: if the source hasn't changed, the rendered output is deterministic and the write can be skipped.
+- **`renderedFiles`** — map keyed by agent ID, where each value is an array of `{ path }` objects. The array shape accommodates agents that produce multiple files (e.g. Kiro dual-format: `.md` + `.json`).
 
 ```jsonc
 // axm-lock.yaml (subagents section)
@@ -404,16 +413,17 @@ Subagent lockfile entries follow the existing lock entry pattern (`SkillLockEntr
     "updatedAt": "2026-04-06T12:00:00Z",
     "gitTreeHash": "abc123",
     "agents": ["claude-code", "cursor", "gemini-cli"],
+    "sourceHash": "sha256:abc...",
     "renderedFiles": {
-      "claude-code": { "path": ".claude/agents/code-reviewer.md", "contentHash": "sha256:..." },
-      "cursor": { "path": ".cursor/agents/code-reviewer.md", "contentHash": "sha256:..." },
-      "gemini-cli": { "path": ".gemini/agents/code-reviewer.md", "contentHash": "sha256:..." },
+      "claude-code": [{ "path": ".claude/agents/code-reviewer.md" }],
+      "cursor": [{ "path": ".cursor/agents/code-reviewer.md" }],
+      "gemini-cli": [{ "path": ".gemini/agents/code-reviewer.md" }],
     },
   },
 }
 ```
 
-The `renderedFiles` map enables sync to detect drift (rendered file modified manually) and to clean up rendered files on uninstall without scanning agent directories.
+The `sourceHash` lives at the entry level (shared across agents — same source produces all renders). No per-agent `contentHash` — drift detection uses the managed marker, not output hashing. Manually edited rendered files are overwritten on sync when the source hash changes; to stop AXM from managing a file, uninstall or disable the extension. This matches the conflict resolution model and avoids false drift from Prettier or editor reformatting.
 
 ### Reconciliation Flow
 
@@ -421,17 +431,18 @@ The `renderedFiles` map enables sync to detect drift (rendered file modified man
 
 1. Read `settings.json` → resolve enabled subagents
 2. For each subagent, read `.axm/extensions/.../SUBAGENT.md`
-3. For each configured agent, **render** the agent-native file into the agent's `agents/` directory
-4. Compute content hashes and update `renderedFiles` in the lockfile
-5. Compare existing rendered files against lockfile hashes — warn on drift, re-render
+3. Compare `sourceHash` (hash of SUBAGENT.md frontmatter + body) against lockfile — skip re-rendering if unchanged
+4. **Render** changed subagents into each agent's `agents/` directory; check for conflict (existing file without marker) before writing
+5. Update lockfile: `sourceHash` at entry level, `renderedFiles` paths per agent
 6. Remove rendered files for subagents no longer in settings (using lockfile `renderedFiles` paths)
-7. Each rendered file includes a managed marker:
-   - **Markdown** — `<!-- managed by axm — do not edit -->` as the first line
-   - **TOML** — `# managed by axm — do not edit` as the first line
-   - **JSON** (Kiro CLI) — `"_axm_managed": true` metadata field (JSON has no comment syntax)
-   - **Roo `.roomodes`** — each AXM-managed mode entry includes `"_axm_managed": true` (JSON mode) or `# managed by axm` prefix (YAML mode)
+7. Recreate missing rendered files (file absent but extension installed)
+8. Each rendered file includes a static managed marker with CLI help hint:
+   - **Markdown** — `<!-- Managed by axm — see "axm subagents --help" -->` as the first line
+   - **TOML** — `# Managed by axm — see "axm subagents --help"` as the first line
+   - **JSON** (Kiro CLI) — `"_axm_managed": "axm subagents --help"` metadata field
+   - **Roo `.roomodes`** — each AXM-managed mode entry includes `"_axm_managed": "axm subagents --help"` (JSON mode) or `# Managed by axm — see "axm subagents --help"` prefix (YAML mode)
 
-The render step is the key difference from skill reconciliation. It means subagent sync is not idempotent in the filesystem sense — even unchanged subagents produce a write (though the content is identical). Design should consider whether to skip writes when the content hash matches.
+The source hash check means sync skips writes when the portable inputs haven't changed, making it effectively idempotent.
 
 **Agent list changes.** When the `agents` list in `settings.json` changes, `axm sync` automatically adjusts rendered files:
 
@@ -493,9 +504,9 @@ axm subagents install <source> [flags]
 
 - After resolving the source and writing the canonical `SUBAGENT.md` to `.axm/extensions/`, renders agent-native files for each configured agent (or `--agent` subset)
 - Checks for existing unmanaged files at each render path before writing. Fails with a conflict error if found; `--force` overrides
-- Records `renderedFiles` map (path + content hash per agent) in the lockfile
+- Records entry-level `sourceHash` and `renderedFiles` map (array of `{ path }` per agent) in the lockfile
 - `--preview` shows the full plan including rendered file paths and formats per agent
-- **Multi-subagent discovery** — when the source is a GitHub repo or local directory containing multiple subagents, AXM discovers them by scanning for `axm-subagent.json` files (same pattern as multi-skill repos scanning for `skill.json`). Without `--subagent` or `--all`, the user is prompted to select which subagents to install
+- **Multi-subagent discovery** — when the source is a GitHub repo or local directory containing multiple subagents, AXM discovers them by scanning for `subagent.json` files (same pattern as multi-skill repos scanning for `skill.json`). Without `--subagent` or `--all`, the user is prompted to select which subagents to install
 
 > **Pattern departures from `axm skills install`:**
 >
@@ -548,17 +559,16 @@ axm subagents uninstall <subagent> [flags]
 
 **Flags:**
 
-| Flag        | Type              | Default   | Description                                                |
-| ----------- | ----------------- | --------- | ---------------------------------------------------------- |
-| `--scope`   | `project \| user` | `project` | Target project or user-level configuration                 |
-| `--yes`     | `boolean`         | `false`   | Skip confirmation prompt                                   |
-| `--force`   | `boolean`         | `false`   | Remove even if rendered files have been modified (drifted) |
-| `--preview` | `boolean`         | `false`   | Show what would be removed without making changes          |
+| Flag        | Type              | Default   | Description                                       |
+| ----------- | ----------------- | --------- | ------------------------------------------------- |
+| `--scope`   | `project \| user` | `project` | Target project or user-level configuration        |
+| `--yes`     | `boolean`         | `false`   | Skip confirmation prompt                          |
+| `--force`   | `boolean`         | `false`   | Remove even if conflicts are detected             |
+| `--preview` | `boolean`         | `false`   | Show what would be removed without making changes |
 
 **Behavior notes:**
 
 - Uses `renderedFiles` from the lockfile to locate and remove all rendered agent-native files
-- Detects drift (rendered file content differs from lockfile hash). Without `--force`, warns and requires confirmation for drifted files
 - Removes the subagent entry from settings and lockfile
 
 **Examples:**
@@ -641,7 +651,7 @@ axm subagents update [source] [flags]
 | `--subagent` | `string[]`        | —         | Update only specific subagent(s) by name. Repeatable    |
 | `--agent`    | `string[]`        | —         | Re-render only for specific agent(s). Repeatable        |
 | `--yes`      | `boolean`         | `false`   | Skip confirmation after reviewing the update plan       |
-| `--force`    | `boolean`         | `false`   | Update even when rendered files have drifted            |
+| `--force`    | `boolean`         | `false`   | Update even when conflicts are detected                 |
 | `--preview`  | `boolean`         | `false`   | Show what would be updated without making changes       |
 
 **Behavior notes:**
@@ -674,7 +684,7 @@ axm subagents update --preview
 axm subagents new <name> [flags]
 ```
 
-**Description:** Scaffold a new subagent for authoring. Creates both `axm-subagent.json` (manifest) and `src/SUBAGENT.md` (instructions with frontmatter) in `.axm/extensions/<owner>/subagents/<name>/`.
+**Description:** Scaffold a new subagent for authoring. Creates both `subagent.json` (manifest) and `src/SUBAGENT.md` (instructions with frontmatter) in `.axm/extensions/<owner>/subagents/<name>/`.
 
 **Arguments:**
 
@@ -698,7 +708,7 @@ axm subagents new <name> [flags]
 **Behavior notes:**
 
 - Validates name format and checks for name collisions in settings
-- Scaffolds `axm-subagent.json` with identity/distribution fields and `SUBAGENT.md` with frontmatter (model, toolAccess, background, description placeholder) and a starter instructions body
+- Scaffolds `subagent.json` with identity/distribution fields and `SUBAGENT.md` with frontmatter (model, toolAccess, background, description placeholder) and a starter instructions body
 - Renders agent-native files for configured agents immediately (so the subagent is usable right away)
 - Adds the subagent entry to settings and lockfile
 
@@ -729,7 +739,7 @@ axm subagents new code-reviewer --agent claude-code --agent cursor
 axm subagents publish <extensions...> [flags]
 ```
 
-**Description:** Publish subagent extensions to a registry. Validates both `axm-subagent.json` and `SUBAGENT.md`, syncs the manifest description from frontmatter, and uploads both files.
+**Description:** Publish subagent extensions to a registry. Validates both `subagent.json` and `SUBAGENT.md`, syncs the manifest description from frontmatter, and uploads both files.
 
 **Arguments:**
 
@@ -749,7 +759,7 @@ axm subagents publish <extensions...> [flags]
 **Behavior notes:**
 
 - Validates manifest completeness (required fields, version bump from published version)
-- Syncs `description` from `SUBAGENT.md` frontmatter to `axm-subagent.json` before upload
+- Syncs `description` from `SUBAGENT.md` frontmatter to `subagent.json` before upload
 - Publishes both files as the extension package
 - Supports glob patterns (e.g., `axm subagents publish "code-*"`) for batch publishing
 
@@ -827,12 +837,12 @@ axm subagents disable <name> [flags]
 
 **Flags:**
 
-| Flag        | Type              | Default   | Description                                 |
-| ----------- | ----------------- | --------- | ------------------------------------------- |
-| `--scope`   | `project \| user` | `project` | Target project or user-level configuration  |
-| `--yes`     | `boolean`         | `false`   | Skip confirmation                           |
-| `--force`   | `boolean`         | `false`   | Disable even if rendered files have drifted |
-| `--preview` | `boolean`         | `false`   | Show what would change without applying     |
+| Flag        | Type              | Default   | Description                                |
+| ----------- | ----------------- | --------- | ------------------------------------------ |
+| `--scope`   | `project \| user` | `project` | Target project or user-level configuration |
+| `--yes`     | `boolean`         | `false`   | Skip confirmation                          |
+| `--force`   | `boolean`         | `false`   | Disable even if conflicts are detected     |
+| `--preview` | `boolean`         | `false`   | Show what would change without applying    |
 
 **Behavior notes:**
 
@@ -878,7 +888,7 @@ axm subagents rename <old-name> <new-name> [flags]
 
 **Behavior notes:**
 
-- Renames the extension directory, updates `axm-subagent.json` and `SUBAGENT.md` frontmatter `name` field
+- Renames the extension directory, updates `subagent.json` and `SUBAGENT.md` frontmatter `name` field
 - Removes old rendered files (e.g., `.claude/agents/old-name.md`) and renders new ones (e.g., `.claude/agents/new-name.md`)
 - Updates settings and lockfile entries
 
@@ -907,7 +917,7 @@ axm subagents rename old-name new-name --preview
 - `cli-subagents-disable`: Disable a subagent without uninstalling — removes rendered files, preserves source
 - `cli-subagents-rename`: Rename a subagent — updates source, settings, lockfile, and re-renders
 
-> **New CLI patterns:** `enable`, `disable`, and `rename` are new subcommands not present in existing extension type CLI groups (skills, commands). They establish patterns that may be generalized to other extension types in future work.
+> **New CLI patterns:** `enable`, `disable`, and `rename` are new subcommands not present in existing extension type CLI groups (skills, commands). They establish patterns that may be generalized to other extension types in future work. Skills and commands are expected to gain `enable`/`disable` in follow-on changes; `rename` may remain subagent-only since skills and commands have weaker use cases for renaming. The subagent implementation should use patterns (settings `enabled` field, rendered-file lifecycle) that transfer cleanly.
 
 ### Modified Capabilities
 
@@ -920,8 +930,8 @@ axm subagents rename old-name new-name --preview
 - **Core extension model** — `ExtensionTypeSchema`, `ExtensionTypePlural`, FQN parsing, manifest resolution gain `subagent` type
 - **Agent adapters** — each in-scope `CodingAgent` gains subagent rendering logic (`addSubagent` / `removeSubagent`)
 - **Registry** — publish and fetch flows support the `subagent` extension type
-- **Settings schema** — `SettingsSchema` adds `subagents: Record<string, SubagentEntry>`
-- **Lockfile schema** — subagent lock entries with `renderedFiles` map for drift detection
+- **Settings schema** — `SettingsSchema` adds `subagents: Record<string, SubagentSettingsEntry>`
+- **Lockfile schema** — subagent lock entries with entry-level `sourceHash` (re-render decision) and per-agent `renderedFiles` map (array of `{ path }` for clean uninstall/sync), using the shared rendered-file tracking types from command-support
 - **Pack resolution** — pack manifest schema includes `subagents` field; transitive visibility, orphan detection, and direct entry promotion apply
 - **Sync engine** — reconciliation gains a render step for subagents (not symlinks)
 - **CLI** — new `axm subagents` command group with nine subcommands
@@ -929,7 +939,28 @@ axm subagents rename old-name new-name --preview
 
 ## Cross-Change Coordination
 
-This change shares structural patterns with the parallel `command-support` change: both add a new extension type, a CLI command group, per-agent rendering adapters, pack integration, and settings/lockfile schema extensions. The `mcp-server-management` change (already in design) follows the same shape. Design should consider whether to extract a shared rendering adapter framework (extension type → agent format mapping, managed marker injection, drift detection, conflict resolution) rather than duplicating per extension type. At minimum, the three changes should agree on common adapter interfaces so the patterns converge rather than diverge.
+This change shares structural patterns with `command-support` and `skills-alignment`: all three use render-on-install (or copy-mode for skills), managed markers, rendered-file tracking, and source hash computation. The `mcp-server-management` change (already in design) follows the same shape.
+
+**Implementation sequence:** `command-support` is implemented first and creates the shared rendered-extension infrastructure in `core/unstable/extensions/` (managed markers, rendered-file tracking types, source hash computation, conflict detection, content file parsing, lossy rendering warning types). This change (subagent-support) is implemented second and reuses that shared infrastructure. `skills-alignment` is implemented third and opts skills copy-mode into the same shared types.
+
+**What this change reuses from command-support:**
+
+- Managed marker generation/detection (`core/unstable/extensions/managed-marker.ts`)
+- Rendered-file tracking lockfile types (`core/unstable/extensions/rendered-files.ts`)
+- Source hash computation (same algorithm, same entry-level placement)
+- Conflict detection at render paths (`core/unstable/extensions/conflict-detection.ts`)
+- Content file frontmatter parser (`core/unstable/extensions/content-file.ts`)
+- Lossy rendering warning types (`core/unstable/extensions/rendering-warnings.ts`)
+
+**What this change creates independently:**
+
+- Subagent-specific renderer functions (format families differ from commands — e.g. Codex uses TOML for subagents but MD+YAML for commands)
+- Model tier mapping and tool access mapping (subagent-only portable abstractions)
+- Roo Code read-modify-write for `.roomodes` (subagent-only rendering target)
+- Kiro dual-format rendering (subagent-only — commands use plain text for Kiro)
+- `addSubagent`/`removeSubagent`/`resolveEffectiveSubagentsDir` on `CodingAgent`
+
+Adapter methods follow a consistent signature shape (`add<Type>(args)` / `remove<Type>(args)` returning a sync outcome with warnings) matching the command-support pattern.
 
 ---
 

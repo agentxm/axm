@@ -22,40 +22,42 @@ Skills, by contrast, are the most mature extension type: multi-source (registry,
 
 ### What's missing
 
-1. **Command-specific manifest fields** — arguments, argumentHint, model, allowedTools, isolatedContext, autoInvocable, userInvocable, agentOverrides
-2. **Agent command rendering** — translating portable manifest + COMMAND.md into agent-native formats (11 agents, 5 distinct format families)
-3. **Agent adapter extensions** — `commandsDir`, `addCommand`, `removeCommand` on `CodingAgent`
-4. **Multi-source support** — manager currently validates registry-only; needs git-hosted, local, builtin
-5. **CLI lifecycle** — list, enable, disable, new, publish commands
-6. **Variable substitution engine** — `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}` → agent-native syntax
-7. **Managed-file headers** — `<!-- Managed by axm — last synced <timestamp> -->` in rendered files
-8. **Lockfile agents array** — track which agents a command is rendered to (skills have this, commands don't yet)
-9. **Scope-aware rendering** — project scope renders to project agent dirs, user scope renders to user agent dirs; Codex auto-redirects to user scope
+1. **COMMAND.md frontmatter** — behavioral fields (model, allowedTools, isolatedContext, arguments, argumentHint, autoInvocable, userInvocable, description) live in COMMAND.md frontmatter, not the manifest
+2. **Command-specific manifest fields** — agents filter, agentOverrides (packaging/distribution concerns only)
+3. **Agent command rendering** — translating COMMAND.md frontmatter + body into agent-native formats (11 agents, 5 distinct format families)
+4. **Agent adapter extensions** — `commandsDir`, `addCommand`, `removeCommand` on `CodingAgent`
+5. **Multi-source support** — manager currently validates registry-only; needs git-hosted, local, builtin
+6. **CLI lifecycle** — list, update, enable, disable, new, publish commands
+7. **Variable substitution engine** — `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}` → agent-native syntax
+8. **Managed-file markers** — `<!-- Managed by axm -->` in rendered files for conflict detection
+9. **Rendered file tracking** — lockfile tracks rendered file paths + source hash per agent for clean sync/uninstall
+10. **Lockfile agents array** — track which agents a command is rendered to (skills have this, commands don't yet)
+11. **Scope-aware rendering** — project scope renders to project agent dirs, user scope renders to user agent dirs; Codex auto-redirects to user scope
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Commands are a fully realized extension type on par with skills for install, uninstall, list, enable, disable, new, publish
+- Commands are a fully realized extension type on par with skills for install, uninstall, list, update, enable, disable, new, publish
 - Cross-agent rendering: a single portable command installs as agent-native files into all configured agents
 - Variable substitution is normalized: authors write `{{arguments}}` / `{{arg:name}}`, renderers produce agent-native syntax
 - Lossy rendering is explicit: warnings at install time for unsupported features per agent
 - Scope model reuses existing infrastructure (project/user, `--scope` flag, workspace service)
+- Create shared rendered-extension infrastructure (managed markers, rendered-file tracking, source hash, conflict detection, content file parsing) that subagent-support and skills-alignment reuse
 
 **Non-Goals:**
 
 - Backward compatibility with any prior command format (there is none to preserve)
 - Import from native agent command format (deferred)
 - Directory-based namespace support (deferred — flat names only)
-- Drift detection for managed files (sync always overwrites)
 - Built-in command collision detection (AXM does not maintain per-agent built-in lists)
-- `update`, `fork`, or `rename` commands (skills have these; commands defer them)
+- `fork` or `rename` commands (skills have these; commands defer them)
 
 ## Decisions
 
 ### 1. Rendering architecture: per-agent renderer functions, not classes
 
-Commands need 5 distinct rendering families (MD+YAML frontmatter, MD-only, `.prompt.md`+YAML, TOML, plain text) covering 11 agents. Each renderer is a pure function: `(manifest, commandBody, options) => RenderedCommandFile`. No class hierarchy — the agent adapter calls the appropriate renderer.
+Commands need 5 distinct rendering families (MD+YAML frontmatter, MD-only, `.prompt.md`+YAML, TOML, plain text) covering 11 agents. Each renderer is a pure function: `(frontmatter, commandBody, agentOverrides, options) => RenderedCommandFile`. No class hierarchy — the agent adapter calls the appropriate renderer.
 
 **Alternatives considered:**
 
@@ -88,19 +90,39 @@ The portable manifest uses `{{arguments}}`, `{{arguments[N]}}`, and `{{arg:name}
 
 Escape sequence `\{{` produces literal `{{` in rendered output.
 
-### 3. Manifest schema: extend `CommandManifestSchema` with command-specific fields
+### 3. Content file as source of truth for authoring; manifest for packaging
 
-The current `CommandManifestSchema` spreads `CommonManifestFields` and adds `type: "command"`. Extend it with the fields from the proposal's draft manifest.
+COMMAND.md uses YAML frontmatter for all behavioral/authoring fields. The manifest (`command.json`) holds packaging/distribution concerns only. This aligns with the dominant industry practice (7 of 11 agents use frontmatter for behavioral config) and matches the subagent-support approach for a consistent model across rendered extension types.
+
+**COMMAND.md frontmatter (SOT for authoring):**
+
+```yaml
+---
+description: Review the current PR for issues
+model: claude-sonnet-4-20250514
+allowedTools:
+  - bash:*
+  - read
+isolatedContext: true
+autoInvocable: true
+userInvocable: true
+argumentHint: "[scope]"
+arguments:
+  - name: scope
+    description: Area to review
+    required: false
+    default: all
+---
+Review the code changes in the current PR...
+Use {{arg:scope}} to focus the review.
+```
+
+**Manifest (SOT for packaging/distribution):**
 
 ```typescript
-// New fields added to CommandManifestSchema
-arguments: Schema.optional(Schema.Array(CommandArgumentSchema));
-argumentHint: Schema.optional(Schema.String);
-autoInvocable: Schema.optional(Schema.Boolean); // default true
-userInvocable: Schema.optional(Schema.Boolean); // default true
-model: Schema.optional(Schema.NullOr(Schema.String));
-allowedTools: Schema.optional(Schema.NullOr(Schema.Array(Schema.String)));
-isolatedContext: Schema.optional(Schema.Boolean); // default false
+// command.json — only packaging/distribution fields
+// CommonManifestFields (name, version, type, etc.) plus:
+agents: Schema.optional(Schema.Array(Schema.String));
 agentOverrides: Schema.optional(
   Schema.Record({
     key: Schema.String,
@@ -109,7 +131,9 @@ agentOverrides: Schema.optional(
 );
 ```
 
-Where `CommandArgumentSchema`:
+The manifest may contain derived copies of frontmatter fields (description, model, etc.) for registry search/filtering, but these are synced FROM the content file during `publish` — never edited directly in the manifest.
+
+**CommandArgumentSchema** (used in frontmatter):
 
 ```typescript
 CommandArgumentSchema = Schema.Struct({
@@ -167,41 +191,63 @@ The install sequence for commands:
 
 1. **Resolve source** — parse source string, discover refs (existing workflow)
 2. **Materialize** — extract/clone/symlink command package to canonical `.axm/extensions/` path
-3. **Read manifest + body** — parse `command.json` and read `COMMAND.md` from materialized path
-4. **Render to agents** — for each configured agent, call `agent.addCommand()` which:
+3. **Read content file** — parse COMMAND.md frontmatter (behavioral config) and body from materialized path; read `command.json` for packaging fields (agents filter, agentOverrides)
+4. **Render to agents** — for each configured agent (filtered by manifest `agents` if set), call `agent.addCommand()` which:
    - Resolves the agent's commands directory (scope-aware)
+   - Checks for existing file: no marker → conflict (block unless `--force`); marker present → re-render; no file → render
    - Calls the appropriate format-family renderer
-   - Writes the rendered file with managed-by header + sync timestamp
+   - Writes the rendered file with managed-by marker
    - Collects and returns lossy-rendering warnings
 5. **Update settings** — write command entry to settings.json
-6. **Update lockfile** — write lock entry with `agents` array
+6. **Update lockfile** — write lock entry with `agents` array, entry-level `sourceHash`, `renderedFiles` map (array of `{ path }` per agent)
 7. **Report** — display install result with any warnings
 
-Uninstall reverses steps 4-6: remove rendered files from each agent listed in `agents` array, remove settings entry, remove lockfile entry, remove materialized files.
+Uninstall reverses steps 4-6: remove rendered files from each agent listed in lockfile `renderedFiles`, remove settings entry, remove lockfile entry, remove materialized files.
 
-### 8. CLI commands: follow skills pattern for list, enable, disable, new, publish
+### 8. CLI commands: follow skills pattern for list, update, enable, disable, new, publish
 
-| Command   | Handler pattern                                                     | Notes                                                |
-| --------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
-| `list`    | Read workspace service `getClassifiedCommands()`, format as table   | Show name, source, enabled, agents                   |
-| `enable`  | Set `enabled: true` in settings, re-render to agents                | Follows skill enable pattern                         |
-| `disable` | Set `enabled: false` in settings, remove rendered files from agents | Follows skill disable pattern                        |
-| `new`     | Scaffold `command.json` + `COMMAND.md` in current directory         | Interactive prompts for name, description, arguments |
-| `publish` | Validate manifest, pack, upload to registry                         | Follows skill publish pattern                        |
+| Command   | Handler pattern                                                         | Notes                                                |
+| --------- | ----------------------------------------------------------------------- | ---------------------------------------------------- |
+| `list`    | Read workspace service `getClassifiedCommands()`, format as table       | Show name, source, enabled, agents                   |
+| `update`  | Re-resolve source, update materialized files, re-render to agents       | Preserves settings; updates lockfile source hash     |
+| `enable`  | Set `enabled: true` in settings, re-render to agents                    | Follows skill enable pattern                         |
+| `disable` | Set `enabled: false` in settings, remove rendered files from agents     | Follows skill disable pattern                        |
+| `new`     | Scaffold `command.json` + `COMMAND.md` in current directory             | Interactive prompts for name, description, arguments |
+| `publish` | Sync frontmatter fields to manifest, validate, pack, upload to registry | Follows skill publish pattern                        |
 
 All commands accept `--scope` flag (default: project). `list` shows commands from the active scope. `enable`/`disable` operate on the active scope's settings.
 
-### 9. Managed-file header format
+`--preview` is supported on state-changing operations: `install`, `uninstall`, `update`, `enable`, `disable`, `sync`. It displays what would happen without writing any files.
 
-Each rendered command file starts with a managed-by header appropriate to its format:
+### 9. Managed-file marker, rendered file tracking, and shared infrastructure
 
-| Format                  | Header                                                       |
-| ----------------------- | ------------------------------------------------------------ |
-| Markdown (all variants) | `<!-- Managed by axm — last synced 2026-04-06T12:00:00Z -->` |
-| TOML                    | `# Managed by axm — last synced 2026-04-06T12:00:00Z`        |
-| Plain text              | `# Managed by axm — last synced 2026-04-06T12:00:00Z`        |
+Each rendered command file starts with a static managed-by marker appropriate to its format. The marker identifies AXM ownership and points to the relevant CLI help for discoverability.
 
-The timestamp is ISO 8601 UTC. Sync always overwrites — no drift detection. The header serves as a human-visible indicator that the file is managed.
+| Format                  | Marker                                                |
+| ----------------------- | ----------------------------------------------------- |
+| Markdown (all variants) | `<!-- Managed by axm — see "axm commands --help" -->` |
+| TOML                    | `# Managed by axm — see "axm commands --help"`        |
+| Plain text              | `# Managed by axm — see "axm commands --help"`        |
+
+The marker is static — no timestamp or hash in the file. This avoids noisy git diffs on every sync when only the timestamp changes.
+
+**Rendered file tracking in lockfile:** Each command's lock entry includes an entry-level `sourceHash` (hash of the portable inputs: COMMAND.md frontmatter + body + relevant manifest fields) and a `renderedFiles` map keyed by agent ID, where each value is an array of `{ path }` objects tracking rendered file locations. The `sourceHash` is entry-level because all agents share the same canonical source — it determines when re-rendering is needed. The array-per-agent shape accommodates agents that produce multiple files (e.g. Kiro dual-format in subagent-support). Hashing the inputs rather than the rendered output avoids false drift from Prettier or editor reformatting.
+
+**Conflict detection on install:** If a file exists at the render target path without an axm marker, it's a conflict (pre-existing manual file). Install blocks unless `--force` is passed. If the marker is present, axm owns the file and re-renders freely.
+
+**Sync behavior:** Marker present → re-render when source hash changes. File missing but extension installed → re-render (recreate). Uninstall/disable → delete all rendered files tracked in lockfile.
+
+**Shared infrastructure:** The marker generation/detection, rendered-file tracking types, source hash computation, conflict detection, and content file frontmatter parsing are built as shared modules in `core/unstable/extensions/`:
+
+| Module                  | Purpose                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `rendered-files.ts`     | `RenderedFilesMapSchema` (lockfile mixin), `sourceHash` computation, path-based cleanup |
+| `managed-marker.ts`     | `generateMarker(type, format)`, `isManagedByAxm(content)`, `stripMarker(content)`       |
+| `conflict-detection.ts` | Pre-write conflict check (marker-based ownership detection)                             |
+| `content-file.ts`       | YAML frontmatter + body parser (shared by COMMAND.md, SUBAGENT.md)                      |
+| `rendering-warnings.ts` | `LossyRenderingWarning` type for per-feature-per-agent warnings                         |
+
+Subagent-support and skills-alignment reuse these modules. The renderer functions themselves are NOT shared — format families differ between commands and subagents (e.g. Codex uses MD+YAML for commands but TOML for subagents). Only the surrounding infrastructure is common.
 
 ### 10. Augment cross-tool dedup
 
@@ -212,7 +258,7 @@ This check happens at render time, not at install planning time, so it adapts to
 ## Risks / Trade-offs
 
 **[Agent command path deprecation] → Adapter update**
-Claude Code and Codex have deprecated their command paths. If either removes the path entirely, the adapter must be updated to target the replacement (likely the skills path). The portable manifest is the source of truth, so re-rendering is trivial — but users would need to re-sync.
+Claude Code and Codex have deprecated their command paths. If either removes the path entirely, the adapter must be updated to target the replacement (likely the skills path). The portable COMMAND.md is the source of truth, so re-rendering is trivial — but users would need to re-sync.
 
 **[Lossy rendering accumulation] → Warn clearly, document per-agent**
 As commands use more portable features, more agents will trigger lossy-rendering warnings. Risk of warning fatigue. Mitigation: warnings are per-feature-per-agent, shown once at install time, and structured (not free-text) so they can be suppressed or filtered in future versions.

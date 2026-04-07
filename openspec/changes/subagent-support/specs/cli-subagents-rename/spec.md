@@ -2,14 +2,14 @@
 
 ### Requirement: Rename updates source, settings, lockfile, and re-renders
 
-`axm subagents rename` SHALL rename the canonical source directory, update `axm-subagent.json` and `SUBAGENT.md` frontmatter `name` field, remove old rendered files, render new ones with the new name, and update settings and lockfile entries.
+`axm subagents rename` SHALL rename the canonical source directory, update `subagent.json` and `SUBAGENT.md` frontmatter `name` field, remove old rendered files, render new ones with the new name, and update settings and lockfile entries.
 
 #### Scenario: Full rename flow
 
 - **WHEN** user runs `axm subagents rename old-reviewer new-reviewer`
 - **AND** `old-reviewer` is installed with rendered files for `["claude-code", "cursor"]`
 - **THEN** the CLI SHALL rename `.axm/extensions/@acme/subagents/old-reviewer/` to `.axm/extensions/@acme/subagents/new-reviewer/`
-- **AND** SHALL update `name` in `axm-subagent.json` and SUBAGENT.md frontmatter
+- **AND** SHALL update `name` in `subagent.json` and SUBAGENT.md frontmatter
 - **AND** SHALL delete `.claude/agents/old-reviewer.md` and `.cursor/agents/old-reviewer.md`
 - **AND** SHALL render `.claude/agents/new-reviewer.md` and `.cursor/agents/new-reviewer.md`
 - **AND** SHALL update the settings and lockfile entries
@@ -44,6 +44,28 @@ Renaming to a name that matches an existing subagent SHALL require `--force`.
 
 - **WHEN** user runs `axm subagents rename old-name existing-name --force`
 - **THEN** the CLI SHALL replace the existing subagent
+
+### Requirement: Registry and pack-installed subagents cannot be renamed
+
+Renaming SHALL be restricted to locally-authored subagents (those without a registry or pack origin in the lockfile). Attempting to rename a registry-installed or pack-installed subagent SHALL fail with an error explaining that rename would sever the upstream update link.
+
+#### Scenario: Registry-installed subagent rename rejected
+
+- **WHEN** user runs `axm subagents rename code-reviewer new-name`
+- **AND** `code-reviewer` was installed from a registry (`type: "registry"` in lockfile)
+- **THEN** the CLI SHALL fail with an error: `Cannot rename registry-installed subagent "code-reviewer". Rename severs the upstream update link. Use a local fork if you need a different name.`
+
+#### Scenario: Pack-installed subagent rename rejected
+
+- **WHEN** user runs `axm subagents rename code-reviewer new-name`
+- **AND** `code-reviewer` was installed as part of a pack
+- **THEN** the CLI SHALL fail with an error indicating the subagent is pack-managed
+
+#### Scenario: Locally-authored subagent rename succeeds
+
+- **WHEN** user runs `axm subagents rename code-reviewer new-name`
+- **AND** `code-reviewer` is locally authored (no registry or pack origin)
+- **THEN** the rename SHALL proceed normally
 
 ### Requirement: Old name not found error
 

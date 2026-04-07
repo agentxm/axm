@@ -120,16 +120,16 @@ The axm registry resolves version matching server-side. The CLI sends detected p
 | `pkg:npm/react@18.2.0` | `pkg:npm/react@18.2.0`            | Yes    | Exact match                                   |
 | `pkg:npm/react@18.2.0` | `pkg:npm/react@17.0.0`            | No     | Exact version mismatch                        |
 
-## Supported Ecosystems
+## Supported Package Types
 
-Package compatibility involves three mechanisms: **declaration** (extension authors name packages via purl in `compatiblePackages`), **detection** (`axm discover` parses project dependency files into purls for matching), and **local recommendation reading** (the CLI inspects installed package metadata for author-provided extension recommendations). Declaration requires a purl identifier; detection requires a parseable manifest; recommendation reading requires an inspectable installed package format. Ecosystems with all three get the full experience. Ecosystems without a registered purl type use `pkg:generic` with an ecosystem qualifier. Ecosystem-registry-only ecosystems support declaration but not local detection or recommendation reading.
+Package compatibility involves three mechanisms: **declaration** (extension authors name packages via purl in `compatiblePackages`), **detection** (`axm discover` parses project dependency files into purls for matching), and **local recommendation reading** (the CLI inspects installed package metadata for author-provided extension recommendations). Declaration requires a purl identifier; detection requires a parseable manifest; recommendation reading requires an inspectable installed package format. Package types with all three get the full experience. Package types without a registered purl type use `pkg:generic` with a qualifier. Registry-only package types (e.g., HuggingFace, MLflow) support declaration but not local detection or recommendation reading.
 
 **Tier 1 — Core**
 
-| Purl type  | Ecosystem             | Dependency file(s)                                             | Notes                                                                     |
-| ---------- | --------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `pkg:npm`  | JavaScript/TypeScript | package.json                                                   | Covers npm, Yarn, pnpm, Bun. Name lowercased; scoped `@` percent-encoded. |
-| `pkg:pypi` | Python                | requirements.txt, pyproject.toml, setup.py, setup.cfg, Pipfile | Name lowercased; underscores replaced with dashes.                        |
+| Purl type  | Ecosystem             | Dependency file(s)                                   | Notes                                                                     |
+| ---------- | --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `pkg:npm`  | JavaScript/TypeScript | package.json                                         | Covers npm, Yarn, pnpm, Bun. Name lowercased; scoped `@` percent-encoded. |
+| `pkg:pypi` | Python                | requirements.txt, pyproject.toml, setup.cfg, Pipfile | Name lowercased; underscores replaced with dashes.                        |
 
 **Tier 2 — Major**
 
@@ -181,16 +181,16 @@ Package compatibility involves three mechanisms: **declaration** (extension auth
 
 ### Extension Manifest
 
-- **`extension-package-compatibility`**: New optional `compatiblePackages` field (array of purl strings with optional VERS version constraints) on skill, command, and MCP server manifests. Extension authors declare which ecosystem packages their extension is designed for. (JTBD 3)
+- **`extension-package-compatibility`**: New optional `compatiblePackages` field (array of purl strings with optional VERS version constraints) on skill, command, and MCP server manifests. Extension authors declare which packages their extension is designed for. (JTBD 3)
 
 ### axm Registry
 
-- **`registry-discover-query`**: Single axm registry endpoint that accepts detected purls and returns matching extensions with per-package attribution. Each extension result includes a `compatiblePackages` array where each entry is a `{ purl, recommended? }` pair. `recommended: true` indicates the package author themselves recommended the extension; absence or `false` indicates compatibility declared by the extension author via the `compatiblePackages` manifest field. The registry resolves version matching server-side. Implemented in the axm local registry for end-to-end testing; defines the contract for the axm remote registry.
+- **`registry-discover-query`**: Single axm registry endpoint that accepts detected packages (purls) and optionally workspace-recommended extension refs. The registry performs two independent lookups: matching packages against published extensions' `compatiblePackages` declarations, and resolving recommended extension refs to full metadata. The response is signal-agnostic — the CLI assigns `compatible`/`recommended` signals based on provenance during its own merge step. Implemented in the axm local registry for end-to-end testing; defines the contract for the axm remote registry.
 - **`registry-publish-compatibility-indexing`**: axm registry indexes `compatiblePackages` purl metadata at extension publish time, feeding the discover query.
 
 ### CLI — `axm discover`
 
-- **`cli-discover`**: New `axm discover` command that orchestrates discovery. Scans local manifests for dependencies (via ecosystem parsers), reads locally installed package metadata for author recommendations (via ecosystem readers), queries the axm registry discover endpoint, and presents results with per-package attribution. (JTBD 1)
+- **`cli-discover`**: New `axm discover` command that orchestrates discovery. Scans local manifests for dependencies (via package type detectors), reads locally installed package metadata for author recommendations (via package type readers), queries the axm registry discover endpoint, and presents results with per-package attribution. (JTBD 1)
 
 Example output:
 
@@ -198,7 +198,7 @@ Example output:
 $ axm discover
 
   Scanning dependencies...
-  Found 12 packages across 1 ecosystem (npm)
+  Found 12 packages across 1 package type (npm)
 
   react
     @acme/skills/react-testing        compatible
@@ -220,10 +220,10 @@ $ axm discover
 
 ### CLI — Dependency File Parsers
 
-Each parser reads a project's manifest files, extracts direct dependencies, and produces purls. Each ecosystem has distinct file formats, naming conventions, and edge cases — each is a distinct spec.
+Each parser reads a project's manifest files, extracts direct dependencies, and produces purls. Each package type has distinct file formats, naming conventions, and edge cases — each is a distinct spec.
 
 - **`cli-detect-npm`**: Parse `package.json` → `pkg:npm` purls. Handles scoped packages (`@` percent-encoding), `npm:` aliases (map to real package name), skips `file:`/`link:`/`workspace:`/`git:`/URL specifiers. Considers `peerDependencies`.
-- **`cli-detect-pypi`**: Parse `requirements.txt`, `pyproject.toml`, `setup.py`, `setup.cfg`, `Pipfile` → `pkg:pypi` purls. Lowercased names, underscores replaced with dashes.
+- **`cli-detect-pypi`**: Parse `requirements.txt`, `pyproject.toml`, `setup.cfg`, `Pipfile` → `pkg:pypi` purls. Lowercased names, underscores replaced with dashes.
 - **`cli-detect-golang`**: Parse `go.mod` → `pkg:golang` purls. Uses `require` directive module paths, filters `// indirect`, handles v2+ module path splitting.
 - **`cli-detect-cargo`**: Parse `Cargo.toml` → `pkg:cargo` purls. Case-sensitive names.
 - **`cli-detect-gem`**: Parse `Gemfile`, `*.gemspec` → `pkg:gem` purls. Optional `platform` qualifier.
@@ -250,7 +250,7 @@ Each parser reads a project's manifest files, extracts direct dependencies, and 
 
 ### CLI — Installed-Package Metadata Readers
 
-Each reader inspects locally installed packages for author-provided recommendation metadata (`axm.json` schema). Each ecosystem has a distinct installed-package layout and metadata format — each is a distinct spec.
+Each reader inspects locally installed packages for author-provided recommendation metadata (`axm.json` schema). Each package type has a distinct installed-package layout and metadata format — each is a distinct spec.
 
 - **`cli-read-npm`**: Read `"axm"` field from `node_modules/<pkg>/package.json`.
 - **`cli-read-pypi`**: Read `axm` entry point group from `.dist-info/entry_points.txt`, then locate `axm.json` from package data.
@@ -300,7 +300,7 @@ Each reader inspects locally installed packages for author-provided recommendati
 
 ### Incremental
 
-Tier 2–5 ecosystem parsers and readers are delivered incrementally after the core flow is proven with Tier 1. Each ecosystem's parser and reader can ship independently.
+Tier 2–5 package type parsers and readers are delivered incrementally after the core flow is proven with Tier 1. Each package type's parser and reader can ship independently.
 
 - **Tier 2** (Major): Go, Rust, Ruby, Java/Kotlin, .NET
 - **Tier 3** (Extended): PHP, Swift, Elixir/Gleam, Dart/Flutter, Docker, CocoaPods, Conda
@@ -309,12 +309,12 @@ Tier 2–5 ecosystem parsers and readers are delivered incrementally after the c
 
 ### Deferred
 
-- **axm remote registry ecosystem indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for recommendation metadata. When implemented, the discover endpoint will return `recommended` extensions even for packages not yet installed locally.
+- **axm remote registry indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for recommendation metadata. When implemented, the discover endpoint will return `recommended` extensions even for packages not yet installed locally.
 
 ### Non-Goals
 
 - **Auto-installation** — `axm discover` surfaces recommendations; it does not install extensions automatically
-- **Ecosystem file modification** — axm reads manifest files and installed package metadata but never writes to them
+- **Project file modification** — axm reads manifest files and installed package metadata but never writes to them
 - **Replacing `axm skills search`** — discover is project-contextual (what fits my dependencies); search is intent-driven (find by keyword). They are complementary
 - **Compatibility enforcement** — discovery is advisory. axm does not prevent installing an extension that declares incompatible packages
 - **Recommendation ranking or scoring** — results are grouped by package, not ranked by relevance. No recommendation engine
@@ -323,9 +323,9 @@ Tier 2–5 ecosystem parsers and readers are delivered incrementally after the c
 
 1. **Conflicting recommendations** — When both `recommended` and `compatible` extensions target the same package, they appear together under that package's heading. Should the CLI visually distinguish confidence levels beyond the `recommended` badge, or is the binary distinction sufficient?
 2. **Caching and offline behavior** — Should discover results be cached locally? If so, for how long? When the axm registry is unreachable, the CLI can still surface `recommended` extensions from local package metadata. Should it warn that `compatible` results are unavailable, or silently show only local results?
-3. **Scoped npm packages as privacy signal** — Scoped npm packages (e.g., `@my-company/internal-lib`) reveal organization names. Should the CLI warn before sending scoped packages to the registry, or is the user's invocation of `axm discover` sufficient consent?
-4. **Monorepo detection** — In monorepos with many `package.json` files, should `axm discover` scan only the root manifest, the nearest manifest, or all manifests? Scanning all could produce a very large purl set.
-5. **Ecosystem parser plugin model** — With 51 eventual capabilities, should parsers and readers be pluggable (e.g., community-contributed adapters) rather than built into the CLI?
+3. ~~**Scoped npm packages as privacy signal**~~ — Resolved: the user's invocation of `axm discover` is sufficient consent. Scoped package names are noted in `--verbose` output (see design Decision 15 and Privacy section).
+4. ~~**Monorepo detection**~~ — Resolved: `axm discover` scans only the current (or `--path`-specified) directory. Users scope results by running from a subdirectory (see design Decision 15).
+5. **Package type parser plugin model** — With 51 eventual capabilities, should parsers and readers be pluggable (e.g., community-contributed adapters) rather than built into the CLI?
 
 ## Privacy
 
@@ -343,8 +343,8 @@ The axm remote registry's data retention and privacy policy for discover queries
 - **Extension manifest schema**: New optional `compatiblePackages` field added to skill, command, and MCP server manifests
 - **axm registry**: Two new protocol capabilities (discover query with per-package attribution, publish-time compatibility indexing)
 - **axm local registry**: Implements the discover endpoint for development and testing
-- **CLI**: New `discover` command; up to 25 dependency file parsers and 26 installed-package metadata readers across ecosystems; enhanced preview output in install and pack commands
-- **Ecosystem files**: Reads local project manifest files and installed package metadata (does not modify any files)
+- **CLI**: New `discover` command; up to 25 dependency file parsers and 26 installed-package metadata readers across package types; enhanced preview output in install and pack commands
+- **Project files**: Reads local project manifest files and installed package metadata (does not modify any files)
 - **Third-party integration point**: `axm-package-meta.json` schema for library authors to include recommendation metadata in their published packages
 - **Dependencies**: purl parsing/validation library (e.g. `packageurl-js`)
 

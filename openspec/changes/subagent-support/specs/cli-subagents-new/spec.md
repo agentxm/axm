@@ -2,13 +2,13 @@
 
 ### Requirement: Scaffold subagent extension
 
-`axm subagents new` SHALL scaffold both `axm-subagent.json` (manifest) and `src/SUBAGENT.md` (instructions with frontmatter) in `.axm/extensions/<owner>/subagents/<name>/`.
+`axm subagents new` SHALL scaffold both `subagent.json` (manifest) and `src/SUBAGENT.md` (instructions with frontmatter) in `.axm/extensions/<owner>/subagents/<name>/`.
 
 #### Scenario: Scaffold with defaults
 
 - **WHEN** user runs `axm subagents new code-reviewer`
 - **AND** workspace default owner is `@acme`
-- **THEN** the CLI SHALL create `.axm/extensions/@acme/subagents/code-reviewer/axm-subagent.json` with `type: "subagent"`, `name: "code-reviewer"`, `owner: "@acme"`, `version: "0.1.0"`, `model: "default"`, `toolAccess: "full"`, `background: false`
+- **THEN** the CLI SHALL create `.axm/extensions/@acme/subagents/code-reviewer/subagent.json` with `type: "subagent"`, `name: "code-reviewer"`, `owner: "@acme"`, `version: "0.1.0"`, `model: "default"`, `toolAccess: "full"`, `background: false`
 - **AND** SHALL create `.axm/extensions/@acme/subagents/code-reviewer/src/SUBAGENT.md` with YAML frontmatter (`name`, `description` placeholder, `model: default`, `toolAccess: full`, `background: false`) and a starter instructions body
 
 #### Scenario: Scaffold with custom options

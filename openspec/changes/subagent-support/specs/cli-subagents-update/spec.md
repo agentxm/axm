@@ -10,7 +10,7 @@
 - **AND** `code-reviewer` has a newer version available matching the constraint
 - **THEN** the CLI SHALL update the canonical source in `.axm/extensions/`
 - **AND** SHALL re-render agent-native files for all configured agents
-- **AND** SHALL update the lockfile version and content hashes
+- **AND** SHALL update the lockfile version, source hash, and rendered file paths
 
 #### Scenario: No updates available
 
@@ -50,20 +50,21 @@ An optional positional `source` argument SHALL limit the update to subagents fro
 - **WHEN** user runs `axm subagents update --agent claude-code`
 - **THEN** the update SHALL fetch new versions for all subagents but only re-render for Claude Code
 
-### Requirement: Drift detection on update
+### Requirement: Update overwrites managed rendered files
 
-When rendered files have drifted (content hash mismatch), the update SHALL warn and require `--force` to proceed.
+When updating, the CLI SHALL overwrite all rendered files that contain the AXM managed marker. Manually edited rendered files that still have the marker are overwritten without warning — the source hash change from the upstream update is sufficient reason to re-render. To preserve manual edits, uninstall the extension.
 
-#### Scenario: Drifted file blocks update
+#### Scenario: Managed file overwritten on update
 
-- **WHEN** a rendered file has been manually edited
+- **WHEN** a rendered file has been manually edited but retains the managed marker
 - **AND** user runs `axm subagents update`
-- **THEN** the CLI SHALL warn about drift and prompt for confirmation
+- **THEN** the CLI SHALL re-render and overwrite the file
 
-#### Scenario: Force overrides drift
+#### Scenario: Unmanaged file at render path blocks update
 
-- **WHEN** user runs `axm subagents update --force`
-- **THEN** the update SHALL proceed regardless of drift
+- **WHEN** a rendered file's managed marker has been removed
+- **AND** user runs `axm subagents update`
+- **THEN** the CLI SHALL treat it as a conflict (block unless `--force`)
 
 ### Requirement: Preview flag
 

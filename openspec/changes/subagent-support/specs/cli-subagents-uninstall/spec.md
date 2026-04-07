@@ -20,21 +20,15 @@
 - **THEN** the `code-reviewer` mode entry SHALL be removed from `.roomodes`
 - **AND** manual modes in `.roomodes` SHALL remain unchanged
 
-### Requirement: Drift detection on uninstall
+### Requirement: Rendered file cleanup uses lockfile paths
 
-`axm subagents uninstall` SHALL detect drift by comparing rendered file content hashes against lockfile values. Without `--force`, drifted files SHALL require confirmation.
+`axm subagents uninstall` SHALL use the `renderedFiles` map from the lockfile to locate and delete all rendered files. Missing files are skipped gracefully (partial cleanup from prior operations is tolerated).
 
-#### Scenario: Drifted file requires confirmation
+#### Scenario: Rendered file already missing
 
 - **WHEN** user runs `axm subagents uninstall code-reviewer`
-- **AND** `.claude/agents/code-reviewer.md` has been manually edited (hash differs from lockfile)
-- **THEN** the CLI SHALL warn about the drift and prompt for confirmation
-
-#### Scenario: Force skips drift warning
-
-- **WHEN** user runs `axm subagents uninstall code-reviewer --force`
-- **AND** rendered files have drifted
-- **THEN** the CLI SHALL remove all files without drift warnings
+- **AND** `.claude/agents/code-reviewer.md` was already manually deleted
+- **THEN** the CLI SHALL skip that file and continue with remaining cleanup
 
 ### Requirement: Subagent not found error
 

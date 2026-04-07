@@ -31,21 +31,15 @@
 - **AND** `unknown-agent` is not installed
 - **THEN** the CLI SHALL fail with an error indicating the subagent is not installed
 
-### Requirement: Drift detection on disable
+### Requirement: Rendered file cleanup uses lockfile paths
 
-When rendered files have drifted, disable SHALL warn and require `--force` to proceed.
+Disable SHALL use the `renderedFiles` map from the lockfile to locate and delete all rendered files. Missing files are skipped gracefully.
 
-#### Scenario: Drifted files warn before removal
+#### Scenario: Rendered file already missing on disable
 
 - **WHEN** user runs `axm subagents disable code-reviewer`
-- **AND** rendered files have been manually edited (hash differs from lockfile)
-- **THEN** the CLI SHALL warn about drift and prompt for confirmation
-
-#### Scenario: Force skips drift warning
-
-- **WHEN** user runs `axm subagents disable code-reviewer --force`
-- **AND** rendered files have drifted
-- **THEN** the CLI SHALL remove all rendered files without drift warnings
+- **AND** a rendered file was already manually deleted
+- **THEN** the CLI SHALL skip that file and continue with remaining cleanup
 
 ### Requirement: Re-enable restores rendered files
 

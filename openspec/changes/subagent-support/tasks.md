@@ -8,9 +8,16 @@ Creates the `@axm.sh/core/unstable/subagents` module with manifest schema (`suba
 
 **Reference:** `subagents/spec.md` — Subagent manifest schema, Subagent content file, Directory layout, FQN segment.
 
+**Effect v4 patterns for this phase:**
+
+- Use `Schema.Class` for `SubagentManifest`, `SubagentContent`, and `SubagentFrontmatter` — gives validated constructors, `_tag` pattern matching, and `decodeResult` for synchronous hot-path use
+- Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation for the frontmatter → manifest sync — type-safe bidirectional transformation (same pattern as command-support)
+- Use `Schema.withConstructorDefault` for boolean fields (`background: false`)
+- Use branded types from shared infrastructure: `SourceHash`, `RenderedFilePath`, `ManagedMarker`
+
 - [ ] 1.1 Create `packages/core/src/unstable/subagents/` directory structure
-- [ ] 1.2 Define `SubagentManifestSchema` in `manifest-schema.ts` extending `CommonManifestBaseFields` with subagent-specific fields: `model` (enum `"fast" | "default" | "powerful" | "inherit"` or concrete model ID string), `toolAccess` (`"full" | "readonly" | "none"`), `background` (boolean), `agents` (optional `string[]`). Set manifest filename to `subagent.json` and schema URL to `https://axm.sh/schemas/subagent.schema.json`. Follow patterns from `packages/core/src/unstable/skills/manifest-schema.ts`
-- [ ] 1.3 Define `SubagentContentSchema` in `content-schema.ts` for SUBAGENT.md YAML frontmatter parsing: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). The Markdown body after frontmatter is the instructions content
+- [ ] 1.2 Define `SubagentManifestSchema` as `Schema.Class` in `manifest-schema.ts` extending `CommonManifestBaseFields` with subagent-specific fields: `model` (enum `"fast" | "default" | "powerful" | "inherit"` or concrete model ID string), `toolAccess` (`"full" | "readonly" | "none"`), `background` (boolean, `withConstructorDefault(() => false)`), `agents` (optional `string[]`). Set manifest filename to `subagent.json` and schema URL to `https://axm.sh/schemas/subagent.schema.json`. Follow patterns from `packages/core/src/unstable/skills/manifest-schema.ts`
+- [ ] 1.3 Define `SubagentContentSchema` as `Schema.Class` in `content-schema.ts` for SUBAGENT.md YAML frontmatter parsing: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description`, `model`, `toolAccess`, `background` from frontmatter to manifest shape for publish-time sync. The Markdown body after frontmatter is the instructions content
 - [ ] 1.4 Define directory layout constants: canonical path `.axm/extensions/<owner>/subagents/<name>/`, manifest at `subagent.json`, content at `src/SUBAGENT.md`. Follow pattern from skills
 - [ ] 1.5 Create `subagent.example.json` example manifest file (analogous to `packages/core/src/unstable/skills/skill.example.json`)
 - [ ] 1.6 Export from `packages/core/src/unstable/subagents/index.ts` barrel
@@ -56,16 +63,24 @@ Implements the core rendering engine that translates portable SUBAGENT.md into a
 
 **Reference:** `subagents/spec.md` — Per-format-family rendering, Model tier mapping, Tool access mapping, Agent-specific overrides, Managed-file header, Kiro dual-format, Roo Code read-modify-write; proposal §Agent Adapter Rendering, §Model Mapping.
 
-- [ ] 4.1 Define rendering types in `packages/core/src/unstable/subagents/rendering/types.ts` — `RenderInput` (parsed SUBAGENT.md frontmatter + body), `RenderOutput` (rendered file content + target path), `RenderOutcome` (success with optional warnings for lossy mappings)
-- [ ] 4.2 Reuse shared managed marker utilities from `core/unstable/extensions/managed-marker.ts` (created in command-support) — subagent markers use the same `generateMarker("subagent", format)` pattern with the extension type parameterized
-- [ ] 4.3 Reuse shared source hash computation from `core/unstable/extensions/rendered-files.ts` (created in command-support) — SHA-256 hash of SUBAGENT.md frontmatter + body (portable inputs only, not overrides)
-- [ ] 4.4 Implement model tier mapping in `packages/core/src/unstable/subagents/rendering/model-mapping.ts` — maps `"fast" | "default" | "powerful" | "inherit"` to agent-specific values per the proposal mapping table. Concrete model IDs pass through verbatim
-- [ ] 4.5 Implement tool access mapping in `packages/core/src/unstable/subagents/rendering/tool-access-mapping.ts` — maps `"full" | "readonly" | "none"` to agent-native tool control fields. Document lossy mappings (Codex readonly=none, Cursor readonly=none) and return warnings
-- [ ] 4.6 Implement Markdown+YAML adapter in `packages/core/src/unstable/subagents/rendering/adapters/markdown-yaml.ts` — covers Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE. Each agent has field-name and semantics differences; use per-agent configuration within the shared adapter. Merge `overrides` on top of portable fields
+**Effect v4 patterns for this phase:**
+
+- Use `Schema.Class` for `RenderInput`, `RenderOutput`, and `RenderOutcome` — tagged types enable pattern matching on outcomes
+- Model tier mapping and tool access mapping as `Schema.encodeTo` transformations: portable enum → agent-native string, with lossy mappings producing `LossyRenderingWarning` (Schema.Class from shared infra)
+- Use `Layer.suspend()` for the adapter registry — defer adapter construction, build only adapters for configured agents
+- Each rendering adapter is a pure function `(input: RenderInput) => Effect<RenderOutcome>` — compose via `Effect.forEach` across agents
+- Roo Code read-modify-write uses `Effect.acquireRelease` to ensure `.roomodes` file integrity during concurrent operations
+
+- [ ] 4.1 Define rendering types as `Schema.Class` in `packages/core/src/unstable/subagents/rendering/types.ts` — `RenderInput` (parsed SUBAGENT.md frontmatter + body), `RenderOutput` (rendered file content + `RenderedFilePath`), `RenderOutcome` (tagged: `Rendered` with optional `LossyRenderingWarning[]`, or `Skipped` with reason)
+- [ ] 4.2 Reuse shared managed marker utilities from `core/unstable/extensions/managed-marker.ts` (created in command-support) — subagent markers use the same `generateMarker("subagent", format)` pattern with the extension type parameterized, returns `ManagedMarker` branded type
+- [ ] 4.3 Reuse shared source hash computation from `core/unstable/extensions/rendered-files.ts` (created in command-support) — SHA-256 hash of SUBAGENT.md frontmatter + body (portable inputs only, not overrides), returns `SourceHash` branded type
+- [ ] 4.4 Implement model tier mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/model-mapping.ts` — maps `"fast" | "default" | "powerful" | "inherit"` to agent-specific values per the proposal mapping table. Concrete model IDs pass through verbatim. Returns both the mapped value and any `LossyRenderingWarning` for lossy mappings
+- [ ] 4.5 Implement tool access mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/tool-access-mapping.ts` — maps `"full" | "readonly" | "none"` to agent-native tool control fields. Document lossy mappings (Codex readonly=none, Cursor readonly=none) and return warnings
+- [ ] 4.6 Implement Markdown+YAML adapter in `packages/core/src/unstable/subagents/rendering/adapters/markdown-yaml.ts` — covers Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE. Each agent has field-name and semantics differences; use per-agent config `Schema.Struct` with `withConstructorDefault` for agent-specific defaults within the shared adapter. Merge `overrides` on top of portable fields
 - [ ] 4.7 Implement TOML adapter in `packages/core/src/unstable/subagents/rendering/adapters/toml.ts` — covers Codex only. Maps body to `developer_instructions`, model/sandbox_mode fields. Merge overrides
 - [ ] 4.8 Implement JSON adapter in `packages/core/src/unstable/subagents/rendering/adapters/json.ts` — covers Kiro CLI only. Maps body to `prompt` field. Include `_axm_managed` marker
-- [ ] 4.9 Implement Roo Code adapter in `packages/core/src/unstable/subagents/rendering/adapters/roo.ts` — read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope). Split body: first paragraph → `roleDefinition`, remainder → `customInstructions`. Add `_axm_managed` field to mode entry. Preserve manually-defined modes
-- [ ] 4.10 Implement adapter registry in `packages/core/src/unstable/subagents/rendering/index.ts` — maps agent ID to appropriate adapter. Handle Kiro dual-format (returns two `RenderOutput` items — `.md` for IDE and `.json` for CLI)
+- [ ] 4.9 Implement Roo Code adapter in `packages/core/src/unstable/subagents/rendering/adapters/roo.ts` — read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope) using `Effect.acquireRelease` to ensure file integrity during concurrent operations. Split body: first paragraph → `roleDefinition`, remainder → `customInstructions`. Add `_axm_managed` field to mode entry. Preserve manually-defined modes
+- [ ] 4.10 Implement adapter registry in `packages/core/src/unstable/subagents/rendering/index.ts` using `Layer.suspend()` to defer adapter construction — maps agent ID to appropriate adapter, constructing only adapters for configured agents. Handle Kiro dual-format (returns two `RenderOutput` items — `.md` for IDE and `.json` for CLI)
 - [ ] 4.11 Write comprehensive tests for each adapter covering: all three `toolAccess` levels, all four `model` tiers, `background` flag rendering, override merging, managed marker injection, lossy mapping warnings
 - [ ] 4.12 Write tests for Kiro dual-format rendering (two files per agent)
 - [ ] 4.13 Write tests for Roo Code read-modify-write: preserving manual modes, updating existing AXM mode, adding new AXM mode, removing AXM mode
@@ -80,6 +95,12 @@ Implements the core rendering engine that translates portable SUBAGENT.md into a
 Extends the `CodingAgent` interface with subagent-specific methods and implements them for all 11 in-scope agents. Depends on Phase 4 (rendering engine).
 
 **Reference:** `subagents/spec.md` — Agent adapter subagent methods, Scope-aware rendering; proposal §Scoping decision, §Installation.
+
+**Effect v4 patterns for this phase:**
+
+- Use `Effect.forEach(agents, addSubagent, { concurrency: "unbounded" })` for parallel rendering across agents
+- Use `Effect.all` with `concurrency: "unbounded"` for concurrent conflict detection before any writes
+- Use `Effect.acquireRelease` for the multi-agent render lifecycle — rollback rendered files on partial failure
 
 - [ ] 5.1 Extend `CodingAgent` interface in `packages/core/src/unstable/agents/coding-agent.ts` with: `resolveEffectiveSubagentsDir(args)` returning supported/unsupported/disabled/misconfigured outcome (same pattern as `resolveEffectiveSkillsDir`), `addSubagent(args)` returning sync outcome with warnings, `removeSubagent(args)` returning sync outcome
 - [ ] 5.2 Define `AddSubagentArgs` — includes `RenderInput`, scope (project/user), force flag. Define `RemoveSubagentArgs` — includes subagent name, scope, rendered file paths from lockfile
@@ -108,15 +129,23 @@ Implements the `SubagentManager` Effect service for subagent CRUD operations: ma
 
 **Reference:** `subagents/spec.md` — Directory layout, Lockfile subagent entries; `cli-subagents-install/spec.md` — Install flow.
 
+**Effect v4 patterns for this phase:**
+
+- Use `Effect.forEach(agents, addSubagent, { concurrency: "unbounded" })` for parallel rendering during `materializeInstall`
+- Use `Effect.acquireRelease` for the render lifecycle — on partial failure, rollback already-rendered files
+- Use `decodeResult` (synchronous) for source hash comparison in the skip-render fast path — avoids Effect overhead in reconciliation hot path
+- Use `Effect.all` with `concurrency: "unbounded"` for batch conflict detection
+- Use `Stream.mergeAll` for multi-source discovery when resolving from registry + git + local simultaneously
+
 - [ ] 6.1 Define `SubagentExtensionRef` types in `packages/core/src/unstable/subagents/refs.ts` — union of `GitHostedSubagentRef`, `RegistrySubagentRef`, `LocalSubagentRef`, following patterns from `packages/core/src/unstable/skills/refs.ts`
 - [ ] 6.2 Define `SubagentExtensionTarget` in `packages/core/src/unstable/workspace/service-interface.ts` — `{type: "subagent", name: string}`. Add to the `ExtensionTarget` union type
 - [ ] 6.3 Create `SubagentManager` service in `packages/core/src/unstable/subagents/manager.ts` implementing `ExtensionManager<SubagentExtensionRef>`:
   - `isInstalled` — checks settings for existing entry
-  - `materializeInstall` — copies canonical source to `.axm/extensions/`, reads SUBAGENT.md, renders to all configured agents via CodingAgent adapters, records `renderedFiles` map in lockfile
-  - `materializeUninstall` — removes rendered files using lockfile `renderedFiles` paths, removes canonical source directory
+  - `materializeInstall` — copies canonical source to `.axm/extensions/`, reads SUBAGENT.md, renders to all configured agents concurrently via `Effect.forEach(agents, addSubagent, { concurrency: "unbounded" })`, uses `Effect.acquireRelease` for rollback on partial failure, records `renderedFiles` map in lockfile
+  - `materializeUninstall` — removes rendered files concurrently using lockfile `renderedFiles` paths via `Effect.forEach`, removes canonical source directory
   - `upsertSettingsEntry` / `removeSettingsEntry`
   - `upsertLockfileEntry` / `removeLockfileEntry`
-- [ ] 6.4 Implement source-hash-based skip logic in `materializeInstall` — if lockfile `sourceHash` matches current SUBAGENT.md hash, skip re-rendering
+- [ ] 6.4 Implement source-hash-based skip logic in `materializeInstall` — use `decodeResult` (synchronous) to compare lockfile `sourceHash` with current SUBAGENT.md hash; skip re-rendering when unchanged
 - [ ] 6.5 Create `SubagentManagerLive` layer wiring dependencies (FileSystem, Path, CodingAgentRepository, Settings, Lockfile)
 - [ ] 6.6 Write tests for `SubagentManager` covering: fresh install with rendering, re-install with source hash skip, uninstall removing rendered files, settings/lockfile CRUD
 - [ ] 6.7 Export from subagents barrel and wire into workspace service
@@ -130,9 +159,15 @@ Implements the `ReconciliationAdapter` for subagents in the workspace reconcilia
 
 **Reference:** `workspace-reconciliation/spec.md` — all requirements; proposal §Reconciliation Flow.
 
+**Effect v4 patterns for this phase:**
+
+- Use `decodeResult` (synchronous) for source hash comparison in the reconciliation hot path — called per-subagent per-sync, must be fast
+- Use `Effect.forEach` with concurrency for parallel re-rendering when source changes
+- Use `Effect.all` for concurrent agent list change detection (new agents added, old removed)
+
 - [ ] 7.1 Create `packages/core/src/unstable/subagents/reconciliation-adapter.ts` implementing `ReconciliationAdapter` with `type: "subagents"`:
   - `scanDeclarations` — reads settings `subagents` map, builds declarations including enabled/disabled state
-  - `checkDiskCompatibility` — validates canonical source exists, reads SUBAGENT.md, checks source hash against lockfile
+  - `checkDiskCompatibility` — validates canonical source exists, reads SUBAGENT.md, uses `decodeResult` (synchronous) for source hash comparison against lockfile
 - [ ] 7.2 Implement render-on-reconcile logic: when source hash has changed, re-render all agent-native files. Overwrite rendered files that contain the managed marker (no per-file content hash drift detection)
 - [ ] 7.3 Implement agent list change handling: when `agents` in settings changes, render for newly added agents (respecting each subagent's `agents` filter), remove rendered files for removed agents
 - [ ] 7.4 Implement disabled subagent cleanup: if `enabled: false`, remove rendered files but keep canonical source and lockfile entry

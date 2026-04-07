@@ -255,7 +255,232 @@ When rendering to Augment, the adapter checks whether Claude Code is also a conf
 
 This check happens at render time, not at install planning time, so it adapts to workspace configuration changes on re-sync.
 
-## Risks / Trade-offs
+## Effect v4 Implementation Patterns
+
+This section identifies Effect v4 capabilities to leverage for maximum type
+safety, concurrency, and composability across the command-support implementation.
+These patterns apply to the shared infrastructure and are inherited by
+subagent-support and skills-alignment.
+
+### Schema bidirectional transformations for content file ↔ manifest sync
+
+The publish flow syncs COMMAND.md frontmatter fields to the manifest for registry
+distribution. Model this as a Schema `encodeTo` transformation: the frontmatter
+schema decodes to a `CommandFrontmatter` type, and a separate transformation
+encodes the relevant fields into manifest shape. This replaces ad-hoc field
+copying with a type-safe, testable transformation that validates in both
+directions.
+
+```typescript
+// Frontmatter → manifest field projection via Schema transformation
+const FrontmatterToManifestFields = CommandFrontmatterSchema.pipe(
+  Schema.encodeTo(ManifestDerivedFieldsSchema, {
+    decode: (manifest) => ({ description: manifest.description, model: manifest.model }),
+    encode: (frontmatter) => ({ description: frontmatter.description, model: frontmatter.model }),
+  }),
+);
+```
+
+The same pattern applies to subagent-support (SUBAGENT.md frontmatter → manifest
+sync) and to the content-file parser in the shared infrastructure.
+
+### Schema.Class for shared rendered-extension types
+
+Use `Schema.Class` (not bare `Schema.Struct`) for the shared infrastructure
+types that carry behavior alongside their schema:
+
+- `RenderedFilesMap` — lockfile mixin with path-based cleanup methods
+- `LossyRenderingWarning` — structured warning with dedup and formatting
+- `ConflictDetectionResult` — tagged result with conflict/owned/absent variants
+- `SourceHash` — branded `string` via `Schema.brand("SourceHash")` to prevent
+  accidental interchange with other hash strings
+
+`Schema.Class` gives us validated constructors, pattern matching via `_tag`,
+`decodeResult` for synchronous hot-path parsing in reconciliation, and
+`toJsonSchemaDocument()` for documentation generation.
+
+### Branded types for rendering-specific values
+
+Extend the codebase's existing branded type pattern (already used for
+`VersionConstraint`, `ExtensionName`, `Handle`) to rendering:
+
+| Branded type        | Base   | Purpose                                       |
+| ------------------- | ------ | --------------------------------------------- |
+| `SourceHash`        | string | Hash of portable inputs; prevents raw mix-ups |
+| `RenderedFilePath`  | string | Absolute path to a rendered agent file        |
+| `ManagedMarker`     | string | The complete marker string for a format+type  |
+| `AgentFormatFamily` | string | One of the 5 format family identifiers        |
+
+Branded types catch incorrect string passing at compile time with zero runtime
+cost.
+
+### `Layer.suspend()` for dynamic agent adapter selection
+
+The rendering pipeline must select from 11 agent adapters based on workspace
+configuration. Use `Layer.suspend()` to defer adapter construction until the
+workspace is resolved, constructing only the adapters actually needed:
+
+```typescript
+// Deferred adapter layer — only constructs adapters for configured agents
+const AgentAdaptersLayer = Layer.suspend(() => {
+  // Reads workspace config to determine which agents are configured
+  // Returns a merged layer of only the needed agent adapters
+  return configuredAgentIds.reduce(
+    (merged, id) => Layer.merge(merged, adapterLayerFor(id)),
+    Layer.empty,
+  );
+});
+```
+
+This avoids eagerly constructing all 11 adapters (each with filesystem checks
+and directory resolution) when a workspace typically configures 2-4 agents.
+`Layer.suspend()` preserves sharing — repeated access to the same adapter reuses
+the same instance.
+
+### `Effect.forEach` with concurrency for parallel agent rendering
+
+When installing or syncing a command, rendering to N agents is embarrassingly
+parallel — each agent's rendered output is independent. Use `Effect.forEach`
+with `concurrency: "unbounded"` (or a bounded limit for large agent counts):
+
+```typescript
+const renderToAllAgents = (agents: ReadonlyArray<CodingAgent>, input: RenderInput) =>
+  Effect.forEach(agents, (agent) => agent.addCommand(input), { concurrency: "unbounded" });
+```
+
+This replaces sequential for-loops with concurrent execution, reducing install
+latency proportionally to agent count. The same pattern applies to conflict
+detection (check all paths before any writes) and uninstall (remove files from
+all agents).
+
+### `Effect.all` for concurrent conflict detection
+
+Before writing any rendered files, check all target paths for conflicts in
+parallel. Use `Effect.all` to collect all conflict check results before deciding
+whether to proceed:
+
+```typescript
+const conflicts =
+  yield *
+  Effect.all(
+    agents.map((agent) =>
+      detectConflict(agent.resolveCommandPath(name)).pipe(
+        Effect.map((result) => ({ agent, result })),
+      ),
+    ),
+    { concurrency: "unbounded" },
+  );
+```
+
+All-or-nothing conflict checking prevents partial renders where some agents get
+files but others are blocked.
+
+### `Effect.acquireRelease` for rendered file write lifecycle
+
+Rendered file writes should be atomic from the perspective of the extension
+lifecycle. If rendering to agent 5 of 11 fails, previously written files should
+be cleaned up. Model this with `Effect.acquireRelease`:
+
+```typescript
+// Each rendered file is a resource: acquired by writing, released by deletion on failure
+const renderWithRollback = (agents: ReadonlyArray<CodingAgent>, input: RenderInput) =>
+  Effect.scoped(
+    Effect.forEach(agents, (agent) =>
+      Effect.acquireRelease(
+        agent.addCommand(input), // acquire: write the file
+        (outcome) =>
+          outcome._tag === "Rendered"
+            ? agent.removeCommand(input.name) // release: delete on scope failure
+            : Effect.void,
+      ),
+    ),
+  );
+```
+
+This ensures that a failed multi-agent render doesn't leave orphaned files in
+some agents while failing silently for others.
+
+### `decodeResult`/`encodeResult` for synchronous hot-path parsing
+
+The reconciliation engine checks source hashes frequently to decide whether
+re-rendering is needed. Use `Schema.decodeResult` (new in v4) for synchronous,
+non-Effect parsing of lockfile entries and source hashes in the reconciliation
+hot path:
+
+```typescript
+// Synchronous check — no Effect overhead for simple validation
+const result = Schema.decodeResult(SourceHashSchema)(lockfileEntry.sourceHash);
+if (Result.isOk(result) && result.value === currentHash) {
+  return; // Skip re-render — source unchanged
+}
+```
+
+Reserve `decodeUnknownEffect` for boundary parsing (CLI input, file reads) where
+errors need full Effect error channel treatment.
+
+### Variable substitution as Schema encode transformation
+
+Model variable syntax translation as a Schema transformation pipeline. Each
+agent's variable syntax is a target encoding; the portable syntax is the decoded
+form:
+
+```typescript
+const PortableVariable = Schema.Union(
+  Schema.Struct({ type: Schema.Literal("arguments") }),
+  Schema.Struct({ type: Schema.Literal("positional"), index: Schema.Number }),
+  Schema.Struct({ type: Schema.Literal("named"), name: Schema.String }),
+);
+
+// Agent-specific encoding: portable → native syntax
+const ClaudeCodeVariableEncoding = PortableVariable.pipe(
+  Schema.encodeTo(Schema.String, {
+    encode: (v) =>
+      match(v.type, {
+        arguments: () => "$ARGUMENTS",
+        positional: () => `$${v.index + 1}`,
+        named: () => `(appended as context)`,
+      }),
+    // decode for roundtrip testing
+  }),
+);
+```
+
+This gives type-safe, testable variable translation with clear per-agent
+encoding rules. The rendering pipeline composes: parse body → extract variables
+→ encode per agent → interpolate back into rendered output.
+
+### Stream for multi-source discovery
+
+When resolving extensions from multiple sources (registry lookup, git discovery,
+local filesystem scan), use `Stream.mergeAll` to combine discovery channels and
+emit results as they arrive:
+
+```typescript
+const discoverFromAllSources = (sources: ReadonlyArray<Source>) =>
+  Stream.mergeAll(
+    sources.map((source) => discoverRefsFrom(source)),
+    { concurrency: sources.length },
+  );
+```
+
+This enables progressive feedback during `axm commands install` — the user sees
+results as each source resolves rather than waiting for the slowest source.
+
+### Trie for command name prefix matching
+
+Shell completions (`Completions.ts` in Effect CLI) benefit from a Trie data
+structure for command name prefix matching:
+
+```typescript
+import { Trie } from "effect";
+
+const commandTrie = Trie.fromIterable(installedCommands.map((cmd) => [cmd.name, cmd] as const));
+
+// O(k) prefix lookup where k = prefix length
+const matches = Trie.keysWithPrefix(commandTrie, userInput);
+```
+
+This is a nice-to-have for shell completion performance but not critical for v1.
 
 **[Agent command path deprecation] → Adapter update**
 Claude Code and Codex have deprecated their command paths. If either removes the path entirely, the adapter must be updated to target the replacement (likely the skills path). The portable COMMAND.md is the source of truth, so re-rendering is trivial — but users would need to re-sync.

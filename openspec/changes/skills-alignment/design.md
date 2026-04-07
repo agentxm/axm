@@ -160,6 +160,61 @@ and can proceed independently.
 it with a second extension type). Skills-alignment is the smallest change and
 benefits from stable, proven shared types.
 
+## Effect v4 Implementation Patterns
+
+Skills-alignment is the smallest of the three changes and primarily consumes
+shared infrastructure built during command-support. The Effect v4 patterns here
+are about reuse and consistency.
+
+### Shared Schema.Class types from command-support
+
+The `RenderedFilesMapSchema`, `SourceHash`, `RenderedFilePath`, and
+`ConflictDetectionResult` types are `Schema.Class` instances built in
+command-support Phase 1. Skills uses them as optional lockfile fields:
+
+```typescript
+// SkillLockEntry gains optional fields — Schema.Class types from shared infra
+renderedFiles: Schema.optional(RenderedFilesMapSchema),
+sourceHash: Schema.optional(SourceHashSchema), // branded string
+```
+
+Using the same `Schema.Class` types ensures lockfile serialization and
+deserialization is identical across all three extension types.
+
+### `decodeResult` for synchronous copy-mode detection
+
+The reconciliation hot path needs to quickly determine whether a skill is in
+copy mode (has `renderedFiles`) or symlink mode (omits it). Use `decodeResult`
+for synchronous, non-Effect parsing of the optional lockfile fields:
+
+```typescript
+const hasRenderedFiles = Schema.decodeResult(Schema.optional(RenderedFilesMapSchema))(
+  lockEntry.renderedFiles,
+);
+```
+
+### `Effect.forEach` with concurrency for preview verification tests
+
+The preview verification work tests 4 commands (uninstall, update, enable,
+disable) that are independent. Test execution can use `Effect.forEach` or
+parallel test cases via `@effect/vitest`:
+
+```typescript
+it.each(["uninstall", "update", "enable", "disable"]).effect(
+  "--preview on %s displays plan without applying",
+  (command) =>
+    Effect.gen(function* () {
+      // ... test body
+    }),
+);
+```
+
+### Managed marker via shared `generateMarker`
+
+The managed marker for skills uses the same `generateMarker("skills", "markdown")`
+from shared infra, returning a `ManagedMarker` branded type. The `stripMarker`
+utility handles fork/new scenarios.
+
 ## Risks / Trade-offs
 
 **[Copy-mode is rare] → Minimal real-world impact**

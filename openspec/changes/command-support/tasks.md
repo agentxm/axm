@@ -7,11 +7,18 @@
 
 Build the shared modules in `core/unstable/extensions/` that both command-support and subagent-support reuse. These are the foundation for all rendered-extension types.
 
-- [ ] 1.1 Create `managed-marker.ts` with `generateMarker(extensionType, format)`, `isManagedByAxm(content)`, and `stripMarker(content)` — supports markdown (`<!-- Managed by axm — see "axm <type> --help" -->`), TOML/text (`# Managed by axm — see "axm <type> --help"`). Write tests first covering all format families and edge cases (empty content, marker in middle of file, marker-like strings that aren't markers).
-- [ ] 1.2 Create `rendered-files.ts` with `RenderedFilesMapSchema` (lockfile mixin: record keyed by agent ID, value is array of `{ path }` objects), `computeSourceHash(frontmatter, body, manifestFields)` for determining re-render need. Write tests for hash stability (same inputs = same hash), hash sensitivity (any input change = different hash), and schema encode/decode roundtrip.
-- [ ] 1.3 Create `rendering-warnings.ts` with `LossyRenderingWarning` type (structured: `{ agent, feature, message }`) and a collector utility for accumulating warnings during a render pass. Write tests for accumulation and dedup behavior.
-- [ ] 1.4 Create `conflict-detection.ts` with `detectConflict(filePath, fileContent?)` that checks: no file → no conflict, file with managed marker → owned (re-renderable), file without marker → conflict (blocks unless `--force`). Depends on `managed-marker.ts`. Write tests for each case including file-not-found and permission errors.
-- [ ] 1.5 Create `content-file.ts` with a YAML frontmatter + body parser shared by COMMAND.md and SUBAGENT.md — `parseContentFile(content)` returns `{ frontmatter: Record<string, unknown>, body: string }`. Handle: no frontmatter (pure body), valid frontmatter, malformed YAML (error), empty body. Write tests for all parse scenarios.
+**Effect v4 patterns for this phase:**
+
+- Use `Schema.Class` (not bare `Schema.Struct`) for `RenderedFilesMap`, `LossyRenderingWarning`, and `ConflictDetectionResult` — gives validated constructors, `_tag` pattern matching, and `decodeResult` for synchronous hot-path use in reconciliation
+- Use `Schema.brand("SourceHash")` and `Schema.brand("RenderedFilePath")` for branded string types — prevents accidental interchange with raw strings at compile time
+- Use `Schema.brand("ManagedMarker")` for the marker string type
+- The content-file parser should return a `Schema.Class` result with `decodeResult` for synchronous parsing in reconciliation hot paths
+
+- [ ] 1.1 Create `managed-marker.ts` with `generateMarker(extensionType, format)` returning `ManagedMarker` (branded string), `isManagedByAxm(content)`, and `stripMarker(content)` — supports markdown (`<!-- Managed by axm — see "axm <type> --help" -->`), TOML/text (`# Managed by axm — see "axm <type> --help"`). Write tests first covering all format families and edge cases (empty content, marker in middle of file, marker-like strings that aren't markers).
+- [ ] 1.2 Create `rendered-files.ts` with `RenderedFilesMapSchema` as `Schema.Class` (lockfile mixin: record keyed by agent ID, value is array of `{ path: RenderedFilePath }` objects), `computeSourceHash(frontmatter, body, manifestFields)` returning `SourceHash` (branded) for determining re-render need. Write tests for hash stability (same inputs = same hash), hash sensitivity (any input change = different hash), schema encode/decode roundtrip, and `decodeResult` synchronous parsing.
+- [ ] 1.3 Create `rendering-warnings.ts` with `LossyRenderingWarning` as `Schema.Class` (structured: `{ agent, feature, message }`, tagged via `_tag`) and a collector utility for accumulating warnings during a render pass. Write tests for accumulation and dedup behavior.
+- [ ] 1.4 Create `conflict-detection.ts` with `detectConflict(filePath, fileContent?)` returning a `ConflictDetectionResult` tagged union (`Absent | Owned | Conflict`) that checks: no file → `Absent`, file with managed marker → `Owned` (re-renderable), file without marker → `Conflict` (blocks unless `--force`). Use `Effect.acquireRelease` for file reads to ensure handles are released. Depends on `managed-marker.ts`. Write tests for each case including file-not-found and permission errors.
+- [ ] 1.5 Create `content-file.ts` with a YAML frontmatter + body parser shared by COMMAND.md and SUBAGENT.md — `parseContentFile(content)` returns `{ frontmatter: Record<string, unknown>, body: string }`. Provide both `parseContentFileEffect` (for boundary parsing with full error channel) and `parseContentFileResult` (synchronous `decodeResult` for reconciliation hot paths). Handle: no frontmatter (pure body), valid frontmatter, malformed YAML (error), empty body. Write tests for all parse scenarios.
 - [ ] 1.6 Export all new modules from `core/unstable/extensions/index.ts`
 - [ ] 1.7 Run typecheck for all packages (`pnpm typecheck`), fix any errors
 - [ ] 1.8 Run linting for all packages (`pnpm lint`), fix any errors
@@ -25,8 +32,15 @@ Build the shared modules in `core/unstable/extensions/` that both command-suppor
 
 Update the command-specific schemas to support the full extension lifecycle. Depends on Phase 1 (content-file parser, rendered-files schema).
 
-- [ ] 2.1 Create `CommandArgumentSchema` in `core/unstable/commands/` — `Schema.Struct({ name: Schema.String, description: Schema.optional(Schema.String), required: Schema.optional(Schema.Boolean), default: Schema.optional(Schema.String) })`. Write tests for encode/decode and defaults.
-- [ ] 2.2 Create `CommandFrontmatterSchema` in `core/unstable/commands/` for COMMAND.md frontmatter fields: `description` (optional string), `model` (optional nullable string), `allowedTools` (optional nullable array of strings), `isolatedContext` (optional boolean, default false), `arguments` (optional array of `CommandArgumentSchema`), `argumentHint` (optional string), `autoInvocable` (optional boolean, default true), `userInvocable` (optional boolean, default true). Write tests for all field combinations including nullable semantics (`model: null` clears model).
+**Effect v4 patterns for this phase:**
+
+- Use `Schema.Class` for `CommandArgument` and `CommandFrontmatter` — gives validated constructors and `decodeResult` for synchronous parsing
+- Define a `FrontmatterToManifestFields` transformation using `Schema.encodeTo` for the publish-time sync from COMMAND.md frontmatter to manifest — type-safe bidirectional transformation replacing ad-hoc field copying
+- Use `Schema.ArrayEnsure` where single-value inputs should normalize to arrays (e.g., `allowedTools` could be a single string or array)
+- Constructor defaults via `Schema.withConstructorDefault` for boolean fields (`isolatedContext: false`, `autoInvocable: true`, `userInvocable: true`)
+
+- [ ] 2.1 Create `CommandArgumentSchema` as `Schema.Class` in `core/unstable/commands/` with fields: `name: Schema.String`, `description: Schema.optional(Schema.String)`, `required: Schema.optional(Schema.Boolean).pipe(Schema.withConstructorDefault(() => false))`, `default: Schema.optional(Schema.String)`. Write tests for encode/decode, defaults, and `decodeResult` synchronous parsing.
+- [ ] 2.2 Create `CommandFrontmatterSchema` as `Schema.Class` in `core/unstable/commands/` for COMMAND.md frontmatter fields: `description` (optional string), `model` (optional nullable string), `allowedTools` (optional nullable array of strings), `isolatedContext` (optional boolean, `withConstructorDefault(() => false)`), `arguments` (optional array of `CommandArgumentSchema`), `argumentHint` (optional string), `autoInvocable` (optional boolean, `withConstructorDefault(() => true)`), `userInvocable` (optional boolean, `withConstructorDefault(() => true)`). Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description` and `model` for registry sync. Write tests for all field combinations including nullable semantics (`model: null` clears model) and the bidirectional transformation roundtrip.
 - [ ] 2.3 Update `CommandManifestSchema` in `manifest-schema.ts` to add `agents: Schema.optional(Schema.Array(Schema.String))` and `agentOverrides: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Record({ key: Schema.String, value: Schema.Unknown }) }))`. Write tests for valid manifest with and without these fields. Update `command.example.json` to include example fields.
 - [ ] 2.4 Run typecheck, fix any errors
 - [ ] 2.5 Update `CommandsMapSchema` in settings schema from `Record(String, String)` to a per-type entry schema supporting `string | { source, enabled? }` — follow the `SkillSettingsEntrySchema` pattern. Write tests for string shorthand, object entry with enabled, object entry defaulting enabled to true. Update any code reading `CommandsMapSchema` to handle the new shape.
@@ -42,6 +56,13 @@ Update the command-specific schemas to support the full extension lifecycle. Dep
 > **Subagent:** Run this entire phase in a single subagent.
 
 Extend the `CodingAgent` interface with command-specific methods and implement them for all 11 agents. Depends on Phase 1 (managed-marker, conflict-detection). Depends on Phase 2 (frontmatter schema, manifest schema).
+
+**Effect v4 patterns for this phase:**
+
+- Use `Layer.suspend()` for the agent adapter registry — defer adapter construction until workspace config is resolved, constructing only adapters for configured agents (avoids eagerly building all 11 adapters with filesystem checks when a workspace typically uses 2-4)
+- Use `Effect.forEach` with `concurrency: "unbounded"` in `addCommand`/`removeCommand` batch operations across agents
+- Use `Effect.all` with `concurrency: "unbounded"` for concurrent conflict detection — check all target paths before any writes (all-or-nothing)
+- Use `Effect.acquireRelease` for Augment cross-tool dedup detection — acquire the Claude Code rendered file check, release clean if skipping
 
 - [ ] 3.1 Add `resolveEffectiveCommandsDir`, `addCommand`, and `removeCommand` to the `CodingAgent` interface. Define `ResolveCommandsDirArgs` (scope), `AddCommandArgs` (frontmatter, body, manifest, overrides, force flag), `RemoveCommandArgs` (command name), `CommandSyncOutcome` (including lossy-rendering warnings). Write interface-level type tests to verify the shape compiles.
 - [ ] 3.2 Define command directory paths for all 11 agents (project and user scope) as constants. Reference the design's agent table: Claude Code (`.claude/commands/`), Codex (`~/.codex/prompts/`), OpenCode (`.opencode/commands/`), Augment (`.augment/commands/`), Junie (`.junie/commands/`), Kilo Code (`.opencode/commands/` or `.kilo/commands/`), Roo Code (`.roo/commands/`), Cursor (`.cursor/commands/`), Copilot (`.github/prompts/`), Gemini CLI (`.gemini/commands/`), Kiro (`.kiro/prompts/`).
@@ -62,7 +83,13 @@ Extend the `CodingAgent` interface with command-specific methods and implement t
 
 Build the 5 format-family renderer functions and the variable substitution engine. Depends on Phase 2 (frontmatter schema, argument schema) and Phase 1 (managed-marker).
 
-- [ ] 4.1 Create the variable substitution engine in `core/unstable/commands/variable-substitution.ts`. Implement `substituteVariables(body, agentConfig)` that replaces `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}` with agent-native syntax per the translation table in the design. Handle escape sequence `\{{` → literal `{{`. Write tests for each portable variable type against each agent family, escaped variables, and no-variable passthrough.
+**Effect v4 patterns for this phase:**
+
+- Model variable substitution as a Schema encode transformation pipeline: define `PortableVariable` as a tagged union schema (`arguments | positional | named`), then per-agent `encodeTo(Schema.String)` transformations that produce agent-native syntax — gives type-safe, testable, bidirectional variable translation
+- Each renderer function is a pure function returning `Effect` — renderers compose via `Effect.forEach` across agents
+- Renderer config objects per agent family use `Schema.Struct` with optional fields and `withConstructorDefault` for agent-specific defaults
+
+- [ ] 4.1 Create the variable substitution engine in `core/unstable/commands/variable-substitution.ts`. Define `PortableVariable` as a `Schema.Union` of tagged structs (`{ type: "arguments" }`, `{ type: "positional", index: Number }`, `{ type: "named", name: String }`). Implement per-agent-family encoding as `Schema.encodeTo(Schema.String)` transformations following the design translation table. Implement `substituteVariables(body, agentConfig)` that parses `{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}` into `PortableVariable` instances, encodes to agent-native syntax, and interpolates back into the body. Handle escape sequence `\{{` → literal `{{`. Write tests for each portable variable type against each agent family, escaped variables, no-variable passthrough, and Schema roundtrip encoding.
 - [ ] 4.2 Create `renderMarkdownWithFrontmatter` renderer for Claude Code, Codex, OpenCode, Augment, Junie, Kilo Code, Roo Code. Accepts frontmatter, body, agent overrides, agent config. Produces `.md` with managed-by marker, YAML frontmatter (description, argument-hint, allowed-tools, model, context/subtask), and substituted body. Write tests for full render with all frontmatter fields, minimal render (no frontmatter), agent overrides applied, and lossy-rendering warnings for unsupported fields per agent.
 - [ ] 4.3 Create `renderMarkdownOnly` renderer for Cursor. Produces `.md` with managed-by marker and substituted body only — no YAML frontmatter. Returns lossy-rendering warnings for `model`, `allowedTools`, `isolatedContext`. Write tests.
 - [ ] 4.4 Create `renderPromptMd` renderer for Copilot. Produces `.prompt.md` with managed-by marker, YAML frontmatter (description, name, argument-hint, model, tools), and substituted body. Map `{{arguments[N]}}` → `${input:argN}`, `{{arg:name}}` → `${input:name}`. Write tests.
@@ -81,8 +108,16 @@ Build the 5 format-family renderer functions and the variable substitution engin
 
 Expand the command manager beyond registry-only and update install/uninstall flows to include agent rendering. Depends on Phases 2 (schemas), 3 (agent adapters), 4 (renderers).
 
+**Effect v4 patterns for this phase:**
+
+- Use `Effect.forEach(agents, addCommand, { concurrency: "unbounded" })` for parallel agent rendering during install — each agent's render is independent
+- Use `Effect.acquireRelease` for the multi-agent render lifecycle: acquire = write rendered file, release = delete on scope failure — ensures failed installs don't leave orphaned files in some agents
+- Use `Effect.all` with `concurrency: "unbounded"` for batch conflict detection before any writes
+- Use `Stream.mergeAll` for multi-source discovery when resolving from registry + git + local simultaneously — emit results progressively
+- Use `decodeResult` (synchronous) for source hash comparison in the skip-render optimization path
+
 - [ ] 5.1 Expand `CommandManager.materializeInstall()` to support all 4 ref types (registry, git-hosted, local, builtin) following the skill manager pattern. Write tests for each source type materialization.
-- [ ] 5.2 Update the install flow: after materialization, read `COMMAND.md` (parse frontmatter + body via content-file parser), read `command.json` for `agents` filter and `agentOverrides`, then for each configured agent (filtered by manifest `agents` if set) call `agent.addCommand()`. Collect all `CommandSyncOutcome` results including lossy-rendering warnings. Write tests for the full flow including agent filtering.
+- [ ] 5.2 Update the install flow: after materialization, read `COMMAND.md` (parse frontmatter + body via content-file parser), read `command.json` for `agents` filter and `agentOverrides`. Run conflict detection across all target agents concurrently via `Effect.all(agents.map(detectConflict), { concurrency: "unbounded" })`. Then for each configured agent (filtered by manifest `agents` if set) render concurrently via `Effect.forEach(agents, addCommand, { concurrency: "unbounded" })`. Use `Effect.acquireRelease` to ensure rollback of rendered files on partial failure. Collect all `CommandSyncOutcome` results including lossy-rendering warnings. Write tests for the full flow including agent filtering, concurrent rendering, and rollback on failure.
 - [ ] 5.3 Update the install flow to write lockfile entries with `agents` array, `sourceHash` (computed from portable inputs), and `renderedFiles` map (paths per agent from sync outcomes). Write tests verifying lockfile entries contain all new fields.
 - [ ] 5.4 Update the uninstall flow: read `renderedFiles` from lockfile, call `agent.removeCommand()` for each tracked file, remove settings entry, remove lockfile entry, remove materialized files. Handle missing rendered files gracefully. Write tests for full uninstall including partial cleanup.
 - [ ] 5.5 Implement enable flow: set `enabled: true` in settings, re-read materialized command, re-render to all configured agents, update lockfile `agents` and `renderedFiles`. Write tests.

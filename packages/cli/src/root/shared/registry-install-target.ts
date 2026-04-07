@@ -8,7 +8,10 @@ import {
   type Handle,
   toExtensionType,
 } from "@axm.sh/core/unstable/extensions";
-import { VersionConstraintSchema } from "@axm.sh/core/unstable/version-constraints";
+import {
+  VersionConstraintSchema,
+  type VersionConstraint,
+} from "@axm.sh/core/unstable/version-constraints";
 
 const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
 const decodeVersionConstraint = Schema.decodeUnknownResult(VersionConstraintSchema);
@@ -16,7 +19,7 @@ const decodeVersionConstraint = Schema.decodeUnknownResult(VersionConstraintSche
 export interface BareRegistryInstallTarget {
   readonly kind: "bare-name";
   readonly name: ExtensionName;
-  readonly versionConstraint?: string | undefined;
+  readonly versionConstraint?: VersionConstraint | undefined;
 }
 
 export interface QualifiedRegistryInstallTarget {
@@ -24,7 +27,7 @@ export interface QualifiedRegistryInstallTarget {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly versionConstraint?: string | undefined;
+  readonly versionConstraint?: VersionConstraint | undefined;
 }
 
 export type RegistryInstallTarget = BareRegistryInstallTarget | QualifiedRegistryInstallTarget;

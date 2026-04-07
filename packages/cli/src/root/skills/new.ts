@@ -11,7 +11,11 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import {
+  decodeExtensionNameSync,
+  normalizeHandle,
+  type ExtensionName,
+} from "@axm.sh/core/unstable/extensions";
 import type { NewSkillOperation } from "@axm.sh/core/unstable/skills";
 import { newSkill } from "@axm.sh/core/unstable/skills";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -41,7 +45,7 @@ const MAX_NAME_LENGTH = 64;
 // -----------------------------------------------------------------------------
 
 export interface SkillsNewHandlerArgs {
-  readonly name: string;
+  readonly name: ExtensionName;
   readonly profile: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
   /** Auto-accept confirmation prompts. */
@@ -196,7 +200,7 @@ export const newCommand = Command.make(
   newConfig,
   ({ name, profile, agent, yes, force, preview }) =>
     handleSkillsNew({
-      name,
+      name: decodeExtensionNameSync(name),
       profile,
       agents: Option.map(agent, (value) => [...value]),
       yes,

@@ -12,6 +12,7 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { SkillsLockMap } from "@axm.sh/core/unstable/lockfile";
 import type { LocalSkillRef, RegistrySkillRef } from "@axm.sh/core/unstable/skills";
 import type { Source } from "@axm.sh/core/unstable/sources";
@@ -19,7 +20,12 @@ import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import type { SourceHostProvidersService } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { TestRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { exactVersion, extensionName, makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import {
+  exactVersion,
+  extensionName,
+  makeBaseWorkspaceMock,
+  versionConstraint,
+} from "../../../test-stubs.js";
 import { at } from "../../../test-helpers.js";
 import { buildSkillInstallPlan } from "./plan.js";
 
@@ -82,13 +88,13 @@ const runBuildPlan = ({
   selectedSkills,
   lockedSkills,
   force = false,
-  versionConstraint = Option.none<string>(),
+  versionConstraint = Option.none<VersionConstraint>(),
   source = testSource,
 }: {
   readonly selectedSkills: ReadonlyArray<LocalSkillRef | RegistrySkillRef>;
   readonly lockedSkills: SkillsLockMap;
   readonly force?: boolean;
-  readonly versionConstraint?: Option.Option<string>;
+  readonly versionConstraint?: Option.Option<VersionConstraint>;
   readonly source?: Source;
 }) => {
   const workspaceMock = makeBaseWorkspaceMock("/tmp/axm", {
@@ -203,7 +209,7 @@ describe("buildSkillInstallPlan", () => {
       const plan = yield* runBuildPlan({
         selectedSkills: [makeLocalSkillRef("local-skill"), makeRegistrySkillRef("registry-skill")],
         lockedSkills: {},
-        versionConstraint: Option.some("^1.2.3"),
+        versionConstraint: Option.some(versionConstraint("^1.2.3")),
       });
 
       const localStep = at(at(plan.jobs, 0).steps, 0);

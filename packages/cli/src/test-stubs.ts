@@ -35,6 +35,7 @@ import {
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
+  type Handle,
   normalizeHandle,
 } from "@axm.sh/core/unstable/extensions";
 import {
@@ -197,6 +198,8 @@ export const exactVersion = (value: string): ExactSemverVersion =>
 
 export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
 
+export const handle = (value: string): Handle => normalizeHandle(value);
+
 export const versionConstraint = (value: string): VersionConstraint =>
   decodeVersionConstraintSync(value);
 
@@ -261,8 +264,8 @@ export const makeLocalSkillLockEntry = (opts?: {
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
-  readonly owner: string;
-  readonly name: string;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;
@@ -282,8 +285,8 @@ export const makeRegistrySkillLockEntry = (opts: {
 });
 
 export const makeRegistryExtensionPackLockEntry = (opts: {
-  readonly owner: string;
-  readonly name: string;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
   readonly resolvedVersion?: ExactSemverVersion;
   readonly integrity?: string;
   readonly sourceName?: string;

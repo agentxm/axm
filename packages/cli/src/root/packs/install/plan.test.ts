@@ -101,7 +101,11 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   packs: Object.fromEntries(
     names.map((name) => [
       name,
-      makeRegistryExtensionPackLockEntry({ owner: ACME, name, sourceName: "local" }),
+      makeRegistryExtensionPackLockEntry({
+        owner: ACME,
+        name: extensionName(name),
+        sourceName: "local",
+      }),
     ]),
   ),
 });

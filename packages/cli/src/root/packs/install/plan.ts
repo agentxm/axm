@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@axm.sh/core/unstable/extensions";
 import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
@@ -59,7 +60,7 @@ export interface BuildInstallPlanArgs {
   /** Plan description */
   readonly description: Option.Option<string>;
   /** Version constraint from the original input */
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }
 
 /**

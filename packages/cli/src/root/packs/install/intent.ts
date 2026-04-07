@@ -8,8 +8,9 @@
 
 import type * as Option from "effect/Option";
 import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: ExtensionPackRef;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }

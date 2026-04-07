@@ -13,6 +13,8 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
   exactVersion,
+  extensionName,
+  handle,
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
   writeWorkspaceFiles,
@@ -116,8 +118,8 @@ describe("packs-add.handler", () => {
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "code-review",
+            owner: handle("@acme"),
+            name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),
@@ -155,8 +157,8 @@ describe("packs-add.handler", () => {
         skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "code-review",
+            owner: handle("@acme"),
+            name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),
@@ -196,20 +198,20 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "effect-basics": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "effect-basics",
+            owner: handle("@acme"),
+            name: extensionName("effect-basics"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "effect-streams",
+            owner: handle("@acme"),
+            name: extensionName("effect-streams"),
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
           }),
           "other-skill": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "other-skill",
+            owner: handle("@acme"),
+            name: extensionName("other-skill"),
             resolvedVersion: exactVersion("3.0.0"),
             sourceName: "local",
           }),
@@ -245,8 +247,8 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "some-skill": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "some-skill",
+            owner: handle("@acme"),
+            name: extensionName("some-skill"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
@@ -321,14 +323,14 @@ describe("packs-add.handler", () => {
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         lockfileSkills: {
           "skill-a": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "skill-a",
+            owner: handle("@acme"),
+            name: extensionName("skill-a"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
           }),
           "skill-b": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "skill-b",
+            owner: handle("@acme"),
+            name: extensionName("skill-b"),
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
           }),
@@ -369,8 +371,8 @@ describe("packs-add.handler", () => {
         packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
-            owner: "@acme",
-            name: "code-review",
+            owner: handle("@acme"),
+            name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
           }),

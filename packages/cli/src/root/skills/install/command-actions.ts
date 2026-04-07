@@ -18,6 +18,7 @@ import * as Option from "effect/Option";
 import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { Handle } from "@axm.sh/core/unstable/extensions";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import { parseInputPattern } from "@axm.sh/core/unstable/sources";
 import type { Source, InputParseResult } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -45,7 +46,7 @@ import { determineSkillsToInstall } from "./select-skills.js";
  */
 export interface ParsedSkillInstallArgs {
   readonly source: Source;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
   readonly all: boolean;
@@ -58,7 +59,7 @@ export interface SkillSourceRequest {
   readonly source: Source;
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }
 
 // -----------------------------------------------------------------------------
@@ -228,7 +229,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 const versionConstraint =
                   parsedSource.pattern.pattern === "registry-pattern-input"
                     ? parsedSource.pattern.versionConstraint
-                    : Option.none<string>();
+                    : Option.none<VersionConstraint>();
 
                 const resolutionProbes: RegistryLookupProbe[] = [];
                 const source = yield* resolveSkillInstallSource(parsedSource, {
@@ -372,7 +373,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             skillsToInstall: selectedSkills.map((ref) => ({
               ref,
               versionConstraint:
-                ref.refType === "registry" ? parsed.versionConstraint : Option.none<string>(),
+                ref.refType === "registry"
+                  ? parsed.versionConstraint
+                  : Option.none<VersionConstraint>(),
             })),
           } satisfies InstallSkillCommandIntent;
         }),

@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { decodeExtensionNameSync, type ExtensionName } from "@axm.sh/core/unstable/extensions";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
 import type { EnableSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -36,7 +37,7 @@ import { scopeFlag } from "../../cli-flags.js";
 
 export interface EnableHandlerArgs {
   /** Name of the skill to enable */
-  readonly name: string;
+  readonly name: ExtensionName;
   /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
   /** Override constraints that would cause failure. */
@@ -152,7 +153,7 @@ export const enableCommand = Command.make(
   "enable",
   enableConfig,
   ({ name, scope, yes, force, preview }) =>
-    handleEnable({ name, yes, force, preview }).pipe(
+    handleEnable({ name: decodeExtensionNameSync(name), yes, force, preview }).pipe(
       withWorkspace(scope),
       withCommandRuntime(commandMeta),
     ),

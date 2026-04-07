@@ -11,7 +11,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
+import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
 
@@ -38,8 +39,8 @@ const defaultArgs = (
   name: string,
   overrides: Partial<PacksNewHandlerArgs> = {},
 ): PacksNewHandlerArgs => ({
-  name,
-  profile: Option.none(),
+  name: extensionName(name),
+  profile: Option.none<Handle>(),
   yes: false,
   force: false,
   preview: false,
@@ -153,7 +154,9 @@ describe("packs-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("frontend-tools", { profile: Option.some("@corp") }));
+          yield* handlePacksNew(
+            defaultArgs("frontend-tools", { profile: Option.some(handle("@corp")) }),
+          );
 
           const manifestPath = path.join(
             tempDir,
@@ -180,7 +183,7 @@ describe("packs-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("my-pack", { profile: Option.some("corp") }));
+          yield* handlePacksNew(defaultArgs("my-pack", { profile: Option.some(handle("@corp")) }));
 
           const manifestPath = path.join(
             tempDir,

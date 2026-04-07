@@ -15,6 +15,8 @@ import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
+  type ExtensionName,
+  type Handle,
 } from "@axm.sh/core/unstable/extensions";
 import { EXTENSION_PACK_MANIFEST_FILENAME } from "@axm.sh/core/unstable/packs";
 import type { NewExtensionPackOperation } from "@axm.sh/core/unstable/packs";
@@ -41,9 +43,9 @@ import { withWorkspace } from "../../runtime.js";
 
 export interface PacksNewHandlerArgs {
   /** Name of the pack (without owner). */
-  readonly name: string;
+  readonly name: ExtensionName;
   /** Optional profile override. */
-  readonly profile: Option.Option<string>;
+  readonly profile: Option.Option<Handle>;
   /** Auto-accept confirmation prompts. */
   readonly yes: boolean;
   /** Override constraints that would cause failure. */
@@ -65,9 +67,8 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   yield* renderer.info("axm packs new");
 
   // Resolve profile
-  const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
   const owner = Option.isSome(args.profile)
-    ? normalizeOwner(args.profile.value)
+    ? args.profile.value
     : yield* ws.getConfiguredProfile().pipe(
         Effect.flatMap((s) =>
           s === "@community"
@@ -83,7 +84,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = formatFqn({ owner, type: "pack", name: decodeExtensionNameSync(args.name) });
+  const fqn = formatFqn({ owner, type: "pack", name: args.name });
   const base = ws.baseDir;
 
   // Check if pack already exists
@@ -177,10 +178,13 @@ const newConfig = {
 const commandMeta = registryCommandMeta("packs new", { json: true });
 
 export const newCommand = Command.make("new", newConfig, ({ name, profile, yes, force, preview }) =>
-  handlePacksNew({ name, profile, yes, force, preview }).pipe(
-    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withCommandRuntime(commandMeta),
-  ),
+  handlePacksNew({
+    name: decodeExtensionNameSync(name),
+    profile: Option.map(profile, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
+    yes,
+    force,
+    preview,
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withCommandRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(newConfig),
   annotateCommandMeta(commandMeta),

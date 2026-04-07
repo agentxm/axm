@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./enable.js";
 
@@ -49,7 +49,7 @@ const defaultArgs = (
   name: string,
   overrides: Partial<EnableHandlerArgs> = {},
 ): EnableHandlerArgs => ({
-  name,
+  name: extensionName(name),
   yes: false,
   force: false,
   preview: false,

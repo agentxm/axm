@@ -13,7 +13,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import type { ExtensionName } from "@axm.sh/core/unstable/extensions";
+import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
 
@@ -40,7 +41,7 @@ const defaultArgs = (
   name: string,
   overrides: Partial<SkillsNewHandlerArgs> = {},
 ): SkillsNewHandlerArgs => ({
-  name,
+  name: extensionName(name),
   profile: Option.none(),
   agents: Option.none(),
   yes: false,
@@ -222,7 +223,10 @@ describe("skills-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleSkillsNew(defaultArgs("-bad-name")).pipe(Effect.flip);
+          const error = yield* handleSkillsNew({
+            ...defaultArgs("valid-name"),
+            name: "-bad-name" as ExtensionName,
+          }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );
@@ -234,7 +238,10 @@ describe("skills-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleSkillsNew(defaultArgs("MySkill")).pipe(Effect.flip);
+          const error = yield* handleSkillsNew({
+            ...defaultArgs("valid-name"),
+            name: "MySkill" as ExtensionName,
+          }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );
@@ -247,7 +254,10 @@ describe("skills-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleSkillsNew(defaultArgs(longName)).pipe(Effect.flip);
+          const error = yield* handleSkillsNew({
+            ...defaultArgs("valid-name"),
+            name: longName as ExtensionName,
+          }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("SKILL_NAME_INVALID");
         }),
       );

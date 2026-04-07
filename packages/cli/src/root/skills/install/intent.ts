@@ -6,6 +6,7 @@
 
 import type * as Option from "effect/Option";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more skills.
@@ -16,6 +17,6 @@ import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 export type InstallSkillCommandIntent = {
   readonly skillsToInstall: ReadonlyArray<{
     readonly ref: SkillExtensionRef;
-    readonly versionConstraint: Option.Option<string>;
+    readonly versionConstraint: Option.Option<VersionConstraint>;
   }>;
 };

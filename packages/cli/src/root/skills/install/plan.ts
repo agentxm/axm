@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep, JobStepResult } from "@axm.sh/core/unstable/workspace";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import type { Source } from "@axm.sh/core/unstable/sources";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -28,7 +29,7 @@ export interface BuildSkillInstallPlanArgs {
   readonly selectedSkills: ReadonlyArray<SkillExtensionRef>;
   readonly source: Source;
   readonly force: boolean;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }
 
 /**

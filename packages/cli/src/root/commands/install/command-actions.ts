@@ -26,6 +26,7 @@ import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
 
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { ExtensionName, Handle } from "@axm.sh/core/unstable/extensions";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
@@ -52,7 +53,7 @@ export interface InstallCommandHandlerArgs {
 export interface ParsedCommandInstallArgs {
   readonly owner: Handle;
   readonly commandName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
   readonly resolvedInput: string;
   readonly force: boolean;
 }
@@ -65,7 +66,7 @@ export interface CommandInstallSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
   readonly commandName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }
 
 // -----------------------------------------------------------------------------
@@ -138,7 +139,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           return {
             owner,
             commandName: parsed.success.name,
-            versionConstraint: Option.none<string>(),
+            versionConstraint: Option.none<VersionConstraint>(),
             resolvedInput: `${owner}/commands/${parsed.success.name}`,
             force: false,
           };

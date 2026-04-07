@@ -18,6 +18,7 @@ import * as Result from "effect/Result";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import type { ExtensionName, ExtensionRef, Handle } from "@axm.sh/core/unstable/extensions";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
@@ -49,7 +50,7 @@ export interface InstallPackHandlerArgs {
 export interface ParsedPackInstallArgs {
   readonly owner: Handle;
   readonly packName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
   readonly resolvedInput: string;
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
 }
@@ -59,7 +60,7 @@ export interface PackSourceRequest {
   readonly source: RegistrySource;
   readonly owner: Handle;
   readonly packName: ExtensionName;
-  readonly versionConstraint: Option.Option<string>;
+  readonly versionConstraint: Option.Option<VersionConstraint>;
 }
 
 // -----------------------------------------------------------------------------

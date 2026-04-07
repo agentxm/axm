@@ -33,6 +33,23 @@ This design introduces package-aware extension discovery by adding `compatiblePa
 - Discover result caching and offline behavior (proposal Q2)
 - Parser/reader plugin model for community-contributed adapters (proposal Q5)
 
+## Effect v4 Leverage
+
+This design intentionally leverages Effect v4 capabilities throughout. Key patterns and rationale:
+
+| Pattern                                                                          | Where used                                                    | Why                                                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Schema.decodeTo` + `SchemaTransformation.transformOrFail` with `Result` returns | PackageUrl codec (Decision 1)                                 | Sync-appropriate return type; `Result` is yieldable in v4 generators without async overhead                                                  |
+| Structured decode (`String → Parts`)                                             | PackageUrl, following `RegistrySourcePatternSchema` precedent | Type-safe matching on individual purl fields; single parse at the boundary instead of repeated `PackageURL.fromString` at each matching site |
+| `Schema.decodeUnknownResult`                                                     | Reader validation (Decision 6), publish validation            | Carries `SchemaIssue` error details for diagnostic warnings; matches codebase convention in `common.ts`, `registry-source.ts`                |
+| `Schema.toEquivalence`                                                           | Purl deduplication (Decision 5)                               | Derives structural equality from schema; eliminates manual comparator                                                                        |
+| `Effect.withSpan`                                                                | Pipeline stages (Decision 5)                                  | Built-in observability without manual instrumentation; spans propagate through the Effect runtime                                            |
+| `Effect.annotateLogs`                                                            | Detectors, readers, pipeline (Decisions 5–6)                  | Structured log context (package type, project dir) propagates to all log messages in scope                                                   |
+| `Effect.result`                                                                  | Registry query (Decision 5)                                   | Captures failure as v4 `Result<A, E>` without propagating; checked via `result._tag === "Success"`                                           |
+| `Effect.forEach({ concurrency: "unbounded" })`                                   | Detector/reader orchestration (Decisions 5–6)                 | Parallel execution of independent ecosystem detectors and readers                                                                            |
+| `JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(...))`                 | AxmPackageMeta (Decision 9)                                   | Matches existing `generate-schemas.ts` pipeline; Schema is single source of truth                                                            |
+| `Schema.optional`                                                                | `compatiblePackages` fields (Decisions 2, 14)                 | Codebase-consistent optional field pattern; key absent in JSON, `T \| undefined` in decoded type                                             |
+
 ## Decisions
 
 ### 1. purl library: `packageurl-js`
@@ -41,39 +58,67 @@ Use the `packageurl-js` reference implementation rather than a custom parser.
 
 **Why:** purl normalization rules are non-trivial (type-specific lowercasing, percent-encoding for scoped npm names, namespace splitting for Maven/Go). The reference implementation is maintained by the purl-spec team, handles all registered purl types, and aligns with ECMA-427. A custom parser risks spec divergence and duplicates work.
 
-**Wrapping:** Define a `PackageUrl` branded type via Effect Schema that **normalizes** strings through `packageurl-js` at decode time using `Schema.decodeTo` + `SchemaTransformation.transformOrFail`. This follows the same pattern used by `RegistrySourcePatternSchema` and `DateFromIsoDateTimeStringSchema` in the codebase. Normalization at decode time means the branded type always carries the canonical purl form (e.g., type lowercased, scoped npm names percent-encoded), so downstream matching can use string equality.
+**Wrapping:** Define a structured `PackageUrlParts` type that decomposes purls into typed fields at decode time, following the same `String → Parts` pattern used by `RegistrySourcePatternSchema` in the codebase. The wire format stays as purl strings; the decoded form carries typed `type`, `namespace`, `name`, and `version` fields so matching logic uses direct property access rather than repeated `PackageURL.fromString` calls at each matching site.
 
 ```typescript
 // packages/core/src/unstable/packaging/package-url.ts
+const PackageUrlPartsSchema = Schema.Struct({
+  type: PackageTypeSchema,
+  namespace: Schema.optional(Schema.String),
+  name: Schema.String,
+  version: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "PackageUrlParts",
+  title: "Package URL Parts",
+  description: "Decomposed purl components: type, namespace, name, and version.",
+});
+
+type PackageUrlParts = Schema.Schema.Type<typeof PackageUrlPartsSchema>;
+
 const PackageUrlSchema = Schema.String.pipe(
   Schema.decodeTo(
-    Schema.String,
+    Schema.toType(PackageUrlPartsSchema),
     SchemaTransformation.transformOrFail({
       decode: (input: string) => {
         try {
-          return Effect.succeed(PackageURL.fromString(input).toString());
+          const parsed = PackageURL.fromString(input);
+          return Result.succeed({
+            type: Schema.decodeUnknownSync(PackageTypeSchema)(parsed.type),
+            namespace: parsed.namespace ?? undefined,
+            name: parsed.name,
+            version: parsed.version ?? undefined,
+          });
         } catch {
-          return Effect.fail(
+          return Result.fail(
             new SchemaIssue.Forbidden(Option.some(input), {
               message: `Expected valid purl, got: ${input}`,
             }),
           );
         }
       },
-      encode: (value) => Effect.succeed(value),
+      encode: (value) =>
+        Result.succeed(
+          new PackageURL(
+            value.type,
+            value.namespace ?? null,
+            value.name,
+            value.version ?? null,
+            null,
+            null,
+          ).toString(),
+        ),
     }),
   ),
-  Schema.brand("PackageUrl"),
 );
-
-type PackageUrl = Schema.Schema.Type<typeof PackageUrlSchema>;
 ```
 
-Decoding parses with `packageurl-js` and re-serializes via `.toString()`, producing the canonical form. This ensures consistent normalization regardless of input formatting. Encoding is a passthrough — the branded string is already normalized.
+Decoding parses with `packageurl-js` and decomposes into typed fields. Encoding reconstructs the canonical purl string via `PackageURL.toString()`. The `SchemaTransformation.transformOrFail` decode/encode functions return `Result` (synchronous) rather than `Effect`, matching the synchronous nature of the operation — `Result` is yieldable in Effect v4 generators but avoids unnecessary async wrapping.
 
-**Alternative considered:** `Schema.check` + `Schema.makeFilter` for validation-only (no normalization). Rejected because purl matching requires normalized strings; deferring normalization to each matching call-site would scatter `packageurl-js` usage and risk inconsistency.
+**Why structured parts over branded string:** The `RegistrySourcePatternSchema` precedent in the codebase demonstrates this pattern: decode to structured parts for internal processing, encode back to string for wire format. For package matching (Decision 4), comparing `parts.type === other.type && parts.name === other.name` is clearer and safer than parsing the purl string at each matching site. `Schema.toEquivalence(PackageUrlPartsSchema)` derives structural equality for deduplication (Decision 5).
 
-> **Naming:** The branded type is `PackageUrl` and the schema is `PackageUrlSchema`, following the project's Effect Schema naming conventions.
+**Alternative considered:** Branded `PackageUrl` string with normalization-only decode (no decomposition). Rejected because matching logic needs individual purl components (type, namespace, name, version), which would require repeated `PackageURL.fromString` parsing at each matching call-site — scattering `packageurl-js` usage and duplicating work that the schema should handle once at the boundary.
+
+> **Naming:** The decoded type is `PackageUrlParts` and the schema is `PackageUrlSchema`, following the project's Effect Schema naming conventions. The parts schema `PackageUrlPartsSchema` is internal — external consumers use `PackageUrlSchema` which decodes strings to parts.
 
 ### 2. `compatiblePackages` on `CommonManifestBaseFields`
 
@@ -81,8 +126,10 @@ Add `compatiblePackages` as an optional field on `CommonManifestBaseFields` so i
 
 ```typescript
 // In CommonManifestBaseFields schema
-compatiblePackages: Schema.optionalKey(Schema.Array(PackageUrlSchema)),
+compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),
 ```
+
+`Schema.optional` (not `Schema.optionalKey`) matches the codebase convention used by all other optional fields in `CommonManifestBaseFields` and `VersionEntrySchema`. The decoded type is `ReadonlyArray<PackageUrlParts> | undefined` — the array carries structured purl parts from Decision 1, so matching logic downstream has typed access to type/namespace/name/version fields.
 
 **Why `CommonManifestBaseFields`:** Every extension type can express package relationships. Placing it in the base fields avoids duplicating the field across manifest schemas. Packs do not use this field directly — they aggregate compatibility from their constituent extensions (see Decision 7).
 
@@ -99,12 +146,12 @@ New endpoint on the registry client interface:
 ```typescript
 // Added to RegistryClient interface
 discoverExtensions(args: {
-  readonly packages: ReadonlyArray<PackageUrl>;
+  readonly packages: ReadonlyArray<PackageUrlParts>;
   readonly workspaceRecommendedExtensions?: ReadonlyArray<FullyQualifiedRef>;
 }): Effect<DiscoverExtensionsResponse, AppError>
 ```
 
-**Request:** `POST /extensions/discover` with body `{ packages: string[], workspaceRecommendedExtensions?: string[] }`. The CLI sends purls detected from local manifest files as `packages`, and extension refs read from local recommendation metadata as `workspaceRecommendedExtensions`.
+**Request:** `POST /extensions/discover` with body `{ packages: string[], workspaceRecommendedExtensions?: string[] }`. The CLI sends purls detected from local manifest files as `packages` (encoded to purl strings via `PackageUrlSchema` encode), and extension refs read from local recommendation metadata as `workspaceRecommendedExtensions`. Internally, the method receives `PackageUrlParts` (the decoded form) — the local registry uses typed fields directly for matching; the remote registry client encodes to purl strings for the HTTP body.
 
 The registry performs two independent lookups:
 
@@ -134,7 +181,7 @@ const DiscoverExtensionsResponseSchema = Schema.Struct({
 });
 ```
 
-`results` are grouped by `detectedPackage` so the CLI can present per-package attribution without reshuffling. An extension matching multiple detected packages appears in multiple groups. `resolvedRecommendations` is a flat list of full metadata for the requested `workspaceRecommendedExtensions` refs (those that exist in the registry).
+`results` are grouped by `detectedPackage` (decoded to `PackageUrlParts`) so the CLI can present per-package attribution without reshuffling and format display names from typed fields (e.g., `parts.name` for the package name). An extension matching multiple detected packages appears in multiple groups. `resolvedRecommendations` is a flat list of full metadata for the requested `workspaceRecommendedExtensions` refs (those that exist in the registry).
 
 The response contains no `signal` field — the registry is agnostic about why the CLI asked. The CLI assigns `compatible` or `recommended` signals during its own merge step based on provenance (see Decision 5).
 
@@ -158,7 +205,20 @@ The local registry implements `discoverExtensions` by scanning all published ext
 
 **Matching rules (initial scope):**
 
-- Both purls are already normalized at decode time (Decision 1), so matching uses string comparison on type/namespace/name components. Use `PackageURL.fromString` to decompose when version-aware matching is needed.
+Both sides are `PackageUrlParts` (Decision 1), so matching uses direct field comparison — no `PackageURL.fromString` calls at matching time:
+
+```typescript
+const purlIdentityMatch = (a: PackageUrlParts, b: PackageUrlParts): boolean =>
+  a.type === b.type && a.namespace === b.namespace && a.name === b.name;
+
+const purlMatch = (detected: PackageUrlParts, declared: PackageUrlParts): boolean => {
+  if (!purlIdentityMatch(detected, declared)) return false;
+  if (declared.version === undefined) return true; // versionless declaration → any detected version
+  if (detected.version === undefined) return true; // versionless detection → any declaration
+  return detected.version === declared.version; // both exact → must be equal
+};
+```
+
 - If the declaration is versionless → match any detected version (or versionless)
 - If the detection is versionless → match any declaration (versionless or versioned)
 - If both have exact versions → match only if versions are equal
@@ -191,17 +251,44 @@ The CLI command orchestrates four stages:
 └─────────────────┘
 ```
 
-1. **Detect** — Run all registered package type detectors via `Effect.forEach(detectors, (d) => d.detect(projectDir), { concurrency: "unbounded" })`. Each detector scans for its manifest files and produces `ReadonlyArray<DetectedPackage>`. Flatten results with `Array.flatten`, then deduplicate by normalized purl with `Array.dedupeWith` comparing the branded `purl` string (already normalized at decode time per Decision 1).
+Each stage is wrapped in `Effect.withSpan` for built-in observability — spans propagate through the Effect runtime and surface in any configured tracer without manual instrumentation:
 
-2. **Read local** — For each detected package, check installed package metadata for recommendation refs via `Effect.forEach(packages, (pkg) => findReader(pkg.type).read(pkg), { concurrency: "unbounded" })`. Collect results into a `HashMap<PackageUrl, ReadonlyArray<FullyQualifiedRef>>` using `HashMap.fromIterable` over the `Option.some` results.
+1. **Detect** — Run all registered package type detectors via `Effect.forEach(detectors, (d) => d.detect(projectDir), { concurrency: "unbounded" })`. Each detector scans for its manifest files and produces `ReadonlyArray<DetectedPackage>`. Flatten results with `Array.flatten`, then deduplicate by `PackageUrlParts` using `Array.dedupeWith` with an equivalence derived from the schema via `Schema.toEquivalence(PackageUrlPartsSchema)`. This uses structural equality on the typed purl fields (type, namespace, name, version) rather than string comparison, ensuring correct deduplication even if two purls serialize differently but identify the same package.
 
-3. **Query registry** — Send detected purls as `packages` and all collected recommendation refs as `workspaceRecommendedExtensions` in a single `discoverExtensions` call. Wrap with `Effect.result` to capture failure without propagating — this follows the same pattern as `resolve-source.ts`'s `firstSuccess` helper. The registry returns compatible extensions grouped by package (`results`) and resolved recommendation metadata (`resolvedRecommendations`).
+```typescript
+const purlEquivalence = Schema.toEquivalence(PackageUrlPartsSchema);
+const deduped = Array.dedupeWith(allDetected, (a, b) => purlEquivalence(a.purl, b.purl));
+```
+
+2. **Read local** — For each detected package, check installed package metadata for recommendation refs via `Effect.forEach(packages, (pkg) => findReader(pkg.type).read(pkg), { concurrency: "unbounded" })`. Collect results into a `HashMap<string, ReadonlyArray<FullyQualifiedRef>>` keyed by encoded purl string (via `Schema.encodeSync(PackageUrlSchema)`) over the `Option.some` results. Use `HashMap.fromIterable` with purl string keys for O(1) lookup during the merge step.
+
+3. **Query registry** — Send detected purls as `packages` and all collected recommendation refs as `workspaceRecommendedExtensions` in a single `discoverExtensions` call. Wrap with `Effect.result` to capture failure without propagating — this follows the same pattern as `resolve-source.ts`'s `firstSuccess` helper (where `result._tag === "Success"` checks the v4 `Result` type). The registry returns compatible extensions grouped by package (`results`) and resolved recommendation metadata (`resolvedRecommendations`).
 
 4. **Merge + present** — The CLI assigns signals based on provenance:
    - Extensions from `results` are `compatible`
    - Extensions from `resolvedRecommendations` (or `results` entries that also appear in local recommendations for that purl) are `recommended`
    - If an extension is both compatible and recommended for the same package, `recommended` wins
    - Use `Array.groupBy` to group by package, sort packages alphabetically, show extensions under each with signal badge
+
+```typescript
+// Pipeline orchestration with spans and structured log context
+const discover = (projectDir: string) =>
+  Effect.gen(function* () {
+    const detected = yield* detectPackages(projectDir).pipe(Effect.withSpan("discover.detect"));
+    const localRecs = yield* readLocalRecommendations(detected).pipe(
+      Effect.withSpan("discover.readLocal"),
+    );
+    const registryResult = yield* queryRegistry(detected, localRecs).pipe(
+      Effect.result,
+      Effect.withSpan("discover.queryRegistry"),
+    );
+    return yield* mergeAndPresent(detected, localRecs, registryResult).pipe(
+      Effect.withSpan("discover.merge"),
+    );
+  }).pipe(Effect.withSpan("discover"), Effect.annotateLogs({ command: "discover", projectDir }));
+```
+
+`Effect.annotateLogs` adds structured context (command name, project directory) to all log messages emitted within the pipeline scope. This means warnings from detectors and readers automatically carry the project directory context without passing it through every function signature.
 
 **Registry unreachable:** When `Effect.result` returns a `Failure` for the registry query, the pipeline degrades gracefully. Locally-derived `recommended` results from the `readLocal` step are still presented. A warning diagnostic (via `Effect.logWarning`) indicates that `compatible` results are unavailable due to the registry error. The command exits with a non-zero code to signal incomplete results.
 
@@ -212,9 +299,8 @@ packages/core/src/unstable/
   packaging/
     index.ts                    # barrel
     package-type.ts             # PackageType branded Schema type (PackageTypeSchema)
-    package-url.ts              # PackageUrl branded Schema type (PackageUrlSchema)
-    axm-package-meta.ts         # AxmPackageMeta Effect Schema
-    axm-package-meta.schema.json # JSON Schema for library authors
+    package-url.ts              # PackageUrlParts, PackageUrlPartsSchema, PackageUrlSchema (String→Parts)
+    axm-package-meta.ts         # AxmPackageMeta Effect Schema (source of truth for JSON Schema)
     types.ts                    # PackageDetector, PackageReader interfaces, DetectedPackage
     detect.ts                   # orchestrator: runs all detectors in parallel
     read.ts                     # orchestrator: runs all readers in parallel
@@ -226,10 +312,16 @@ packages/core/src/unstable/
   registry/
     discover-schema.ts          # DiscoverExtensionsRequest/Response schemas
 
-packages/cli/src/root/
-  discover/
-    command.ts                  # CLI command definition + flags
-    handler.ts                  # handler wiring: discover pipeline → renderer
+packages/core/site-content/__generated__/schemas/
+    axm-package-meta.schema.json # Generated by generate-schemas.ts (not hand-maintained)
+
+packages/cli/
+  scripts/
+    generate-schemas.ts         # Existing script — add AxmPackageMetaSchema entry
+  src/root/
+    discover/
+      command.ts                # CLI command definition + flags
+      handler.ts                # handler wiring: discover pipeline → renderer
 ```
 
 Packaging-related code (purl types, ecosystem detectors, recommendation readers, and their orchestrators) lives in `@axm.sh/core/unstable/packaging` because it is reusable (the registry could also run detection). The `packaging` module never touches the registry — it owns package ecosystem knowledge only. The `discover` module is a thin pipeline that wires packaging detection/reading with the registry query and merge logic. The CLI command wires the pipeline to output.
@@ -256,7 +348,7 @@ interface PackageDetector {
 }
 
 interface DetectedPackage {
-  readonly purl: PackageUrl;
+  readonly purl: PackageUrlParts;
   readonly type: PackageType;
   readonly source: string; // file that produced this purl (for diagnostics)
 }
@@ -266,20 +358,26 @@ Each detector encapsulates purl construction internally — most map `type` dire
 
 Detectors never fail with typed errors — a missing manifest file or parse issue is a non-error (the package type simply does not apply). Detectors log warnings for malformed entries and skip them. This keeps the orchestrator simple: run all detectors, collect all results, no error handling branches.
 
-**Filesystem error handling:** Detectors use `Effect.catchTag` on `PlatformError` to handle filesystem errors structurally. A `NotFound` from `fs.readFileString` (manifest doesn't exist) returns an empty array — the ecosystem doesn't apply. Other `SystemError` tags (`PermissionDenied`, etc.) are logged as warnings and also produce empty results.
+**Filesystem error handling:** Detectors use `Effect.catchTag` on `PlatformError` to handle filesystem errors structurally. A `NotFound` from `fs.readFileString` (manifest doesn't exist) returns an empty array — the ecosystem doesn't apply. Other `SystemError` tags (`PermissionDenied`, etc.) are logged as warnings and also produce empty results. Each detector wraps its body with `Effect.annotateLogs` to add structured context (package type, manifest path) to all log messages:
 
 ```typescript
 // Pattern for file-existence checks in detectors
-const content =
-  yield *
-  fs.readFileString(manifestPath).pipe(
-    Effect.catchTag("SystemError", (e) => {
-      if (e.reason === "NotFound") return Effect.succeed(undefined);
-      yield * Effect.logWarning(`Cannot read ${manifestPath}: ${e.message}`);
-      return Effect.succeed(undefined);
-    }),
-  );
-if (content === undefined) return [];
+const detectNpm = (projectDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const manifestPath = path.join(projectDir, "package.json");
+    const content = yield* fs.readFileString(manifestPath).pipe(
+      Effect.catchTag("SystemError", (e) => {
+        if (e.reason === "NotFound") return Effect.succeed(undefined);
+        return Effect.logWarning(`Cannot read manifest: ${e.message}`).pipe(
+          Effect.map(() => undefined),
+        );
+      }),
+    );
+    if (content === undefined) return [];
+    // ... parse and produce DetectedPackage[]
+  }).pipe(Effect.annotateLogs({ detector: "npm" }), Effect.withSpan("detect.npm"));
 ```
 
 **Reader interface:**
@@ -295,16 +393,18 @@ interface PackageReader {
 
 A reader returns `Option.none()` if the package has no recommendation metadata, or `Option.some(extensionRefs)` with the `recommendedExtensions` array from the axm metadata schema. Like detectors, readers do not fail with typed errors — missing metadata is the normal case.
 
-**Schema validation in readers:** Readers validate metadata JSON against `AxmPackageMeta` using `Schema.decodeUnknownOption`. When decoding returns `Option.none()` (malformed metadata), the reader logs a warning with `Effect.logWarning` and returns `Option.none()` — the same result as missing metadata.
+**Schema validation in readers:** Readers validate metadata JSON against `AxmPackageMeta` using `Schema.decodeUnknownResult` — not `decodeUnknownOption`. `decodeUnknownResult` returns `Result<T, SchemaIssue>`, carrying error details on failure that produce informative warning messages. This matches the codebase convention established by `decodeFullyQualifiedNameParts` and `decodeRegistrySourcePatternParts` in `extensions/common.ts` and `extensions/registry-source.ts`.
 
 ```typescript
 // Pattern for metadata validation in readers
-const meta = Schema.decodeUnknownOption(AxmPackageMetaSchema)(parsed);
-if (Option.isNone(meta)) {
-  yield * Effect.logWarning(`Malformed axm metadata in ${pkg.purl}`);
+const decodeAxmPackageMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
+
+const meta = decodeAxmPackageMeta(parsed);
+if (Result.isFailure(meta)) {
+  yield * Effect.logWarning(`Malformed axm metadata: ${meta.failure.message}`);
   return Option.none();
 }
-return Option.some(meta.value.recommendedExtensions);
+return Option.some(meta.success.recommendedExtensions);
 ```
 
 **Why no typed errors:** Detection and reading are best-effort. A parser encountering a malformed `package.json` should warn and continue, not abort discovery. Typed error channels would force the orchestrator to handle package-type-specific failure modes that all resolve the same way (skip and continue).
@@ -329,27 +429,32 @@ This is a rendering change, not a data change — the `compatiblePackages` field
 
 ### 9. `axm-package-meta.json` schema definition
 
-The shared recommendation metadata schema used by library authors across all package types is published as a JSON Schema at a well-known URL. The **Effect Schema is the single source of truth** — the JSON Schema file is generated from it using `Schema.toJsonSchemaDocument`, not hand-maintained. This eliminates drift between the runtime validation schema and the published JSON Schema.
+The shared recommendation metadata schema used by library authors across all package types is published as a JSON Schema at a well-known URL. The **Effect Schema is the single source of truth** — the JSON Schema file is generated using the existing `generate-schemas.ts` pipeline, not hand-maintained. This eliminates drift between the runtime validation schema and the published JSON Schema.
 
 ```typescript
 // packages/core/src/unstable/packaging/axm-package-meta.ts
 const AxmPackageMetaSchema = Schema.Struct({
-  $schema: Schema.optionalKey(Schema.String),
+  $schema: Schema.optional(Schema.String),
   recommendedExtensions: Schema.Array(FullyQualifiedRefSchema),
 }).annotate({
   identifier: "AxmPackageMeta",
   title: "axm Package Metadata",
   description: "Recommendation metadata shipped by library authors to surface axm extensions.",
 });
-
-// Generated at build time or checked into the repo:
-// Schema.toJsonSchemaDocument(AxmPackageMetaSchema) → axm-package-meta.schema.json
 ```
 
-The generated JSON Schema file lives at:
+**JSON Schema generation:** Add `AxmPackageMetaSchema` to the existing `packages/cli/scripts/generate-schemas.ts` script, which uses `JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema))` to produce Draft-07 JSON Schema files. The generated file goes to `packages/core/site-content/__generated__/schemas/axm-package-meta.schema.json`, co-located with other generated schemas (lockfile, settings, manifests). This follows the established generation pipeline rather than introducing a separate generation step.
 
-```
-packages/core/src/unstable/packaging/axm-package-meta.schema.json
+```typescript
+// Addition to packages/cli/scripts/generate-schemas.ts
+import { AxmPackageMetaSchema } from "@axm.sh/core/unstable/packaging";
+
+// Add to schemas array:
+{
+  name: "axm-package-meta.schema.json",
+  schema: AxmPackageMetaSchema,
+  outputDir: SITE_CONTENT_SCHEMAS_DIR,
+}
 ```
 
 Schema annotations (`identifier`, `title`, `description`) on the Effect Schema flow through to the generated JSON Schema, providing documentation for library authors who reference the `$schema` URL.
@@ -378,7 +483,7 @@ Invalid entries are warned and skipped, not fatal — library authors may publis
 
 Parses `package.json` in the project directory via `fs.readFileString` + `JSON.parse` (wrapped in `Effect.try`). Extracts dependencies from `dependencies`, `devDependencies`, and `peerDependencies` objects.
 
-Purl construction uses `PackageURL` from `packageurl-js` to build canonical purls, then decodes through `PackageUrlSchema` to produce branded values. This ensures all purls are normalized at creation.
+Purl construction uses `PackageURL` from `packageurl-js` to build purl strings, then decodes through `PackageUrlSchema` to produce `PackageUrlParts` values with typed fields. This ensures all purls are decomposed and normalized at creation — the detector returns `DetectedPackage` with typed `purl: PackageUrlParts`.
 
 **Dependency mapping rules:**
 
@@ -395,9 +500,9 @@ Purl construction uses `PackageURL` from `packageurl-js` to build canonical purl
 
 ### 11. npm reader specifics (Tier 1)
 
-For each detected npm package, reads `node_modules/<name>/package.json` via `fs.readFileString` and checks for an `"axm"` field. If present, validates against `AxmPackageMetaSchema` using `Schema.decodeUnknownOption` and extracts `recommendedExtensions`. Malformed metadata returns `Option.none()` with a warning.
+For each detected npm package, reads `node_modules/<name>/package.json` via `fs.readFileString` and checks for an `"axm"` field. If present, validates against `AxmPackageMetaSchema` using `Schema.decodeUnknownResult` and extracts `recommendedExtensions`. `Result.isFailure` triggers a warning with `meta.failure.message` and returns `Option.none()`.
 
-**Scoped packages:** `pkg:npm/%40scope/name` → `node_modules/@scope/name/package.json`. Use `PackageURL.fromString(purl)` to decompose the purl and reconstruct the filesystem path from the decoded namespace and name.
+**Scoped packages:** The `PackageUrlParts` already carry typed `namespace` and `name` fields (e.g., `namespace: "%40scope"`, `name: "name"`), so the reader reconstructs the filesystem path directly from `pkg.purl.namespace` and `pkg.purl.name` — no `PackageURL.fromString` call needed.
 
 **Missing `node_modules`:** `fs.readFileString` produces a `SystemError` with `reason: "NotFound"` when the file is absent. The reader catches this via `Effect.catchTag("SystemError", ...)` and returns `Option.none()`. This is the normal case for projects that haven't installed dependencies.
 
@@ -423,7 +528,7 @@ For each detected pypi package, locates the installed package's `.dist-info` dir
 1. Scan `site-packages/` (or virtualenv equivalent) via `fs.readDirectory` for `<normalized_name>-*.dist-info/`
 2. Read `entry_points.txt` via `fs.readFileString` and check for an `[axm]` group
 3. If present, locate `axm.json` from the package data directory
-4. Validate against `AxmPackageMetaSchema` using `Schema.decodeUnknownOption` — malformed metadata returns `Option.none()` with a warning
+4. Validate against `AxmPackageMetaSchema` using `Schema.decodeUnknownResult` — `Result.isFailure` triggers a warning with error details, then returns `Option.none()`
 
 **No Python dependency:** The CLI reads `entry_points.txt` (INI format) and `axm.json` (JSON) directly via `fs.readFileString` — no Python interpreter is needed.
 
@@ -435,12 +540,28 @@ Add `compatiblePackages` to the `VersionEntry` schema in `registry/schema.ts`:
 
 ```typescript
 // In VersionEntry schema
-compatiblePackages: Schema.optionalKey(Schema.Array(PackageUrlSchema)),
+compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),
 ```
 
-This stores compatibility metadata per-version in the registry index. The discover endpoint reads this field during matching.
+`Schema.optional` matches the convention used for `dependencies` in the existing `VersionEntrySchema`. The decoded type is `ReadonlyArray<PackageUrlParts> | undefined` — the local registry's matching logic accesses typed purl fields directly. The encoded form (in `index.json`) remains an array of purl strings.
 
-**Publish pipeline changes:** Each extension type's publish operation constructs a `VersionEntry` before calling `client.publishExtension`. The following publish handlers need to extract `manifest.compatiblePackages` and spread it into the version entry when present:
+**Publish pipeline changes:** Each extension type's publish operation constructs a `VersionEntry` before calling `client.publishExtension`. The following publish handlers need to extract `manifest.compatiblePackages` (already decoded to `ReadonlyArray<PackageUrlParts>` by the manifest schema) and include it in the version entry when present:
+
+```typescript
+// Pattern change in publish handlers (e.g., skills/operations/publish.ts)
+const versionEntry: VersionEntry = {
+  version: manifest.version,
+  published: new Date().toISOString(),
+  integrity,
+  ...(manifest.compatiblePackages !== undefined && {
+    compatiblePackages: manifest.compatiblePackages,
+  }),
+};
+```
+
+The `PackageUrlParts` values pass through unchanged — `VersionEntrySchema` uses the same `PackageUrlSchema`, so the parts are already in the correct decoded form. When the local registry writes `index.json`, `Schema.encodeUnknownSync(VersionEntrySchema)` encodes the parts back to canonical purl strings.
+
+Affected handlers:
 
 - `packages/core/src/unstable/skills/operations/publish.ts`
 - `packages/core/src/unstable/commands/operations/publish.ts`
@@ -462,29 +583,30 @@ In monorepo contexts, the command scans only the specified (or current) director
 
 Use `@effect/vitest` helpers (`it.effect`, `it.scoped`, `it.layer`) for all Effect tests. Detectors and readers require `FileSystem | Path` — provide test layers with in-memory or temp-dir file fixtures.
 
-### Branded types
+### Schema types
 
-- `PackageUrlSchema` — valid purls accepted, invalid strings rejected, **normalization applied at decode time** (e.g., `PKG:NPM/React` decodes to `pkg:npm/react`; `pkg:npm/%40scope/name` round-trips correctly). Verify via `Schema.decodeUnknownSync` and `Schema.decodeUnknownOption`.
+- `PackageUrlSchema` — valid purls decode to `PackageUrlParts` with correct `type`, `namespace`, `name`, `version` fields. Invalid strings rejected. **Normalization verified via encode roundtrip**: decode a purl string to parts, encode back to string, verify canonical form (e.g., `PKG:NPM/React` → parts with `type: "npm"` → encodes to `pkg:npm/react`). Scoped npm packages (`pkg:npm/%40scope/name`) round-trip correctly. Verify via `Schema.decodeUnknownSync` and `Schema.decodeUnknownResult`.
+- `PackageUrlPartsSchema` — structural equivalence via `Schema.toEquivalence(PackageUrlPartsSchema)` correctly identifies identical packages and distinguishes different ones. Test that equivalence handles optional fields (namespace, version) correctly.
 - `PackageTypeSchema` — brand applied, values round-trip through schema
 - `FullyQualifiedRefSchema` — FQN-only accepted, FQN with valid constraint accepted, invalid FQN rejected, invalid constraint rejected
 
 ### Schema generation
 
-- `Schema.toJsonSchemaDocument(AxmPackageMetaSchema)` produces valid JSON Schema with correct `required` fields, `$schema` as optional, and `recommendedExtensions` as array of strings.
+- `JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(AxmPackageMetaSchema))` produces valid Draft-07 JSON Schema with correct `required` fields, `$schema` as optional, and `recommendedExtensions` as array of strings. Test matches the existing pattern in `generate-schemas.ts`.
 
 ### Detectors
 
-- **npm** — each mapping rule in Decision 10 is a test case: exact versions, ranges, scoped packages, aliases, and skipped specifiers (`file:`, `workspace:`, `git:`, URL). Empty/missing `package.json` produces empty results (via `SystemError`/`NotFound` catch path). Malformed entries are warned and skipped.
-- **pypi** — each file format (pyproject.toml, requirements.txt, setup.cfg, Pipfile). Name normalization (case, underscores, dashes). Exact pins produce versioned purls; ranges produce versionless. `-r` include resolution in requirements.txt.
+- **npm** — each mapping rule in Decision 10 is a test case: exact versions, ranges, scoped packages, aliases, and skipped specifiers (`file:`, `workspace:`, `git:`, URL). Verify decoded `PackageUrlParts` have correct `type`, `namespace`, `name`, `version` fields. Empty/missing `package.json` produces empty results (via `SystemError`/`NotFound` catch path). Malformed entries are warned and skipped.
+- **pypi** — each file format (pyproject.toml, requirements.txt, setup.cfg, Pipfile). Name normalization (case, underscores, dashes). Exact pins produce versioned `PackageUrlParts`; ranges produce parts with `version: undefined`. `-r` include resolution in requirements.txt.
 
 ### Readers
 
-- **npm** — `"axm"` field present with valid `AxmPackageMeta`, missing `"axm"` field, malformed metadata (`Schema.decodeUnknownOption` returns `Option.none()` + warning logged), scoped package path decoding via `PackageURL.fromString`, missing `node_modules` (via `SystemError`/`NotFound` catch path).
+- **npm** — `"axm"` field present with valid `AxmPackageMeta`, missing `"axm"` field, malformed metadata (`Schema.decodeUnknownResult` returns `Result.isFailure` + warning logged with `meta.failure.message`), scoped package path reconstruction from `PackageUrlParts.namespace` + `PackageUrlParts.name`, missing `node_modules` (via `SystemError`/`NotFound` catch path).
 - **pypi** — `[axm]` entry point group present with valid `axm.json`, missing `.dist-info`, `$VIRTUAL_ENV` resolution.
 
 ### Local registry discover
 
-- Each matching rule from Decision 4: versionless declaration matches versioned detection, versionless detection matches versioned declaration, exact version match, exact version mismatch.
+- Each matching rule from Decision 4: test the `purlMatch` function directly with `PackageUrlParts` values — versionless declaration matches versioned detection, versionless detection matches versioned declaration, exact version match, exact version mismatch. Verify `purlIdentityMatch` handles namespace presence/absence correctly.
 - Recommendation resolution: valid refs resolve to full metadata, unknown refs omitted.
 - No published extensions returns empty results.
 
@@ -492,14 +614,14 @@ Use `@effect/vitest` helpers (`it.effect`, `it.scoped`, `it.layer`) for all Effe
 
 - Empty project (no manifest files) — produces no results, no error.
 - Packages detected but no matches — clean "no results" output.
-- Deduplication — same package detected from multiple manifest files appears once (`Array.dedupeWith` on normalized branded purl strings).
-- Registry unreachable — `Effect.result` returns `Failure`, locally-derived recommended results still presented with warning via `Effect.logWarning`.
+- Deduplication — same package detected from multiple manifest files appears once (`Array.dedupeWith` with `Schema.toEquivalence(PackageUrlPartsSchema)` on typed purl parts).
+- Registry unreachable — `Effect.result` returns `Failure` (v4 `Result` type, checked via `result._tag === "Failure"`), locally-derived recommended results still presented with warning via `Effect.logWarning`.
 
 ### Publish pipeline
 
-- `compatiblePackages` present in manifest — included in `VersionEntry`.
+- `compatiblePackages` present in manifest — decoded to `ReadonlyArray<PackageUrlParts>`, included in `VersionEntry`, encodes back to purl strings in `index.json`.
 - `compatiblePackages` absent — field omitted from `VersionEntry` (existing behavior unchanged).
-- Invalid purls in `compatiblePackages` — `PackageUrlSchema` decode fails at publish time (normalization step rejects via `SchemaIssue.Forbidden`).
+- Invalid purls in `compatiblePackages` — `PackageUrlSchema` decode fails at publish time (decomposition step rejects via `SchemaIssue.Forbidden`). Verify with `Schema.decodeUnknownResult`.
 
 ## Risks / Trade-offs
 

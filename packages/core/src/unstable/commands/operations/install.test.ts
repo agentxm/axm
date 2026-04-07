@@ -235,7 +235,7 @@ describe("installCommand", () => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "commands", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
-      path.join(canonicalPath, "axm-command.json"),
+      path.join(canonicalPath, "command.json"),
       JSON.stringify({ name, version: "1.0.0" }),
     );
     return canonicalPath;
@@ -292,7 +292,7 @@ describe("installCommand", () => {
           "commands",
           "my-command",
         );
-        expect(fs.existsSync(path.join(canonicalPath, "axm-command.json"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "command.json"))).toBe(true);
       }),
     );
   });

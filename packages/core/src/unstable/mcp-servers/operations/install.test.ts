@@ -249,7 +249,7 @@ describe("installMcpServer", () => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcp-servers", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
-      path.join(canonicalPath, "axm-mcp-server.json"),
+      path.join(canonicalPath, "mcp-server.json"),
       JSON.stringify({ name, version: "1.0.0" }),
     );
     return canonicalPath;
@@ -305,7 +305,7 @@ describe("installMcpServer", () => {
           "mcp-servers",
           "my-server",
         );
-        expect(fs.existsSync(path.join(canonicalPath, "axm-mcp-server.json"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "mcp-server.json"))).toBe(true);
       }),
     );
   });

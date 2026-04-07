@@ -2,14 +2,14 @@
 
 ### Requirement: Scaffold command package
 
-`axm commands new` SHALL create a new command package directory containing `axm-command.json` and `COMMAND.md` in the current directory.
+`axm commands new` SHALL create a new command package directory containing `command.json` and `COMMAND.md` in the current directory.
 
 #### Scenario: Interactive scaffolding
 
 - **WHEN** user runs `axm commands new`
 - **THEN** the CLI SHALL prompt for a command name and description
 - **AND** SHALL create a directory with the command name
-- **AND** SHALL write `axm-command.json` with the provided metadata and `type: "command"`
+- **AND** SHALL write `command.json` with the provided metadata and `type: "command"`
 - **AND** SHALL write `COMMAND.md` with a placeholder prompt body
 
 #### Scenario: Name provided as argument
@@ -41,10 +41,10 @@
 
 ### Requirement: Generated manifest structure
 
-The generated `axm-command.json` SHALL contain `name`, `version: "0.1.0"`, `description`, and `type: "command"`. No command-specific fields (arguments, model, etc.) SHALL be included in the scaffold — authors add these as needed.
+The generated `command.json` SHALL contain `name`, `version: "0.1.0"`, `description`, and `type: "command"`. No command-specific fields (arguments, model, etc.) SHALL be included in the scaffold — authors add these as needed.
 
 #### Scenario: Minimal manifest generated
 
 - **WHEN** user runs `axm commands new review` with description "Code review command"
-- **THEN** `axm-command.json` SHALL contain `name: "review"`, `version: "0.1.0"`, `description: "Code review command"`, `type: "command"`
+- **THEN** `command.json` SHALL contain `name: "review"`, `version: "0.1.0"`, `description: "Code review command"`, `type: "command"`
 - **AND** SHALL NOT contain `arguments`, `model`, `allowedTools`, or other command-specific fields

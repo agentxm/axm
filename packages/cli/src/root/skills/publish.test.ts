@@ -78,7 +78,7 @@ const createManagedExtension = (
     name,
     version: manifest["version"] ?? "0.0.1",
   };
-  fs.writeFileSync(path.join(extDir, "axm-skill.json"), JSON.stringify(normalizedManifest));
+  fs.writeFileSync(path.join(extDir, "skill.json"), JSON.stringify(normalizedManifest));
   fs.writeFileSync(path.join(srcDir, "SKILL.md"), `---\nname: "${name}"\n---\n\n# ${name}\n`);
   return extDir;
 };

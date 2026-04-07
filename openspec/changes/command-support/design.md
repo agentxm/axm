@@ -1,6 +1,6 @@
 ## Context
 
-Commands exist as a stub extension type in AXM today: the type is defined in `ExtensionTypeSchema`, manifest schema exists (`axm-command.json`), refs/manager/workspace-service/settings/lockfile/reconciliation are all wired, and basic install/uninstall CLI commands work against the registry. But commands are registry-only, have no agent-specific rendering, no command-specific manifest fields (arguments, model, etc.), and a minimal CLI surface (install + uninstall only).
+Commands exist as a stub extension type in AXM today: the type is defined in `ExtensionTypeSchema`, manifest schema exists (`command.json`), refs/manager/workspace-service/settings/lockfile/reconciliation are all wired, and basic install/uninstall CLI commands work against the registry. But commands are registry-only, have no agent-specific rendering, no command-specific manifest fields (arguments, model, etc.), and a minimal CLI surface (install + uninstall only).
 
 Skills, by contrast, are the most mature extension type: multi-source (registry, git, local, builtin), agent-aware (symlinked to per-agent `skillsDir`), and have a full CLI lifecycle (install, uninstall, list, update, new, fork, enable, disable, rename, publish). Commands need to reach a similar level of maturity but with a fundamentally different agent integration model: skills are directory-based (`SKILL.md` + supporting files symlinked into agent skill dirs), while commands are single-file rendered artifacts (AXM translates the portable manifest + `COMMAND.md` body into each agent's native command format and writes the rendered file to each agent's commands directory).
 
@@ -167,7 +167,7 @@ The install sequence for commands:
 
 1. **Resolve source** — parse source string, discover refs (existing workflow)
 2. **Materialize** — extract/clone/symlink command package to canonical `.axm/extensions/` path
-3. **Read manifest + body** — parse `axm-command.json` and read `COMMAND.md` from materialized path
+3. **Read manifest + body** — parse `command.json` and read `COMMAND.md` from materialized path
 4. **Render to agents** — for each configured agent, call `agent.addCommand()` which:
    - Resolves the agent's commands directory (scope-aware)
    - Calls the appropriate format-family renderer
@@ -186,7 +186,7 @@ Uninstall reverses steps 4-6: remove rendered files from each agent listed in `a
 | `list`    | Read workspace service `getClassifiedCommands()`, format as table   | Show name, source, enabled, agents                   |
 | `enable`  | Set `enabled: true` in settings, re-render to agents                | Follows skill enable pattern                         |
 | `disable` | Set `enabled: false` in settings, remove rendered files from agents | Follows skill disable pattern                        |
-| `new`     | Scaffold `axm-command.json` + `COMMAND.md` in current directory     | Interactive prompts for name, description, arguments |
+| `new`     | Scaffold `command.json` + `COMMAND.md` in current directory         | Interactive prompts for name, description, arguments |
 | `publish` | Validate manifest, pack, upload to registry                         | Follows skill publish pattern                        |
 
 All commands accept `--scope` flag (default: project). `list` shows commands from the active scope. `enable`/`disable` operate on the active scope's settings.

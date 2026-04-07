@@ -53,7 +53,7 @@ describe("axm skills new", () => {
         "@test",
         "skills",
         "my-skill",
-        "axm-skill.json",
+        "skill.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -111,7 +111,7 @@ describe("axm skills new", () => {
         "@custom",
         "skills",
         "my-skill",
-        "axm-skill.json",
+        "skill.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));

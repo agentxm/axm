@@ -21,7 +21,7 @@ import type { RemoveFromExtensionPackOperation } from "@axm.sh/core/unstable/pac
 import { removeFromExtensionPack } from "@axm.sh/core/unstable/packs";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
-  RawExtensionPackManifestSchema,
+  ExtensionPackManifestSchema,
 } from "@axm.sh/core/unstable/packs";
 import { computeExtensionPackPaths } from "@axm.sh/core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@axm.sh/core/unstable/utils";
@@ -130,7 +130,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_MANIFEST_INVALID",

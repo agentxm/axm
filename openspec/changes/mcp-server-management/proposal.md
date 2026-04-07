@@ -4,7 +4,7 @@ axm manages skills, commands, and packs but has no user-facing way to manage MCP
 
 ## What Changes
 
-- **MCP manifest gains transport and runtime config** — `axm-mcp-server.json` adds transport type (stdio/http), command/args/cwd, URL/headers, and environment variable declarations so axm knows how to run and configure each server for agents.
+- **MCP manifest gains transport and runtime config** — `mcp-server.json` adds transport type (stdio/http), command/args/cwd, URL/headers, and environment variable declarations so axm knows how to run and configure each server for agents.
 - **Agent MCP configuration** — New capability to write/remove MCP server entries in each agent's native config format (Claude Code `.mcp.json`, Cursor `.cursor/mcp.json`, Gemini CLI `settings.json`, Codex `config.toml`, Copilot `.vscode/mcp.json`, OpenCode `opencode.json`).
 - **CLI commands** — `axm mcp install|uninstall|list|enable|disable|update|publish|new` commands for the full MCP server lifecycle.
 - **Install/uninstall operations extended** — Existing operation handlers gain an agent configuration step: install writes server config to agent files, uninstall removes it.

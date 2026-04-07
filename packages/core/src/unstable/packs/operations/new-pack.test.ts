@@ -136,7 +136,7 @@ describe("newExtensionPack", () => {
         // Verify pack directory and manifest were created
         const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         expect(fs.existsSync(packDir)).toBe(true);
-        expect(fs.existsSync(path.join(packDir, "axm-pack.json"))).toBe(true);
+        expect(fs.existsSync(path.join(packDir, "extension-pack.json"))).toBe(true);
       }),
     );
 
@@ -155,9 +155,10 @@ describe("newExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        expect(manifest.$schema).toBe("https://axm.sh/schemas/extension-pack.schema.json");
         expect(manifest.owner).toBe("@myorg");
         expect(manifest.type).toBe("pack");
         expect(manifest.name).toBe("my-pack");
@@ -198,7 +199,7 @@ describe("newExtensionPack", () => {
         const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
-          path.join(packDir, "axm-pack.json"),
+          path.join(packDir, "extension-pack.json"),
           JSON.stringify({ owner: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 

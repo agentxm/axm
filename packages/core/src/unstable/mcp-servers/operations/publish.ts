@@ -57,7 +57,7 @@ export type PublishMcpServerOperation = Operation<
 /**
  * Publish-mcp-server operation handler.
  *
- * 1. Read and validate `axm-mcp-server.json` manifest
+ * 1. Read and validate `mcp-server.json` manifest
  * 2. Build zip archive of extension directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name

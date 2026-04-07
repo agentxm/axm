@@ -137,7 +137,7 @@ describe("copySkill", () => {
           "prompt content",
         );
         // Manifest should NOT be inside src/
-        expect(fs.existsSync(path.join(targetDir, "src", "axm-skill.json"))).toBe(false);
+        expect(fs.existsSync(path.join(targetDir, "src", "skill.json"))).toBe(false);
       }),
     );
 
@@ -174,7 +174,7 @@ describe("copySkill", () => {
   });
 
   describe("manifest generation", () => {
-    it.effect("generates axm-skill.json with defaults", () =>
+    it.effect("generates skill.json with defaults", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -187,7 +187,7 @@ describe("copySkill", () => {
         ).pipe(Effect.provide(withServices(axmDir)));
 
         const targetDir = path.join(base, ".axm", "extensions", "@community", "skills", "my-skill");
-        const manifestPath = path.join(targetDir, "axm-skill.json");
+        const manifestPath = path.join(targetDir, "skill.json");
         expect(fs.existsSync(manifestPath)).toBe(true);
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -216,7 +216,7 @@ describe("copySkill", () => {
           "@community",
           "skills",
           "my-skill",
-          "axm-skill.json",
+          "skill.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.version).toBe("0.1.0");

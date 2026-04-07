@@ -18,8 +18,7 @@ import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
-  RawExtensionPackManifestSchema,
-  type RawExtensionPackManifest,
+  ExtensionPackManifestSchema,
 } from "../manifest-schema.js";
 import { computeExtensionPackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
@@ -121,7 +120,7 @@ export const removeFromExtensionPack: OperationHandler<
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
@@ -139,7 +138,7 @@ export const removeFromExtensionPack: OperationHandler<
     const updatedSkills = filterSection(manifest["skills"]);
     const updatedCommands = filterSection(manifest["commands"]);
     const updatedMcpServers = filterSection(manifest["mcp-servers"]);
-    const updatedManifest: RawExtensionPackManifest = {
+    const updatedManifest = {
       ...manifest,
       owner: manifest.owner,
       type: manifest.type,

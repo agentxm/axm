@@ -163,7 +163,7 @@ describe("fork.handler", () => {
           // Extension should exist in .axm/extensions/
           const managedDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", "commit");
           expect(fs.existsSync(managedDir)).toBe(true);
-          expect(fs.existsSync(path.join(managedDir, "axm-skill.json"))).toBe(true);
+          expect(fs.existsSync(path.join(managedDir, "skill.json"))).toBe(true);
 
           // Registry should have the published extension
           const registryIndexPath = path.join(
@@ -318,7 +318,7 @@ describe("fork.handler", () => {
             "@test",
             "skills",
             "my-skill",
-            "axm-skill.json",
+            "skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@test");
@@ -677,7 +677,7 @@ describe("fork.handler", () => {
             "@test",
             "skills",
             "my-skill",
-            "axm-skill.json",
+            "skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@test");

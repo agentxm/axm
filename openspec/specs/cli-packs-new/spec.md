@@ -8,7 +8,7 @@ The `axm packs new` command scaffolds a new empty pack with a manifest and regis
 
 ### Requirement: Scaffold new extension pack
 
-`axm packs new <name>` SHALL create a new empty pack with an `axm-pack.json` manifest in the managed extensions directory.
+`axm packs new <name>` SHALL create a new empty pack with an `extension-pack.json` manifest in the managed extensions directory.
 
 The extension extension pack name SHALL resolve its owner from the workspace's configured profile (from settings.json) unless overridden with `--profile`.
 
@@ -16,13 +16,13 @@ The extension extension pack name SHALL resolve its owner from the workspace's c
 
 - **WHEN** user runs `axm packs new frontend-tools`
 - **AND** workspace profile is `@acme`
-- **THEN** `axm-pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/axm-pack.json`
+- **THEN** `extension-pack.json` is created at `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json`
 - **AND** manifest contains `owner: "@acme"`, `name: "frontend-tools"`, `version: "0.0.1"`, and empty `skills`, `commands`, `mcp-servers`
 
 #### Scenario: Create extension pack with profile override
 
 - **WHEN** user runs `axm packs new frontend-tools --profile @corp`
-- **THEN** `axm-pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/axm-pack.json`
+- **THEN** `extension-pack.json` is created at `.axm/extensions/@corp/packs/frontend-tools/extension-pack.json`
 - **AND** manifest contains `owner: "@corp"` and `name: "frontend-tools"`
 
 #### Scenario: No workspace profile and no override
@@ -35,7 +35,7 @@ The extension extension pack name SHALL resolve its owner from the workspace's c
 #### Scenario: Pack already exists
 
 - **WHEN** user runs `axm packs new frontend-tools`
-- **AND** `.axm/extensions/@acme/packs/frontend-tools/axm-pack.json` already exists
+- **AND** `.axm/extensions/@acme/packs/frontend-tools/extension-pack.json` already exists
 - **THEN** the command fails with a `AppError` indicating the extension extension pack already exists
 
 ### Requirement: New pack registered in settings

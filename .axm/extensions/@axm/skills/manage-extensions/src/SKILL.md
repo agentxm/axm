@@ -279,7 +279,7 @@ Without arguments, updates all. `--skill` filters by name or glob. Optional
 axm skills new <name> [--profile @handle] [--agent <id>...] [--yes] [--force]
 ```
 
-Name: `[a-z0-9][a-z0-9-]*`, max 64 chars. Creates `axm-skill.json` +
+Name: `[a-z0-9][a-z0-9-]*`, max 64 chars. Creates `skill.json` +
 `src/SKILL.md`, registers in settings, creates agent symlinks.
 
 ### skills fork

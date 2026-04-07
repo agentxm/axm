@@ -123,7 +123,7 @@ describe("publishCommand", () => {
       ...manifest,
     };
     fs.writeFileSync(
-      path.join(extensionDir, "axm-command.json"),
+      path.join(extensionDir, "command.json"),
       JSON.stringify(defaultManifest, null, 2),
     );
 

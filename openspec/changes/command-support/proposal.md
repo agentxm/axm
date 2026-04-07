@@ -4,7 +4,7 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 
 ## What Changes
 
-- **Fleshed-out `command` extension type** with a proper manifest schema (`axm-command.json`), command-specific metadata fields, and registry support beyond the current stub.
+- **Fleshed-out `command` extension type** with a proper manifest schema (`command.json`), command-specific metadata fields, and registry support beyond the current stub.
 - **Cross-agent command installation** — `axm commands install` writes agent-native command files into each agent's **commands directory**, including agents where commands are deprecated but still functional (Claude Code, Codex). AXM explicitly supports these deprecated command paths — they remain fully operational, offer a rich feature set (frontmatter, arguments, file references, shell injection, hooks), and their single-file format maps cleanly to the AXM portable model. AXM's `command` and `skill` extension types are orthogonal: commands target the commands path, skills target the skills path. If a skill and command share a name, the skill wins (by agent convention), which is desirable when a richer version exists.
   - **Markdown with YAML frontmatter** — Claude Code (`.claude/commands/`), OpenCode (`.opencode/commands/`), Augment (`.augment/commands/`), Junie (`.junie/commands/`), Roo Code (`.roo/commands/`)
   - **Markdown (no frontmatter)** — Cursor (`.cursor/commands/`)
@@ -580,9 +580,9 @@ Project commands override global commands with same name.
 
 ### Manifest File
 
-**Filename:** `axm-command.json`
+**Filename:** `command.json`
 
-Following the existing convention (`axm-skill.json`, `axm-subagent.json`, `axm-mcp-server.json`), the command manifest uses the same common fields plus command-specific metadata.
+Following the existing convention (`skill.json`, `axm-subagent.json`, `mcp-server.json`), the command manifest uses the same common fields plus command-specific metadata.
 
 ```jsonc
 {
@@ -667,7 +667,7 @@ Agents that don't support a particular variable syntax receive a best-effort fal
 
 ```
 my-command/
-  axm-command.json    # Manifest (required, strict JSON)
+  command.json    # Manifest (required, strict JSON)
   COMMAND.md          # Prompt body (required)
   README.md           # Optional documentation
 ```

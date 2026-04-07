@@ -46,8 +46,8 @@ describe("example files", () => {
     expect(result.agents).toContain("claude-code");
   });
 
-  it("axm-skill.example.json conforms to SkillManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "skills/axm-skill.example.json"));
+  it("skill.example.json conforms to SkillManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "skills/skill.example.json"));
     const result = Schema.decodeUnknownSync(SkillManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
@@ -56,8 +56,8 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("axm-command.example.json conforms to CommandManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "commands/axm-command.example.json"));
+  it("command.example.json conforms to CommandManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "commands/command.example.json"));
     const result = Schema.decodeUnknownSync(CommandManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
@@ -66,10 +66,8 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("axm-mcp-server.example.json conforms to McpServerManifestSchema", () => {
-    const example = readJsonFile(
-      path.join(CORE_UNSTABLE, "mcp-servers/axm-mcp-server.example.json"),
-    );
+  it("mcp-server.example.json conforms to McpServerManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "mcp-servers/mcp-server.example.json"));
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
@@ -78,8 +76,8 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("axm-pack.example.json conforms to ExtensionPackManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "packs/axm-pack.example.json"));
+  it("extension-pack.example.json conforms to ExtensionPackManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "packs/extension-pack.example.json"));
     const result = Schema.decodeUnknownSync(ExtensionPackManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");

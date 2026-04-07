@@ -1,6 +1,6 @@
 /**
  * Copy skill executor — copies source files to the managed extensions store
- * and generates an `axm-skill.json` manifest.
+ * and generates an `skill.json` manifest.
  *
  * Pipeline: parse target name → resolve source path → copy files →
  * generate manifest.
@@ -19,7 +19,7 @@ import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
 import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import type { SkillExtensionRef } from "../refs.js";
-import { MANIFEST_FILENAME } from "../manifest-schema.js";
+import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
 
 // -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ import { stripFileProtocol } from "../../utils/index.js";
  * Args for the copy-skill operation.
  *
  * Copies source files to `.axm/extensions/@<owner>/skills/<name>/`
- * and generates an `axm-skill.json` manifest.
+ * and generates an `skill.json` manifest.
  */
 export type CopySkillOperationArgs = {
   /** The skill extension ref carrying source and location. */
@@ -62,7 +62,7 @@ const DEFAULT_VERSION = "0.1.0";
  * 1. Parse target name (`@owner/name`)
  * 2. Resolve source path from ref location
  * 3. Copy files to `.axm/extensions/@<owner>/skills/<name>/`
- * 4. Generate `axm-skill.json` manifest with defaults
+ * 4. Generate `skill.json` manifest with defaults
  */
 export const copySkill: OperationHandler<
   CopySkillOperation,
@@ -100,8 +100,9 @@ export const copySkill: OperationHandler<
       ),
     );
 
-    // Generate axm-skill.json manifest
+    // Generate skill.json manifest
     const manifest = {
+      $schema: MANIFEST_SCHEMA_URL,
       owner: fqn.owner,
       type: "skill",
       name: fqn.name,

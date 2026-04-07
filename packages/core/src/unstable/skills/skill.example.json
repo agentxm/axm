@@ -1,4 +1,5 @@
 {
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
   "owner": "@acme",
   "type": "skill",
   "name": "code-review",

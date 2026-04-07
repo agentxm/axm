@@ -6,23 +6,23 @@
 
 #### Scenario: Successful publish
 
-- **WHEN** user runs `axm commands publish` in a directory with a valid `axm-command.json` and `COMMAND.md`
+- **WHEN** user runs `axm commands publish` in a directory with a valid `command.json` and `COMMAND.md`
 - **AND** the user is authenticated
 - **THEN** the CLI SHALL validate the manifest, pack the directory, upload to the registry, and display a success message with the published name and version
 
 #### Scenario: Missing manifest
 
-- **WHEN** user runs `axm commands publish` in a directory without `axm-command.json`
+- **WHEN** user runs `axm commands publish` in a directory without `command.json`
 - **THEN** the CLI SHALL fail with an error indicating no command manifest was found
 
 #### Scenario: Missing command body
 
-- **WHEN** user runs `axm commands publish` in a directory with `axm-command.json` but no `COMMAND.md`
+- **WHEN** user runs `axm commands publish` in a directory with `command.json` but no `COMMAND.md`
 - **THEN** the CLI SHALL fail with an error indicating the command body is missing
 
 #### Scenario: Invalid manifest
 
-- **WHEN** user runs `axm commands publish` with an `axm-command.json` that fails schema validation
+- **WHEN** user runs `axm commands publish` with an `command.json` that fails schema validation
 - **THEN** the CLI SHALL fail with validation errors before attempting upload
 
 ### Requirement: Authentication required

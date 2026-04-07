@@ -38,10 +38,10 @@ const makeReadEntry =
 
 describe("manifestFilenameForType", () => {
   it("maps supported extension types to manifest files", () => {
-    expect(manifestFilenameForType("skill")).toBe("axm-skill.json");
-    expect(manifestFilenameForType("command")).toBe("axm-command.json");
-    expect(manifestFilenameForType("mcp-server")).toBe("axm-mcp-server.json");
-    expect(manifestFilenameForType("pack")).toBe("axm-pack.json");
+    expect(manifestFilenameForType("skill")).toBe("skill.json");
+    expect(manifestFilenameForType("command")).toBe("command.json");
+    expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
+    expect(manifestFilenameForType("pack")).toBe("extension-pack.json");
   });
 });
 
@@ -58,8 +58,8 @@ describe("resolveManifest", () => {
 
       const resolved = yield* resolveManifest({
         type: "skill",
-        entries: [makeEntry("axm-skill.json"), makeEntry("index.js")],
-        readEntry: makeReadEntry({ "axm-skill.json": manifest }),
+        entries: [makeEntry("skill.json"), makeEntry("index.js")],
+        readEntry: makeReadEntry({ "skill.json": manifest }),
       });
 
       expect(resolved.identity.owner).toBe("@acme");
@@ -79,8 +79,8 @@ describe("resolveManifest", () => {
 
       const resolved = yield* resolveManifest({
         type: "pack",
-        entries: [makeEntry("axm-pack.json")],
-        readEntry: makeReadEntry({ "axm-pack.json": manifest }),
+        entries: [makeEntry("extension-pack.json")],
+        readEntry: makeReadEntry({ "extension-pack.json": manifest }),
       });
 
       expect(resolved.identity.name).toBe("my-pack");

@@ -42,7 +42,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Level**          | Context where configuration or extensions are stored: `project` (.axm/) or `user` (~/.axm/) |
 | **Profile**        | Profile for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                           |
 | **Source**         | Origin of an extension: registry, github, gitlab, bitbucket, azuredevops, git, url, or path |
-| **Manifest**       | JSON file describing an extension's metadata (e.g., `axm-skill.json`)                       |
+| **Manifest**       | JSON file describing an extension's metadata (e.g., `skill.json`)                           |
 | **Fork**           | Create a named universal extension from an existing extension                               |
 
 ### Extension Types
@@ -102,7 +102,7 @@ share common fields with type-specific extensions.
 | `bugs`        | string   | No       | Issue tracker URL                          |
 | `author`      | object   | No       | `{ name, email?, url? }`                   |
 
-#### axm-skill.json
+#### skill.json
 
 Context-triggered or invoked agent instructions.
 
@@ -117,7 +117,7 @@ Context-triggered or invoked agent instructions.
 }
 ```
 
-#### axm-command.json
+#### command.json
 
 User-invokable agent prompts. Note: "command" here refers to the extension type
 (agent prompts), not CLI commands documented in §4.3.
@@ -130,7 +130,7 @@ User-invokable agent prompts. Note: "command" here refers to the extension type
 }
 ```
 
-#### axm-pack.json
+#### extension-pack.json
 
 Bundle of extensions. References extensions by fully qualified name. Packs can
 include other packs, enabling transitive dependencies.
@@ -151,7 +151,7 @@ displayed.
 }
 ```
 
-#### axm-mcp-server.json
+#### mcp-server.json
 
 MCP server configuration. Fields TBD.
 
@@ -261,7 +261,7 @@ When resolution yields a local or remote path:
 
 | Type            | Examples                                                        | Yields                   |
 | --------------- | --------------------------------------------------------------- | ------------------------ |
-| AXM manifest    | `axm-skill.json`, `axm-command.json`, `axm-mcp-server.json`     | Single extension         |
+| AXM manifest    | `skill.json`, `command.json`, `mcp-server.json`                 | Single extension         |
 | Standard skill  | `SKILL.md`, `SKILL.toml`                                        | Single extension         |
 | Extension index | `axm-index.json`, `.well-known/skills/index.json`¹, `.mcp.json` | Zero or more extensions² |
 
@@ -276,8 +276,8 @@ from the index file's location.
 
 Extension type is determined by:
 
-1. **AXM manifest** — File name pattern `axm-<type>.json` (e.g.,
-   `axm-skill.json` → `skill`)
+1. **AXM manifest** — File name pattern `<type>.json` (e.g.,
+   `skill.json` → `skill`)
 2. **Non-AXM files** — Type-specific patterns (e.g., `SKILL.md` → `skill`,
    `.mcp.json` → `mcp-server`)
 

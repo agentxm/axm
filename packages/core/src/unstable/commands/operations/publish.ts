@@ -54,7 +54,7 @@ export type PublishCommandOperation = Operation<"publish-command", PublishComman
 /**
  * Publish-command operation handler.
  *
- * 1. Read and validate `axm-command.json` manifest
+ * 1. Read and validate `command.json` manifest
  * 2. Build zip archive of extension directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name

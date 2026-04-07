@@ -208,7 +208,7 @@ describe("newSkill", () => {
           "@myorg",
           "skills",
           "my-skill",
-          "axm-skill.json",
+          "skill.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.owner).toBe("@myorg");

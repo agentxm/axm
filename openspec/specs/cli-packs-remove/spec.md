@@ -8,7 +8,7 @@ The `axm packs remove` command removes extensions from an extension extension pa
 
 ### Requirement: Remove extension from extension pack manifest
 
-`axm packs remove <pack> <extension>` SHALL remove an extension from the specified pack's `axm-pack.json` manifest.
+`axm packs remove <pack> <extension>` SHALL remove an extension from the specified pack's `extension-pack.json` manifest.
 
 This is a manifest edit only — it SHALL NOT uninstall any extensions from the workspace.
 

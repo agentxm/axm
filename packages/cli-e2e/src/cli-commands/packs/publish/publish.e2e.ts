@@ -32,7 +32,7 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
     `---\nname: "${name}"\ndescription: "Test skill"\n---\n\n# ${name}\n`,
   );
   fs.writeFileSync(
-    path.join(extensionDir, "axm-skill.json"),
+    path.join(extensionDir, "skill.json"),
     JSON.stringify(
       {
         owner,
@@ -47,7 +47,7 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
   );
 };
 
-/** Create a pack in .axm/extensions/ with an axm-pack.json manifest. */
+/** Create a pack in .axm/extensions/ with an extension-pack.json manifest. */
 const createManagedPack = (
   tempPath: string,
   owner: string,
@@ -62,7 +62,7 @@ const createManagedPack = (
   const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
-    path.join(packDir, "axm-pack.json"),
+    path.join(packDir, "extension-pack.json"),
     JSON.stringify(
       {
         owner,

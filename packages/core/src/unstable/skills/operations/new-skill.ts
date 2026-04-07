@@ -18,7 +18,7 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { MANIFEST_FILENAME, type SkillManifest } from "../manifest-schema.js";
+import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
 import { decodeExactSemverVersionSync } from "../../version-constraints/version-constraints.js";
 
@@ -70,7 +70,7 @@ const INITIAL_SKILL_VERSION = decodeExactSemverVersionSync("0.0.1");
  * 1. Compute paths via computeSkillPaths
  * 2. Check if skill already exists in settings
  * 3. Create skill directory (src/)
- * 4. Write axm-skill.json manifest
+ * 4. Write skill.json manifest
  * 5. Write starter SKILL.md
  * 6. Register in settings via ws.setSkillEntry
  * 7. Create agent symlinks (concurrent)
@@ -120,6 +120,7 @@ export const newSkill: OperationHandler<
 
     // 4. Write manifest
     const manifest: SkillManifest = {
+      $schema: MANIFEST_SCHEMA_URL,
       owner,
       type: "skill",
       name: decodeExtensionNameSync(name),

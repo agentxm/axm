@@ -1,4 +1,5 @@
 {
+  "$schema": "https://axm.sh/schemas/command.schema.json",
   "owner": "@acme",
   "type": "command",
   "name": "deploy",

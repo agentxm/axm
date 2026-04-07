@@ -118,7 +118,7 @@ const createPackManifest = (base: string, owner: string, packName: string) => {
     "mcp-servers": {},
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  fs.writeFileSync(path.join(packDir, "axm-pack.json"), content);
+  fs.writeFileSync(path.join(packDir, "extension-pack.json"), content);
   return { packDir, manifestHash: hashContent(content), content };
 };
 
@@ -180,7 +180,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");
@@ -211,7 +211,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");
@@ -278,7 +278,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
@@ -308,7 +308,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.commands["@acme/commands/my-cmd"]).toBe("^1.0.0");
@@ -337,7 +337,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest["mcp-servers"]["@acme/mcp-servers/my-server"]).toBe("^2.0.0");
@@ -370,7 +370,7 @@ describe("addToExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBe("^1.0.0");

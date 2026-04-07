@@ -256,7 +256,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
                 code: "MISSING_MANIFEST",
                 what: `Missing manifest: ${MANIFEST_FILENAME}`,
                 details: [`Expected at: ${manifestPath}`],
-                howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
+                howToFix: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
               });
             }
           });

@@ -74,7 +74,7 @@ describe("registry guard", () => {
           '---\nname: "my-skill"\n---\n\n# My Skill\n',
         );
         fs.writeFileSync(
-          path.join(extensionDir, "axm-skill.json"),
+          path.join(extensionDir, "skill.json"),
           JSON.stringify(
             {
               owner: "@test",

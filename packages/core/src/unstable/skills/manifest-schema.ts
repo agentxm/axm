@@ -7,10 +7,12 @@
 import * as Schema from "effect/Schema";
 import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
 
-export const MANIFEST_FILENAME = "axm-skill.json";
+export const MANIFEST_FILENAME = "skill.json";
+
+export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/skill.schema.json";
 
 /**
- * Schema for skill manifest files (axm-skill.json).
+ * Schema for skill manifest files (skill.json).
  *
  * Skills extend coding agent capabilities with reusable prompts
  * and context that can be invoked on demand.
@@ -18,6 +20,7 @@ export const MANIFEST_FILENAME = "axm-skill.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillManifestSchema = Schema.Struct({
+  $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   type: Schema.Literal("skill"),
   name: ExtensionNameSchema.pipe(
@@ -28,7 +31,7 @@ export const SkillManifestSchema = Schema.Struct({
   identifier: "SkillManifest",
   title: "Skill Manifest",
   description:
-    "Configuration file (axm-skill.json) that defines a skill — reusable prompts and context for coding agents.",
+    "Configuration file (skill.json) that defines a skill — reusable prompts and context for coding agents.",
 });
 
 /**

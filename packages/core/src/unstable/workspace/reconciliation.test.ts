@@ -121,7 +121,7 @@ describe("reconciliation", () => {
         const canonical = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(
-          path.join(canonical, "axm-skill.json"),
+          path.join(canonical, "skill.json"),
           JSON.stringify({ owner: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
         );
 
@@ -155,7 +155,7 @@ describe("reconciliation", () => {
         const canonical = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(
-          path.join(canonical, "axm-skill.json"),
+          path.join(canonical, "skill.json"),
           JSON.stringify({ owner: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
         );
 

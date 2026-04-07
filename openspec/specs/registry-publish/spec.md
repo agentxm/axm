@@ -42,12 +42,12 @@ The system SHALL validate the managed extension before publishing.
 
 #### Scenario: Valid manifest
 
-- **WHEN** `.axm/extensions/@acme/skills/code-review/axm-skill.json` exists with required fields (`name`, `version`)
+- **WHEN** `.axm/extensions/@acme/skills/code-review/skill.json` exists with required fields (`name`, `version`)
 - **THEN** validation succeeds
 
 #### Scenario: Missing manifest
 
-- **WHEN** the extension directory does not contain `axm-skill.json`
+- **WHEN** the extension directory does not contain `skill.json`
 - **THEN** publish fails with an error indicating the manifest is missing
 
 #### Scenario: Only managed extensions publishable
@@ -57,12 +57,12 @@ The system SHALL validate the managed extension before publishing.
 
 ### Requirement: Archive creation
 
-The system SHALL create a zip archive of the extension's `src/` subdirectory with files at the root level. The archive SHALL NOT include `axm-skill.json`.
+The system SHALL create a zip archive of the extension's `src/` subdirectory with files at the root level. The archive SHALL NOT include `skill.json`.
 
 #### Scenario: Archive structure
 
-- **WHEN** an extension with `axm-skill.json` at the root and `src/SKILL.md`, `src/helpers/` is archived
-- **THEN** the zip contains `SKILL.md` and `helpers/` at the root (no enclosing directory, no `axm-skill.json`)
+- **WHEN** an extension with `skill.json` at the root and `src/SKILL.md`, `src/helpers/` is archived
+- **THEN** the zip contains `SKILL.md` and `helpers/` at the root (no enclosing directory, no `skill.json`)
 
 ### Requirement: Integrity computation
 

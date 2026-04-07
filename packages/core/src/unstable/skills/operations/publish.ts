@@ -55,7 +55,7 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillOpera
 /**
  * Publish-skill operation handler.
  *
- * 1. Read and validate `axm-skill.json` manifest
+ * 1. Read and validate `skill.json` manifest
  * 2. Build zip archive of extension directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name

@@ -67,10 +67,10 @@ describe("axm skills install from local registry (via fork)", () => {
       expect(fs.existsSync(extensionDir)).toBe(true);
       // Content should be in src/ subdirectory
       expect(fs.existsSync(path.join(extensionDir, "src", "SKILL.md"))).toBe(true);
-      // Fork generates axm-skill.json manifest at extension root
-      expect(fs.existsSync(path.join(extensionDir, "axm-skill.json"))).toBe(true);
+      // Fork generates skill.json manifest at extension root
+      expect(fs.existsSync(path.join(extensionDir, "skill.json"))).toBe(true);
       // Manifest should NOT be inside src/
-      expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
+      expect(fs.existsSync(path.join(extensionDir, "src", "skill.json"))).toBe(false);
 
       // Verify lockfile has registry fields
       const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -204,11 +204,11 @@ describe("axm skills install from local registry (via fork)", () => {
       expect(registryInstallResult.exitCode).toBe(0);
 
       // Verify manifest at extension root
-      expect(fs.existsSync(path.join(extensionDir, "axm-skill.json"))).toBe(true);
+      expect(fs.existsSync(path.join(extensionDir, "skill.json"))).toBe(true);
       // Verify content in src/ subdirectory
       expect(fs.existsSync(path.join(extensionDir, "src", "SKILL.md"))).toBe(true);
       // Verify manifest NOT inside src/
-      expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
+      expect(fs.existsSync(path.join(extensionDir, "src", "skill.json"))).toBe(false);
 
       // Verify lockfile has registry entry
       const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");

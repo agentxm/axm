@@ -84,7 +84,7 @@ Three agents have additional scopes beyond project+user (Claude Code: org-manage
 
 **Filename:** `axm-subagent.json`
 
-Following the existing convention (`axm-skill.json`, `axm-command.json`, `axm-mcp-server.json`), the subagent manifest uses the same common fields plus subagent-specific metadata.
+Following the existing convention (`skill.json`, `command.json`, `mcp-server.json`), the subagent manifest uses the same common fields plus subagent-specific metadata.
 
 ```jsonc
 {
@@ -355,7 +355,7 @@ Parenthesized values (e.g., `(flash)`) indicate the adapter selects an appropria
 Packs gain a `subagents` field alongside existing `skills`, `commands`, and `mcp-servers`:
 
 ```jsonc
-// axm-pack.json
+// extension-pack.json
 {
   "type": "pack",
   "name": "frontend-tools",
@@ -495,7 +495,7 @@ axm subagents install <source> [flags]
 - Checks for existing unmanaged files at each render path before writing. Fails with a conflict error if found; `--force` overrides
 - Records `renderedFiles` map (path + content hash per agent) in the lockfile
 - `--preview` shows the full plan including rendered file paths and formats per agent
-- **Multi-subagent discovery** — when the source is a GitHub repo or local directory containing multiple subagents, AXM discovers them by scanning for `axm-subagent.json` files (same pattern as multi-skill repos scanning for `axm-skill.json`). Without `--subagent` or `--all`, the user is prompted to select which subagents to install
+- **Multi-subagent discovery** — when the source is a GitHub repo or local directory containing multiple subagents, AXM discovers them by scanning for `axm-subagent.json` files (same pattern as multi-skill repos scanning for `skill.json`). Without `--subagent` or `--all`, the user is prompted to select which subagents to install
 
 > **Pattern departures from `axm skills install`:**
 >

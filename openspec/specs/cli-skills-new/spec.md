@@ -14,7 +14,7 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
 - **WHEN** the user runs `axm skills new my-skill`
 - **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-owner>/skills/my-skill/`
-- **AND** writes an `axm-skill.json` manifest with `owner` set to `@<configured-owner>`, `name` set to `my-skill`, and `version` set to `0.0.1`
+- **AND** writes an `skill.json` manifest with `owner` set to `@<configured-owner>`, `name` set to `my-skill`, and `version` set to `0.0.1`
 - **AND** creates `src/SKILL.md` with a starter template
 - **AND** registers the skill in `settings.json` as a managed entry
 - **AND** creates symlinks in all configured agent skill directories pointing to the `src/` subdirectory

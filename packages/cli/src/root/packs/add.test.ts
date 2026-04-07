@@ -50,7 +50,7 @@ const createPackManifest = (
   const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
-    path.join(packDir, "axm-pack.json"),
+    path.join(packDir, "extension-pack.json"),
     JSON.stringify(
       {
         ...(manifest ?? {}),
@@ -136,7 +136,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
@@ -176,7 +176,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
@@ -228,7 +228,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "my-pack",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/effect-basics"]).toBe("^1.0.0");
@@ -351,7 +351,7 @@ describe("packs-add.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/skill-a"]).toBe("^1.0.0");

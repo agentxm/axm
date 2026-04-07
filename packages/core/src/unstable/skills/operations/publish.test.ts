@@ -124,7 +124,7 @@ describe("publishSkill", () => {
       ...manifest,
     };
     fs.writeFileSync(
-      path.join(extensionDir, "axm-skill.json"),
+      path.join(extensionDir, "skill.json"),
       JSON.stringify(defaultManifest, null, 2),
     );
 
@@ -235,7 +235,7 @@ describe("publishSkill", () => {
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         // Update manifest to v0.2.0
-        const manifestPath = path.join(extensionDir, "axm-skill.json");
+        const manifestPath = path.join(extensionDir, "skill.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         manifest.version = "0.2.0";
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));

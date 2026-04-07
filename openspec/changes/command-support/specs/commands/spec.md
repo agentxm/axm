@@ -2,7 +2,7 @@
 
 ### Requirement: Command manifest schema
 
-The command manifest (`axm-command.json`) SHALL extend `CommonManifestFields` with command-specific fields:
+The command manifest (`command.json`) SHALL extend `CommonManifestFields` with command-specific fields:
 
 - `arguments`: optional array of argument definitions, each with `name` (required), `description` (optional), `required` (optional, default false), and `default` (optional)
 - `argumentHint`: optional string describing argument usage shown to users
@@ -15,23 +15,23 @@ The command manifest (`axm-command.json`) SHALL extend `CommonManifestFields` wi
 
 #### Scenario: Valid manifest with all command-specific fields
 
-- **WHEN** `axm-command.json` contains `arguments: [{ "name": "file", "required": true }]`, `argumentHint: "<file>..."`, `model: "claude-sonnet-4-5-20250514"`, `allowedTools: ["Read", "Write"]`, `isolatedContext: true`
+- **WHEN** `command.json` contains `arguments: [{ "name": "file", "required": true }]`, `argumentHint: "<file>..."`, `model: "claude-sonnet-4-5-20250514"`, `allowedTools: ["Read", "Write"]`, `isolatedContext: true`
 - **THEN** manifest validation SHALL succeed
 
 #### Scenario: Valid manifest with minimal fields
 
-- **WHEN** `axm-command.json` contains only `CommonManifestFields` with `type: "command"` and no command-specific fields
+- **WHEN** `command.json` contains only `CommonManifestFields` with `type: "command"` and no command-specific fields
 - **THEN** manifest validation SHALL succeed with defaults applied
 
 #### Scenario: Agent overrides validated structurally
 
-- **WHEN** `axm-command.json` contains `agentOverrides: { "claude-code": { "hooks": { "prerun": ["echo hi"] } } }`
+- **WHEN** `command.json` contains `agentOverrides: { "claude-code": { "hooks": { "prerun": ["echo hi"] } } }`
 - **THEN** manifest validation SHALL succeed (structural validation only)
 - **AND** semantic validation SHALL be deferred to each agent's renderer
 
 #### Scenario: Null model clears inherited model
 
-- **WHEN** `axm-command.json` contains `model: null`
+- **WHEN** `command.json` contains `model: null`
 - **THEN** the manifest SHALL indicate that no model override applies
 - **AND** agents SHALL use their default model selection
 
@@ -41,13 +41,13 @@ The command prompt body SHALL reside in a `COMMAND.md` file, separate from the m
 
 #### Scenario: COMMAND.md contains prompt body only
 
-- **WHEN** a command package contains `axm-command.json` and `COMMAND.md`
+- **WHEN** a command package contains `command.json` and `COMMAND.md`
 - **THEN** `COMMAND.md` SHALL be treated as pure markdown body
 - **AND** no YAML frontmatter parsing SHALL be attempted on `COMMAND.md`
 
 #### Scenario: Missing COMMAND.md
 
-- **WHEN** a command package contains `axm-command.json` but no `COMMAND.md`
+- **WHEN** a command package contains `command.json` but no `COMMAND.md`
 - **THEN** materialization SHALL fail with an error indicating the command body is missing
 
 ### Requirement: Per-format-family rendering

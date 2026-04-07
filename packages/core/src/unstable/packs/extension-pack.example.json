@@ -1,4 +1,5 @@
 {
+  "$schema": "https://axm.sh/schemas/extension-pack.schema.json",
   "owner": "@acme",
   "type": "pack",
   "name": "fullstack-pack",

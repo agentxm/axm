@@ -48,7 +48,7 @@ describe("axm skills publish", () => {
           '---\nname: "my-publish-skill"\ndescription: "A test skill"\n---\n\n# My Publish Skill\n',
         );
 
-        // Create axm-skill.json manifest at extension root
+        // Create skill.json manifest at extension root
         const manifest = {
           owner: "@test",
           type: "skill",
@@ -57,7 +57,7 @@ describe("axm skills publish", () => {
           agents: ["claude-code"],
         };
         fs.writeFileSync(
-          path.join(extensionDir, "axm-skill.json"),
+          path.join(extensionDir, "skill.json"),
           JSON.stringify(manifest, null, 2) + "\n",
         );
 
@@ -144,7 +144,7 @@ describe("axm skills publish", () => {
           '---\nname: "code-review"\n---\n\n# Code Review\n',
         );
         fs.writeFileSync(
-          path.join(extensionDir, "axm-skill.json"),
+          path.join(extensionDir, "skill.json"),
           JSON.stringify(
             {
               owner: "@myorg",
@@ -227,7 +227,7 @@ describe("axm skills publish", () => {
         `---\nname: "${name}"\ndescription: "Test skill"\n---\n\n# ${name}\n`,
       );
       fs.writeFileSync(
-        path.join(extensionDir, "axm-skill.json"),
+        path.join(extensionDir, "skill.json"),
         JSON.stringify(
           {
             owner,

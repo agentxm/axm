@@ -88,7 +88,7 @@ describe("packs-new.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -130,7 +130,7 @@ describe("packs-new.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(false);
 
@@ -162,7 +162,7 @@ describe("packs-new.handler", () => {
             "@corp",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -189,7 +189,7 @@ describe("packs-new.handler", () => {
             "@corp",
             "packs",
             "my-pack",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -225,7 +225,7 @@ describe("packs-new.handler", () => {
       // Pre-create the manifest
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");
       fs.mkdirSync(packDir, { recursive: true });
-      fs.writeFileSync(path.join(packDir, "axm-pack.json"), "{}");
+      fs.writeFileSync(path.join(packDir, "extension-pack.json"), "{}");
 
       return provide(
         Effect.gen(function* () {

@@ -34,7 +34,7 @@ describe("validateArchive", () => {
     Effect.gen(function* () {
       const zip = buildZip([
         {
-          fileName: "axm-skill.json",
+          fileName: "skill.json",
           content: textContent('{"name":"test","version":"1.0.0"}'),
         },
         { fileName: "index.js", content: textContent("module.exports = {}") },

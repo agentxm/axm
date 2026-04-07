@@ -13,7 +13,7 @@ lives:
 | -------------------------- | --------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
 | Content file               | `SKILL.md`                              | `COMMAND.md`                                    | `SUBAGENT.md`                                   |
 | Frontmatter                | Yes (name, description, user-invocable) | **None** (pure markdown)                        | Yes (model, toolAccess, overrides)              |
-| Source of truth            | Manifest (`axm-skill.json`)             | Manifest (`axm-command.json`)                   | **SUBAGENT.md frontmatter** (syncs TO manifest) |
+| Source of truth            | Manifest (`skill.json`)                 | Manifest (`command.json`)                       | **SUBAGENT.md frontmatter** (syncs TO manifest) |
 | Behavioral fields location | N/A (skills are read as-is)             | Manifest (model, allowedTools, isolatedContext) | Content file frontmatter                        |
 
 Commands put `model`, `allowedTools`, `isolatedContext` in the manifest.

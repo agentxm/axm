@@ -2,7 +2,7 @@
 
 ### Requirement: Extension extension pack manifest schema
 
-Extension packs SHALL have an `axm-pack.json` manifest based on `CommonManifestFields` with additional fields:
+Extension packs SHALL have an `extension-pack.json` manifest based on `CommonManifestFields` with additional fields:
 
 - `name`: fully qualified `@owner/packs/name`
 - `version`: semver string
@@ -17,17 +17,17 @@ All extension entries in the manifest SHALL use three-segment fully qualified na
 
 #### Scenario: Valid extension pack manifest with skills and commands
 
-- **WHEN** `axm-pack.json` contains `name: "@acme/packs/frontend-pack"`, `version: "1.0.0"`, `skills: { "@acme/skills/code-review": "^1.0.0" }`, `commands: { "@acme/commands/formatter": "^1.0.0" }`
+- **WHEN** `extension-pack.json` contains `name: "@acme/packs/frontend-pack"`, `version: "1.0.0"`, `skills: { "@acme/skills/code-review": "^1.0.0" }`, `commands: { "@acme/commands/formatter": "^1.0.0" }`
 - **THEN** manifest validation succeeds
 
 #### Scenario: Empty extension sections are valid
 
-- **WHEN** `axm-pack.json` contains `name: "@acme/packs/empty-pack"`, `version: "1.0.0"` with no `skills`, `commands`, or `mcp-servers` fields
+- **WHEN** `extension-pack.json` contains `name: "@acme/packs/empty-pack"`, `version: "1.0.0"` with no `skills`, `commands`, or `mcp-servers` fields
 - **THEN** manifest validation succeeds
 
 #### Scenario: Invalid entry format rejected
 
-- **WHEN** `axm-pack.json` contains `skills: { "@acme/skills/code-review": { "source": "@acme/skills/code-review" } }`
+- **WHEN** `extension-pack.json` contains `skills: { "@acme/skills/code-review": { "source": "@acme/skills/code-review" } }`
 - **THEN** manifest validation fails (entries must be version-specifier strings, not objects)
 
 ### Requirement: Extension extension pack directory structure
@@ -36,7 +36,7 @@ Extension packs SHALL be stored in the managed extensions directory with the lay
 
 ```
 .axm/extensions/@<owner>/packs/<name>/
-  axm-pack.json
+  extension-pack.json
   <optional additional files>
 ```
 
@@ -45,7 +45,7 @@ Extension packs SHALL NOT have a `src/` subdirectory. Extension packs SHALL NOT 
 #### Scenario: Pack installed to managed location
 
 - **WHEN** installing `@acme/packs/frontend-pack` from a registry
-- **THEN** the manifest resides at `.axm/extensions/@acme/packs/frontend-pack/axm-pack.json`
+- **THEN** the manifest resides at `.axm/extensions/@acme/packs/frontend-pack/extension-pack.json`
 
 #### Scenario: No agent symlinks for packs
 
@@ -54,7 +54,7 @@ Extension packs SHALL NOT have a `src/` subdirectory. Extension packs SHALL NOT 
 
 #### Scenario: Additional files preserved
 
-- **WHEN** an extension pack archive contains `axm-pack.json` and `README.md`
+- **WHEN** an extension pack archive contains `extension-pack.json` and `README.md`
 - **THEN** both files are extracted to `.axm/extensions/@<owner>/packs/<name>/`
 
 ### Requirement: Packs are registry-only

@@ -352,7 +352,7 @@ describe("installSkill", () => {
     const srcDir = path.join(canonicalPath, "src");
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(
-      path.join(canonicalPath, "axm-skill.json"),
+      path.join(canonicalPath, "skill.json"),
       JSON.stringify({ name, version: "0.1.0" }),
     );
     fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);

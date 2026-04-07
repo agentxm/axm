@@ -41,22 +41,22 @@ const schemas: SchemaConfig[] = [
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "axm-skill.schema.json",
+    name: "skill.schema.json",
     schema: SkillManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "axm-command.schema.json",
+    name: "command.schema.json",
     schema: CommandManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "axm-mcp-server.schema.json",
+    name: "mcp-server.schema.json",
     schema: McpServerManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "axm-pack.schema.json",
+    name: "extension-pack.schema.json",
     schema: ExtensionPackManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },

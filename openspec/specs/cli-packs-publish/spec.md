@@ -9,7 +9,7 @@ The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, defau
 #### Scenario: Publish extension pack to default registry
 
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`
-- **THEN** the extension extension pack directory is validated (must contain `axm-pack.json`)
+- **THEN** the extension extension pack directory is validated (must contain `extension-pack.json`)
 - **AND** all files in the extension extension pack directory are zipped into an archive (manifest + any accompanying files)
 - **AND** a SHA-512 integrity value is computed in SRI format
 - **AND** the archive is written to `<registry>/extensions/@acme/packs/frontend-tools/<version>.zip`
@@ -23,7 +23,7 @@ The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, defau
 #### Scenario: Missing manifest
 
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`
-- **AND** `axm-pack.json` does not exist in the extension extension pack directory
+- **AND** `extension-pack.json` does not exist in the extension extension pack directory
 - **THEN** the command fails with a `AppError`
 
 #### Scenario: Idempotent publish
@@ -55,7 +55,7 @@ The publish archive SHALL include all files in the extension extension pack dire
 
 #### Scenario: Archive with README
 
-- **WHEN** the extension extension pack directory contains `axm-pack.json` and `README.md`
+- **WHEN** the extension extension pack directory contains `extension-pack.json` and `README.md`
 - **THEN** the archive contains both files at the root level
 
 ### Requirement: Publish plan display and confirmation

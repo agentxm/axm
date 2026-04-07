@@ -2,7 +2,7 @@
 
 axm has scaffolded MCP server infrastructure: install/uninstall/publish operation handlers, lockfile and settings schemas, workspace service CRUD, FQN format, and extension ref types. What's missing:
 
-1. **No transport config in manifests** — `axm-mcp-server.json` only has common fields (name, version, description). Agents need to know _how_ to run the server (stdio command, HTTP URL, env vars).
+1. **No transport config in manifests** — `mcp-server.json` only has common fields (name, version, description). Agents need to know _how_ to run the server (stdio command, HTTP URL, env vars).
 2. **No agent config writing** — Installing an MCP server updates the axm lockfile/settings but doesn't write to any agent's native config file (`.mcp.json`, `.cursor/mcp.json`, etc.).
 3. **No CLI commands** — No `axm mcp install|uninstall|list|...` commands exist.
 4. **No enable/disable** — MCP servers are either installed or not; no way to temporarily disable without uninstalling.
@@ -59,7 +59,7 @@ Key differences: Smithery is cloud-hosted (servers proxied via `server.smithery.
 
 ### 1. Manifest transport config schema
 
-Add transport and environment variable declarations to `axm-mcp-server.json`.
+Add transport and environment variable declarations to `mcp-server.json`.
 
 ```jsonc
 // stdio example: Chrome DevTools MCP (https://github.com/ChromeDevTools/chrome-devtools-mcp)
@@ -352,7 +352,7 @@ CLI command is `mcp`. Registered in `main.ts` via `.command(mcpCommand)`. Follow
 
 [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) (`chrome-devtools-mcp` on npm, v0.17.3) is a stdio MCP server that gives coding agents access to Chrome DevTools — browser automation, debugging, performance tracing, and network inspection. It's the end-to-end validation target for this change.
 
-**Manifest** (`axm-mcp-server.json`):
+**Manifest** (`mcp-server.json`):
 
 ```jsonc
 {
@@ -567,7 +567,7 @@ axm mcp publish '*'                                 # publish all MCP server ext
 
 #### `axm mcp new <name>`
 
-Scaffold a new MCP server extension with a manifest template (`axm-mcp-server.json`) including transport and environment variable placeholders.
+Scaffold a new MCP server extension with a manifest template (`mcp-server.json`) including transport and environment variable placeholders.
 
 | Arg/Flag            | Type       | Required | Description                                            |
 | ------------------- | ---------- | -------- | ------------------------------------------------------ |
@@ -580,7 +580,7 @@ Scaffold a new MCP server extension with a manifest template (`axm-mcp-server.js
 ```bash
 axm mcp new my-devtools-wrapper                     # scaffold new MCP server
 axm mcp new my-devtools-wrapper --profile @acme   # with custom profile
-# Creates: mcp-servers/my-devtools-wrapper/axm-mcp-server.json
+# Creates: mcp-servers/my-devtools-wrapper/mcp-server.json
 ```
 
 **File structure:**

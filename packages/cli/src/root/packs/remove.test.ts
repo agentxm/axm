@@ -51,7 +51,7 @@ const createPackManifest = (
     "mcp-servers": manifest["mcp-servers"] ?? {},
   };
   fs.writeFileSync(
-    path.join(packDir, "axm-pack.json"),
+    path.join(packDir, "extension-pack.json"),
     JSON.stringify(normalizedManifest, null, 2),
   );
   return packDir;
@@ -121,7 +121,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
@@ -161,7 +161,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
@@ -204,7 +204,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "my-pack",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/effect-basics"]).toBeUndefined();
@@ -273,7 +273,7 @@ describe("packs-remove.handler", () => {
             "@acme",
             "packs",
             "frontend-tools",
-            "axm-pack.json",
+            "extension-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();

@@ -12,9 +12,7 @@
 export {
   EXTENSION_PACK_MANIFEST_FILENAME,
   ExtensionPackManifestSchema,
-  RawExtensionPackManifestSchema,
   type ExtensionPackManifest,
-  type RawExtensionPackManifest,
 } from "./manifest-schema.js";
 
 // Extension ref types

@@ -12,10 +12,17 @@ import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/com
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
+export const MCP_SERVER_MANIFEST_FILENAME = "mcp-server.json";
 
 /**
- * Schema for MCP server manifest files (axm-mcp-server.json).
+ * URL for the MCP server manifest JSON Schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const MCP_SERVER_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/mcp-server.schema.json";
+
+/**
+ * Schema for MCP server manifest files (mcp-server.json).
  *
  * MCP servers provide Model Context Protocol endpoints that
  * extend coding agent capabilities with external tools and resources.
@@ -23,6 +30,7 @@ export const MCP_SERVER_MANIFEST_FILENAME = "axm-mcp-server.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerManifestSchema = Schema.Struct({
+  $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   type: Schema.Literal("mcp-server"),
   name: ExtensionNameSchema.pipe(
@@ -31,7 +39,7 @@ export const McpServerManifestSchema = Schema.Struct({
 }).annotate({
   identifier: "McpServerManifest",
   title: "MCP Server Manifest",
-  description: "Configuration file (axm-mcp-server.json) that defines an MCP server extension.",
+  description: "Configuration file (mcp-server.json) that defines an MCP server extension.",
 });
 
 /**

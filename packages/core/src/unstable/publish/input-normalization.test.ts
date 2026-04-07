@@ -29,7 +29,7 @@ const makeValidSkillZip = (manifestOverrides?: Record<string, unknown>) => {
 
   return buildZip([
     {
-      fileName: "axm-skill.json",
+      fileName: "skill.json",
       content: textContent(JSON.stringify(manifest)),
     },
     { fileName: "index.js", content: textContent("module.exports = {}") },
@@ -107,7 +107,7 @@ describe("normalizePublishInput", () => {
     Effect.gen(function* () {
       const zip = buildZip([
         {
-          fileName: "axm-pack.json",
+          fileName: "extension-pack.json",
           content: textContent(
             JSON.stringify({
               owner: "@acme",

@@ -12,10 +12,17 @@ import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/com
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const COMMAND_MANIFEST_FILENAME = "axm-command.json";
+export const COMMAND_MANIFEST_FILENAME = "command.json";
 
 /**
- * Schema for command manifest files (axm-command.json).
+ * URL for the command manifest JSON Schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const COMMAND_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/command.schema.json";
+
+/**
+ * Schema for command manifest files (command.json).
  *
  * Commands provide executable CLI functionality that can be
  * registered and invoked through the AXM CLI.
@@ -23,6 +30,7 @@ export const COMMAND_MANIFEST_FILENAME = "axm-command.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const CommandManifestSchema = Schema.Struct({
+  $schema: Schema.optional(Schema.String),
   ...CommonManifestBaseFields,
   type: Schema.Literal("command"),
   name: ExtensionNameSchema.pipe(
@@ -31,7 +39,7 @@ export const CommandManifestSchema = Schema.Struct({
 }).annotate({
   identifier: "CommandManifest",
   title: "Command Manifest",
-  description: "Configuration file (axm-command.json) that defines a CLI command extension.",
+  description: "Configuration file (command.json) that defines a CLI command extension.",
 });
 
 /**

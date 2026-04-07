@@ -123,7 +123,7 @@ describe("publishMcpServer", () => {
       ...manifest,
     };
     fs.writeFileSync(
-      path.join(extensionDir, "axm-mcp-server.json"),
+      path.join(extensionDir, "mcp-server.json"),
       JSON.stringify(defaultManifest, null, 2),
     );
 

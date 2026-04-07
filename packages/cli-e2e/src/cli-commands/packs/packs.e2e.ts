@@ -77,7 +77,7 @@ describe("axm packs new", () => {
         "@test",
         "packs",
         "frontend-tools",
-        "axm-pack.json",
+        "extension-pack.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
 
@@ -116,7 +116,7 @@ describe("axm packs new", () => {
         "@custom",
         "packs",
         "my-pack",
-        "axm-pack.json",
+        "extension-pack.json",
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -185,7 +185,7 @@ describe("axm packs add/remove", () => {
         "@test",
         "packs",
         "test-pack",
-        "axm-pack.json",
+        "extension-pack.json",
       );
       let manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       expect(manifest.skills).toBeDefined();
@@ -434,7 +434,7 @@ describe("axm packs install", () => {
         '---\nname: "dep-skill"\ndescription: "A dependency skill"\n---\n\n# Dep Skill\n',
       );
       fs.writeFileSync(
-        path.join(skillDir, "axm-skill.json"),
+        path.join(skillDir, "skill.json"),
         JSON.stringify(
           {
             owner: "@test",
@@ -466,7 +466,7 @@ describe("axm packs install", () => {
         "@test",
         "packs",
         "deps-pack",
-        "axm-pack.json",
+        "extension-pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.skills = { "@test/skills/dep-skill": "1.0.0" };

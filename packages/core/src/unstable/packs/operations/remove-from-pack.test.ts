@@ -119,7 +119,7 @@ const createPackManifestWithSkills = (
     "mcp-servers": {},
   };
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  fs.writeFileSync(path.join(packDir, "axm-pack.json"), content);
+  fs.writeFileSync(path.join(packDir, "extension-pack.json"), content);
   return { packDir, manifestHash: hashContent(content), content };
 };
 
@@ -184,7 +184,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/my-skill"]).toBeUndefined();
@@ -217,7 +217,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.skills["@acme/skills/skill-a"]).toBeUndefined();
@@ -290,7 +290,7 @@ describe("removeFromExtensionPack", () => {
           "@myorg",
           "packs",
           "my-pack",
-          "axm-pack.json",
+          "extension-pack.json",
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);

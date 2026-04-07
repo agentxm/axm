@@ -385,7 +385,7 @@ describe("renameSkill", () => {
         `---\nname: ${skillName}\ndescription: A registry skill\n---\n\n# ${skillName}`,
       );
       fs.writeFileSync(
-        path.join(canonicalPath, "axm-skill.json"),
+        path.join(canonicalPath, "skill.json"),
         JSON.stringify({ name: skillName, version: "1.0.0" }),
       );
 

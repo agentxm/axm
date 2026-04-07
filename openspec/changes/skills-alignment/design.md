@@ -138,18 +138,19 @@ materialized source that already contains the managed marker, the forked
 - (c) Marker only in copy mode — rejected; misses the discoverability benefit
   for symlinked skills from registry/git sources
 
-### 4. Shared rendered-extension types
+### 4. Shared infrastructure types
 
-The `renderedFiles` map schema, source hash computation, and conflict detection
-logic are shared across skills (copy mode), commands, and subagents. These are
-created during command-support implementation and live in shared modules under
-`core/unstable/extensions/`:
+The `renderedFiles` map schema, source hash computation, conflict detection
+logic, and YAML frontmatter parsing are shared across skills (copy mode),
+commands, and subagents. These are created during command-support implementation
+and live in shared modules under `core/unstable/extensions/`:
 
-| Module                  | Purpose                                                                           |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `rendered-files.ts`     | `RenderedFilesMapSchema`, `sourceHash` computation, path-based cleanup            |
-| `managed-marker.ts`     | `generateMarker(type, format)`, `isManagedByAxm(content)`, `stripMarker(content)` |
-| `conflict-detection.ts` | Pre-write conflict check (marker-based ownership detection)                       |
+| Module                  | Purpose                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `rendered-files.ts`     | `RenderedFilesMapSchema`, `sourceHash` computation, path-based cleanup                    |
+| `managed-marker.ts`     | `generateMarker(type, format)`, `isManagedByAxm(content)`, `stripMarker(content)`         |
+| `conflict-detection.ts` | Pre-write conflict check (marker-based ownership detection)                               |
+| `frontmatter.ts`        | Generic YAML frontmatter + body parser — returns `{ frontmatter: unknown, body: string }` |
 
 Skills opt into these shared types when operating in copy mode. The
 `--preview` verification work has no dependency on the shared infrastructure
@@ -159,6 +160,32 @@ and can proceed independently.
 (which creates the shared infrastructure) and subagent-support (which validates
 it with a second extension type). Skills-alignment is the smallest change and
 benefits from stable, proven shared types.
+
+### 5. Migrate `parse-skill-md.ts` to `skills/skill-content.ts`
+
+The existing `parse-skill-md.ts` in `source-resolution/` uses `gray-matter`
+directly for YAML frontmatter parsing. This change migrates it to
+`skills/skill-content.ts`, refactoring to use the shared `frontmatter.ts`
+parser and keeping `SkillFrontmatterSchema` as skill-specific.
+
+This completes the three-type content module pattern:
+
+| Module                          | Type-specific schema        | Shared parser               |
+| ------------------------------- | --------------------------- | --------------------------- |
+| `commands/command-content.ts`   | `CommandFrontmatterSchema`  | `extensions/frontmatter.ts` |
+| `subagents/subagent-content.ts` | `SubagentFrontmatterSchema` | `extensions/frontmatter.ts` |
+| `skills/skill-content.ts`       | `SkillFrontmatterSchema`    | `extensions/frontmatter.ts` |
+
+Each module exports a `parse<Type>Md(content)` function that calls the shared
+parser and applies its own Schema to validate the frontmatter. The shared
+parser returns `unknown` frontmatter — type safety comes from each consumer's
+Schema application.
+
+**Migration path:** The existing `parseSkillMd` function in
+`source-resolution/parse-skill-md.ts` is replaced by `parseSkillMd` in
+`skills/skill-content.ts`. All import sites are updated. The old file is
+deleted. The `SkillFrontmatterSchema` (currently defined inline) is exported
+from the new module for reuse.
 
 ## Effect v4 Implementation Patterns
 

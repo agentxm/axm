@@ -43,7 +43,7 @@ Skills, by contrast, are the most mature extension type: multi-source (registry,
 - Variable substitution is normalized: authors write `{{arguments}}` / `{{arg:name}}`, renderers produce agent-native syntax
 - Lossy rendering is explicit: warnings at install time for unsupported features per agent
 - Scope model reuses existing infrastructure (project/user, `--scope` flag, workspace service)
-- Create shared rendered-extension infrastructure (managed markers, rendered-file tracking, source hash, conflict detection, content file parsing) that subagent-support and skills-alignment reuse
+- Create shared infrastructure (managed markers, rendered-file tracking, source hash, conflict detection, YAML frontmatter parsing) that subagent-support and skills-alignment reuse — shared utilities provide format-level operations; per-type modules own schema, validation, rendering, and orchestration
 
 **Non-Goals:**
 
@@ -237,17 +237,26 @@ The marker is static — no timestamp or hash in the file. This avoids noisy git
 
 **Sync behavior:** Marker present → re-render when source hash changes. File missing but extension installed → re-render (recreate). Uninstall/disable → delete all rendered files tracked in lockfile.
 
-**Shared infrastructure:** The marker generation/detection, rendered-file tracking types, source hash computation, conflict detection, and content file frontmatter parsing are built as shared modules in `core/unstable/extensions/`:
+**Shared infrastructure:** The marker generation/detection, rendered-file tracking types, source hash computation, conflict detection, and YAML frontmatter parsing are built as shared modules in `core/unstable/extensions/`:
 
-| Module                  | Purpose                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| `rendered-files.ts`     | `RenderedFilesMapSchema` (lockfile mixin), `sourceHash` computation, path-based cleanup |
-| `managed-marker.ts`     | `generateMarker(type, format)`, `isManagedByAxm(content)`, `stripMarker(content)`       |
-| `conflict-detection.ts` | Pre-write conflict check (marker-based ownership detection)                             |
-| `content-file.ts`       | YAML frontmatter + body parser (shared by COMMAND.md, SUBAGENT.md)                      |
-| `rendering-warnings.ts` | `LossyRenderingWarning` type for per-feature-per-agent warnings                         |
+| Module                  | Purpose                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `rendered-files.ts`     | `RenderedFilesMapSchema` (lockfile mixin), `sourceHash` computation, path-based cleanup   |
+| `managed-marker.ts`     | `generateMarker(type, format)`, `isManagedByAxm(content)`, `stripMarker(content)`         |
+| `conflict-detection.ts` | Pre-write conflict check (marker-based ownership detection)                               |
+| `frontmatter.ts`        | Generic YAML frontmatter + body parser — returns `{ frontmatter: unknown, body: string }` |
 
-Subagent-support and skills-alignment reuse these modules. The renderer functions themselves are NOT shared — format families differ between commands and subagents (e.g. Codex uses MD+YAML for commands but TOML for subagents). Only the surrounding infrastructure is common.
+`LossyRenderingWarning` lives with the command rendering infrastructure (Phase 4), not in shared infra — it is only used by types that render to agent-native formats (commands, subagents), not by skills.
+
+**Per-type content file modules** own the type-specific frontmatter schema, validation, and sync logic. The shared `frontmatter.ts` provides only the generic YAML parser; each type applies its own Schema:
+
+| Module                          | Purpose                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `commands/command-content.ts`   | `CommandFrontmatterSchema`, `parseCommandMd`, manifest sync                                    |
+| `subagents/subagent-content.ts` | `SubagentFrontmatterSchema`, `parseSubagentMd`, manifest sync                                  |
+| `skills/skill-content.ts`       | `SkillFrontmatterSchema`, `parseSkillMd` (migrated from `source-resolution/parse-skill-md.ts`) |
+
+Subagent-support and skills-alignment reuse the shared modules. The renderer functions themselves are NOT shared — format families differ between commands and subagents (e.g. Codex uses MD+YAML for commands but TOML for subagents). Only the surrounding infrastructure is common.
 
 ### 10. Augment cross-tool dedup
 
@@ -282,18 +291,26 @@ const FrontmatterToManifestFields = CommandFrontmatterSchema.pipe(
 ```
 
 The same pattern applies to subagent-support (SUBAGENT.md frontmatter → manifest
-sync) and to the content-file parser in the shared infrastructure.
+sync). Each type defines its own `FrontmatterToManifestFields` transformation —
+this is type-specific logic, not shared code — because the fields differ between
+commands and subagents.
 
-### Schema.Class for shared rendered-extension types
+### Schema.Class for shared and rendering types
 
-Use `Schema.Class` (not bare `Schema.Struct`) for the shared infrastructure
-types that carry behavior alongside their schema:
+Use `Schema.Class` (not bare `Schema.Struct`) for infrastructure types that
+carry behavior alongside their schema:
+
+**Shared infrastructure** (`core/unstable/extensions/`):
 
 - `RenderedFilesMap` — lockfile mixin with path-based cleanup methods
-- `LossyRenderingWarning` — structured warning with dedup and formatting
 - `ConflictDetectionResult` — tagged result with conflict/owned/absent variants
 - `SourceHash` — branded `string` via `Schema.brand("SourceHash")` to prevent
   accidental interchange with other hash strings
+
+**Rendering infrastructure** (`core/unstable/commands/` — imported by subagents):
+
+- `LossyRenderingWarning` — structured warning with dedup and formatting (only
+  used by types that render to agent-native formats, not by skills)
 
 `Schema.Class` gives us validated constructors, pattern matching via `_tag`,
 `decodeResult` for synchronous hot-path parsing in reconciliation, and

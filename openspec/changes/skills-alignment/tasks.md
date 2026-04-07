@@ -71,12 +71,35 @@ Add managed-file marker to SKILL.md during materialization and copy-mode fallbac
 - [ ] 3.8 Run tests for all packages (`pnpm test`), fix any failures
 - [ ] 3.9 Kill any vitest worker processes
 
-## 4. Final Verification
+## 4. Migrate `parse-skill-md.ts` to `skills/skill-content.ts`
+
+> **Subagent:** Run this entire phase in a single subagent.
+
+Migrate the existing skill content file parser from `source-resolution/parse-skill-md.ts` to `skills/skill-content.ts`, refactoring to use the shared `frontmatter.ts` parser from `core/unstable/extensions/`. This validates the shared parser's generality as a third consumer and completes the three-type content module pattern (`skills/skill-content.ts`, `commands/command-content.ts`, `subagents/subagent-content.ts`). Depends on command-support Phase 1 (shared `frontmatter.ts` parser).
+
+**Effect v4 patterns for this phase:**
+
+- Reuse `parseFrontmatter` / `parseFrontmatterResult` from shared infra — returns `{ frontmatter: unknown, body: string }`
+- Apply `SkillFrontmatterSchema` (existing, moved to new module) via `Schema.decodeUnknownResult` to validate the `unknown` frontmatter
+- Export `parseSkillMd` function with the same signature as the existing one for drop-in replacement
+
+- [ ] 4.1 Create `skills/skill-content.ts` in `packages/core/src/unstable/skills/` — move `SkillFrontmatterSchema` from `parse-skill-md.ts`, export it. Define `parseSkillMd(content)` that calls `parseFrontmatter` from `core/unstable/extensions/frontmatter.ts` and applies `SkillFrontmatterSchema` to the result. Return `Option<Skill>` matching the existing signature.
+- [ ] 4.2 Update all import sites that reference `source-resolution/parse-skill-md.ts` to import from `skills/skill-content.ts` instead. Search for all usages across the codebase.
+- [ ] 4.3 Delete `packages/core/src/unstable/source-resolution/parse-skill-md.ts` and remove its export from the source-resolution barrel.
+- [ ] 4.4 Update `packages/core/src/unstable/skills/index.ts` barrel to export the new module.
+- [ ] 4.5 Verify the `gray-matter` direct dependency is no longer needed in the skills/source-resolution code path (the shared `frontmatter.ts` parser handles it).
+- [ ] 4.6 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [ ] 4.7 Run linting for all packages (`pnpm lint`), fix any errors
+- [ ] 4.8 Run tests for all packages (`pnpm test`), fix any failures
+- [ ] 4.9 Kill any vitest worker processes
+
+## 5. Final Verification
 
 > **Subagent:** Run this entire phase in a single subagent.
 
 Full CI pipeline to verify everything works together. Depends on all prior phases.
 
-- [ ] 4.1 Run the full CI pipeline (`pnpm run ci`), fix any failures
-- [ ] 4.2 Verify no regressions in existing skill tests — symlink-mode install, uninstall, enable, disable, update, list, new, fork, rename, publish all pass
-- [ ] 4.3 Kill any vitest worker processes
+- [ ] 5.1 Run the full CI pipeline (`pnpm run ci`), fix any failures
+- [ ] 5.2 Verify no regressions in existing skill tests — symlink-mode install, uninstall, enable, disable, update, list, new, fork, rename, publish all pass
+- [ ] 5.3 Verify three parallel content modules exist: `skills/skill-content.ts`, `commands/command-content.ts`, `subagents/subagent-content.ts` — all using `extensions/frontmatter.ts`
+- [ ] 5.4 Kill any vitest worker processes

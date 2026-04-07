@@ -941,7 +941,7 @@ axm subagents rename old-name new-name --preview
 
 This change shares structural patterns with `command-support` and `skills-alignment`: all three use render-on-install (or copy-mode for skills), managed markers, rendered-file tracking, and source hash computation. The `mcp-server-management` change (already in design) follows the same shape.
 
-**Implementation sequence:** `command-support` is implemented first and creates the shared rendered-extension infrastructure in `core/unstable/extensions/` (managed markers, rendered-file tracking types, source hash computation, conflict detection, content file parsing, lossy rendering warning types). This change (subagent-support) is implemented second and reuses that shared infrastructure. `skills-alignment` is implemented third and opts skills copy-mode into the same shared types.
+**Implementation sequence:** `command-support` is implemented first and creates the shared infrastructure in `core/unstable/extensions/` (managed markers, rendered-file tracking types, source hash computation, conflict detection, YAML frontmatter parsing) and the rendering warning type in `core/unstable/commands/`. This change (subagent-support) is implemented second and reuses that infrastructure. `skills-alignment` is implemented third and opts skills copy-mode into the same shared types.
 
 **What this change reuses from command-support:**
 
@@ -949,11 +949,12 @@ This change shares structural patterns with `command-support` and `skills-alignm
 - Rendered-file tracking lockfile types (`core/unstable/extensions/rendered-files.ts`)
 - Source hash computation (same algorithm, same entry-level placement)
 - Conflict detection at render paths (`core/unstable/extensions/conflict-detection.ts`)
-- Content file frontmatter parser (`core/unstable/extensions/content-file.ts`)
-- Lossy rendering warning types (`core/unstable/extensions/rendering-warnings.ts`)
+- Generic YAML frontmatter parser (`core/unstable/extensions/frontmatter.ts`)
+- Lossy rendering warning types (`core/unstable/commands/rendering-warnings.ts`)
 
 **What this change creates independently:**
 
+- `subagents/subagent-content.ts` — subagent-specific content file module with `SubagentFrontmatterSchema`, `parseSubagentMd`, and frontmatter-to-manifest sync (uses the shared `frontmatter.ts` parser, applies subagent-specific Schema)
 - Subagent-specific renderer functions (format families differ from commands — e.g. Codex uses TOML for subagents but MD+YAML for commands)
 - Model tier mapping and tool access mapping (subagent-only portable abstractions)
 - Roo Code read-modify-write for `.roomodes` (subagent-only rendering target)

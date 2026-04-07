@@ -4,20 +4,20 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-Creates the `@axm.sh/core/unstable/subagents` module with manifest schema (`subagent.json`), content file schema (`SUBAGENT.md` frontmatter), and directory layout constants. No predecessor phases.
+Creates the `@axm.sh/core/unstable/subagents` module with manifest schema (`subagent.json`), content file module (`subagent-content.ts` — subagent-specific frontmatter schema and parsing), and directory layout constants. No predecessor phases.
 
 **Reference:** `subagents/spec.md` — Subagent manifest schema, Subagent content file, Directory layout, FQN segment.
 
 **Effect v4 patterns for this phase:**
 
 - Use `Schema.Class` for `SubagentManifest`, `SubagentContent`, and `SubagentFrontmatter` — gives validated constructors, `_tag` pattern matching, and `decodeResult` for synchronous hot-path use
-- Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation for the frontmatter → manifest sync — type-safe bidirectional transformation (same pattern as command-support)
+- Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation for the frontmatter → manifest sync — type-safe bidirectional transformation (same pattern as command-support's `command-content.ts`)
 - Use `Schema.withConstructorDefault` for boolean fields (`background: false`)
 - Use branded types from shared infrastructure: `SourceHash`, `RenderedFilePath`, `ManagedMarker`
 
 - [ ] 1.1 Create `packages/core/src/unstable/subagents/` directory structure
 - [ ] 1.2 Define `SubagentManifestSchema` as `Schema.Class` in `manifest-schema.ts` extending `CommonManifestBaseFields` with subagent-specific fields: `model` (enum `"fast" | "default" | "powerful" | "inherit"` or concrete model ID string), `toolAccess` (`"full" | "readonly" | "none"`), `background` (boolean, `withConstructorDefault(() => false)`), `agents` (optional `string[]`). Set manifest filename to `subagent.json` and schema URL to `https://axm.sh/schemas/subagent.schema.json`. Follow patterns from `packages/core/src/unstable/skills/manifest-schema.ts`
-- [ ] 1.3 Define `SubagentContentSchema` as `Schema.Class` in `content-schema.ts` for SUBAGENT.md YAML frontmatter parsing: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description`, `model`, `toolAccess`, `background` from frontmatter to manifest shape for publish-time sync. The Markdown body after frontmatter is the instructions content
+- [ ] 1.3 Create `subagent-content.ts` in `packages/core/src/unstable/subagents/` — the subagent-specific content file module. Define `SubagentFrontmatterSchema` as `Schema.Class` for SUBAGENT.md frontmatter fields: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). Define `parseSubagentMd(content)` that calls the shared `parseFrontmatter` utility from `core/unstable/extensions/frontmatter.ts` and applies `SubagentFrontmatterSchema` to the result. Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description`, `model`, `toolAccess`, `background` from frontmatter to manifest shape for publish-time sync. The Markdown body after frontmatter is the instructions content
 - [ ] 1.4 Define directory layout constants: canonical path `.axm/extensions/<owner>/subagents/<name>/`, manifest at `subagent.json`, content at `src/SUBAGENT.md`. Follow pattern from skills
 - [ ] 1.5 Create `subagent.example.json` example manifest file (analogous to `packages/core/src/unstable/skills/skill.example.json`)
 - [ ] 1.6 Export from `packages/core/src/unstable/subagents/index.ts` barrel
@@ -66,7 +66,7 @@ Implements the core rendering engine that translates portable SUBAGENT.md into a
 **Effect v4 patterns for this phase:**
 
 - Use `Schema.Class` for `RenderInput`, `RenderOutput`, and `RenderOutcome` — tagged types enable pattern matching on outcomes
-- Model tier mapping and tool access mapping as `Schema.encodeTo` transformations: portable enum → agent-native string, with lossy mappings producing `LossyRenderingWarning` (Schema.Class from shared infra)
+- Model tier mapping and tool access mapping as `Schema.encodeTo` transformations: portable enum → agent-native string, with lossy mappings producing `LossyRenderingWarning` (Schema.Class from `core/unstable/commands/rendering-warnings.ts`)
 - Use `Layer.suspend()` for the adapter registry — defer adapter construction, build only adapters for configured agents
 - Each rendering adapter is a pure function `(input: RenderInput) => Effect<RenderOutcome>` — compose via `Effect.forEach` across agents
 - Roo Code read-modify-write uses `Effect.acquireRelease` to ensure `.roomodes` file integrity during concurrent operations

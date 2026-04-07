@@ -6,14 +6,16 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 
 - **Fleshed-out `command` extension type** with a proper manifest schema (`axm-command.json`), command-specific metadata fields, and registry support beyond the current stub.
 - **Cross-agent command installation** — `axm commands install` writes agent-native command files into each agent's **commands directory**, including agents where commands are deprecated but still functional (Claude Code, Codex). AXM explicitly supports these deprecated command paths — they remain fully operational, offer a rich feature set (frontmatter, arguments, file references, shell injection, hooks), and their single-file format maps cleanly to the AXM portable model. AXM's `command` and `skill` extension types are orthogonal: commands target the commands path, skills target the skills path. If a skill and command share a name, the skill wins (by agent convention), which is desirable when a richer version exists.
-  - **Markdown with YAML frontmatter** — Claude Code (`.claude/commands/`), Cursor (`.cursor/commands/`), OpenCode (`.opencode/commands/`), Augment (`.augment/commands/`), Junie (`.junie/commands/`), Roo Code (`.roo/commands/`)
+  - **Markdown with YAML frontmatter** — Claude Code (`.claude/commands/`), OpenCode (`.opencode/commands/`), Augment (`.augment/commands/`), Junie (`.junie/commands/`), Roo Code (`.roo/commands/`)
+  - **Markdown (no frontmatter)** — Cursor (`.cursor/commands/`)
   - **`.prompt.md` with YAML frontmatter** — Copilot (`.github/prompts/`)
   - **Markdown with YAML frontmatter** — Codex (`~/.codex/prompts/`)
   - **TOML** — Gemini CLI (`.gemini/commands/`)
   - **Plain text** — Kiro (`.kiro/prompts/`)
-- **Command manifest schema** capturing the portable subset of command metadata: name, description, prompt body, argument definitions, and optional agent-specific hints (model override, tool restrictions, subagent forking).
+  - **Cross-tool overlap** — Augment also reads `.claude/commands/`; agent adapters detect cross-tool compatibility and skip writing duplicates when the same command is already rendered into a directory the agent reads.
+- **Command manifest schema** capturing the portable subset of command metadata: name, description, argument definitions, and optional agent-specific hints (model override, tool restrictions, subagent forking). The prompt body lives in `COMMAND.md`, not the manifest.
 - **Agent-specific rendering** — each agent adapter translates the portable manifest into its native format, mapping fields like `argument-hint`, `model`, `allowed-tools`, `context`/`subtask`, and variable substitution syntax to agent-native equivalents where supported.
-- **`axm commands` command group** — `install`, `uninstall`, `list`, `new`, `publish` commands mirroring the existing skills command group.
+- **`axm commands` command group** — `install`, `uninstall`, `list`, `enable`, `disable`, `new`, `publish` commands mirroring the existing skills command group.
 - **Pack support** — packs can already reference commands; this change ensures commands carry full metadata for cross-agent rendering.
 - **Workspace reconciliation** — `axm sync` reconciles command files across configured agents, matching the existing skill reconciliation pattern.
 - **Settings integration** — `settings.json` gains a `commands` map analogous to `skills`.
@@ -26,6 +28,8 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 - `cli-commands-install`: Install command extensions into workspace agents
 - `cli-commands-uninstall`: Remove command extensions from workspace agents
 - `cli-commands-list`: List installed commands and their agent mappings
+- `cli-commands-enable`: Enable a disabled command
+- `cli-commands-disable`: Disable an installed command without removing it
 - `cli-commands-new`: Scaffold a new command extension for authoring
 - `cli-commands-publish`: Publish command extensions to a registry
 
@@ -33,14 +37,14 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 
 - `extension-packs`: Packs gain full command metadata support (beyond the current stub) for cross-agent rendering
 - `cli-init`: Init flow detects agent directories that support commands
-- `cli-skills`: Skills list/status output distinguishes commands from skills in summary views
 
 ## Impact
 
-- **Core extension model** — `CommandManifestSchema` gains command-specific fields (prompt body, arguments, agent hints). The existing `ExtensionTypeSchema`, `ExtensionTypePlural`, and FQN parsing already include `command`; no changes needed there.
+- **Core extension model** — `CommandManifestSchema` gains command-specific fields (arguments, agent hints). The prompt body lives in `COMMAND.md`, not the manifest. The existing `ExtensionTypeSchema`, `ExtensionTypePlural`, and FQN parsing already include `command`; no changes needed there.
 - **Agent adapters** — each `CodingAgent` implementation gains `addCommand` / `removeCommand` methods and a `commandsDir` property alongside the existing `skillsDir`.
 - **Agent rendering** — new per-agent renderers that translate the portable command manifest into agent-native **command** formats (not skills paths — AXM `command` and `skill` are orthogonal extension types). For agents with deprecated-but-functional command paths (Claude Code, Codex), renderers target the full feature set of the deprecated system:
-  - **Markdown + YAML frontmatter** — Claude Code (`.claude/commands/`, deprecated but functional — supports frontmatter, `$ARGUMENTS`, `@file` refs, `` !`cmd` `` shell injection, hooks), Codex (`~/.codex/prompts/`), Cursor, OpenCode, Augment, Junie, Roo Code
+  - **Markdown + YAML frontmatter** — Claude Code (`.claude/commands/`, deprecated but functional — supports frontmatter, `$ARGUMENTS`, `@file` refs, `` !`cmd` `` shell injection, hooks), Codex (`~/.codex/prompts/`), OpenCode, Augment, Junie, Roo Code
+  - **Markdown (no frontmatter)** — Cursor
   - **`.prompt.md` + YAML frontmatter** — Copilot
   - **TOML** — Gemini CLI
   - **Plain text** — Kiro
@@ -49,7 +53,43 @@ AXM manages skills, subagents, MCP servers, and packs across coding agents — b
 - **Settings schema** — `SettingsSchema` adds `commands: Record<string, CommandEntry>`.
 - **Workspace reconciliation** — reconciliation engine handles command install/uninstall/sync across agents.
 - **Packs** — pack manifest schema and resolution logic gain full command metadata support.
-- **CLI surface** — new `axm commands` parent command with install, uninstall, list, new, publish subcommands.
+- **CLI surface** — new `axm commands` parent command with install, uninstall, list, enable, disable, new, publish subcommands. Per-agent install granularity follows the existing skills pattern (agents configured in settings).
+- **Lockfile** — command install/uninstall creates lock entries following the existing extension manager pattern.
+
+### Scope: project and user
+
+Commands support the same two-scope model as skills. AXM's existing scope infrastructure — `WorkspaceScope`, `--scope` flag, workspace service, per-scope settings/lockfile, and project-overrides-user merging — is reused directly; no new scope machinery is needed.
+
+**Agent scope support (research summary):**
+
+| Scope                       | Agents                                                                                        | Count |
+| --------------------------- | --------------------------------------------------------------------------------------------- | ----- |
+| Both project + user         | Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro, Roo Code | 10/11 |
+| User-only (hard constraint) | Codex                                                                                         | 1/11  |
+
+All 11 in-scope agents support user-scope commands. 10 of 11 also support project-scope commands with native directory conventions. The universal precedence pattern across agents is **project > user** — identical to the existing skills model. Supporting both scopes is effectively free given the existing infrastructure and aligns with every agent's native capabilities.
+
+**Scope constraints:**
+
+- **Codex** — custom prompts are user-scope only (`~/.codex/prompts/`). Commands always install to user scope for Codex regardless of `--scope` flag, with an informational note.
+- **Kilo Code** — supports both `.opencode/commands/` and `.kilo/commands/`. The agent adapter resolves which directory to target.
+- **Augment cross-tool read** — Augment reads `.claude/commands/` in addition to its own directory. The Augment adapter detects this overlap and skips writing to `.augment/commands/` when the same command is already rendered to `.claude/commands/`.
+- **Copilot user scope** — user-scope prompts are stored in VS Code profile data (synced via Settings Sync), not a filesystem path. The Copilot adapter renders user-scope commands to the workspace path only; true user-scope requires VS Code profile management which is out of scope. Installing with `--scope user` when Copilot is the only configured agent warns that Copilot does not support filesystem-based user-scope commands.
+
+### Design decisions
+
+- **COMMAND.md is pure markdown body, no frontmatter.** The manifest is the single source of truth for metadata. When rendering to agents that use frontmatter (Claude Code, Copilot, etc.), AXM generates frontmatter from the manifest and appends the COMMAND.md body. This avoids dual-source-of-truth problems.
+- **Lossy rendering warns at install time.** When a command uses features an agent doesn't support (model override on Cursor, tool restrictions on Augment, argument substitution on Kiro), AXM warns and renders without the unsupported feature. The command still installs and works — just without that feature on that agent.
+- **Shell/file injection is not portable.** These are power-user features with agent-specific syntax (`` !`cmd` `` vs `!{cmd}` vs nothing) and security implications. Authors can write agent-native syntax directly in COMMAND.md (works where supported, inert text elsewhere) or use `agentOverrides` for per-agent prompt body patches.
+- **Named arguments substitute inline.** When the renderer encounters `{{arg:name}}` for agents without named argument support, the value is substituted directly into the rendered prompt. Junie's renderer maps `{{arg:name}}` → `$name` natively; everyone else gets the value inlined.
+- **Kiro renders variables as literal text with a warning.** Kiro has no variable substitution for file-based prompts. Commands with arguments warn at install time; the prompt body renders as-is. Commands without arguments work perfectly.
+- **Both project and user scope supported from v1.** Reuses the existing skills scope infrastructure (`--scope` flag, workspace service, per-scope settings/lockfile, project-overrides-user merging). 10 of 11 in-scope agents natively support both scopes; Codex is the sole user-only exception (auto-redirected with a note). Default scope is project. Deferring user scope was considered and rejected — the infrastructure cost is near-zero and personal cross-project commands are a core use case.
+- **Name collisions error on install.** Installing a command whose name matches an already-installed command requires `--force`. Collisions with agent built-in commands are not detected — AXM does not maintain built-in command lists per agent. If a command shadows a built-in, the agent decides the behavior.
+- **Namespace support is deferred.** Flat names only for v1. Directory-based namespacing (Gemini, Augment) is a follow-on.
+- **Import from native format is deferred.** `axm commands new` scaffolds from scratch. Native → portable import is inherently lossy and complex; re-rendering portable → native is the designed direction.
+- **Rendered files include a managed-by header with sync timestamp.** `<!-- Managed by axm — last synced 2026-04-06T12:00:00Z -->` (or TOML/plain text equivalent). The timestamp records when the file was last written by AXM. Drift detection (manual edits to managed files) is not handled — sync always overwrites.
+- **Deprecation of agent command paths is an adapter concern.** If Claude Code or Codex removes deprecated command paths, the adapter is updated. The portable manifest is the source of truth; re-rendering to a new path is trivial.
+- **`agentOverrides` schema is `Record<AgentId, Record<string, unknown>>`**, validated per-adapter. Each adapter knows which override keys it accepts and ignores the rest. Overrides can contain any field the agent natively supports (Claude Code `hooks`, Gemini TOML fields, Roo `mode`, etc.). Known override keys are documented per agent in the spec.
 
 ---
 
@@ -111,17 +151,19 @@ All agents in the AXM registry, showing command/reusable-prompt support status a
 
 The **AXM portable** column shows which features the portable schema covers directly. Features marked "override" require per-agent `agentOverrides`; "—" means the feature is not modeled by AXM.
 
-| Feature            | AXM portable    | Claude Code     | Copilot       | Codex        | Cursor       | Gemini CLI | OpenCode        | Augment             | Junie          | Kilo            | Kiro         | Roo          |
-| ------------------ | --------------- | --------------- | ------------- | ------------ | ------------ | ---------- | --------------- | ------------------- | -------------- | --------------- | ------------ | ------------ |
-| Arguments          | `{{arguments}}` | `$ARGUMENTS`    | `${input:}`   | `$ARGUMENTS` | `$ARGUMENTS` | `{{args}}` | `$ARGUMENTS`    | `$ARGUMENTS`        | `$argName=val` | `$ARGUMENTS`    | None (files) | `$ARGUMENTS` |
-| Shell injection    | override        | `` !`cmd` ``    | —             | —            | —            | `!{cmd}`   | `` !`cmd` ``    | —                   | —              | `` !`cmd` ``    | —            | —            |
-| File injection     | override        | `@filepath`     | —             | —            | —            | `@{path}`  | `@filename`     | —                   | —              | `@filename`     | —            | —            |
-| Model override     | model           | Yes             | Yes           | —            | —            | —          | Yes             | Yes                 | —              | —               | —            | —            |
-| Tool restrictions  | allowedTools    | `allowed-tools` | `tools`       | —            | —            | —          | —               | —                   | —              | `allowed-tools` | —            | —            |
-| AI auto-invoke     | autoInvocable   | Yes             | —             | Yes          | —            | —          | —               | —                   | —              | —               | —            | Yes (tool)   |
-| Subagent fork      | isolatedContext | `context: fork` | `agent` field | —            | —            | —          | `subtask: true` | —                   | —              | `subtask: true` | —            | `mode` field |
-| Namespace via dirs | —               | —               | —             | —            | —            | Yes (`:`)  | —               | Yes (`:`)           | —              | —               | —            | —            |
-| Cross-tool compat  | —               | —               | —             | Agent Skills | —            | —          | —               | `.claude/commands/` | —              | OpenCode        | —            | —            |
+| Feature            | AXM portable    | Claude Code     | Copilot        | Codex        | Cursor       | Gemini CLI | OpenCode        | Augment             | Junie          | Kilo            | Kiro         | Roo                  |
+| ------------------ | --------------- | --------------- | -------------- | ------------ | ------------ | ---------- | --------------- | ------------------- | -------------- | --------------- | ------------ | -------------------- |
+| Arguments          | `{{arguments}}` | `$ARGUMENTS`    | `${input:}`    | `$ARGUMENTS` | `$ARGUMENTS` | `{{args}}` | `$ARGUMENTS`    | `$ARGUMENTS`        | `$argName=val` | `$ARGUMENTS`    | None (files) | `$ARGUMENTS`         |
+| Shell injection    | override        | `` !`cmd` ``    | —              | —            | —            | `!{cmd}`   | `` !`cmd` ``    | —                   | —              | `` !`cmd` ``    | —            | —                    |
+| File injection     | override        | `@filepath`     | —              | —            | —            | `@{path}`  | `@filename`     | —                   | —              | `@filename`     | —            | —                    |
+| Model override     | model           | Yes             | Yes            | —            | —            | —          | Yes             | Yes                 | —              | —               | —            | —                    |
+| Tool restrictions  | allowedTools    | `allowed-tools` | `tools`        | —            | —            | —          | —               | —                   | —              | `allowed-tools` | —            | —                    |
+| AI auto-invoke     | autoInvocable   | Yes             | —              | Yes          | —            | —          | —               | —                   | —              | —               | —            | †`run_slash_command` |
+| Subagent fork      | isolatedContext | `context: fork` | †`agent` field | —            | —            | —          | `subtask: true` | —                   | —              | `subtask: true` | —            | †`mode` field        |
+| Namespace via dirs | —               | —               | —              | —            | —            | Yes (`:`)  | —               | Yes (`:`)           | —              | —               | —            | —                    |
+| Cross-tool compat  | —               | —               | —              | Agent Skills | —            | —          | —               | `.claude/commands/` | —              | OpenCode        | —            | —                    |
+
+†Approximate mappings. Roo's `run_slash_command` is AI-initiated tool use (not description-based auto-invocation). Copilot's `agent` field selects which agent handles the prompt (`ask`, `agent`, `plan`), not isolation. Roo's `mode` field switches behavioral mode (e.g., "code", "architect"), which is semantically broader than isolated context. Renderers apply best-effort translation for these fields.
 
 ### Cross-Agent Command Format Summary
 
@@ -557,10 +599,6 @@ Following the existing convention (`axm-skill.json`, `axm-subagent.json`, `axm-m
 
   // --- Command-specific fields ---
 
-  // The prompt template body. This is what gets rendered into each agent's
-  // native command format. Supports the AXM portable variable syntax.
-  "prompt": "Review the pull request in the current branch...",
-
   // Argument definitions. Each argument has a name, optional description,
   // and whether it's required.
   "arguments": [
@@ -593,8 +631,9 @@ Following the existing convention (`axm-skill.json`, `axm-subagent.json`, `axm-m
   "allowedTools": null,
 
   // Optional: run in an isolated subagent context.
-  // Maps to Claude Code `context: fork`, OpenCode/Kilo `subtask: true`,
-  // Copilot `agent` field, Roo `mode` field.
+  // Maps to Claude Code `context: fork`, OpenCode/Kilo `subtask: true`.
+  // Approximate mappings for Copilot (`agent` field) and Roo (`mode` field)
+  // — see feature matrix footnotes.
   "isolatedContext": false,
 
   // Agent-specific overrides for fields that don't have portable
@@ -614,20 +653,23 @@ Following the existing convention (`axm-skill.json`, `axm-subagent.json`, `axm-m
 
 The command manifest uses a canonical variable syntax that AXM renderers translate to each agent's native format:
 
-| AXM Portable Syntax | Description                   | Agent-Native Mappings                                                                                            |
-| ------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `{{arguments}}`     | All arguments as a string     | `$ARGUMENTS` (Claude Code, Cursor, OpenCode, Augment, Kilo, Roo), `{{args}}` (Gemini), `${input:args}` (Copilot) |
-| `{{arguments[0]}}`  | Positional argument (0-based) | `$0` (Claude Code), `$1` (Codex/OpenCode), `${input:name}` (Copilot)                                             |
-| `{{arg:name}}`      | Named argument                | `$name` (Junie), `${input:name}` (Copilot), appended context for others                                          |
+| AXM Portable Syntax | Description                   | Agent-Native Mappings                                                                                                |
+| ------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `{{arguments}}`     | All arguments as a string     | `$ARGUMENTS` (Claude Code, Cursor, OpenCode, Augment, Kilo, Roo), `{{args}}` (Gemini), `${input:args}` (Copilot)     |
+| `{{arguments[0]}}`  | Positional argument (0-based) | `$1` (Claude Code, Codex, OpenCode — 0-based portable index maps to 1-based agent syntax), `${input:name}` (Copilot) |
+| `{{arg:name}}`      | Named argument                | `$name` (Junie), `${input:name}` (Copilot), appended context for others                                              |
 
 Agents that don't support a particular variable syntax receive a best-effort fallback (e.g., named arguments appended as context for agents that only support positional arguments).
+
+**Escaping:** Only recognized patterns (`{{arguments}}`, `{{arguments[N]}}`, `{{arg:name}}`) are interpolated; all other `{{...}}` sequences pass through unchanged. For edge cases where a recognized pattern must appear literally, use `\{{` to escape.
 
 ### File Structure
 
 ```
 my-command/
-  axm-command.json    # Manifest (required)
+  axm-command.json    # Manifest (required, strict JSON)
+  COMMAND.md          # Prompt body (required)
   README.md           # Optional documentation
 ```
 
-Commands are simpler than skills — no supporting scripts or assets directory. The prompt body lives in the manifest's `prompt` field. For longer prompts, authors can use JSON multiline strings or reference a separate prompt file (future enhancement).
+Commands are simpler than skills — no supporting scripts or assets directory. The prompt body always lives in `COMMAND.md`, consistent with `SKILL.md` and `SUBAGENT.md`. The manifest holds metadata only. The manifest file is strict JSON (not JSONC) — the `//` comments in the example above are illustrative only.

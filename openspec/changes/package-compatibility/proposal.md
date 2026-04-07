@@ -10,26 +10,26 @@ Agent extensions (skills, commands, MCP servers) are often designed for specific
 
 A user runs `axm discover` in their project. axm scans their local dependency files, identifies the packages in use, and surfaces extensions with per-package attribution:
 
-- **Community-declared compatibility** — an extension author declared `compatiblePackages` in their extension manifest. axm resolves detected purls against the axm registry, which indexes these declarations at publish time. "This extension works well with this package."
-- **Author-recommended** (`recommended: true`) — a package's own author or maintainer has officially recommended the extension. The CLI inspects locally installed package metadata (e.g., the `"axm"` field in `node_modules/next/package.json`, `[package.metadata.axm]` in a downloaded `.crate`, `x_axm` in a CPAN distribution's `META.json`) to discover recommendations without network access. Stronger trust signal: "the library author themselves suggests this extension." Author-recommended implies compatible — no separate `compatiblePackages` declaration is needed.
+- **Compatible** — an extension author declared `compatiblePackages` in their extension manifest. axm resolves detected purls against the axm registry, which indexes these declarations at publish time. "This extension works with this package."
+- **Recommended** (`recommended: true`) — a package's own author or maintainer has recommended the extension. The CLI inspects locally installed package metadata (e.g., the `"axm"` field in `node_modules/next/package.json`, `[package.metadata.axm]` in a downloaded `.crate`, `x_axm` in a CPAN distribution's `META.json`) to discover recommendations without network access. Stronger trust signal: "the library author themselves suggests this extension." Recommended implies compatible — no separate `compatiblePackages` declaration is needed.
 
-Results appear with per-package attribution. `axm skills install --preview` and pack browsing also surface this context when available.
+All discover results are **compatible** extensions for the user's detected packages. The `recommended` flag distinguishes the subset where the package author themselves shipped the recommendation. Results appear with per-package attribution. `axm skills install --preview` and pack browsing also surface this context when available.
 
-Community-declared compatibility resolves through the axm registry. Author recommendations are read by the CLI directly from locally installed packages — no ecosystem registry queries are needed. The axm registry discover endpoint returns both in a single response, so a future axm remote registry implementation can also index ecosystem registries and serve author recommendations for packages not yet installed locally.
+Compatible extensions resolve through the axm registry. Recommended extensions are read by the CLI directly from locally installed packages — no ecosystem registry queries are needed. The axm registry discover endpoint returns both in a single response, so a future axm remote registry implementation can also index ecosystem registries and serve recommendations for packages not yet installed locally.
 
 ### JTBD 2: Recommend extensions for a package
 
 **Persona**: Library/framework author (e.g. the Prisma team, the Next.js team)
 
-A library author ships recommendation metadata alongside their package using the ecosystem's idiomatic metadata mechanism (e.g., `"axm"` field in `package.json`, `[package.metadata.axm]` in `Cargo.toml`, `axm.json` sidecar). When users install the package, axm can read this metadata locally to surface recommendations. These appear as `recommended: true` in discover results.
+A library author ships recommendation metadata alongside their package using the ecosystem's idiomatic metadata mechanism (e.g., `"axm"` field in `package.json`, `[package.metadata.axm]` in `Cargo.toml`, `axm.json` sidecar). When users install the package, axm can read this metadata locally to surface recommendations. These appear as `recommended` in discover results.
 
-**Trust model:** The "author-recommended" trust signal derives from ecosystem publish permissions. Whoever can publish a package to its ecosystem registry (e.g., the `next` package on npm is controlled by Vercel) controls its recommendation metadata. axm does not independently verify authorship — it trusts the ecosystem's access control as the authority. This is the same trust model users already rely on when installing the package itself.
+**Trust model:** The `recommended` trust signal derives from ecosystem publish permissions. Whoever can publish a package to its ecosystem registry (e.g., the `next` package on npm is controlled by Vercel) controls its recommendation metadata. axm does not independently verify authorship — it trusts the ecosystem's access control as the authority. This is the same trust model users already rely on when installing the package itself.
 
 ### JTBD 3: Define compatible packages for an extension
 
 **Persona**: Extension author (someone publishing a skill, command, or MCP server)
 
-An extension author declares which packages their extension is designed for via a `compatiblePackages` field in their extension manifest. The axm registry indexes this at publish time. These appear as community-declared compatibility in discover results.
+An extension author declares which packages their extension is designed for via a `compatiblePackages` field in their extension manifest. The axm registry indexes this at publish time. These appear as `compatible` in discover results.
 
 ## Terminology: Registries
 
@@ -185,7 +185,7 @@ Package compatibility involves three mechanisms: **declaration** (extension auth
 
 ### axm Registry
 
-- **`registry-discover-query`**: Single axm registry endpoint that accepts detected purls and returns matching extensions with per-package attribution. Each extension result includes a `compatiblePackages` array where each entry is a `{ purl, recommended? }` pair. `recommended: true` indicates the package author themselves recommended the extension; absence or `false` indicates community-declared compatibility via the extension's `compatiblePackages` manifest field. The registry resolves version matching server-side. Implemented in the axm local registry for end-to-end testing; defines the contract for the axm remote registry.
+- **`registry-discover-query`**: Single axm registry endpoint that accepts detected purls and returns matching extensions with per-package attribution. Each extension result includes a `compatiblePackages` array where each entry is a `{ purl, recommended? }` pair. `recommended: true` indicates the package author themselves recommended the extension; absence or `false` indicates compatibility declared by the extension author via the `compatiblePackages` manifest field. The registry resolves version matching server-side. Implemented in the axm local registry for end-to-end testing; defines the contract for the axm remote registry.
 - **`registry-publish-compatibility-indexing`**: axm registry indexes `compatiblePackages` purl metadata at extension publish time, feeding the discover query.
 
 ### CLI — `axm discover`
@@ -201,22 +201,22 @@ $ axm discover
   Found 12 packages across 1 ecosystem (npm)
 
   react
-    @acme/skills/react-testing        community
-    @acme/mcp-servers/react-devtools  community
+    @acme/skills/react-testing        compatible
+    @acme/mcp-servers/react-devtools  compatible
 
   next
     @vercel/skills/nextjs             recommended
     @vercel/mcp-servers/nextjs        recommended
-    @community/skills/next-seo        community
+    @community/skills/next-seo        compatible
 
   prisma
     @prisma/skills/prisma             recommended
 
-  Found 6 extensions for 3 of 12 detected packages.
+  Found 6 compatible extensions for 3 of 12 detected packages.
   Run axm skills install <name> to install.
 ```
 
-`recommended` indicates the package author shipped the recommendation. `community` indicates an extension author declared compatibility.
+`recommended` indicates the package author shipped the recommendation. `compatible` indicates an extension author declared compatibility.
 
 ### CLI — Dependency File Parsers
 
@@ -309,7 +309,7 @@ Tier 2–5 ecosystem parsers and readers are delivered incrementally after the c
 
 ### Deferred
 
-- **axm remote registry ecosystem indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for author recommendation metadata. When implemented, the discover endpoint will return `recommended: true` for author-recommended extensions even for packages not yet installed locally.
+- **axm remote registry ecosystem indexing**: The axm remote registry (registry.agentxm.ai) indexing of ecosystem registries (npm, PyPI, RubyGems, etc.) for recommendation metadata. When implemented, the discover endpoint will return `recommended` extensions even for packages not yet installed locally.
 
 ### Non-Goals
 
@@ -321,8 +321,8 @@ Tier 2–5 ecosystem parsers and readers are delivered incrementally after the c
 
 ## Open Questions
 
-1. **Conflicting recommendations** — When an author-recommended extension and a community-declared extension both target the same package, they appear together under that package's heading. Should the CLI visually distinguish confidence levels beyond the `recommended` badge, or is the binary distinction sufficient?
-2. **Caching and offline behavior** — Should discover results be cached locally? If so, for how long? When the axm registry is unreachable, the CLI can still surface author recommendations from local package metadata. Should it warn that community-declared results are unavailable, or silently show only local results?
+1. **Conflicting recommendations** — When both `recommended` and `compatible` extensions target the same package, they appear together under that package's heading. Should the CLI visually distinguish confidence levels beyond the `recommended` badge, or is the binary distinction sufficient?
+2. **Caching and offline behavior** — Should discover results be cached locally? If so, for how long? When the axm registry is unreachable, the CLI can still surface `recommended` extensions from local package metadata. Should it warn that `compatible` results are unavailable, or silently show only local results?
 3. **Scoped npm packages as privacy signal** — Scoped npm packages (e.g., `@my-company/internal-lib`) reveal organization names. Should the CLI warn before sending scoped packages to the registry, or is the user's invocation of `axm discover` sufficient consent?
 4. **Monorepo detection** — In monorepos with many `package.json` files, should `axm discover` scan only the root manifest, the nearest manifest, or all manifests? Scanning all could produce a very large purl set.
 5. **Ecosystem parser plugin model** — With 51 eventual capabilities, should parsers and readers be pluggable (e.g., community-contributed adapters) rather than built into the CLI?

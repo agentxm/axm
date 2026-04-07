@@ -5,8 +5,6 @@
  * @internal Test-only. Not exported from the barrel.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import YAML from "yaml";
@@ -48,6 +46,20 @@ type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 
 const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
 const emptyArr = (): RA => Effect.succeed([]);
+const fs = (() => {
+  const module = process.getBuiltinModule("node:fs");
+  if (!module) {
+    throw new Error("node:fs builtin is unavailable");
+  }
+  return module;
+})();
+const path = (() => {
+  const module = process.getBuiltinModule("node:path");
+  if (!module) {
+    throw new Error("node:path builtin is unavailable");
+  }
+  return module;
+})();
 
 /**
  * No-op stubs for all taxonomy getters. Spread into mock objects:
@@ -193,9 +205,10 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfilePacks?: Record<string, unknown> | undefined;
 }
 
-export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-
+export const writeWorkspaceFiles = (
+  axmDir: string,
+  opts: WriteWorkspaceFilesOptions = {},
+) => {
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
@@ -214,6 +227,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
   };
 
+  fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };

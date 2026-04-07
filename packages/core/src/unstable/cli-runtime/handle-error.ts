@@ -3,6 +3,10 @@ import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
 
+const writeStderr = (message: string): void => {
+  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
+};
+
 /**
  * Classified error result — pure data describing what handleError should do.
  */
@@ -105,10 +109,10 @@ export const handleError = (error: unknown, format: OutputFormat): never => {
     if (result.output.channel === "stdout") {
       process.stdout.write(result.output.content);
       if (result.stderrMessage) {
-        console.error(result.stderrMessage);
+        writeStderr(result.stderrMessage);
       }
     } else {
-      console.error(result.output.content);
+      writeStderr(result.output.content);
     }
   }
 

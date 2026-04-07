@@ -26,6 +26,10 @@ import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 
+const writeStderr = (message: string): void => {
+  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
+};
+
 export type ExpectedCliError = AppError | PromptCancelled;
 export type CliRuntimeFoundation = CliRenderer | CliPrompt | Verbosity;
 
@@ -49,7 +53,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
     });
 
     if (format === "text") {
-      console.error(renderAppError(error, { verbose, debug }));
+      writeStderr(renderAppError(error, { verbose, debug }));
       return;
     }
 
@@ -60,7 +64,7 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
         2,
       ) + "\n",
     );
-    console.error(`\u2717 ${error.what}`);
+    writeStderr(`\u2717 ${error.what}`);
   });
 
 // ---------------------------------------------------------------------------

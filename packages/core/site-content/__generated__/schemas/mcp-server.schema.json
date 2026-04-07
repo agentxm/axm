@@ -1,134 +1,179 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "owner": {
+  "$ref": "#/definitions/McpServerManifest",
+  "definitions": {
+    "Handle": {
       "type": "string",
       "allOf": [
         {
-          "pattern": "^@[\\w-]+$"
+          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+          "title": "Handle",
+          "description": "A unique username or organization name starting with @, like @my-org.",
+          "examples": ["@my-org", "@username"]
         }
       ]
     },
-    "name": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[\\w-]+$"
-        }
-      ]
-    },
-    "version": {
+    "ExactSemverVersion": {
       "type": "string"
     },
-    "description": {
-      "anyOf": [
-        {
+    "Author": {
+      "type": "object",
+      "properties": {
+        "name": {
           "type": "string"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "keywords": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      ]
+      },
+      "required": ["name"],
+      "additionalProperties": false,
+      "title": "Author",
+      "description": "Author details: name, email, and URL."
     },
-    "repository": {
-      "anyOf": [
-        {
-          "type": "string"
+    "PackageUrlParts": {
+      "type": "string"
+    },
+    "ExtensionName": {
+      "type": "string"
+    },
+    "McpServerManifest": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "homepage": {
-      "anyOf": [
-        {
-          "type": "string"
+        "owner": {
+          "$ref": "#/definitions/Handle"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "license": {
-      "anyOf": [
-        {
-          "type": "string"
+        "version": {
+          "$ref": "#/definitions/ExactSemverVersion"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "bugs": {
-      "anyOf": [
-        {
-          "type": "string"
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "authors": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
+        "keywords": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
                 "type": "string"
-              },
-              "email": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "url": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
               }
             },
-            "required": ["name"],
-            "additionalProperties": false
-          }
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
+        "repository": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "homepage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bugs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authors": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Author"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compatiblePackages": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PackageUrlParts"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["mcp-server"]
+        },
+        "name": {
+          "$ref": "#/definitions/ExtensionName"
         }
-      ]
-    },
-    "type": {
-      "type": "string",
-      "enum": ["mcp-server"]
+      },
+      "required": ["owner", "version", "type", "name"],
+      "additionalProperties": false,
+      "title": "MCP Server Manifest",
+      "description": "Configuration file (mcp-server.json) that defines an MCP server extension."
     }
-  },
-  "required": ["owner", "name", "version", "type"],
-  "additionalProperties": false
+  }
 }

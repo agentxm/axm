@@ -40,9 +40,12 @@ import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
+import * as Schema from "effect/Schema";
+import { PackageTypeSchema } from "@axm.sh/core/unstable/packaging";
 import { dependencyConstraintMap, exactVersion, extensionName } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 
+const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
 const ACME = normalizeHandle("@acme");
 const AXM = normalizeHandle("@axm");
 const MYORG = normalizeHandle("@myorg");
@@ -425,6 +428,7 @@ describe("packs install handler", () => {
         name: extensionName("my-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
+        compatiblePackages: [],
       };
 
       const mockService: SourceHostProvidersService = {
@@ -508,6 +512,150 @@ describe("packs install handler", () => {
         }),
       );
     });
+
+    it.effect("shows per-extension compatiblePackages alongside extension names", () => {
+      const packRef: ExtensionPackRef = {
+        type: "pack",
+        refType: "registry",
+        pack: {
+          name: extensionName("frontend"),
+          skills: constraints({ "@acme/skills/react-testing": "^1.0.0" }),
+          commands: {},
+          mcpServers: {},
+        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+        owner: ACME,
+        name: extensionName("frontend"),
+        version: exactVersion("1.0.0"),
+        integrity: Option.none(),
+        compatiblePackages: [],
+      };
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill" as const,
+                refType: "registry" as const,
+                skill: {
+                  name: extensionName("react-testing"),
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry" as const,
+                  location: new URL("file:///tmp/reg"),
+                  owner: Option.none(),
+                },
+                owner: ACME,
+                name: extensionName("react-testing"),
+                version: exactVersion("1.2.0"),
+                integrity: Option.none(),
+                compatiblePackages: [{ type: decodePackageType("npm"), name: "react" }],
+              },
+            ]);
+          }
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      const { provide, logs } = makeLayersWithMockSources(mockService, {
+        nonInteractive: true,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/packs/frontend"), {
+            yes: false,
+            force: false,
+            preview: true,
+          });
+
+          const allSuccess = logs.success.join("\n");
+          expect(allSuccess).toContain("react-testing (pkg:npm/react)");
+        }),
+      );
+    });
+
+    it.effect("shows no compatibility info when extensions have no compatiblePackages", () => {
+      const packRef: ExtensionPackRef = {
+        type: "pack",
+        refType: "registry",
+        pack: {
+          name: extensionName("basic-pack"),
+          skills: constraints({ "@acme/skills/plain-skill": "^1.0.0" }),
+          commands: {},
+          mcpServers: {},
+        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+        owner: ACME,
+        name: extensionName("basic-pack"),
+        version: exactVersion("1.0.0"),
+        integrity: Option.none(),
+        compatiblePackages: [],
+      };
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill" as const,
+                refType: "registry" as const,
+                skill: {
+                  name: extensionName("plain-skill"),
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry" as const,
+                  location: new URL("file:///tmp/reg"),
+                  owner: Option.none(),
+                },
+                owner: ACME,
+                name: extensionName("plain-skill"),
+                version: exactVersion("1.0.0"),
+                integrity: Option.none(),
+                compatiblePackages: [],
+              },
+            ]);
+          }
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      const { provide, logs } = makeLayersWithMockSources(mockService, {
+        nonInteractive: true,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/packs/basic-pack"), {
+            yes: false,
+            force: false,
+            preview: true,
+          });
+
+          const allSuccess = logs.success.join("\n");
+          // Extension name shows up without any parenthesized compatibility info
+          expect(allSuccess).toContain("plain-skill");
+          expect(allSuccess).not.toContain("pkg:");
+        }),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -536,6 +684,7 @@ describe("packs install handler", () => {
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      compatiblePackages: [],
     });
 
     it.effect("builds plan from pack ref returned by sources.find", () => {
@@ -566,6 +715,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -667,6 +817,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -685,6 +836,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -904,6 +1056,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -922,6 +1075,7 @@ describe("packs install handler", () => {
                 name: extensionName("lint"),
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -940,6 +1094,7 @@ describe("packs install handler", () => {
                 name: extensionName("analytics"),
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -1006,6 +1161,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }
@@ -1024,6 +1180,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                compatiblePackages: [],
               },
             ]);
           }

@@ -104,6 +104,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
     Effect.fail(makeAppError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
+  discoverExtensions: () => Effect.succeed({ results: [], resolvedRecommendations: [] }),
   ...overrides,
 });
 
@@ -144,6 +145,13 @@ const createFailingClient = (): RegistryClient => ({
       }),
     ),
   extensionExists: () =>
+    Effect.fail(
+      makeAppError({
+        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        what: "remote registry not yet supported",
+      }),
+    ),
+  discoverExtensions: () =>
     Effect.fail(
       makeAppError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",

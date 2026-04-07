@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/AxmPackageMeta",
+  "definitions": {
+    "FullyQualifiedRef": {
+      "type": "string"
+    },
+    "AxmPackageMeta": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recommendedExtensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FullyQualifiedRef"
+          }
+        }
+      },
+      "required": ["recommendedExtensions"],
+      "additionalProperties": false,
+      "title": "axm Package Metadata",
+      "description": "Recommendation metadata shipped by library authors to surface axm extensions."
+    }
+  }
+}

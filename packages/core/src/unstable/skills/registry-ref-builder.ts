@@ -12,6 +12,7 @@ import type { Handle, ExtensionName } from "../extensions/index.js";
 import type { RegistrySkillRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
 import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
+import type { PackageUrlParts } from "../packaging/package-url.js";
 
 /**
  * Build a RegistrySkillRef from typed owner/name parts and version.
@@ -21,6 +22,7 @@ export const buildRegistrySkillRef = (
   name: ExtensionName,
   version: ExactSemverVersion,
   source: RegistrySource,
+  compatiblePackages: ReadonlyArray<PackageUrlParts>,
 ): RegistrySkillRef => ({
   type: "skill",
   refType: "registry",
@@ -30,4 +32,5 @@ export const buildRegistrySkillRef = (
   name,
   version,
   integrity: Option.none(),
+  compatiblePackages,
 });

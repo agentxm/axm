@@ -2,7 +2,7 @@
  * Unit tests for common schema definitions.
  *
  * Tests validation behavior for AuthorSchema, FullyQualifiedNameSchema,
- * ExtensionTypeSchema, and AgentIdSchema schemas.
+ * FullyQualifiedRefSchema, ExtensionTypeSchema, and AgentIdSchema schemas.
  */
 
 import * as Result from "effect/Result";
@@ -17,6 +17,7 @@ import {
   extensionTypeLabels,
   extensionTypePluralLabels,
   FullyQualifiedNameSchema,
+  FullyQualifiedRefSchema,
 } from "./common.js";
 import { HandleSchema } from "./handle.js";
 
@@ -191,6 +192,88 @@ describe("common schemas", () => {
     });
   });
 
+  describe("FullyQualifiedRef", () => {
+    const decode = Schema.decodeUnknownResult(FullyQualifiedRefSchema);
+
+    it("accepts FQN without version constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook");
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toBe("@wayne/skills/grappling-hook");
+      }
+    });
+
+    it("accepts FQN with caret version constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook@^1.0.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toBe("@wayne/skills/grappling-hook@^1.0.0");
+      }
+    });
+
+    it("accepts FQN with tilde version constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook@~2.3.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts FQN with exact version constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook@1.2.3");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts FQN with range constraint", () => {
+      const result = decode("@wayne/mcp-servers/bat-signal@>=1.0.0 <3.0.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("accepts FQN with packs type segment", () => {
+      const result = decode("@wayne/packs/bat-utility@^1.0.0");
+
+      expect(Result.isSuccess(result)).toBe(true);
+    });
+
+    it("rejects invalid FQN portion", () => {
+      const result = decode("wayne/skills/grappling-hook@^1.0.0");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects FQN with invalid type segment", () => {
+      const result = decode("@wayne/widgets/grappling-hook@^1.0.0");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects FQN with invalid version constraint", () => {
+      const result = decode("@wayne/skills/grappling-hook@not-a-version");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects empty string", () => {
+      const result = decode("");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects plain name without FQN structure", () => {
+      const result = decode("grappling-hook");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("rejects two-segment name", () => {
+      const result = decode("@wayne/grappling-hook");
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+  });
+
   describe("CommonManifestBaseFields", () => {
     const TestManifest = Schema.Struct({
       ...CommonManifestBaseFields,
@@ -266,6 +349,70 @@ describe("common schemas", () => {
       const input = {
         owner: "@wayne",
         name: "hook",
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isFailure(result)).toBe(true);
+    });
+
+    it("accepts manifest with compatiblePackages", () => {
+      const input = {
+        owner: "@wayne",
+        name: "grappling-hook",
+        version: "1.0.0",
+        compatiblePackages: ["pkg:npm/react", "pkg:npm/%40angular/core"],
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success.compatiblePackages).toHaveLength(2);
+        expect(result.success.compatiblePackages?.[0]?.type).toBe("npm");
+        expect(result.success.compatiblePackages?.[0]?.name).toBe("react");
+        expect(result.success.compatiblePackages?.[1]?.namespace).toBe("@angular");
+        expect(result.success.compatiblePackages?.[1]?.name).toBe("core");
+      }
+    });
+
+    it("accepts manifest without compatiblePackages", () => {
+      const input = {
+        owner: "@wayne",
+        name: "hook",
+        version: "0.1.0",
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success.compatiblePackages).toBeUndefined();
+      }
+    });
+
+    it("accepts manifest with empty compatiblePackages array", () => {
+      const input = {
+        owner: "@wayne",
+        name: "hook",
+        version: "0.1.0",
+        compatiblePackages: [],
+      };
+
+      const result = Schema.decodeUnknownResult(TestManifest)(input);
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success.compatiblePackages).toEqual([]);
+      }
+    });
+
+    it("rejects manifest with invalid purl strings in compatiblePackages", () => {
+      const input = {
+        owner: "@wayne",
+        name: "hook",
+        version: "0.1.0",
+        compatiblePackages: ["not-a-purl"],
       };
 
       const result = Schema.decodeUnknownResult(TestManifest)(input);

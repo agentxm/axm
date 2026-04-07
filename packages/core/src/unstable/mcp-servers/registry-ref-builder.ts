@@ -3,12 +3,14 @@ import type { Handle, ExtensionName } from "../extensions/index.js";
 import type { RegistryMcpServerRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
 import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
+import type { PackageUrlParts } from "../packaging/package-url.js";
 
 export const buildRegistryMcpServerRef = (
   owner: Handle,
   name: ExtensionName,
   version: ExactSemverVersion,
   source: RegistrySource,
+  compatiblePackages: ReadonlyArray<PackageUrlParts>,
 ): RegistryMcpServerRef => ({
   type: "mcp-server",
   refType: "registry",
@@ -18,4 +20,5 @@ export const buildRegistryMcpServerRef = (
   name,
   version,
   integrity: Option.none(),
+  compatiblePackages,
 });

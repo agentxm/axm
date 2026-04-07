@@ -116,7 +116,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     return {
       name: "install-skill" as const,
       args: {
-        ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source),
+        ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source, []),
         force: false,
         versionConstraint: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
@@ -134,7 +134,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     return {
       name: "install-command" as const,
       args: {
-        ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source),
+        ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source, []),
         force: false,
         versionConstraint: Option.none<string>(),
         skipSettings: Option.none<boolean>(),
@@ -149,7 +149,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     return {
       name: "install-mcp-server" as const,
       args: {
-        ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source),
+        ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source, []),
         force: false,
         versionConstraint: Option.none<string>(),
         skipSettings: Option.none<boolean>(),

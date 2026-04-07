@@ -353,6 +353,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             name: ref.skill.name,
             version: published?.version ?? FALLBACK_PUBLISHED_VERSION,
             integrity: Option.fromUndefinedOr(published?.integrity),
+            compatiblePackages: [],
           };
 
           return yield* installSkill({

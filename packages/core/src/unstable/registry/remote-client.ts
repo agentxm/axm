@@ -25,6 +25,7 @@ import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { ExtensionIndexSchema, VersionEntrySchema, type ExtensionIndex } from "./schema.js";
 import { pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
+  DiscoverExtensionsArgs,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
   GetExtensionIndexArgs,
@@ -129,6 +130,7 @@ const toRegistryManifest = (
     dependencies: latest.dependencies ?? {},
     version: latest.version,
     integrity: latest.integrity,
+    compatiblePackages: latest.compatiblePackages ?? [],
   });
 };
 
@@ -819,6 +821,23 @@ export const createRemoteRegistryClient = (
     });
   };
 
+  // ---------------------------------------------------------------------------
+  // discoverExtensions (stub — full implementation in Phase 8)
+  // ---------------------------------------------------------------------------
+  const discoverExtensions = (
+    _args: DiscoverExtensionsArgs,
+  ): Effect.Effect<
+    import("./discover-schema.js").DiscoverExtensionsResponse,
+    import("../app-error/index.js").AppError
+  > =>
+    Effect.fail(
+      makeAppError({
+        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+        what: "Remote registry discover is not yet implemented",
+        howToFix: "Use a local registry or install extensions directly by name.",
+      }),
+    );
+
   return {
     getExtensionIndex,
     getExtensionsByScope,
@@ -826,5 +845,6 @@ export const createRemoteRegistryClient = (
     getExtensionPackage,
     publishExtension,
     extensionExists,
+    discoverExtensions,
   };
 };

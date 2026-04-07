@@ -161,6 +161,55 @@ describe("publishMcpServer", () => {
     }),
   );
 
+  describe("compatiblePackages propagation", () => {
+    it.effect("propagates compatiblePackages from manifest to VersionEntry", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup("@community", "compat-mcp", {
+          compatiblePackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
+        });
+
+        yield* publishMcpServer(
+          makeOp({ name: "@community/mcp-servers/compat-mcp", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "mcp-servers",
+          "compat-mcp",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0].compatiblePackages).toEqual([
+          { type: "npm", name: "claude-code" },
+          { type: "npm", namespace: "@openai", name: "codex" },
+        ]);
+      }),
+    );
+
+    it.effect("omits compatiblePackages when manifest does not include it", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        yield* publishMcpServer(
+          makeOp({ name: "@community/mcp-servers/my-mcp", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "mcp-servers",
+          "my-mcp",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0]).not.toHaveProperty("compatiblePackages");
+      }),
+    );
+  });
+
   it.effect("fails when extension directory does not exist", () =>
     Effect.gen(function* () {
       const base = path.join(tmpDir, "project");

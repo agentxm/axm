@@ -151,6 +151,9 @@ export const publishCommand: (
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
+      ...(manifest.compatiblePackages !== undefined && {
+        compatiblePackages: manifest.compatiblePackages,
+      }),
     };
 
     // Publish to registry (idempotent)

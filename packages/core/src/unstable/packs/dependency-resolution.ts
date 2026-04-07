@@ -160,6 +160,7 @@ export const resolveExtensionPackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
+            dependency.ref.compatiblePackages,
           ),
         ),
         ...resolvedCommands.map((dependency) =>
@@ -168,6 +169,7 @@ export const resolveExtensionPackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
+            dependency.ref.compatiblePackages,
           ),
         ),
         ...resolvedMcpServers.map((dependency) =>
@@ -176,6 +178,7 @@ export const resolveExtensionPackDependencies = (
             dependency.name,
             dependency.ref.version,
             dependency.source,
+            dependency.ref.compatiblePackages,
           ),
         ),
       ],

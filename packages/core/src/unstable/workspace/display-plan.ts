@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
-import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
+import type { CompletedJobStep, ExecutedPlan, Plan, PlanSection, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -57,6 +57,25 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
         yield* renderPlannedStep(step, renderer);
       }
       yield* renderPlannedSummary(allSteps, renderer);
+
+      // Render optional sections (e.g., compatible packages)
+      if (plan.sections !== undefined) {
+        for (const section of plan.sections) {
+          yield* renderSection(section, renderer);
+        }
+      }
+    }
+  });
+
+const renderSection = (
+  section: PlanSection,
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+) =>
+  Effect.gen(function* () {
+    if (section.items.length === 0) return;
+    yield* renderer.message(`${section.title}:`);
+    for (const item of section.items) {
+      yield* renderer.message(`  ${item}`);
     }
   });
 

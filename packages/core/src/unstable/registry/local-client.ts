@@ -23,9 +23,13 @@ import type {
   PublishExtensionArgs,
   ExtensionExistsArgs,
   GetExtensionsByOwnerResponse,
+  DiscoverExtensionsArgs,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
+import { isExtensionTypePlural, parseFullyQualifiedRefParts } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
+import type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
+import { purlMatch } from "../packaging/purl-match.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 
 const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
@@ -83,6 +87,7 @@ const indexToManifest = (
     dependencies: ver.dependencies ?? {},
     version: ver.version,
     integrity: ver.integrity,
+    compatiblePackages: ver.compatiblePackages ?? [],
   } satisfies RegistryExtensionManifest);
 };
 
@@ -106,6 +111,85 @@ const processNameDir = (
 
     const index = yield* readExtensionIndex(fs, idxPath);
     return indexToManifest(index, versionConstraint);
+  });
+
+/** Convert an ExtensionIndex to a DiscoverExtensionEntry.
+ *  Callers must ensure `index.versions` is non-empty (scanAllExtensions filters empty indices). */
+const indexToDiscoverEntry = (index: ExtensionIndex): DiscoverExtensionEntry => {
+  const [latestVersion] = index.versions;
+  return {
+    type: index.type,
+    name: index.name,
+    owner: index.owner,
+    description: index.description ?? "",
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- caller filters empty versions
+    latestVersion: latestVersion!.version,
+  };
+};
+
+/** Parse a FullyQualifiedRef string into owner/type/name parts (ignoring version constraint). */
+const parseRef = (ref: string): { owner: string; type: ExtensionType; name: string } | undefined =>
+  parseFullyQualifiedRefParts(ref);
+
+/**
+ * Scan all extensions under the extensions root directory.
+ * Returns an array of ExtensionIndex entries.
+ */
+const scanAllExtensions = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  extensionsRoot: string,
+): Effect.Effect<ReadonlyArray<ExtensionIndex>, AppError> =>
+  Effect.gen(function* () {
+    const ownerDirs = yield* fs
+      .readDirectory(extensionsRoot)
+      .pipe(Effect.orElseSucceed((): readonly string[] => []));
+
+    // Cap concurrency at each nesting level to bound resource usage on large registries.
+    const nestedResults = yield* Effect.forEach(
+      ownerDirs.filter((d) => d.startsWith("@")),
+      (ownerDir) =>
+        Effect.gen(function* () {
+          const ownerPath = path.join(extensionsRoot, ownerDir);
+          const typeDirs = yield* fs
+            .readDirectory(ownerPath)
+            .pipe(Effect.orElseSucceed((): readonly string[] => []));
+
+          const typeResults = yield* Effect.forEach(
+            typeDirs.filter((d) => isExtensionTypePlural(d)),
+            (typeDir) =>
+              Effect.gen(function* () {
+                const typePath = path.join(ownerPath, typeDir);
+                const nameDirs = yield* fs
+                  .readDirectory(typePath)
+                  .pipe(Effect.orElseSucceed((): readonly string[] => []));
+
+                return yield* Effect.forEach(
+                  nameDirs,
+                  (nameDir) =>
+                    Effect.gen(function* () {
+                      const idxPath = path.join(typePath, nameDir, "index.json");
+                      const exists = yield* fs
+                        .exists(idxPath)
+                        .pipe(Effect.orElseSucceed(() => false));
+                      if (!exists) return Option.none<ExtensionIndex>();
+
+                      const index = yield* readExtensionIndex(fs, idxPath);
+                      if (index.versions.length === 0) return Option.none<ExtensionIndex>();
+                      return Option.some(index);
+                    }),
+                  { concurrency: 20 },
+                ).pipe(Effect.map(Array.getSomes));
+              }),
+            { concurrency: 20 },
+          );
+
+          return Array.flatten(typeResults);
+        }),
+      { concurrency: 20 },
+    );
+
+    return Array.flatten(nestedResults);
   });
 
 // -----------------------------------------------------------------------------
@@ -382,5 +466,49 @@ export const createLocalRegistryClient = (
       const indexPath = path.join(dir, "index.json");
       const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
       return { exists };
+    }),
+
+  discoverExtensions: (args: DiscoverExtensionsArgs) =>
+    Effect.gen(function* () {
+      const extensionsRoot = path.join(registryRoot, "extensions");
+      const rootExists = yield* fs.exists(extensionsRoot).pipe(Effect.orElseSucceed(() => false));
+      if (!rootExists) {
+        return { results: [], resolvedRecommendations: [] } satisfies DiscoverExtensionsResponse;
+      }
+
+      // Scan all extensions and read their index.json
+      const allExtensions = yield* scanAllExtensions(fs, path, extensionsRoot);
+
+      // Match packages against extension compatiblePackages (from latest version)
+      const results = args.packages.flatMap((detectedPurl) => {
+        const matching = allExtensions.filter((ext) => {
+          const latestVersion = ext.versions[0];
+          if (latestVersion === undefined) return false;
+          return (latestVersion.compatiblePackages ?? []).some((declared) =>
+            purlMatch(detectedPurl, declared),
+          );
+        });
+        if (matching.length === 0) return [];
+        return [
+          {
+            detectedPackage: detectedPurl,
+            extensions: matching.map(indexToDiscoverEntry),
+          },
+        ];
+      });
+
+      // Resolve workspace recommendations
+      const resolvedRecommendations = (args.workspaceRecommendedExtensions ?? []).flatMap((ref) => {
+        const parsed = parseRef(ref);
+        if (parsed === undefined) return [];
+        const match = allExtensions.find(
+          (ext) =>
+            ext.owner === parsed.owner && ext.type === parsed.type && ext.name === parsed.name,
+        );
+        if (match === undefined) return [];
+        return [indexToDiscoverEntry(match)];
+      });
+
+      return { results, resolvedRecommendations } satisfies DiscoverExtensionsResponse;
     }),
 });

@@ -17,6 +17,7 @@ import { CommandManifestSchema } from "@axm.sh/core/unstable/commands";
 import { McpServerManifestSchema } from "@axm.sh/core/unstable/mcp-servers";
 import { ExtensionPackManifestSchema } from "@axm.sh/core/unstable/packs";
 import { LockfileSchema } from "@axm.sh/core/unstable/lockfile";
+import { AxmPackageMetaSchema } from "@axm.sh/core/unstable/packaging";
 import { SettingsSchema } from "@axm.sh/core/unstable/settings";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
@@ -58,6 +59,11 @@ const schemas: SchemaConfig[] = [
   {
     name: "extension-pack.schema.json",
     schema: ExtensionPackManifestSchema,
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
+  },
+  {
+    name: "axm-package-meta.schema.json",
+    schema: AxmPackageMetaSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
 ];

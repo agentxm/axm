@@ -161,6 +161,55 @@ describe("publishCommand", () => {
     }),
   );
 
+  describe("compatiblePackages propagation", () => {
+    it.effect("propagates compatiblePackages from manifest to VersionEntry", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup("@community", "compat-cmd", {
+          compatiblePackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
+        });
+
+        yield* publishCommand(
+          makeOp({ name: "@community/commands/compat-cmd", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "commands",
+          "compat-cmd",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0].compatiblePackages).toEqual([
+          { type: "npm", name: "claude-code" },
+          { type: "npm", namespace: "@openai", name: "codex" },
+        ]);
+      }),
+    );
+
+    it.effect("omits compatiblePackages when manifest does not include it", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        yield* publishCommand(
+          makeOp({ name: "@community/commands/my-cmd", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "commands",
+          "my-cmd",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0]).not.toHaveProperty("compatiblePackages");
+      }),
+    );
+  });
+
   it.effect("fails when extension directory does not exist", () =>
     Effect.gen(function* () {
       const base = path.join(tmpDir, "project");

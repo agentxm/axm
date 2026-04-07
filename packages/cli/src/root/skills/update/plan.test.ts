@@ -167,6 +167,7 @@ const makeOp = (
         name: extensionName(name),
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
+        compatiblePackages: [],
       };
       break;
     case "local":

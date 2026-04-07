@@ -12,10 +12,18 @@
 export type { ExtensionIndex, VersionEntry } from "./schema.js";
 export { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
 
+// Discover schemas
+export type { DiscoverExtensionEntry, DiscoverExtensionsResponse } from "./discover-schema.js";
+export {
+  DiscoverExtensionEntrySchema,
+  DiscoverExtensionsResponseSchema,
+} from "./discover-schema.js";
+
 // Client types and factory
 export type {
   RegistryClient,
   RegistryExtensionManifest,
+  DiscoverExtensionsArgs,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,

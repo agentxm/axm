@@ -55,6 +55,7 @@ describe("doctor handler", () => {
                 location: new URL("https://registry.agentxm.ai"),
                 owner: Option.none(),
               },
+              [],
             ),
           ),
       ),

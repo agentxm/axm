@@ -1,179 +1,221 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "owner": {
+  "$ref": "#/definitions/ExtensionPackManifest",
+  "definitions": {
+    "Handle": {
       "type": "string",
       "allOf": [
         {
-          "pattern": "^@[\\w-]+$"
+          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+          "title": "Handle",
+          "description": "A unique username or organization name starting with @, like @my-org.",
+          "examples": ["@my-org", "@username"]
         }
       ]
     },
-    "name": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^[\\w-]+$"
-        }
-      ]
-    },
-    "version": {
+    "ExactSemverVersion": {
       "type": "string"
     },
-    "description": {
-      "anyOf": [
-        {
+    "Author": {
+      "type": "object",
+      "properties": {
+        "name": {
           "type": "string"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "keywords": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      ]
+      },
+      "required": ["name"],
+      "additionalProperties": false,
+      "title": "Author",
+      "description": "Author details: name, email, and URL."
     },
-    "repository": {
-      "anyOf": [
-        {
-          "type": "string"
+    "PackageUrlParts": {
+      "type": "string"
+    },
+    "ExtensionName": {
+      "type": "string"
+    },
+    "VersionConstraint": {
+      "type": "string"
+    },
+    "ExtensionPackManifest": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "homepage": {
-      "anyOf": [
-        {
-          "type": "string"
+        "owner": {
+          "$ref": "#/definitions/Handle"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "license": {
-      "anyOf": [
-        {
-          "type": "string"
+        "version": {
+          "$ref": "#/definitions/ExactSemverVersion"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "bugs": {
-      "anyOf": [
-        {
-          "type": "string"
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "authors": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
+        "keywords": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
                 "type": "string"
-              },
-              "email": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "url": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
               }
             },
-            "required": ["name"],
-            "additionalProperties": false
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "type": {
-      "type": "string",
-      "enum": ["pack"]
-    },
-    "skills": {
-      "anyOf": [
-        {
-          "type": "object",
-          "patternProperties": {
-            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "commands": {
-      "anyOf": [
-        {
-          "type": "object",
-          "patternProperties": {
-            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+        "repository": {
+          "anyOf": [
+            {
               "type": "string"
+            },
+            {
+              "type": "null"
             }
-          }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "mcp-servers": {
-      "anyOf": [
-        {
-          "type": "object",
-          "patternProperties": {
-            "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
+        "homepage": {
+          "anyOf": [
+            {
               "type": "string"
+            },
+            {
+              "type": "null"
             }
-          }
+          ]
         },
-        {
-          "type": "null"
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bugs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authors": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Author"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compatiblePackages": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PackageUrlParts"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["pack"]
+        },
+        "name": {
+          "$ref": "#/definitions/ExtensionName"
+        },
+        "skills": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/VersionConstraint"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commands": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/VersionConstraint"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mcp-servers": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/VersionConstraint"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      ]
+      },
+      "required": ["owner", "version", "type", "name"],
+      "additionalProperties": false,
+      "title": "Extension Pack Manifest",
+      "description": "Configuration file (extension-pack.json) that bundles multiple extensions into a single installable pack."
     }
-  },
-  "required": ["owner", "name", "version", "type"],
-  "additionalProperties": false
+  }
 }

@@ -10,6 +10,7 @@ import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
 import type { JobStepResult, PlannedJobStep } from "../workspace/plan.js";
 import type { ExtensionRef } from "./refs.js";
+import type { PackageUrlParts } from "../packaging/package-url.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -45,6 +46,33 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
  */
 export const toLabel = (target: ExtensionTarget): string =>
   target.type === "pack" ? `${target.owner}/${target.name}` : target.name;
+
+/**
+ * Format a single PackageUrlParts as a compact display string.
+ *
+ * Examples: `pkg:npm/react`, `pkg:npm/@angular/core@18.0.0`
+ */
+export const formatPackageUrlParts = (parts: PackageUrlParts): string => {
+  const ns = parts.namespace !== undefined ? `${parts.namespace}/` : "";
+  const ver = parts.version !== undefined ? `@${parts.version}` : "";
+  return `pkg:${parts.type}/${ns}${parts.name}${ver}`;
+};
+
+/**
+ * Build a display label with optional compatiblePackages suffix.
+ *
+ * When compatiblePackages is non-empty, appends them parenthesized:
+ *   `code-review (pkg:npm/react, pkg:npm/typescript)`
+ */
+export const toLabelWithCompatibility = (
+  target: ExtensionTarget,
+  compatiblePackages: ReadonlyArray<PackageUrlParts>,
+): string => {
+  const base = toLabel(target);
+  if (compatiblePackages.length === 0) return base;
+  const purls = compatiblePackages.map(formatPackageUrlParts).join(", ");
+  return `${base} (${purls})`;
+};
 
 // -----------------------------------------------------------------------------
 // Uninstall Retention Policy Interface
@@ -109,9 +137,10 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
   args: InstallOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
+  const compatPkgs = args.ref.refType === "registry" ? args.ref.compatiblePackages : [];
 
   return {
-    label: toLabel(target),
+    label: toLabelWithCompatibility(target, compatPkgs),
     readiness: "ready",
     run: runInstallOperation(manager, args),
   } satisfies PlannedJobStep;

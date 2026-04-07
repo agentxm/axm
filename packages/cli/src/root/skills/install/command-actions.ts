@@ -11,6 +11,8 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -28,7 +30,12 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import { SkillManager, type SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
-import type { Plan } from "@axm.sh/core/unstable/workspace";
+import type { Plan, PlanSection } from "@axm.sh/core/unstable/workspace";
+import {
+  formatPackageDisplay,
+  PackageUrlPartsSchema,
+  type PackageUrlParts,
+} from "@axm.sh/core/unstable/packaging";
 import type { InstallHandlerArgs } from "./handler.js";
 import type { InstallSkillCommandIntent } from "./intent.js";
 import {
@@ -124,6 +131,62 @@ const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
         onSome: (reason) => `${probe.location}: ${reason}`,
       });
   }
+};
+
+const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));
+
+/**
+ * Extract compatible packages from a skill ref.
+ *
+ * Registry refs have a typed `compatiblePackages` field.
+ * Local/git-hosted refs may carry them in the generic `metadata` bag.
+ *
+ * @internal Exported for testing only.
+ */
+export const getCompatiblePackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
+  if (ref.refType === "registry") {
+    return ref.compatiblePackages ?? [];
+  }
+
+  // For non-registry refs, check the generic metadata bag
+  return Option.match(ref.skill.metadata, {
+    onNone: (): ReadonlyArray<PackageUrlParts> => [],
+    onSome: (m) => {
+      const raw = m["compatiblePackages"];
+      if (!globalThis.Array.isArray(raw)) return [];
+      // Validate each entry individually — skip invalid ones rather than failing the whole array
+      return raw.flatMap((entry: unknown) => {
+        const decoded = decodePackageUrlParts(entry);
+        return Result.isSuccess(decoded) ? [decoded.success] : [];
+      });
+    },
+  });
+};
+
+/**
+ * Build the "Compatible packages" plan section from skill refs.
+ * Returns undefined when no skill has compatible packages.
+ *
+ * @internal Exported for testing only.
+ */
+export const buildCompatiblePackagesSection = (
+  refs: ReadonlyArray<SkillExtensionRef>,
+): PlanSection | undefined => {
+  const allPackages = refs.flatMap((ref) => getCompatiblePackages(ref));
+  if (allPackages.length === 0) return undefined;
+
+  // Deduplicate by formatted string
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const pkg of allPackages) {
+    const formatted = formatPackageDisplay(pkg);
+    if (!seen.has(formatted)) {
+      seen.add(formatted);
+      items.push(formatted);
+    }
+  }
+
+  return { title: "Compatible packages", items };
 };
 
 const extractRequestedSkills = (
@@ -381,8 +444,13 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         }),
       );
 
-    const buildPlan = (intent: InstallSkillCommandIntent) =>
-      Effect.succeed<Plan>({
+    const buildPlan = (intent: InstallSkillCommandIntent) => {
+      const compatSection = buildCompatiblePackagesSection(
+        intent.skillsToInstall.map((entry) => entry.ref),
+      );
+      const sections = compatSection !== undefined ? [compatSection] : undefined;
+
+      return Effect.succeed<Plan>({
         _tag: "Plan",
         name: "Install skill(s)",
         description: Option.none(),
@@ -397,7 +465,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             ),
           },
         ],
+        ...(sections !== undefined && { sections }),
       } satisfies Plan);
+    };
 
     return {
       parseArgs,

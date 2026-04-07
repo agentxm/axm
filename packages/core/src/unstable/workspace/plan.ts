@@ -84,11 +84,23 @@ export interface Job {
   readonly concurrency: "unbounded" | 1;
 }
 
+/**
+ * An additional labeled section to display alongside a plan.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface PlanSection {
+  readonly title: string;
+  readonly items: ReadonlyArray<string>;
+}
+
 export interface Plan {
   readonly _tag: "Plan";
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  /** Optional extra sections rendered after the plan steps. */
+  readonly sections?: ReadonlyArray<PlanSection>;
 }
 
 // -----------------------------------------------------------------------------

@@ -65,6 +65,7 @@ const makePackRef = (
   name: extensionName(name),
   version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
+  compatiblePackages: [],
 });
 
 const emptyLockfile: Lockfile = {
@@ -126,6 +127,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      compatiblePackages: [],
     },
     force: false,
     versionConstraint: Option.none(),
@@ -149,6 +151,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      compatiblePackages: [],
     },
     force: false,
     versionConstraint: Option.none(),

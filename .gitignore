@@ -3,6 +3,7 @@ dist
 .DS_Store
 *.tsbuildinfo
 *.tgz
+*.bak
 
 # JetBrains: keep shareable project settings, ignore local/generated files.
 .idea/**/workspace.xml

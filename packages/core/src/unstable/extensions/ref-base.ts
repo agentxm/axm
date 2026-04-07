@@ -16,6 +16,7 @@ import type { RefType, Source } from "../sources/types.js";
 import type { ExtensionDependencyConstraintMap } from "./common.js";
 import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 import type { Handle } from "./handle.js";
+import type { PackageUrlParts } from "../packaging/package-url.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -43,6 +44,8 @@ export interface RegistryRefDetails {
   readonly version: ExactSemverVersion;
   /** SRI integrity string in `sha512-<base64>` format. None for synthetic refs (fork/publish). */
   readonly integrity: Option.Option<string>;
+  /** Package URLs this extension is compatible with, from registry metadata. Empty when absent. */
+  readonly compatiblePackages: ReadonlyArray<PackageUrlParts>;
 }
 
 /** Ref details for local filesystem sources. @experimental */

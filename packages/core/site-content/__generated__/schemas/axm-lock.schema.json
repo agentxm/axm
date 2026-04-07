@@ -1,546 +1,127 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "lockfileVersion": {
-      "anyOf": [
+  "$ref": "#/definitions/Lockfile",
+  "definitions": {
+    "SourceSegment": {
+      "type": "string",
+      "allOf": [
         {
-          "type": "number"
-        },
-        {
-          "type": "string",
-          "enum": ["NaN"]
-        },
-        {
-          "type": "string",
-          "enum": ["Infinity"]
-        },
-        {
-          "type": "string",
-          "enum": ["-Infinity"]
+          "minLength": 1
         }
       ]
     },
-    "skills": {
+    "IsoDateTimeString": {
+      "type": "string",
+      "allOf": [
+        {
+          "minLength": 1
+        }
+      ]
+    },
+    "Handle": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+          "title": "Handle",
+          "description": "A unique username or organization name starting with @, like @my-org.",
+          "examples": ["@my-org", "@username"]
+        }
+      ]
+    },
+    "ExtensionName": {
+      "type": "string"
+    },
+    "ExactSemverVersion": {
+      "type": "string"
+    },
+    "ExtensionPackLockEntry": {
       "type": "object",
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["github"]
-              },
-              "owner": {
-                "type": "string"
-              },
-              "repo": {
-                "type": "string"
-              },
-              "ref": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "path": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["gitlab"]
-              },
-              "owner": {
-                "type": "string"
-              },
-              "repo": {
-                "type": "string"
-              },
-              "ref": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "path": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["bitbucket"]
-              },
-              "owner": {
-                "type": "string"
-              },
-              "repo": {
-                "type": "string"
-              },
-              "ref": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "path": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["azurerepos"]
-              },
-              "organization": {
-                "type": "string"
-              },
-              "project": {
-                "type": "string"
-              },
-              "repo": {
-                "type": "string"
-              },
-              "ref": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "path": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "type",
-              "organization",
-              "project",
-              "repo",
-              "agents",
-              "installedAt",
-              "updatedAt"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["git"]
-              },
-              "url": {
-                "type": "string"
-              },
-              "ref": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "path": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "url", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["local"]
-              },
-              "path": {
-                "type": "string"
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "path", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["registry"]
-              },
-              "owner": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "resolvedVersion": {
-                "type": "string"
-              },
-              "integrity": {
-                "type": "string"
-              },
-              "sourceName": {
-                "type": "string"
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "type",
-              "owner",
-              "name",
-              "resolvedVersion",
-              "integrity",
-              "sourceName",
-              "agents",
-              "installedAt",
-              "updatedAt"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["builtin"]
-              },
-              "agents": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "installedAt": {
-                "type": "string"
-              },
-              "updatedAt": {
-                "type": "string"
-              },
-              "gitTreeHash": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "retainedByPack": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": ["type", "agents", "installedAt", "updatedAt"],
-            "additionalProperties": false
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["registry"]
+        },
+        "owner": {
+          "$ref": "#/definitions/Handle"
+        },
+        "name": {
+          "$ref": "#/definitions/ExtensionName"
+        },
+        "resolvedVersion": {
+          "$ref": "#/definitions/ExactSemverVersion"
+        },
+        "integrity": {
+          "type": "string"
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "installedAt": {
+          "$ref": "#/definitions/IsoDateTimeString"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/IsoDateTimeString"
+        },
+        "resolvedSkills": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ExactSemverVersion"
           }
-        ]
-      }
+        },
+        "resolvedCommands": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ExactSemverVersion"
+          }
+        },
+        "resolvedMcpServers": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ExactSemverVersion"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "owner",
+        "name",
+        "resolvedVersion",
+        "integrity",
+        "sourceName",
+        "installedAt",
+        "updatedAt",
+        "resolvedSkills",
+        "resolvedCommands",
+        "resolvedMcpServers"
+      ],
+      "additionalProperties": false,
+      "title": "Extension Pack Lock Entry",
+      "description": "Pinned version info for an installed extension pack from a registry."
     },
-    "commands": {
-      "anyOf": [
-        {
+    "Lockfile": {
+      "type": "object",
+      "properties": {
+        "lockfileVersion": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "enum": ["NaN"]
+            },
+            {
+              "type": "string",
+              "enum": ["Infinity"]
+            },
+            {
+              "type": "string",
+              "enum": ["-Infinity"]
+            }
+          ]
+        },
+        "skills": {
           "type": "object",
           "additionalProperties": {
             "anyOf": [
@@ -552,15 +133,20 @@
                     "enum": ["github"]
                   },
                   "owner": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "repo": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "ref": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -570,18 +156,29 @@
                   "path": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
                       }
                     ]
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -604,7 +201,7 @@
                     ]
                   }
                 },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -615,15 +212,20 @@
                     "enum": ["gitlab"]
                   },
                   "owner": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "repo": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "ref": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -633,18 +235,29 @@
                   "path": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
                       }
                     ]
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -667,7 +280,7 @@
                     ]
                   }
                 },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -678,15 +291,20 @@
                     "enum": ["bitbucket"]
                   },
                   "owner": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "repo": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "ref": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -696,18 +314,29 @@
                   "path": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
                       }
                     ]
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -730,7 +359,7 @@
                     ]
                   }
                 },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -741,18 +370,23 @@
                     "enum": ["azurerepos"]
                   },
                   "organization": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "project": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "repo": {
-                    "type": "string"
+                    "$ref": "#/definitions/SourceSegment"
                   },
                   "ref": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -762,18 +396,29 @@
                   "path": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
                       }
                     ]
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -796,7 +441,15 @@
                     ]
                   }
                 },
-                "required": ["type", "organization", "project", "repo", "installedAt", "updatedAt"],
+                "required": [
+                  "type",
+                  "organization",
+                  "project",
+                  "repo",
+                  "agents",
+                  "installedAt",
+                  "updatedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -812,7 +465,12 @@
                   "ref": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -822,18 +480,29 @@
                   "path": {
                     "anyOf": [
                       {
-                        "type": "string"
+                        "type": "string",
+                        "allOf": [
+                          {
+                            "minLength": 1
+                          }
+                        ]
                       },
                       {
                         "type": "null"
                       }
                     ]
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -856,7 +525,7 @@
                     ]
                   }
                 },
-                "required": ["type", "url", "installedAt", "updatedAt"],
+                "required": ["type", "url", "agents", "installedAt", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -869,11 +538,17 @@
                   "path": {
                     "type": "string"
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -896,7 +571,7 @@
                     ]
                   }
                 },
-                "required": ["type", "path", "installedAt", "updatedAt"],
+                "required": ["type", "path", "agents", "installedAt", "updatedAt"],
                 "additionalProperties": false
               },
               {
@@ -907,13 +582,13 @@
                     "enum": ["registry"]
                   },
                   "owner": {
-                    "type": "string"
+                    "$ref": "#/definitions/Handle"
                   },
                   "name": {
-                    "type": "string"
+                    "$ref": "#/definitions/ExtensionName"
                   },
                   "resolvedVersion": {
-                    "type": "string"
+                    "$ref": "#/definitions/ExactSemverVersion"
                   },
                   "integrity": {
                     "type": "string"
@@ -921,11 +596,17 @@
                   "sourceName": {
                     "type": "string"
                   },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "installedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "updatedAt": {
-                    "type": "string"
+                    "$ref": "#/definitions/IsoDateTimeString"
                   },
                   "gitTreeHash": {
                     "anyOf": [
@@ -955,666 +636,1007 @@
                   "resolvedVersion",
                   "integrity",
                   "sourceName",
+                  "agents",
                   "installedAt",
                   "updatedAt"
                 ],
                 "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["builtin"]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "installedAt", "updatedAt"],
-                "additionalProperties": false
               }
             ]
           }
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "mcpServers": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["github"]
+        "commands": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["github"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "owner": {
-                    "type": "string"
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["gitlab"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "repo": {
-                    "type": "string"
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["bitbucket"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "ref": {
-                    "anyOf": [
-                      {
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["azurerepos"]
+                      },
+                      "organization": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "project": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "organization",
+                      "project",
+                      "repo",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["git"]
+                      },
+                      "url": {
                         "type": "string"
                       },
-                      {
-                        "type": "null"
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    ]
+                    },
+                    "required": ["type", "url", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "path": {
-                    "anyOf": [
-                      {
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["local"]
+                      },
+                      "path": {
                         "type": "string"
                       },
-                      {
-                        "type": "null"
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    ]
+                    },
+                    "required": ["type", "path", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["registry"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/Handle"
+                      },
+                      "name": {
+                        "$ref": "#/definitions/ExtensionName"
+                      },
+                      "resolvedVersion": {
+                        "$ref": "#/definitions/ExactSemverVersion"
+                      },
+                      "integrity": {
                         "type": "string"
                       },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
+                      "sourceName": {
+                        "type": "string"
                       },
-                      {
-                        "type": "null"
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    ]
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "name",
+                      "resolvedVersion",
+                      "integrity",
+                      "sourceName",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["gitlab"]
-                  },
-                  "owner": {
-                    "type": "string"
-                  },
-                  "repo": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["bitbucket"]
-                  },
-                  "owner": {
-                    "type": "string"
-                  },
-                  "repo": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["azurerepos"]
-                  },
-                  "organization": {
-                    "type": "string"
-                  },
-                  "project": {
-                    "type": "string"
-                  },
-                  "repo": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "organization", "project", "repo", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["git"]
-                  },
-                  "url": {
-                    "type": "string"
-                  },
-                  "ref": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "url", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["local"]
-                  },
-                  "path": {
-                    "type": "string"
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "path", "installedAt", "updatedAt"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["registry"]
-                  },
-                  "owner": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "resolvedVersion": {
-                    "type": "string"
-                  },
-                  "integrity": {
-                    "type": "string"
-                  },
-                  "sourceName": {
-                    "type": "string"
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "type",
-                  "owner",
-                  "name",
-                  "resolvedVersion",
-                  "integrity",
-                  "sourceName",
-                  "installedAt",
-                  "updatedAt"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["builtin"]
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "gitTreeHash": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "retainedByPack": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "installedAt", "updatedAt"],
-                "additionalProperties": false
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "packs": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["registry"]
-                  },
-                  "owner": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "resolvedVersion": {
-                    "type": "string"
-                  },
-                  "integrity": {
-                    "type": "string"
-                  },
-                  "sourceName": {
-                    "type": "string"
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "resolvedSkills": {
+        "mcpServers": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
                     "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["github"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "resolvedCommands": {
+                  {
                     "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["gitlab"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
                   },
-                  "resolvedMcpServers": {
+                  {
                     "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["bitbucket"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
-                    }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["azurerepos"]
+                      },
+                      "organization": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "project": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "repo": {
+                        "$ref": "#/definitions/SourceSegment"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "organization",
+                      "project",
+                      "repo",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["git"]
+                      },
+                      "url": {
+                        "type": "string"
+                      },
+                      "ref": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "minLength": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "url", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["local"]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["type", "path", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["registry"]
+                      },
+                      "owner": {
+                        "$ref": "#/definitions/Handle"
+                      },
+                      "name": {
+                        "$ref": "#/definitions/ExtensionName"
+                      },
+                      "resolvedVersion": {
+                        "$ref": "#/definitions/ExactSemverVersion"
+                      },
+                      "integrity": {
+                        "type": "string"
+                      },
+                      "sourceName": {
+                        "type": "string"
+                      },
+                      "installedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "updatedAt": {
+                        "$ref": "#/definitions/IsoDateTimeString"
+                      },
+                      "gitTreeHash": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "retainedByPack": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "name",
+                      "resolvedVersion",
+                      "integrity",
+                      "sourceName",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "type",
-                  "owner",
-                  "name",
-                  "resolvedVersion",
-                  "integrity",
-                  "sourceName",
-                  "installedAt",
-                  "updatedAt",
-                  "resolvedSkills",
-                  "resolvedCommands",
-                  "resolvedMcpServers"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["builtin"]
-                  },
-                  "owner": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "resolvedVersion": {
-                    "type": "string"
-                  },
-                  "installedAt": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "string"
-                  },
-                  "resolvedSkills": {
-                    "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "resolvedCommands": {
-                    "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "resolvedMcpServers": {
-                    "type": "object",
-                    "patternProperties": {
-                      "^@[\\w-]+\\/(skills|packs|commands|mcp-servers)\\/[\\w-]+$": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "required": [
-                  "type",
-                  "owner",
-                  "name",
-                  "resolvedVersion",
-                  "installedAt",
-                  "updatedAt",
-                  "resolvedSkills",
-                  "resolvedCommands",
-                  "resolvedMcpServers"
-                ],
-                "additionalProperties": false
+                ]
               }
-            ]
-          }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        {
-          "type": "null"
+        "packs": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/ExtensionPackLockEntry"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      ]
+      },
+      "required": ["lockfileVersion", "skills"],
+      "additionalProperties": false,
+      "title": "AXM Lockfile",
+      "description": "Records the exact versions of all installed extensions so installs are reproducible."
     }
-  },
-  "required": ["lockfileVersion", "skills"],
-  "additionalProperties": false
+  }
 }

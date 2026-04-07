@@ -53,6 +53,7 @@ describe("workspace doctor", () => {
                 location: new URL("https://registry.agentxm.ai"),
                 owner: Option.none(),
               },
+              [],
             ),
           ),
       ),

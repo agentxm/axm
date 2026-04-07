@@ -147,6 +147,14 @@
     "./unstable/version-resolution": {
       "types": "./src/unstable/version-resolution/version-resolution.ts",
       "default": "./dist/src/unstable/version-resolution/version-resolution.js"
+    },
+    "./unstable/packaging": {
+      "types": "./src/unstable/packaging/index.ts",
+      "default": "./dist/src/unstable/packaging/index.js"
+    },
+    "./unstable/discover": {
+      "types": "./src/unstable/discover/index.ts",
+      "default": "./dist/src/unstable/discover/index.js"
     }
   },
   "files": [
@@ -169,6 +177,7 @@
     "fflate": "^0.8.2",
     "gray-matter": "^4.0.3",
     "jsonc-parser": "^3.3.1",
+    "packageurl-js": "^2.0.1",
     "semver": "^7.7.4",
     "simple-git": "^3.33.0"
   },

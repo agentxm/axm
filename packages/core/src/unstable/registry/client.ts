@@ -21,9 +21,12 @@ import type {
   ExtensionDependencyConstraintMap,
   ExtensionName,
   ExtensionType,
+  FullyQualifiedRef,
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
+import type { DiscoverExtensionsResponse } from "./discover-schema.js";
+import type { PackageUrlParts } from "../packaging/package-url.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
@@ -182,6 +185,22 @@ export interface ExtensionExistsResponse {
 }
 
 // -----------------------------------------------------------------------------
+// Discover Extensions Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for discovering extensions compatible with detected packages
+ * and workspace recommendations.
+ *
+ * - `packages`: detected package purls to match against extension compatibility
+ * - `workspaceRecommendedExtensions`: optional FQRefs from installed package metadata
+ */
+export interface DiscoverExtensionsArgs {
+  readonly packages: ReadonlyArray<PackageUrlParts>;
+  readonly workspaceRecommendedExtensions?: ReadonlyArray<FullyQualifiedRef>;
+}
+
+// -----------------------------------------------------------------------------
 // Extension Entry
 // -----------------------------------------------------------------------------
 
@@ -201,6 +220,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly dependencies: ExtensionDependencyConstraintMap;
   readonly version: ExactSemverVersion;
   readonly integrity: string;
+  /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
+  readonly compatiblePackages: ReadonlyArray<PackageUrlParts>;
 }
 
 // -----------------------------------------------------------------------------
@@ -232,6 +253,9 @@ export interface RegistryClient {
   readonly extensionExists: (
     args: ExtensionExistsArgs,
   ) => Effect.Effect<ExtensionExistsResponse, AppError>;
+  readonly discoverExtensions: (
+    args: DiscoverExtensionsArgs,
+  ) => Effect.Effect<DiscoverExtensionsResponse, AppError>;
 }
 
 // -----------------------------------------------------------------------------

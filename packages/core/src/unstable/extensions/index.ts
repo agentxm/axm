@@ -18,6 +18,8 @@ export {
   FQN_PATTERN,
   FullyQualifiedNamePartsSchema,
   FullyQualifiedNameSchema,
+  FullyQualifiedRefSchema,
+  parseFullyQualifiedRefParts,
   decodeExtensionNameSync,
   extensionTypeFromPlural,
   extensionTypeLabels,
@@ -38,6 +40,7 @@ export {
   type ExtensionType,
   type ExtensionTypePlural,
   type FullyQualifiedName,
+  type FullyQualifiedRef,
 } from "./common.js";
 
 export {
@@ -104,6 +107,8 @@ export {
   type UninstallRetentionPolicy,
   buildInstallOperation,
   buildUninstallOperation,
+  formatPackageUrlParts,
   targetFromRef,
   toLabel,
+  toLabelWithCompatibility,
 } from "./operations.js";

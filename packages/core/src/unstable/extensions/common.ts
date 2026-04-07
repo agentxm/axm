@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
+import { PackageUrlSchema } from "../packaging/package-url.js";
 import {
   ExactSemverVersionSchema,
   VersionConstraintSchema,
@@ -254,6 +255,19 @@ export const parseFullyQualifiedNameParts = (
 };
 
 /**
+ * Parse a fully qualified ref string (with optional version constraint) into parts.
+ * Strips the version constraint suffix and returns the validated FQN parts.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const parseFullyQualifiedRefParts = (input: string): FullyQualifiedNameParts | undefined => {
+  const lastSlash = input.lastIndexOf("/");
+  const constraintAt = lastSlash > 0 ? input.indexOf("@", lastSlash + 1) : -1;
+  const fqnPart = constraintAt > 0 ? input.slice(0, constraintAt) : input;
+  return parseFullyQualifiedNameParts(fqnPart);
+};
+
+/**
  * Fully qualified name string schema validated through the composed parts schema.
  *
  * @experimental This API is unstable and may change without notice.
@@ -274,6 +288,58 @@ export const FullyQualifiedNameSchema = Schema.String.pipe(
  * @experimental This API is unstable and may change without notice.
  */
 export type FullyQualifiedName = Schema.Schema.Type<typeof FullyQualifiedNameSchema>;
+
+/**
+ * Fully qualified extension reference with optional version constraint.
+ *
+ * Accepts `@owner/type/name` or `@owner/type/name@constraint` where
+ * the FQN portion validates through FullyQualifiedNameSchema and the
+ * optional constraint validates as a semver VersionConstraint.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FullyQualifiedRefSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => {
+      // Find the constraint separator: the @ after the last slash
+      const lastSlash = value.lastIndexOf("/");
+      const constraintAt = lastSlash > 0 ? value.indexOf("@", lastSlash + 1) : -1;
+
+      const fqnPart = constraintAt > 0 ? value.slice(0, constraintAt) : value;
+      const constraintPart = constraintAt > 0 ? value.slice(constraintAt + 1) : undefined;
+
+      // Validate FQN portion
+      if (parseFullyQualifiedNameParts(fqnPart) === undefined) {
+        return `Expected fully qualified ref in @handle/type/name[@constraint] form, got: ${value}`;
+      }
+
+      // Validate constraint portion if present
+      if (constraintPart !== undefined) {
+        const constraintResult =
+          Schema.decodeUnknownResult(VersionConstraintSchema)(constraintPart);
+        if (Result.isFailure(constraintResult)) {
+          return `Expected valid version constraint after @, got: ${constraintPart}`;
+        }
+      }
+
+      return undefined;
+    }),
+  ),
+  Schema.annotate({
+    identifier: "FullyQualifiedRef",
+    title: "Fully Qualified Extension Reference",
+    description: "An extension reference like @owner/skills/name or @owner/skills/name@^1.0.0.",
+    examples: ["@acme/skills/code-review", "@acme/skills/code-review@^1.0.0"],
+  }),
+  Schema.brand("FullyQualifiedRef"),
+);
+
+/**
+ * Inferred type for FullyQualifiedRef schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type FullyQualifiedRef = Schema.Schema.Type<typeof FullyQualifiedRefSchema>;
 
 /**
  * Map of fully-qualified extension names to semver constraints.
@@ -312,6 +378,7 @@ export const CommonManifestBaseFields = {
   license: Schema.optional(Schema.String),
   bugs: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
+  compatiblePackages: Schema.optional(Schema.Array(PackageUrlSchema)),
 };
 
 /**

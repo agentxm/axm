@@ -17,6 +17,7 @@ export type {
   Operation,
   Plan,
   PlanResolution,
+  PlanSection,
   PlannedJobStep,
   PreviewedPlan,
   ReadyJobStep,

@@ -1,368 +1,483 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "telemetry": {
-      "anyOf": [
+  "$ref": "#/definitions/Settings",
+  "definitions": {
+    "Handle": {
+      "type": "string",
+      "allOf": [
         {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "string",
-              "enum": ["errors"]
-            }
-          ]
-        },
-        {
-          "type": "null"
+          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+          "title": "Handle",
+          "description": "A unique username or organization name starting with @, like @my-org.",
+          "examples": ["@my-org", "@username"]
         }
       ]
     },
-    "profile": {
+    "SourceName": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "title": "Source Name",
+          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "examples": ["github", "my-registry.dev"]
+        }
+      ]
+    },
+    "GitHubSourceHostConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SourceName"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["github"]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "url"],
+      "additionalProperties": false,
+      "title": "GitHub Source Host",
+      "description": "Configuration for a GitHub source."
+    },
+    "SourceName1": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "title": "Source Name",
+          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "examples": ["github", "my-registry.dev"]
+        }
+      ]
+    },
+    "GitLabSourceHostConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SourceName1"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["gitlab"]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "url"],
+      "additionalProperties": false,
+      "title": "GitLab Source Host",
+      "description": "Configuration for a GitLab source."
+    },
+    "SourceName2": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "title": "Source Name",
+          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "examples": ["github", "my-registry.dev"]
+        }
+      ]
+    },
+    "BitbucketSourceHostConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SourceName2"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["bitbucket"]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "url"],
+      "additionalProperties": false,
+      "title": "Bitbucket Source Host",
+      "description": "Configuration for a Bitbucket source."
+    },
+    "SourceName3": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "title": "Source Name",
+          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "examples": ["github", "my-registry.dev"]
+        }
+      ]
+    },
+    "AzureReposSourceHostConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SourceName3"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["azurerepos"]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "url"],
+      "additionalProperties": false,
+      "title": "Azure Repos Source Host",
+      "description": "Configuration for an Azure Repos source."
+    },
+    "SourceName4": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "title": "Source Name",
+          "description": "A source name using lowercase letters, numbers, hyphens, and dots (e.g. github, my-registry.dev).",
+          "examples": ["github", "my-registry.dev"]
+        }
+      ]
+    },
+    "RegistrySourceHostConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SourceName4"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["registry"]
+        },
+        "location": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "location"],
+      "additionalProperties": false,
+      "title": "Registry Source Host",
+      "description": "Configuration for a package registry source."
+    },
+    "SourceHostConfig": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GitHubSourceHostConfig"
+        },
+        {
+          "$ref": "#/definitions/GitLabSourceHostConfig"
+        },
+        {
+          "$ref": "#/definitions/BitbucketSourceHostConfig"
+        },
+        {
+          "$ref": "#/definitions/AzureReposSourceHostConfig"
+        },
+        {
+          "$ref": "#/definitions/RegistrySourceHostConfig"
+        }
+      ],
+      "title": "Source Host Config",
+      "description": "Where extensions are fetched from — GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
+    },
+    "CommandsMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "McpServersMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "ExtensionPackEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Extension Pack Entry Object",
+      "description": "An extension pack with its source location."
+    },
+    "ExtensionPackEntry": {
       "anyOf": [
         {
           "type": "string"
         },
         {
-          "type": "null"
+          "$ref": "#/definitions/ExtensionPackEntryObject"
         }
-      ]
+      ],
+      "title": "Extension Pack Entry",
+      "description": "An extension pack reference — either a source string or an object with source."
     },
-    "agents": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "adal",
-              "amp",
-              "antigravity",
-              "augment",
-              "claude-code",
-              "cline",
-              "codebuddy",
-              "codex",
-              "command-code",
-              "continue",
-              "crush",
-              "cursor",
-              "droid",
-              "gemini-cli",
-              "github-copilot",
-              "goose",
-              "iflow-cli",
-              "junie",
-              "kilo",
-              "kimi-cli",
-              "kiro-cli",
-              "kode",
-              "mcpjam",
-              "mistral-vibe",
-              "mux",
-              "neovate",
-              "openclaw",
-              "opencode",
-              "openhands",
-              "pi",
-              "pochi",
-              "qoder",
-              "qwen-code",
-              "replit",
-              "roo",
-              "trae",
-              "trae-cn",
-              "windsurf",
-              "zencoder"
-            ]
-          }
+    "ExtensionPacksMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ExtensionPackEntry"
+      }
+    },
+    "SkillEntryObject": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
         },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "sources": {
-      "anyOf": [
-        {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["github"]
-                  },
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["name", "type", "url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["gitlab"]
-                  },
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["name", "type", "url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["bitbucket"]
-                  },
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["name", "type", "url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["azurerepos"]
-                  },
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["name", "type", "url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^[a-z0-9][a-z0-9.-]*$"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["registry"]
-                  },
-                  "location": {
-                    "type": "string"
-                  }
-                },
-                "required": ["name", "type", "location"],
-                "additionalProperties": false
-              }
-            ]
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "commands": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "mcpServers": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "packs": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "source": {
-                    "type": "string"
-                  }
-                },
-                "required": ["source"],
-                "additionalProperties": false
-              }
-            ]
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "skills": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "source": {
-                    "type": "string"
-                  },
-                  "enabled": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["source"],
-                "additionalProperties": false
-              }
-            ]
-          }
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "ignored": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "skills": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
             },
-            "commands": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "mcpServers": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "packs": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            {
+              "type": "null"
             }
-          },
-          "additionalProperties": false
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false,
+      "title": "Skill Entry Object",
+      "description": "A skill with its source location and whether it's enabled."
+    },
+    "SkillEntry": {
+      "anyOf": [
+        {
+          "type": "string"
         },
         {
-          "type": "null"
+          "$ref": "#/definitions/SkillEntryObject"
         }
-      ]
+      ],
+      "title": "Skill Entry",
+      "description": "A skill reference — either a source string like @owner/skills/name or an object with source and enabled."
+    },
+    "SkillsMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/SkillEntry"
+      }
+    },
+    "IgnoredSettings": {
+      "type": "object",
+      "properties": {
+        "skills": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commands": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mcpServers": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Ignored Settings",
+      "description": "Glob patterns for extensions to ignore, grouped by type (e.g. skills, commands)."
+    },
+    "Settings": {
+      "type": "object",
+      "properties": {
+        "telemetry": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": ["errors"]
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agents": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "adal",
+                  "amp",
+                  "antigravity",
+                  "augment",
+                  "claude-code",
+                  "cline",
+                  "codebuddy",
+                  "codex",
+                  "command-code",
+                  "continue",
+                  "crush",
+                  "cursor",
+                  "droid",
+                  "gemini-cli",
+                  "github-copilot",
+                  "goose",
+                  "iflow-cli",
+                  "junie",
+                  "kilo",
+                  "kimi-cli",
+                  "kiro-cli",
+                  "kode",
+                  "mcpjam",
+                  "mistral-vibe",
+                  "mux",
+                  "neovate",
+                  "openclaw",
+                  "opencode",
+                  "openhands",
+                  "pi",
+                  "pochi",
+                  "qoder",
+                  "qwen-code",
+                  "replit",
+                  "roo",
+                  "trae",
+                  "trae-cn",
+                  "windsurf",
+                  "zencoder"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/SourceHostConfig"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commands": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CommandsMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mcpServers": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/McpServersMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packs": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExtensionPacksMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skills": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SkillsMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ignored": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/IgnoredSettings"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "AXM Settings",
+      "description": "Your workspace configuration — profile, sources, installed extensions, and ignore patterns."
     }
-  },
-  "additionalProperties": false
+  }
 }

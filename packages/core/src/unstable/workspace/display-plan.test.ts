@@ -492,4 +492,91 @@ describe("displayPlan", () => {
       }),
     ),
   );
+
+  it.effect("renders plan sections after step summary", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makePlan({
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    readiness: "ready",
+                    label: "react-testing",
+                    run: Effect.succeed({ result: "success", message: "ok" }),
+                  },
+                ],
+              },
+            ],
+            sections: [
+              {
+                title: "Compatible packages",
+                items: ["react (npm)", "react-dom (npm)"],
+              },
+            ],
+          }),
+        );
+
+        const messages = logsByTag(state).message;
+        expect(messages.some((m) => m.includes("Compatible packages:"))).toBe(true);
+        expect(messages.some((m) => m.includes("react (npm)"))).toBe(true);
+        expect(messages.some((m) => m.includes("react-dom (npm)"))).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("omits sections when not provided", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makePlan({
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    readiness: "ready",
+                    label: "general-review",
+                    run: Effect.succeed({ result: "success", message: "ok" }),
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        const messages = logsByTag(state).message;
+        expect(messages.some((m) => m.includes("Compatible packages"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("omits section with empty items", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makePlan({
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    readiness: "ready",
+                    label: "general-review",
+                    run: Effect.succeed({ result: "success", message: "ok" }),
+                  },
+                ],
+              },
+            ],
+            sections: [{ title: "Compatible packages", items: [] }],
+          }),
+        );
+
+        const messages = logsByTag(state).message;
+        expect(messages.some((m) => m.includes("Compatible packages"))).toBe(false);
+      }),
+    ),
+  );
 });

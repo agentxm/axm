@@ -323,6 +323,75 @@ describe("publishSkill", () => {
     );
   });
 
+  describe("compatiblePackages propagation", () => {
+    it.effect("propagates compatiblePackages from manifest to VersionEntry", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup("@community", "compat-skill", {
+          compatiblePackages: ["pkg:npm/claude-code", "pkg:npm/%40openai/codex"],
+        });
+
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/compat-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "compat-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0].compatiblePackages).toEqual([
+          { type: "npm", name: "claude-code" },
+          { type: "npm", namespace: "@openai", name: "codex" },
+        ]);
+      }),
+    );
+
+    it.effect("omits compatiblePackages when manifest does not include it", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0]).not.toHaveProperty("compatiblePackages");
+      }),
+    );
+  });
+
+  describe("invalid compatiblePackages", () => {
+    it.effect("fails at schema decode when compatiblePackages contains invalid purls", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup("@community", "bad-purl-skill", {
+          compatiblePackages: ["not-a-valid-purl"],
+        });
+
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/skills/bad-purl-skill", registryName: "local" }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, code: e.code })),
+        );
+
+        expect(result.result).toBe("error");
+        expect(result.code).toBe("PUBLISH_SKILL_MANIFEST_SCHEMA_INVALID");
+      }),
+    );
+  });
+
   describe("error cases", () => {
     it.effect("fails when extension directory does not exist", () =>
       Effect.gen(function* () {

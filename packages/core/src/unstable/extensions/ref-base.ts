@@ -51,10 +51,6 @@ export interface LocalRefDetails {
   readonly location: string;
 }
 
-/** Ref details for builtin sources — no additional fields. @experimental */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type -- intentionally empty: builtin extensions are resolved from bundled data
-export interface BuiltinRefDetails {}
-
 // -----------------------------------------------------------------------------
 // Layer 1: ExtensionRefBase — universal base for all extension refs
 // -----------------------------------------------------------------------------

@@ -23,9 +23,8 @@ const byLifecycle = (rows: ReadonlyArray<ClassifiedExtension>, lc: string) =>
 
 const names = (rows: ReadonlyArray<ClassifiedExtension>) => rows.map((r) => r.name);
 
-const defaultMeta = { packagingKind: "native" as const, isBuiltIn: false };
-const builtinMeta = { packagingKind: "native" as const, isBuiltIn: true };
-const nonNativeMeta = { packagingKind: "non-native" as const, isBuiltIn: false };
+const defaultMeta = { packagingKind: "native" as const };
+const nonNativeMeta = { packagingKind: "non-native" as const };
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -417,20 +416,18 @@ describe("classifyExtensions", () => {
   });
 
   describe("source classification", () => {
-    it.effect("verifies packagingKind and isBuiltIn derivation", () =>
+    it.effect("verifies packagingKind derivation", () =>
       Effect.gen(function* () {
         const input: ClassifierInput = {
           type: "skill",
           configured: {
-            builtin: { source: "builtin:core" },
             native: { source: "registry:native" },
             external: { source: "github:org/repo" },
           },
-          lockedNames: ["builtin", "native", "external"],
+          lockedNames: ["native", "external"],
           detectedNames: [],
           ignoredPatterns: [],
           sourceMetaByName: {
-            builtin: builtinMeta,
             native: defaultMeta,
             external: nonNativeMeta,
           },
@@ -438,39 +435,11 @@ describe("classifyExtensions", () => {
 
         const result = yield* run(classifyExtensions(input));
 
-        const builtinRow = expectDefined(result.find((r) => r.name === "builtin"));
-        expect(builtinRow.packagingKind).toBe("native");
-        expect(builtinRow.isBuiltIn).toBe(true);
-
         const nativeRow = expectDefined(result.find((r) => r.name === "native"));
         expect(nativeRow.packagingKind).toBe("native");
-        expect(nativeRow.isBuiltIn).toBe(false);
 
         const externalRow = expectDefined(result.find((r) => r.name === "external"));
         expect(externalRow.packagingKind).toBe("non-native");
-        expect(externalRow.isBuiltIn).toBe(false);
-      }),
-    );
-
-    it.effect("isBuiltIn implies packagingKind = native", () =>
-      Effect.gen(function* () {
-        const input: ClassifierInput = {
-          type: "skill",
-          configured: {
-            builtin: { source: "builtin:core" },
-          },
-          lockedNames: [],
-          detectedNames: [],
-          ignoredPatterns: [],
-          sourceMetaByName: {
-            builtin: builtinMeta,
-          },
-        };
-
-        const result = yield* run(classifyExtensions(input));
-        const builtinRow = expectDefined(result.find((r) => r.name === "builtin"));
-        expect(builtinRow.isBuiltIn).toBe(true);
-        expect(builtinRow.packagingKind).toBe("native");
       }),
     );
 

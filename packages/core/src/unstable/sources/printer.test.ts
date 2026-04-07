@@ -85,13 +85,6 @@ describe("printSourceParams", () => {
     });
     expect(printSourceParams(source)).toBe("registry");
   });
-
-  it("prints builtin source", () => {
-    const source = makeSourceParams({
-      type: "builtin",
-    });
-    expect(printSourceParams(source)).toBe("builtin");
-  });
 });
 
 describe("lockEntryToSourceParams", () => {
@@ -301,18 +294,6 @@ describe("lockEntryToSourceParams", () => {
     expect(source).toEqual({
       type: "registry",
       owner: Option.none(),
-    });
-  });
-
-  it("maps builtin lock entry", () => {
-    const source = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "builtin",
-        ...baseLockFields,
-      }),
-    );
-    expect(source).toEqual({
-      type: "builtin",
     });
   });
 });

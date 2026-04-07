@@ -43,8 +43,6 @@ const deriveSourceString = (lockEntry: SkillLockEntry): string => {
       return `${lockEntry.organization}/${lockEntry.project}/${lockEntry.repo}`;
     case "git":
       return lockEntry.url;
-    case "builtin":
-      return "builtin";
   }
 };
 

@@ -11,7 +11,6 @@
  * Supporting logic is split into focused modules:
  * - `taxonomy-types.ts` — classifier-backed type definitions
  * - `source-metadata.ts` — source metadata derivation helpers
- * - `builtin-packs.ts` — builtin pack materialization
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
  * - `classifier-records.ts` — classifier row → record map converters
  *
@@ -119,23 +118,10 @@ import {
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
 } from "./classifier-records.js";
-import type { ResolvedBuiltinExtensionPack } from "./builtin-packs.js";
-
 /**
- * Options for creating workspace context, including the builtin pack resolver.
+ * Options for creating workspace context.
  */
-export interface WorkspaceLayerOptions extends WorkspaceContextOptions {
-  /**
-   * Effect that resolves the bundled builtin pack.
-   * Provided by the CLI package since the bundled skill assets live in the CLI distribution.
-   * May require FileSystem and Path services (resolved by the surrounding layer context).
-   */
-  readonly resolveBuiltinExtensionPack: Effect.Effect<
-    ResolvedBuiltinExtensionPack,
-    AppError,
-    FileSystem.FileSystem | Path.Path
-  >;
-}
+export type WorkspaceLayerOptions = WorkspaceContextOptions;
 
 /**
  * Create workspace context effect.
@@ -162,11 +148,7 @@ const make = (options: WorkspaceLayerOptions) =>
     if (options.scope === "user") {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
-      yield* ensureProjectWorkspaceInitialized(
-        localDir,
-        options,
-        options.resolveBuiltinExtensionPack,
-      );
+      yield* ensureProjectWorkspaceInitialized(localDir, options);
     }
 
     // Capture FileSystem and Path for use in closures
@@ -537,9 +519,7 @@ const make = (options: WorkspaceLayerOptions) =>
               ? { refType: "registry", owner: entry.owner }
               : entry.type === "local"
                 ? { refType: "local" }
-                : entry.type === "builtin"
-                  ? { refType: "builtin" }
-                  : { refType: "git-hosted" };
+                : { refType: "git-hosted" };
 
           const dirName = entry.type === "registry" ? entry.name : name;
           return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
@@ -1332,7 +1312,7 @@ const make = (options: WorkspaceLayerOptions) =>
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
  * CliPrompt service is required for agent selection.
  *
- * @param options - Workspace layer options (includes resolveBuiltinExtensionPack)
+ * @param options - Workspace layer options
  * @returns Layer providing WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.

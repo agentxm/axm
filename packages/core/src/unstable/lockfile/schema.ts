@@ -99,7 +99,6 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       sourceName: Schema.String,
       ...extraFields,
     }),
-    Schema.Struct({ type: Schema.Literal("builtin"), ...extraFields }),
   ]);
 
 // =============================================================================
@@ -111,7 +110,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
  * Discriminated union by the `type` field.
  *
  * Fields common to all entries:
- * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry", "builtin")
+ * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
  * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
@@ -299,68 +298,14 @@ export const makeRegistryExtensionPackLockEntry = (
 });
 
 /**
- * Builtin pack lock entry - pack bundled with axm.
- * No integrity or sourceName fields.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const BuiltinExtensionPackLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("builtin"),
-  owner: HandleSchema,
-  name: ExtensionNameSchema,
-  resolvedVersion: ExactSemverVersionSchema,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
-  resolvedSkills: ResolvedExtensionMapSchema,
-  resolvedCommands: ResolvedExtensionMapSchema,
-  resolvedMcpServers: ResolvedExtensionMapSchema,
-}).annotate({
-  identifier: "BuiltinExtensionPackLockEntry",
-  title: "Builtin Extension Pack Lock Entry",
-  description: "Pinned version info for a built-in extension pack that ships with axm.",
-});
-
-/**
- * Inferred type for builtin pack lock entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type BuiltinExtensionPackLockEntry = Schema.Schema.Type<
-  typeof BuiltinExtensionPackLockEntrySchema
->;
-
-/**
- * Constructor args for a builtin pack lock entry.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type BuiltinExtensionPackLockEntryArgs = Omit<BuiltinExtensionPackLockEntry, "type">;
-
-/**
- * Build a builtin pack lock entry from typed args.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const makeBuiltinExtensionPackLockEntry = (
-  args: BuiltinExtensionPackLockEntryArgs,
-): BuiltinExtensionPackLockEntry => ({
-  type: "builtin",
-  ...args,
-});
-
-/**
  * Lock entry for a single installed pack.
- * Discriminated union by the `type` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionPackLockEntrySchema = Schema.Union([
-  RegistryExtensionPackLockEntrySchema,
-  BuiltinExtensionPackLockEntrySchema,
-]).annotate({
+export const ExtensionPackLockEntrySchema = RegistryExtensionPackLockEntrySchema.annotate({
   identifier: "ExtensionPackLockEntry",
   title: "Extension Pack Lock Entry",
-  description: "Pinned version info for an installed extension pack (from a registry or built-in).",
+  description: "Pinned version info for an installed extension pack from a registry.",
 });
 
 /**

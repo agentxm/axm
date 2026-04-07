@@ -31,5 +31,4 @@ axm manages skills, commands, and packs but has no user-facing way to manage MCP
 - **New module** — agent config readers/writers for 6 target agents
 - **New commands** (`packages/cli/src/cli-commands/mcp/`) — command tree with install, uninstall, list, enable, disable, update, publish, new subcommands
 - **Operations** (`packages/cli/src/extensions/mcp-servers/operations/`) — install/uninstall handlers extended with agent config step
-- **Builtin skill** (`axm-manage-mcp-servers`) — updated with actual command documentation
 - **Test case** — Chrome DevTools MCP server (`npx chrome-devtools-mcp@latest`, stdio transport) as end-to-end validation target

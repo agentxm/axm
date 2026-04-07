@@ -2,8 +2,7 @@
  * Workspace initialization logic.
  *
  * Handles initial setup of project and user-scope workspaces: agent detection,
- * interactive agent selection, settings/lockfile creation, and builtin pack
- * materialization.
+ * interactive agent selection, and settings/lockfile creation.
  *
  * @internal
  */
@@ -27,11 +26,6 @@ import {
   type Settings,
   writeSettings,
 } from "../settings/index.js";
-import {
-  materializeBuiltinExtensionPack,
-  type ResolvedBuiltinExtensionPack,
-} from "./builtin-packs.js";
-import type { AppError } from "../app-error/index.js";
 import type { WorkspaceContextOptions } from "./service-interface.js";
 
 /**
@@ -39,18 +33,9 @@ import type { WorkspaceContextOptions } from "./service-interface.js";
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
- * @param resolveBuiltinExtensionPack - Effect that resolves the bundled builtin pack
  * @returns Effect yielding selected agent IDs
  */
-export const initializeProjectWorkspace = (
-  localDir: string,
-  options: WorkspaceContextOptions,
-  resolveBuiltinExtensionPack: Effect.Effect<
-    ResolvedBuiltinExtensionPack,
-    AppError,
-    FileSystem.FileSystem | Path.Path
-  >,
-) =>
+export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     const nonInteractive = yield* isNonInteractive;
 
@@ -121,9 +106,6 @@ export const initializeProjectWorkspace = (
     // Create empty lockfile
     yield* writeLockfile(localDir, { lockfileVersion: 1, skills: {} });
 
-    // Materialize builtin pack
-    yield* materializeBuiltinExtensionPack(localDir, agentIds, resolveBuiltinExtensionPack);
-
     return settings;
   });
 
@@ -178,17 +160,11 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
- * @param resolveBuiltinExtensionPack - Effect that resolves the bundled builtin pack
  * @returns Effect yielding local Settings
  */
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
   options: WorkspaceContextOptions,
-  resolveBuiltinExtensionPack: Effect.Effect<
-    ResolvedBuiltinExtensionPack,
-    AppError,
-    FileSystem.FileSystem | Path.Path
-  >,
 ) =>
   Effect.gen(function* () {
     const localSettingsResult = yield* readSettings(localDir).pipe(
@@ -202,7 +178,7 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      return yield* initializeProjectWorkspace(localDir, options, resolveBuiltinExtensionPack);
+      return yield* initializeProjectWorkspace(localDir, options);
     }
 
     return localSettingsResult.settings;

@@ -86,7 +86,6 @@ export type {
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
-  BuiltinRefDetails,
 } from "./ref-base.js";
 
 // Extension ref union type

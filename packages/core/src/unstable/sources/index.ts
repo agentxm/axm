@@ -31,7 +31,6 @@ export type {
   // SourceHost
   AzureReposSourceHost,
   BitbucketSourceHost,
-  BuiltinSourceHost,
   ConfiguredSourceHost,
   GitHostingSourceHost,
   GitHubSourceHost,
@@ -44,7 +43,6 @@ export type {
   // SourceParams
   AzureReposSourceParams,
   BitbucketSourceParams,
-  BuiltinSourceParams,
   GitHubSourceParams,
   GitHostingSourceParams,
   GitLabSourceParams,
@@ -53,7 +51,6 @@ export type {
   RegistrySourceParams,
   SourceParams,
   // Source (flat intersection)
-  BuiltinSource,
   GitBasedSource,
   GitHostingSource,
   AzureReposSource,

@@ -19,7 +19,6 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinExtensionPack } from "../../builtin-pack/index.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -84,7 +83,6 @@ describe("list.handler", () => {
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
         ...wsOptions,
-        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
       }),
       BaseLayer,
     );

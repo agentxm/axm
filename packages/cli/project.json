@@ -17,19 +17,7 @@
         "outputPath": "packages/cli/dist",
         "tsConfig": "packages/cli/tsconfig.lib.json",
         "clean": true,
-        "generatePackageJson": false,
-        "assets": [
-          {
-            "input": "packages/cli/src/builtin-pack",
-            "glob": "skills/**/*",
-            "output": "src/builtin-pack"
-          },
-          {
-            "input": "packages/cli/src/builtin-pack",
-            "glob": "axm-pack.json",
-            "output": "src/builtin-pack"
-          }
-        ]
+        "generatePackageJson": false
       }
     },
     "watch": {
@@ -42,19 +30,7 @@
         "tsConfig": "packages/cli/tsconfig.lib.json",
         "clean": true,
         "generatePackageJson": false,
-        "watch": true,
-        "assets": [
-          {
-            "input": "packages/cli/src/builtin-pack",
-            "glob": "skills/**/*",
-            "output": "src/builtin-pack"
-          },
-          {
-            "input": "packages/cli/src/builtin-pack",
-            "glob": "axm-pack.json",
-            "output": "src/builtin-pack"
-          }
-        ]
+        "watch": true
       }
     },
     "lint": {

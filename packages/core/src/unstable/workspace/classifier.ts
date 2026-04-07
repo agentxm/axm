@@ -28,7 +28,6 @@ type ClassifiedExtension =
       readonly source: string;
       readonly enabled: boolean;
       readonly packagingKind: PackagingKind;
-      readonly isBuiltIn: boolean;
       readonly lifecycle: "configured";
     }
   | {
@@ -37,7 +36,6 @@ type ClassifiedExtension =
       readonly source: Option.Option<string>;
       readonly enabled: true;
       readonly packagingKind: PackagingKind;
-      readonly isBuiltIn: boolean;
       readonly lifecycle: "implicit" | "unmanaged";
     };
 
@@ -49,9 +47,7 @@ interface ClassifierInput {
   readonly lockedNames: ReadonlyArray<string>;
   readonly detectedNames: ReadonlyArray<string>;
   readonly ignoredPatterns: ReadonlyArray<string>;
-  readonly sourceMetaByName: Readonly<
-    Record<string, { readonly packagingKind: PackagingKind; readonly isBuiltIn: boolean }>
-  >;
+  readonly sourceMetaByName: Readonly<Record<string, { readonly packagingKind: PackagingKind }>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +84,6 @@ const classifyExtensions = (
     const sourceMetaFor = (name: string) =>
       input.sourceMetaByName[name] ?? {
         packagingKind: input.type === "pack" ? ("native" as const) : ("non-native" as const),
-        isBuiltIn: false,
       };
 
     const configuredNames = new Set(Object.keys(input.configured));
@@ -144,7 +139,6 @@ const classifyExtensions = (
           source: entry.source,
           enabled: entry.enabled ?? true,
           packagingKind: sourceMeta.packagingKind,
-          isBuiltIn: sourceMeta.isBuiltIn,
           lifecycle: "configured" as const,
         };
       });
@@ -157,7 +151,6 @@ const classifyExtensions = (
         source: Option.none<string>(),
         enabled: true as const,
         packagingKind: sourceMeta.packagingKind,
-        isBuiltIn: sourceMeta.isBuiltIn,
         lifecycle: "implicit" as const,
       };
     });
@@ -170,7 +163,6 @@ const classifyExtensions = (
         source: Option.none<string>(),
         enabled: true as const,
         packagingKind: sourceMeta.packagingKind,
-        isBuiltIn: sourceMeta.isBuiltIn,
         lifecycle: "unmanaged" as const,
       };
     });

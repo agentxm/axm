@@ -131,51 +131,12 @@ export const ExtensionPackManagerLive = Layer.effect(
     const materializeInstall: ExtensionManager<ExtensionPackRef>["materializeInstall"] = Effect.fn(
       "ExtensionPackManager.materializeInstall",
     )(function* ({ ref }: { readonly ref: ExtensionPackRef }) {
-      if (ref.refType === "builtin") {
-        yield* Effect.scoped(
-          Effect.gen(function* () {
-            const fetched = yield* sources.fetch(ref).pipe(
-              Effect.mapError((e: Error) =>
-                makeAppError({
-                  code: "PACK_FETCH_FAILED",
-                  what: `Failed to fetch builtin extension pack: ${e.message}`,
-                  cause: e,
-                }),
-              ),
-            );
-            const packDir = computeExtensionPackPaths(
-              path.join,
-              baseDir,
-              ref.owner,
-              ref.pack.name,
-            ).canonicalPath;
-            yield* provide(
-              copyExtensionDirectory(fetched.directory, packDir).pipe(
-                Effect.mapError((e) =>
-                  makeAppError({
-                    code: "PACK_EXTRACT_FAILED",
-                    what: `Failed to extract extension pack to ${packDir}`,
-                    cause: e,
-                  }),
-                ),
-              ),
-            );
-          }),
-        );
-        return;
-      }
-
-      const registryRef = ref;
-
-      yield* validateExactResolvedVersion(
-        `packs.${ref.pack.name}.resolvedVersion`,
-        registryRef.version,
-      );
+      yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
 
       const packDir = computeExtensionPackPaths(
         path.join,
         baseDir,
-        registryRef.owner,
+        ref.owner,
         ref.pack.name,
       ).canonicalPath;
 
@@ -242,14 +203,11 @@ export const ExtensionPackManagerLive = Layer.effect(
       }: {
         readonly ref: ExtensionPackRef;
         readonly versionConstraint: Option.Option<string>;
-      }) => {
-        if (ref.refType === "builtin")
-          return Effect.void.pipe(Effect.withSpan("ExtensionPackManager.upsertSettingsEntry"));
-        return buildSetExtensionPackArgs(ref, versionConstraint, sources).pipe(
+      }) =>
+        buildSetExtensionPackArgs(ref, versionConstraint, sources).pipe(
           Effect.flatMap((args) => ws.setExtensionPack(args)),
           Effect.withSpan("ExtensionPackManager.upsertSettingsEntry"),
-        );
-      },
+        ),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws

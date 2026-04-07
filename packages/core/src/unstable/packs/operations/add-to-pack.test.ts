@@ -64,7 +64,6 @@ const makeWorkspaceMock = (
           "my-pack": {
             source: "@myorg/packs/my-pack",
             packagingKind: "non-native" as const,
-            isBuiltIn: false,
           },
         },
       ),

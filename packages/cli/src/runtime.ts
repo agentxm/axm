@@ -47,7 +47,6 @@ import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstal
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
 import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinExtensionPack } from "./builtin-pack/index.js";
 import { loadVersion } from "./version.js";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
@@ -152,7 +151,6 @@ const makeWorkspaceProgramLayer = (
   const wsLayer = coreWorkspaceLayer({
     ...workspace,
     builtInSources: getBuiltInSources(registryUrl),
-    resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
   });
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(

@@ -38,8 +38,6 @@ export const printSourceParams = (source: SourceParams): string => {
     case "registry": {
       return "registry";
     }
-    case "builtin":
-      return "builtin";
   }
 };
 
@@ -97,7 +95,5 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
         type: "registry",
         owner: Option.none(),
       };
-    case "builtin":
-      return { type: "builtin" };
   }
 };

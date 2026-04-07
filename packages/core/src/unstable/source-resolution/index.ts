@@ -23,7 +23,6 @@ export { parseSkillMd } from "./parse-skill-md.js";
 export { parseManifests } from "./parse-manifests.js";
 
 // Provider implementations
-export { createBuiltinSourceHostProvider } from "./providers/builtin.js";
 export { createGitSourceHostProvider } from "./providers/git.js";
 export {
   createAzureReposSourceHostProvider,

@@ -79,7 +79,7 @@ export const copySkill: OperationHandler<
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);
 
-    // Source path from the ref location (registry/builtin refs don't carry location)
+    // Source path from the ref location (registry refs don't carry location)
     const { ref } = op.args;
     if (ref.refType !== "git-hosted" && ref.refType !== "local") {
       return yield* makeAppError({

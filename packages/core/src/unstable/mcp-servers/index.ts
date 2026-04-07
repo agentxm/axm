@@ -8,7 +8,6 @@ export type {
   GitHostedMcpServerRef,
   RegistryMcpServerRef,
   LocalMcpServerRef,
-  BuiltinMcpServerRef,
   McpServerExtensionRef,
 } from "./refs.js";
 

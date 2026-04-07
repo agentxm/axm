@@ -16,8 +16,6 @@ The CLI SHALL provide an `init` command that initializes axm state for the selec
 - **THEN** the CLI SHALL detect agents by checking both project-level directories (first segment of each agent's `skills.dir` in cwd) and user-level directories (`~/.{agent-id}` in home)
 - **AND** SHALL present a multiselect of all registered agents with detected agents pre-selected
 - **AND** SHALL write selected agents to `.axm/settings.json`
-- **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
-- **AND** SHALL record the builtin pack and its skills in the lockfile
 - **AND** SHALL display a notice informing the user that anonymous telemetry is enabled
 - **AND** the notice SHALL mention how to disable telemetry (`AXM_TELEMETRY=0` or setting `"telemetry": false` in settings)
 
@@ -25,7 +23,6 @@ The CLI SHALL provide an `init` command that initializes axm state for the selec
 
 - **WHEN** the user runs `axm init --scope user` without `~/.axm/`
 - **THEN** the CLI SHALL create user-scope axm settings and lockfile state
-- **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 - **AND** SHALL display the telemetry notice
 
 #### Scenario: Already initialized
@@ -37,14 +34,12 @@ The CLI SHALL provide an `init` command that initializes axm state for the selec
 
 - **WHEN** the user runs `axm init --yes`
 - **THEN** the CLI SHALL auto-select all detected agents (project-level + user-level) without prompting
-- **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 - **AND** SHALL display the telemetry notice
 
 #### Scenario: No agents detected
 
 - **WHEN** the user runs `axm init` in a directory without agent config directories and no matching user-level directories
 - **THEN** the CLI SHALL present a multiselect of all registered agents with none pre-selected
-- **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace after agent selection
 - **AND** SHALL display the telemetry notice
 
 #### Scenario: Telemetry notice not shown when telemetry is disabled

@@ -87,21 +87,18 @@ const toConfiguredSkill = (row: ConfiguredRow): ConfiguredSkill => ({
   source: row.source,
   enabled: row.enabled,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toImplicitSkill = (row: NonConfiguredRow): ImplicitSkill => ({
   source: row.source,
   enabled: true,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toUnmanagedSkill = (row: NonConfiguredRow): UnmanagedSkill => ({
   source: row.source,
   enabled: true,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toInstalledSkill = (row: InstalledRow): InstalledSkill =>
@@ -124,21 +121,18 @@ const toConfiguredCommand = (row: ConfiguredRow): ConfiguredCommand => ({
   source: row.source,
   enabled: row.enabled,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toImplicitCommand = (row: NonConfiguredRow): ImplicitCommand => ({
   source: row.source,
   enabled: true,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toUnmanagedCommand = (row: NonConfiguredRow): UnmanagedCommand => ({
   source: row.source,
   enabled: true,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toInstalledCommand = (row: InstalledRow): InstalledCommand =>
@@ -160,19 +154,16 @@ const toClassifiedCommand = (row: ClassifiedExtension): ClassifiedCommand => {
 const toConfiguredExtensionRef = (row: ConfiguredRow): ConfiguredExtensionRef => ({
   source: row.source,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toImplicitExtensionRef = (row: NonConfiguredRow): ImplicitExtensionRef => ({
   source: row.source,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toUnmanagedExtensionRef = (row: NonConfiguredRow): UnmanagedExtensionRef => ({
   source: row.source,
   packagingKind: row.packagingKind,
-  isBuiltIn: row.isBuiltIn,
 });
 
 const toInstalledExtensionRef = (row: InstalledRow): InstalledExtensionRef =>

@@ -73,7 +73,6 @@ describe("workspace doctor", () => {
               location: new URL("https://registry.agentxm.ai"),
             },
           ],
-          resolveBuiltinExtensionPack: Effect.die("unused in doctor tests"),
         }),
         baseLayer,
       );

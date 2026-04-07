@@ -24,7 +24,7 @@ import type { Handle } from "../extensions/handle.js";
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
  *
- * @experimental This API is unstable and may change without notice.
+ * @experimental
  */
 export const SourceTypeSchema = Schema.Literals([
   "github",
@@ -34,12 +34,11 @@ export const SourceTypeSchema = Schema.Literals([
   "git",
   "registry",
   "local",
-  "builtin",
 ]).annotate({
   identifier: "SourceType",
   title: "Source Type",
   description:
-    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, or builtin.",
+    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, or local.",
 });
 
 /**
@@ -59,19 +58,13 @@ export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
  * - `"git-hosted"` - Git-based sources (GitHub, GitLab, Bitbucket, AzureRepos, Git)
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
- * - `"builtin"` - Bundled extension source
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RefTypeSchema = Schema.Literals([
-  "git-hosted",
-  "registry",
-  "local",
-  "builtin",
-]).annotate({
+export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local"]).annotate({
   identifier: "RefType",
   title: "Ref Type",
-  description: "Ref type category: git-hosted, registry, local, or builtin.",
+  description: "Ref type category: git-hosted, registry, or local.",
 });
 
 /**
@@ -205,11 +198,6 @@ export interface LocalSourceHost {
   readonly type: "local";
 }
 
-/** Self-describing — bundled extensions, no configuration needed. @experimental */
-export interface BuiltinSourceHost {
-  readonly type: "builtin";
-}
-
 /** @experimental */
 export type SourceHost =
   | GitHubSourceHost
@@ -218,8 +206,7 @@ export type SourceHost =
   | AzureReposSourceHost
   | GitSourceHost
   | RegistrySourceHost
-  | LocalSourceHost
-  | BuiltinSourceHost;
+  | LocalSourceHost;
 
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
@@ -282,11 +269,6 @@ export interface LocalSourceParams {
 }
 
 /** @experimental */
-export interface BuiltinSourceParams {
-  readonly type: "builtin";
-}
-
-/** @experimental */
 export type SourceParams =
   | GitHubSourceParams
   | GitLabSourceParams
@@ -294,8 +276,7 @@ export type SourceParams =
   | AzureReposSourceParams
   | GitSourceParams
   | RegistrySourceParams
-  | LocalSourceParams
-  | BuiltinSourceParams;
+  | LocalSourceParams;
 
 // -----------------------------------------------------------------------------
 // Source — SourceHost & SourceParams
@@ -316,9 +297,6 @@ export type RegistrySource = RegistrySourceHost & RegistrySourceParams;
 /** @experimental */
 export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
-export type BuiltinSource = BuiltinSourceHost & BuiltinSourceParams;
-
-/** @experimental */
 export type Source =
   | GitHubSource
   | GitLabSource
@@ -326,8 +304,7 @@ export type Source =
   | AzureReposSource
   | GitSource
   | RegistrySource
-  | LocalSource
-  | BuiltinSource;
+  | LocalSource;
 
 // -----------------------------------------------------------------------------
 // Convenience Unions
@@ -357,4 +334,4 @@ export type GitBasedSource = GitHostingSource | GitSource;
 export type ConfiguredSourceHost = GitHostingSourceHost | RegistrySourceHost;
 
 /** Sources that are self-describing (no settings config needed). @experimental */
-export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost | BuiltinSourceHost;
+export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost;

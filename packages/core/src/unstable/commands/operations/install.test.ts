@@ -148,18 +148,11 @@ const withServices = (
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
-      Effect.gen(function* () {
-        if (ref.refType === "git-hosted" || ref.refType === "local") {
-          return { directory: new URL(ref.location).pathname };
-        }
-        if (ref.refType === "registry") {
-          return { directory: ref.source.location.pathname };
-        }
-        return yield* makeAppError({
-          code: "SOURCE_FETCH_FAILED",
-          what: "Builtin refs are not fetchable in tests",
-        });
-      }),
+      Effect.succeed(
+        ref.refType === "git-hosted" || ref.refType === "local"
+          ? { directory: new URL(ref.location).pathname }
+          : { directory: ref.source.location.pathname },
+      ),
     cloneUrl: () => Option.none(),
     origin: (source) =>
       source.type === "registry"

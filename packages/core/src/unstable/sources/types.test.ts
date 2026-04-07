@@ -19,7 +19,6 @@ import type {
   SourceType,
 } from "./types.js";
 import type {
-  BuiltinRefDetails,
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
@@ -27,14 +26,14 @@ import type {
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
-import type { ExtensionPackRef, BuiltinExtensionPackRef } from "../packs/refs.js";
+import type { ExtensionPackRef } from "../packs/refs.js";
 
 // -----------------------------------------------------------------------------
 // SourceType
 // -----------------------------------------------------------------------------
 
 describe("SourceType", () => {
-  it("includes all 8 members", () => {
+  it("includes all 7 members", () => {
     const types: SourceType[] = [
       "github",
       "gitlab",
@@ -43,9 +42,8 @@ describe("SourceType", () => {
       "git",
       "registry",
       "local",
-      "builtin",
     ];
-    expect(types).toHaveLength(8);
+    expect(types).toHaveLength(7);
   });
 });
 
@@ -54,9 +52,9 @@ describe("SourceType", () => {
 // -----------------------------------------------------------------------------
 
 describe("RefType", () => {
-  it("includes all 4 members", () => {
-    const types: RefType[] = ["git-hosted", "registry", "local", "builtin"];
-    expect(types).toHaveLength(4);
+  it("includes all 3 members", () => {
+    const types: RefType[] = ["git-hosted", "registry", "local"];
+    expect(types).toHaveLength(3);
   });
 });
 
@@ -111,11 +109,6 @@ describe("SourceHost", () => {
   it("narrows LocalSourceHost via type (self-describing)", () => {
     const host: SourceHost = { type: "local" };
     expect(host.type).toBe("local");
-  });
-
-  it("narrows BuiltinSourceHost via type (self-describing)", () => {
-    const host: SourceHost = { type: "builtin" };
-    expect(host.type).toBe("builtin");
   });
 });
 
@@ -209,11 +202,6 @@ describe("SourceParams", () => {
       expect(params.path).toBe("/home/user/skill");
     }
   });
-
-  it("narrows BuiltinSourceParams via type", () => {
-    const params: SourceParams = { type: "builtin" };
-    expect(params.type).toBe("builtin");
-  });
 });
 
 // -----------------------------------------------------------------------------
@@ -253,11 +241,6 @@ describe("Source", () => {
     if (source.type === "local") {
       expect(source.path).toBe("/home/user/skill");
     }
-  });
-
-  it("BuiltinSource is type-only", () => {
-    const source: Source = { type: "builtin" };
-    expect(source.type).toBe("builtin");
   });
 
   it("switch (source.type) gives access to all fields", () => {
@@ -306,13 +289,9 @@ describe("convenience unions", () => {
     expect(hosts).toHaveLength(2);
   });
 
-  it("SelfDescribingSourceHost includes git, local, builtin", () => {
-    const hosts: SelfDescribingSourceHost[] = [
-      { type: "git" },
-      { type: "local" },
-      { type: "builtin" },
-    ];
-    expect(hosts).toHaveLength(3);
+  it("SelfDescribingSourceHost includes git and local", () => {
+    const hosts: SelfDescribingSourceHost[] = [{ type: "git" }, { type: "local" }];
+    expect(hosts).toHaveLength(2);
   });
 });
 
@@ -346,11 +325,6 @@ describe("ref detail interfaces", () => {
   it("LocalRefDetails has location", () => {
     const details: LocalRefDetails = { location: "file:///home/user/skill" };
     expect(details.location).toBe("file:///home/user/skill");
-  });
-
-  it("BuiltinRefDetails is empty", () => {
-    const details: BuiltinRefDetails = {};
-    expect(details).toEqual({});
   });
 });
 
@@ -420,29 +394,20 @@ describe("SkillExtensionRef", () => {
     }
   });
 
-  it("BuiltinSkillRef has no extra details", () => {
-    const ref: SkillExtensionRef = {
-      type: "skill",
-      refType: "builtin",
-      skill: { name: "builtin-skill", description: Option.none(), metadata: Option.none() },
-      source: { type: "builtin" },
-    };
-    expect(ref.refType).toBe("builtin");
-    expect(ref.source.type).toBe("builtin");
-  });
-
   it("skill.description is Option<string>", () => {
     const withDesc: SkillExtensionRef = {
       type: "skill",
-      refType: "builtin",
+      refType: "local",
       skill: { name: "s", description: Option.some("hello"), metadata: Option.none() },
-      source: { type: "builtin" },
+      source: { type: "local", path: "/test" },
+      location: "file:///test",
     };
     const withoutDesc: SkillExtensionRef = {
       type: "skill",
-      refType: "builtin",
+      refType: "local",
       skill: { name: "s", description: Option.none(), metadata: Option.none() },
-      source: { type: "builtin" },
+      source: { type: "local", path: "/test" },
+      location: "file:///test",
     };
     expect(Option.getOrNull(withDesc.skill.description)).toBe("hello");
     expect(Option.getOrNull(withoutDesc.skill.description)).toBeNull();
@@ -522,19 +487,6 @@ describe("ExtensionPackRef", () => {
       expect(ref.name).toBe("pack-pkg");
     }
   });
-
-  it("BuiltinExtensionPackRef has pack name and owner", () => {
-    const ref: BuiltinExtensionPackRef = {
-      type: "pack",
-      refType: "builtin",
-      owner: "@axm",
-      pack: { name: "default", skills: {}, commands: {}, mcpServers: {} },
-      source: { type: "builtin" },
-    };
-    expect(ref.source.type).toBe("builtin");
-    expect(ref.pack.name).toBe("default");
-    expect(ref.owner).toBe("@axm");
-  });
 });
 
 // -----------------------------------------------------------------------------
@@ -558,9 +510,10 @@ describe("ExtensionRef", () => {
   it("narrows to McpServerExtensionRef via type", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
-      refType: "builtin",
+      refType: "local",
       server: { name: "srv" },
-      source: { type: "builtin" },
+      source: { type: "local", path: "/test" },
+      location: "file:///test",
     };
     if (ref.type === "mcp-server") {
       expect(ref.server.name).toBe("srv");
@@ -570,10 +523,13 @@ describe("ExtensionRef", () => {
   it("narrows to ExtensionPackRef via type", () => {
     const ref: ExtensionRef = {
       type: "pack",
-      refType: "builtin",
+      refType: "registry",
       owner: "@axm",
       pack: { name: "p", skills: {}, commands: {}, mcpServers: {} },
-      source: { type: "builtin" },
+      source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
+      name: "p",
+      version: "1.0.0",
+      integrity: Option.none(),
     };
     if (ref.type === "pack") {
       expect(ref.pack.name).toBe("p");
@@ -712,12 +668,6 @@ describe("SourceParams structural equality", () => {
   it("LocalSourceParams compares path", () => {
     const a: SourceParams = { type: "local", path: "/a" };
     const b: SourceParams = { type: "local", path: "/a" };
-    expect(Equal.equals(a, b)).toBe(true);
-  });
-
-  it("BuiltinSourceParams are equal", () => {
-    const a: SourceParams = { type: "builtin" };
-    const b: SourceParams = { type: "builtin" };
     expect(Equal.equals(a, b)).toBe(true);
   });
 

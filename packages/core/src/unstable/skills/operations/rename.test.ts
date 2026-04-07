@@ -59,7 +59,6 @@ const makeWorkspaceMock = (
               source: getConfiguredSkillSource(v),
               enabled: isConfiguredSkillEnabled(v),
               packagingKind: "non-native" as const,
-              isBuiltIn: false,
             },
           ]),
         ),
@@ -77,9 +76,7 @@ const makeWorkspaceMock = (
           ? "registry"
           : lockEntry?.type === "local"
             ? "local"
-            : lockEntry?.type === "builtin"
-              ? "builtin"
-              : "git-hosted");
+            : "git-hosted");
       if (srcRefType === "registry") {
         const owner =
           source?.refType === "registry"

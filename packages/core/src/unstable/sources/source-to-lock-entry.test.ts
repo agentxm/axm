@@ -1,12 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
-import type {
-  BuiltinSkillRef,
-  GitHostedSkillRef,
-  LocalSkillRef,
-  RegistrySkillRef,
-} from "../skills/refs.js";
+import type { GitHostedSkillRef, LocalSkillRef, RegistrySkillRef } from "../skills/refs.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
 const agents = ["claude", "cursor"];
@@ -354,38 +349,6 @@ describe("sourceToLockEntry", () => {
     expect(result.type).toBe("registry");
     if (result.type !== "registry") throw new Error("Expected registry");
     expect(result.sourceName).toBe("default");
-  });
-
-  // ---------------------------------------------------------------------------
-  // Builtin
-  // ---------------------------------------------------------------------------
-
-  it("maps Builtin ref", () => {
-    const ref: BuiltinSkillRef = {
-      type: "skill",
-      refType: "builtin",
-      skill: {
-        name: "test-skill",
-        description: Option.some("A test skill"),
-        metadata: Option.none(),
-      },
-      source: { type: "builtin" },
-    };
-
-    const result = sourceToLockEntry({
-      ref,
-      agents,
-      now,
-      sourceName: Option.none(),
-      existingInstalledAt: Option.none(),
-    });
-
-    expect(result).toEqual({
-      type: "builtin",
-      agents,
-      installedAt: now,
-      updatedAt: now,
-    } satisfies SkillLockEntry);
   });
 
   // ---------------------------------------------------------------------------

@@ -106,45 +106,6 @@ const materializeLocal = (
     return skillSrcPath;
   });
 
-const materializeBuiltin = (
-  ref: Extract<SkillExtensionRef, { refType: "builtin" }>,
-  sanitizedName: string,
-  fs: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  sources: SourceHostProvidersService,
-  provide: ProvideFs,
-) =>
-  Effect.gen(function* () {
-    const { skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      { refType: ref.refType },
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-    const fetched = yield* sources.fetch(ref).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
-          what: `Failed to fetch files for ${ref.skill.name}`,
-          cause: error,
-        }),
-      ),
-      Effect.scoped,
-    );
-    yield* preCleanAndCopy(
-      fs,
-      pathService,
-      baseDir,
-      sanitizedName,
-      fetched.directory,
-      skillSrcPath,
-      provide,
-    );
-    return skillSrcPath;
-  });
-
 const materializeRegistry = (
   ref: Extract<SkillExtensionRef, { refType: "registry" }>,
   sanitizedName: string,
@@ -253,16 +214,6 @@ export const materializeSkillCanonical = (args: {
         args.fs,
         args.pathService,
         args.baseDir,
-        args.provide,
-      );
-    case "builtin":
-      return materializeBuiltin(
-        args.ref,
-        args.sanitizedName,
-        args.fs,
-        args.pathService,
-        args.baseDir,
-        args.sources,
         args.provide,
       );
     case "registry":

@@ -147,8 +147,6 @@ const toSkillPathSource = (ref: SkillExtensionRef): SkillPathSource => {
       return { refType: "registry", owner: ref.owner };
     case "local":
       return { refType: "local" };
-    case "builtin":
-      return { refType: "builtin" };
     case "git-hosted":
       return { refType: "git-hosted" };
   }

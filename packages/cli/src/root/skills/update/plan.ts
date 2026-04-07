@@ -58,11 +58,6 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
     return opVersion !== lockVersion;
   }
 
-  if (ref.refType === "builtin") {
-    // Builtin skills are updated via CLI version comparison, not here
-    return false;
-  }
-
   // Local sources: always update (no version tracking)
   return true;
 };

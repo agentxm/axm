@@ -22,7 +22,7 @@ import { TestFlagsLayer } from "../cli-flags/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import { expectDefined, property, recordEntry, stringProperty } from "../test-helpers.js";
-import { layer as workspaceLayer, type WorkspaceLayerOptions } from "./service.js";
+import { layer as workspaceLayer } from "./service.js";
 import {
   Workspace,
   type SetCommandArgs,
@@ -84,23 +84,8 @@ describe("WorkspaceContextService", () => {
     TestFlagsLayer(),
   );
 
-  const toLayerOptions = (options: WorkspaceContextOptions): WorkspaceLayerOptions => ({
-    ...options,
-    resolveBuiltinExtensionPack: Effect.succeed({
-      manifest: {
-        owner: "@axm",
-        name: "cli",
-        type: "pack" as const,
-        version: "0.0.0",
-        skills: {},
-      },
-      version: "0.0.0",
-      skillsDir: "/tmp/nonexistent-builtin-skills",
-    }),
-  });
-
   const makeWsLayer = (options: WorkspaceContextOptions) =>
-    Layer.provide(workspaceLayer(toLayerOptions(options)), BaseLayer);
+    Layer.provide(workspaceLayer(options), BaseLayer);
 
   const getService = (options: WorkspaceContextOptions) =>
     Workspace.asEffect().pipe(Effect.provide(makeWsLayer(options)));
@@ -629,14 +614,12 @@ describe("WorkspaceContextService", () => {
             source: "github:acme/code-review",
             enabled: true,
             packagingKind: "non-native",
-            isBuiltIn: false,
           },
           "test-gen": {
             lifecycle: "configured",
             source: "local:/tmp/test-gen",
             enabled: true,
             packagingKind: "non-native",
-            isBuiltIn: false,
           },
         });
       }),
@@ -1116,7 +1099,7 @@ describe("WorkspaceContextService", () => {
       const flagsLayer = TestFlagsLayer(flags);
       const wsOptions: WorkspaceContextOptions = { scope: "project", agents: Option.none() };
       const base = Layer.mergeAll(NodeServices.layer, logLayer, promptLayer, flagsLayer);
-      const wsLayer = Layer.provide(workspaceLayer(toLayerOptions(wsOptions)), base);
+      const wsLayer = Layer.provide(workspaceLayer(wsOptions), base);
       return {
         run: Workspace.asEffect().pipe(Effect.provide(wsLayer)),
         promptState,
@@ -1345,7 +1328,6 @@ describe("WorkspaceContextService", () => {
           source: "github:acme/code-review",
           enabled: true,
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
 
         // Object entry normalizes to disabled with source + metadata
@@ -1353,7 +1335,6 @@ describe("WorkspaceContextService", () => {
           source: "github:acme/linter",
           enabled: false,
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -1395,7 +1376,6 @@ describe("WorkspaceContextService", () => {
           source: "github:acme/code-review",
           enabled: true,
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
 
         expect(skills["my-linter"]).toEqual({
@@ -1403,7 +1383,6 @@ describe("WorkspaceContextService", () => {
           source: "github:acme/linter",
           enabled: false,
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -1659,7 +1638,6 @@ describe("WorkspaceContextService", () => {
           "starter-pack": {
             source: "@acme/packs/starter-pack",
             packagingKind: "native",
-            isBuiltIn: false,
           },
         });
       }),
@@ -1693,7 +1671,6 @@ describe("WorkspaceContextService", () => {
             lifecycle: "configured",
             source: "@acme/packs/starter-pack",
             packagingKind: "native",
-            isBuiltIn: false,
           },
         });
       }),
@@ -2075,7 +2052,6 @@ describe("WorkspaceContextService", () => {
           source: Option.none(),
           enabled: true,
           packagingKind: "native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -2249,7 +2225,6 @@ describe("WorkspaceContextService", () => {
           source: "github:acme/my-cmd",
           enabled: true,
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -2291,7 +2266,6 @@ describe("WorkspaceContextService", () => {
           source: Option.none(),
           enabled: true,
           packagingKind: "native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -2450,7 +2424,6 @@ describe("WorkspaceContextService", () => {
         expect(servers["my-mcp"]).toEqual({
           source: "github:acme/my-mcp",
           packagingKind: "non-native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -2491,7 +2464,6 @@ describe("WorkspaceContextService", () => {
         expect(implicit["implicit-mcp"]).toEqual({
           source: Option.none(),
           packagingKind: "native",
-          isBuiltIn: false,
         });
       }),
     );
@@ -2644,11 +2616,13 @@ describe("WorkspaceContextService", () => {
           projectDir,
           {},
           {
-            "@axm/packs/axm-builtin": {
-              type: "builtin",
+            "@axm/packs/default": {
+              type: "registry",
               owner: "@axm",
-              name: "axm-builtin",
+              name: "default",
               resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2661,11 +2635,10 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const implicit = yield* ws.getImplicitPacks();
 
-        expect(Object.keys(implicit)).toEqual(["@axm/packs/axm-builtin"]);
-        expect(implicit["@axm/packs/axm-builtin"]).toEqual({
+        expect(Object.keys(implicit)).toEqual(["@axm/packs/default"]);
+        expect(implicit["@axm/packs/default"]).toEqual({
           source: Option.none(),
           packagingKind: "native",
-          isBuiltIn: true,
         });
       }),
     );
@@ -2696,18 +2669,20 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("getInstalledPacks (taxonomy)", () => {
-    it.effect("includes lockfile-only implicit packs (builtin)", () =>
+    it.effect("includes lockfile-only implicit packs", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(
           projectDir,
           {},
           {
-            "@axm/packs/axm-builtin": {
-              type: "builtin",
+            "@axm/packs/default": {
+              type: "registry",
               owner: "@axm",
-              name: "axm-builtin",
+              name: "default",
               resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2720,8 +2695,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.getInstalledPacks();
 
-        expect(recordEntry(installed, "@axm/packs/axm-builtin").lifecycle).toBe("implicit");
-        expect(recordEntry(installed, "@axm/packs/axm-builtin").isBuiltIn).toBe(true);
+        expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
       }),
     );
 
@@ -2748,11 +2722,13 @@ describe("WorkspaceContextService", () => {
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
-            "@axm/packs/axm-builtin": {
-              type: "builtin",
+            "@axm/packs/default": {
+              type: "registry",
               owner: "@axm",
-              name: "axm-builtin",
+              name: "default",
               resolvedVersion: "1.0.0",
+              integrity: "sha512-BBBB==",
+              sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2766,7 +2742,7 @@ describe("WorkspaceContextService", () => {
         const installed = yield* ws.getInstalledPacks();
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
-        expect(recordEntry(installed, "@axm/packs/axm-builtin").lifecycle).toBe("implicit");
+        expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
       }),
     );
   });

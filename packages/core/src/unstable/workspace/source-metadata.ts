@@ -1,7 +1,7 @@
 /**
  * Source metadata derivation helpers for workspace classifier integration.
  *
- * Pure functions that compute `SourceMeta` (packagingKind + isBuiltIn) from
+ * Pure functions that compute `SourceMeta` (packagingKind) from
  * lockfile entries, settings entries, and detection results.
  *
  * @internal
@@ -14,7 +14,7 @@ import type { PackagingKind } from "./classifier.js";
 // Types
 // ---------------------------------------------------------------------------
 
-export type SourceMeta = { readonly packagingKind: PackagingKind; readonly isBuiltIn: boolean };
+export type SourceMeta = { readonly packagingKind: PackagingKind };
 
 // ---------------------------------------------------------------------------
 // Derivation from lock entry type
@@ -22,13 +22,11 @@ export type SourceMeta = { readonly packagingKind: PackagingKind; readonly isBui
 
 export const deriveSourceMetaFromLockType = (lockType: string): SourceMeta => {
   switch (lockType) {
-    case "builtin":
-      return { packagingKind: "native", isBuiltIn: true };
     case "registry":
-      return { packagingKind: "native", isBuiltIn: false };
+      return { packagingKind: "native" };
     default:
       // git, github, gitlab, bitbucket, azurerepos, local
-      return { packagingKind: "non-native", isBuiltIn: false };
+      return { packagingKind: "non-native" };
   }
 };
 
@@ -71,9 +69,9 @@ export const deriveSourceMetaForSkills = (
     const sourceStr = getSkillEntrySource(entry);
     // Registry/FQN → native; otherwise → non-native
     if (sourceStr.includes("/skills/") || sourceStr.startsWith("@")) {
-      result[name] = { packagingKind: "native", isBuiltIn: false };
+      result[name] = { packagingKind: "native" };
     } else {
-      result[name] = { packagingKind: "non-native", isBuiltIn: false };
+      result[name] = { packagingKind: "non-native" };
     }
   }
   return result;
@@ -93,9 +91,9 @@ export const deriveSourceMetaForNonSkill = (
   for (const [name, source] of Object.entries(settingsEntries)) {
     if (name in result) continue;
     if (source.includes("/") && source.startsWith("@")) {
-      result[name] = { packagingKind: "native", isBuiltIn: false };
+      result[name] = { packagingKind: "native" };
     } else {
-      result[name] = { packagingKind: "non-native", isBuiltIn: false };
+      result[name] = { packagingKind: "non-native" };
     }
   }
   return result;
@@ -109,8 +107,8 @@ export const deriveSourceMetaForPacks = (
   lockEntries: Readonly<Record<string, { type: string }>>,
 ): Readonly<Record<string, SourceMeta>> => {
   const result: Record<string, SourceMeta> = {};
-  for (const [name, entry] of Object.entries(lockEntries)) {
-    result[name] = { packagingKind: "native", isBuiltIn: entry.type === "builtin" };
+  for (const [name] of Object.entries(lockEntries)) {
+    result[name] = { packagingKind: "native" };
   }
   return result;
 };

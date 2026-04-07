@@ -7,12 +7,8 @@
  * @packageDocumentation
  */
 
-import type {
-  ExtensionPackRefBase,
-  RegistryRefDetails,
-  BuiltinRefDetails,
-} from "../extensions/ref-base.js";
-import type { RegistrySource, BuiltinSource } from "../sources/types.js";
+import type { ExtensionPackRefBase, RegistryRefDetails } from "../extensions/ref-base.js";
+import type { RegistrySource } from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Pack Extension Refs
@@ -21,9 +17,6 @@ import type { RegistrySource, BuiltinSource } from "../sources/types.js";
 /** @experimental */
 export type RegistryExtensionPackRef = ExtensionPackRefBase<"registry", RegistrySource> &
   RegistryRefDetails;
-/** @experimental */
-export type BuiltinExtensionPackRef = ExtensionPackRefBase<"builtin", BuiltinSource> &
-  BuiltinRefDetails;
 
 /** @experimental */
-export type ExtensionPackRef = RegistryExtensionPackRef | BuiltinExtensionPackRef;
+export type ExtensionPackRef = RegistryExtensionPackRef;

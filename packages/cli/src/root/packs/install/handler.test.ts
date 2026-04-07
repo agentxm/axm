@@ -20,7 +20,6 @@ import { makeTestPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinExtensionPack } from "../../../builtin-pack/index.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import type { ExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { ExtensionFiles } from "@axm.sh/core/unstable/sources";
@@ -140,7 +139,6 @@ describe("packs install handler", () => {
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
         ...wsOptions,
-        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
       }),
       BaseLayer,
     );
@@ -190,7 +188,6 @@ describe("packs install handler", () => {
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
         ...wsOptions,
-        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
       }),
       BaseLayer,
     );

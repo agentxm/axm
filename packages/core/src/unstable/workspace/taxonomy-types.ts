@@ -19,21 +19,18 @@ export interface ConfiguredSkill {
   readonly source: string;
   readonly enabled: boolean;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface ImplicitSkill {
   readonly source: Option.Option<string>;
   readonly enabled: true;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface UnmanagedSkill {
   readonly source: Option.Option<string>;
   readonly enabled: true;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export type InstalledSkill =
@@ -53,21 +50,18 @@ export interface ConfiguredCommand {
   readonly source: string;
   readonly enabled: boolean;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface ImplicitCommand {
   readonly source: Option.Option<string>;
   readonly enabled: true;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface UnmanagedCommand {
   readonly source: Option.Option<string>;
   readonly enabled: true;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export type InstalledCommand =
@@ -87,19 +81,16 @@ export type ClassifiedCommand =
 export interface ConfiguredExtensionRef {
   readonly source: string;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface ImplicitExtensionRef {
   readonly source: Option.Option<string>;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export interface UnmanagedExtensionRef {
   readonly source: Option.Option<string>;
   readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
 }
 
 export type InstalledExtensionRef =

@@ -2,7 +2,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
-  BuiltinExtensionPackLockEntrySchema,
   LockfileSchema,
   ExtensionPackLockEntrySchema,
   ExtensionPacksLockMapSchema,
@@ -630,41 +629,6 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("BuiltinSkillLockEntry", () => {
-    it("accepts valid builtin skill lock entry", () => {
-      const input = {
-        type: "builtin",
-        agents: ["claude-code"],
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-      };
-
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
-      expect(result.agents).toEqual(["claude-code"]);
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
-    });
-
-    it("strips registry-specific fields on decode", () => {
-      const input = {
-        type: "builtin",
-        agents: ["claude-code"],
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-        integrity: "sha512-abc123",
-        sourceName: "default",
-      };
-
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
-      expect("integrity" in result).toBe(false);
-      expect("sourceName" in result).toBe(false);
-    });
-  });
-
   describe("SkillsLockMap", () => {
     it("accepts empty skills map", () => {
       const input = {};
@@ -877,74 +841,6 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("BuiltinExtensionPackLockEntry", () => {
-    it("accepts valid builtin pack lock entry", () => {
-      const input = {
-        type: "builtin",
-        owner: "@axm",
-        name: "cli",
-        resolvedVersion: "0.0.16",
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: { "@axm/skills/effect-solutions": "0.0.16" },
-        resolvedCommands: {},
-        resolvedMcpServers: {},
-      };
-
-      const result = Schema.decodeUnknownSync(BuiltinExtensionPackLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
-      expect(result.owner).toBe("@axm");
-      expect(result.name).toBe("cli");
-      expect(result.resolvedVersion).toBe("0.0.16");
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
-      expect(result.resolvedSkills).toEqual({ "@axm/skills/effect-solutions": "0.0.16" });
-      expect(result.resolvedCommands).toEqual({});
-      expect(result.resolvedMcpServers).toEqual({});
-    });
-
-    it("strips integrity and sourceName on decode", () => {
-      const input = {
-        type: "builtin",
-        owner: "@axm",
-        name: "cli",
-        resolvedVersion: "0.0.16",
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: {},
-        resolvedCommands: {},
-        resolvedMcpServers: {},
-        integrity: "sha512-abc123",
-        sourceName: "default",
-      };
-
-      const result = Schema.decodeUnknownSync(BuiltinExtensionPackLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
-      expect("integrity" in result).toBe(false);
-      expect("sourceName" in result).toBe(false);
-    });
-
-    it("is accepted by ExtensionPackLockEntrySchema union", () => {
-      const input = {
-        type: "builtin",
-        owner: "@axm",
-        name: "cli",
-        resolvedVersion: "0.0.16",
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: {},
-        resolvedCommands: {},
-        resolvedMcpServers: {},
-      };
-
-      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
-    });
-  });
-
   describe("ExtensionPacksLockMap", () => {
     it("accepts empty packs map", () => {
       const result = Schema.decodeUnknownSync(ExtensionPacksLockMapSchema)({});
@@ -1018,8 +914,8 @@ describe("lockfile schema", () => {
     });
   });
 
-  describe("Lockfile round-trip with builtin entries", () => {
-    it("decodes and re-encodes lockfile with registry and builtin packs and skills", () => {
+  describe("Lockfile round-trip with registry entries", () => {
+    it("decodes and re-encodes lockfile with registry packs and skills", () => {
       const input = {
         lockfileVersion: 1,
         skills: {
@@ -1030,12 +926,6 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.2.0",
             integrity: "sha512-abc123",
             sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: "2025-01-15T10:30:00.000Z",
-            updatedAt: "2025-01-15T10:30:00.000Z",
-          },
-          "builtin-skill": {
-            type: "builtin",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
@@ -1052,17 +942,6 @@ describe("lockfile schema", () => {
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
             resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
-            resolvedCommands: {},
-            resolvedMcpServers: {},
-          },
-          "@axm/packs/cli": {
-            type: "builtin",
-            owner: "@axm",
-            name: "cli",
-            resolvedVersion: "0.0.16",
-            installedAt: "2025-01-15T10:30:00.000Z",
-            updatedAt: "2025-01-15T10:30:00.000Z",
-            resolvedSkills: { "@axm/skills/effect-solutions": "0.0.16" },
             resolvedCommands: {},
             resolvedMcpServers: {},
           },

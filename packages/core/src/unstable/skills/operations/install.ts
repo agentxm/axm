@@ -15,7 +15,6 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
 import type {
-  BuiltinSkillRef,
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
@@ -136,40 +135,6 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     if (!isSelfCopy) {
       yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
     }
-
-    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
-  });
-
-// TODO: Effect.scoped closes finalizers before the caller uses the returned directory.
-// When the builtin provider is implemented (currently a stub that always fails),
-// the copy to canonical must happen *inside* the scope so the temp dir isn't cleaned up early.
-const fetchSource = (ref: BuiltinSkillRef) =>
-  Effect.gen(function* () {
-    const sources = yield* SourceHostProviders;
-    const files = yield* sources.fetch(ref).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
-          what: `Failed to fetch files for ${ref.skill.name}`,
-          cause: error,
-        }),
-      ),
-      Effect.scoped,
-    );
-    return files.directory;
-  });
-
-const installFromBuiltin = (ref: BuiltinSkillRef, sanitizedName: string) =>
-  Effect.gen(function* () {
-    const ws = yield* Workspace;
-
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-      refType: ref.refType,
-    });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath, "INSTALL_SKILL_PATH_TRAVERSAL");
-
-    const sourcePath = yield* fetchSource(ref);
-    yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
 
     return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
   });
@@ -333,8 +298,6 @@ const materializeSkill = (
       return installFromRegistry(ref, sanitizedName, versionConstraint);
     case "local":
       return installFromLocal(ref, sanitizedName);
-    case "builtin":
-      return installFromBuiltin(ref, sanitizedName);
   }
 };
 

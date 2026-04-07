@@ -18,7 +18,7 @@ import type { Handle } from "../extensions/handle.js";
  */
 export type SkillPathSource =
   | { readonly refType: "registry"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" | "builtin" };
+  | { readonly refType: "git-hosted" | "local" };
 
 /**
  * Computed paths for an installed skill directory.

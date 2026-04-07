@@ -12,7 +12,6 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import YAML from "yaml";
 import type { Settings } from "@axm.sh/core/unstable/settings";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -26,7 +25,6 @@ import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
-import { resolveBuiltinExtensionPack } from "../builtin-pack/index.js";
 import { expectDefined } from "../test-helpers.js";
 import { handleInit } from "./init.js";
 
@@ -68,7 +66,6 @@ describe("init.handler", () => {
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
         ...wsOptions,
-        resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
       }),
       TestLayer,
     );
@@ -217,7 +214,6 @@ describe("init.handler", () => {
               coreWorkspaceLayer({
                 ...defaultWsOptions,
                 scope: "user",
-                resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
               }),
               TestLayer,
             );
@@ -275,7 +271,6 @@ describe("init.handler", () => {
               coreWorkspaceLayer({
                 ...defaultWsOptions,
                 scope: "user",
-                resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
               }),
               TestLayer,
             );
@@ -314,7 +309,6 @@ describe("init.handler", () => {
         coreWorkspaceLayer({
           scope: "project",
           agents: Option.none(),
-          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         InteractiveTestLayer,
       );
@@ -364,7 +358,6 @@ describe("init.handler", () => {
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
           ...wsOptions,
-          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         BaseLayer,
       );
@@ -440,7 +433,6 @@ describe("init.handler", () => {
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
           ...defaultWsOptions,
-          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         BaseLayer,
       );
@@ -471,7 +463,6 @@ describe("init.handler", () => {
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
           ...defaultWsOptions,
-          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         BaseLayer,
       );
@@ -503,7 +494,6 @@ describe("init.handler", () => {
       const WsLayer = Layer.provide(
         coreWorkspaceLayer({
           ...defaultWsOptions,
-          resolveBuiltinExtensionPack: resolveBuiltinExtensionPack(),
         }),
         TestLayer,
       );
@@ -519,134 +509,5 @@ describe("init.handler", () => {
         expect(error._tag).toBe("AppError");
       }).pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
     });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Builtin Pack Materialization
-  // ---------------------------------------------------------------------------
-
-  describe("builtin pack materialization", () => {
-    const BUILTIN_SKILL_NAMES = [
-      "axm-manage-skills",
-      "axm-manage-packs",
-      "axm-manage-mcp-servers",
-      "axm-manage-commands",
-    ];
-
-    it.effect("copies skills to canonical location", () =>
-      withLayers(defaultWsOptions)(
-        Effect.gen(function* () {
-          yield* handleInit();
-
-          const extensionsDir = path.join(tempDir, ".axm", "extensions", "@axm", "skills");
-          for (const skillName of BUILTIN_SKILL_NAMES) {
-            const skillMd = path.join(extensionsDir, skillName, "SKILL.md");
-            expect(fs.existsSync(skillMd)).toBe(true);
-          }
-        }),
-      ),
-    );
-
-    it.effect("creates symlinks in agent skill dirs", () =>
-      withLayers({ ...defaultWsOptions, agents: Option.some(["claude-code"]) })(
-        Effect.gen(function* () {
-          yield* handleInit();
-
-          for (const skillName of BUILTIN_SKILL_NAMES) {
-            const agentSkillPath = path.join(tempDir, ".claude", "skills", skillName, "SKILL.md");
-            expect(fs.existsSync(agentSkillPath)).toBe(true);
-          }
-        }),
-      ),
-    );
-
-    it.effect("writes pack and skill lock entries", () =>
-      withLayers(defaultWsOptions)(
-        Effect.gen(function* () {
-          yield* handleInit();
-
-          const lockfileContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "axm-lock.yaml"),
-            "utf-8",
-          );
-          const lockfile = YAML.parse(lockfileContent);
-
-          // Pack entry
-          expect(lockfile.packs).toBeDefined();
-          expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
-          expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-          expect(lockfile.packs["@axm/packs/cli"].owner).toBe("@axm");
-          expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
-
-          // Skill entries
-          for (const skillName of BUILTIN_SKILL_NAMES) {
-            expect(lockfile.skills[skillName]).toBeDefined();
-            expect(lockfile.skills[skillName].type).toBe("builtin");
-          }
-        }),
-      ),
-    );
-
-    it.effect("does not add builtin pack to settings", () =>
-      withLayers(defaultWsOptions)(
-        Effect.gen(function* () {
-          yield* handleInit();
-
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
-          const settings: Settings = JSON.parse(settingsContent);
-          expect(settings.packs).toBeUndefined();
-        }),
-      ),
-    );
-
-    it.effect("is a no-op when builtin pack already in lockfile", () =>
-      withLayers({ ...defaultWsOptions, agents: Option.some(["claude-code"]) })(
-        Effect.gen(function* () {
-          // Pre-create settings and lockfile with builtin pack already locked
-          const axmDir = path.join(tempDir, ".axm");
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(axmDir, "settings.json"),
-            JSON.stringify({ agents: ["claude-code"] }),
-          );
-          const existingLockfile = {
-            lockfileVersion: 1,
-            skills: {
-              "axm-manage-skills": {
-                type: "builtin",
-                agents: ["claude-code"],
-                installedAt: "2025-01-01T00:00:00.000Z",
-                updatedAt: "2025-01-01T00:00:00.000Z",
-              },
-            },
-            packs: {
-              "@axm/packs/cli": {
-                type: "builtin",
-                owner: "@axm",
-                name: "cli",
-                resolvedVersion: "0.0.16",
-                installedAt: "2025-01-01T00:00:00.000Z",
-                updatedAt: "2025-01-01T00:00:00.000Z",
-                resolvedSkills: { "@axm/skills/axm-manage-skills": "0.0.16" },
-                resolvedCommands: {},
-                resolvedMcpServers: {},
-              },
-            },
-          };
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(existingLockfile));
-
-          yield* handleInit();
-
-          // Lockfile should retain original timestamps (not overwritten)
-          const lockfileContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
-          const lockfile = YAML.parse(lockfileContent);
-          expect(lockfile.packs["@axm/packs/cli"].installedAt).toBe("2025-01-01T00:00:00.000Z");
-          expect(lockfile.packs["@axm/packs/cli"].updatedAt).toBe("2025-01-01T00:00:00.000Z");
-        }),
-      ),
-    );
   });
 });

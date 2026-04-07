@@ -23,17 +23,12 @@ This is a defense-in-depth guard that catches the case where a user directly uni
 
 ### Requirement: Extension pack extension ref owner
 
-Extension pack extension refs SHALL expose a canonical `owner` field. For registry packs, the owner SHALL be populated from the registry ref details. For builtin packs, the owner SHALL be populated from the builtin manifest. This owner is required for constructing pack extension targets used in uninstall operations.
+Extension pack extension refs SHALL expose a canonical `owner` field. The owner SHALL be populated from the registry ref details. This owner is required for constructing pack extension targets used in uninstall operations.
 
 #### Scenario: Registry extension pack ref exposes owner
 
 - **WHEN** an extension pack ref is created for registry extension pack `@acme/packs/frontend-tools`
 - **THEN** the ref SHALL have `owner: "@acme"`
-
-#### Scenario: Builtin extension pack ref exposes owner
-
-- **WHEN** an extension pack ref is created for builtin extension pack `effect`
-- **THEN** the ref SHALL have an owner from the builtin manifest (e.g., `"@axm"`)
 
 ### Requirement: Pack uninstall cascades to command and MCP server dependencies
 

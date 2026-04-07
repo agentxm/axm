@@ -37,7 +37,6 @@ describe("workspace sync", () => {
         workspaceLayer({
           scope: "project",
           agents: Option.none(),
-          resolveBuiltinExtensionPack: Effect.die("unused in sync tests"),
         }),
         baseLayer,
       );

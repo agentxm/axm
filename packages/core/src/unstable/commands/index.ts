@@ -8,7 +8,6 @@ export type {
   GitHostedCommandRef,
   RegistryCommandRef,
   LocalCommandRef,
-  BuiltinCommandRef,
   CommandExtensionRef,
 } from "./refs.js";
 

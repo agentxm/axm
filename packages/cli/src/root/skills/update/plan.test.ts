@@ -66,15 +66,7 @@ const skillBase = (name: string) => ({
 const makeOp = (
   name: string,
   overrides?: Partial<{
-    sourceType:
-      | "github"
-      | "gitlab"
-      | "bitbucket"
-      | "azurerepos"
-      | "git"
-      | "registry"
-      | "local"
-      | "builtin";
+    sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "registry" | "local";
     force: boolean;
     version: ExactSemverVersion;
     gitTreeSha: Option.Option<string>;
@@ -175,13 +167,6 @@ const makeOp = (
         name: extensionName(name),
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
-      };
-      break;
-    case "builtin":
-      ref = {
-        ...skillBase(name),
-        refType: "builtin",
-        source: { type: "builtin" },
       };
       break;
     case "local":
@@ -289,13 +274,6 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
         sourceName: registryOverrides?.sourceName ?? "default",
         ...makeCommonLockFields(registryOverrides),
-      };
-    }
-    case "builtin": {
-      const builtinOverrides = overrides?.type === "builtin" ? overrides : undefined;
-      return {
-        type: "builtin",
-        ...makeCommonLockFields(builtinOverrides),
       };
     }
     case "local":
@@ -570,36 +548,6 @@ describe("buildUpdatePlan", () => {
       const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
 
       expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
-    }),
-  );
-
-  // ---------------------------------------------------------------------------
-  // Builtin sources
-  // ---------------------------------------------------------------------------
-
-  it.effect("marks builtin source as skip (updated separately via pack flow)", () =>
-    Effect.gen(function* () {
-      const op = makeOp("commit", { sourceType: "builtin" });
-      const lf = lockfileWith({
-        commit: makeLockEntry({ type: "builtin" }),
-      });
-
-      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
-
-      expect(yield* isSkipStep(getFirstStep(plan))).toBe(true);
-    }),
-  );
-
-  it.effect("marks builtin source as ready when force is true", () =>
-    Effect.gen(function* () {
-      const op = makeOp("commit", { sourceType: "builtin", force: true });
-      const lf = lockfileWith({
-        commit: makeLockEntry({ type: "builtin" }),
-      });
-
-      const plan = buildUpdatePlan([op], lf, "Update", Option.none(), stubRunClosure);
-
-      expect(yield* isSkipStep(getFirstStep(plan))).toBe(false);
     }),
   );
 

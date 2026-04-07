@@ -166,15 +166,6 @@ export {
 // Workspace service implementation (layer)
 export { layer, type WorkspaceLayerOptions } from "./service.js";
 
-// Builtin packs
-export {
-  materializeBuiltinExtensionPack,
-  BUILTIN_EXTENSION_PACK_FQN,
-  BUILTIN_EXTENSION_PACK_SCOPE,
-  BUILTIN_EXTENSION_PACK_NAME,
-  type ResolvedBuiltinExtensionPack,
-} from "./builtin-packs.js";
-
 // Initialization
 export {
   initializeProjectWorkspace,

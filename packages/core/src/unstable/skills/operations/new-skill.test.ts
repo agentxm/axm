@@ -52,7 +52,6 @@ const makeWorkspaceMock = (
               source: typeof v === "string" ? v : (v?.source ?? ""),
               enabled: typeof v === "string" ? true : (v?.enabled ?? true),
               packagingKind: "non-native" as const,
-              isBuiltIn: false,
             },
           ]),
         ),

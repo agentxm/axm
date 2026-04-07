@@ -88,9 +88,7 @@ export const renameSkill: OperationHandler<
         ? { refType: "registry", owner: lockEntry.owner }
         : lockEntry.type === "local"
           ? { refType: "local" }
-          : lockEntry.type === "builtin"
-            ? { refType: "builtin" }
-            : { refType: "git-hosted" };
+          : { refType: "git-hosted" };
     const oldPaths = yield* ws.getSkillDir(op.args.oldName, pathSource);
 
     // Registry directories are tied to the immutable registry name — no rename needed

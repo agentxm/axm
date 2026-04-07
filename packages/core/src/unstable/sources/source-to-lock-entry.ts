@@ -135,11 +135,5 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
         ...common,
       };
-
-    case "builtin":
-      return {
-        type: "builtin",
-        ...common,
-      };
   }
 };

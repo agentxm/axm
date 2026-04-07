@@ -18,11 +18,7 @@ export {
 } from "./manifest-schema.js";
 
 // Extension ref types
-export type {
-  RegistryExtensionPackRef,
-  BuiltinExtensionPackRef,
-  ExtensionPackRef,
-} from "./refs.js";
+export type { RegistryExtensionPackRef, ExtensionPackRef } from "./refs.js";
 
 // Manager
 export { ExtensionPackManager, ExtensionPackManagerLive } from "./manager.js";

@@ -147,7 +147,6 @@ describe("unpackExtensionPack", () => {
             source: "@acme/commands/existing-cmd",
             enabled: true,
             packagingKind: "native" as const,
-            isBuiltIn: false,
           },
         }),
       setCommand,

@@ -10,7 +10,6 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import type { GitHostedSkillRef } from "../skills/index.js";
 import type {
-  BuiltinSource,
   GitHubSource,
   RegistrySource,
   SourceHostProvider,
@@ -54,13 +53,6 @@ const makeRegistryProvider = (): RegistryProviderWithPublish => ({
     _archive: Uint8Array,
     _metadata: VersionEntry,
   ) => Effect.void,
-});
-
-const makeBuiltinProvider = (): SourceHostProvider<BuiltinSource> => ({
-  type: "builtin",
-  match: (_url: URL) => Effect.succeed(false),
-  find: (_source, _options) => Effect.succeed([]),
-  fetch: (_source, _ref) => Effect.succeed({ directory: "/builtin" }),
 });
 
 // -----------------------------------------------------------------------------
@@ -132,19 +124,6 @@ describe("SourceHostProvider", () => {
       };
       const result = yield* provider.fetch(source, ref);
       expect(result.directory).toBe("/tmp/clone");
-    }),
-  );
-
-  it("builtin provider type is 'builtin'", () => {
-    const provider = makeBuiltinProvider();
-    expect(provider.type).toBe("builtin");
-  });
-
-  it.effect("builtin provider match always returns false", () =>
-    Effect.gen(function* () {
-      const provider = makeBuiltinProvider();
-      const result = yield* provider.match(new URL("https://example.com"));
-      expect(result).toBe(false);
     }),
   );
 });

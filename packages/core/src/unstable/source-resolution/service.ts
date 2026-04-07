@@ -28,7 +28,6 @@ import type {
   RegistrySource,
   Source,
 } from "../sources/index.js";
-import { createBuiltinSourceHostProvider } from "./providers/builtin.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
@@ -89,7 +88,6 @@ const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
     case "git":
     case "registry":
     case "local":
-    case "builtin":
       return Option.none();
   }
 };
@@ -100,7 +98,6 @@ const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
 
 /**
  * Get the canonical source string for display/comparison.
- * Handles all source types including builtin.
  */
 const getOriginFromSource = (source: Source): string => {
   switch (source.type) {
@@ -116,8 +113,6 @@ const getOriginFromSource = (source: Source): string => {
       return source.url.href;
     case "registry":
       return source.location.href;
-    case "builtin":
-      return "builtin";
   }
 };
 
@@ -190,7 +185,6 @@ export const SourceHostProvidersLive: Layer.Layer<
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
-    const builtinProvider = createBuiltinSourceHostProvider();
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
@@ -227,8 +221,6 @@ export const SourceHostProvidersLive: Layer.Layer<
           return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
-        case "builtin":
-          return builtinProvider.find(source, options).pipe(Effect.provide(depLayer));
       }
     };
 
@@ -248,8 +240,6 @@ export const SourceHostProvidersLive: Layer.Layer<
           return gitProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
-        case "builtin":
-          return builtinProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
       }
     };
 

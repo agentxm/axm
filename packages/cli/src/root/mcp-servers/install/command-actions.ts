@@ -113,7 +113,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const trimmed = args.source.trim();
         const parsed = parseRegistryInstallTarget(trimmed, {
-          expectedType: "mcp-servers",
+          expectedType: "mcp-server",
           allowBareName: true,
         });
 

@@ -59,7 +59,7 @@ export type PublishExtensionPackOperation = Operation<
 /**
  * Publish extension pack operation handler.
  *
- * 1. Read and validate `axm-pack.json` manifest
+ * 1. Read and validate `extension-pack.json` manifest
  * 2. Build zip archive of extension pack directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name

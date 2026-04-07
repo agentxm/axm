@@ -12,7 +12,10 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, formatFqn } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import { EXTENSION_PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
+import {
+  EXTENSION_PACK_MANIFEST_FILENAME,
+  EXTENSION_PACK_MANIFEST_SCHEMA_URL,
+} from "../manifest-schema.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
@@ -51,7 +54,7 @@ export type NewExtensionPackOperation = Operation<"new-pack", NewExtensionPackOp
  * 1. Compute extension pack directory path
  * 2. Check if extension pack manifest already exists
  * 3. Create extension pack directory
- * 4. Write axm-pack.json manifest
+ * 4. Write extension-pack.json manifest
  * 5. Register in settings via ws.setExtensionPack
  */
 export const newExtensionPack: OperationHandler<
@@ -67,7 +70,7 @@ export const newExtensionPack: OperationHandler<
 
     const { name, owner } = op.args;
     const extensionName = decodeExtensionNameSync(name);
-    const fqn = formatFqn({ owner, type: "packs", name: extensionName });
+    const fqn = formatFqn({ owner, type: "pack", name: extensionName });
 
     // 1. Compute extension pack directory path
     const packDir = computeExtensionPackPaths(path.join, base, owner, name);
@@ -105,6 +108,7 @@ export const newExtensionPack: OperationHandler<
 
     // 4. Write manifest
     const manifest = {
+      $schema: EXTENSION_PACK_MANIFEST_SCHEMA_URL,
       owner,
       type: "pack",
       name: extensionName,

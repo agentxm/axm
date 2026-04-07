@@ -4,8 +4,9 @@ import {
   ExtensionNameSchema,
   parseRegistrySourcePatternParts,
   type ExtensionName,
-  type ExtensionTypePlural,
+  type ExtensionType,
   type Handle,
+  toExtensionType,
 } from "@axm.sh/core/unstable/extensions";
 import { VersionConstraintSchema } from "@axm.sh/core/unstable/version-constraints";
 
@@ -21,7 +22,7 @@ export interface BareRegistryInstallTarget {
 export interface QualifiedRegistryInstallTarget {
   readonly kind: "registry";
   readonly owner: Handle;
-  readonly type: ExtensionTypePlural;
+  readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly versionConstraint?: string | undefined;
 }
@@ -30,13 +31,13 @@ export type RegistryInstallTarget = BareRegistryInstallTarget | QualifiedRegistr
 
 export type RegistryInstallTargetParseError =
   | { readonly kind: "missing-name" }
-  | { readonly kind: "wrong-type"; readonly actualType?: ExtensionTypePlural | undefined }
+  | { readonly kind: "wrong-type"; readonly actualType?: ExtensionType | undefined }
   | { readonly kind: "invalid-bare-name" }
   | { readonly kind: "invalid-version-constraint" }
   | { readonly kind: "not-registry" };
 
 export interface ParseRegistryInstallTargetOptions {
-  readonly expectedType: ExtensionTypePlural;
+  readonly expectedType: ExtensionType;
   readonly allowBareName: boolean;
   readonly allowBareVersionConstraint?: boolean | undefined;
 }
@@ -91,10 +92,13 @@ export const parseRegistryInstallTarget = (
 ): Result.Result<RegistryInstallTarget, RegistryInstallTargetParseError> => {
   const parsedRegistry = parseRegistrySourcePatternParts(input);
   if (parsedRegistry !== undefined) {
-    if (parsedRegistry.type === undefined || parsedRegistry.type !== options.expectedType) {
+    const parsedSingularType =
+      parsedRegistry.type !== undefined ? toExtensionType(parsedRegistry.type) : undefined;
+
+    if (parsedSingularType === undefined || parsedSingularType !== options.expectedType) {
       return Result.fail({
         kind: "wrong-type",
-        actualType: parsedRegistry.type,
+        actualType: parsedSingularType,
       });
     }
 
@@ -105,7 +109,7 @@ export const parseRegistryInstallTarget = (
     return Result.succeed({
       kind: "registry",
       owner: parsedRegistry.owner,
-      type: parsedRegistry.type,
+      type: parsedSingularType,
       name: parsedRegistry.name,
       versionConstraint: parsedRegistry.versionConstraint,
     });

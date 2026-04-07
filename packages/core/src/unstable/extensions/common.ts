@@ -209,7 +209,7 @@ export const ExtensionTypePluralSchema = Schema.Literals(extensionTypePluralSegm
  */
 export const FullyQualifiedNamePartsSchema = Schema.Struct({
   owner: HandleSchema,
-  type: ExtensionTypePluralSchema,
+  type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
 }).annotate({
   identifier: "FullyQualifiedNameParts",
@@ -239,11 +239,16 @@ export const parseFullyQualifiedNameParts = (
     return undefined;
   }
 
-  const [owner, type, name] = parts;
-  if (owner === undefined || type === undefined || name === undefined) {
+  const [owner, typeSegment, name] = parts;
+  if (owner === undefined || typeSegment === undefined || name === undefined) {
     return undefined;
   }
 
+  if (!isExtensionTypePlural(typeSegment)) {
+    return undefined;
+  }
+
+  const type = toExtensionType(typeSegment);
   const result = decodeFullyQualifiedNameParts({ owner, type, name });
   return Result.isSuccess(result) ? result.success : undefined;
 };

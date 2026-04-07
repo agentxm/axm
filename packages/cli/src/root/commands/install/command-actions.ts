@@ -119,7 +119,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const trimmed = args.source.trim();
         const parsed = parseRegistryInstallTarget(trimmed, {
-          expectedType: "commands",
+          expectedType: "command",
           allowBareName: true,
         });
 

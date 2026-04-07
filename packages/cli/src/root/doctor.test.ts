@@ -16,6 +16,7 @@ import {
 } from "@axm.sh/core/unstable/source-resolution";
 import { buildRegistrySkillRef } from "@axm.sh/core/unstable/skills";
 import { decodeExactSemverVersionSync } from "@axm.sh/core/unstable/version-constraints";
+import { decodeHandleSync, decodeExtensionNameSync } from "@axm.sh/core/unstable/extensions";
 import type { WorkspaceContextOptions } from "@axm.sh/core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
 import { writeWorkspaceFiles } from "../test-stubs.js";
@@ -46,7 +47,8 @@ describe("doctor handler", () => {
           )
           .map((skillName) =>
             buildRegistrySkillRef(
-              `@axm/skills/${skillName}`,
+              decodeHandleSync("@axm"),
+              decodeExtensionNameSync(skillName),
               decodeExactSemverVersionSync("0.0.1"),
               {
                 type: "registry",

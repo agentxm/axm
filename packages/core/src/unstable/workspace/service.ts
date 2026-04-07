@@ -535,7 +535,7 @@ const make = (options: WorkspaceLayerOptions) =>
                 ? (() => {
                     const fqn = formatFqn({
                       owner: lockEntry.owner,
-                      type: "skills",
+                      type: "skill",
                       name: decodeExtensionNameSync(name),
                     });
                     return Option.isSome(versionConstraint)
@@ -878,7 +878,7 @@ const make = (options: WorkspaceLayerOptions) =>
             // Update settings — thread versionConstraint through so it's preserved
             const fqn = formatFqn({
               owner: args.owner,
-              type: "packs",
+              type: "pack",
               name: decodeExtensionNameSync(name),
             });
             const source = Option.isSome(versionConstraint)

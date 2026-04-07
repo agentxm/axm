@@ -1,12 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionRef } from "../extensions/index.js";
-import { parseFqnOrThrow } from "../extensions/index.js";
-import type { Handle } from "../extensions/handle.js";
+import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
+import { parseFqnOrThrow, formatFqn } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
-import type { ExtensionType } from "../extensions/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionPackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
@@ -19,7 +17,9 @@ import {
 } from "../version-constraints/version-constraints.js";
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
-  readonly fqn: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
   readonly ref: Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }>;
   readonly source: RegistrySource;
 };
@@ -33,16 +33,9 @@ export interface ResolvedExtensionPackDependencies {
 
 const resolveDependencyType = (
   expectedType: ExtensionType,
-  parsedType: string,
+  parsedType: ExtensionType,
 ): Effect.Effect<void, AppError> => {
-  const expectedPlural =
-    expectedType === "mcp-server"
-      ? "mcp-servers"
-      : expectedType === "command"
-        ? "commands"
-        : "skills";
-
-  if (parsedType === expectedPlural) {
+  if (parsedType === expectedType) {
     return Effect.void;
   }
 
@@ -50,7 +43,7 @@ const resolveDependencyType = (
     makeAppError({
       code: "PACK_DEPENDENCY_RESOLUTION_FAILED",
       what: `Extension pack dependency type mismatch for expected ${expectedType}`,
-      details: [`Expected ${expectedPlural}, received ${parsedType}`],
+      details: [`Expected ${expectedType}, received ${parsedType}`],
     }),
   );
 };
@@ -112,7 +105,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
       });
     }
 
-    return { fqn, ref: matchingRef, source };
+    return { ...parsed, ref: matchingRef, source };
   });
 
 const toResolvedMap = <T extends ExtensionType>(
@@ -120,7 +113,7 @@ const toResolvedMap = <T extends ExtensionType>(
 ): ResolvedExtensionMap =>
   Object.fromEntries(
     dependencies.map((dependency) => [
-      dependency.fqn,
+      formatFqn(dependency),
       decodeExactSemverVersionSync(dependency.ref.version),
     ]),
   );
@@ -162,13 +155,28 @@ export const resolveExtensionPackDependencies = (
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
-          buildRegistrySkillRef(dependency.fqn, dependency.ref.version, dependency.source),
+          buildRegistrySkillRef(
+            dependency.owner,
+            dependency.name,
+            dependency.ref.version,
+            dependency.source,
+          ),
         ),
         ...resolvedCommands.map((dependency) =>
-          buildRegistryCommandRef(dependency.fqn, dependency.ref.version, dependency.source),
+          buildRegistryCommandRef(
+            dependency.owner,
+            dependency.name,
+            dependency.ref.version,
+            dependency.source,
+          ),
         ),
         ...resolvedMcpServers.map((dependency) =>
-          buildRegistryMcpServerRef(dependency.fqn, dependency.ref.version, dependency.source),
+          buildRegistryMcpServerRef(
+            dependency.owner,
+            dependency.name,
+            dependency.ref.version,
+            dependency.source,
+          ),
         ),
       ],
     };

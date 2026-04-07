@@ -19,8 +19,7 @@ import { Workspace } from "../../workspace/service-interface.js";
 import { parseFqnOrThrow } from "../../extensions/index.js";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
-  RawExtensionPackManifestSchema,
-  type RawExtensionPackManifest,
+  ExtensionPackManifestSchema,
 } from "../manifest-schema.js";
 import { computeExtensionPackPaths } from "../paths.js";
 import { hashContent } from "./hash-content.js";
@@ -119,7 +118,7 @@ export const addToExtensionPack: OperationHandler<
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
@@ -131,27 +130,27 @@ export const addToExtensionPack: OperationHandler<
 
     const currentSkills: Record<string, string> = { ...(manifest["skills"] ?? {}) };
     const currentCommands: Record<string, string> = { ...(manifest["commands"] ?? {}) };
-    const currentMcpServers = { ...(manifest["mcp-servers"] ?? {}) };
+    const currentMcpServers: Record<string, string> = { ...(manifest["mcp-servers"] ?? {}) };
 
     for (const [fqn, version] of Object.entries(additions)) {
       const parsed = parseFqnOrThrow(fqn);
       switch (parsed.type) {
-        case "skills":
+        case "skill":
           currentSkills[fqn] = version;
           break;
-        case "commands":
+        case "command":
           currentCommands[fqn] = version;
           break;
-        case "mcp-servers":
+        case "mcp-server":
           currentMcpServers[fqn] = version;
           break;
-        case "packs":
+        case "pack":
           currentSkills[fqn] = version;
           break;
       }
     }
 
-    const updatedManifest: RawExtensionPackManifest = {
+    const updatedManifest = {
       ...manifest,
       owner: manifest.owner,
       type: manifest.type,

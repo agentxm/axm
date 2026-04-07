@@ -11,39 +11,39 @@ describe("parseFqn", () => {
   [
     {
       input: "@acme/skills/code-review",
-      expected: { owner: "@acme", type: "skills", name: "code-review" },
+      expected: { owner: "@acme", type: "skill", name: "code-review" },
     },
     {
       input: "@acme/packs/fullstack",
-      expected: { owner: "@acme", type: "packs", name: "fullstack" },
+      expected: { owner: "@acme", type: "pack", name: "fullstack" },
     },
     {
       input: "@acme/mcp-servers/database",
-      expected: { owner: "@acme", type: "mcp-servers", name: "database" },
+      expected: { owner: "@acme", type: "mcp-server", name: "database" },
     },
     {
       input: "@wayne_corp/skills/bat-signal",
-      expected: { owner: "@wayne_corp", type: "skills", name: "bat-signal" },
+      expected: { owner: "@wayne_corp", type: "skill", name: "bat-signal" },
     },
     {
       input: "@test123/packs/tool456",
-      expected: { owner: "@test123", type: "packs", name: "tool456" },
+      expected: { owner: "@test123", type: "pack", name: "tool456" },
     },
     {
       input: "@acme/commands/deploy",
-      expected: { owner: "@acme", type: "commands", name: "deploy" },
+      expected: { owner: "@acme", type: "command", name: "deploy" },
     },
     {
       input: "@acme/subagents/reviewer",
-      expected: { owner: "@acme", type: "subagents", name: "reviewer" },
+      expected: { owner: "@acme", type: "subagent", name: "reviewer" },
     },
     {
       input: "@acme/files/project-rules",
-      expected: { owner: "@acme", type: "files", name: "project-rules" },
+      expected: { owner: "@acme", type: "file", name: "project-rules" },
     },
     {
       input: "@acme/rules/review-checklist",
-      expected: { owner: "@acme", type: "rules", name: "review-checklist" },
+      expected: { owner: "@acme", type: "rule", name: "review-checklist" },
     },
   ].forEach(({ input, expected }) => {
     it.effect(`parses valid FQN: ${input}`, () =>
@@ -79,7 +79,7 @@ describe("parseFqnOrThrow", () => {
   it("returns parsed Fqn for valid input", () => {
     const result = parseFqnOrThrow("@acme/skills/code-review");
 
-    expect(result).toEqual({ owner: "@acme", type: "skills", name: "code-review" });
+    expect(result).toEqual({ owner: "@acme", type: "skill", name: "code-review" });
   });
 
   it("throws for invalid input", () => {
@@ -93,18 +93,18 @@ describe("parseFqnOrThrow", () => {
 
 describe("formatFqn", () => {
   it("formats Fqn to string", () => {
-    const result = formatFqn({ owner: "@acme", type: "skills", name: "code-review" });
+    const result = formatFqn({ owner: "@acme", type: "skill", name: "code-review" });
 
     expect(result).toBe("@acme/skills/code-review");
   });
 
   it("formats all type segments correctly", () => {
-    expect(formatFqn({ owner: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
-    expect(formatFqn({ owner: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
-    expect(formatFqn({ owner: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
-    expect(formatFqn({ owner: "@x", type: "subagents", name: "y" })).toBe("@x/subagents/y");
-    expect(formatFqn({ owner: "@x", type: "files", name: "y" })).toBe("@x/files/y");
-    expect(formatFqn({ owner: "@x", type: "rules", name: "y" })).toBe("@x/rules/y");
+    expect(formatFqn({ owner: "@x", type: "pack", name: "y" })).toBe("@x/packs/y");
+    expect(formatFqn({ owner: "@x", type: "command", name: "y" })).toBe("@x/commands/y");
+    expect(formatFqn({ owner: "@x", type: "mcp-server", name: "y" })).toBe("@x/mcp-servers/y");
+    expect(formatFqn({ owner: "@x", type: "subagent", name: "y" })).toBe("@x/subagents/y");
+    expect(formatFqn({ owner: "@x", type: "file", name: "y" })).toBe("@x/files/y");
+    expect(formatFqn({ owner: "@x", type: "rule", name: "y" })).toBe("@x/rules/y");
   });
 });
 

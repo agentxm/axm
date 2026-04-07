@@ -5,7 +5,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
 describe("axm init", () => {
@@ -169,108 +168,6 @@ describe("axm init", () => {
         // Should create settings.json
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
-  describe("builtin pack", () => {
-    it("creates builtin pack lock entry and skill files on init", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
-        expect(result.exitCode).toBe(0);
-
-        // Verify lockfile has builtin pack entry
-        const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const lockfileContent = fs.readFileSync(lockfilePath, "utf-8");
-        const lockfile = YAML.parse(lockfileContent);
-
-        expect(lockfile.packs).toBeDefined();
-        expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
-        expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-        expect(lockfile.packs["@axm/packs/cli"].owner).toBe("@axm");
-        expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
-        expect(lockfile.packs["@axm/packs/cli"].resolvedVersion).toBeDefined();
-
-        // Verify builtin skill lock entries
-        const skillNames = [
-          "axm-manage-skills",
-          "axm-manage-packs",
-          "axm-manage-mcp-servers",
-          "axm-manage-commands",
-        ];
-        for (const name of skillNames) {
-          expect(lockfile.skills[name]).toBeDefined();
-          expect(lockfile.skills[name].type).toBe("builtin");
-        }
-
-        // Verify skill files exist on disk
-        for (const name of skillNames) {
-          const skillPath = path.join(
-            temp.path,
-            ".axm",
-            "extensions",
-            "@axm",
-            "skills",
-            name,
-            "SKILL.md",
-          );
-          expect(fs.existsSync(skillPath)).toBe(true);
-        }
-
-        // Verify settings.json does NOT have builtin pack
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.packs).toBeUndefined();
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("does not duplicate builtin lock entries on re-init", async () => {
-      const temp = createTempDir();
-      try {
-        // First init
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
-
-        // Capture lockfile state
-        const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const firstContent = fs.readFileSync(lockfilePath, "utf-8");
-        const firstLockfile = YAML.parse(firstContent);
-
-        // Second init
-        const result = await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
-        expect(result.exitCode).toBe(0);
-
-        // Read lockfile again — should not have duplicate entries
-        const secondContent = fs.readFileSync(lockfilePath, "utf-8");
-        const secondLockfile = YAML.parse(secondContent);
-
-        // Pack entry count should be the same
-        expect(Object.keys(secondLockfile.packs || {})).toEqual(
-          Object.keys(firstLockfile.packs || {}),
-        );
-
-        // Skill entry count should be the same
-        expect(Object.keys(secondLockfile.skills)).toEqual(Object.keys(firstLockfile.skills));
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("skills update reports no changes for builtin skills", async () => {
-      const temp = createTempDir();
-      try {
-        // Init workspace
-        await runCli(["init", "--yes", "--non-interactive"], { cwd: temp.path });
-
-        // Run skills update — builtin skills should be skipped (not in settings)
-        const result = await runCli(["skills", "update", "--yes"], { cwd: temp.path });
-
-        // Should succeed — builtin skills are not eligible for update
-        expect(result.exitCode).toBeLessThanOrEqual(1);
       } finally {
         temp.cleanup();
       }

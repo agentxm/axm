@@ -14,6 +14,7 @@ import {
   SourceHostProviders,
 } from "../source-resolution/index.js";
 import { buildRegistrySkillRef } from "../skills/index.js";
+import { decodeHandleSync, decodeExtensionNameSync } from "../extensions/index.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { diagnoseWorkspaceDoctor } from "./doctor.js";
 import { layer as workspaceLayer } from "./service.js";
@@ -44,7 +45,8 @@ describe("workspace doctor", () => {
           )
           .map((skillName) =>
             buildRegistrySkillRef(
-              `@axm/skills/${skillName}`,
+              decodeHandleSync("@axm"),
+              decodeExtensionNameSync(skillName),
               decodeExactSemverVersionSync("0.0.1"),
               {
                 type: "registry",
@@ -105,7 +107,7 @@ describe("workspace doctor", () => {
     );
     fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
     fs.writeFileSync(
-      path.join(canonicalDir, "axm-skill.json"),
+      path.join(canonicalDir, "skill.json"),
       JSON.stringify(
         {
           owner: "@axm",

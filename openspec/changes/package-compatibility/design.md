@@ -90,7 +90,6 @@ interface DiscoverExtensionsResponse {
   readonly results: ReadonlyArray<{
     readonly detectedPurl: string;
     readonly extensions: ReadonlyArray<{
-      readonly fqn: string;
       readonly type: ExtensionType;
       readonly name: string;
       readonly owner: string;

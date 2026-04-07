@@ -28,6 +28,7 @@ import {
   type InstallMcpServerOperation,
 } from "@axm.sh/core/unstable/mcp-servers";
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
+import { parseFqnOrThrow } from "@axm.sh/core/unstable/extensions";
 import { buildUnpackPlan } from "./plan.js";
 import { resolvePlan } from "@axm.sh/core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../../json-output.js";
@@ -110,43 +111,52 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
         };
 
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
-  const skillOps = Object.entries(entry.resolvedSkills).map(([fqn, version]) => ({
-    name: "install-skill" as const,
-    args: {
-      ref: buildRegistrySkillRef(fqn, version, source),
-      force: false,
-      versionConstraint: Option.none<string>(),
-      skipSettings: Option.none<boolean>(),
-      strictUnknownAgents: Option.none<boolean>(),
-      existingInstalledAt: Option.none<Date>(),
-      sourceName: Option.none<string>(),
-    },
-  }));
+  const skillOps = Object.entries(entry.resolvedSkills).map(([fqn, version]) => {
+    const parsed = parseFqnOrThrow(fqn);
+    return {
+      name: "install-skill" as const,
+      args: {
+        ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source),
+        force: false,
+        versionConstraint: Option.none<string>(),
+        skipSettings: Option.none<boolean>(),
+        strictUnknownAgents: Option.none<boolean>(),
+        existingInstalledAt: Option.none<Date>(),
+        sourceName: Option.none<string>(),
+      },
+    };
+  });
 
   const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
     entry.resolvedCommands,
-  ).map(([fqn, version]) => ({
-    name: "install-command" as const,
-    args: {
-      ref: buildRegistryCommandRef(fqn, version, source),
-      force: false,
-      versionConstraint: Option.none<string>(),
-      skipSettings: Option.none<boolean>(),
-    },
-  }));
+  ).map(([fqn, version]) => {
+    const parsed = parseFqnOrThrow(fqn);
+    return {
+      name: "install-command" as const,
+      args: {
+        ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source),
+        force: false,
+        versionConstraint: Option.none<string>(),
+        skipSettings: Option.none<boolean>(),
+      },
+    };
+  });
 
   const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = Object.entries(
     entry.resolvedMcpServers,
-  ).map(([fqn, version]) => ({
-    name: "install-mcp-server" as const,
-    args: {
-      ref: buildRegistryMcpServerRef(fqn, version, source),
-      force: false,
-      versionConstraint: Option.none<string>(),
-      skipSettings: Option.none<boolean>(),
-      strictAgentSync: args.strictAgentSync,
-    },
-  }));
+  ).map(([fqn, version]) => {
+    const parsed = parseFqnOrThrow(fqn);
+    return {
+      name: "install-mcp-server" as const,
+      args: {
+        ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source),
+        force: false,
+        versionConstraint: Option.none<string>(),
+        skipSettings: Option.none<boolean>(),
+        strictAgentSync: args.strictAgentSync,
+      },
+    };
+  });
 
   // Load configured extensions for no-op detection
   const configuredSkills = yield* ws.getConfiguredSkills();

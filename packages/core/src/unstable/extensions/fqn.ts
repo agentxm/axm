@@ -8,7 +8,11 @@
 
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
-import { parseFullyQualifiedNameParts, type FullyQualifiedNameParts } from "./common.js";
+import {
+  parseFullyQualifiedNameParts,
+  toExtensionTypePlural,
+  type FullyQualifiedNameParts,
+} from "./common.js";
 
 /**
  * Parse a 3-segment FQN string into its parts.
@@ -51,4 +55,4 @@ export const parseFqnOrThrow = (input: string): FullyQualifiedNameParts => {
  * @experimental This API is unstable and may change without notice.
  */
 export const formatFqn = (fqn: FullyQualifiedNameParts): string =>
-  `${fqn.owner}/${fqn.type}/${fqn.name}`;
+  `${fqn.owner}/${toExtensionTypePlural(fqn.type)}/${fqn.name}`;

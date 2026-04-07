@@ -115,7 +115,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
               [
                 formatFqn({
                   owner: op.args.ref.owner,
-                  type: "skills",
+                  type: "skill",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,
@@ -132,7 +132,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
               [
                 formatFqn({
                   owner: op.args.ref.owner,
-                  type: "commands",
+                  type: "command",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,
@@ -149,7 +149,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
               [
                 formatFqn({
                   owner: op.args.ref.owner,
-                  type: "mcp-servers",
+                  type: "mcp-server",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
                 op.args.ref.version,

@@ -24,7 +24,7 @@ import {
 } from "@axm.sh/core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
-  RawExtensionPackManifestSchema,
+  ExtensionPackManifestSchema,
 } from "@axm.sh/core/unstable/packs";
 import type { AddToExtensionPackOperation } from "@axm.sh/core/unstable/packs";
 import { addToExtensionPack } from "@axm.sh/core/unstable/packs";
@@ -139,7 +139,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       }),
   });
 
-  const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeAppError({
         code: "PACK_MANIFEST_INVALID",
@@ -204,7 +204,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     const fqn = formatFqn({
       owner: lockEntry.owner,
-      type: "skills",
+      type: "skill",
       name: decodeExtensionNameSync(lockEntry.name),
     });
     const version = toVersionRange(lockEntry.resolvedVersion);

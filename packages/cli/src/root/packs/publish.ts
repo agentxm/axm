@@ -26,13 +26,14 @@ import {
   formatFqn,
   parseFqn,
   parseFqnOrThrow,
+  toExtensionTypePlural,
   type FullyQualifiedNameParts,
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
 } from "@axm.sh/core/unstable/extensions";
 import {
   EXTENSION_PACK_MANIFEST_FILENAME,
-  RawExtensionPackManifestSchema,
+  ExtensionPackManifestSchema,
 } from "@axm.sh/core/unstable/packs";
 import { publishSkill, type PublishSkillOperation } from "@axm.sh/core/unstable/skills";
 import {
@@ -198,7 +199,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     ? Effect.succeed(args.pack)
     : ws.getConfiguredProfile().pipe(
         Effect.map((owner) =>
-          formatFqn({ owner, type: "packs", name: decodeExtensionNameSync(args.pack) }),
+          formatFqn({ owner, type: "pack", name: decodeExtensionNameSync(args.pack) }),
         ),
         Effect.mapError((e) =>
           makeAppError({
@@ -247,7 +248,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             code: "MISSING_MANIFEST",
             what: `Missing manifest: ${EXTENSION_PACK_MANIFEST_FILENAME}`,
             details: [`Expected at: ${manifestPath}`],
-            howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
+            howToFix: `Ensure the pack has a valid ${EXTENSION_PACK_MANIFEST_FILENAME} manifest.`,
           });
         }
 
@@ -283,7 +284,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         }),
     });
 
-    const manifest = yield* Schema.decodeUnknownEffect(RawExtensionPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(ExtensionPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "PACK_MANIFEST_INVALID",
@@ -310,7 +311,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             base,
             REGISTRY_EXTENSIONS_DIR,
             parsed.owner,
-            parsed.type,
+            toExtensionTypePlural(parsed.type),
             parsed.name,
           );
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
@@ -412,7 +413,7 @@ const makeDependencyStep = (
   const label = `Publish dependency ${depFqn}`;
 
   switch (parsed.type) {
-    case "skills": {
+    case "skill": {
       const op: PublishSkillOperation = {
         name: "publish-skill",
         args: { name: depFqn, registryName },
@@ -423,7 +424,7 @@ const makeDependencyStep = (
         run: provideServices(publishSkill(op)).pipe(Effect.map(toJobStepResult)),
       } satisfies PlannedJobStep);
     }
-    case "commands": {
+    case "command": {
       const op: PublishCommandOperation = {
         name: "publish-command",
         args: { name: depFqn, registryName },
@@ -434,7 +435,7 @@ const makeDependencyStep = (
         run: provideServices(publishCommandOp(op)).pipe(Effect.map(toJobStepResult)),
       } satisfies PlannedJobStep);
     }
-    case "mcp-servers": {
+    case "mcp-server": {
       const op: PublishMcpServerOperation = {
         name: "publish-mcp-server",
         args: { name: depFqn, registryName },
@@ -445,16 +446,16 @@ const makeDependencyStep = (
         run: provideServices(publishMcpServer(op)).pipe(Effect.map(toJobStepResult)),
       } satisfies PlannedJobStep);
     }
-    case "packs":
+    case "pack":
       return Effect.fail(
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",
           what: `Extension pack dependencies of extension packs are not supported for publishing: ${depFqn}`,
         }),
       );
-    case "subagents":
-    case "files":
-    case "rules":
+    case "subagent":
+    case "file":
+    case "rule":
       return Effect.fail(
         makeAppError({
           code: "PACK_DEPENDENCY_UNSUPPORTED",

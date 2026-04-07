@@ -190,7 +190,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         Effect.gen(function* () {
           const trimmed = args.source.trim();
           const parsed = parseRegistryInstallTarget(trimmed, {
-            expectedType: "packs",
+            expectedType: "pack",
             allowBareName: true,
             allowBareVersionConstraint: true,
           });

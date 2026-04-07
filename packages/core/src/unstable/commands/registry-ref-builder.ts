@@ -1,23 +1,21 @@
 import * as Option from "effect/Option";
-import { parseFqnOrThrow } from "../extensions/index.js";
+import type { Handle, ExtensionName } from "../extensions/index.js";
 import type { RegistryCommandRef } from "./refs.js";
 import type { RegistrySource } from "../sources/index.js";
 import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
 
 export const buildRegistryCommandRef = (
-  fqn: string,
+  owner: Handle,
+  name: ExtensionName,
   version: ExactSemverVersion,
   source: RegistrySource,
-): RegistryCommandRef => {
-  const parsed = parseFqnOrThrow(fqn);
-  return {
-    type: "command",
-    refType: "registry",
-    command: { name: parsed.name },
-    source,
-    owner: parsed.owner,
-    name: parsed.name,
-    version,
-    integrity: Option.none(),
-  };
-};
+): RegistryCommandRef => ({
+  type: "command",
+  refType: "registry",
+  command: { name },
+  source,
+  owner,
+  name,
+  version,
+  integrity: Option.none(),
+});

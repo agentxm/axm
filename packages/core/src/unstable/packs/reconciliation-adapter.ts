@@ -4,6 +4,7 @@ import {
   type ExtensionName,
   parseFqnOrThrow,
   readAndDecodeManifest,
+  extensionTypeFromPlural,
 } from "../extensions/index.js";
 import {
   ExtensionPackManifestSchema,
@@ -73,6 +74,7 @@ const toPackSource = (entry: string | { readonly source: string }): string =>
 
 const parseExtensionPackDependency = (
   type: "skills" | "commands" | "mcp-servers",
+  singularType: "skill" | "command" | "mcp-server",
   fqn: string,
   constraint: VersionConstraint,
   order: number,
@@ -84,7 +86,7 @@ const parseExtensionPackDependency = (
     return Option.none();
   }
 
-  if (parsed.type !== type) {
+  if (parsed.type !== singularType) {
     return Option.none();
   }
 
@@ -101,6 +103,7 @@ const parseExtensionPackDependency = (
 
 const collectExtensionPackDependencyDeclarations = (
   type: "skills" | "commands" | "mcp-servers",
+  singularType: "skill" | "command" | "mcp-server",
   candidates: unknown,
   declarations: Array<ReconciliationDeclaration>,
 ) => {
@@ -120,6 +123,7 @@ const collectExtensionPackDependencyDeclarations = (
     }
     const parsedDep = parseExtensionPackDependency(
       type,
+      singularType,
       fqn,
       versionConstraint,
       declarations.length,
@@ -179,7 +183,7 @@ const readInstalledDependencyVersion = (
       }
     })();
 
-    if (parsed === undefined || parsed.type !== type) {
+    if (parsed === undefined || parsed.type !== extensionTypeFromPlural[type]) {
       return {
         _tag: "Unresolved",
         reason: "declaration-mismatch",
@@ -365,10 +369,21 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
           continue;
         }
 
-        collectExtensionPackDependencyDeclarations("skills", manifest.skills, declarations);
-        collectExtensionPackDependencyDeclarations("commands", manifest.commands, declarations);
+        collectExtensionPackDependencyDeclarations(
+          "skills",
+          "skill",
+          manifest.skills,
+          declarations,
+        );
+        collectExtensionPackDependencyDeclarations(
+          "commands",
+          "command",
+          manifest.commands,
+          declarations,
+        );
         collectExtensionPackDependencyDeclarations(
           "mcp-servers",
+          "mcp-server",
           manifest["mcp-servers"],
           declarations,
         );

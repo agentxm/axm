@@ -83,7 +83,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = formatFqn({ owner, type: "packs", name: decodeExtensionNameSync(args.name) });
+  const fqn = formatFqn({ owner, type: "pack", name: decodeExtensionNameSync(args.name) });
   const base = ws.baseDir;
 
   // Check if pack already exists

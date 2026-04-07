@@ -9,28 +9,6 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("axm skills list", () => {
-  describe("builtin skills only", () => {
-    it("lists builtin skills after init", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(["skills", "list"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-        const output = getOutput(result);
-        expect(output).toContain("axm-manage-skills");
-        expect(output).toContain("builtin");
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
   describe("with skills installed", () => {
     it("lists installed skills", async () => {
       const temp = createTempDir();
@@ -99,12 +77,17 @@ describe("axm skills list", () => {
           cwd: temp.path,
         });
 
+        // Install skills first so there's something to list
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
+
         const result = await runCli(["skills", "ls"], {
           cwd: temp.path,
         });
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toContain("axm-manage-skills");
+        expect(getOutput(result)).toContain("my-skill");
       } finally {
         temp.cleanup();
       }

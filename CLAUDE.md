@@ -296,6 +296,10 @@ See [Effect Guide](contributing/guides/effect.md),
 - Internal monorepo functions — even if exported across workspace packages —
   do not need return type annotations
 
+### Effect Language Service
+
+When implementing Effect code, run `pnpm typecheck` (or `pnpm typecheck:affected`) and address any diagnostics emitted by the `@effect/language-service` plugin as part of the implementation work.
+
 ### Error Handling Patterns
 
 See [Effect Errors Guide](contributing/guides/effect-errors.md) for full

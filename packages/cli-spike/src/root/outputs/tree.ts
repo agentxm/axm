@@ -3,6 +3,8 @@ import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
 import { withRuntime } from "../../runtime.js";
 
 interface FileEntry {
@@ -45,20 +47,29 @@ const treeConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Tree view title"), Flag.optional),
 } as const;
 
-export const treeCommand = Command.make("tree", treeConfig, (config) =>
-  withRuntime(
-    Effect.gen(function* () {
-      const renderer = yield* CliRenderer;
-      yield* renderer.tree(
-        sampleTree,
-        {
-          label: (item: FileEntry) => item.name,
-          detail: (item: FileEntry) => (item.kind === "directory" ? "dir" : undefined),
-          icon: (item: FileEntry) => (item.kind === "directory" ? "\uD83D\uDCC1" : "\uD83D\uDCC4"),
-        },
-        Option.getOrUndefined(config.title),
-      );
-    }),
-    { command: "outputs tree" },
-  ),
-).pipe(Command.withDescription("Demo tree hierarchy display"));
+const handleTree = (args: { readonly title: Option.Option<string> }) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    yield* renderer.tree(
+      sampleTree,
+      {
+        label: (item: FileEntry) => item.name,
+        detail: (item: FileEntry) => (item.kind === "directory" ? "dir" : undefined),
+        icon: (item: FileEntry) => (item.kind === "directory" ? "\uD83D\uDCC1" : "\uD83D\uDCC4"),
+      },
+      Option.getOrUndefined(args.title),
+    );
+  });
+
+export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
+  handleTree({ title }).pipe(withRuntime({ command: "outputs tree" })),
+).pipe(
+  withArgvTracking(treeConfig),
+  Command.withDescription("Render tree hierarchy output"),
+  Command.withExamples([
+    {
+      command: "axm-spike outputs tree --title Workspace",
+      description: "Render a titled tree view",
+    },
+  ]),
+);

@@ -2,9 +2,24 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
 import { withRuntime } from "../../runtime.js";
+
+const timezoneValues = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Tokyo",
+  "Asia/Shanghai",
+  "Australia/Sydney",
+] as const;
 
 const timezoneOptions = [
   { value: "America/New_York", label: "America/New_York (EST)" },
@@ -20,6 +35,10 @@ const timezoneOptions = [
 ] as const;
 
 const autocompleteConfig = {
+  value: Flag.choice("value", timezoneValues).pipe(
+    Flag.withDescription("Bypass the prompt with an explicit selection"),
+    Flag.optional,
+  ),
   "max-items": Flag.integer("max-items").pipe(
     Flag.withDescription("Maximum number of items to display"),
     Flag.optional,
@@ -34,22 +53,48 @@ const autocompleteConfig = {
   ),
 } as const;
 
-export const autocompleteCommand = Command.make("autocomplete", autocompleteConfig, (config) =>
-  withRuntime(
-    Effect.gen(function* () {
-      const prompt = yield* CliPrompt;
-      const renderer = yield* CliRenderer;
-      const choice = yield* prompt.autocomplete({
+const handleAutocomplete = (args: {
+  readonly value: Option.Option<(typeof timezoneValues)[number]>;
+  readonly maxItems: Option.Option<number>;
+  readonly placeholder: Option.Option<string>;
+  readonly initialInput: Option.Option<string>;
+}) =>
+  Effect.gen(function* () {
+    const prompt = yield* CliPrompt;
+    const renderer = yield* CliRenderer;
+    const choice = yield* fromFlagOrPrompt(args.value, () =>
+      prompt.autocomplete({
         message: "Select a timezone:",
         options: [...timezoneOptions],
-        ...(Option.isSome(config["max-items"]) && { maxItems: config["max-items"].value }),
-        ...(Option.isSome(config.placeholder) && { placeholder: config.placeholder.value }),
-        ...(Option.isSome(config["initial-input"]) && {
-          initialUserInput: config["initial-input"].value,
+        ...(Option.isSome(args.maxItems) && { maxItems: args.maxItems.value }),
+        ...(Option.isSome(args.placeholder) && { placeholder: args.placeholder.value }),
+        ...(Option.isSome(args.initialInput) && {
+          initialUserInput: args.initialInput.value,
         }),
-      });
-      yield* renderer.success(`Selected: ${choice}`);
-    }),
-    { command: "prompts autocomplete" },
-  ),
-).pipe(Command.withDescription("Demo autocomplete prompt"));
+      }),
+    );
+
+    yield* renderer.success(`Selected: ${choice}`);
+  });
+
+export const autocompleteCommand = Command.make(
+  "autocomplete",
+  autocompleteConfig,
+  ({ value, ["max-items"]: maxItems, placeholder, ["initial-input"]: initialInput }) =>
+    handleAutocomplete({ value, maxItems, placeholder, initialInput }).pipe(
+      withRuntime({ command: "prompts autocomplete" }),
+    ),
+).pipe(
+  withArgvTracking(autocompleteConfig),
+  Command.withDescription("Demo autocomplete prompt"),
+  Command.withExamples([
+    {
+      command: "axm-spike prompts autocomplete",
+      description: "Open the interactive autocomplete prompt",
+    },
+    {
+      command: "axm-spike prompts autocomplete --value America/Chicago",
+      description: "Resolve the autocomplete prompt non-interactively",
+    },
+  ]),
+);

@@ -7,18 +7,17 @@ import { withRuntime } from "../../runtime.js";
 
 const handledConfig = {} as const;
 
+const handleHandledTelemetry = Effect.fail(
+  makeAppError({
+    code: "SPIKE_HANDLED_ERROR",
+    what: "Simulated handled telemetry failure",
+    details: ["Raised by axm-spike to verify handled error reporting."],
+    howToFix: "Run `axm-spike telemetry defect` to exercise defect telemetry.",
+  }),
+);
+
 export const handledCommand = Command.make("handled", handledConfig, () =>
-  withRuntime(
-    Effect.fail(
-      makeAppError({
-        code: "SPIKE_HANDLED_ERROR",
-        what: "Simulated handled telemetry failure",
-        details: ["Raised by axm-spike to verify handled error reporting."],
-        howToFix: "Run `axm-spike telemetry defect` to exercise defect telemetry.",
-      }),
-    ),
-    { command: "telemetry handled" },
-  ),
+  handleHandledTelemetry.pipe(withRuntime({ command: "telemetry handled" })),
 ).pipe(
   withArgvTracking(handledConfig),
   Command.withDescription("Emit a handled AppError and report it to telemetry"),

@@ -1,9 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/ServiceMap";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 
 export const FakePetRecordSchema = Schema.Struct({
   _version: Schema.Literal(1),
@@ -13,7 +14,38 @@ export const FakePetRecordSchema = Schema.Struct({
   adoptable: Schema.Boolean,
   habitat: Schema.Literals(["showroom", "foster"] as const),
 });
+
 export type FakePetRecord = typeof FakePetRecordSchema.Type;
+export type FakePetHabitat = FakePetRecord["habitat"];
+
+export interface RegisterPetRequest {
+  readonly name: string;
+  readonly species: Option.Option<string>;
+  readonly tags: Option.Option<ReadonlyArray<string>>;
+}
+
+export interface RegisteredPet {
+  readonly name: string;
+  readonly species: string;
+  readonly tags: ReadonlyArray<string>;
+}
+
+export interface ResolveIntakeRequest {
+  readonly source: string;
+  readonly habitat: FakePetHabitat;
+  readonly requestedPets: ReadonlyArray<string>;
+  readonly all: boolean;
+}
+
+export interface AdoptionPlan {
+  readonly pet: FakePetRecord;
+  readonly blocker: Option.Option<string>;
+}
+
+export interface AdoptionOutcome {
+  readonly pet: FakePetRecord;
+  readonly forced: boolean;
+}
 
 const FAKE_PETS: ReadonlyArray<FakePetRecord> = [
   {
@@ -42,34 +74,113 @@ const FAKE_PETS: ReadonlyArray<FakePetRecord> = [
   },
 ];
 
+const findPetByName = (name: string): Option.Option<FakePetRecord> =>
+  Option.fromUndefinedOr(
+    FAKE_PETS.find((pet) => pet.name.toLowerCase() === name.trim().toLowerCase()),
+  );
+
+const getPetByName = (name: string) =>
+  Effect.fromOption(findPetByName(name)).pipe(
+    Effect.mapError(() =>
+      makeAppError({
+        code: "SPIKE_PET_NOT_FOUND",
+        what: `No sample pet named '${name}' exists`,
+        howToFix: "Use `axm-spike pets list` to inspect the available sample pets.",
+      }),
+    ),
+  );
+
+const inferSpecies = (name: string): string =>
+  Option.match(findPetByName(name), {
+    onNone: () => "unknown",
+    onSome: (pet) => pet.species,
+  });
+
+const petsInHabitat = (habitat: FakePetHabitat): ReadonlyArray<FakePetRecord> =>
+  FAKE_PETS.filter((pet) => pet.habitat === habitat);
+
+const planAdoption = (petName: string) =>
+  Effect.gen(function* () {
+    const pet = yield* getPetByName(petName);
+
+    return {
+      pet,
+      blocker: pet.adoptable
+        ? Option.none()
+        : Option.some(`${pet.name} is not currently marked adoptable`),
+    } satisfies AdoptionPlan;
+  });
+
 export interface FakePetStoreService {
-  readonly listPets: (
-    habitat: "showroom" | "foster",
-  ) => Effect.Effect<ReadonlyArray<FakePetRecord>>;
+  readonly listPets: (habitat: FakePetHabitat) => Effect.Effect<ReadonlyArray<FakePetRecord>>;
+  readonly resolveIntake: (
+    request: ResolveIntakeRequest,
+  ) => Effect.Effect<ReadonlyArray<string>, ReturnType<typeof makeAppError>>;
+  readonly registerPet: (
+    request: RegisterPetRequest,
+  ) => Effect.Effect<RegisteredPet, ReturnType<typeof makeAppError>>;
+  readonly planAdoption: (
+    petName: string,
+  ) => Effect.Effect<AdoptionPlan, ReturnType<typeof makeAppError>>;
+  readonly adoptPet: (
+    petName: string,
+    force: boolean,
+  ) => Effect.Effect<AdoptionOutcome, ReturnType<typeof makeAppError>>;
 }
 
 export class FakePetStore extends ServiceMap.Service<FakePetStore, FakePetStoreService>()(
   "@axm.sh/cli-spike/FakePetStore",
 ) {}
 
-export const FakePetStoreLive = Layer.effect(
-  FakePetStore,
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+export const FakePetStoreLive = Layer.succeed(FakePetStore, {
+  listPets: (habitat) => Effect.succeed(petsInHabitat(habitat)),
 
-    return {
-      listPets: (habitat) =>
-        renderer.withSpinner(
-          `FakePetStore: preparing ${habitat} demo pets`,
-          (spinner) =>
-            Effect.gen(function* () {
-              yield* spinner.update(`Filtering ${habitat} demo pets`);
-              yield* renderer.info(`FakePetStore: listing ${habitat} demo pets`);
+  resolveIntake: (request) =>
+    Effect.gen(function* () {
+      const candidates = petsInHabitat(request.habitat).map((pet) => pet.name);
 
-              return FAKE_PETS.filter((pet) => pet.habitat === habitat);
-            }),
-          { successMessage: "Fake pets ready" },
-        ),
-    } satisfies FakePetStoreService;
-  }),
-);
+      if (request.requestedPets.length > 0) {
+        return yield* Effect.forEach(request.requestedPets, (petName) =>
+          candidates.includes(petName)
+            ? Effect.succeed(petName)
+            : Effect.fail(
+                makeAppError({
+                  code: "SPIKE_PET_NOT_FOUND",
+                  what: `No ${request.habitat} sample pet named '${petName}' exists`,
+                  howToFix: "Choose one of the pets returned by `axm-spike pets list`.",
+                }),
+              ),
+        );
+      }
+
+      return request.all ? candidates : candidates.slice(0, 2);
+    }),
+
+  registerPet: (request) =>
+    Effect.succeed({
+      name: request.name,
+      species: Option.getOrElse(request.species, () => inferSpecies(request.name)),
+      tags: Option.getOrElse(request.tags, () => []),
+    }),
+
+  planAdoption,
+
+  adoptPet: (petName, force) =>
+    Effect.gen(function* () {
+      const plan = yield* planAdoption(petName);
+
+      if (Option.isSome(plan.blocker) && !force) {
+        return yield* makeAppError({
+          code: "PET_ADOPTION_BLOCKED",
+          what: plan.blocker.value,
+          howToFix:
+            "Pass `--force` to override the blocker in this demo, or choose an adoptable pet.",
+        });
+      }
+
+      return {
+        pet: plan.pet,
+        forced: Option.isSome(plan.blocker),
+      } satisfies AdoptionOutcome;
+    }),
+});

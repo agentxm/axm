@@ -6,6 +6,7 @@
  */
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import {
   type CliTelemetryConfigService,
@@ -13,8 +14,9 @@ import {
   resolveCliFormat,
   withCliErrorHandling,
 } from "@axm.sh/core/unstable/cli-runtime";
+import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
-import type { AppError } from "@axm.sh/core/unstable/app-error";
+import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import { FakePetStoreLive } from "./fake-pet-store.js";
@@ -33,23 +35,38 @@ const spikeCliTelemetryConfig = {
   client: { name: ROOT_COMMAND, version: VERSION },
 } satisfies CliTelemetryConfigService;
 
-interface RuntimeOptions {
-  readonly command?: string;
+export interface RuntimeCapabilities {
+  readonly json: boolean;
 }
 
-export const withRuntime = <A, R>(
-  program: Effect.Effect<A, AppError | PromptCancelled, R>,
-  options?: RuntimeOptions,
-) =>
-  Effect.gen(function* () {
-    const format = yield* resolveCliFormat;
-    const foundationLayer = makeFoundationLayer(format);
-    const appLayer = Layer.provideMerge(FakePetStoreLive, foundationLayer);
-    const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+interface RuntimeOptions {
+  readonly command?: string;
+  readonly capabilities?: RuntimeCapabilities;
+}
 
-    return yield* withCliErrorHandling(provided, {
-      command: options?.command,
-      format,
-      telemetryConfig: spikeCliTelemetryConfig,
+export const withRuntime =
+  (options?: RuntimeOptions) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+    Effect.gen(function* () {
+      const explicitJson = yield* jsonFlag;
+      const jsonRequested = Option.getOrElse(explicitJson, () => false);
+
+      if (jsonRequested && options?.capabilities?.json !== true) {
+        return yield* makeAppError({
+          code: "JSON_OUTPUT_UNSUPPORTED",
+          what: "This command does not support --json output",
+          howToFix: "Use a command with a published JSON schema or omit --json.",
+        });
+      }
+
+      const format = yield* resolveCliFormat;
+      const foundationLayer = makeFoundationLayer(format);
+      const appLayer = Layer.provideMerge(FakePetStoreLive, foundationLayer);
+      const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+
+      return yield* withCliErrorHandling(provided, {
+        command: options?.command,
+        format,
+        telemetryConfig: spikeCliTelemetryConfig,
+      });
     });
-  });

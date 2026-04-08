@@ -1,11 +1,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { type BoxOptions, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
 import { withRuntime } from "../../runtime.js";
 
 const boxConfig = {
+  content: Argument.string("content").pipe(
+    Argument.withDescription("Content to render inside the box"),
+    Argument.optional,
+  ),
   title: Flag.string("title").pipe(Flag.withDescription("Box title"), Flag.optional),
   contentAlign: Flag.choice("content-align", ["left", "center", "right"] as const).pipe(
     Flag.withDescription("Content alignment"),
@@ -23,25 +29,50 @@ const boxConfig = {
   rounded: Flag.boolean("rounded").pipe(Flag.withDescription("Use rounded corners")),
 } as const;
 
-export const boxCommand = Command.make("box", boxConfig, (config) =>
-  withRuntime(
-    Effect.gen(function* () {
-      const renderer = yield* CliRenderer;
-      const opts: BoxOptions = {
-        ...(Option.isSome(config.contentAlign) && {
-          contentAlignment: config.contentAlign.value,
-        }),
-        ...(Option.isSome(config.titleAlign) && { titleAlignment: config.titleAlign.value }),
-        ...(Option.isSome(config.width) && { width: config.width.value }),
-        ...(Option.isSome(config.padding) && { padding: config.padding.value }),
-        rounded: config.rounded,
-      };
-      yield* renderer.box(
-        "This is content inside a box.\nIt can span multiple lines.",
-        Option.getOrUndefined(config.title),
-        opts,
-      );
-    }),
-    { command: "outputs box" },
-  ),
-).pipe(Command.withDescription("Render content in a bordered box"));
+const handleBox = (args: {
+  readonly content: Option.Option<string>;
+  readonly title: Option.Option<string>;
+  readonly contentAlign: Option.Option<"left" | "center" | "right">;
+  readonly titleAlign: Option.Option<"left" | "center" | "right">;
+  readonly width: Option.Option<number>;
+  readonly padding: Option.Option<number>;
+  readonly rounded: boolean;
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const options: BoxOptions = {
+      ...(Option.isSome(args.contentAlign) && {
+        contentAlignment: args.contentAlign.value,
+      }),
+      ...(Option.isSome(args.titleAlign) && {
+        titleAlignment: args.titleAlign.value,
+      }),
+      ...(Option.isSome(args.width) && { width: args.width.value }),
+      ...(Option.isSome(args.padding) && { padding: args.padding.value }),
+      rounded: args.rounded,
+    };
+
+    yield* renderer.box(
+      Option.getOrElse(args.content, () => "This box renders one message at a time."),
+      Option.getOrUndefined(args.title),
+      options,
+    );
+  });
+
+export const boxCommand = Command.make(
+  "box",
+  boxConfig,
+  ({ content, title, contentAlign, titleAlign, width, padding, rounded }) =>
+    handleBox({ content, title, contentAlign, titleAlign, width, padding, rounded }).pipe(
+      withRuntime({ command: "outputs box" }),
+    ),
+).pipe(
+  withArgvTracking(boxConfig),
+  Command.withDescription("Render content in a bordered box"),
+  Command.withExamples([
+    {
+      command: 'axm-spike outputs box "Release ready" --title Status --rounded',
+      description: "Render a rounded status box",
+    },
+  ]),
+);

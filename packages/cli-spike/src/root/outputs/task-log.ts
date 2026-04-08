@@ -1,11 +1,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { type TaskLogConfig, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
 import { withRuntime } from "../../runtime.js";
 
 const taskLogConfig = {
+  title: Argument.string("title").pipe(
+    Argument.withDescription("Task log title"),
+    Argument.optional,
+  ),
   limit: Flag.integer("limit").pipe(
     Flag.withDescription("Maximum visible log lines"),
     Flag.optional,
@@ -15,29 +21,46 @@ const taskLogConfig = {
   ),
 } as const;
 
-export const taskLogCommand = Command.make("task-log", taskLogConfig, (config) =>
-  withRuntime(
-    Effect.gen(function* () {
-      const renderer = yield* CliRenderer;
-      const cfg: TaskLogConfig = {
-        title: "Building project",
-        ...(Option.isSome(config.limit) && { limit: config.limit.value }),
-        retainLog: config.retainLog,
-      };
-      yield* renderer.withTaskLog(cfg, (handle) =>
-        Effect.gen(function* () {
-          yield* handle.message("Compiling TypeScript...");
-          yield* Effect.sleep("500 millis");
-          yield* handle.message("Bundling modules...");
-          yield* Effect.sleep("500 millis");
-          yield* handle.message("Generating types...");
-          yield* Effect.sleep("500 millis");
-          yield* handle.message("Writing output...");
-          yield* Effect.sleep("500 millis");
-          yield* handle.success("Build complete");
-        }),
-      );
-    }),
-    { command: "outputs task-log" },
-  ),
-).pipe(Command.withDescription("Demo task log output"));
+const handleTaskLog = (args: {
+  readonly title: Option.Option<string>;
+  readonly limit: Option.Option<number>;
+  readonly retainLog: boolean;
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const config: TaskLogConfig = {
+      title: Option.getOrElse(args.title, () => "Building project"),
+      ...(Option.isSome(args.limit) && { limit: args.limit.value }),
+      retainLog: args.retainLog,
+    };
+
+    yield* renderer.withTaskLog(config, (handle) =>
+      Effect.gen(function* () {
+        yield* handle.message("Compiling TypeScript...");
+        yield* Effect.sleep("500 millis");
+        yield* handle.message("Bundling modules...");
+        yield* Effect.sleep("500 millis");
+        yield* handle.message("Generating types...");
+        yield* Effect.sleep("500 millis");
+        yield* handle.message("Writing output...");
+        yield* Effect.sleep("500 millis");
+        yield* handle.success("Build complete");
+      }),
+    );
+  });
+
+export const taskLogCommand = Command.make(
+  "task-log",
+  taskLogConfig,
+  ({ title, limit, retainLog }) =>
+    handleTaskLog({ title, limit, retainLog }).pipe(withRuntime({ command: "outputs task-log" })),
+).pipe(
+  withArgvTracking(taskLogConfig),
+  Command.withDescription("Render a task log"),
+  Command.withExamples([
+    {
+      command: 'axm-spike outputs task-log "Publishing docs" --limit 3',
+      description: "Render a bounded task log",
+    },
+  ]),
+);

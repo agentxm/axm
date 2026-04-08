@@ -31,6 +31,8 @@ interface ErrorRequestBody {
   readonly context: { readonly command: string };
 }
 
+const combinedOutput = (result: CliResult): string => result.stdout + result.stderr;
+
 const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
   if (typeof value !== "object" || value === null) {
     throw new Error("Expected telemetry error request body");
@@ -79,11 +81,14 @@ const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
   };
 };
 
-const runSpike = (args: ReadonlyArray<string>, env: Record<string, string>): Promise<CliResult> =>
+const runSpike = (
+  args: ReadonlyArray<string>,
+  env: Record<string, string> = {},
+): Promise<CliResult> =>
   new Promise((resolve, reject) => {
     const child = spawn("bun", ["run", CLI_PATH, ...args], {
       cwd: PACKAGE_ROOT,
-      env: { ...process.env, ...env, NO_COLOR: "1" },
+      env: { ...process.env, AXM_TELEMETRY: "0", ...env, NO_COLOR: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -165,6 +170,340 @@ const waitForErrorRequest = async (server: CaptureServer): Promise<CapturedReque
   throw new Error("Timed out waiting for telemetry error request");
 };
 
+describe("axm-spike group help", () => {
+  const cases = [
+    {
+      args: ["pets"],
+      expected: ["list", "intake", "register", "adopt", "axm-spike pets adopt Mochi --preview"],
+    },
+    {
+      args: ["prompts"],
+      expected: [
+        "text",
+        "password",
+        "confirm",
+        "autocomplete-multiselect",
+        "axm-spike prompts confirm --answer yes",
+      ],
+    },
+    {
+      args: ["outputs"],
+      expected: ["log", "box", "result", "raw", "axm-spike outputs raw --json"],
+    },
+    {
+      args: ["telemetry"],
+      expected: ["handled", "defect", "axm-spike telemetry handled"],
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    it(`shows help for ${testCase.args.join(" ")}`, async () => {
+      const result = await runSpike(testCase.args);
+      const output = combinedOutput(result);
+
+      expect(result.exitCode).toBe(0);
+      for (const expected of testCase.expected) {
+        expect(output).toContain(expected);
+      }
+    });
+  }
+});
+
+describe("axm-spike leaf help", () => {
+  const cases = [
+    { args: ["pets", "list", "--help"], expected: "axm-spike pets list --json" },
+    {
+      args: ["pets", "intake", "--help"],
+      expected: "axm-spike pets intake partner-feed --all --yes",
+    },
+    {
+      args: ["pets", "register", "--help"],
+      expected: "axm-spike pets register Mochi --tag shy --tag lap-cat",
+    },
+    { args: ["pets", "adopt", "--help"], expected: "axm-spike pets adopt Juniper --force --yes" },
+    { args: ["prompts", "text", "--help"], expected: "axm-spike prompts text --value hello" },
+    {
+      args: ["prompts", "password", "--help"],
+      expected: "axm-spike prompts password --value hunter2",
+    },
+    { args: ["prompts", "confirm", "--help"], expected: "axm-spike prompts confirm --answer yes" },
+    {
+      args: ["prompts", "path", "--help"],
+      expected: "axm-spike prompts path --value ./packages/cli-spike",
+    },
+    { args: ["prompts", "select", "--help"], expected: "axm-spike prompts select --value red" },
+    {
+      args: ["prompts", "multiselect", "--help"],
+      expected: "axm-spike prompts multiselect --value apple --value banana",
+    },
+    {
+      args: ["prompts", "group-multiselect", "--help"],
+      expected: "axm-spike prompts group-multiselect --value file:read --value net:http",
+    },
+    {
+      args: ["prompts", "select-key", "--help"],
+      expected: "axm-spike prompts select-key --value r",
+    },
+    {
+      args: ["prompts", "autocomplete", "--help"],
+      expected: "axm-spike prompts autocomplete --value America/Chicago",
+    },
+    {
+      args: ["prompts", "autocomplete-multiselect", "--help"],
+      expected: "axm-spike prompts autocomplete-multiselect --value effect --value vitest",
+    },
+    {
+      args: ["outputs", "log", "--help"],
+      expected: 'axm-spike outputs log "Lint passed" --level success',
+    },
+    { args: ["outputs", "intro", "--help"], expected: 'axm-spike outputs intro "Workspace ready"' },
+    {
+      args: ["outputs", "note", "--help"],
+      expected: 'axm-spike outputs note "Read the deploy checklist" --title Reminder',
+    },
+    {
+      args: ["outputs", "box", "--help"],
+      expected: 'axm-spike outputs box "Release ready" --title Status --rounded',
+    },
+    {
+      args: ["outputs", "spinner", "--help"],
+      expected: 'axm-spike outputs spinner "Downloading registry index"',
+    },
+    {
+      args: ["outputs", "progress", "--help"],
+      expected: 'axm-spike outputs progress "Publishing packages" --max 5',
+    },
+    {
+      args: ["outputs", "task-log", "--help"],
+      expected: 'axm-spike outputs task-log "Publishing docs" --limit 3',
+    },
+    { args: ["outputs", "run-tasks", "--help"], expected: "axm-spike outputs run-tasks" },
+    {
+      args: ["outputs", "table", "--help"],
+      expected: 'axm-spike outputs table --caption "Adoptable pets"',
+    },
+    {
+      args: ["outputs", "detail", "--help"],
+      expected: 'axm-spike outputs detail --title "Featured pet"',
+    },
+    { args: ["outputs", "tree", "--help"], expected: "axm-spike outputs tree --title Workspace" },
+    {
+      args: ["outputs", "stream-log", "--help"],
+      expected: "axm-spike outputs stream-log --level warn",
+    },
+    { args: ["outputs", "result", "--help"], expected: "axm-spike outputs result --json" },
+    { args: ["outputs", "raw", "--help"], expected: "axm-spike outputs raw --json" },
+    { args: ["telemetry", "handled", "--help"], expected: "axm-spike telemetry handled" },
+    { args: ["telemetry", "defect", "--help"], expected: "axm-spike telemetry defect" },
+  ] as const;
+
+  for (const testCase of cases) {
+    it(`includes examples for ${testCase.args.slice(0, -1).join(" ")}`, async () => {
+      const result = await runSpike(testCase.args);
+      const output = combinedOutput(result);
+
+      expect(result.exitCode).toBe(0);
+      expect(output).toContain(testCase.expected);
+    });
+  }
+});
+
+describe("axm-spike json output", () => {
+  it("shows --json on supported help and hides it on unsupported help", async () => {
+    const supported = await runSpike(["pets", "list", "--help"]);
+    const unsupported = await runSpike(["pets", "intake", "--help"]);
+
+    expect(combinedOutput(supported)).toContain("--json");
+    expect(combinedOutput(unsupported)).not.toContain("--json");
+  });
+
+  it("formats help as JSON before Effect runs", async () => {
+    const result = await runSpike(["pets", "list", "--json", "--help"]);
+    const output = JSON.parse(result.stdout) as {
+      type: string;
+      usage: string;
+      examples?: Array<unknown>;
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.type).toBe("help");
+    expect(output.usage).toContain("axm-spike pets list");
+    expect(output.examples?.length).toBeGreaterThan(0);
+  });
+
+  it("rejects --json on unsupported commands", async () => {
+    const result = await runSpike(["outputs", "log", "--json"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("JSON_OUTPUT_UNSUPPORTED");
+  });
+
+  it("emits a structured document for pets list", async () => {
+    const result = await runSpike(["pets", "list", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      count: number;
+      items: ReadonlyArray<{ name: string }>;
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("pets.list");
+    expect(output.count).toBeGreaterThan(0);
+    expect(output.items[0]?.name).toBeDefined();
+  });
+
+  it("emits a structured document for outputs result", async () => {
+    const result = await runSpike(["outputs", "result", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      data: { name: string };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("outputs.result");
+    expect(output.data.name).toBe("Mochi");
+  });
+
+  it("emits a structured document for outputs raw", async () => {
+    const result = await runSpike(["outputs", "raw", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      data: { lines: ReadonlyArray<string> };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("outputs.raw");
+    expect(output.data.lines.length).toBeGreaterThan(0);
+  });
+});
+
+describe("axm-spike prompt commands", () => {
+  const successCases = [
+    {
+      args: ["prompts", "text", "--non-interactive", "--value", "hello"],
+      expected: "You entered: hello",
+    },
+    {
+      args: ["prompts", "password", "--non-interactive", "--value", "hunter2"],
+      expected: "Secret received",
+    },
+    {
+      args: ["prompts", "confirm", "--non-interactive", "--answer", "yes"],
+      expected: "You chose: Yes",
+    },
+    {
+      args: ["prompts", "path", "--non-interactive", "--value", "./packages/cli-spike"],
+      expected: "Selected path: ./packages/cli-spike",
+    },
+    {
+      args: ["prompts", "select", "--non-interactive", "--value", "red"],
+      expected: "You picked: red",
+    },
+    {
+      args: [
+        "prompts",
+        "multiselect",
+        "--non-interactive",
+        "--value",
+        "apple",
+        "--value",
+        "banana",
+      ],
+      expected: "apple, banana",
+    },
+    {
+      args: [
+        "prompts",
+        "group-multiselect",
+        "--non-interactive",
+        "--value",
+        "file:read",
+        "--value",
+        "net:http",
+      ],
+      expected: "file:read, net:http",
+    },
+    {
+      args: ["prompts", "select-key", "--non-interactive", "--value", "r"],
+      expected: "You chose: r",
+    },
+    {
+      args: ["prompts", "autocomplete", "--non-interactive", "--value", "America/Chicago"],
+      expected: "Selected: America/Chicago",
+    },
+    {
+      args: [
+        "prompts",
+        "autocomplete-multiselect",
+        "--non-interactive",
+        "--value",
+        "effect",
+        "--value",
+        "vitest",
+      ],
+      expected: "effect, vitest",
+    },
+  ] as const;
+
+  for (const testCase of successCases) {
+    it(`supports non-interactive fallback for ${testCase.args.slice(0, 2).join(" ")}`, async () => {
+      const result = await runSpike(testCase.args);
+
+      expect(result.exitCode).toBe(0);
+      expect(combinedOutput(result)).toContain(testCase.expected);
+    });
+  }
+
+  it("fails clearly when non-interactive input is missing", async () => {
+    const result = await runSpike(["prompts", "password", "--non-interactive"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(combinedOutput(result)).toContain("PROMPT_REQUIRED");
+    expect(combinedOutput(result)).toContain("Interactive prompt required");
+    expect(combinedOutput(result)).toContain("Pass the value via a flag");
+  });
+});
+
+describe("axm-spike pet commands", () => {
+  it("lists sample pets through the runtime service layer", async () => {
+    const result = await runSpike(["pets", "list", "--habitat", "showroom"]);
+    const output = combinedOutput(result);
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Mochi");
+    expect(output).toContain("Pickles");
+  });
+
+  it("requires confirmation for intake in non-interactive mode unless --yes is set", async () => {
+    const blocked = await runSpike(["pets", "intake", "partner-feed", "--non-interactive"]);
+    const allowed = await runSpike([
+      "pets",
+      "intake",
+      "partner-feed",
+      "--non-interactive",
+      "--yes",
+    ]);
+
+    expect(blocked.exitCode).toBe(1);
+    expect(combinedOutput(blocked)).toContain("PROMPT_REQUIRED");
+    expect(allowed.exitCode).toBe(0);
+    expect(combinedOutput(allowed)).toContain("Logged intake");
+  });
+
+  it("enforces force/yes/preview semantics for adoption", async () => {
+    const preview = await runSpike(["pets", "adopt", "Mochi", "--preview", "--non-interactive"]);
+    const blocked = await runSpike(["pets", "adopt", "Juniper", "--yes"]);
+    const forced = await runSpike(["pets", "adopt", "Juniper", "--force", "--yes"]);
+
+    expect(preview.exitCode).toBe(0);
+    expect(combinedOutput(preview)).toContain("Preview only");
+    expect(blocked.exitCode).toBe(1);
+    expect(blocked.stderr).toContain("not currently marked adoptable");
+    expect(forced.exitCode).toBe(0);
+    expect(combinedOutput(forced)).toContain("Force applied: yes");
+  });
+});
+
 describe("axm-spike telemetry demos", () => {
   it("reports handled AppError telemetry", async () => {
     const server = await startCaptureServer();
@@ -218,18 +557,5 @@ describe("axm-spike telemetry demos", () => {
     } finally {
       await server.close();
     }
-  });
-});
-
-describe("axm-spike cli-spike services", () => {
-  it("provides FakePetStore through withRuntime", async () => {
-    const result = await runSpike(["pets", "list", "--habitat", "showroom"], {
-      AXM_TELEMETRY: "0",
-    });
-    const combined = result.stdout + result.stderr;
-
-    expect(result.exitCode).toBe(0);
-    expect(combined).toContain("FakePetStore: listing showroom demo pets");
-    expect(combined).toContain("Mochi");
   });
 });

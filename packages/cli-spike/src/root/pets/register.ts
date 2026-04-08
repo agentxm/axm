@@ -1,9 +1,23 @@
-import * as Console from "effect/Console";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
+import { FakePetStore } from "../../fake-pet-store.js";
 import { withRuntime } from "../../runtime.js";
+
+const renderRegistration = (result: {
+  readonly name: string;
+  readonly species: string;
+  readonly tags: ReadonlyArray<string>;
+}): string =>
+  [
+    `Registered ${result.name}`,
+    `Species: ${result.species}`,
+    `Tags: ${result.tags.length === 0 ? "-" : result.tags.join(", ")}`,
+  ].join("\n");
 
 const registerConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the pet to register")),
@@ -18,18 +32,26 @@ const registerConfig = {
   ),
 } as const;
 
-export const registerCommand = Command.make("register", registerConfig, (config) => {
-  const species = Option.getOrElse(config.species, () => "unknown");
-  const tags = Option.match(config.tag, {
-    onNone: () => "-",
-    onSome: (petTags) => petTags.join(", "),
+const handleRegister = (args: {
+  readonly name: string;
+  readonly species: Option.Option<string>;
+  readonly tag: Option.Option<ReadonlyArray<string>>;
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const fakePetStore = yield* FakePetStore;
+    const registeredPet = yield* fakePetStore.registerPet({
+      name: args.name,
+      species: args.species,
+      tags: args.tag,
+    });
+
+    yield* renderer.success(renderRegistration(registeredPet));
   });
 
-  return withRuntime(
-    Console.log(`[stub] pets register name=${config.name} species=${species} tags=${tags}`),
-    { command: "pets register" },
-  );
-}).pipe(
+export const registerCommand = Command.make("register", registerConfig, ({ name, species, tag }) =>
+  handleRegister({ name, species, tag }).pipe(withRuntime({ command: "pets register" })),
+).pipe(
   withArgvTracking(registerConfig),
   Command.withDescription("Register a sample pet"),
   Command.withExamples([

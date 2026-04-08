@@ -1,8 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+
 import { withRuntime } from "../../runtime.js";
 
 const buildLogLines = [
@@ -16,20 +18,46 @@ const buildLogLines = [
   "[5/5] Done in 3.42s",
 ];
 
-export const streamLogCommand = Command.make("stream-log", {}, () =>
-  withRuntime(
-    Effect.gen(function* () {
-      const renderer = yield* CliRenderer;
-      const logStream = Stream.fromIterable(buildLogLines).pipe(
-        Stream.mapEffect((line) =>
-          Effect.gen(function* () {
-            yield* Effect.sleep("300 millis");
-            return line;
-          }),
-        ),
-      );
-      yield* renderer.streamLog("info", logStream);
-    }),
-    { command: "outputs stream-log" },
+const streamLogConfig = {
+  level: Flag.choice("level", [
+    "message",
+    "info",
+    "success",
+    "step",
+    "warn",
+    "error",
+  ] as const).pipe(
+    Flag.withDescription("Log level for the streamed lines"),
+    Flag.withDefault("info" as const),
   ),
-).pipe(Command.withDescription("Demo streaming log output"));
+} as const;
+
+const handleStreamLog = (args: {
+  readonly level: "message" | "info" | "success" | "step" | "warn" | "error";
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const logStream = Stream.fromIterable(buildLogLines).pipe(
+      Stream.mapEffect((line) =>
+        Effect.gen(function* () {
+          yield* Effect.sleep("300 millis");
+          return line;
+        }),
+      ),
+    );
+
+    yield* renderer.streamLog(args.level, logStream);
+  });
+
+export const streamLogCommand = Command.make("stream-log", streamLogConfig, ({ level }) =>
+  handleStreamLog({ level }).pipe(withRuntime({ command: "outputs stream-log" })),
+).pipe(
+  withArgvTracking(streamLogConfig),
+  Command.withDescription("Render streamed log output"),
+  Command.withExamples([
+    {
+      command: "axm-spike outputs stream-log --level warn",
+      description: "Stream log lines through a warning channel",
+    },
+  ]),
+);

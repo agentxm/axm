@@ -4,7 +4,16 @@
     "incremental": true,
     "composite": true,
     "outDir": "dist",
-    "rootDir": "."
+    "rootDir": ".",
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "globalConsole": "off",
+          "nodeBuiltinImport": "off"
+        }
+      }
+    ]
   },
   "include": ["src/**/*.test.ts", "scripts/**/*.ts", "vitest.config.ts"],
   "references": [{ "path": "./tsconfig.lib.json" }]

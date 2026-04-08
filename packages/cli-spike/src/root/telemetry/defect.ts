@@ -6,10 +6,10 @@ import { withRuntime } from "../../runtime.js";
 
 const defectConfig = {} as const;
 
+const handleDefectTelemetry = Effect.die(new Error("Simulated defect telemetry failure"));
+
 export const defectCommand = Command.make("defect", defectConfig, () =>
-  withRuntime(Effect.die(new Error("Simulated defect telemetry failure")), {
-    command: "telemetry defect",
-  }),
+  handleDefectTelemetry.pipe(withRuntime({ command: "telemetry defect" })),
 ).pipe(
   withArgvTracking(defectConfig),
   Command.withDescription("Emit an unhandled defect and report it to telemetry"),

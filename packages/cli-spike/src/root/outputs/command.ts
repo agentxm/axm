@@ -16,7 +16,21 @@ import { taskLogCommand } from "./task-log.js";
 import { treeCommand } from "./tree.js";
 
 export const outputsCommand = Command.make("outputs").pipe(
-  Command.withDescription("Demo output components"),
+  Command.withDescription("Demo output renderer methods"),
+  Command.withExamples([
+    {
+      command: 'axm-spike outputs log "Build succeeded" --level success',
+      description: "Render a single log message",
+    },
+    {
+      command: 'axm-spike outputs box "Hello from axm-spike" --title Demo',
+      description: "Render bordered content with flags",
+    },
+    {
+      command: "axm-spike outputs raw --json",
+      description: "Inspect the JSON contract for a renderer demo",
+    },
+  ]),
   Command.withSubcommands([
     logCommand,
     introCommand,

@@ -2,18 +2,20 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
-const actionValues = ["d", "r", "c"] as const;
+const actionValues = ["adopt", "intake", "list", "register"] as const;
 
-const actionOptions = [
-  { value: "d" as const, label: "[d]elete" },
-  { value: "r" as const, label: "[r]ename" },
-  { value: "c" as const, label: "[c]opy" },
+const actionChoices = [
+  { key: "a", title: "Adopt a pet", value: "adopt" as const },
+  { key: "i", title: "Intake a pet", value: "intake" as const },
+  { key: "l", title: "List all pets", value: "list" as const },
+  { key: "r", title: "Register owner", value: "register" as const },
 ] as const;
 
 const selectKeyConfig = {
@@ -31,14 +33,16 @@ const handleSelectKey = (args: {
   readonly caseSensitive: boolean;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const choice = yield* fromFlagOrPrompt(args.value, () =>
-      prompt.selectKey({
-        message: "Choose an action:",
-        options: [...actionOptions],
+    const message = "Quick action:";
+    const choice = yield* fromFlagOrInteractivePrompt(
+      args.value,
+      AxmPrompt.selectKey({
+        message,
+        choices: [...actionChoices],
         ...(args.caseSensitive && { caseSensitive: true }),
       }),
+      { message },
     );
 
     yield* renderer.success(`You chose: ${choice}`);
@@ -58,7 +62,7 @@ export const selectKeyCommand = Command.make(
       description: "Open the interactive key-select prompt",
     },
     {
-      command: "axm-spike prompts select-key --value r",
+      command: "axm-spike prompts select-key --value adopt",
       description: "Resolve the key-select prompt non-interactively",
     },
   ]),

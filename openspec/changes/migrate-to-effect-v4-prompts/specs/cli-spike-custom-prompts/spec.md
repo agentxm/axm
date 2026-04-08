@@ -105,7 +105,7 @@ Every constructor in the `AxmPrompt` namespace SHALL return a `Prompt<A>` that i
 - **WHEN** an `AxmPrompt.selectKey` prompt is piped to `Prompt.flatMap`
 - **THEN** the follow-up prompt SHALL receive the selectKey result and execute after it
 
-#### Scenario: Custom prompt with yield*
+#### Scenario: Custom prompt with yield\*
 
 - **WHEN** a custom prompt is used with `yield*` inside `Effect.gen`
 - **THEN** it SHALL resolve to the prompt's output value

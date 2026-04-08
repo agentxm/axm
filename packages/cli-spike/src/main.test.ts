@@ -183,6 +183,12 @@ describe("axm-spike group help", () => {
         "text",
         "password",
         "confirm",
+        "integer",
+        "date",
+        "toggle",
+        "list",
+        "hidden",
+        "composition",
         "autocomplete-multiselect",
         "axm-spike prompts confirm --answer yes",
       ],
@@ -222,36 +228,52 @@ describe("axm-spike leaf help", () => {
       expected: "axm-spike pets register Mochi --tag shy --tag lap-cat",
     },
     { args: ["pets", "adopt", "--help"], expected: "axm-spike pets adopt Juniper --force --yes" },
-    { args: ["prompts", "text", "--help"], expected: "axm-spike prompts text --value hello" },
+    { args: ["prompts", "text", "--help"], expected: "axm-spike prompts text --value Mochi" },
     {
       args: ["prompts", "password", "--help"],
-      expected: "axm-spike prompts password --value hunter2",
+      expected: "axm-spike prompts password --value secret123",
     },
     { args: ["prompts", "confirm", "--help"], expected: "axm-spike prompts confirm --answer yes" },
     {
       args: ["prompts", "path", "--help"],
-      expected: "axm-spike prompts path --value ./packages/cli-spike",
+      expected: "axm-spike prompts path --value ./records",
     },
-    { args: ["prompts", "select", "--help"], expected: "axm-spike prompts select --value red" },
+    { args: ["prompts", "select", "--help"], expected: "axm-spike prompts select --value cat" },
     {
       args: ["prompts", "multiselect", "--help"],
-      expected: "axm-spike prompts multiselect --value apple --value banana",
+      expected: "axm-spike prompts multiselect --value vaccination --value microchip",
     },
     {
       args: ["prompts", "group-multiselect", "--help"],
-      expected: "axm-spike prompts group-multiselect --value file:read --value net:http",
+      expected: "axm-spike prompts group-multiselect --value vaccination --value bath",
     },
     {
       args: ["prompts", "select-key", "--help"],
-      expected: "axm-spike prompts select-key --value r",
+      expected: "axm-spike prompts select-key --value adopt",
     },
     {
       args: ["prompts", "autocomplete", "--help"],
-      expected: "axm-spike prompts autocomplete --value America/Chicago",
+      expected: "axm-spike prompts autocomplete --value Mochi",
     },
     {
       args: ["prompts", "autocomplete-multiselect", "--help"],
-      expected: "axm-spike prompts autocomplete-multiselect --value effect --value vitest",
+      expected: "axm-spike prompts autocomplete-multiselect --value vaccination --value dental",
+    },
+    { args: ["prompts", "integer", "--help"], expected: "axm-spike prompts integer --value 24" },
+    { args: ["prompts", "date", "--help"], expected: "axm-spike prompts date --value 2026-04-08" },
+    { args: ["prompts", "toggle", "--help"], expected: "axm-spike prompts toggle --value yes" },
+    {
+      args: ["prompts", "list", "--help"],
+      expected: "axm-spike prompts list --value friendly --value house-trained",
+    },
+    {
+      args: ["prompts", "hidden", "--help"],
+      expected: "axm-spike prompts hidden --value secret123",
+    },
+    {
+      args: ["prompts", "composition", "--help"],
+      expected:
+        "axm-spike prompts composition --name Mochi --species cat --age 24 --adoptable yes --habitat showroom",
     },
     {
       args: ["outputs", "log", "--help"],
@@ -397,8 +419,8 @@ describe("axm-spike prompt commands", () => {
       expected: "Selected path: ./packages/cli-spike",
     },
     {
-      args: ["prompts", "select", "--non-interactive", "--value", "red"],
-      expected: "You picked: red",
+      args: ["prompts", "select", "--non-interactive", "--value", "cat"],
+      expected: "You picked: cat",
     },
     {
       args: [
@@ -406,11 +428,11 @@ describe("axm-spike prompt commands", () => {
         "multiselect",
         "--non-interactive",
         "--value",
-        "apple",
+        "vaccination",
         "--value",
-        "banana",
+        "microchip",
       ],
-      expected: "apple, banana",
+      expected: "vaccination, microchip",
     },
     {
       args: [
@@ -418,19 +440,19 @@ describe("axm-spike prompt commands", () => {
         "group-multiselect",
         "--non-interactive",
         "--value",
-        "file:read",
+        "vaccination",
         "--value",
-        "net:http",
+        "bath",
       ],
-      expected: "file:read, net:http",
+      expected: "vaccination, bath",
     },
     {
-      args: ["prompts", "select-key", "--non-interactive", "--value", "r"],
-      expected: "You chose: r",
+      args: ["prompts", "select-key", "--non-interactive", "--value", "adopt"],
+      expected: "You chose: adopt",
     },
     {
-      args: ["prompts", "autocomplete", "--non-interactive", "--value", "America/Chicago"],
-      expected: "Selected: America/Chicago",
+      args: ["prompts", "autocomplete", "--non-interactive", "--value", "Mochi"],
+      expected: "Selected: Mochi",
     },
     {
       args: [
@@ -438,11 +460,57 @@ describe("axm-spike prompt commands", () => {
         "autocomplete-multiselect",
         "--non-interactive",
         "--value",
-        "effect",
+        "vaccination",
         "--value",
-        "vitest",
+        "dental",
       ],
-      expected: "effect, vitest",
+      expected: "vaccination, dental",
+    },
+    {
+      args: ["prompts", "integer", "--non-interactive", "--value", "24"],
+      expected: "Pet age: 24 months",
+    },
+    {
+      args: ["prompts", "date", "--non-interactive", "--value", "2026-04-08"],
+      expected: "Intake date: 2026-04-08",
+    },
+    {
+      args: ["prompts", "toggle", "--non-interactive", "--value", "yes"],
+      expected: "Adoptable: yes",
+    },
+    {
+      args: [
+        "prompts",
+        "list",
+        "--non-interactive",
+        "--value",
+        "friendly",
+        "--value",
+        "house-trained",
+      ],
+      expected: "Tags: friendly, house-trained",
+    },
+    {
+      args: ["prompts", "hidden", "--non-interactive", "--value", "secret123"],
+      expected: "Code received",
+    },
+    {
+      args: [
+        "prompts",
+        "composition",
+        "--non-interactive",
+        "--name",
+        "Mochi",
+        "--species",
+        "cat",
+        "--age",
+        "24",
+        "--adoptable",
+        "yes",
+        "--habitat",
+        "showroom",
+      ],
+      expected: "Registered: Mochi",
     },
   ] as const;
 
@@ -462,6 +530,46 @@ describe("axm-spike prompt commands", () => {
     expect(combinedOutput(result)).toContain("PROMPT_REQUIRED");
     expect(combinedOutput(result)).toContain("Interactive prompt required");
     expect(combinedOutput(result)).toContain("Pass the value via a flag");
+  });
+
+  it("allows non-interactive composition without habitat when adoptable is no", async () => {
+    const result = await runSpike([
+      "prompts",
+      "composition",
+      "--non-interactive",
+      "--name",
+      "Juniper",
+      "--species",
+      "dog",
+      "--age",
+      "18",
+      "--adoptable",
+      "no",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(combinedOutput(result)).toContain("Registered: Juniper");
+    expect(combinedOutput(result)).toContain("Habitat: pending");
+  });
+
+  it("requires habitat for adoptable pets in non-interactive composition mode", async () => {
+    const result = await runSpike([
+      "prompts",
+      "composition",
+      "--non-interactive",
+      "--name",
+      "Juniper",
+      "--species",
+      "dog",
+      "--age",
+      "18",
+      "--adoptable",
+      "yes",
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect(combinedOutput(result)).toContain("PROMPT_REQUIRED");
+    expect(combinedOutput(result)).toContain("Select habitat:");
   });
 });
 

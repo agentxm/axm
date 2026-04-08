@@ -1,69 +1,79 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliPrompt } from "@axm.sh/core/unstable/cli-prompt";
+import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromValuesOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
-const permissionValues = [
-  "file:read",
-  "file:write",
-  "file:execute",
-  "net:http",
-  "net:ssh",
+const serviceValues = [
+  "vaccination",
+  "microchip",
+  "spay-neuter",
+  "bath",
+  "nails",
+  "obedience",
+  "socialization",
 ] as const;
 
-const permissionOptions = {
-  Files: [
-    { value: "file:read", label: "Read" },
-    { value: "file:write", label: "Write" },
-    { value: "file:execute", label: "Execute" },
-  ],
-  Network: [
-    { value: "net:http", label: "HTTP" },
-    { value: "net:ssh", label: "SSH" },
-  ],
-} as const;
+const makeServiceGroups = (selectableGroups: boolean) => [
+  {
+    label: "Medical",
+    selectableHeader: selectableGroups,
+    choices: [
+      { title: "Vaccination", value: "vaccination" as const },
+      { title: "Microchipping", value: "microchip" as const },
+      { title: "Spay/Neuter", value: "spay-neuter" as const },
+    ],
+  },
+  {
+    label: "Grooming",
+    selectableHeader: selectableGroups,
+    choices: [
+      { title: "Bath & Brush", value: "bath" as const },
+      { title: "Nail Trim", value: "nails" as const },
+    ],
+  },
+  {
+    label: "Training",
+    selectableHeader: selectableGroups,
+    choices: [
+      { title: "Basic Obedience", value: "obedience" as const },
+      { title: "Socialization", value: "socialization" as const },
+    ],
+  },
+];
 
 const groupMultiselectConfig = {
-  value: Flag.choice("value", permissionValues).pipe(
+  value: Flag.choice("value", serviceValues).pipe(
     Flag.withDescription("Bypass the prompt with explicit selections"),
     Flag.atLeast(0),
   ),
   "selectable-groups": Flag.boolean("selectable-groups").pipe(
     Flag.withDescription("Allow selecting entire groups at once"),
   ),
-  "group-spacing": Flag.integer("group-spacing").pipe(
-    Flag.withDescription("Spacing between groups"),
-    Flag.optional,
-  ),
   required: Flag.boolean("required").pipe(Flag.withDescription("Require at least one selection")),
 } as const;
 
 const handleGroupMultiselect = (args: {
-  readonly value: ReadonlyArray<(typeof permissionValues)[number]>;
+  readonly value: ReadonlyArray<(typeof serviceValues)[number]>;
   readonly selectableGroups: boolean;
-  readonly groupSpacing: Option.Option<number>;
   readonly required: boolean;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const choices =
-      args.value.length > 0
-        ? args.value
-        : yield* prompt.groupMultiselect({
-            message: "Select permissions:",
-            options: { ...permissionOptions },
-            ...(args.selectableGroups && { selectableGroups: true }),
-            ...(Option.isSome(args.groupSpacing) && {
-              groupSpacing: args.groupSpacing.value,
-            }),
-            ...(args.required && { required: true }),
-          });
+    const message = "Select pet services:";
+    const choices = yield* fromValuesOrInteractivePrompt(
+      args.value,
+      AxmPrompt.groupMultiselect({
+        message,
+        groups: makeServiceGroups(args.selectableGroups),
+        ...(args.required && { min: 1 }),
+      }),
+      { message },
+    );
 
     yield* renderer.success(`Selected: ${choices.length === 0 ? "(none)" : choices.join(", ")}`);
   });
@@ -71,8 +81,8 @@ const handleGroupMultiselect = (args: {
 export const groupMultiselectCommand = Command.make(
   "group-multiselect",
   groupMultiselectConfig,
-  ({ value, ["selectable-groups"]: selectableGroups, ["group-spacing"]: groupSpacing, required }) =>
-    handleGroupMultiselect({ value, selectableGroups, groupSpacing, required }).pipe(
+  ({ value, ["selectable-groups"]: selectableGroups, required }) =>
+    handleGroupMultiselect({ value, selectableGroups, required }).pipe(
       withRuntime({ command: "prompts group-multiselect" }),
     ),
 ).pipe(
@@ -84,7 +94,7 @@ export const groupMultiselectCommand = Command.make(
       description: "Open the interactive grouped multiselect prompt",
     },
     {
-      command: "axm-spike prompts group-multiselect --value file:read --value net:http",
+      command: "axm-spike prompts group-multiselect --value vaccination --value bath",
       description: "Resolve the grouped prompt non-interactively",
     },
   ]),

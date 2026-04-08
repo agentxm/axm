@@ -1,53 +1,57 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
-const colorValues = ["red", "green", "blue", "yellow", "purple"] as const;
+const speciesValues = ["cat", "dog", "rabbit", "bird", "hamster"] as const;
 
-const colorOptions = [
-  { value: "red", label: "Red", hint: "Primary color" },
-  { value: "green", label: "Green", hint: "Secondary color" },
-  { value: "blue", label: "Blue", hint: "Primary color" },
-  { value: "yellow", label: "Yellow", hint: "Warm color" },
-  { value: "purple", label: "Purple", hint: "Cool color" },
-] as const;
+const speciesChoices = [
+  { title: "Cat", value: "cat" as const, description: "Independent and curious" },
+  { title: "Dog", value: "dog" as const, description: "Loyal and playful" },
+  { title: "Rabbit", value: "rabbit" as const, description: "Gentle and quiet" },
+  { title: "Bird", value: "bird" as const, description: "Colorful and vocal" },
+  { title: "Hamster", value: "hamster" as const, description: "Small and active" },
+];
 
 const selectConfig = {
-  value: Flag.choice("value", colorValues).pipe(
+  value: Flag.choice("value", speciesValues).pipe(
     Flag.withDescription("Bypass the prompt with an explicit selection"),
     Flag.optional,
   ),
   "max-items": Flag.integer("max-items").pipe(
-    Flag.withDescription("Maximum number of items to display"),
+    Flag.withDescription("Maximum number of items to display per page"),
     Flag.optional,
   ),
-  initial: Flag.choice("initial", colorValues).pipe(
+  initial: Flag.choice("initial", speciesValues).pipe(
     Flag.withDescription("Initial selected value"),
     Flag.optional,
   ),
 } as const;
 
 const handleSelect = (args: {
-  readonly value: Option.Option<(typeof colorValues)[number]>;
+  readonly value: Option.Option<(typeof speciesValues)[number]>;
   readonly maxItems: Option.Option<number>;
-  readonly initial: Option.Option<(typeof colorValues)[number]>;
+  readonly initial: Option.Option<(typeof speciesValues)[number]>;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const choice = yield* fromFlagOrPrompt(args.value, () =>
-      prompt.select({
-        message: "Pick a color:",
-        options: [...colorOptions],
-        ...(Option.isSome(args.maxItems) && { maxItems: args.maxItems.value }),
-        ...(Option.isSome(args.initial) && { initialValue: args.initial.value }),
+    const message = "Pick a species:";
+    const choice = yield* fromFlagOrInteractivePrompt(
+      args.value,
+      Prompt.select({
+        message,
+        choices: speciesChoices.map((c) => ({
+          ...c,
+          ...(Option.isSome(args.initial) && c.value === args.initial.value && { selected: true }),
+        })),
+        ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
       }),
+      { message },
     );
 
     yield* renderer.success(`You picked: ${choice}`);
@@ -64,11 +68,11 @@ export const selectCommand = Command.make(
   Command.withExamples([
     {
       command: "axm-spike prompts select",
-      description: "Open the interactive select prompt",
+      description: "Open the interactive species selection prompt",
     },
     {
-      command: "axm-spike prompts select --value red",
-      description: "Resolve the select prompt non-interactively",
+      command: "axm-spike prompts select --value cat",
+      description: "Select a species non-interactively",
     },
   ]),
 );

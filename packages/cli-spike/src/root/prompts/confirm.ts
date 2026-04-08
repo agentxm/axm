@@ -1,11 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const toBoolean = (value: "yes" | "no"): boolean => value === "yes";
@@ -16,18 +16,17 @@ const confirmConfig = {
     Flag.optional,
   ),
   active: Flag.string("active").pipe(
-    Flag.withDescription("Label for the active (true) option"),
+    Flag.withDescription("Label for the confirm option"),
     Flag.optional,
   ),
   inactive: Flag.string("inactive").pipe(
-    Flag.withDescription("Label for the inactive (false) option"),
+    Flag.withDescription("Label for the deny option"),
     Flag.optional,
   ),
   initial: Flag.choice("initial", ["yes", "no"] as const).pipe(
     Flag.withDescription("Initial value for the confirmation"),
     Flag.optional,
   ),
-  vertical: Flag.boolean("vertical").pipe(Flag.withDescription("Display options vertically")),
 } as const;
 
 const handleConfirm = (args: {
@@ -35,19 +34,29 @@ const handleConfirm = (args: {
   readonly active: Option.Option<string>;
   readonly inactive: Option.Option<string>;
   readonly initial: Option.Option<"yes" | "no">;
-  readonly vertical: boolean;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const confirmed = yield* fromFlagOrPrompt(Option.map(args.answer, toBoolean), () =>
-      prompt.confirm({
-        message: "Do you want to continue?",
-        ...(Option.isSome(args.active) && { active: args.active.value }),
-        ...(Option.isSome(args.inactive) && { inactive: args.inactive.value }),
-        ...(Option.isSome(args.initial) && { initialValue: toBoolean(args.initial.value) }),
-        ...(args.vertical && { vertical: true }),
+    const message = "Confirm pet intake?";
+    const confirmed = yield* fromFlagOrInteractivePrompt(
+      Option.map(args.answer, toBoolean),
+      Prompt.confirm({
+        message,
+        ...(Option.isSome(args.active) &&
+          Option.isSome(args.inactive) && {
+            label: { confirm: args.active.value, deny: args.inactive.value },
+          }),
+        ...(Option.isSome(args.active) &&
+          Option.isNone(args.inactive) && {
+            label: { confirm: args.active.value, deny: "No" },
+          }),
+        ...(Option.isNone(args.active) &&
+          Option.isSome(args.inactive) && {
+            label: { confirm: "Yes", deny: args.inactive.value },
+          }),
+        ...(Option.isSome(args.initial) && { initial: toBoolean(args.initial.value) }),
       }),
+      { message },
     );
 
     yield* renderer.success(`You chose: ${confirmed ? "Yes" : "No"}`);
@@ -56,8 +65,8 @@ const handleConfirm = (args: {
 export const confirmCommand = Command.make(
   "confirm",
   confirmConfig,
-  ({ answer, active, inactive, initial, vertical }) =>
-    handleConfirm({ answer, active, inactive, initial, vertical }).pipe(
+  ({ answer, active, inactive, initial }) =>
+    handleConfirm({ answer, active, inactive, initial }).pipe(
       withRuntime({ command: "prompts confirm" }),
     ),
 ).pipe(
@@ -66,11 +75,11 @@ export const confirmCommand = Command.make(
   Command.withExamples([
     {
       command: "axm-spike prompts confirm",
-      description: "Open the interactive confirm prompt",
+      description: "Open the interactive pet intake confirmation prompt",
     },
     {
       command: "axm-spike prompts confirm --answer yes",
-      description: "Resolve the confirm prompt non-interactively",
+      description: "Confirm pet intake non-interactively",
     },
   ]),
 );

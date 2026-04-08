@@ -1,77 +1,71 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
-const timezoneValues = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Australia/Sydney",
+const petNameValues = [
+  "Mochi",
+  "Juniper",
+  "Luna",
+  "Biscuit",
+  "Pepper",
+  "Maple",
+  "Clover",
+  "Jasper",
+  "Willow",
+  "Ziggy",
 ] as const;
 
-const timezoneOptions = [
-  { value: "America/New_York", label: "America/New_York (EST)" },
-  { value: "America/Chicago", label: "America/Chicago (CST)" },
-  { value: "America/Denver", label: "America/Denver (MST)" },
-  { value: "America/Los_Angeles", label: "America/Los_Angeles (PST)" },
-  { value: "Europe/London", label: "Europe/London (GMT)" },
-  { value: "Europe/Paris", label: "Europe/Paris (CET)" },
-  { value: "Europe/Berlin", label: "Europe/Berlin (CET)" },
-  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
-  { value: "Asia/Shanghai", label: "Asia/Shanghai (CST)" },
-  { value: "Australia/Sydney", label: "Australia/Sydney (AEST)" },
-] as const;
+const petNameChoices = [
+  { title: "Mochi", value: "Mochi" as const, description: "Playful calico cat" },
+  { title: "Juniper", value: "Juniper" as const, description: "Adventurous tabby" },
+  { title: "Luna", value: "Luna" as const, description: "Gentle black lab" },
+  { title: "Biscuit", value: "Biscuit" as const, description: "Fluffy golden retriever" },
+  { title: "Pepper", value: "Pepper" as const, description: "Energetic border collie" },
+  { title: "Maple", value: "Maple" as const, description: "Curious Holland lop rabbit" },
+  { title: "Clover", value: "Clover" as const, description: "Friendly mini rex rabbit" },
+  { title: "Jasper", value: "Jasper" as const, description: "Talkative cockatiel" },
+  { title: "Willow", value: "Willow" as const, description: "Calm Syrian hamster" },
+  { title: "Ziggy", value: "Ziggy" as const, description: "Active dwarf hamster" },
+];
 
 const autocompleteConfig = {
-  value: Flag.choice("value", timezoneValues).pipe(
+  value: Flag.choice("value", petNameValues).pipe(
     Flag.withDescription("Bypass the prompt with an explicit selection"),
     Flag.optional,
   ),
   "max-items": Flag.integer("max-items").pipe(
-    Flag.withDescription("Maximum number of items to display"),
+    Flag.withDescription("Maximum number of items to display per page"),
     Flag.optional,
   ),
   placeholder: Flag.string("placeholder").pipe(
-    Flag.withDescription("Placeholder text shown when input is empty"),
-    Flag.optional,
-  ),
-  "initial-input": Flag.string("initial-input").pipe(
-    Flag.withDescription("Initial user input for filtering"),
+    Flag.withDescription("Placeholder text shown in the filter input"),
     Flag.optional,
   ),
 } as const;
 
 const handleAutocomplete = (args: {
-  readonly value: Option.Option<(typeof timezoneValues)[number]>;
+  readonly value: Option.Option<(typeof petNameValues)[number]>;
   readonly maxItems: Option.Option<number>;
   readonly placeholder: Option.Option<string>;
-  readonly initialInput: Option.Option<string>;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const choice = yield* fromFlagOrPrompt(args.value, () =>
-      prompt.autocomplete({
-        message: "Select a timezone:",
-        options: [...timezoneOptions],
-        ...(Option.isSome(args.maxItems) && { maxItems: args.maxItems.value }),
-        ...(Option.isSome(args.placeholder) && { placeholder: args.placeholder.value }),
-        ...(Option.isSome(args.initialInput) && {
-          initialUserInput: args.initialInput.value,
-        }),
+    const message = "Search for a pet:";
+    const choice = yield* fromFlagOrInteractivePrompt(
+      args.value,
+      Prompt.autoComplete({
+        message,
+        choices: petNameChoices,
+        ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
+        ...(Option.isSome(args.placeholder) && { filterPlaceholder: args.placeholder.value }),
       }),
+      { message },
     );
 
     yield* renderer.success(`Selected: ${choice}`);
@@ -80,8 +74,8 @@ const handleAutocomplete = (args: {
 export const autocompleteCommand = Command.make(
   "autocomplete",
   autocompleteConfig,
-  ({ value, ["max-items"]: maxItems, placeholder, ["initial-input"]: initialInput }) =>
-    handleAutocomplete({ value, maxItems, placeholder, initialInput }).pipe(
+  ({ value, ["max-items"]: maxItems, placeholder }) =>
+    handleAutocomplete({ value, maxItems, placeholder }).pipe(
       withRuntime({ command: "prompts autocomplete" }),
     ),
 ).pipe(
@@ -90,11 +84,11 @@ export const autocompleteCommand = Command.make(
   Command.withExamples([
     {
       command: "axm-spike prompts autocomplete",
-      description: "Open the interactive autocomplete prompt",
+      description: "Open the interactive pet name search prompt",
     },
     {
-      command: "axm-spike prompts autocomplete --value America/Chicago",
-      description: "Resolve the autocomplete prompt non-interactively",
+      command: "axm-spike prompts autocomplete --value Mochi",
+      description: "Select a pet non-interactively",
     },
   ]),
 );

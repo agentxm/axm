@@ -19,9 +19,7 @@ if (args.length > 1) {
 }
 
 const tag =
-  args[0] ??
-  process.env["RELEASE_TAG"] ??
-  fail("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z>");
+  args[0] ?? process.env["RELEASE_TAG"] ?? fail("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z>");
 const version = releaseVersionFromTag(tag);
 const releaseVersion = requireMatchingReleasePackageVersions();
 

@@ -500,3 +500,25 @@ with test layers; E2E tests exercise the full CLI binary.
 - [ ] **Test layers provided** — Handler tests provide test layers
 - [ ] **Co-located E2E tests** — CLI tested via subprocess for user-visible behavior (`*.e2e.test.ts`)
 - [ ] **Distribution E2E tests** — Built artifact tested in `packages/<cli>-e2e/` (zero internal deps)
+
+## Prompt Approaches
+
+Two prompt approaches coexist. Match the approach of the package you're working in.
+
+|                    | Primary CLI (`packages/cli/`)                               | CLI Spike (`packages/cli-spike/`)                      |
+| ------------------ | ----------------------------------------------------------- | ------------------------------------------------------ |
+| **Module**         | `CliPrompt` service from `@axm.sh/core/unstable/cli-prompt` | `Prompt` from `effect/unstable/cli`                    |
+| **Usage**          | `const prompt = yield* CliPrompt; yield* prompt.text(...)`  | `yield* Prompt.text(...)`                              |
+| **Flag bypass**    | `fromFlagOrPrompt(value, () => prompt.text(...))`           | `Prompt.text(...).pipe(AxmPrompt.unless(value))`       |
+| **Auto-confirm**   | `autoConfirm(yes, () => prompt.confirm(...))`               | `Prompt.confirm(...).pipe(AxmPrompt.autoConfirm(yes))` |
+| **Custom prompts** | `prompt.selectKey(...)`                                     | `AxmPrompt.selectKey(...)`                             |
+| **Cancellation**   | `PromptCancelled`                                           | `Terminal.QuitError` (mapped at runtime)               |
+
+```typescript
+// CLI Spike — Effect v4 native prompts
+import { Prompt } from "effect/unstable/cli";
+import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+
+const name = yield * Prompt.text({ message: "Pet name:" }).pipe(AxmPrompt.unless(args.name));
+const ok = yield * Prompt.confirm({ message: "Proceed?" }).pipe(AxmPrompt.autoConfirm(args.yes));
+```

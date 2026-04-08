@@ -1,11 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import * as Redacted from "effect/Redacted";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const passwordConfig = {
@@ -13,41 +14,33 @@ const passwordConfig = {
     Flag.withDescription("Bypass the prompt with an explicit password value"),
     Flag.optional,
   ),
-  mask: Flag.string("mask").pipe(
-    Flag.withDescription("Character used to mask input"),
-    Flag.optional,
-  ),
 } as const;
 
-const handlePassword = (args: {
-  readonly value: Option.Option<string>;
-  readonly mask: Option.Option<string>;
-}) =>
+const handlePassword = (args: { readonly value: Option.Option<string> }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const token = yield* fromFlagOrPrompt(args.value, () =>
-      prompt.password({
-        message: "Enter your secret:",
-        ...(Option.isSome(args.mask) && { mask: args.mask.value }),
-      }),
+    const message = "Enter admin authorization code:";
+    const code = yield* fromFlagOrInteractivePrompt(
+      Option.map(args.value, Redacted.make),
+      Prompt.password({ message }),
+      { message },
     );
 
-    yield* renderer.success(`Secret received (${String(token.length)} chars)`);
+    yield* renderer.success(`Secret received (${String(Redacted.value(code).length)} chars)`);
   });
 
-export const passwordCommand = Command.make("password", passwordConfig, ({ value, mask }) =>
-  handlePassword({ value, mask }).pipe(withRuntime({ command: "prompts password" })),
+export const passwordCommand = Command.make("password", passwordConfig, ({ value }) =>
+  handlePassword({ value }).pipe(withRuntime({ command: "prompts password" })),
 ).pipe(
   withArgvTracking(passwordConfig),
   Command.withDescription("Demo password input prompt"),
   Command.withExamples([
     {
       command: "axm-spike prompts password",
-      description: "Open the interactive password prompt",
+      description: "Open the interactive password prompt for admin authorization",
     },
     {
-      command: "axm-spike prompts password --value hunter2",
+      command: "axm-spike prompts password --value secret123",
       description: "Resolve the password prompt non-interactively",
     },
   ]),

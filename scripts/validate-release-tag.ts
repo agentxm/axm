@@ -15,8 +15,7 @@ if (args.length !== 1) {
   fail("Usage: pnpm validate-release-tag -- <release-tag>");
 }
 
-const tag =
-  args[0] ?? fail("Usage: pnpm validate-release-tag -- <release-tag>");
+const tag = args[0] ?? fail("Usage: pnpm validate-release-tag -- <release-tag>");
 const version = releaseVersionFromTag(tag);
 const releaseVersion = requireMatchingReleasePackageVersions();
 

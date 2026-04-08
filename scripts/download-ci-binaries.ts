@@ -14,10 +14,8 @@ if (args.length !== 2) {
   fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
 }
 
-const sha =
-  args[0] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
-const outputDir =
-  args[1] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
+const sha = args[0] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
+const outputDir = args[1] ?? fail("Usage: pnpm download-ci-binaries -- <commit-sha> <output-dir>");
 const artifactName = `axm-binaries-${sha}`;
 const ciRun = requireSuccessfulCiRun(sha);
 

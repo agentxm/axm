@@ -554,6 +554,58 @@ Use prompts to resolve missing choices, not to hide essential command behavior.
 - [ ] **Clear failure** — Missing required input in non-interactive mode
       produces a clear error message
 
+### Effect v4 Native Prompts (CLI Spike)
+
+The CLI spike uses Effect v4 native `Prompt` from `effect/unstable/cli`
+directly. `Prompt` is `Yieldable` — no service indirection needed.
+
+> **Note:** `CliPrompt` remains canonical for the primary CLI. The spike uses
+> Effect v4 prompts directly as a proving ground.
+
+**Direct `yield* Prompt.xxx()`:**
+
+```typescript
+import { Prompt } from "effect/unstable/cli";
+const name = yield * Prompt.text({ message: "Pet name:" });
+```
+
+**Non-interactive guard at call site:**
+
+```typescript
+const name = Option.isSome(args.name)
+  ? args.name.value
+  : nonInteractive
+    ? yield* makeAppError({ code: "PROMPT_REQUIRED", ... })
+    : yield* Prompt.text({ message: "Pet name:" });
+```
+
+**Flag bypass with `AxmPrompt.unless`** (pipe style):
+
+```typescript
+import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+const name = yield * Prompt.text({ message: "Pet name:" }).pipe(AxmPrompt.unless(args.name));
+```
+
+**Auto-confirm with `AxmPrompt.autoConfirm`:**
+
+```typescript
+const ok = yield * Prompt.confirm({ message: "Proceed?" }).pipe(AxmPrompt.autoConfirm(args.yes));
+```
+
+**`Prompt.all` for multi-field forms:**
+
+```typescript
+const info =
+  yield *
+  Prompt.all({
+    name: Prompt.text({ message: "Name:" }),
+    species: Prompt.select({ message: "Species:", choices }),
+  });
+```
+
+**`Prompt.custom` for new prompt types** — see the `AxmPrompt` namespace in
+`@axm.sh/core/unstable/cli/prompt` for custom prompt implementations.
+
 ---
 
 ## Validation

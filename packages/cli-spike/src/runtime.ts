@@ -7,6 +7,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Terminal from "effect/Terminal";
 
 import {
   type CliTelemetryConfigService,
@@ -17,7 +18,7 @@ import {
 import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
-import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
+import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
 import { FakePetStoreLive } from "./fake-pet-store.js";
 
@@ -46,7 +47,7 @@ interface RuntimeOptions {
 
 export const withRuntime =
   (options?: RuntimeOptions) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled | Terminal.QuitError, R>) =>
     Effect.gen(function* () {
       const explicitJson = yield* jsonFlag;
       const jsonRequested = Option.getOrElse(explicitJson, () => false);
@@ -63,8 +64,13 @@ export const withRuntime =
       const foundationLayer = makeFoundationLayer(format);
       const appLayer = Layer.provideMerge(FakePetStoreLive, foundationLayer);
       const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
+      const handled = provided.pipe(
+        Effect.catchTag("QuitError", () =>
+          Effect.fail(new PromptCancelled({ message: "Operation cancelled." })),
+        ),
+      );
 
-      return yield* withCliErrorHandling(provided, {
+      return yield* withCliErrorHandling(handled, {
         command: options?.command,
         format,
         telemetryConfig: spikeCliTelemetryConfig,

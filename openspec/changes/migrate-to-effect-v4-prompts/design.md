@@ -6,13 +6,13 @@ This design covers migrating the spike to use Effect v4 prompts directly, buildi
 
 ### Current State
 
-| Component | Status | Location |
-|---|---|---|
-| CliPrompt service | Retained (out of scope) | `packages/core/src/unstable/cli-prompt/` |
-| Prompt demo commands (10) | Migrate | `packages/cli-spike/src/root/prompts/*.ts` |
-| Pet store commands (2) | Migrate | `packages/cli-spike/src/root/pets/{adopt,intake}.ts` |
-| Spike runtime | Modify error union + layers | `packages/cli-spike/src/runtime.ts` |
-| Prompt helpers (`fromFlagOrPrompt`, `autoConfirm`) | Deprecate; replace with `AxmPrompt.unless`, `AxmPrompt.autoConfirm` | `packages/core/src/unstable/cli-prompt/helpers.ts` |
+| Component                                          | Status                                                              | Location                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| CliPrompt service                                  | Retained (out of scope)                                             | `packages/core/src/unstable/cli-prompt/`             |
+| Prompt demo commands (10)                          | Migrate                                                             | `packages/cli-spike/src/root/prompts/*.ts`           |
+| Pet store commands (2)                             | Migrate                                                             | `packages/cli-spike/src/root/pets/{adopt,intake}.ts` |
+| Spike runtime                                      | Modify error union + layers                                         | `packages/cli-spike/src/runtime.ts`                  |
+| Prompt helpers (`fromFlagOrPrompt`, `autoConfirm`) | Deprecate; replace with `AxmPrompt.unless`, `AxmPrompt.autoConfirm` | `packages/core/src/unstable/cli-prompt/helpers.ts`   |
 
 ### Goals
 
@@ -41,11 +41,11 @@ This design covers migrating the spike to use Effect v4 prompts directly, buildi
 
 ```typescript
 // Before (CliPrompt)
-const prompt = yield* CliPrompt;
-const name = yield* prompt.text({ message: "Pet name:" });
+const prompt = yield * CliPrompt;
+const name = yield * prompt.text({ message: "Pet name:" });
 
 // After (Effect v4 — Prompt is Yieldable)
-const name = yield* Prompt.text({ message: "Pet name:" });
+const name = yield * Prompt.text({ message: "Pet name:" });
 ```
 
 Prompts require `Terminal.Terminal` (+ `FileSystem`, `Path` for file prompts) in the environment, which the runtime layer provides. `Prompt.run()` exists as an escape hatch for use outside `Effect.gen` but is not needed in handlers.
@@ -65,27 +65,28 @@ Skips the prompt if a flag value was already provided. Prompt is `self`.
 ```typescript
 export const unless: {
   // data-last (pipe)
-  <A>(value: Option.Option<A>): (self: Prompt.Prompt<A>) => Effect.Effect<A, Terminal.QuitError, Prompt.Environment>
+  <A>(
+    value: Option.Option<A>,
+  ): (self: Prompt.Prompt<A>) => Effect.Effect<A, Terminal.QuitError, Prompt.Environment>;
   // data-first (direct call)
-  <A>(self: Prompt.Prompt<A>, value: Option.Option<A>): Effect.Effect<A, Terminal.QuitError, Prompt.Environment>
+  <A>(
+    self: Prompt.Prompt<A>,
+    value: Option.Option<A>,
+  ): Effect.Effect<A, Terminal.QuitError, Prompt.Environment>;
 } = dual(2, <A>(self: Prompt.Prompt<A>, value: Option.Option<A>) =>
   Option.match(value, {
-    onNone: () => self,  // Prompt is Yieldable — returned as-is
+    onNone: () => self, // Prompt is Yieldable — returned as-is
     onSome: Effect.succeed,
-  }));
+  }),
+);
 ```
 
 ```typescript
 // Pipe style — reads as "text prompt, unless already provided"
-const name = yield* Prompt.text({ message: "Pet name:" }).pipe(
-  AxmPrompt.unless(args.name),
-)
+const name = yield * Prompt.text({ message: "Pet name:" }).pipe(AxmPrompt.unless(args.name));
 
 // Direct call style
-const name = yield* AxmPrompt.unless(
-  Prompt.text({ message: "Pet name:" }),
-  args.name,
-)
+const name = yield * AxmPrompt.unless(Prompt.text({ message: "Pet name:" }), args.name);
 ```
 
 #### `AxmPrompt.autoConfirm`
@@ -94,33 +95,36 @@ Skips the confirm prompt if `--yes` was passed. Prompt is `self`.
 
 ```typescript
 export const autoConfirm: {
-  (yes: boolean): (self: Prompt.Prompt<boolean>) => Effect.Effect<boolean, Terminal.QuitError, Prompt.Environment>
-  (self: Prompt.Prompt<boolean>, yes: boolean): Effect.Effect<boolean, Terminal.QuitError, Prompt.Environment>
-} = dual(2, (self: Prompt.Prompt<boolean>, yes: boolean) =>
-  yes ? Effect.succeed(true) : self);
+  (
+    yes: boolean,
+  ): (
+    self: Prompt.Prompt<boolean>,
+  ) => Effect.Effect<boolean, Terminal.QuitError, Prompt.Environment>;
+  (
+    self: Prompt.Prompt<boolean>,
+    yes: boolean,
+  ): Effect.Effect<boolean, Terminal.QuitError, Prompt.Environment>;
+} = dual(2, (self: Prompt.Prompt<boolean>, yes: boolean) => (yes ? Effect.succeed(true) : self));
 ```
 
 ```typescript
 // Pipe style — reads as "confirm prompt, auto-confirmed if --yes"
-const ok = yield* Prompt.confirm({ message: "Proceed with intake?" }).pipe(
-  AxmPrompt.autoConfirm(args.yes),
-)
+const ok =
+  yield * Prompt.confirm({ message: "Proceed with intake?" }).pipe(AxmPrompt.autoConfirm(args.yes));
 
 // Direct call style
-const ok = yield* AxmPrompt.autoConfirm(
-  Prompt.confirm({ message: "Proceed with intake?" }),
-  args.yes,
-)
+const ok =
+  yield * AxmPrompt.autoConfirm(Prompt.confirm({ message: "Proceed with intake?" }), args.yes);
 ```
 
 #### Migration from existing helpers
 
 The old helpers in `cli-prompt/helpers.ts` (`fromFlagOrPrompt`, `autoConfirm`) are deprecated but retained for the main CLI until it migrates to Effect v4 prompts. The new helpers live on `AxmPrompt` and accept `Prompt<T>` directly — no thunk wrapper needed.
 
-| Old (CliPrompt) | New (AxmPrompt) |
-|---|---|
-| `fromFlagOrPrompt(value, () => prompt.text(...))` | `Prompt.text(...).pipe(AxmPrompt.unless(value))` |
-| `autoConfirm(yes, () => prompt.confirm(...))` | `Prompt.confirm(...).pipe(AxmPrompt.autoConfirm(yes))` |
+| Old (CliPrompt)                                   | New (AxmPrompt)                                        |
+| ------------------------------------------------- | ------------------------------------------------------ |
+| `fromFlagOrPrompt(value, () => prompt.text(...))` | `Prompt.text(...).pipe(AxmPrompt.unless(value))`       |
+| `autoConfirm(yes, () => prompt.confirm(...))`     | `Prompt.confirm(...).pipe(AxmPrompt.autoConfirm(yes))` |
 
 #### Non-interactive guard pattern
 
@@ -188,14 +192,14 @@ packages/core/src/unstable/cli/prompt/
 Exported from `@axm.sh/core/unstable/cli/prompt` as a namespace:
 
 ```typescript
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt"
-import { Prompt } from "effect/unstable/cli"
+import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { Prompt } from "effect/unstable/cli";
 
 // Native prompts — Prompt namespace
-const name = yield* Prompt.text({ message: "Pet name:" })
+const name = yield * Prompt.text({ message: "Pet name:" });
 
 // Custom prompts — AxmPrompt namespace (same shape, distinct provenance)
-const action = yield* AxmPrompt.selectKey({ message: "Quick action:", choices })
+const action = yield * AxmPrompt.selectKey({ message: "Quick action:", choices });
 ```
 
 The `AxmPrompt` namespace keeps call sites visually consistent with `Prompt.xxx(...)` while making it clear which prompts are ours vs native Effect.
@@ -230,10 +234,10 @@ Single-keypress selection — user presses a key matching one of the choices. No
 import type { Prompt } from "effect/unstable/cli";
 
 export interface SelectKeyChoice<A> {
-  readonly key: string;           // single character the user presses
-  readonly title: string;         // display label
-  readonly value: A;              // returned value
-  readonly description?: string;  // optional hint shown beside the choice
+  readonly key: string; // single character the user presses
+  readonly title: string; // display label
+  readonly value: A; // returned value
+  readonly description?: string; // optional hint shown beside the choice
 }
 
 export interface SelectKeyOptions<A> {
@@ -254,15 +258,17 @@ export const selectKey: <const A>(options: SelectKeyOptions<A>) => Prompt.Prompt
 **Example usage:**
 
 ```typescript
-const action = yield* AxmPrompt.selectKey({
-  message: "Quick action:",
-  choices: [
-    { key: "a", title: "Adopt a pet",    value: "adopt" },
-    { key: "i", title: "Intake a pet",   value: "intake" },
-    { key: "l", title: "List all pets",  value: "list" },
-    { key: "r", title: "Register owner", value: "register" },
-  ],
-});
+const action =
+  yield *
+  AxmPrompt.selectKey({
+    message: "Quick action:",
+    choices: [
+      { key: "a", title: "Adopt a pet", value: "adopt" },
+      { key: "i", title: "Intake a pet", value: "intake" },
+      { key: "l", title: "List all pets", value: "list" },
+      { key: "r", title: "Register owner", value: "register" },
+    ],
+  });
 ```
 
 #### groupMultiselect
@@ -276,7 +282,7 @@ export interface GroupMultiselectChoice<A> {
   readonly title: string;
   readonly value: A;
   readonly description?: string;
-  readonly selected?: boolean;     // default: false
+  readonly selected?: boolean; // default: false
 }
 
 export interface GroupMultiselectGroup<A> {
@@ -288,13 +294,15 @@ export interface GroupMultiselectGroup<A> {
 export interface GroupMultiselectOptions<A> {
   readonly message: string;
   readonly groups: ReadonlyArray<GroupMultiselectGroup<A>>;
-  readonly maxPerPage?: number;    // default: 10
-  readonly min?: number;           // minimum selections required
-  readonly max?: number;           // maximum selections allowed
+  readonly maxPerPage?: number; // default: 10
+  readonly min?: number; // minimum selections required
+  readonly max?: number; // maximum selections allowed
   readonly validate?: (values: ReadonlyArray<A>) => Effect.Effect<ReadonlyArray<A>, string>;
 }
 
-export const groupMultiselect: <const A>(options: GroupMultiselectOptions<A>) => Prompt.Prompt<ReadonlyArray<A>>;
+export const groupMultiselect: <const A>(
+  options: GroupMultiselectOptions<A>,
+) => Prompt.Prompt<ReadonlyArray<A>>;
 ```
 
 **State:** `{ readonly index: number; readonly selectedIndices: Set<number>; readonly error: Option<string> }`
@@ -302,6 +310,7 @@ export const groupMultiselect: <const A>(options: GroupMultiselectOptions<A>) =>
 Internally, groups are flattened into a single indexed list. Group headers occupy index positions but are rendered differently (bold, indented differently). When `selectableHeader` is true, toggling a header toggles all its children.
 
 **Process:**
+
 - `up` / `down` — move cursor (skip non-selectable headers unless `selectableHeader`)
 - `space` — toggle current item (or all children if header)
 - `enter` — validate min/max, submit if valid
@@ -312,34 +321,36 @@ Internally, groups are flattened into a single indexed list. Group headers occup
 **Example usage:**
 
 ```typescript
-const services = yield* AxmPrompt.groupMultiselect({
-  message: "Select veterinary services:",
-  groups: [
-    {
-      label: "Medical",
-      selectableHeader: true,
-      choices: [
-        { title: "Vaccination", value: "vaccination" },
-        { title: "Microchipping", value: "microchip" },
-        { title: "Spay/Neuter", value: "spay-neuter" },
-      ],
-    },
-    {
-      label: "Grooming",
-      choices: [
-        { title: "Bath & Brush", value: "bath" },
-        { title: "Nail Trim", value: "nails" },
-      ],
-    },
-    {
-      label: "Training",
-      choices: [
-        { title: "Basic Obedience", value: "obedience" },
-        { title: "Socialization", value: "socialization" },
-      ],
-    },
-  ],
-});
+const services =
+  yield *
+  AxmPrompt.groupMultiselect({
+    message: "Select veterinary services:",
+    groups: [
+      {
+        label: "Medical",
+        selectableHeader: true,
+        choices: [
+          { title: "Vaccination", value: "vaccination" },
+          { title: "Microchipping", value: "microchip" },
+          { title: "Spay/Neuter", value: "spay-neuter" },
+        ],
+      },
+      {
+        label: "Grooming",
+        choices: [
+          { title: "Bath & Brush", value: "bath" },
+          { title: "Nail Trim", value: "nails" },
+        ],
+      },
+      {
+        label: "Training",
+        choices: [
+          { title: "Basic Obedience", value: "obedience" },
+          { title: "Socialization", value: "socialization" },
+        ],
+      },
+    ],
+  });
 ```
 
 #### autocompleteMultiselect
@@ -352,16 +363,18 @@ import type { Prompt } from "effect/unstable/cli";
 export interface AutocompleteMultiselectOptions<A> {
   readonly message: string;
   readonly choices: ReadonlyArray<Prompt.SelectChoice<A>>; // reuses native SelectChoice type
-  readonly maxPerPage?: number;         // default: 10
-  readonly min?: number;                // minimum selections required
-  readonly max?: number;                // maximum selections allowed
-  readonly filterLabel?: string;        // default: "filter"
-  readonly filterPlaceholder?: string;  // default: "type to filter"
-  readonly emptyMessage?: string;       // default: "No matches"
+  readonly maxPerPage?: number; // default: 10
+  readonly min?: number; // minimum selections required
+  readonly max?: number; // maximum selections allowed
+  readonly filterLabel?: string; // default: "filter"
+  readonly filterPlaceholder?: string; // default: "type to filter"
+  readonly emptyMessage?: string; // default: "No matches"
   readonly validate?: (values: ReadonlyArray<A>) => Effect.Effect<ReadonlyArray<A>, string>;
 }
 
-export const autocompleteMultiselect: <const A>(options: AutocompleteMultiselectOptions<A>) => Prompt.Prompt<ReadonlyArray<A>>;
+export const autocompleteMultiselect: <const A>(
+  options: AutocompleteMultiselectOptions<A>,
+) => Prompt.Prompt<ReadonlyArray<A>>;
 ```
 
 **State:** `{ readonly query: string; readonly index: number; readonly selectedIndices: Set<number>; readonly filtered: ReadonlyArray<number>; readonly error: Option<string> }`
@@ -369,6 +382,7 @@ export const autocompleteMultiselect: <const A>(options: AutocompleteMultiselect
 **Key behavior:** Selected items persist even when filtered out of view. The filter input and choice list are displayed together — typing narrows the list, arrow keys navigate, space toggles.
 
 **Process:**
+
 - printable characters — append to query, re-filter, reset index to 0
 - `backspace` — trim query, re-filter
 - `up` / `down` — navigate filtered list
@@ -380,19 +394,21 @@ export const autocompleteMultiselect: <const A>(options: AutocompleteMultiselect
 **Example usage:**
 
 ```typescript
-const vetServices = yield* AxmPrompt.autocompleteMultiselect({
-  message: "Select veterinary services:",
-  choices: [
-    { title: "Vaccination", value: "vaccination" },
-    { title: "Microchipping", value: "microchip" },
-    { title: "Dental Cleaning", value: "dental" },
-    { title: "Blood Work", value: "bloodwork" },
-    { title: "X-Ray", value: "xray" },
-    { title: "Flea Treatment", value: "flea" },
-    { title: "Deworming", value: "deworm" },
-  ],
-  min: 1,
-});
+const vetServices =
+  yield *
+  AxmPrompt.autocompleteMultiselect({
+    message: "Select veterinary services:",
+    choices: [
+      { title: "Vaccination", value: "vaccination" },
+      { title: "Microchipping", value: "microchip" },
+      { title: "Dental Cleaning", value: "dental" },
+      { title: "Blood Work", value: "bloodwork" },
+      { title: "X-Ray", value: "xray" },
+      { title: "Flea Treatment", value: "flea" },
+      { title: "Deworming", value: "deworm" },
+    ],
+    min: 1,
+  });
 ```
 
 #### Composability
@@ -401,52 +417,54 @@ All three custom prompts return `Prompt<A>`, so they compose with native prompts
 
 ```typescript
 // With Prompt.all — runs selectKey then groupMultiselect sequentially
-const { action, services } = yield* Prompt.all({
-  action: AxmPrompt.selectKey({ message: "Quick action:", choices: actionChoices }),
-  services: AxmPrompt.groupMultiselect({ message: "Services:", groups: serviceGroups }),
-});
+const { action, services } =
+  yield *
+  Prompt.all({
+    action: AxmPrompt.selectKey({ message: "Quick action:", choices: actionChoices }),
+    services: AxmPrompt.groupMultiselect({ message: "Services:", groups: serviceGroups }),
+  });
 
 // With Prompt.flatMap — conditional follow-up
 const result = AxmPrompt.selectKey({ message: "Action:", choices }).pipe(
   Prompt.flatMap((action) =>
-    action === "adopt"
-      ? Prompt.text({ message: "Adopter name:" })
-      : Prompt.succeed("N/A")
+    action === "adopt" ? Prompt.text({ message: "Adopter name:" }) : Prompt.succeed("N/A"),
   ),
 );
 
 // With AxmPrompt.unless — flag bypass (pipe style)
-const species = yield* AxmPrompt.selectKey({ message: "Species:", choices: speciesChoices }).pipe(
-  AxmPrompt.unless(args.species),
-);
+const species =
+  yield *
+  AxmPrompt.selectKey({ message: "Species:", choices: speciesChoices }).pipe(
+    AxmPrompt.unless(args.species),
+  );
 ```
 
 ### 5. Pet store domain theming for all demos
 
 All prompt demos are re-themed to use the pet store domain. The fake-pet-store data model already provides species, habitats, adoption, and intake concepts.
 
-| Demo | Current Theme | Pet Store Theme |
-|---|---|---|
-| text | "Enter some text" | "Enter pet name:" |
-| password | "Enter your secret" | "Enter admin authorization code:" |
-| confirm | "Do you want to continue?" | "Confirm pet intake?" |
-| select | Colors (red/green/blue) | Species (cat/dog/rabbit/bird/hamster) |
-| multiselect | Fruits | Pet care requirements (vaccination, microchip, spay/neuter, flea treatment, deworming) |
-| path | Generic file path | "Select pet records directory:" |
-| autocomplete | Timezones | Pet names from catalog (searchable) |
-| autocomplete-multiselect | npm packages | Available veterinary services |
-| group-multiselect | Files/Network groups | Services grouped by category (Medical, Grooming, Training) |
-| select-key | Generic options | Quick actions (a=Adopt, i=Intake, l=List, r=Register) |
+| Demo                     | Current Theme              | Pet Store Theme                                                                        |
+| ------------------------ | -------------------------- | -------------------------------------------------------------------------------------- |
+| text                     | "Enter some text"          | "Enter pet name:"                                                                      |
+| password                 | "Enter your secret"        | "Enter admin authorization code:"                                                      |
+| confirm                  | "Do you want to continue?" | "Confirm pet intake?"                                                                  |
+| select                   | Colors (red/green/blue)    | Species (cat/dog/rabbit/bird/hamster)                                                  |
+| multiselect              | Fruits                     | Pet care requirements (vaccination, microchip, spay/neuter, flea treatment, deworming) |
+| path                     | Generic file path          | "Select pet records directory:"                                                        |
+| autocomplete             | Timezones                  | Pet names from catalog (searchable)                                                    |
+| autocomplete-multiselect | npm packages               | Available veterinary services                                                          |
+| group-multiselect        | Files/Network groups       | Services grouped by category (Medical, Grooming, Training)                             |
+| select-key               | Generic options            | Quick actions (a=Adopt, i=Intake, l=List, r=Register)                                  |
 
 New demo commands:
 
-| Demo | Pet Store Scenario |
-|---|---|
-| integer | "Pet age in months:" (min: 1, max: 360) |
-| date | "Intake date:" (defaults to today) |
-| toggle | "Adoptable?" (on/off) |
-| list | "Pet tags (comma-separated):" (e.g., "friendly,house-trained,good-with-kids") |
-| hidden | "Admin override code:" (silent input) |
+| Demo        | Pet Store Scenario                                                                                                                                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| integer     | "Pet age in months:" (min: 1, max: 360)                                                                                                                                                        |
+| date        | "Intake date:" (defaults to today)                                                                                                                                                             |
+| toggle      | "Adoptable?" (on/off)                                                                                                                                                                          |
+| list        | "Pet tags (comma-separated):" (e.g., "friendly,house-trained,good-with-kids")                                                                                                                  |
+| hidden      | "Admin override code:" (silent input)                                                                                                                                                          |
 | composition | "Register pet" wizard — `Prompt.all({ name: text, species: select, age: integer, adoptable: toggle })` chained with `Prompt.flatMap` for conditional follow-up (if adoptable → select habitat) |
 
 ### 6. Runtime layer changes
@@ -470,9 +488,7 @@ const validateTextValue = (value: string | undefined): string | undefined =>
 
 // After (effectful, succeed = valid, fail = error message)
 const validateTextValue = (value: string) =>
-  value.length < 1
-    ? Effect.fail("Input must be at least 1 character")
-    : Effect.succeed(value);
+  value.length < 1 ? Effect.fail("Input must be at least 1 character") : Effect.succeed(value);
 ```
 
 Effectful validation is strictly more powerful — it can do async checks (e.g., verify pet name doesn't already exist) — but for the spike demos, the migration is mechanical.
@@ -484,7 +500,7 @@ Effect v4's `Prompt.password` returns `Redacted.Redacted` instead of `string`. T
 **At call sites:**
 
 ```typescript
-const code = yield* Prompt.password({ message: "Admin code:" });
+const code = yield * Prompt.password({ message: "Admin code:" });
 // code is Redacted.Redacted — unwrap only when needed
 const plaintext = Redacted.value(code);
 ```
@@ -518,6 +534,7 @@ axm-spike prompts
 ### 10. Documentation updates
 
 **`contributing/guides/cli-design.md`** — Add a section titled "Effect v4 Native Prompts (CLI Spike)" alongside the existing CliPrompt guidance. Show:
+
 - `yield* Prompt.text(...)` pattern (Prompt is Yieldable)
 - Non-interactive guard pattern (explicit `isNonInteractive` check)
 - `Prompt.all` composition for multi-field forms
@@ -528,37 +545,37 @@ axm-spike prompts
 
 ## File Change Summary
 
-| File | Change |
-|---|---|
-| `packages/cli-spike/src/runtime.ts` | Error union `AppError \| QuitError`, map QuitError → PromptCancelled |
-| `packages/core/src/unstable/cli-prompt/helpers.ts` | Deprecate old helpers (retained for main CLI until migration) |
-| `packages/core/src/unstable/cli/prompt/index.ts` | New: `AxmPrompt` namespace — barrel exports custom prompts + helpers |
-| `packages/core/src/unstable/cli/prompt/helpers.ts` | New: `unless` and `autoConfirm` as `dual(2)` pipeable helpers |
-| `packages/core/src/unstable/cli/prompt/select-key.ts` | New: `Prompt.custom`-based selectKey |
-| `packages/core/src/unstable/cli/prompt/select-key.test.ts` | New: selectKey tests |
-| `packages/core/src/unstable/cli/prompt/group-multiselect.ts` | New: `Prompt.custom`-based groupMultiselect |
-| `packages/core/src/unstable/cli/prompt/group-multiselect.test.ts` | New: groupMultiselect tests |
-| `packages/core/src/unstable/cli/prompt/autocomplete-multiselect.ts` | New: `Prompt.custom`-based autocompleteMultiselect |
-| `packages/core/src/unstable/cli/prompt/autocomplete-multiselect.test.ts` | New: autocompleteMultiselect tests |
-| `packages/core/src/unstable/cli/prompt/helpers.test.ts` | New: unless and autoConfirm tests |
-| `packages/cli-spike/src/root/prompts/text.ts` | Migrate to Prompt.text, pet store theme |
-| `packages/cli-spike/src/root/prompts/password.ts` | Migrate to Prompt.password (Redacted), pet store theme |
-| `packages/cli-spike/src/root/prompts/confirm.ts` | Migrate to Prompt.confirm, pet store theme |
-| `packages/cli-spike/src/root/prompts/select.ts` | Migrate to Prompt.select, pet store theme |
-| `packages/cli-spike/src/root/prompts/multiselect.ts` | Migrate to Prompt.multiSelect, pet store theme |
-| `packages/cli-spike/src/root/prompts/group-multiselect.ts` | Migrate to custom groupMultiselect, pet store theme |
-| `packages/cli-spike/src/root/prompts/select-key.ts` | Migrate to custom selectKey, pet store theme |
-| `packages/cli-spike/src/root/prompts/autocomplete.ts` | Migrate to Prompt.autoComplete, pet store theme |
-| `packages/cli-spike/src/root/prompts/autocomplete-multiselect.ts` | Migrate to custom autocompleteMultiselect, pet store theme |
-| `packages/cli-spike/src/root/prompts/path.ts` | Migrate to Prompt.file, pet store theme |
-| `packages/cli-spike/src/root/prompts/integer.ts` | New: Prompt.integer demo |
-| `packages/cli-spike/src/root/prompts/date.ts` | New: Prompt.date demo |
-| `packages/cli-spike/src/root/prompts/toggle.ts` | New: Prompt.toggle demo |
-| `packages/cli-spike/src/root/prompts/list.ts` | New: Prompt.list demo |
-| `packages/cli-spike/src/root/prompts/hidden.ts` | New: Prompt.hidden demo |
-| `packages/cli-spike/src/root/prompts/composition.ts` | New: Prompt.all + flatMap demo |
-| `packages/cli-spike/src/root/prompts/command.ts` | Add 6 new subcommands to parent |
-| `packages/cli-spike/src/root/pets/adopt.ts` | Replace CliPrompt.confirm with Prompt.confirm |
-| `packages/cli-spike/src/root/pets/intake.ts` | Replace CliPrompt.confirm with Prompt.confirm |
-| `contributing/guides/cli-design.md` | Add Effect v4 prompt section |
-| `.claude/skills/cli-conventions/SKILL.md` | Add Effect v4 prompt examples |
+| File                                                                     | Change                                                               |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `packages/cli-spike/src/runtime.ts`                                      | Error union `AppError \| QuitError`, map QuitError → PromptCancelled |
+| `packages/core/src/unstable/cli-prompt/helpers.ts`                       | Deprecate old helpers (retained for main CLI until migration)        |
+| `packages/core/src/unstable/cli/prompt/index.ts`                         | New: `AxmPrompt` namespace — barrel exports custom prompts + helpers |
+| `packages/core/src/unstable/cli/prompt/helpers.ts`                       | New: `unless` and `autoConfirm` as `dual(2)` pipeable helpers        |
+| `packages/core/src/unstable/cli/prompt/select-key.ts`                    | New: `Prompt.custom`-based selectKey                                 |
+| `packages/core/src/unstable/cli/prompt/select-key.test.ts`               | New: selectKey tests                                                 |
+| `packages/core/src/unstable/cli/prompt/group-multiselect.ts`             | New: `Prompt.custom`-based groupMultiselect                          |
+| `packages/core/src/unstable/cli/prompt/group-multiselect.test.ts`        | New: groupMultiselect tests                                          |
+| `packages/core/src/unstable/cli/prompt/autocomplete-multiselect.ts`      | New: `Prompt.custom`-based autocompleteMultiselect                   |
+| `packages/core/src/unstable/cli/prompt/autocomplete-multiselect.test.ts` | New: autocompleteMultiselect tests                                   |
+| `packages/core/src/unstable/cli/prompt/helpers.test.ts`                  | New: unless and autoConfirm tests                                    |
+| `packages/cli-spike/src/root/prompts/text.ts`                            | Migrate to Prompt.text, pet store theme                              |
+| `packages/cli-spike/src/root/prompts/password.ts`                        | Migrate to Prompt.password (Redacted), pet store theme               |
+| `packages/cli-spike/src/root/prompts/confirm.ts`                         | Migrate to Prompt.confirm, pet store theme                           |
+| `packages/cli-spike/src/root/prompts/select.ts`                          | Migrate to Prompt.select, pet store theme                            |
+| `packages/cli-spike/src/root/prompts/multiselect.ts`                     | Migrate to Prompt.multiSelect, pet store theme                       |
+| `packages/cli-spike/src/root/prompts/group-multiselect.ts`               | Migrate to custom groupMultiselect, pet store theme                  |
+| `packages/cli-spike/src/root/prompts/select-key.ts`                      | Migrate to custom selectKey, pet store theme                         |
+| `packages/cli-spike/src/root/prompts/autocomplete.ts`                    | Migrate to Prompt.autoComplete, pet store theme                      |
+| `packages/cli-spike/src/root/prompts/autocomplete-multiselect.ts`        | Migrate to custom autocompleteMultiselect, pet store theme           |
+| `packages/cli-spike/src/root/prompts/path.ts`                            | Migrate to Prompt.file, pet store theme                              |
+| `packages/cli-spike/src/root/prompts/integer.ts`                         | New: Prompt.integer demo                                             |
+| `packages/cli-spike/src/root/prompts/date.ts`                            | New: Prompt.date demo                                                |
+| `packages/cli-spike/src/root/prompts/toggle.ts`                          | New: Prompt.toggle demo                                              |
+| `packages/cli-spike/src/root/prompts/list.ts`                            | New: Prompt.list demo                                                |
+| `packages/cli-spike/src/root/prompts/hidden.ts`                          | New: Prompt.hidden demo                                              |
+| `packages/cli-spike/src/root/prompts/composition.ts`                     | New: Prompt.all + flatMap demo                                       |
+| `packages/cli-spike/src/root/prompts/command.ts`                         | Add 6 new subcommands to parent                                      |
+| `packages/cli-spike/src/root/pets/adopt.ts`                              | Replace CliPrompt.confirm with Prompt.confirm                        |
+| `packages/cli-spike/src/root/pets/intake.ts`                             | Replace CliPrompt.confirm with Prompt.confirm                        |
+| `contributing/guides/cli-design.md`                                      | Add Effect v4 prompt section                                         |
+| `.claude/skills/cli-conventions/SKILL.md`                                | Add Effect v4 prompt examples                                        |

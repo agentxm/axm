@@ -1,16 +1,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { CliPrompt, fromFlagOrPrompt } from "@axm.sh/core/unstable/cli-prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
-const validateTextValue = (value: string | undefined): string | undefined =>
-  value === undefined || value.length < 1 ? "Input must be at least 1 character" : undefined;
+const validatePetName = (value: string) =>
+  value.length < 1 ? Effect.fail("Pet name must be at least 1 character") : Effect.succeed(value);
 
 const textConfig = {
   value: Flag.string("value").pipe(
@@ -25,10 +25,6 @@ const textConfig = {
     Flag.withDescription("Default value if no input is provided"),
     Flag.optional,
   ),
-  initial: Flag.string("initial").pipe(
-    Flag.withDescription("Initial value pre-filled in the input"),
-    Flag.optional,
-  ),
   validate: Flag.boolean("validate").pipe(
     Flag.withDescription("Enable sample length validator (min 1 char)"),
   ),
@@ -38,41 +34,38 @@ const handleText = (args: {
   readonly value: Option.Option<string>;
   readonly placeholder: Option.Option<string>;
   readonly defaultValue: Option.Option<string>;
-  readonly initialValue: Option.Option<string>;
   readonly validate: boolean;
 }) =>
   Effect.gen(function* () {
-    const prompt = yield* CliPrompt;
     const renderer = yield* CliRenderer;
-    const text = yield* fromFlagOrPrompt(args.value, () =>
-      prompt.text({
-        message: "Enter some text:",
+    const message = "Enter pet name:";
+    const name = yield* fromFlagOrInteractivePrompt(
+      args.value,
+      Prompt.text({
+        message,
         ...(Option.isSome(args.placeholder) && { placeholder: args.placeholder.value }),
-        ...(Option.isSome(args.defaultValue) && { defaultValue: args.defaultValue.value }),
-        ...(Option.isSome(args.initialValue) && { initialValue: args.initialValue.value }),
-        ...(args.validate && { validate: validateTextValue }),
+        ...(Option.isSome(args.defaultValue) && { default: args.defaultValue.value }),
+        ...(args.validate && { validate: validatePetName }),
       }),
+      { message },
     );
 
-    if (args.validate) {
-      const validationError = validateTextValue(text);
-      if (validationError !== undefined) {
-        return yield* makeAppError({
-          code: "PROMPT_VALUE_INVALID",
-          what: validationError,
-          howToFix: "Pass a non-empty `--value` or provide a non-empty prompt response.",
-        });
-      }
+    if (args.validate && Option.isSome(args.value) && name.length < 1) {
+      return yield* makeAppError({
+        code: "PROMPT_VALUE_INVALID",
+        what: "Pet name must be at least 1 character",
+        howToFix: "Pass a non-empty `--value` or provide a non-empty prompt response.",
+      });
     }
 
-    yield* renderer.success(`You entered: ${text}`);
+    yield* renderer.success(`You entered: ${name}`);
   });
 
 export const textCommand = Command.make(
   "text",
   textConfig,
-  ({ value, placeholder, default: defaultValue, initial: initialValue, validate }) =>
-    handleText({ value, placeholder, defaultValue, initialValue, validate }).pipe(
+  ({ value, placeholder, default: defaultValue, validate }) =>
+    handleText({ value, placeholder, defaultValue, validate }).pipe(
       withRuntime({ command: "prompts text" }),
     ),
 ).pipe(
@@ -81,11 +74,11 @@ export const textCommand = Command.make(
   Command.withExamples([
     {
       command: "axm-spike prompts text",
-      description: "Open the interactive text prompt",
+      description: "Open the interactive text prompt for pet name entry",
     },
     {
-      command: "axm-spike prompts text --value hello",
-      description: "Resolve the prompt non-interactively",
+      command: "axm-spike prompts text --value Mochi",
+      description: "Resolve the prompt non-interactively with a pet name",
     },
   ]),
 );

@@ -69,16 +69,16 @@ Depends on: Phase 3 complete.
 
 > **Parallelization:** Tasks 4.1–4.7 are independent file migrations — launch as parallel subagents.
 
-- [ ] 4.1 Migrate `text.ts` — replace `CliPrompt` with `Prompt.text`, pet store theme ("Enter pet name:"), use `AxmPrompt.unless` for flag bypass, effectful validation
-- [ ] 4.2 Migrate `password.ts` — replace with `Prompt.password` (returns `Redacted`), pet store theme ("Enter admin authorization code:"), `Redacted.value()` at display point
-- [ ] 4.3 Migrate `confirm.ts` — replace with `Prompt.confirm`, pet store theme ("Confirm pet intake?"), use `AxmPrompt.autoConfirm` for `--yes` flag
-- [ ] 4.4 Migrate `select.ts` — replace with `Prompt.select`, pet store theme (species: cat/dog/rabbit/bird/hamster)
-- [ ] 4.5 Migrate `multiselect.ts` — replace with `Prompt.multiSelect`, pet store theme (care requirements: vaccination, microchip, spay/neuter, flea treatment, deworming)
-- [ ] 4.6 Migrate `autocomplete.ts` — replace with `Prompt.autoComplete`, pet store theme (pet names from catalog)
-- [ ] 4.7 Migrate `path.ts` — replace with `Prompt.file`, pet store theme ("Select pet records directory:")
-- [ ] 4.8 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
-- [ ] 4.9 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
-- [ ] 4.10 Kill any vitest worker processes
+- [x] 4.1 Migrate `text.ts` — replace `CliPrompt` with `Prompt.text`, pet store theme ("Enter pet name:"), use `AxmPrompt.unless` for flag bypass, effectful validation
+- [x] 4.2 Migrate `password.ts` — replace with `Prompt.password` (returns `Redacted`), pet store theme ("Enter admin authorization code:"), `Redacted.value()` at display point
+- [x] 4.3 Migrate `confirm.ts` — replace with `Prompt.confirm`, pet store theme ("Confirm pet intake?"), use `AxmPrompt.autoConfirm` for `--yes` flag
+- [x] 4.4 Migrate `select.ts` — replace with `Prompt.select`, pet store theme (species: cat/dog/rabbit/bird/hamster)
+- [x] 4.5 Migrate `multiselect.ts` — replace with `Prompt.multiSelect`, pet store theme (care requirements: vaccination, microchip, spay/neuter, flea treatment, deworming)
+- [x] 4.6 Migrate `autocomplete.ts` — replace with `Prompt.autoComplete`, pet store theme (pet names from catalog)
+- [x] 4.7 Migrate `path.ts` — replace with `Prompt.file`, pet store theme ("Select pet records directory:")
+- [x] 4.8 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
+- [x] 4.9 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
+- [x] 4.10 Kill any vitest worker processes
 
 ## 5. Migrate custom prompt demo commands
 
@@ -88,12 +88,12 @@ Depends on: Phase 3 complete.
 
 > **Parallelization:** Tasks 5.1–5.3 are independent file migrations — launch as parallel subagents.
 
-- [ ] 5.1 Migrate `select-key.ts` — replace with `AxmPrompt.selectKey`, pet store theme (quick actions: a=Adopt, i=Intake, l=List, r=Register)
-- [ ] 5.2 Migrate `group-multiselect.ts` — replace with `AxmPrompt.groupMultiselect`, pet store theme (services grouped by Medical, Grooming, Training)
-- [ ] 5.3 Migrate `autocomplete-multiselect.ts` — replace with `AxmPrompt.autocompleteMultiselect`, pet store theme (veterinary services)
-- [ ] 5.4 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
-- [ ] 5.5 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
-- [ ] 5.6 Kill any vitest worker processes
+- [x] 5.1 Migrate `select-key.ts` — replace with `AxmPrompt.selectKey`, pet store theme (quick actions: a=Adopt, i=Intake, l=List, r=Register)
+- [x] 5.2 Migrate `group-multiselect.ts` — replace with `AxmPrompt.groupMultiselect`, pet store theme (services grouped by Medical, Grooming, Training)
+- [x] 5.3 Migrate `autocomplete-multiselect.ts` — replace with `AxmPrompt.autocompleteMultiselect`, pet store theme (veterinary services)
+- [x] 5.4 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
+- [x] 5.5 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
+- [x] 5.6 Kill any vitest worker processes
 
 ## 6. New demo commands
 
@@ -103,16 +103,16 @@ Depends on: Phase 3 complete. Can run in parallel with Phases 4 and 5.
 
 > **Parallelization:** Tasks 6.1–6.6 are independent — launch as parallel subagents.
 
-- [ ] 6.1 Create `integer.ts` — `Prompt.integer`, pet store theme ("Pet age in months:", min: 1, max: 360)
-- [ ] 6.2 Create `date.ts` — `Prompt.date`, pet store theme ("Intake date:", defaults to today)
-- [ ] 6.3 Create `toggle.ts` — `Prompt.toggle`, pet store theme ("Adoptable?", on/off)
-- [ ] 6.4 Create `list.ts` — `Prompt.list`, pet store theme ("Pet tags (comma-separated):", e.g. "friendly,house-trained,good-with-kids")
-- [ ] 6.5 Create `hidden.ts` — `Prompt.hidden`, pet store theme ("Admin override code:", silent input)
-- [ ] 6.6 Create `composition.ts` — `Prompt.all({ name: text, species: select, age: integer, adoptable: toggle })` + `Prompt.flatMap` for conditional follow-up (if adoptable → select habitat)
-- [ ] 6.7 Register all 6 new subcommands in `packages/cli-spike/src/root/prompts/command.ts`
-- [ ] 6.8 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
-- [ ] 6.9 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
-- [ ] 6.10 Kill any vitest worker processes
+- [x] 6.1 Create `integer.ts` — `Prompt.integer`, pet store theme ("Pet age in months:", min: 1, max: 360)
+- [x] 6.2 Create `date.ts` — `Prompt.date`, pet store theme ("Intake date:", defaults to today)
+- [x] 6.3 Create `toggle.ts` — `Prompt.toggle`, pet store theme ("Adoptable?", on/off)
+- [x] 6.4 Create `list.ts` — `Prompt.list`, pet store theme ("Pet tags (comma-separated):", e.g. "friendly,house-trained,good-with-kids")
+- [x] 6.5 Create `hidden.ts` — `Prompt.hidden`, pet store theme ("Admin override code:", silent input)
+- [x] 6.6 Create `composition.ts` — `Prompt.all({ name: text, species: select, age: integer, adoptable: toggle })` + `Prompt.flatMap` for conditional follow-up (if adoptable → select habitat)
+- [x] 6.7 Register all 6 new subcommands in `packages/cli-spike/src/root/prompts/command.ts`
+- [x] 6.8 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
+- [x] 6.9 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
+- [x] 6.10 Kill any vitest worker processes
 
 ## 7. Migrate pet store commands
 
@@ -120,11 +120,11 @@ Depends on: Phase 3 complete. Can run in parallel with Phases 4 and 5.
 
 Depends on: Phase 3 complete. Can run in parallel with Phases 4, 5, 6.
 
-- [ ] 7.1 Migrate `adopt.ts` — replace `CliPrompt.confirm` with `Prompt.confirm`, use `AxmPrompt.autoConfirm` for `--yes` flag
-- [ ] 7.2 Migrate `intake.ts` — replace `CliPrompt.confirm` with `Prompt.confirm`, use `AxmPrompt.autoConfirm` for `--yes` flag
-- [ ] 7.3 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
-- [ ] 7.4 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
-- [ ] 7.5 Kill any vitest worker processes
+- [x] 7.1 Migrate `adopt.ts` — replace `CliPrompt.confirm` with `Prompt.confirm`, use `AxmPrompt.autoConfirm` for `--yes` flag
+- [x] 7.2 Migrate `intake.ts` — replace `CliPrompt.confirm` with `Prompt.confirm`, use `AxmPrompt.autoConfirm` for `--yes` flag
+- [x] 7.3 Run typecheck for cli-spike package, fix any issues including @effect/language-service diagnostics
+- [x] 7.4 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
+- [x] 7.5 Kill any vitest worker processes
 
 ## 8. Documentation
 
@@ -132,10 +132,10 @@ Depends on: Phase 3 complete. Can run in parallel with Phases 4, 5, 6.
 
 Depends on: Phases 4, 5, 6, 7 complete.
 
-- [ ] 8.1 Update `contributing/guides/cli-design.md` — add "Effect v4 Native Prompts (CLI Spike)" section showing `yield* Prompt.text(...)`, non-interactive guard pattern, `Prompt.all` composition, `Prompt.custom` for custom types, note CliPrompt remains canonical for primary CLI
-- [ ] 8.2 Update `.claude/skills/cli-conventions/SKILL.md` — add examples showing both approaches (spike uses Effect v4 prompts, primary CLI uses CliPrompt)
-- [ ] 8.3 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
-- [ ] 8.4 Kill any vitest worker processes
+- [x] 8.1 Update `contributing/guides/cli-design.md` — add "Effect v4 Native Prompts (CLI Spike)" section showing `yield* Prompt.text(...)`, non-interactive guard pattern, `Prompt.all` composition, `Prompt.custom` for custom types, note CliPrompt remains canonical for primary CLI
+- [x] 8.2 Update `.claude/skills/cli-conventions/SKILL.md` — add examples showing both approaches (spike uses Effect v4 prompts, primary CLI uses CliPrompt)
+- [x] 8.3 Run `pnpm typecheck` (fix any issues including @effect/language-service diagnostics), `pnpm lint`, `pnpm test`, fix any failures
+- [x] 8.4 Kill any vitest worker processes
 
 ## 9. E2E verification
 
@@ -143,7 +143,7 @@ Depends on: Phases 4, 5, 6, 7 complete.
 
 Depends on: All previous phases complete.
 
-- [ ] 9.1 Run `pnpm test:e2e` for cli-spike-e2e, fix any failures
-- [ ] 9.2 Manually verify `pnpm spike prompts text`, `pnpm spike prompts select`, `pnpm spike prompts composition` run correctly (smoke test)
-- [ ] 9.3 Run full `pnpm run ci:affected`, fix any issues
-- [ ] 9.4 Kill any vitest worker processes
+- [x] 9.1 Run `pnpm test:e2e` for cli-spike-e2e, fix any failures
+- [x] 9.2 Manually verify `pnpm spike prompts text`, `pnpm spike prompts select`, `pnpm spike prompts composition` run correctly (smoke test)
+- [x] 9.3 Run full `pnpm run ci:affected`, fix any issues
+- [x] 9.4 Kill any vitest worker processes

@@ -159,6 +159,10 @@
     "./unstable/subagents": {
       "types": "./src/unstable/subagents/index.ts",
       "default": "./dist/src/unstable/subagents/index.js"
+    },
+    "./unstable/cli/prompt": {
+      "types": "./src/unstable/cli/prompt/index.ts",
+      "default": "./dist/src/unstable/cli/prompt/index.js"
     }
   },
   "files": [

@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import type { Scope } from "effect/Scope";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema } from "./package-url.js";
 import { jsrDetector, denoReader } from "./jsr.js";
@@ -12,8 +13,9 @@ import { jsrDetector, denoReader } from "./jsr.js";
 const genericType = Schema.decodeUnknownSync(PackageTypeSchema)("generic");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
+const withNodeContext = <A, E>(
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope>,
+) => effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write deno.json or deno.jsonc, run detector, clean up. */
 const detectInTempDir = (denoJson?: string, filename = "deno.json") =>

@@ -27,6 +27,7 @@ import type { ExtensionRef } from "../extensions/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { McpServerExtensionRef } from "../mcp-servers/refs.js";
 import type { ExtensionPackRef } from "../packs/refs.js";
+import { extensionName, exactVersion, handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // SourceType
@@ -311,10 +312,11 @@ describe("ref detail interfaces", () => {
 
   it("RegistryRefDetails has owner, name, version, and integrity", () => {
     const details: RegistryRefDetails = {
-      owner: "@acme",
-      name: "my-skill",
-      version: "1.2.3",
+      owner: handle("@acme"),
+      name: extensionName("my-skill"),
+      version: exactVersion("1.2.3"),
       integrity: Option.some("sha512-abc=="),
+      compatiblePackages: [],
     };
     expect(details.owner).toBe("@acme");
     expect(details.name).toBe("my-skill");
@@ -337,7 +339,11 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "git-hosted",
-      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
+      skill: {
+        name: extensionName("test"),
+        description: Option.some("desc"),
+        metadata: Option.none(),
+      },
       source: {
         type: "github",
         url: new URL("https://github.com"),
@@ -362,16 +368,17 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "registry",
-      skill: { name: "test", description: Option.none(), metadata: Option.none() },
+      skill: { name: extensionName("test"), description: Option.none(), metadata: Option.none() },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
-      owner: "@acme",
-      name: "test-pkg",
-      version: "1.0.0",
+      owner: handle("@acme"),
+      name: extensionName("test-pkg"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
+      compatiblePackages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
@@ -385,7 +392,11 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "local",
-      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
+      skill: {
+        name: extensionName("test"),
+        description: Option.some("desc"),
+        metadata: Option.none(),
+      },
       source: { type: "local", path: "/home/user/skill" },
       location: "file:///home/user/skill",
     };
@@ -398,14 +409,18 @@ describe("SkillExtensionRef", () => {
     const withDesc: SkillExtensionRef = {
       type: "skill",
       refType: "local",
-      skill: { name: "s", description: Option.some("hello"), metadata: Option.none() },
+      skill: {
+        name: extensionName("s"),
+        description: Option.some("hello"),
+        metadata: Option.none(),
+      },
       source: { type: "local", path: "/test" },
       location: "file:///test",
     };
     const withoutDesc: SkillExtensionRef = {
       type: "skill",
       refType: "local",
-      skill: { name: "s", description: Option.none(), metadata: Option.none() },
+      skill: { name: extensionName("s"), description: Option.none(), metadata: Option.none() },
       source: { type: "local", path: "/test" },
       location: "file:///test",
     };
@@ -423,7 +438,7 @@ describe("McpServerExtensionRef", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
       refType: "git-hosted",
-      server: { name: "my-server" },
+      server: { name: extensionName("my-server") },
       source: {
         type: "github",
         url: new URL("https://github.com"),
@@ -444,16 +459,17 @@ describe("McpServerExtensionRef", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
       refType: "registry",
-      server: { name: "my-server" },
+      server: { name: extensionName("my-server") },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
-      owner: "@acme",
-      name: "server-pkg",
-      version: "2.0.0",
+      owner: handle("@acme"),
+      name: extensionName("server-pkg"),
+      version: exactVersion("2.0.0"),
       integrity: Option.some("sha512-def"),
+      compatiblePackages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("2.0.0");
@@ -471,16 +487,23 @@ describe("ExtensionPackRef", () => {
     const ref: ExtensionPackRef = {
       type: "pack",
       refType: "registry",
-      pack: { name: "my-pack", skills: {}, commands: {}, mcpServers: {} },
+      pack: {
+        name: extensionName("my-pack"),
+        skills: {},
+        commands: {},
+        mcpServers: {},
+        subagents: {},
+      },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
-      owner: "@acme",
-      name: "pack-pkg",
-      version: "1.0.0",
+      owner: handle("@acme"),
+      name: extensionName("pack-pkg"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-ghi"),
+      compatiblePackages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.version).toBe("1.0.0");
@@ -498,7 +521,11 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "local",
-      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
+      skill: {
+        name: extensionName("test"),
+        description: Option.some("desc"),
+        metadata: Option.none(),
+      },
       source: { type: "local", path: "/test" },
       location: "file:///test",
     };
@@ -511,7 +538,7 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "local",
-      server: { name: "srv" },
+      server: { name: extensionName("srv") },
       source: { type: "local", path: "/test" },
       location: "file:///test",
     };
@@ -524,12 +551,13 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "registry",
-      owner: "@axm",
-      pack: { name: "p", skills: {}, commands: {}, mcpServers: {} },
+      owner: handle("@axm"),
+      pack: { name: extensionName("p"), skills: {}, commands: {}, mcpServers: {}, subagents: {} },
       source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
-      name: "p",
-      version: "1.0.0",
+      name: extensionName("p"),
+      version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      compatiblePackages: [],
     };
     if (ref.type === "pack") {
       expect(ref.pack.name).toBe("p");
@@ -540,12 +568,13 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-      skill: { name: "s", description: Option.none(), metadata: Option.none() },
+      skill: { name: extensionName("s"), description: Option.none(), metadata: Option.none() },
       source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
-      owner: "@acme",
-      name: "pkg",
-      version: "1.0.0",
+      owner: handle("@acme"),
+      name: extensionName("pkg"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
+      compatiblePackages: [],
     };
     if (ref.refType === "registry") {
       expect(ref.owner).toBe("@acme");

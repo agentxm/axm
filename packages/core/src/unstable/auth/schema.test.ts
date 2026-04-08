@@ -4,6 +4,7 @@
 
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import { handle } from "../test-helpers.js";
 import {
   CredentialEntrySchema,
   CredentialFileSchema,
@@ -80,7 +81,7 @@ describe("Auth schema", () => {
       };
       const result = Schema.decodeUnknownSync(RegistryAccountsSchema)(input);
 
-      expect(result.accounts["@alice"]?.active).toBe(true);
+      expect(result.accounts[handle("@alice")]?.active).toBe(true);
     });
 
     it("decodes multiple accounts", () => {
@@ -145,7 +146,7 @@ describe("Auth schema", () => {
 
       expect(result.version).toBe(1);
       expect(
-        result.registries["https://registry.agentxm.ai"]?.accounts["@alice"]?.access_token,
+        result.registries["https://registry.agentxm.ai"]?.accounts[handle("@alice")]?.access_token,
       ).toBe("axm_ses_abc");
     });
 

@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
+import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import { uninstallMcpServer } from "./uninstall.js";
@@ -98,11 +99,12 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
               location: new URL(liveRegistryUrl),
               owner: Option.none(),
             },
-            server: { name: "chrome-devtools-mcp" },
-            owner: liveProfile,
-            name: "chrome-devtools-mcp",
-            version: liveVersion,
-            integrity: liveIntegrity,
+            server: { name: extensionName("chrome-devtools-mcp") },
+            owner: handle(liveProfile),
+            name: extensionName("chrome-devtools-mcp"),
+            version: exactVersion(liveVersion),
+            integrity: liveIntegrity === "" ? Option.none() : Option.some(liveIntegrity),
+            compatiblePackages: [],
           },
           force: false,
           versionConstraint: Option.none(),

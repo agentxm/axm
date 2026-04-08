@@ -22,9 +22,10 @@ import { describe, expect, it } from "@effect/vitest";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/index.js";
 import { Workspace } from "../workspace/index.js";
-import { taxonomyStubs } from "../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
 import type { FindOptions } from "../sources/index.js";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 
 // -----------------------------------------------------------------------------
@@ -32,15 +33,15 @@ import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 // -----------------------------------------------------------------------------
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
-  version: "1.0.0",
+  version: exactVersion("1.0.0"),
   published: "2025-01-01T00:00:00Z",
   integrity: "sha512-AAAA==",
   ...overrides,
 });
 
 const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
-  name: "my-skill",
-  owner: "@test",
+  name: extensionName("my-skill"),
+  owner: handle("@test"),
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
@@ -77,10 +78,7 @@ const computeIntegrity = (data: Uint8Array): string => {
  * Returns registry sources without owner filtering.
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
-  ...taxonomyStubs,
-  scope: "project",
-  path: "/tmp/test-workspace",
-  baseDir: "/tmp",
+  ...makeBaseWorkspaceMock("/tmp/test-workspace"),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
@@ -90,52 +88,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredProfile: () => Effect.succeed("@test"),
-  getDefaultProfile: () => Effect.succeed(Option.none()),
-  addConfiguredSource: () => Effect.void,
-  getConfiguredSkills: () => Effect.succeed({}),
-  getInstalledSkills: () => Effect.succeed({}),
-  getConfiguredAgents: () => Effect.succeed([]),
-  getLockedSkills: () => Effect.succeed({}),
-  getLockedSkill: () => Effect.succeed(Option.none()),
-  getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-  setSkill: () => Effect.void,
-  setSkillLock: () => Effect.void,
-  removeSkill: () => Effect.void,
-  removeSkillFromSettings: () => Effect.void,
-  updateSkillEntry: () => Effect.void,
-  setSkillEntry: () => Effect.void,
-  renameSkill: () => Effect.void,
-  updateLockEntryAgents: () => Effect.void,
-  addConfiguredAgent: () => Effect.void,
-  getConfiguredPacks: () => Effect.succeed({}),
-  getInstalledPacks: () => Effect.succeed({}),
-  getLockedExtensionPacks: () => Effect.succeed({}),
-  getLockedExtensionPack: () => Effect.succeed(Option.none()),
-  setExtensionPack: () => Effect.void,
-  removeExtensionPack: () => Effect.void,
-  getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-  getLockedCommands: () => Effect.succeed({}),
-  getLockedCommand: () => Effect.succeed(Option.none()),
-  setCommand: () => Effect.void,
-  setCommandLock: () => Effect.void,
-  removeCommand: () => Effect.void,
-  getLockedMcpServers: () => Effect.succeed({}),
-  getLockedMcpServer: () => Effect.succeed(Option.none()),
-  setMcpServer: () => Effect.void,
-  setMcpServerLock: () => Effect.void,
-  removeMcpServer: () => Effect.void,
-  removeSkillLock: () => Effect.void,
-  removeCommandSettings: () => Effect.void,
-  removeCommandLock: () => Effect.void,
-  removeMcpServerSettings: () => Effect.void,
-  removeMcpServerLock: () => Effect.void,
-  removeExtensionPackSettings: () => Effect.void,
-  removeExtensionPackLock: () => Effect.void,
-  isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-  markDependencyRetainedInLockfile: () => Effect.void,
-  getConfiguredCommands: () => Effect.succeed({}),
-  getConfiguredMcpServers: () => Effect.succeed({}),
+  getConfiguredProfile: () => Effect.succeed(handle("@test")),
 });
 
 /** Run an effect with SourceHostProviders service and NodeContext wired up. */
@@ -251,8 +204,8 @@ describe("registry meta-provider owner routing", () => {
           nodePath.join(scopedSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              owner: "@acme",
-              name: "my-skill",
+              owner: handle("@acme"),
+              name: extensionName("my-skill"),
               versions: [makeVersionEntry({ integrity })],
             }),
           ),
@@ -261,9 +214,9 @@ describe("registry meta-provider owner routing", () => {
           nodePath.join(otherScopeSkillDir, "index.json"),
           JSON.stringify(
             makeIndex({
-              owner: "@other",
-              name: "my-skill",
-              versions: [makeVersionEntry({ integrity, version: "2.0.0" })],
+              owner: handle("@other"),
+              name: extensionName("my-skill"),
+              versions: [makeVersionEntry({ integrity, version: exactVersion("2.0.0") })],
             }),
           ),
         );
@@ -275,7 +228,7 @@ describe("registry meta-provider owner routing", () => {
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },
-          { ...defaultFindOptions, owner: Option.some("@acme") },
+          { ...defaultFindOptions, owner: Option.some(handle("@acme")) },
         );
         expect(refs).toHaveLength(1);
         const ref = refs[0];
@@ -312,7 +265,7 @@ describe("registry meta-provider owner routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
-            owner: Option.some("@test"),
+            owner: Option.some(handle("@test")),
           },
           { ...defaultFindOptions, skillNames: ["missing"] },
         );

@@ -5,6 +5,7 @@
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "@effect/vitest";
+import { extensionName, handle } from "../test-helpers.js";
 import { formatFqn, parseFqn, parseFqnOrThrow } from "./fqn.js";
 
 describe("parseFqn", () => {
@@ -93,18 +94,34 @@ describe("parseFqnOrThrow", () => {
 
 describe("formatFqn", () => {
   it("formats Fqn to string", () => {
-    const result = formatFqn({ owner: "@acme", type: "skill", name: "code-review" });
+    const result = formatFqn({
+      owner: handle("@acme"),
+      type: "skill",
+      name: extensionName("code-review"),
+    });
 
     expect(result).toBe("@acme/skills/code-review");
   });
 
   it("formats all type segments correctly", () => {
-    expect(formatFqn({ owner: "@x", type: "pack", name: "y" })).toBe("@x/packs/y");
-    expect(formatFqn({ owner: "@x", type: "command", name: "y" })).toBe("@x/commands/y");
-    expect(formatFqn({ owner: "@x", type: "mcp-server", name: "y" })).toBe("@x/mcp-servers/y");
-    expect(formatFqn({ owner: "@x", type: "subagent", name: "y" })).toBe("@x/subagents/y");
-    expect(formatFqn({ owner: "@x", type: "file", name: "y" })).toBe("@x/files/y");
-    expect(formatFqn({ owner: "@x", type: "rule", name: "y" })).toBe("@x/rules/y");
+    expect(formatFqn({ owner: handle("@x"), type: "pack", name: extensionName("y") })).toBe(
+      "@x/packs/y",
+    );
+    expect(formatFqn({ owner: handle("@x"), type: "command", name: extensionName("y") })).toBe(
+      "@x/commands/y",
+    );
+    expect(formatFqn({ owner: handle("@x"), type: "mcp-server", name: extensionName("y") })).toBe(
+      "@x/mcp-servers/y",
+    );
+    expect(formatFqn({ owner: handle("@x"), type: "subagent", name: extensionName("y") })).toBe(
+      "@x/subagents/y",
+    );
+    expect(formatFqn({ owner: handle("@x"), type: "file", name: extensionName("y") })).toBe(
+      "@x/files/y",
+    );
+    expect(formatFqn({ owner: handle("@x"), type: "rule", name: extensionName("y") })).toBe(
+      "@x/rules/y",
+    );
   });
 });
 

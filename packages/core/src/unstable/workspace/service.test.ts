@@ -21,7 +21,17 @@ import { AppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
-import { expectDefined, property, recordEntry, stringProperty } from "../test-helpers.js";
+import {
+  exactVersion,
+  expectDefined,
+  extensionName,
+  getAppError,
+  handle,
+  property,
+  recordEntry,
+  stringProperty,
+  versionConstraint,
+} from "../test-helpers.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
   Workspace,
@@ -374,9 +384,7 @@ describe("WorkspaceContextService", () => {
           profile: "myorg",
         });
 
-        const error = yield* getService(defaultOptions).pipe(Effect.flip);
-
-        expect(error).toBeInstanceOf(AppError);
+        const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));
         expect(error.code).toBe("SETTINGS_PARSE_FAILED");
       }),
     );
@@ -449,9 +457,7 @@ describe("WorkspaceContextService", () => {
           profile: "myorg",
         });
 
-        const error = yield* getService(defaultOptions).pipe(Effect.flip);
-
-        expect(error).toBeInstanceOf(AppError);
+        const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));
         expect(error.code).toBe("SETTINGS_PARSE_FAILED");
       }),
     );
@@ -836,9 +842,9 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          owner: "@acme",
-          name: "tool",
-          resolvedVersion: "1.2.3",
+          owner: handle("@acme"),
+          name: extensionName("tool"),
+          resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
           agents: ["claude-code"],
@@ -849,7 +855,7 @@ describe("WorkspaceContextService", () => {
         yield* ws.setSkill({
           name: "tool",
           lockEntry: registryEntry,
-          versionConstraint: Option.some("^1.0.0"),
+          versionConstraint: Option.some(versionConstraint("^1.0.0")),
         });
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -866,9 +872,9 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          owner: "@acme",
-          name: "tool",
-          resolvedVersion: "1.2.3",
+          owner: handle("@acme"),
+          name: extensionName("tool"),
+          resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
           agents: ["claude-code"],
@@ -896,9 +902,9 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          owner: "@acme",
-          name: "tool",
-          resolvedVersion: "1.2.3",
+          owner: handle("@acme"),
+          name: extensionName("tool"),
+          resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
           agents: ["claude-code"],
@@ -909,7 +915,7 @@ describe("WorkspaceContextService", () => {
         yield* ws.setSkill({
           name: "tool",
           lockEntry: registryEntry,
-          versionConstraint: Option.some("1.2.3"),
+          versionConstraint: Option.some(versionConstraint("1.2.3")),
         });
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1223,7 +1229,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill", {
           refType: "registry",
-          owner: "@corp",
+          owner: handle("@corp"),
         });
 
         expect(paths.canonicalPath).toContain(".axm/extensions/@corp/skills/my-skill");
@@ -1607,9 +1613,9 @@ describe("WorkspaceContextService", () => {
   const makeSampleSetExtensionPackArgs = (
     overrides?: Partial<SetExtensionPackArgs>,
   ): SetExtensionPackArgs => ({
-    owner: "@acme",
-    name: "starter-pack",
-    resolvedVersion: "1.0.0",
+    owner: handle("@acme"),
+    name: extensionName("starter-pack"),
+    resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-AAAA==",
     sourceName: "default",
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
@@ -1910,7 +1916,7 @@ describe("WorkspaceContextService", () => {
     it.effect("returns registry extensions path with owner", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getExtensionPackDir("starter-pack", "@acme");
+        const result = yield* ws.getExtensionPackDir("starter-pack", handle("@acme"));
 
         expect(result.canonicalPath).toContain(".axm/extensions/@acme/packs/starter-pack");
       }),
@@ -1919,7 +1925,7 @@ describe("WorkspaceContextService", () => {
     it.effect("handles different namespaces correctly", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getExtensionPackDir("my-pack", "@community");
+        const result = yield* ws.getExtensionPackDir("my-pack", handle("@community"));
 
         expect(result.canonicalPath).toContain(".axm/extensions/@community/packs/my-pack");
       }),
@@ -4220,7 +4226,7 @@ describe("WorkspaceContextService", () => {
         const result = yield* ws.isExtensionRequiredByInstalledExtensionPack({
           type: "pack",
           name: "some-pack",
-          owner: "@acme",
+          owner: handle("@acme"),
         });
 
         expect(result).toBe(false);

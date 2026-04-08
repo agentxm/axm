@@ -32,42 +32,41 @@ describe("outputs commands", () => {
     }
   });
 
-  it("outputs log produces all 7 log levels on stdout", async () => {
-    const result = await runCli(["outputs", "log"]);
+  it("outputs log renders the requested log message", async () => {
+    const result = await runCli(["outputs", "log", "Build succeeded", "--level", "success"]);
     expectExitCode(result, 0);
-    expectStdout(result, "plain message");
-    expectStdout(result, "info message");
-    expectStdout(result, "success message");
-    expectStdout(result, "step message");
-    expectStdout(result, "warning message");
-    expectStdout(result, "error message");
-    expectStdout(result, "cancel message");
+    expectStdout(result, "Build succeeded");
   });
 
-  it("outputs intro renders intro/outro framing", async () => {
+  it("outputs intro renders intro framing", async () => {
     const result = await runCli(["outputs", "intro"]);
     expectExitCode(result, 0);
     expectStdout(result, "Welcome to axm-spike");
-    expectStdout(result, "Goodbye");
   });
 
   it("outputs note renders boxed note", async () => {
-    const result = await runCli(["outputs", "note"]);
+    const result = await runCli([
+      "outputs",
+      "note",
+      "Read the deploy checklist",
+      "--title",
+      "Reminder",
+    ]);
     expectExitCode(result, 0);
-    expectStdout(result, "This note has a title");
-    expectStdout(result, "Important");
+    expectStdout(result, "Read the deploy checklist");
+    expectStdout(result, "Reminder");
   });
 
   it("outputs box renders default box", async () => {
     const result = await runCli(["outputs", "box"]);
     expectExitCode(result, 0);
-    expectStdout(result, "content inside a box");
+    expectStdout(result, "This box renders one message at a time.");
   });
 
   it("outputs box --rounded --width 40 renders with options", async () => {
     const result = await runCli(["outputs", "box", "--rounded", "--width", "40"]);
     expectExitCode(result, 0);
-    expectStdout(result, "content inside a box");
+    expectStdout(result, "This box renders one message at a time.");
   });
 
   it("outputs spinner completes with success", async () => {
@@ -129,18 +128,16 @@ describe("outputs commands", () => {
   it("outputs result --json emits structured data to stdout", async () => {
     const result = await runCli(["outputs", "result", "--json"]);
     expectExitCode(result, 0);
-    // Machine mode: result() writes pretty JSON, resultStream() writes NDJSON lines
-    // stdout contains a pretty-printed JSON object followed by NDJSON lines
-    expectStdout(result, "Mochi");
-    expectStdout(result, "Pickles");
-    expectStdout(result, "Juniper");
-    // Verify the NDJSON lines are valid JSON
-    const lines = result.stdout.trim().split("\n");
-    // Last 3 lines should be valid NDJSON from resultStream
-    const ndjsonLines = lines.slice(-3);
-    for (const line of ndjsonLines) {
-      expect(() => JSON.parse(line)).not.toThrow();
-    }
+    const parsed = parseJsonOutput(result);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        command: "outputs.result",
+        data: expect.objectContaining({
+          name: "Mochi",
+          species: "cat",
+        }),
+      }),
+    );
   });
 
   it("outputs raw outputs unformatted text", async () => {
@@ -154,10 +151,13 @@ describe("outputs commands", () => {
     const result = await runCli(["outputs", "raw", "--json"]);
     expectExitCode(result, 0);
     const parsed = parseJsonOutput(result);
-    expect(parsed).toEqual({
-      name: "axm-spike",
-      version: "0.0.1",
-      pets: ["Mochi", "Pickles", "Juniper"],
-    });
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        command: "outputs.raw",
+        data: expect.objectContaining({
+          lines: ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"],
+        }),
+      }),
+    );
   });
 });

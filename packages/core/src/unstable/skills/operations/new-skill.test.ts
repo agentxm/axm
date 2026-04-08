@@ -5,11 +5,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { handle } from "../../test-helpers.js";
 import type { NewSkillOperation } from "./new-skill.js";
 import { newSkill } from "./new-skill.js";
 import { isManagedByAxm } from "../../extensions/managed-marker.js";
@@ -26,24 +26,15 @@ const makeWorkspaceMock = (
     configuredProfile?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredSkills?: Record<string, any>;
-    setSkillEntryFn?: ReturnType<typeof vi.fn>;
+    setSkillEntryFn?: WorkspaceContextService["setSkillEntry"];
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const configuredProfile = opts.configuredProfile ?? "@myorg";
   const configuredSkills = opts.configuredSkills ?? {};
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(configuredProfile),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
+    getConfiguredProfile: () => Effect.succeed(handle(configuredProfile)),
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(
@@ -57,49 +48,9 @@ const makeWorkspaceMock = (
           ]),
         ),
       ),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
     setSkillEntry: opts.setSkillEntryFn ?? (() => Effect.void),
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -114,7 +65,7 @@ const makeOp = (overrides: Partial<NewSkillOperation["args"]> = {}): NewSkillOpe
   name: "new-skill",
   args: {
     name: overrides.name ?? "my-skill",
-    owner: overrides.owner ?? "@myorg",
+    owner: overrides.owner ?? handle("@myorg"),
     agents: overrides.agents ?? ["claude-code"],
   },
 });
@@ -175,7 +126,9 @@ describe("newSkill", () => {
     it.effect("registers skill in settings via setSkillEntry", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
-        const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
+        const setSkillEntryFn = vi.fn<WorkspaceContextService["setSkillEntry"]>(
+          (_name, _entry) => Effect.void,
+        );
 
         const result = yield* newSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { setSkillEntryFn })),

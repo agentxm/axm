@@ -7,9 +7,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
+import type { AppError } from "../../app-error/index.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
+import { handle } from "../../test-helpers.js";
+import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
 import type { EnableCommandOperation } from "./enable.js";
 import { enableCommand } from "./enable.js";
 import { makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
@@ -22,8 +25,11 @@ const withServices = (
   axmDir: string,
   lockEntry?: CommandLockEntry,
   wsOverrides?: {
-    setCommandFn?: ReturnType<typeof vi.fn>;
-    setCommandLockFn?: ReturnType<typeof vi.fn>;
+    setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
+    setCommandLockFn?: (args: {
+      name: string;
+      lockEntry: unknown;
+    }) => Effect.Effect<void, AppError>;
   },
 ) => {
   const setCommandFn = wsOverrides?.setCommandFn;
@@ -52,17 +58,13 @@ const makeOp = (commandName = "my-command"): EnableCommandOperation => ({
   args: { commandName },
 });
 
-const makeRegistryLockEntry = (): CommandLockEntry => ({
-  type: "registry",
-  owner: "@community",
-  name: "my-command",
-  resolvedVersion: "1.0.0",
-  integrity: "",
-  sourceName: "default",
-  agents: [],
-  installedAt: new Date(),
-  updatedAt: new Date(),
-});
+const makeRegistryLockEntry = (): CommandLockEntry =>
+  makeRegistryCommandLockEntry({
+    owner: handle("@community"),
+    name: "my-command",
+    integrity: "",
+    agents: [],
+  });
 
 // -----------------------------------------------------------------------------
 // Tests

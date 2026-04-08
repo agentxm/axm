@@ -33,6 +33,8 @@ import type {
 import type { AppError } from "../app-error/index.js";
 import {
   makeRegistryExtensionPackLockEntry as buildRegistryExtensionPackLockEntry,
+  type CommandLockEntry,
+  type McpServerLockEntry,
   type RegistryExtensionPackLockEntry,
   type ResolvedExtensionMap,
   type SkillLockEntry,
@@ -214,6 +216,7 @@ const hasEntries = (
 export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
+  readonly profile?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
   readonly "mcp-servers"?: Record<string, unknown> | undefined;
@@ -231,6 +234,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
+    ...(opts.profile && { profile: opts.profile }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),
@@ -283,6 +287,54 @@ export const makeRegistrySkillLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   agents: [...(opts.agents ?? ["claude-code"])],
+  installedAt: opts.installedAt ?? TEST_DATE,
+  updatedAt: opts.updatedAt ?? TEST_DATE,
+});
+
+export const makeRegistryCommandLockEntry = (opts: {
+  readonly owner: Handle;
+  readonly name: string;
+  readonly resolvedVersion?: ExactSemverVersion;
+  readonly integrity?: string;
+  readonly sourceName?: string;
+  readonly agents?: ReadonlyArray<string>;
+  readonly renderedFiles?: CommandLockEntry["renderedFiles"];
+  readonly sourceHash?: string;
+  readonly retainedByPack?: boolean;
+  readonly installedAt?: Date;
+  readonly updatedAt?: Date;
+}): CommandLockEntry => ({
+  type: "registry",
+  owner: opts.owner,
+  name: decodeExtensionNameSync(opts.name),
+  resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+  integrity: opts.integrity ?? "sha512-AAAA==",
+  sourceName: opts.sourceName ?? "default",
+  agents: [...(opts.agents ?? ["claude-code"])],
+  ...(opts.renderedFiles ? { renderedFiles: opts.renderedFiles } : {}),
+  ...(opts.sourceHash ? { sourceHash: opts.sourceHash } : {}),
+  ...(opts.retainedByPack !== undefined ? { retainedByPack: opts.retainedByPack } : {}),
+  installedAt: opts.installedAt ?? TEST_DATE,
+  updatedAt: opts.updatedAt ?? TEST_DATE,
+});
+
+export const makeRegistryMcpServerLockEntry = (opts: {
+  readonly owner: Handle;
+  readonly name: string;
+  readonly resolvedVersion?: ExactSemverVersion;
+  readonly integrity?: string;
+  readonly sourceName?: string;
+  readonly installedAt?: Date;
+  readonly updatedAt?: Date;
+  readonly retainedByPack?: boolean;
+}): McpServerLockEntry => ({
+  type: "registry",
+  owner: opts.owner,
+  name: decodeExtensionNameSync(opts.name),
+  resolvedVersion: opts.resolvedVersion ?? decodeExactSemverVersionSync("1.0.0"),
+  integrity: opts.integrity ?? "sha512-AAAA==",
+  sourceName: opts.sourceName ?? "default",
+  ...(opts.retainedByPack !== undefined ? { retainedByPack: opts.retainedByPack } : {}),
   installedAt: opts.installedAt ?? TEST_DATE,
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });

@@ -17,7 +17,7 @@ import type { FindOptions, GitHubSource } from "../sources/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { Workspace } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
-import { at } from "../test-helpers.js";
+import { at, extensionName } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -134,7 +134,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
           refType: "git-hosted",
           source: ghSource,
           skill: {
-            name: "test-skill",
+            name: extensionName("test-skill"),
             description: Option.some("A test skill"),
             metadata: Option.none(),
           },

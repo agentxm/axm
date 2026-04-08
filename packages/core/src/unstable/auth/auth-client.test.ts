@@ -10,6 +10,7 @@
 
 import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
@@ -31,6 +32,19 @@ const REGISTRY_URL = "https://registry.agentxm.ai";
 const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   HttpClient.make((request) =>
     Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
+  );
+
+const makeNetworkErrorHttpClient = () =>
+  HttpClient.make((request) =>
+    Effect.fail(
+      new HttpClientError.HttpClientError({
+        reason: new HttpClientError.TransportError({
+          request,
+          cause: new Error("ECONNREFUSED"),
+          description: "Connection refused",
+        }),
+      }),
+    ),
   );
 
 const makeTestLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) => {
@@ -152,26 +166,19 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .initiateDeviceFlow()
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
     }).pipe(Effect.provide(layer));
   });
 
   it.effect("fails with AUTH_LOGIN_FAILED on network error", () => {
-    const httpLayer = Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
-    );
+    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .initiateDeviceFlow()
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
     }).pipe(Effect.provide(layer));
   });
@@ -305,9 +312,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const error = yield* pollOnce(client, "dev_123").pipe(
-        Effect.catchTag("AppError", (e) => Effect.succeed(e)),
-      );
+      const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
       expect(error.what).toBe("Lost connection to the registry during login");
     });
@@ -326,9 +331,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const error = yield* pollOnce(client, "dev_123").pipe(
-        Effect.catchTag("AppError", (e) => Effect.succeed(e)),
-      );
+      const error = yield* pollOnce(client, "dev_123").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
       expect(error.what).toBe("Device token exchange failed with an unexpected error");
     });
@@ -433,22 +436,13 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const fiber = yield* Effect.forkChild(
-        client
-          .pollDeviceToken("dev_123", 0)
-          .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e))),
-      );
+      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0).pipe(Effect.flip));
       yield* Effect.yieldNow;
       yield* TestClock.adjust("1 second");
-      const result = yield* Fiber.join(fiber);
+      const error = yield* Fiber.join(fiber);
 
-      // After catchTag, the success channel carries NormalizedTokenResponse | AppError.
-      // Narrow via the AppError discriminant.
-      if (!("_tag" in result) || result._tag !== "AppError") {
-        throw new Error("expected pollDeviceToken to fail with AppError");
-      }
-      expect(result.code).toBe("AUTH_LOGIN_FAILED");
-      expect(result.what).toBe("Lost connection to the registry during login");
+      expect(error.code).toBe("AUTH_LOGIN_FAILED");
+      expect(error.what).toBe("Lost connection to the registry during login");
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
   });
@@ -464,9 +458,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .pollDeviceToken("dev_123", 0)
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_CANCELLED");
     }).pipe(Effect.provide(layer));
   });
@@ -482,9 +474,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .pollDeviceToken("dev_123", 0)
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
       expect(error.code).toBe("AUTH_LOGIN_FAILED");
     }).pipe(Effect.provide(layer));
   });
@@ -568,9 +558,7 @@ describe("AuthClient.refreshToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .refreshToken("axm_ref_expired")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_REFRESH_FAILED");
     }).pipe(Effect.provide(layer));
   });
@@ -586,26 +574,19 @@ describe("AuthClient.refreshToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .refreshToken("axm_ref_expired")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_REFRESH_FAILED");
     }).pipe(Effect.provide(layer));
   });
 
   it.effect("fails with AUTH_REFRESH_FAILED on network error", () => {
-    const httpLayer = Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
-    );
+    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .refreshToken("axm_ref_old")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.refreshToken("axm_ref_old").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_REFRESH_FAILED");
     }).pipe(Effect.provide(layer));
   });
@@ -656,10 +637,7 @@ describe("AuthClient.revokeToken", () => {
   });
 
   it.effect("succeeds (non-fatal) on network error — errors swallowed", () => {
-    const httpLayer = Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
-    );
+    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
@@ -712,9 +690,7 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .getMe("axm_ses_bad")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_UNAUTHENTICATED");
     }).pipe(Effect.provide(layer));
   });
@@ -730,9 +706,7 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .getMe("axm_ses_bad")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_UNAUTHENTICATED");
     }).pipe(Effect.provide(layer));
   });
@@ -746,26 +720,19 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .getMe("axm_ses_bad")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_UNAUTHENTICATED");
     }).pipe(Effect.provide(layer));
   });
 
   it.effect("fails with AUTH_UNAUTHENTICATED on network error", () => {
-    const httpLayer = Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make(() => Effect.fail(new Error("ECONNREFUSED"))),
-    );
+    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client
-        .getMe("axm_ses_bad")
-        .pipe(Effect.catchTag("AppError", (e) => Effect.succeed(e)));
+      const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
       expect(error.code).toBe("AUTH_UNAUTHENTICATED");
     }).pipe(Effect.provide(layer));
   });

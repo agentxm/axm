@@ -5,6 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { Settings } from "../settings/index.js";
+import { handle } from "../test-helpers.js";
 import { setReconciliationAdapters } from "../workspace/reconciliation.js";
 import { subagentReconciliationAdapter } from "./reconciliation-adapter.js";
 import { buildReconciliationSnapshot } from "../workspace/reconciliation.js";
@@ -29,7 +30,7 @@ describe("subagent reconciliation adapter", () => {
   const makeContext = (settings: Settings) => ({
     baseDir: tempDir,
     now: new Date("2026-02-25T10:00:00.000Z"),
-    defaultProfile: "@community" as const,
+    defaultProfile: handle("@community"),
     agents: ["claude-code"],
     settings,
   });

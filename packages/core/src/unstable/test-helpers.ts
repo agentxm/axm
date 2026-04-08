@@ -1,5 +1,31 @@
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { AppError } from "./app-error/index.js";
+import type { CodingAgent } from "./agents/coding-agent.js";
+import type { AgentId } from "./agents/types.js";
+import {
+  decodeExtensionNameSync,
+  ExtensionDependencyConstraintMapSchema,
+  FullyQualifiedNameSchema,
+  FullyQualifiedRefSchema,
+  RenderedFilePathSchema,
+  type ExtensionDependencyConstraintMap,
+  type ExtensionName,
+  type FullyQualifiedName,
+  type FullyQualifiedRef,
+  type RenderedFilePath,
+} from "./extensions/index.js";
+import { decodeHandleSync, type Handle } from "./extensions/handle.js";
+import {
+  decodeExactSemverVersionSync,
+  decodeVersionConstraintSync,
+  type ExactSemverVersion,
+  type VersionConstraint,
+} from "./version-constraints/version-constraints.js";
+import { PackageTypeSchema } from "./packaging/package-type.js";
+import { PackageUrlSchema, type PackageUrlParts } from "./packaging/package-url.js";
+import type { PackageType } from "./packaging/index.js";
 
 export const expectDefined = <T>(
   value: T | null | undefined,
@@ -67,3 +93,81 @@ export const getAppError = (error: unknown): AppError => {
   }
   return error;
 };
+
+export const handle = (value: string): Handle => decodeHandleSync(value);
+
+export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
+
+export const exactVersion = (value: string): ExactSemverVersion =>
+  decodeExactSemverVersionSync(value);
+
+export const versionConstraint = (value: string): VersionConstraint =>
+  decodeVersionConstraintSync(value);
+
+export const fullyQualifiedName = (value: string): FullyQualifiedName =>
+  Schema.decodeUnknownSync(FullyQualifiedNameSchema)(value);
+
+export const fullyQualifiedRef = (value: string): FullyQualifiedRef =>
+  Schema.decodeUnknownSync(FullyQualifiedRefSchema)(value);
+
+export const dependencyConstraints = (
+  value: Record<string, string>,
+): ExtensionDependencyConstraintMap =>
+  Schema.decodeUnknownSync(ExtensionDependencyConstraintMapSchema)(value);
+
+export const packageType = (value: string): PackageType =>
+  Schema.decodeUnknownSync(PackageTypeSchema)(value);
+
+export const packageUrl = (value: string): PackageUrlParts =>
+  Schema.decodeUnknownSync(PackageUrlSchema)(value);
+
+export const renderedFilePath = (value: string): RenderedFilePath =>
+  Schema.decodeUnknownSync(RenderedFilePathSchema)(value);
+
+export const makeCodingAgentStub = (
+  id: AgentId,
+  overrides?: Partial<CodingAgent>,
+): CodingAgent => ({
+  id,
+  resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
+    Effect.succeed({ _tag: "supported", dir: `${workspaceRoot}/.${id}/skills` }),
+  addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
+  removeMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
+  resolveEffectiveCommandsDir: ({ workspaceRoot }) =>
+    Effect.succeed({
+      _tag: "supported",
+      dir: `${workspaceRoot}/.${id}/commands`,
+      warnings: [],
+    }),
+  addCommand: ({ workspaceRoot, commandName }) =>
+    Effect.succeed({
+      _tag: "success",
+      renderedFilePath: `${workspaceRoot}/.${id}/commands/${commandName}.md`,
+      warnings: [],
+    }),
+  removeCommand: ({ workspaceRoot, commandName }) =>
+    Effect.succeed({
+      _tag: "success",
+      renderedFilePath: `${workspaceRoot}/.${id}/commands/${commandName}.md`,
+      warnings: [],
+    }),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot }) =>
+    Effect.succeed({
+      _tag: "supported",
+      dir: `${workspaceRoot}/.${id}/agents`,
+      warnings: [],
+    }),
+  addSubagent: ({ workspaceRoot, input }) =>
+    Effect.succeed({
+      _tag: "success",
+      renderedFilePaths: [`${workspaceRoot}/.${id}/agents/${input.name}.md`],
+      warnings: [],
+    }),
+  removeSubagent: () =>
+    Effect.succeed({
+      _tag: "success",
+      renderedFilePaths: [],
+      warnings: [],
+    }),
+  ...overrides,
+});

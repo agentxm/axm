@@ -16,6 +16,7 @@ import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 
 import type { VersionEntry } from "./schema.js";
+import { exactVersion, handle } from "../test-helpers.js";
 import { computeIntegrity } from "../utils/index.js";
 import { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";
 
@@ -24,7 +25,7 @@ import { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.
 // -----------------------------------------------------------------------------
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
-  version: "1.0.0",
+  version: exactVersion("1.0.0"),
   published: "2025-01-01T00:00:00Z",
   integrity: "sha512-AAAA==",
   ...overrides,
@@ -37,8 +38,8 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 describe("selectVersion", () => {
   it("returns first version", () => {
     const versions = [
-      makeVersionEntry({ version: "2.0.0" }),
-      makeVersionEntry({ version: "1.0.0" }),
+      makeVersionEntry({ version: exactVersion("2.0.0") }),
+      makeVersionEntry({ version: exactVersion("1.0.0") }),
     ];
     const result = selectVersion(versions);
     expect(Option.isSome(result)).toBe(true);
@@ -115,17 +116,17 @@ describe("extensionDir", () => {
   const join = (...parts: readonly string[]) => parts.join("/");
 
   it("builds path for skill", () => {
-    const result = extensionDir("/registry", "@acme", "skill", "my-skill", join);
+    const result = extensionDir("/registry", handle("@acme"), "skill", "my-skill", join);
     expect(result).toBe("/registry/extensions/@acme/skills/my-skill");
   });
 
   it("builds path for mcp-server", () => {
-    const result = extensionDir("/registry", "@acme", "mcp-server", "my-server", join);
+    const result = extensionDir("/registry", handle("@acme"), "mcp-server", "my-server", join);
     expect(result).toBe("/registry/extensions/@acme/mcp-servers/my-server");
   });
 
   it("builds path for pack", () => {
-    const result = extensionDir("/registry", "@test", "pack", "frontend", join);
+    const result = extensionDir("/registry", handle("@test"), "pack", "frontend", join);
     expect(result).toBe("/registry/extensions/@test/packs/frontend");
   });
 });

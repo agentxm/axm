@@ -29,7 +29,7 @@ afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-const withNode = <A, E>(effect: Effect.Effect<A, E, never>) =>
+const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Agent with subagents directory */

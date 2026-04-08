@@ -15,6 +15,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { SubagentLockEntrySchema, LockfileSchema, type Lockfile } from "./schema.js";
 import { readLockfile, writeLockfile } from "./lockfile.js";
+import { renderedFilePath } from "../test-helpers.js";
 
 describe("SubagentLockEntry schema", () => {
   const decode = Schema.decodeUnknownSync(SubagentLockEntrySchema);
@@ -249,7 +250,7 @@ describe("lockfile subagent round-trip", () => {
               updatedAt: new Date("2025-01-15T10:30:00.000Z"),
               sourceHash: "abc123",
               renderedFiles: {
-                "claude-code": [{ path: ".claude/agents/planner.md" }],
+                "claude-code": [{ path: renderedFilePath(".claude/agents/planner.md") }],
               },
             },
           },

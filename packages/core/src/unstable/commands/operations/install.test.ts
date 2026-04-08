@@ -10,13 +10,13 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import { Workspace } from "../../workspace/service-interface.js";
-import { expectRecord } from "../../test-helpers.js";
+import { expectRecord, exactVersion, extensionName, handle } from "../../test-helpers.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
 import type { InstallCommandOperation } from "./install.js";
@@ -30,7 +30,7 @@ import { makeStubAgent, makeAgentRepoMock, makeWorkspaceMock } from "./test-help
 const makeInstallWorkspaceMock = (
   axmDir: string,
   wsOverrides?: {
-    setCommandFn?: ReturnType<typeof vi.fn>;
+    setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
 ) => {
   const readLf = () => {
@@ -78,7 +78,7 @@ const makeInstallWorkspaceMock = (
 const withServices = (
   axmDir: string,
   wsOverrides?: {
-    setCommandFn?: ReturnType<typeof vi.fn>;
+    setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
   agents?: ReadonlyArray<CodingAgent>,
 ) => {
@@ -116,20 +116,56 @@ const makeRegistryRef = (
     integrity?: string;
     location?: string;
   } = {},
-): RegistryCommandRef => ({
-  type: "command",
-  refType: "registry",
-  source: {
-    type: "registry",
-    location: new URL(overrides.location ?? "file:///tmp/reg"),
-    owner: Option.none(),
-  },
-  command: { name: overrides.name ?? "my-command" },
-  owner: overrides.owner ?? "@community",
-  name: overrides.name ?? "my-command",
-  version: overrides.version ?? "1.0.0",
-  integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
-});
+): RegistryCommandRef => {
+  const name = overrides.name ?? "my-command";
+
+  return {
+    type: "command",
+    refType: "registry",
+    source: {
+      type: "registry",
+      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      owner: Option.none(),
+    },
+    command: { name: extensionName(name) },
+    owner: handle(overrides.owner ?? "@community"),
+    name: extensionName(name),
+    version: exactVersion(overrides.version ?? "1.0.0"),
+    integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
+    compatiblePackages: [],
+  };
+};
+
+const makeUnsafeRegistryRef = (
+  overrides: {
+    name?: string;
+    owner?: string;
+    version?: string;
+    integrity?: string;
+    location?: string;
+  } = {},
+): RegistryCommandRef => {
+  const name = overrides.name ?? "my-command";
+
+  return {
+    type: "command",
+    refType: "registry",
+    source: {
+      type: "registry",
+      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      owner: Option.none(),
+    },
+    command: { name: extensionName(name) },
+    // Assertion needed: these tests intentionally construct invalid refs to hit runtime guards.
+    owner: (overrides.owner ?? "@community") as unknown as RegistryCommandRef["owner"],
+    // Assertion needed: these tests intentionally construct invalid refs to hit runtime guards.
+    name: name as unknown as RegistryCommandRef["name"],
+    // Assertion needed: these tests intentionally construct invalid refs to hit runtime guards.
+    version: (overrides.version ?? "1.0.0") as unknown as RegistryCommandRef["version"],
+    integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
+    compatiblePackages: [],
+  };
+};
 
 const makeOp = (
   overrides: {
@@ -318,8 +354,8 @@ describe("installCommand", () => {
         );
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(lockEntry.agents).toEqual(expect.any(Array));
-        expect(lockEntry.sourceHash).toEqual(expect.any(String));
+        expect(lockEntry["agents"]).toEqual(expect.any(Array));
+        expect(lockEntry["sourceHash"]).toEqual(expect.any(String));
       }),
     );
 
@@ -371,7 +407,7 @@ describe("installCommand", () => {
         const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
         const result = yield* installCommand(
-          makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
+          makeOp({ ref: makeUnsafeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
         ).pipe(
           Effect.provide(withServices(axmDir, { setCommandFn })),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
@@ -415,7 +451,7 @@ describe("installCommand", () => {
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const ref = makeRegistryRef({
+        const ref = makeUnsafeRegistryRef({
           owner: "../../../etc",
           integrity: "",
         });
@@ -453,9 +489,9 @@ describe("installCommand", () => {
 
         expect(setCommandFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(lockEntry.agents).toEqual(["claude-code"]);
-        expect(lockEntry.renderedFiles).toBeDefined();
-        expect(lockEntry.sourceHash).toBeDefined();
+        expect(lockEntry["agents"]).toEqual(["claude-code"]);
+        expect(lockEntry["renderedFiles"]).toBeDefined();
+        expect(lockEntry["sourceHash"]).toBeDefined();
       }),
     );
 
@@ -485,8 +521,7 @@ describe("installCommand", () => {
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
         // Only codex should be rendered
-        const agentsList = lockEntry.agents as ReadonlyArray<string>;
-        expect(agentsList).toEqual(["codex"]);
+        expect(lockEntry["agents"]).toEqual(["codex"]);
       }),
     );
   });

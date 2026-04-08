@@ -6,11 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { handle } from "../../test-helpers.js";
 import type { AddToExtensionPackOperation } from "./add-to-pack.js";
 import { addToExtensionPack } from "./add-to-pack.js";
 
@@ -32,32 +32,8 @@ const makeWorkspaceMock = (
 ): WorkspaceContextService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(configuredProfile),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
-    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
+    getConfiguredProfile: () => Effect.succeed(handle(configuredProfile)),
     getConfiguredPacks: () =>
       Effect.succeed(
         opts.configuredPacks ?? {
@@ -67,34 +43,7 @@ const makeWorkspaceMock = (
           },
         },
       ),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -129,7 +78,7 @@ const makeOp = (
   name: "add-to-pack",
   args: {
     packName: overrides.packName ?? "my-pack",
-    packOwner: overrides.packOwner ?? "@myorg",
+    packOwner: overrides.packOwner ?? handle("@myorg"),
     additions: overrides.additions ?? { "@acme/skills/my-skill": "^1.0.0" },
     manifestHash: overrides.manifestHash,
   },

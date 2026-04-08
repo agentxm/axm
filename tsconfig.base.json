@@ -1,27 +1,6 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "plugins": [
-      {
-        "name": "@effect/language-service",
-        "diagnosticSeverity": {
-          "preferSchemaOverJson": "off",
-          "unnecessaryFailYieldableError": "warning",
-          "multipleEffectProvide": "warning",
-          "deterministicKeys": "error",
-          "returnEffectInGen": "error",
-          "tryCatchInEffectGen": "warning",
-          "leakingRequirements": "warning",
-          "globalConsole": "warning",
-          "globalConsoleInEffect": "warning",
-          "globalFetch": "warning",
-          "globalFetchInEffect": "warning",
-          "nodeBuiltinImport": "warning",
-          "effectFnOpportunity": "suggestion",
-          "schemaStructWithTag": "suggestion"
-        }
-      }
-    ],
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

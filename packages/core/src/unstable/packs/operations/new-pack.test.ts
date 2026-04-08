@@ -5,11 +5,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { handle } from "../../test-helpers.js";
 import type { NewExtensionPackOperation } from "./new-pack.js";
 import { newExtensionPack } from "./new-pack.js";
 
@@ -22,66 +22,16 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredProfile?: string;
-    setPackFn?: ReturnType<typeof vi.fn>;
+    setPackFn?: WorkspaceContextService["setExtensionPack"];
   } = {},
 ): WorkspaceContextService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed(configuredProfile),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
+  return makeBaseWorkspaceMock(axmDir, {
+    getConfiguredProfile: () => Effect.succeed(handle(configuredProfile)),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
     setExtensionPack: opts.setPackFn ?? (() => Effect.void),
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -98,7 +48,7 @@ const makeOp = (
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
-    owner: overrides.owner ?? "@myorg",
+    owner: overrides.owner ?? handle("@myorg"),
   },
 });
 
@@ -172,7 +122,9 @@ describe("newExtensionPack", () => {
     it.effect("registers pack in settings via setExtensionPack", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
-        const setPackFn = vi.fn((_args: unknown) => Effect.void);
+        const setPackFn = vi.fn<WorkspaceContextService["setExtensionPack"]>(
+          (_args) => Effect.void,
+        );
 
         const result = yield* newExtensionPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { setPackFn })),

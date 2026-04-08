@@ -6,10 +6,12 @@ import { describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach, expect } from "vitest";
 
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
+import { CredentialFileSchema } from "./schema.js";
 import {
   resolveRequiredToken,
   resolveToken,
@@ -21,6 +23,12 @@ import {
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 const nearExpiry = () => new Date(Date.now() + 60 * 1000).toISOString();
+
+const makeCredentialFile = (registries: Record<string, unknown>) =>
+  Schema.decodeUnknownSync(CredentialFileSchema)({
+    version: 1 as const,
+    registries,
+  });
 
 const makeRuntimeLayer = (
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
@@ -71,9 +79,8 @@ describe("resolveToken", () => {
   });
 
   it.effect("returns CredentialStore token source when credentials exist", () => {
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -84,8 +91,8 @@ describe("resolveToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveToken(REGISTRY_URL);
@@ -119,9 +126,8 @@ describe("resolveToken", () => {
   });
 
   it.effect("--token flag takes priority over credential store", () => {
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -132,8 +138,8 @@ describe("resolveToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_priority");
@@ -166,9 +172,8 @@ describe("resolveToken", () => {
   });
 
   it.effect("returns near-expiry stored credentials without proactive refresh", () => {
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -179,8 +184,8 @@ describe("resolveToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveToken(REGISTRY_URL);
@@ -195,9 +200,8 @@ describe("resolveToken", () => {
 
 describe("resolveRequiredToken", () => {
   it.effect("returns the resolved token when one is available", () => {
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -208,8 +212,8 @@ describe("resolveRequiredToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveRequiredToken(REGISTRY_URL);
@@ -221,11 +225,9 @@ describe("resolveRequiredToken", () => {
   it.effect("fails with AUTH_LOGIN_REQUIRED when no token is available locally", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveRequiredToken(REGISTRY_URL).pipe(
-        Effect.catchTag("AppError", (error) => Effect.succeed(error)),
-      );
-      expect(result.code).toBe("AUTH_LOGIN_REQUIRED");
-      expect(Option.getOrUndefined(result.howToFix)).toBe(
+      const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
+      expect(error.code).toBe("AUTH_LOGIN_REQUIRED");
+      expect(Option.getOrUndefined(error.howToFix)).toBe(
         "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
       );
     }).pipe(Effect.provide(layer));
@@ -234,11 +236,9 @@ describe("resolveRequiredToken", () => {
   it.effect("fails with AUTH_TOKEN_REQUIRED when persisted credentials are disabled", () => {
     const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
     return Effect.gen(function* () {
-      const result = yield* resolveRequiredToken(REGISTRY_URL).pipe(
-        Effect.catchTag("AppError", (error) => Effect.succeed(error)),
-      );
-      expect(result.code).toBe("AUTH_TOKEN_REQUIRED");
-      expect(Option.getOrUndefined(result.howToFix)).toBe(
+      const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
+      expect(error.code).toBe("AUTH_TOKEN_REQUIRED");
+      expect(Option.getOrUndefined(error.howToFix)).toBe(
         "Set the AXM_TOKEN environment variable instead of running `axm login`.",
       );
     }).pipe(Effect.provide(layer));
@@ -259,9 +259,9 @@ describe("resolveStoredToken", () => {
   });
 
   it.effect("returns stored credentials when they exist", () => {
-    const layer = CredentialStoreTest("restricted-file", {
-      version: 1,
-      registries: {
+    const layer = CredentialStoreTest(
+      "restricted-file",
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -272,8 +272,8 @@ describe("resolveStoredToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveStoredToken(REGISTRY_URL);
@@ -306,21 +306,18 @@ describe("resolveStoredToken", () => {
   it.effect("returns none when persisted credentials are disabled", () => {
     const layer = CredentialStoreTest(
       "restricted-file",
-      {
-        version: 1,
-        registries: {
-          [REGISTRY_URL]: {
-            accounts: {
-              "@alice": {
-                access_token: "axm_ses_stored",
-                refresh_token: "axm_ref_stored",
-                expires_at: futureExpiry(),
-                active: true,
-              },
+      makeCredentialFile({
+        [REGISTRY_URL]: {
+          accounts: {
+            "@alice": {
+              access_token: "axm_ses_stored",
+              refresh_token: "axm_ref_stored",
+              expires_at: futureExpiry(),
+              active: true,
             },
           },
         },
-      },
+      }),
       false,
     );
 
@@ -410,9 +407,8 @@ describe("resolveRequestToken", () => {
 
   it.effect("prefers AXM_TOKEN for requests to the default registry", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env";
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [REGISTRY_URL]: {
           accounts: {
             "@alice": {
@@ -423,8 +419,8 @@ describe("resolveRequestToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL);
@@ -449,9 +445,8 @@ describe("resolveRequestToken", () => {
 
   it.effect("falls back to stored credentials for non-default registry requests", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [otherRegistryUrl]: {
           accounts: {
             "@bob": {
@@ -462,8 +457,8 @@ describe("resolveRequestToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
@@ -478,21 +473,18 @@ describe("resolveRequestToken", () => {
   it.effect("does not use stored credentials when persisted credentials are disabled", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
     const layer = makeRuntimeLayer(
-      {
-        version: 1,
-        registries: {
-          [otherRegistryUrl]: {
-            accounts: {
-              "@bob": {
-                access_token: "axm_ses_other",
-                refresh_token: "axm_ref_other",
-                expires_at: futureExpiry(),
-                active: true,
-              },
+      makeCredentialFile({
+        [otherRegistryUrl]: {
+          accounts: {
+            "@bob": {
+              access_token: "axm_ses_other",
+              refresh_token: "axm_ref_other",
+              expires_at: futureExpiry(),
+              active: true,
             },
           },
         },
-      },
+      }),
       AuthClientTest(),
       false,
     );
@@ -505,9 +497,8 @@ describe("resolveRequestToken", () => {
 
   it.effect("returns near-expiry stored credentials without proactive refresh", () => {
     const otherRegistryUrl = "https://other-registry.example.com";
-    const layer = makeRuntimeLayer({
-      version: 1,
-      registries: {
+    const layer = makeRuntimeLayer(
+      makeCredentialFile({
         [otherRegistryUrl]: {
           accounts: {
             "@bob": {
@@ -518,8 +509,8 @@ describe("resolveRequestToken", () => {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);

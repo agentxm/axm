@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type {
   GitHostedSkillRef,
@@ -26,14 +26,22 @@ import {
   type SetSkillArgs,
   type WorkspaceContextService,
 } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import { at } from "../../test-helpers.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import {
+  at,
+  expectRecord,
+  exactVersion,
+  extensionName,
+  handle,
+  makeCodingAgentStub,
+} from "../../test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
   type CodingAgent,
   getAgentById,
 } from "../../agents/index.js";
+import type { AgentId } from "../../agents/types.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
@@ -45,7 +53,9 @@ import { isManagedByAxm } from "../../extensions/managed-marker.js";
 const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
-    setSkillFn?: ReturnType<typeof vi.fn>;
+    setSkillFn?: (
+      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionConstraint">,
+    ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
   },
 ): WorkspaceContextService => {
@@ -60,17 +70,7 @@ const makeWorkspaceMock = (
 
   const setSkillFn = overrides?.setSkillFn;
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
@@ -134,49 +134,17 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (
   axmDir: string,
   wsOverrides?: {
-    setSkillFn?: ReturnType<typeof vi.fn>;
+    setSkillFn?: (
+      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionConstraint">,
+    ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
   },
 ) => {
@@ -203,8 +171,7 @@ const withServices = (
     .map((id) => {
       const descriptor = Option.getOrUndefined(getAgentById(id));
       if (!descriptor) return undefined;
-      const agent: CodingAgent = {
-        id: descriptor.id,
+      const agent: CodingAgent = makeCodingAgentStub(descriptor.id, {
         resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
           Effect.gen(function* () {
             const p = yield* Path.Path;
@@ -215,7 +182,7 @@ const withServices = (
           }),
         addMcpServer: () => Effect.succeed({ _tag: "unsupported" as const, reason: "test" }),
         removeMcpServer: () => Effect.succeed({ _tag: "unsupported" as const, reason: "test" }),
-      };
+      });
       return agent;
     })
     .filter((a): a is CodingAgent => a !== undefined);
@@ -257,10 +224,10 @@ const makeOp = (
   } = {},
 ): InstallSkillOperation => {
   const sourceInput = overrides.source ?? ({ type: "local", path: "/tmp/source" } satisfies Source);
-  const skill = overrides.skill ?? {
-    name: overrides.skillName ?? "my-skill",
-    description: Option.some("A test skill"),
-    metadata: Option.none(),
+  const skill = {
+    name: extensionName(overrides.skill?.name ?? overrides.skillName ?? "my-skill"),
+    description: overrides.skill?.description ?? Option.some("A test skill"),
+    metadata: overrides.skill?.metadata ?? Option.none(),
   };
   const location = overrides.location ?? `file://${overrides.sourcePath ?? ""}`;
   const source: Source =
@@ -279,10 +246,11 @@ const makeOp = (
           ...base,
           refType: "registry" as const,
           source,
-          owner: overrides.owner ?? "@community",
+          owner: handle(overrides.owner ?? "@community"),
           name: skill.name,
-          version: Option.getOrElse(version, () => ""),
+          version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
           integrity: Option.none(),
+          compatiblePackages: [],
         } satisfies RegistrySkillRef;
       case "local":
         return {
@@ -413,13 +381,33 @@ describe("installSkill", () => {
       Effect.gen(function* () {
         const src = setupSource("My Awesome Skill!!");
         const { axmDir, base } = setupBase();
+        const ref: LocalSkillRef = {
+          type: "skill",
+          refType: "local",
+          source: { type: "local", path: src },
+          location: `file://${src}`,
+          skill: {
+            // Assertion needed: this test intentionally passes an unsanitized local skill
+            // name so installSkill exercises the runtime sanitization path.
+            name: "My Awesome Skill!!" as unknown as LocalSkillRef["skill"]["name"],
+            description: Option.some("A test skill"),
+            metadata: Option.none(),
+          },
+        };
+        const op: InstallSkillOperation = {
+          name: "install-skill",
+          args: {
+            ref,
+            force: false,
+            versionConstraint: Option.none(),
+            skipSettings: Option.none(),
+            strictUnknownAgents: Option.none(),
+            existingInstalledAt: Option.none(),
+            sourceName: Option.none(),
+          },
+        };
 
-        const result = yield* installSkill(
-          makeOp({
-            skillName: "My Awesome Skill!!",
-            sourcePath: src,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* installSkill(op).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -1005,16 +993,16 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        const lockEntry = at(setSkillFn.mock.calls, 0)[0].lockEntry as Record<string, unknown>;
-        expect(lockEntry.renderedFiles).toBeUndefined();
-        expect(lockEntry.sourceHash).toBeUndefined();
+        const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
+        expect(lockEntry["renderedFiles"]).toBeUndefined();
+        expect(lockEntry["sourceHash"]).toBeUndefined();
       }),
     );
 
     it("buildRenderedFilesFromResults maps copy-mode results to renderedFiles", () => {
-      const targets = [
-        { agentId: "claude-code" as AgentId, targetDir: "/project/.claude/skills" },
-        { agentId: "cursor" as AgentId, targetDir: "/project/.cursor/skills" },
+      const targets: ReadonlyArray<{ agentId: AgentId; targetDir: string }> = [
+        { agentId: "claude-code", targetDir: "/project/.claude/skills" },
+        { agentId: "cursor", targetDir: "/project/.cursor/skills" },
       ];
       const results: ReadonlyArray<InstallResult> = [
         {
@@ -1045,7 +1033,9 @@ describe("installSkill", () => {
     });
 
     it("buildRenderedFilesFromResults excludes failed copy-mode results", () => {
-      const targets = [{ agentId: "claude-code" as AgentId, targetDir: "/project/.claude/skills" }];
+      const targets: ReadonlyArray<{ agentId: AgentId; targetDir: string }> = [
+        { agentId: "claude-code", targetDir: "/project/.claude/skills" },
+      ];
       const results: ReadonlyArray<InstallResult> = [
         {
           success: false,

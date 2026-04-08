@@ -1,4 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off — install verification script, not Effect code
+// @effect-diagnostics nodeBuiltinImport:off globalConsole:off — install verification script, not Effect code
 import * as path from "node:path";
 import {
   createInstallVerificationCommandPlan,

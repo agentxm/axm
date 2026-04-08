@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "preferSchemaOverJson": "off",
+          "unnecessaryFailYieldableError": "warning",
+          "multipleEffectProvide": "warning",
+          "deterministicKeys": "error",
+          "returnEffectInGen": "error",
+          "tryCatchInEffectGen": "warning",
+          "leakingRequirements": "warning",
+          "globalConsole": "off",
+          "globalConsoleInEffect": "off",
+          "globalFetch": "warning",
+          "globalFetchInEffect": "warning",
+          "nodeBuiltinImport": "off",
+          "effectFnOpportunity": "suggestion",
+          "schemaStructWithTag": "suggestion"
+        }
+      }
+    ]
+  }
+}

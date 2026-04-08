@@ -9,6 +9,8 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "../agents/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
+import { TestRenderer } from "../cli-renderer/index.js";
+import { makeTestPrompt } from "../cli-prompt/index.js";
 import { SourceHostProvidersLive } from "../source-resolution/index.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { getWorkspaceSyncReadiness, syncWorkspace } from "./sync.js";
@@ -31,7 +33,14 @@ describe("workspace sync", () => {
 
   const makeLayers = () =>
     (() => {
-      const baseLayer = Layer.mergeAll(NodeServices.layer, TestFlagsLayer());
+      const { layer: rendererLayer } = TestRenderer.make();
+      const [promptLayer] = makeTestPrompt();
+      const baseLayer = Layer.mergeAll(
+        NodeServices.layer,
+        TestFlagsLayer(),
+        rendererLayer,
+        promptLayer,
+      );
       const wsLayer = Layer.provide(
         workspaceLayer({
           scope: "project",

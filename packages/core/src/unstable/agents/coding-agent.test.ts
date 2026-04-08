@@ -11,6 +11,7 @@ import { cursorMcpStrategy } from "./cursor/service.js";
 import { geminiCliMcpStrategy, geminiCliCodingAgent } from "./gemini-cli/service.js";
 import { githubCopilotMcpStrategy } from "./github-copilot/service.js";
 import { opencodeMcpStrategy, opencodeCodingAgent } from "./opencode/service.js";
+import { handle } from "../test-helpers.js";
 
 const opencodeMcpSyncTimeoutMs = 20_000;
 
@@ -57,7 +58,7 @@ describe("coding-agent services", () => {
               workspaceRoot,
               serverName: "chrome-devtools-mcp",
               canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
-              owner: "@mcp",
+              owner: handle("@mcp"),
               resolvedVersion: "1.0.0",
             });
             expect(addOutcome._tag).toBe("success");

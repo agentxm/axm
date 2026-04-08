@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { AppError } from "../app-error/index.js";
-import { expectRecord } from "../test-helpers.js";
+import { expectRecord, handle } from "../test-helpers.js";
 import { createDefaultSettings, readSettings, writeSettings } from "./settings.js";
 import type { Settings } from "./schema.js";
 
@@ -146,7 +146,7 @@ describe("settings", () => {
           const settings: Settings = {
             skills: { commit: "^1.0.0" },
             agents: ["claude-code"],
-            profile: "@acme",
+            profile: handle("@acme"),
           };
 
           yield* writeSettings(axmDir, settings);

@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 
 import { makeAppError } from "../app-error/index.js";
 import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
+import { handle } from "../test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStore, CredentialStoreTest } from "./credential-store.js";
@@ -38,7 +39,7 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
         refresh_token: "axm_ref_new",
         expires_at: "2099-06-01T00:00:00Z",
       }),
-    getMe: () =>
+    getMe: (_accessToken: string) =>
       opts?.getMeFails
         ? Effect.fail(
             makeAppError({
@@ -48,7 +49,7 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
           )
         : Effect.succeed({
             userId: "user-1",
-            userHandle: "@alice",
+            userHandle: handle("@alice"),
             email: "alice@example.com",
             tokenType: "session",
             scopes: ["extensions:read"],
@@ -150,10 +151,10 @@ describe("runDeviceLogin", () => {
           refresh_token: "axm_ref_new",
           expires_at: "2099-06-01T00:00:00Z",
         }),
-      getMe: () =>
+      getMe: (_accessToken: string) =>
         Effect.succeed({
           userId: "user-1",
-          userHandle: "@alice",
+          userHandle: handle("@alice"),
           email: "alice@example.com",
           tokenType: "session",
           scopes: ["extensions:read"],

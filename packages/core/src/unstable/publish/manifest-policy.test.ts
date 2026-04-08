@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
   manifestFilenameForType,
@@ -109,16 +110,16 @@ describe("validateDeclaredManifestAlignment", () => {
   it("passes when declared identity and manifest identity match", () => {
     const result = validateDeclaredManifestAlignment(
       {
-        owner: "@acme",
+        owner: handle("@acme"),
         type: "skill",
-        name: "code-review",
-        version: "1.0.0",
+        name: extensionName("code-review"),
+        version: exactVersion("1.0.0"),
       },
       {
-        owner: "@acme",
+        owner: handle("@acme"),
         type: "skill",
-        name: "code-review",
-        version: "1.0.0",
+        name: extensionName("code-review"),
+        version: exactVersion("1.0.0"),
       },
     );
 
@@ -128,16 +129,16 @@ describe("validateDeclaredManifestAlignment", () => {
   it("fails on declared/manifest mismatch", () => {
     const result = validateDeclaredManifestAlignment(
       {
-        owner: "@acme",
+        owner: handle("@acme"),
         type: "skill",
-        name: "code-review",
-        version: "1.0.0",
+        name: extensionName("code-review"),
+        version: exactVersion("1.0.0"),
       },
       {
-        owner: "@acme",
+        owner: handle("@acme"),
         type: "skill",
-        name: "other",
-        version: "2.0.0",
+        name: extensionName("other"),
+        version: exactVersion("2.0.0"),
       },
     );
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import type { GitHostedSkillRef, LocalSkillRef, RegistrySkillRef } from "../skills/refs.js";
+import { extensionName, exactVersion, handle } from "../test-helpers.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
 const agents = ["claude", "cursor"];
@@ -10,7 +11,11 @@ const now = new Date("2025-01-15T00:00:00.000Z");
 const skillBase = {
   type: "skill" as const,
   refType: "git-hosted" as const,
-  skill: { name: "test-skill", description: Option.some("A test skill"), metadata: Option.none() },
+  skill: {
+    name: extensionName("test-skill"),
+    description: Option.some("A test skill"),
+    metadata: Option.none(),
+  },
 };
 
 describe("sourceToLockEntry", () => {
@@ -248,7 +253,7 @@ describe("sourceToLockEntry", () => {
       type: "skill",
       refType: "local",
       skill: {
-        name: "test-skill",
+        name: extensionName("test-skill"),
         description: Option.some("A test skill"),
         metadata: Option.none(),
       },
@@ -282,7 +287,7 @@ describe("sourceToLockEntry", () => {
       type: "skill",
       refType: "registry",
       skill: {
-        name: "test-skill",
+        name: extensionName("test-skill"),
         description: Option.some("A test skill"),
         metadata: Option.none(),
       },
@@ -291,10 +296,11 @@ describe("sourceToLockEntry", () => {
         location: new URL("http://localhost:3000"),
         owner: Option.none(),
       },
-      owner: "@acme",
-      name: "test-skill",
-      version: "2.1.0",
+      owner: handle("@acme"),
+      name: extensionName("test-skill"),
+      version: exactVersion("2.1.0"),
       integrity: Option.some("sha512-AAAA=="),
+      compatiblePackages: [],
     };
 
     const result = sourceToLockEntry({
@@ -307,9 +313,9 @@ describe("sourceToLockEntry", () => {
 
     expect(result).toEqual({
       type: "registry",
-      owner: "@acme",
-      name: "test-skill",
-      resolvedVersion: "2.1.0",
+      owner: handle("@acme"),
+      name: extensionName("test-skill"),
+      resolvedVersion: exactVersion("2.1.0"),
       integrity: "sha512-AAAA==",
       sourceName: "local",
       agents,
@@ -323,7 +329,7 @@ describe("sourceToLockEntry", () => {
       type: "skill",
       refType: "registry",
       skill: {
-        name: "test-skill",
+        name: extensionName("test-skill"),
         description: Option.some("A test skill"),
         metadata: Option.none(),
       },
@@ -332,10 +338,11 @@ describe("sourceToLockEntry", () => {
         location: new URL("http://localhost:3000"),
         owner: Option.none(),
       },
-      owner: "@community",
-      name: "test-skill",
-      version: "1.0.0",
+      owner: handle("@community"),
+      name: extensionName("test-skill"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-AAAA=="),
+      compatiblePackages: [],
     };
 
     const result = sourceToLockEntry({

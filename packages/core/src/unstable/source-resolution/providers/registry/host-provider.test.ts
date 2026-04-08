@@ -35,7 +35,13 @@ import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,
 } from "./host-provider.js";
-import { at } from "../../../test-helpers.js";
+import {
+  at,
+  dependencyConstraints,
+  extensionName,
+  exactVersion,
+  handle,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -77,11 +83,18 @@ const defaultFindOptions: FindOptions = {
   versionConstraint: Option.none(),
 };
 
-const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
-  version: "1.0.0",
-  published: "2025-01-01T00:00:00Z",
-  integrity: "sha512-0000",
-  ...overrides,
+const makeVersionEntry = (overrides?: {
+  readonly version?: string;
+  readonly published?: string;
+  readonly integrity?: string;
+  readonly dependencies?: Record<string, string>;
+}): VersionEntry => ({
+  version: exactVersion(overrides?.version ?? "1.0.0"),
+  published: overrides?.published ?? "2025-01-01T00:00:00Z",
+  integrity: overrides?.integrity ?? "sha512-0000",
+  ...(overrides?.dependencies === undefined
+    ? {}
+    : { dependencies: dependencyConstraints(overrides.dependencies) }),
 });
 
 // Minimal zip: just enough bytes to not crash extractZip in a mock context
@@ -93,6 +106,31 @@ const toResult = (
 ): GetExtensionsByOwnerResponse => ({
   extensions,
   total: extensions.length,
+});
+
+const makeManifest = (overrides?: {
+  readonly owner?: string;
+  readonly type?: RegistryExtensionManifest["type"];
+  readonly name?: string;
+  readonly description?: Option.Option<string>;
+  readonly repository?: Option.Option<string>;
+  readonly license?: Option.Option<string>;
+  readonly authors?: RegistryExtensionManifest["authors"];
+  readonly dependencies?: Record<string, string>;
+  readonly version?: string;
+  readonly integrity?: string;
+}): RegistryExtensionManifest => ({
+  owner: handle(overrides?.owner ?? "@test"),
+  type: overrides?.type ?? "skill",
+  name: extensionName(overrides?.name ?? "my-skill"),
+  description: overrides?.description ?? Option.none(),
+  repository: overrides?.repository ?? Option.none(),
+  license: overrides?.license ?? Option.none(),
+  authors: overrides?.authors ?? [],
+  dependencies: dependencyConstraints(overrides?.dependencies ?? {}),
+  version: exactVersion(overrides?.version ?? "1.0.0"),
+  integrity: overrides?.integrity ?? "sha512-abc",
+  compatiblePackages: [],
 });
 
 /** Create a mock RegistryClient with controllable return values. */
@@ -201,18 +239,13 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByOwnerArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      {
-        owner: "@test",
-        type: "skill",
-        name: "my-skill",
+      makeManifest({
         description: Option.some("My skill description"),
         repository: Option.some("https://github.com/test/my-skill"),
         license: Option.some("MIT"),
         authors: [{ name: "Test Author", email: Option.none(), url: Option.none() }],
         dependencies: { "@test/skills/base-skill": "^1.2.3" },
-        version: "1.0.0",
-        integrity: "sha512-abc",
-      },
+      }),
     ];
 
     const client = createMockClient({
@@ -271,18 +304,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   it.effect("maps mcp-server entries to McpServerExtensionRef", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      {
-        owner: "@test",
+      makeManifest({
         type: "mcp-server",
         name: "my-server",
-        description: Option.none(),
-        repository: Option.none(),
-        license: Option.none(),
-        authors: [],
-        dependencies: {},
         version: "2.0.0",
         integrity: "sha512-def",
-      },
+      }),
     ];
 
     const client = createMockClient({
@@ -314,18 +341,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   it.effect("maps command entries to CommandExtensionRef", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      {
-        owner: "@test",
+      makeManifest({
         type: "command",
         name: "my-command",
-        description: Option.none(),
-        repository: Option.none(),
-        license: Option.none(),
-        authors: [],
-        dependencies: {},
         version: "1.5.0",
         integrity: "sha512-cmd",
-      },
+      }),
     ];
 
     const client = createMockClient({
@@ -357,18 +378,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   it.effect("maps pack entries to ExtensionPackRef with empty deps", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      {
-        owner: "@test",
-        type: "pack",
-        name: "my-pack",
-        description: Option.none(),
-        repository: Option.none(),
-        license: Option.none(),
-        authors: [],
-        dependencies: {},
-        version: "3.0.0",
-        integrity: "sha512-ghi",
-      },
+      makeManifest({ type: "pack", name: "my-pack", version: "3.0.0", integrity: "sha512-ghi" }),
     ];
 
     const client = createMockClient({
@@ -404,23 +414,17 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   it.effect("maps pack entries with mixed dependency types", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      {
-        owner: "@test",
+      makeManifest({
         type: "pack",
         name: "my-pack",
-        description: Option.none(),
-        repository: Option.none(),
-        license: Option.none(),
-        authors: [],
         dependencies: {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
           "@acme/commands/formatter": "^1.5.0",
           "@acme/mcp-servers/db": "^3.0.0",
         },
-        version: "1.0.0",
         integrity: "sha512-mixed",
-      },
+      }),
     ];
 
     const client = createMockClient({
@@ -457,21 +461,19 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        owner: "@test",
-        type: "pack",
-        name: "my-pack",
-        description: Option.none(),
-        repository: Option.none(),
-        license: Option.none(),
-        authors: [],
+        ...makeManifest({
+          type: "pack",
+          name: "my-pack",
+          integrity: "sha512-malformed",
+        }),
+        // Assertion needed: this test intentionally passes malformed dependency keys so
+        // the provider can ignore them at runtime instead of rejecting the fixture up front.
         dependencies: {
           "@acme/skills/valid": "^1.0.0",
           "no-owner": "^1.0.0",
           "@acme/unknown-type/foo": "^1.0.0",
           "@acme/packs/nested": "^1.0.0",
-        },
-        version: "1.0.0",
-        integrity: "sha512-malformed",
+        } as unknown as RegistryExtensionManifest["dependencies"],
       },
     ];
 
@@ -559,12 +561,17 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
+      skill: {
+        name: extensionName("my-skill"),
+        description: Option.some("test"),
+        metadata: Option.none(),
+      },
       source: testSource,
-      owner: "@test",
-      name: "my-skill",
-      version: "1.0.0",
+      owner: handle("@test"),
+      name: extensionName("my-skill"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some(integrity),
+      compatiblePackages: [],
     };
 
     return runEffect(
@@ -576,7 +583,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(capturedArgs?.owner).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
         expect(capturedArgs?.name).toBe("my-skill");
-        expect(capturedArgs?.version).toEqual(Option.some("1.0.0"));
+        expect(capturedArgs?.version).toEqual(Option.some(exactVersion("1.0.0")));
 
         // extractZip may fail on fake bytes, that's fine — the point is
         // that the integrity passed and client was called correctly
@@ -602,12 +609,17 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
+      skill: {
+        name: extensionName("my-skill"),
+        description: Option.some("test"),
+        metadata: Option.none(),
+      },
       source: testSource,
-      owner: "@test",
-      name: "my-skill",
-      version: "1.0.0",
+      owner: handle("@test"),
+      name: extensionName("my-skill"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-wrongIntegrityValue=="),
+      compatiblePackages: [],
     };
 
     return runEffect(
@@ -642,12 +654,13 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "registry",
-      server: { name: "my-server" },
+      server: { name: extensionName("my-server") },
       source: testSource,
-      owner: "@test",
-      name: "my-server",
-      version: "2.0.0",
+      owner: handle("@test"),
+      name: extensionName("my-server"),
+      version: exactVersion("2.0.0"),
       integrity: Option.some(integrity),
+      compatiblePackages: [],
     };
 
     return runEffect(
@@ -681,7 +694,14 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, metadata);
+        yield* provider.publishExtension(
+          handle("@test"),
+          "skill",
+          extensionName("my-skill"),
+          exactVersion("1.0.0"),
+          archive,
+          metadata,
+        );
 
         expect(capturedArgs?.owner).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
@@ -751,12 +771,17 @@ describe("RemoteRegistrySourceHostProvider", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
+      skill: {
+        name: extensionName("my-skill"),
+        description: Option.some("test"),
+        metadata: Option.none(),
+      },
       source: testSource,
-      owner: "@test",
-      name: "my-skill",
-      version: "1.0.0",
+      owner: handle("@test"),
+      name: extensionName("my-skill"),
+      version: exactVersion("1.0.0"),
       integrity: Option.some("sha512-abc"),
+      compatiblePackages: [],
     };
 
     return runEffect(
@@ -778,10 +803,10 @@ describe("RemoteRegistrySourceHostProvider", () => {
       Effect.gen(function* () {
         const result = yield* provider
           .publishExtension(
-            "@test",
+            handle("@test"),
             "skill",
-            "my-skill",
-            "1.0.0",
+            extensionName("my-skill"),
+            exactVersion("1.0.0"),
             new Uint8Array(),
             makeVersionEntry(),
           )

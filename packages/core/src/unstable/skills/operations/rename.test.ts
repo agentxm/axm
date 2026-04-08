@@ -15,6 +15,7 @@ import type { SkillPathSource } from "../paths.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { RenameSkillOperation } from "./rename.js";
 import { renameSkill } from "./rename.js";
+import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -40,8 +41,8 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
-    renameSkillFn?: ReturnType<typeof vi.fn>;
-    updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
+    renameSkillFn?: WorkspaceContextService["renameSkill"];
+    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
@@ -49,7 +50,7 @@ const makeWorkspaceMock = (
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredProfile: () => Effect.succeed("@community"),
+    getConfiguredProfile: () => Effect.succeed(handle("@community")),
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(
@@ -83,7 +84,7 @@ const makeWorkspaceMock = (
             ? source.owner
             : lockEntry?.type === "registry"
               ? lockEntry.owner
-              : "@community";
+              : handle("@community");
         // Resolve immutable registry name from lock entry, not user-facing name
         const dirName = lockEntry?.type === "registry" ? lockEntry.name : name;
         const sanitized = sanitizeName(dirName);
@@ -123,9 +124,9 @@ const makeLocalLockEntry = (agents: string[]) => ({
 /** Creates a registry source lock entry. */
 const makeRegistryLockEntry = (agents: string[], owner = "@community") => ({
   type: "registry" as const,
-  owner,
-  name: "my-skill",
-  resolvedVersion: "1.0.0",
+  owner: handle(owner),
+  name: extensionName("my-skill"),
+  resolvedVersion: exactVersion("1.0.0"),
   integrity: "sha512-AAAA==",
   sourceName: "local",
   agents,
@@ -283,7 +284,9 @@ describe("renameSkill", () => {
     it.effect("calls ws.renameSkill with old and new names", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const renameSkillFn = vi.fn((_oldName: string, _newName: string) => Effect.void);
+        const renameSkillFn = vi.fn<WorkspaceContextService["renameSkill"]>(
+          (_oldName, _newName) => Effect.void,
+        );
 
         yield* renameSkill(makeOp()).pipe(
           Effect.provide(
@@ -304,8 +307,8 @@ describe("renameSkill", () => {
     it.effect("calls updateLockEntryAgents with new name and configured agents", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
+        const updateLockEntryAgentsFn = vi.fn<WorkspaceContextService["updateLockEntryAgents"]>(
+          (_name, _agents) => Effect.void,
         );
 
         yield* renameSkill(makeOp()).pipe(
@@ -333,9 +336,11 @@ describe("renameSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
         // DON'T create canonical dir, so rename will fail
 
-        const renameSkillFn = vi.fn(() => Effect.void);
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
+        const renameSkillFn = vi.fn<WorkspaceContextService["renameSkill"]>(
+          (_oldName, _newName) => Effect.void,
+        );
+        const updateLockEntryAgentsFn = vi.fn<WorkspaceContextService["updateLockEntryAgents"]>(
+          (_name, _agents) => Effect.void,
         );
 
         const result = yield* renameSkill(makeOp()).pipe(

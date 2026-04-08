@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Workspace, type WorkspaceContextService } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { handle } from "../test-helpers.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { cursorCodingAgent } from "./cursor/service.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
@@ -29,7 +30,7 @@ describe("DefaultCodingAgentRepository", () => {
         workspaceRoot: "/workspace",
         serverName: "chrome-devtools-mcp",
         canonicalPath: "/workspace/.axm/mcp-servers/chrome-devtools-mcp",
-        owner: "@mcp",
+        owner: handle("@mcp"),
         resolvedVersion: "1.0.0",
       });
       expect(addOutcome).toEqual({

@@ -56,12 +56,12 @@ describe("axm-spike prompts", () => {
     await expectNonInteractiveFailure(runCli, ["prompts", "text"]);
   });
 
-  it("prompts confirm --non-interactive succeeds with initial value", async () => {
-    await expectNonInteractiveSuccess(runCli, ["prompts", "confirm"]);
+  it("prompts confirm --non-interactive succeeds with explicit answer", async () => {
+    await expectNonInteractiveSuccess(runCli, ["prompts", "confirm", "--answer", "yes"]);
   });
 
-  it("prompts select --non-interactive succeeds with initial value", async () => {
-    await expectNonInteractiveSuccess(runCli, ["prompts", "select"]);
+  it("prompts select --non-interactive succeeds with explicit value", async () => {
+    await expectNonInteractiveSuccess(runCli, ["prompts", "select", "--value", "red"]);
   });
 
   for (const sub of promptSubcommands) {

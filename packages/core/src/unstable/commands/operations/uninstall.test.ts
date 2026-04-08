@@ -8,10 +8,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import type { AppError } from "../../app-error/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { handle, renderedFilePath } from "../../test-helpers.js";
+import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
 import type { UninstallCommandOperation } from "./uninstall.js";
 import { uninstallCommand } from "./uninstall.js";
 import { makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
@@ -24,7 +27,7 @@ const makeUninstallWorkspaceMock = (
   axmDir: string,
   lockfileCommands: Record<string, CommandLockEntry> = {},
   overrides?: {
-    removeCommandFn?: ReturnType<typeof vi.fn>;
+    removeCommandFn?: (name: string) => Effect.Effect<void, AppError>;
   },
 ) => {
   let commands: Record<string, CommandLockEntry> = { ...lockfileCommands };
@@ -66,7 +69,7 @@ const withServices = (
   axmDir: string,
   lockfileCommands: Record<string, CommandLockEntry> = {},
   wsOverrides?: {
-    removeCommandFn?: ReturnType<typeof vi.fn>;
+    removeCommandFn?: (name: string) => Effect.Effect<void, AppError>;
   },
 ) =>
   Layer.mergeAll(
@@ -82,17 +85,12 @@ const makeOp = (overrides: { commandName?: string } = {}): UninstallCommandOpera
   },
 });
 
-const makeRegistryLockEntry = () => ({
-  type: "registry" as const,
-  owner: "@community",
-  name: "my-command",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
-  sourceName: "default",
-  agents: [] as ReadonlyArray<string>,
-  installedAt: new Date(),
-  updatedAt: new Date(),
-});
+const makeRegistryLockEntry = (): CommandLockEntry =>
+  makeRegistryCommandLockEntry({
+    owner: handle("@community"),
+    name: "my-command",
+    agents: [],
+  });
 
 const makeRegistryLockEntryYaml = () => ({
   type: "registry",
@@ -195,12 +193,12 @@ describe("uninstallCommand", () => {
           ...makeRegistryLockEntry(),
           agents: ["claude-code"],
           renderedFiles: {
-            "claude-code": [{ path: renderedPath }],
+            "claude-code": [{ path: renderedFilePath(renderedPath) }],
           },
         };
 
         const result = yield* uninstallCommand(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, { "my-command": lockEntry as CommandLockEntry })),
+          Effect.provide(withServices(axmDir, { "my-command": lockEntry })),
         );
 
         expect(result.result).toBe("success");

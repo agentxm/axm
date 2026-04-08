@@ -18,6 +18,7 @@ import { AuthClientLive } from "./auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { makeAuthMiddlewareLive } from "./auth-middleware.js";
 import { RegistryUrl } from "./registry-url.js";
+import { handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -407,7 +408,7 @@ describe("AuthMiddleware", () => {
         registries: {
           [NON_DEFAULT_REGISTRY]: {
             accounts: {
-              "@bob": {
+              [handle("@bob")]: {
                 access_token: "axm_ses_custom",
                 refresh_token: "axm_ref_custom",
                 expires_at: futureExpiry(),

@@ -17,8 +17,12 @@ import {
   type SetSkillArgs,
   type WorkspaceContextService,
 } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import { getAppError } from "../../test-helpers.js";
+import {
+  makeBaseWorkspaceMock,
+  makeRegistryExtensionPackLockEntry,
+  makeRegistrySkillLockEntry,
+} from "../../workspace/test-stubs.js";
+import { exactVersion, getAppError, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
 
@@ -33,8 +37,8 @@ const makeWorkspaceMock = (
   axmDir: string,
   lockfileSkills: Record<string, SkillLockEntry> = {},
   overrides?: {
-    removeSkillFn?: ReturnType<typeof vi.fn>;
-    removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
+    removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
@@ -64,17 +68,7 @@ const makeWorkspaceMock = (
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
   };
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed([]),
@@ -84,7 +78,6 @@ const makeWorkspaceMock = (
       lockfileErrorOverride !== undefined
         ? lockfileErrorOverride()
         : Effect.succeed(Option.fromUndefinedOr(skills[name])),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill:
       setSkillErrorOverride !== undefined
         ? () => setSkillErrorOverride()
@@ -122,11 +115,6 @@ const makeWorkspaceMock = (
                 skills = rest;
                 writeToDisk();
               }),
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
     removeSkillFromSettings:
       removeSkillFromSettingsFn !== undefined
         ? (name: string) => removeSkillFromSettingsFn(name)
@@ -135,35 +123,9 @@ const makeWorkspaceMock = (
               // Settings-only removal: keep skill in lockfile/disk
               void name;
             }),
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
     getLockedExtensionPacks: () => Effect.succeed(lockedPacks),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + Path + a minimal Workspace. */
@@ -171,8 +133,8 @@ const withServices = (
   axmDir: string,
   lockfileSkills: Record<string, SkillLockEntry> = {},
   wsOverrides?: {
-    removeSkillFn?: ReturnType<typeof vi.fn>;
-    removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
+    removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
     lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
@@ -228,17 +190,13 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
 });
 
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
-const makeRegistryLockEntry = (agents: string[]) => ({
-  type: "registry" as const,
-  owner: "@community",
-  name: "my-skill",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
-  sourceName: "local",
-  agents,
-  installedAt: new Date(),
-  updatedAt: new Date(),
-});
+const makeRegistryLockEntry = (agents: string[]) =>
+  makeRegistrySkillLockEntry({
+    owner: handle("@community"),
+    name: "my-skill",
+    sourceName: "local",
+    agents,
+  });
 
 /** Creates a registry source lock entry for on-disk YAML (ISO strings). */
 const makeRegistryLockEntryYaml = (agents: string[]) => ({
@@ -729,20 +687,15 @@ describe("uninstallSkill", () => {
 
   describe("ownership-aware uninstall — pack references", () => {
     /** Creates a pack lock entry with resolvedSkills. */
-    const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
-      type: "registry" as const,
-      owner: "@acme",
-      name: "starter-pack",
-      resolvedVersion: "1.0.0",
-      integrity: "sha512-CCCC==",
-      sourceName: "local",
-      installedAt: new Date(),
-      updatedAt: new Date(),
-      resolvedSkills,
-      resolvedCommands: {},
-      resolvedMcpServers: {},
-      resolvedSubagents: {},
-    });
+    const makePackLockEntry = (resolvedSkills: Record<string, string>) =>
+      makeRegistryExtensionPackLockEntry({
+        owner: handle("@acme"),
+        name: "starter-pack",
+        sourceName: "local",
+        resolvedSkills: Object.fromEntries(
+          Object.entries(resolvedSkills).map(([name, version]) => [name, exactVersion(version)]),
+        ),
+      });
 
     it.effect("full uninstall when skill is NOT referenced by any pack", () =>
       Effect.gen(function* () {
@@ -783,11 +736,12 @@ describe("uninstallSkill", () => {
           agents: ["claude-code"],
           skillName: "my-skill",
           lockfileSkills: {
-            "my-skill": {
-              ...makeRegistryLockEntry(["claude-code"]),
-              owner: "@acme",
+            "my-skill": makeRegistrySkillLockEntry({
+              owner: handle("@acme"),
               name: "my-skill",
-            },
+              sourceName: "local",
+              agents: ["claude-code"],
+            }),
           },
           lockfileSkillsYaml: {
             "my-skill": {
@@ -833,11 +787,12 @@ describe("uninstallSkill", () => {
           agents: ["claude-code"],
           skillName: "my-skill",
           lockfileSkills: {
-            "my-skill": {
-              ...makeRegistryLockEntry(["claude-code"]),
-              owner: "@acme",
+            "my-skill": makeRegistrySkillLockEntry({
+              owner: handle("@acme"),
               name: "my-skill",
-            },
+              sourceName: "local",
+              agents: ["claude-code"],
+            }),
           },
           lockfileSkillsYaml: {
             "my-skill": {
@@ -888,11 +843,12 @@ describe("uninstallSkill", () => {
           agents: ["claude-code"],
           skillName: "my-skill",
           lockfileSkills: {
-            "my-skill": {
-              ...makeRegistryLockEntry(["claude-code"]),
-              owner: "@community",
+            "my-skill": makeRegistrySkillLockEntry({
+              owner: handle("@community"),
               name: "my-skill",
-            },
+              sourceName: "local",
+              agents: ["claude-code"],
+            }),
           },
           lockfileSkillsYaml: {
             "my-skill": {

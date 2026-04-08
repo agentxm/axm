@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
+import { exactVersion, versionConstraint } from "../test-helpers.js";
 
 import type { VersionEntryLike } from "./version-constraints.js";
 import {
@@ -16,7 +17,7 @@ import {
 // -----------------------------------------------------------------------------
 
 const makeVersionEntryLike = (version: string): VersionEntryLike => ({
-  version,
+  version: exactVersion(version),
 });
 
 // -----------------------------------------------------------------------------
@@ -109,19 +110,19 @@ describe("isValidConstraint", () => {
 
 describe("satisfiesConstraint", () => {
   it("returns true when version is within caret range", () => {
-    expect(satisfiesConstraint("1.2.3", "^1.0.0")).toBe(true);
+    expect(satisfiesConstraint(exactVersion("1.2.3"), versionConstraint("^1.0.0"))).toBe(true);
   });
 
   it("returns false when version is outside caret range", () => {
-    expect(satisfiesConstraint("2.0.0", "^1.0.0")).toBe(false);
+    expect(satisfiesConstraint(exactVersion("2.0.0"), versionConstraint("^1.0.0"))).toBe(false);
   });
 
   it("returns true for exact match", () => {
-    expect(satisfiesConstraint("1.0.0", "1.0.0")).toBe(true);
+    expect(satisfiesConstraint(exactVersion("1.0.0"), versionConstraint("1.0.0"))).toBe(true);
   });
 
   it("returns false for exact mismatch", () => {
-    expect(satisfiesConstraint("1.0.1", "1.0.0")).toBe(false);
+    expect(satisfiesConstraint(exactVersion("1.0.1"), versionConstraint("1.0.0"))).toBe(false);
   });
 });
 

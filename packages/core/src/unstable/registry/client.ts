@@ -29,7 +29,10 @@ import type { DiscoverExtensionsResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import type { ExactSemverVersion } from "../version-constraints/version-constraints.js";
+import type {
+  ExactSemverVersion,
+  VersionConstraint,
+} from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -68,7 +71,7 @@ export interface GetExtensionPackageArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: Option.Option<ExactSemverVersion>;
+  readonly version: Option.Option<ExactSemverVersion | VersionConstraint>;
 }
 
 // -----------------------------------------------------------------------------

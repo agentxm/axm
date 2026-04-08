@@ -11,6 +11,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { packageType } from "../test-helpers.js";
 import type { PackageUrlParts } from "./package-url.js";
 import { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
@@ -19,7 +20,7 @@ import { purlIdentityMatch, purlMatch } from "./purl-match.js";
 // -----------------------------------------------------------------------------
 
 const makeParts = (overrides?: Partial<PackageUrlParts>): PackageUrlParts => ({
-  type: "npm",
+  type: packageType("npm"),
   name: "react",
   ...overrides,
 });
@@ -40,7 +41,12 @@ describe("purlIdentityMatch", () => {
   });
 
   it("does not match different types", () => {
-    expect(purlIdentityMatch(makeParts({ type: "npm" }), makeParts({ type: "pypi" }))).toBe(false);
+    expect(
+      purlIdentityMatch(
+        makeParts({ type: packageType("npm") }),
+        makeParts({ type: packageType("pypi") }),
+      ),
+    ).toBe(false);
   });
 
   it("does not match different names", () => {
@@ -111,8 +117,8 @@ describe("purlMatch", () => {
 
   describe("identity mismatch prevents match", () => {
     it("does not match different package types", () => {
-      const detected = makeParts({ type: "pypi" });
-      const declared = makeParts({ type: "npm" });
+      const detected = makeParts({ type: packageType("pypi") });
+      const declared = makeParts({ type: packageType("npm") });
       expect(purlMatch(detected, declared)).toBe(false);
     });
 

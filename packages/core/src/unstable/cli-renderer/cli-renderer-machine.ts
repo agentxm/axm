@@ -118,8 +118,8 @@ const writeStdoutLine = (content: string) =>
     process.stdout.write(content + "\n");
   });
 
-const encodeJson = <S extends Schema.Encoder<unknown, never>>(data: S["Type"], schema: S) =>
-  Effect.sync(() => Schema.encodeSync(schema)(data));
+const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
+  Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
 
 // ---------------------------------------------------------------------------
 // MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
@@ -298,15 +298,12 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     tree: () => Effect.void,
 
     // Machine data output (stdout)
-    result: <S extends Schema.Encoder<unknown, never>>(data: S["Type"], schema: S) =>
+    result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
       encodeJson(data, schema).pipe(
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),
-    resultStream: <S extends Schema.Encoder<unknown, never>>(
-      stream: Stream.Stream<S["Type"]>,
-      schema: S,
-    ) =>
+    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
       stream.pipe(
         Stream.mapEffect((item) =>
           encodeJson(item, schema).pipe(

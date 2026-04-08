@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import type { Settings } from "../settings/index.js";
+import { extensionName, handle } from "../test-helpers.js";
 import { setReconciliationAdapters } from "./reconciliation.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
@@ -47,8 +48,8 @@ describe("reconciliation", () => {
     const result = dedupeDeclarations([
       {
         type: "skills",
-        owner: "@acme",
-        name: "tool",
+        owner: handle("@acme"),
+        name: extensionName("tool"),
         source: "@acme/skills/tool@^1",
         declarationSourceOrConstraint: "^1",
         order: 0,
@@ -56,8 +57,8 @@ describe("reconciliation", () => {
       },
       {
         type: "skills",
-        owner: "@acme",
-        name: "tool",
+        owner: handle("@acme"),
+        name: extensionName("tool"),
         source: "@acme/skills/tool@~2",
         declarationSourceOrConstraint: "~2",
         order: 1,
@@ -65,8 +66,8 @@ describe("reconciliation", () => {
       },
       {
         type: "skills",
-        owner: "@acme",
-        name: "tool",
+        owner: handle("@acme"),
+        name: extensionName("tool"),
         source: "@acme/skills/tool@^1",
         declarationSourceOrConstraint: "^1",
         order: 2,
@@ -83,8 +84,8 @@ describe("reconciliation", () => {
     const result = dedupeDeclarations([
       {
         type: "commands",
-        owner: "@acme",
-        name: "zeta",
+        owner: handle("@acme"),
+        name: extensionName("zeta"),
         source: "@acme/commands/zeta@^1",
         declarationSourceOrConstraint: "^1",
         order: 0,
@@ -92,8 +93,8 @@ describe("reconciliation", () => {
       },
       {
         type: "skills",
-        owner: "@acme",
-        name: "beta",
+        owner: handle("@acme"),
+        name: extensionName("beta"),
         source: "@acme/skills/beta@^1",
         declarationSourceOrConstraint: "^1",
         order: 5,
@@ -101,8 +102,8 @@ describe("reconciliation", () => {
       },
       {
         type: "skills",
-        owner: "@acme",
-        name: "alpha",
+        owner: handle("@acme"),
+        name: extensionName("alpha"),
         source: "@acme/skills/alpha@^1",
         declarationSourceOrConstraint: "^1",
         order: 9,
@@ -136,7 +137,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           now: new Date("2026-02-25T10:00:00.000Z"),
-          defaultProfile: "@community",
+          defaultProfile: handle("@community"),
           agents: ["claude-code"],
           settings,
         });
@@ -171,7 +172,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: "@community",
+            defaultProfile: handle("@community"),
             agents: ["claude-code"],
             settings,
           },
@@ -206,7 +207,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: "@community",
+            defaultProfile: handle("@community"),
             agents: ["claude-code"],
             settings,
           },
@@ -238,7 +239,7 @@ describe("reconciliation", () => {
           {
             baseDir: tempDir,
             now: new Date("2026-02-25T10:00:00.000Z"),
-            defaultProfile: "@community",
+            defaultProfile: handle("@community"),
             agents: ["claude-code"],
             settings,
           },

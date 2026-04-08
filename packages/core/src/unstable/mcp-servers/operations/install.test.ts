@@ -12,14 +12,20 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
-import { expectRecord } from "../../test-helpers.js";
+import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import {
+  expectRecord,
+  exactVersion,
+  extensionName,
+  handle,
+  makeCodingAgentStub,
+} from "../../test-helpers.js";
 import type { InstallMcpServerOperation } from "./install.js";
 import { installMcpServer } from "./install.js";
 
@@ -30,7 +36,7 @@ import { installMcpServer } from "./install.js";
 const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
-    setMcpServerFn?: ReturnType<typeof vi.fn>;
+    setMcpServerFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
 ): WorkspaceContextService => {
   const readLf = () => {
@@ -44,44 +50,8 @@ const makeWorkspaceMock = (
 
   const setMcpServerFn = overrides?.setMcpServerFn;
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredAgents: () => Effect.succeed([]),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed(readLf().mcpServers ?? {}),
     getLockedMcpServer: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().mcpServers?.[name])),
@@ -125,19 +95,8 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 const defaultAgentRepo: CodingAgentRepositoryService = {
@@ -150,7 +109,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 const withServices = (
   axmDir: string,
   wsOverrides?: {
-    setMcpServerFn?: ReturnType<typeof vi.fn>;
+    setMcpServerFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
@@ -188,20 +147,56 @@ const makeRegistryRef = (
     integrity?: string;
     location?: string;
   } = {},
-): RegistryMcpServerRef => ({
-  type: "mcp-server",
-  refType: "registry",
-  source: {
-    type: "registry",
-    location: new URL(overrides.location ?? "file:///tmp/reg"),
-    owner: Option.none(),
-  },
-  server: { name: overrides.name ?? "my-server" },
-  owner: overrides.owner ?? "@community",
-  name: overrides.name ?? "my-server",
-  version: overrides.version ?? "1.0.0",
-  integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
-});
+): RegistryMcpServerRef => {
+  const name = overrides.name ?? "my-server";
+
+  return {
+    type: "mcp-server",
+    refType: "registry",
+    source: {
+      type: "registry",
+      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      owner: Option.none(),
+    },
+    server: { name: extensionName(name) },
+    owner: handle(overrides.owner ?? "@community"),
+    name: extensionName(name),
+    version: exactVersion(overrides.version ?? "1.0.0"),
+    integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
+    compatiblePackages: [],
+  };
+};
+
+const makeUnsafeRegistryRef = (
+  overrides: {
+    name?: string;
+    owner?: string;
+    version?: string;
+    integrity?: string;
+    location?: string;
+  } = {},
+): RegistryMcpServerRef => {
+  const name = overrides.name ?? "my-server";
+
+  return {
+    type: "mcp-server",
+    refType: "registry",
+    source: {
+      type: "registry",
+      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      owner: Option.none(),
+    },
+    server: { name: extensionName(name) },
+    // Assertion needed: this test intentionally constructs an invalid ref to hit runtime guards.
+    owner: (overrides.owner ?? "@community") as unknown as RegistryMcpServerRef["owner"],
+    // Assertion needed: this test intentionally constructs an invalid ref to hit runtime guards.
+    name: name as unknown as RegistryMcpServerRef["name"],
+    // Assertion needed: this test intentionally constructs an invalid ref to hit runtime guards.
+    version: (overrides.version ?? "1.0.0") as unknown as RegistryMcpServerRef["version"],
+    integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
+    compatiblePackages: [],
+  };
+};
 
 const makeOp = (
   overrides: {
@@ -428,7 +423,7 @@ describe("installMcpServer", () => {
         const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
         const result = yield* installMcpServer(
-          makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
+          makeOp({ ref: makeUnsafeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
         ).pipe(
           Effect.provide(withServices(axmDir, { setMcpServerFn })),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, error: e })),
@@ -472,7 +467,7 @@ describe("installMcpServer", () => {
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const ref = makeRegistryRef({
+        const ref = makeUnsafeRegistryRef({
           owner: "../../../etc",
           integrity: "",
         });
@@ -494,19 +489,25 @@ describe("installMcpServer", () => {
     const stubAgent = (
       id: CodingAgent["id"],
       outcome: ReturnType<CodingAgent["addMcpServer"]>,
-    ): CodingAgent => ({
-      id,
-      resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
-      addMcpServer: () => outcome,
-      removeMcpServer: () => Effect.succeed({ _tag: "success" }),
-    });
+    ): CodingAgent =>
+      makeCodingAgentStub(id, {
+        resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
+        addMcpServer: () => outcome,
+        removeMcpServer: () => Effect.succeed({ _tag: "success" }),
+      });
 
-    // Mutable mock repo that tests can configure via mockReturnValue
+    const getConfiguredAgentsMock = vi.fn<
+      () => Effect.Effect<ReadonlyArray<CodingAgent>, AppError>
+    >(() => Effect.succeed([]));
+    const getUnknownConfiguredAgentIdsMock = vi.fn<
+      () => Effect.Effect<ReadonlyArray<string>, AppError>
+    >(() => Effect.succeed([]));
+
     const mockAgentRepo: CodingAgentRepositoryService = {
       get: () => Effect.die(new Error("not implemented in test")),
       all: Effect.succeed([]),
-      getConfiguredAgents: vi.fn(() => Effect.succeed<ReadonlyArray<CodingAgent>>([])),
-      getUnknownConfiguredAgentIds: vi.fn(() => Effect.succeed<ReadonlyArray<string>>([])),
+      getConfiguredAgents: getConfiguredAgentsMock,
+      getUnknownConfiguredAgentIds: getUnknownConfiguredAgentIdsMock,
     };
 
     it.effect("fails in strict mode when unknown configured agents exist", () =>
@@ -514,12 +515,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed(["unknown-agent"]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed(["unknown-agent"]));
+        getConfiguredAgentsMock.mockReturnValue(Effect.succeed([]));
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ integrity: "" }), strictAgentSync: true }),
@@ -540,10 +537,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -566,10 +561,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -597,10 +590,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -624,10 +615,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -650,10 +639,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -681,10 +668,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent("adal", Effect.succeed({ _tag: "disabled", reason: "disabled by config" })),
           ]),
@@ -704,10 +689,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
           Effect.succeed([
             stubAgent(
               "claude-code",
@@ -735,12 +718,8 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
-        (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed(["unknown-agent"]),
-        );
-        (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
-          Effect.succeed([]),
-        );
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed(["unknown-agent"]));
+        getConfiguredAgentsMock.mockReturnValue(Effect.succeed([]));
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
@@ -759,19 +738,14 @@ describe("installMcpServer", () => {
           const canonicalPath = setupRegistryCanonical(base, "@community", "chrome-devtools-mcp");
           const addSpy = vi.fn(() => Effect.succeed({ _tag: "success" as const }));
 
-          const chromeAgent: CodingAgent = {
-            id: "claude-code",
+          const chromeAgent: CodingAgent = makeCodingAgentStub("claude-code", {
             resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
             addMcpServer: addSpy,
             removeMcpServer: () => Effect.succeed({ _tag: "success" }),
-          };
+          });
 
-          (mockAgentRepo.getUnknownConfiguredAgentIds as ReturnType<typeof vi.fn>).mockReturnValue(
-            Effect.succeed([]),
-          );
-          (mockAgentRepo.getConfiguredAgents as ReturnType<typeof vi.fn>).mockReturnValue(
-            Effect.succeed([chromeAgent]),
-          );
+          getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+          getConfiguredAgentsMock.mockReturnValue(Effect.succeed([chromeAgent]));
 
           const result = yield* installMcpServer(
             makeOp({

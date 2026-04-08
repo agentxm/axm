@@ -54,7 +54,9 @@ const isStringRecord = (value: unknown): value is Record<string, unknown> =>
  * Iterates over property signatures of a Struct schema and extracts
  * column metadata from annotations set via `column()` and `hidden()`.
  */
-export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDef<T>> => {
+export const columnsFrom = <S extends Schema.Top>(
+  schema: S,
+): ReadonlyArray<ColumnDef<Schema.Schema.Type<S>>> => {
   const ast = schema.ast;
   if (!SchemaAST.isObjects(ast)) return [];
 
@@ -71,7 +73,7 @@ export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDe
       return {
         key,
         header: typeof header === "string" ? header : key,
-        value: (item: T) => {
+        value: (item: Schema.Schema.Type<S>) => {
           const raw = isStringRecord(item) ? item[key] : undefined;
           if (typeof format === "function") return format(raw);
           if (raw == null) return "";
@@ -84,7 +86,7 @@ export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDe
           if (w === "fill" || typeof w === "number") return w;
           return "auto";
         })(),
-      } satisfies ColumnDef<T>;
+      } satisfies ColumnDef<Schema.Schema.Type<S>>;
     });
 };
 
@@ -92,7 +94,7 @@ export const columnsFrom = <T>(schema: Schema.Schema<T>): ReadonlyArray<ColumnDe
 // Command output helpers
 // ---------------------------------------------------------------------------
 
-export interface CommandOutputOpts<S extends Schema.Encoder<unknown, never>> {
+export interface CommandOutputOpts<S extends Schema.Top> {
   readonly schema: S;
   readonly title?: string;
 }
@@ -101,8 +103,8 @@ export interface CommandOutputOpts<S extends Schema.Encoder<unknown, never>> {
  * Emit a collection of items. In machine mode (result returns true),
  * outputs JSON. In interactive mode, renders a table.
  */
-export const emitMany = <S extends Schema.Encoder<unknown, never>>(
-  items: ReadonlyArray<S["Type"]>,
+export const emitMany = <S extends Schema.Top>(
+  items: ReadonlyArray<Schema.Schema.Type<S>>,
   opts: CommandOutputOpts<S>,
 ) =>
   Effect.gen(function* () {
@@ -115,8 +117,8 @@ export const emitMany = <S extends Schema.Encoder<unknown, never>>(
  * Emit a single item. In machine mode (result returns true),
  * outputs JSON. In interactive mode, renders a detail view.
  */
-export const emitOne = <S extends Schema.Encoder<unknown, never>>(
-  data: S["Type"],
+export const emitOne = <S extends Schema.Top>(
+  data: Schema.Schema.Type<S>,
   opts: CommandOutputOpts<S>,
 ) =>
   Effect.gen(function* () {

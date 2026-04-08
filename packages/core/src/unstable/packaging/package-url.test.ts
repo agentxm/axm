@@ -2,6 +2,7 @@ import * as Equivalence from "effect/Equivalence";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import { packageType } from "../test-helpers.js";
 import { formatPackageDisplay, PackageUrlPartsSchema, PackageUrlSchema } from "./package-url.js";
 
 describe("PackageUrlSchema", () => {
@@ -196,23 +197,25 @@ describe("PackageUrlSchema", () => {
 
 describe("formatPackageDisplay", () => {
   it("formats a simple npm package", () => {
-    expect(formatPackageDisplay({ type: "npm", name: "react" })).toBe("react (npm)");
+    expect(formatPackageDisplay({ type: packageType("npm"), name: "react" })).toBe("react (npm)");
   });
 
   it("formats a pypi package", () => {
-    expect(formatPackageDisplay({ type: "pypi", name: "requests" })).toBe("requests (pypi)");
+    expect(formatPackageDisplay({ type: packageType("pypi"), name: "requests" })).toBe(
+      "requests (pypi)",
+    );
   });
 
   it("formats a package with version (version not shown)", () => {
-    expect(formatPackageDisplay({ type: "npm", name: "react", version: "18.0.0" })).toBe(
-      "react (npm)",
-    );
+    expect(
+      formatPackageDisplay({ type: packageType("npm"), name: "react", version: "18.0.0" }),
+    ).toBe("react (npm)");
   });
 
   it("formats a package with namespace (namespace not shown)", () => {
-    expect(formatPackageDisplay({ type: "npm", namespace: "@angular", name: "core" })).toBe(
-      "core (npm)",
-    );
+    expect(
+      formatPackageDisplay({ type: packageType("npm"), namespace: "@angular", name: "core" }),
+    ).toBe("core (npm)");
   });
 });
 

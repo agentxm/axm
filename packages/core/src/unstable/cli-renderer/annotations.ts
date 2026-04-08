@@ -44,22 +44,27 @@ declare module "effect/Schema" {
  * The format function parameter uses `unknown` to match the Annotations
  * interface. Callers narrow the type at the call site.
  */
-export const column = (opts: {
-  readonly header: string;
-  readonly priority?: number;
-  readonly align?: "left" | "right";
-  readonly width?: "auto" | "fill" | number;
-  readonly format?: (value: unknown) => string;
-}) =>
-  Schema.annotate({
-    [ColumnHeader]: opts.header,
-    [ColumnPriority]: opts.priority ?? 0,
-    [ColumnAlign]: opts.align ?? "left",
-    [ColumnWidth]: opts.width ?? "auto",
-    ...(opts.format && { [DisplayFormat]: opts.format }),
-  });
+export const column =
+  (opts: {
+    readonly header: string;
+    readonly priority?: number;
+    readonly align?: "left" | "right";
+    readonly width?: "auto" | "fill" | number;
+    readonly format?: (value: unknown) => string;
+  }) =>
+  <S extends Schema.Top>(schema: S): S["~rebuild.out"] =>
+    schema.annotate({
+      [ColumnHeader]: opts.header,
+      [ColumnPriority]: opts.priority ?? 0,
+      [ColumnAlign]: opts.align ?? "left",
+      [ColumnWidth]: opts.width ?? "auto",
+      ...(opts.format && { [DisplayFormat]: opts.format }),
+    });
 
 /**
  * Mark a schema field as hidden from table/detail output.
  */
-export const hidden = () => Schema.annotate({ [Hidden]: true });
+export const hidden =
+  () =>
+  <S extends Schema.Top>(schema: S): S["~rebuild.out"] =>
+    schema.annotate({ [Hidden]: true });

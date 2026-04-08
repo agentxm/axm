@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
 import type { SkillLockEntry } from "../lockfile/schema.js";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { lockEntryToSourceParams, printSourceParams } from "./printer.js";
 import type { SourceParams } from "./types.js";
 
@@ -283,9 +284,9 @@ describe("lockEntryToSourceParams", () => {
     const source = lockEntryToSourceParams(
       makeLockEntry({
         type: "registry",
-        owner: "@acme",
-        name: "widgets",
-        resolvedVersion: "1.0.0",
+        owner: handle("@acme"),
+        name: extensionName("widgets"),
+        resolvedVersion: exactVersion("1.0.0"),
         integrity: "sha512-abc",
         sourceName: "default",
         ...baseLockFields,

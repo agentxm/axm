@@ -596,19 +596,19 @@ describe("Settings schema", () => {
     it("accepts object entry with source", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result.deploy).toEqual({ source: "@acme/commands/deploy" });
+      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy" });
     });
 
     it("accepts object entry with source and enabled", () => {
       const input = { deploy: { source: "@acme/commands/deploy", enabled: false } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result.deploy).toEqual({ source: "@acme/commands/deploy", enabled: false });
+      expect(result["deploy"]).toEqual({ source: "@acme/commands/deploy", enabled: false });
     });
 
     it("accepts object entry with enabled defaulting to undefined (treated as true)", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      const entry = result.deploy;
+      const entry = result["deploy"];
       expect(typeof entry).toBe("object");
       if (typeof entry === "object" && entry !== null) {
         expect(entry.enabled).toBeUndefined();

@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
+import { extensionName, handle, versionConstraint } from "../test-helpers.js";
 import { type InputPattern, parseInputPattern } from "./parser.js";
 
 describe("parseInputPattern", () => {
@@ -29,8 +30,8 @@ describe("parseInputPattern", () => {
       expectSome("@myorg/skills/some-name", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        owner: "@myorg",
-        name: Option.some("some-name"),
+        owner: handle("@myorg"),
+        name: Option.some(extensionName("some-name")),
         versionConstraint: Option.none(),
       });
     });
@@ -39,9 +40,9 @@ describe("parseInputPattern", () => {
       expectSome("@myorg/mcp-servers/server-a@^1.2.3", {
         pattern: "registry-pattern-input",
         type: Option.some("mcp-servers"),
-        owner: "@myorg",
-        name: Option.some("server-a"),
-        versionConstraint: Option.some("^1.2.3"),
+        owner: handle("@myorg"),
+        name: Option.some(extensionName("server-a")),
+        versionConstraint: Option.some(versionConstraint("^1.2.3")),
       });
     });
 
@@ -49,8 +50,8 @@ describe("parseInputPattern", () => {
       expectSome("@myorg/packs/my-pack", {
         pattern: "registry-pattern-input",
         type: Option.some("packs"),
-        owner: "@myorg",
-        name: Option.some("my-pack"),
+        owner: handle("@myorg"),
+        name: Option.some(extensionName("my-pack")),
         versionConstraint: Option.none(),
       });
     });
@@ -63,7 +64,7 @@ describe("parseInputPattern", () => {
       expectSome("@myorg", {
         pattern: "registry-pattern-input",
         type: Option.none(),
-        owner: "@myorg",
+        owner: handle("@myorg"),
         name: Option.none(),
         versionConstraint: Option.none(),
       });
@@ -73,7 +74,7 @@ describe("parseInputPattern", () => {
       expectSome("@myorg/skills", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        owner: "@myorg",
+        owner: handle("@myorg"),
         name: Option.none(),
         versionConstraint: Option.none(),
       });

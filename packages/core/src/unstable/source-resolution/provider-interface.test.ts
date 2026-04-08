@@ -17,6 +17,7 @@ import type {
 } from "../sources/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "../registry/index.js";
+import { exactVersion, extensionName, versionConstraint } from "../test-helpers.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
   readonly publishExtension: (
@@ -117,7 +118,11 @@ describe("SourceHostProvider", () => {
       const ref: GitHostedSkillRef = {
         type: "skill",
         refType: "git-hosted",
-        skill: { name: "test-skill", description: Option.none(), metadata: Option.none() },
+        skill: {
+          name: extensionName("test-skill"),
+          description: Option.none(),
+          metadata: Option.none(),
+        },
         source,
         location: "file:///tmp/clone",
         gitTreeSha: Option.none(),
@@ -146,7 +151,7 @@ describe("registry provider shape", () => {
     Effect.gen(function* () {
       const provider = makeRegistryProvider();
       const metadata: VersionEntry = {
-        version: "1.0.0",
+        version: exactVersion("1.0.0"),
         published: "2025-01-01T00:00:00Z",
         integrity: "sha512-AAAA==",
       };
@@ -215,7 +220,7 @@ describe("FindOptions", () => {
       skillNames: ["my-skill"],
       type: "skill",
       owner: Option.none(),
-      versionConstraint: Option.some("^1.2.3"),
+      versionConstraint: Option.some(versionConstraint("^1.2.3")),
     };
     expect(Option.getOrNull(options.versionConstraint)).toBe("^1.2.3");
   });

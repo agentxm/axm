@@ -11,6 +11,7 @@ import type { PackageUrlParts } from "../packaging/package-url.js";
 import { purlMatch } from "../packaging/purl-match.js";
 import type { DiscoverExtensionsArgs, RegistryClient } from "../registry/client.js";
 import type { DiscoverExtensionsResponse } from "../registry/discover-schema.js";
+import { packageType } from "../test-helpers.js";
 import { discover } from "./discover.js";
 
 // -----------------------------------------------------------------------------
@@ -49,10 +50,16 @@ const emptyResponse: DiscoverExtensionsResponse = {
 // purlMatch in discover context
 // -----------------------------------------------------------------------------
 
-const makeParts = (overrides?: Partial<PackageUrlParts>): PackageUrlParts => ({
-  type: "npm",
-  name: "react",
-  ...overrides,
+const makeParts = (overrides?: {
+  readonly type?: string;
+  readonly namespace?: string;
+  readonly name?: string;
+  readonly version?: string;
+}): PackageUrlParts => ({
+  type: packageType(overrides?.type ?? "npm"),
+  name: overrides?.name ?? "react",
+  ...(overrides?.namespace ? { namespace: overrides.namespace } : {}),
+  ...(overrides?.version ? { version: overrides.version } : {}),
 });
 
 describe("purlMatch in discover context", () => {

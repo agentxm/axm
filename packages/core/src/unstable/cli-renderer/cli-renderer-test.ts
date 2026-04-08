@@ -360,7 +360,7 @@ const makeTestRendererService = (
       }),
 
     // Machine data output (stdout)
-    result: <T>(data: T, schema: Schema.Schema<T>) =>
+    result: <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
       Effect.sync(() => {
         state.results.push({
           data,
@@ -368,7 +368,7 @@ const makeTestRendererService = (
         });
         return resultReturnValue;
       }),
-    resultStream: <T>(stream: Stream.Stream<T>, schema: Schema.Schema<T>) =>
+    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
       Stream.runCollect(stream).pipe(
         Effect.tap((chunks) =>
           Effect.sync(() => {

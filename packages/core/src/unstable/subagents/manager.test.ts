@@ -16,9 +16,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "./refs.js";
+import type { AppError } from "../app-error/index.js";
 import type { CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
-import { Workspace } from "../workspace/service-interface.js";
+import { Workspace, type SetSubagentArgs } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import { RenderedFilesMapSchema } from "../extensions/rendered-files.js";
@@ -250,7 +251,9 @@ describe("SubagentManager", () => {
     });
 
     it.effect("renders to configured agents and records in lockfile", () => {
-      const setSubagentLockSpy = vi.fn(() => Effect.void);
+      const setSubagentLockSpy = vi.fn<(args: SetSubagentArgs) => Effect.Effect<void, AppError>>(
+        () => Effect.void,
+      );
       const addSubagentSpy = vi.fn(() =>
         Effect.succeed({
           _tag: "success" as const,

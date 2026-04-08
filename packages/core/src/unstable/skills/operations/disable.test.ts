@@ -11,9 +11,10 @@ import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
+import { handle } from "../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -27,68 +28,23 @@ const makeWorkspaceMock = (
   opts: {
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
-    updateSkillEntryFn?: ReturnType<typeof vi.fn>;
-    updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
+    updateSkillEntryFn?: WorkspaceContextService["updateSkillEntry"];
+    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
-    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: opts.updateSkillEntryFn ?? (() => Effect.void),
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? (() => Effect.void),
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
+    updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
+    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -113,17 +69,13 @@ const makeLocalLockEntry = (agents: string[]): SkillLockEntry => ({
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
-  type: "registry" as const,
-  owner: "@community",
-  name: "my-skill",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
-  sourceName: "local",
-  agents,
-  installedAt: new Date(),
-  updatedAt: new Date(),
-});
+const makeRegistryLockEntry = (agents: string[]): SkillLockEntry =>
+  makeRegistrySkillLockEntry({
+    owner: handle("@community"),
+    name: "my-skill",
+    sourceName: "local",
+    agents,
+  });
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -426,17 +378,7 @@ describe("disableSkill", () => {
         const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
         // Mock workspace where skill is implicit (lock exists but no settings entry)
-        const mockWs: WorkspaceContextService = {
-          ...taxonomyStubs,
-          scope: "project",
-          path: axmDir,
-          baseDir: path.dirname(axmDir),
-          getConfiguredSources: () => Effect.succeed([]),
-          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredProfile: () => Effect.succeed("@community"),
-          getDefaultProfile: () => Effect.succeed(Option.none()),
-          addConfiguredSource: () => Effect.void,
+        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -451,45 +393,8 @@ describe("disableSkill", () => {
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
           getLockedSkill: () => Effect.succeed(Option.some(makeLocalLockEntry(["claude-code"]))),
-          getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-          setSkill: () => Effect.void,
-          setSkillLock: () => Effect.void,
-          removeSkill: () => Effect.void,
-          removeSkillFromSettings: () => Effect.void,
-          updateSkillEntry: () => Effect.void,
           setSkillEntry: setSkillEntryFn,
-          renameSkill: () => Effect.void,
-          updateLockEntryAgents: () => Effect.void,
-          addConfiguredAgent: () => Effect.void,
-          getConfiguredPacks: () => Effect.succeed({}),
-          getInstalledPacks: () => Effect.succeed({}),
-          getLockedExtensionPacks: () => Effect.succeed({}),
-          getLockedExtensionPack: () => Effect.succeed(Option.none()),
-          setExtensionPack: () => Effect.void,
-          removeExtensionPack: () => Effect.void,
-          getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-          getLockedCommands: () => Effect.succeed({}),
-          getLockedCommand: () => Effect.succeed(Option.none()),
-          setCommand: () => Effect.void,
-          setCommandLock: () => Effect.void,
-          removeCommand: () => Effect.void,
-          getLockedMcpServers: () => Effect.succeed({}),
-          getLockedMcpServer: () => Effect.succeed(Option.none()),
-          setMcpServer: () => Effect.void,
-          setMcpServerLock: () => Effect.void,
-          removeMcpServer: () => Effect.void,
-          removeSkillLock: () => Effect.void,
-          removeCommandSettings: () => Effect.void,
-          removeCommandLock: () => Effect.void,
-          removeMcpServerSettings: () => Effect.void,
-          removeMcpServerLock: () => Effect.void,
-          removeExtensionPackSettings: () => Effect.void,
-          removeExtensionPackLock: () => Effect.void,
-          isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-          markDependencyRetainedInLockfile: () => Effect.void,
-          getConfiguredCommands: () => Effect.succeed({}),
-          getConfiguredMcpServers: () => Effect.succeed({}),
-        };
+        });
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
@@ -513,17 +418,7 @@ describe("disableSkill", () => {
 
         const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
-        const mockWs: WorkspaceContextService = {
-          ...taxonomyStubs,
-          scope: "project",
-          path: axmDir,
-          baseDir: path.dirname(axmDir),
-          getConfiguredSources: () => Effect.succeed([]),
-          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredProfile: () => Effect.succeed("@community"),
-          getDefaultProfile: () => Effect.succeed(Option.none()),
-          addConfiguredSource: () => Effect.void,
+        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -538,45 +433,8 @@ describe("disableSkill", () => {
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeRegistryLockEntry(["claude-code"]) }),
           getLockedSkill: () => Effect.succeed(Option.some(makeRegistryLockEntry(["claude-code"]))),
-          getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-          setSkill: () => Effect.void,
-          setSkillLock: () => Effect.void,
-          removeSkill: () => Effect.void,
-          removeSkillFromSettings: () => Effect.void,
-          updateSkillEntry: () => Effect.void,
           setSkillEntry: setSkillEntryFn,
-          renameSkill: () => Effect.void,
-          updateLockEntryAgents: () => Effect.void,
-          addConfiguredAgent: () => Effect.void,
-          getConfiguredPacks: () => Effect.succeed({}),
-          getInstalledPacks: () => Effect.succeed({}),
-          getLockedExtensionPacks: () => Effect.succeed({}),
-          getLockedExtensionPack: () => Effect.succeed(Option.none()),
-          setExtensionPack: () => Effect.void,
-          removeExtensionPack: () => Effect.void,
-          getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-          getLockedCommands: () => Effect.succeed({}),
-          getLockedCommand: () => Effect.succeed(Option.none()),
-          setCommand: () => Effect.void,
-          setCommandLock: () => Effect.void,
-          removeCommand: () => Effect.void,
-          getLockedMcpServers: () => Effect.succeed({}),
-          getLockedMcpServer: () => Effect.succeed(Option.none()),
-          setMcpServer: () => Effect.void,
-          setMcpServerLock: () => Effect.void,
-          removeMcpServer: () => Effect.void,
-          removeSkillLock: () => Effect.void,
-          removeCommandSettings: () => Effect.void,
-          removeCommandLock: () => Effect.void,
-          removeMcpServerSettings: () => Effect.void,
-          removeMcpServerLock: () => Effect.void,
-          removeExtensionPackSettings: () => Effect.void,
-          removeExtensionPackLock: () => Effect.void,
-          isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-          markDependencyRetainedInLockfile: () => Effect.void,
-          getConfiguredCommands: () => Effect.succeed({}),
-          getConfiguredMcpServers: () => Effect.succeed({}),
-        };
+        });
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
@@ -597,17 +455,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Mock workspace where skill is implicit with no source
-        const mockWs: WorkspaceContextService = {
-          ...taxonomyStubs,
-          scope: "project",
-          path: axmDir,
-          baseDir: path.dirname(axmDir),
-          getConfiguredSources: () => Effect.succeed([]),
-          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredProfile: () => Effect.succeed("@community"),
-          getDefaultProfile: () => Effect.succeed(Option.none()),
-          addConfiguredSource: () => Effect.void,
+        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -621,45 +469,7 @@ describe("disableSkill", () => {
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () => Effect.succeed({}),
           getLockedSkill: () => Effect.succeed(Option.none()),
-          getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-          setSkill: () => Effect.void,
-          setSkillLock: () => Effect.void,
-          removeSkill: () => Effect.void,
-          removeSkillFromSettings: () => Effect.void,
-          updateSkillEntry: () => Effect.void,
-          setSkillEntry: () => Effect.void,
-          renameSkill: () => Effect.void,
-          updateLockEntryAgents: () => Effect.void,
-          addConfiguredAgent: () => Effect.void,
-          getConfiguredPacks: () => Effect.succeed({}),
-          getInstalledPacks: () => Effect.succeed({}),
-          getLockedExtensionPacks: () => Effect.succeed({}),
-          getLockedExtensionPack: () => Effect.succeed(Option.none()),
-          setExtensionPack: () => Effect.void,
-          removeExtensionPack: () => Effect.void,
-          getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-          getLockedCommands: () => Effect.succeed({}),
-          getLockedCommand: () => Effect.succeed(Option.none()),
-          setCommand: () => Effect.void,
-          setCommandLock: () => Effect.void,
-          removeCommand: () => Effect.void,
-          getLockedMcpServers: () => Effect.succeed({}),
-          getLockedMcpServer: () => Effect.succeed(Option.none()),
-          setMcpServer: () => Effect.void,
-          setMcpServerLock: () => Effect.void,
-          removeMcpServer: () => Effect.void,
-          removeSkillLock: () => Effect.void,
-          removeCommandSettings: () => Effect.void,
-          removeCommandLock: () => Effect.void,
-          removeMcpServerSettings: () => Effect.void,
-          removeMcpServerLock: () => Effect.void,
-          removeExtensionPackSettings: () => Effect.void,
-          removeExtensionPackLock: () => Effect.void,
-          isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-          markDependencyRetainedInLockfile: () => Effect.void,
-          getConfiguredCommands: () => Effect.succeed({}),
-          getConfiguredMcpServers: () => Effect.succeed({}),
-        };
+        });
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),
@@ -678,17 +488,7 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const mockWs: WorkspaceContextService = {
-          ...taxonomyStubs,
-          scope: "project",
-          path: axmDir,
-          baseDir: path.dirname(axmDir),
-          getConfiguredSources: () => Effect.succeed([]),
-          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySourceHosts: () => Effect.succeed([]),
-          getConfiguredProfile: () => Effect.succeed("@community"),
-          getDefaultProfile: () => Effect.succeed(Option.none()),
-          addConfiguredSource: () => Effect.void,
+        const mockWs: WorkspaceContextService = makeBaseWorkspaceMock(axmDir, {
           getConfiguredSkills: () => Effect.succeed({}),
           getInstalledSkills: () =>
             Effect.succeed({
@@ -702,45 +502,7 @@ describe("disableSkill", () => {
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () => Effect.succeed({}),
           getLockedSkill: () => Effect.succeed(Option.none()),
-          getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-          setSkill: () => Effect.void,
-          setSkillLock: () => Effect.void,
-          removeSkill: () => Effect.void,
-          removeSkillFromSettings: () => Effect.void,
-          updateSkillEntry: () => Effect.void,
-          setSkillEntry: () => Effect.void,
-          renameSkill: () => Effect.void,
-          updateLockEntryAgents: () => Effect.void,
-          addConfiguredAgent: () => Effect.void,
-          getConfiguredPacks: () => Effect.succeed({}),
-          getInstalledPacks: () => Effect.succeed({}),
-          getLockedExtensionPacks: () => Effect.succeed({}),
-          getLockedExtensionPack: () => Effect.succeed(Option.none()),
-          setExtensionPack: () => Effect.void,
-          removeExtensionPack: () => Effect.void,
-          getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-          getLockedCommands: () => Effect.succeed({}),
-          getLockedCommand: () => Effect.succeed(Option.none()),
-          setCommand: () => Effect.void,
-          setCommandLock: () => Effect.void,
-          removeCommand: () => Effect.void,
-          getLockedMcpServers: () => Effect.succeed({}),
-          getLockedMcpServer: () => Effect.succeed(Option.none()),
-          setMcpServer: () => Effect.void,
-          setMcpServerLock: () => Effect.void,
-          removeMcpServer: () => Effect.void,
-          removeSkillLock: () => Effect.void,
-          removeCommandSettings: () => Effect.void,
-          removeCommandLock: () => Effect.void,
-          removeMcpServerSettings: () => Effect.void,
-          removeMcpServerLock: () => Effect.void,
-          removeExtensionPackSettings: () => Effect.void,
-          removeExtensionPackLock: () => Effect.void,
-          isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-          markDependencyRetainedInLockfile: () => Effect.void,
-          getConfiguredCommands: () => Effect.succeed({}),
-          getConfiguredMcpServers: () => Effect.succeed({}),
-        };
+        });
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeServices.layer, Workspace.layer(mockWs))),

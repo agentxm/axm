@@ -36,6 +36,10 @@ export default [
               onlyDependOnLibsWithTags: ["type:lib"],
             },
             {
+              sourceTag: "type:tooling",
+              onlyDependOnLibsWithTags: ["type:lib"],
+            },
+            {
               sourceTag: "type:e2e",
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: ["scope:core"],

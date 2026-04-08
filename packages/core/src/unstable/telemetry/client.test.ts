@@ -319,7 +319,7 @@ describe("TelemetryClientLive", () => {
             new HttpClientError.HttpClientError({
               reason: new HttpClientError.TransportError({
                 request,
-                error: new Error("ECONNREFUSED"),
+                cause: new Error("ECONNREFUSED"),
               }),
             }),
           ),

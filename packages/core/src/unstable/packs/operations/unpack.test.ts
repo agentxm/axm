@@ -7,7 +7,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { vi } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import {
+  makeBaseWorkspaceMock,
+  makeRegistryExtensionPackLockEntry,
+} from "../../workspace/test-stubs.js";
+import { exactVersion, handle } from "../../test-helpers.js";
 import { unpackExtensionPack, type UnpackExtensionPackOperation } from "./unpack.js";
 
 // -----------------------------------------------------------------------------
@@ -21,62 +25,18 @@ const makeOp = (name: string): UnpackExtensionPackOperation => ({
 
 const makeWorkspaceMock = (
   overrides: Partial<WorkspaceContextService> = {},
-): WorkspaceContextService => ({
-  ...taxonomyStubs,
-  scope: "project",
-  path: "/mock/.axm",
-  baseDir: "/mock",
-  getConfiguredSources: () => Effect.succeed([]),
-  getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-  getRegistrySourceHosts: () => Effect.succeed([]),
-  getConfiguredProfile: () => Effect.succeed("@test"),
-  getDefaultProfile: () => Effect.succeed(Option.none()),
-  addConfiguredSource: () => Effect.void,
-  getConfiguredSkills: () => Effect.succeed({}),
-  getInstalledSkills: () => Effect.succeed({}),
-  getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-  getLockedSkills: () => Effect.succeed({}),
-  getLockedSkill: () => Effect.succeed(Option.none()),
-  getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
-  setSkill: () => Effect.void,
-  setSkillLock: () => Effect.void,
-  removeSkill: () => Effect.void,
-  removeSkillFromSettings: () => Effect.void,
-  updateSkillEntry: () => Effect.void,
-  setSkillEntry: () => Effect.void,
-  renameSkill: () => Effect.void,
-  updateLockEntryAgents: () => Effect.void,
-  addConfiguredAgent: () => Effect.void,
-  getConfiguredPacks: () => Effect.succeed({}),
-  getInstalledPacks: () => Effect.succeed({}),
-  getLockedExtensionPacks: () => Effect.succeed({}),
-  getLockedExtensionPack: () => Effect.succeed(Option.none()),
-  setExtensionPack: () => Effect.void,
-  removeExtensionPack: () => Effect.void,
-  getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-  getLockedCommands: () => Effect.succeed({}),
-  getLockedCommand: () => Effect.succeed(Option.none()),
-  setCommand: () => Effect.void,
-  setCommandLock: () => Effect.void,
-  removeCommand: () => Effect.void,
-  getLockedMcpServers: () => Effect.succeed({}),
-  getLockedMcpServer: () => Effect.succeed(Option.none()),
-  setMcpServer: () => Effect.void,
-  setMcpServerLock: () => Effect.void,
-  removeMcpServer: () => Effect.void,
-  removeSkillLock: () => Effect.void,
-  removeCommandSettings: () => Effect.void,
-  removeCommandLock: () => Effect.void,
-  removeMcpServerSettings: () => Effect.void,
-  removeMcpServerLock: () => Effect.void,
-  removeExtensionPackSettings: () => Effect.void,
-  removeExtensionPackLock: () => Effect.void,
-  isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-  markDependencyRetainedInLockfile: () => Effect.void,
-  getConfiguredCommands: () => Effect.succeed({}),
-  getConfiguredMcpServers: () => Effect.succeed({}),
-  ...overrides,
-});
+): WorkspaceContextService =>
+  makeBaseWorkspaceMock("/mock/.axm", {
+    getConfiguredSources: () => Effect.succeed([]),
+    getRegistrySourceHosts: () => Effect.succeed([]),
+    getConfiguredProfile: () => Effect.succeed(handle("@test")),
+    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+    getConfiguredPacks: () => Effect.succeed({}),
+    getInstalledPacks: () => Effect.succeed({}),
+    getConfiguredCommands: () => Effect.succeed({}),
+    getConfiguredMcpServers: () => Effect.succeed({}),
+    ...overrides,
+  });
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -91,20 +51,21 @@ describe("unpackExtensionPack", () => {
     const mock = makeWorkspaceMock({
       getLockedExtensionPack: () =>
         Effect.succeed(
-          Option.some({
-            type: "registry" as const,
-            owner: "@acme",
-            name: "full-pack",
-            resolvedVersion: "1.0.0",
-            integrity: "",
-            sourceName: "default",
-            installedAt: new Date(),
-            updatedAt: new Date(),
-            resolvedSkills: { "@acme/skills/my-skill": "1.0.0" },
-            resolvedCommands: { "@acme/commands/my-cmd": "2.0.0" },
-            resolvedMcpServers: { "@acme/mcp-servers/my-server": "3.0.0" },
-            resolvedSubagents: {},
-          }),
+          Option.some(
+            makeRegistryExtensionPackLockEntry({
+              owner: handle("@acme"),
+              name: "full-pack",
+              resolvedVersion: exactVersion("1.0.0"),
+              integrity: "",
+              sourceName: "default",
+              installedAt: new Date(),
+              updatedAt: new Date(),
+              resolvedSkills: { "@acme/skills/my-skill": exactVersion("1.0.0") },
+              resolvedCommands: { "@acme/commands/my-cmd": exactVersion("2.0.0") },
+              resolvedMcpServers: { "@acme/mcp-servers/my-server": exactVersion("3.0.0") },
+              resolvedSubagents: {},
+            }),
+          ),
         ),
       setSkill,
       setCommand,
@@ -128,20 +89,21 @@ describe("unpackExtensionPack", () => {
     const mock = makeWorkspaceMock({
       getLockedExtensionPack: () =>
         Effect.succeed(
-          Option.some({
-            type: "registry" as const,
-            owner: "@acme",
-            name: "pack",
-            resolvedVersion: "1.0.0",
-            integrity: "",
-            sourceName: "default",
-            installedAt: new Date(),
-            updatedAt: new Date(),
-            resolvedSkills: {},
-            resolvedCommands: { "@acme/commands/existing-cmd": "1.0.0" },
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-          }),
+          Option.some(
+            makeRegistryExtensionPackLockEntry({
+              owner: handle("@acme"),
+              name: "pack",
+              resolvedVersion: exactVersion("1.0.0"),
+              integrity: "",
+              sourceName: "default",
+              installedAt: new Date(),
+              updatedAt: new Date(),
+              resolvedSkills: {},
+              resolvedCommands: { "@acme/commands/existing-cmd": exactVersion("1.0.0") },
+              resolvedMcpServers: {},
+              resolvedSubagents: {},
+            }),
+          ),
         ),
       getConfiguredCommands: () =>
         Effect.succeed({

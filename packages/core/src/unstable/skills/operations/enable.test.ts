@@ -11,10 +11,11 @@ import { makeAppError } from "../../app-error/index.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
-import { taxonomyStubs } from "../../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
+import { handle } from "../../test-helpers.js";
 
 type SettingsSkillValue =
   | string
@@ -40,25 +41,15 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
-    updateSkillEntryFn?: ReturnType<typeof vi.fn>;
-    updateLockEntryAgentsFn?: ReturnType<typeof vi.fn>;
+    updateSkillEntryFn?: WorkspaceContextService["updateSkillEntry"];
+    updateLockEntryAgentsFn?: WorkspaceContextService["updateLockEntryAgents"];
   } = {},
 ): WorkspaceContextService => {
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
-  return {
-    ...taxonomyStubs,
-    scope: "project",
-    path: axmDir,
-    baseDir: path.dirname(axmDir),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredProfile: () => Effect.succeed("@community"),
-    getDefaultProfile: () => Effect.succeed(Option.none()),
-    addConfiguredSource: () => Effect.void,
+  return makeBaseWorkspaceMock(axmDir, {
     getConfiguredSkills: () =>
       Effect.succeed(
         Object.fromEntries(
@@ -109,44 +100,10 @@ const makeWorkspaceMock = (
       const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: opts.updateSkillEntryFn ?? (() => Effect.void),
-    setSkillEntry: () => Effect.void,
-    renameSkill: () => Effect.void,
-    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? (() => Effect.void),
-    addConfiguredAgent: () => Effect.void,
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getLockedExtensionPacks: () => Effect.succeed({}),
-    getLockedExtensionPack: () => Effect.succeed(Option.none()),
-    setExtensionPack: () => Effect.void,
-    removeExtensionPack: () => Effect.void,
-    getExtensionPackDir: () => Effect.succeed({ canonicalPath: "" }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removeExtensionPackSettings: () => Effect.void,
-    removeExtensionPackLock: () => Effect.void,
-    isExtensionRequiredByInstalledExtensionPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
-    getConfiguredCommands: () => Effect.succeed({}),
+    updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
+    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
-  };
+  });
 };
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -172,17 +129,13 @@ const makeLocalLockEntry = (agents: string[], sourcePath = "/tmp/source"): Skill
 });
 
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
-const makeRegistryLockEntry = (agents: string[]): SkillLockEntry => ({
-  type: "registry" as const,
-  owner: "@community",
-  name: "my-skill",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
-  sourceName: "local",
-  agents,
-  installedAt: new Date(),
-  updatedAt: new Date(),
-});
+const makeRegistryLockEntry = (agents: string[]): SkillLockEntry =>
+  makeRegistrySkillLockEntry({
+    owner: handle("@community"),
+    name: "my-skill",
+    sourceName: "local",
+    agents,
+  });
 
 // -----------------------------------------------------------------------------
 // Tests

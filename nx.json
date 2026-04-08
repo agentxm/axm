@@ -23,7 +23,7 @@
     }
   },
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json"],
+    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json"],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   normalizePublishInput,
   type DeclaredPublishIdentity,
@@ -10,10 +11,10 @@ import { buildZip, textContent } from "./test-zip-helpers.js";
 const makeDeclaredIdentity = (
   overrides?: Partial<DeclaredPublishIdentity>,
 ): DeclaredPublishIdentity => ({
-  owner: "@acme",
+  owner: handle("@acme"),
   type: "skill",
-  name: "code-review",
-  version: "1.0.0",
+  name: extensionName("code-review"),
+  version: exactVersion("1.0.0"),
   ...overrides,
 });
 
@@ -123,7 +124,7 @@ describe("normalizePublishInput", () => {
       const result = yield* normalizePublishInput({
         declaredIdentity: makeDeclaredIdentity({
           type: "pack",
-          name: "my-pack",
+          name: extensionName("my-pack"),
         }),
         archive: makeBody(zip),
       });

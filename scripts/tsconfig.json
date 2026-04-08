@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.scripts-base.json",
   "compilerOptions": {
     "noEmit": true,
     "types": ["bun"]

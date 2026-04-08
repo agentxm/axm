@@ -5,13 +5,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { handle } from "../test-helpers.js";
 import { addMcpServerMixed, removeMcpServerMixed, runCliInvocation } from "./mcp-sync.js";
 
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
   serverName: "chrome-devtools-mcp",
   canonicalPath: `${workspaceRoot}/.axm/mcp-servers/chrome-devtools-mcp`,
-  owner: "@mcp",
+  owner: handle("@mcp"),
   resolvedVersion: "1.0.0",
 });
 

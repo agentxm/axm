@@ -5,6 +5,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 
 import { AuthClientTest, CredentialStoreTest, RegistryUrl } from "./index.js";
 import { AuthLoginInteractionTest } from "./login-interaction.js";
@@ -13,12 +14,20 @@ import { makeTestPrompt } from "../cli-prompt/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/index.js";
+import { CredentialFileSchema } from "./schema.js";
+import { handle } from "../test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
 const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
 const makeInnerEffect = () => Effect.succeed("publish-result" as const);
+
+const makeCredentialFile = (registries: Record<string, unknown>) =>
+  Schema.decodeUnknownSync(CredentialFileSchema)({
+    version: 1 as const,
+    registries,
+  });
 
 const makeLayers = (opts?: {
   nonInteractive?: boolean;
@@ -40,21 +49,18 @@ const makeLayers = (opts?: {
   const credStoreLayer = opts?.hasToken
     ? CredentialStoreTest(
         "restricted-file",
-        {
-          version: 1,
-          registries: {
-            [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
-              accounts: {
-                "@alice": {
-                  access_token: "axm_ses_existing",
-                  refresh_token: "axm_ref_existing",
-                  expires_at: "2099-01-01T00:00:00Z",
-                  active: true,
-                },
+        makeCredentialFile({
+          [opts?.storedRegistryUrl ?? REGISTRY_URL]: {
+            accounts: {
+              "@alice": {
+                access_token: "axm_ses_existing",
+                refresh_token: "axm_ref_existing",
+                expires_at: "2099-01-01T00:00:00Z",
+                active: true,
               },
             },
           },
-        },
+        }),
         opts?.allowsPersistedCredentials,
       )
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
@@ -75,10 +81,10 @@ const makeLayers = (opts?: {
         refresh_token: "axm_ref_new",
         expires_at: "2099-06-01T00:00:00Z",
       }),
-    getMe: () =>
+    getMe: (_accessToken: string) =>
       Effect.succeed({
         userId: "user-1",
-        userHandle: "@alice",
+        userHandle: handle("@alice"),
         email: "alice@example.com",
         tokenType: "session",
         scopes: ["extensions:read"],

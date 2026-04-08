@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off globalConsole:off — plain Bun build script, not Effect code
 import * as fs from "node:fs";
 import * as path from "node:path";
 

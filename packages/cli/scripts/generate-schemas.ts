@@ -8,6 +8,7 @@
  * internals and re-exporting them one by one.
  */
 
+// @effect-diagnostics nodeBuiltinImport:off globalConsole:off — build-time schema generation script, not Effect code
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JsonSchema from "effect/JsonSchema";

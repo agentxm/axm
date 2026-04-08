@@ -18,8 +18,8 @@ rules:
     - should always require linting to pass
   tasks:
     - "TDD: add (design) or update tests prior to implementation step: red, green, refactor until a good design"
-    - "Add a typecheck verification step immediately after any implementation task, fix any issues found"
-    - "Add step to run typecheck for all packages (`pnpm typecheck`) after every task group, fix any errors"
+    - "Add a typecheck verification step immediately after any implementation task, fix any issues found including @effect/language-service diagnostics"
+    - "Add step to run typecheck for all packages (`pnpm typecheck`) after every task group, fix any errors including @effect/language-service diagnostics"
     - "Add step to run linting for all packages (`pnpm lint`) after every task group, fix any errors"
     - "Add step to run tests for all packages (`pnpm test`) after every task group, fix any failures"
     - "Add step to run relevant e2e tests (`pnpm test:e2e`) after every task group, fix any failures"

@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off — subprocess E2E test, node builtins are the correct tool
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import * as path from "node:path";

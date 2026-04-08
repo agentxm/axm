@@ -5,6 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 const logLevels = ["message", "info", "success", "step", "warn", "error", "cancel"] as const;
@@ -19,6 +20,8 @@ const logConfig = {
     Flag.withDefault("info" as const),
   ),
 } as const;
+
+const commandMeta = spikeCommandMeta("outputs log", { json: true });
 
 const handleLog = (args: {
   readonly message: Option.Option<string>;
@@ -54,9 +57,10 @@ const handleLog = (args: {
   });
 
 export const logCommand = Command.make("log", logConfig, ({ message, level }) =>
-  handleLog({ message, level }).pipe(withRuntime({ command: "outputs log" })),
+  handleLog({ message, level }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(logConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render one log-level output method"),
   Command.withExamples([
     {

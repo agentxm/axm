@@ -4,7 +4,10 @@ import { Command } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
+
+const commandMeta = spikeCommandMeta("outputs run-tasks", { json: true });
 
 const runTasksConfig = {} as const;
 
@@ -56,9 +59,10 @@ const handleRunTasks = Effect.gen(function* () {
 });
 
 export const runTasksCommand = Command.make("run-tasks", runTasksConfig, () =>
-  handleRunTasks.pipe(withRuntime({ command: "outputs run-tasks" })),
+  handleRunTasks.pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(runTasksConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Run multiple demo tasks"),
   Command.withExamples([
     {

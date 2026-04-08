@@ -355,10 +355,17 @@ describe("axm-spike json output", () => {
   });
 
   it("rejects --json on unsupported commands", async () => {
-    const result = await runSpike(["outputs", "log", "--json"]);
+    const result = await runSpike(["telemetry", "handled", "--json"]);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("JSON_OUTPUT_UNSUPPORTED");
+  });
+
+  it("emits NDJSON diagnostics for chrome-only commands with --json", async () => {
+    const result = await runSpike(["outputs", "log", "--json"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('"type":"log"');
   });
 
   it("emits a structured document for pets list", async () => {
@@ -397,6 +404,46 @@ describe("axm-spike json output", () => {
     expect(result.exitCode).toBe(0);
     expect(output.command).toBe("outputs.raw");
     expect(output.data.lines.length).toBeGreaterThan(0);
+  });
+
+  it("emits a structured document for outputs table", async () => {
+    const result = await runSpike(["outputs", "table", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      items: ReadonlyArray<{ name: string }>;
+      count: number;
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("outputs.table");
+    expect(output.count).toBe(4);
+    expect(output.items[0]?.name).toBe("Mochi");
+  });
+
+  it("emits a structured document for outputs detail", async () => {
+    const result = await runSpike(["outputs", "detail", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      data: { name: string; habitat: string };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("outputs.detail");
+    expect(output.data.name).toBe("Mochi");
+    expect(output.data.habitat).toBe("showroom");
+  });
+
+  it("emits a structured document for outputs tree", async () => {
+    const result = await runSpike(["outputs", "tree", "--json"]);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      data: { roots: ReadonlyArray<{ name: string; kind: string }> };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(output.command).toBe("outputs.tree");
+    expect(output.data.roots.length).toBe(3);
+    expect(output.data.roots[0]?.name).toBe("packages");
   });
 });
 

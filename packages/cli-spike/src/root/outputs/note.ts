@@ -5,7 +5,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
+
+const commandMeta = spikeCommandMeta("outputs note", { json: true });
 
 const noteConfig = {
   message: Argument.string("message").pipe(
@@ -28,9 +31,10 @@ const handleNote = (args: {
   });
 
 export const noteCommand = Command.make("note", noteConfig, ({ message, title }) =>
-  handleNote({ message, title }).pipe(withRuntime({ command: "outputs note" })),
+  handleNote({ message, title }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(noteConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render note output"),
   Command.withExamples([
     {

@@ -1,18 +1,23 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
+import { emitItemsResult } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-interface SamplePet {
-  readonly name: string;
-  readonly species: string;
-  readonly age: string;
-  readonly adoptable: boolean;
-}
+const SamplePetSchema = Schema.Struct({
+  name: Schema.String,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
+});
+
+type SamplePet = typeof SamplePetSchema.Type;
 
 const samplePets: ReadonlyArray<SamplePet> = [
   { name: "Mochi", species: "cat", age: "2 years", adoptable: true },
@@ -60,16 +65,24 @@ const tableColumns = [
   },
 ] as const;
 
+const commandMeta = spikeCommandMeta("outputs table", { json: true });
+
 const handleTable = (args: { readonly caption: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+
+    if (yield* emitItemsResult("outputs.table", samplePets, SamplePetSchema)) {
+      return;
+    }
+
     yield* renderer.table(samplePets, tableColumns, Option.getOrUndefined(args.caption));
   });
 
 export const tableCommand = Command.make("table", tableConfig, ({ caption }) =>
-  handleTable({ caption }).pipe(withRuntime({ command: "outputs table" })),
+  handleTable({ caption }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(tableConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render table data"),
   Command.withExamples([
     {

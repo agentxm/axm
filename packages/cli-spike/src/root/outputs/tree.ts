@@ -1,10 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
 
 interface FileEntry {
@@ -47,9 +49,45 @@ const treeConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Tree view title"), Flag.optional),
 } as const;
 
+const commandMeta = spikeCommandMeta("outputs tree", { json: true });
+
+interface FileNode {
+  readonly name: string;
+  readonly kind: "file" | "directory";
+  readonly children?: ReadonlyArray<FileNode>;
+}
+
+interface TreeInput {
+  readonly data: FileEntry;
+  readonly children?: ReadonlyArray<TreeInput>;
+}
+
+const toFileNodes = (tree: ReadonlyArray<TreeInput>): ReadonlyArray<FileNode> =>
+  tree.map((node) => ({
+    name: node.data.name,
+    kind: node.data.kind,
+    ...(node.children && node.children.length > 0 ? { children: toFileNodes(node.children) } : {}),
+  }));
+
 const handleTree = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+
+    if (
+      yield* renderer.result(
+        { schemaVersion: 1, command: "outputs.tree", data: { roots: toFileNodes(sampleTree) } },
+        Schema.Struct({
+          schemaVersion: Schema.Number,
+          command: Schema.Literal("outputs.tree"),
+          data: Schema.Struct({
+            roots: Schema.Array(Schema.Any),
+          }),
+        }),
+      )
+    ) {
+      return;
+    }
+
     yield* renderer.tree(
       sampleTree,
       {
@@ -62,9 +100,10 @@ const handleTree = (args: { readonly title: Option.Option<string> }) =>
   });
 
 export const treeCommand = Command.make("tree", treeConfig, ({ title }) =>
-  handleTree({ title }).pipe(withRuntime({ command: "outputs tree" })),
+  handleTree({ title }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(treeConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render tree hierarchy output"),
   Command.withExamples([
     {

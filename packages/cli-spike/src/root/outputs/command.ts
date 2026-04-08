@@ -9,6 +9,7 @@ import { progressCommand } from "./progress.js";
 import { rawCommand } from "./raw.js";
 import { resultCommand } from "./result.js";
 import { runTasksCommand } from "./run-tasks.js";
+import { sinkCommand } from "./sink.js";
 import { spinnerCommand } from "./spinner.js";
 import { streamLogCommand } from "./stream-log.js";
 import { tableCommand } from "./table.js";
@@ -46,5 +47,6 @@ export const outputsCommand = Command.make("outputs").pipe(
     streamLogCommand,
     resultCommand,
     rawCommand,
+    sinkCommand,
   ]),
 );

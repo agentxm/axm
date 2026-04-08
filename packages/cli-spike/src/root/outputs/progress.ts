@@ -5,7 +5,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { type ProgressConfig, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
+
+const commandMeta = spikeCommandMeta("outputs progress", { json: true });
 
 const progressConfig = {
   message: Argument.string("message").pipe(
@@ -58,11 +61,10 @@ export const progressCommand = Command.make(
   "progress",
   progressConfig,
   ({ message, style, max, size }) =>
-    handleProgress({ message, style, max, size }).pipe(
-      withRuntime({ command: "outputs progress" }),
-    ),
+    handleProgress({ message, style, max, size }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(progressConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render progress output"),
   Command.withExamples([
     {

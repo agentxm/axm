@@ -5,7 +5,10 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
+
+const commandMeta = spikeCommandMeta("outputs stream-log", { json: true });
 
 const buildLogLines = [
   "[1/5] Resolving packages...",
@@ -50,9 +53,10 @@ const handleStreamLog = (args: {
   });
 
 export const streamLogCommand = Command.make("stream-log", streamLogConfig, ({ level }) =>
-  handleStreamLog({ level }).pipe(withRuntime({ command: "outputs stream-log" })),
+  handleStreamLog({ level }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(streamLogConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render streamed log output"),
   Command.withExamples([
     {

@@ -1,20 +1,25 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
+import { emitDataResult } from "../../json-output.js";
 import { withRuntime } from "../../runtime.js";
 
-interface SamplePetDetail {
-  readonly name: string;
-  readonly species: string;
-  readonly age: string;
-  readonly adoptable: boolean;
-  readonly intakeDate: string;
-  readonly habitat: string;
-}
+const SamplePetDetailSchema = Schema.Struct({
+  name: Schema.String,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
+  intakeDate: Schema.String,
+  habitat: Schema.String,
+});
+
+type SamplePetDetail = typeof SamplePetDetailSchema.Type;
 
 const sampleItem: SamplePetDetail = {
   name: "Mochi",
@@ -80,16 +85,24 @@ const detailConfig = {
   title: Flag.string("title").pipe(Flag.withDescription("Detail view title"), Flag.optional),
 } as const;
 
+const commandMeta = spikeCommandMeta("outputs detail", { json: true });
+
 const handleDetail = (args: { readonly title: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+
+    if (yield* emitDataResult("outputs.detail", sampleItem, SamplePetDetailSchema)) {
+      return;
+    }
+
     yield* renderer.detail(sampleItem, detailColumns, Option.getOrUndefined(args.title));
   });
 
 export const detailCommand = Command.make("detail", detailConfig, ({ title }) =>
-  handleDetail({ title }).pipe(withRuntime({ command: "outputs detail" })),
+  handleDetail({ title }).pipe(withRuntime(commandMeta)),
 ).pipe(
   withArgvTracking(detailConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render detail key-value output"),
   Command.withExamples([
     {

@@ -5,7 +5,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { type BoxOptions, CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
+import { annotateCommandMeta, spikeCommandMeta } from "../../command-meta.js";
 import { withRuntime } from "../../runtime.js";
+
+const commandMeta = spikeCommandMeta("outputs box", { json: true });
 
 const boxConfig = {
   content: Argument.string("content").pipe(
@@ -64,10 +67,11 @@ export const boxCommand = Command.make(
   boxConfig,
   ({ content, title, contentAlign, titleAlign, width, padding, rounded }) =>
     handleBox({ content, title, contentAlign, titleAlign, width, padding, rounded }).pipe(
-      withRuntime({ command: "outputs box" }),
+      withRuntime(commandMeta),
     ),
 ).pipe(
   withArgvTracking(boxConfig),
+  annotateCommandMeta(commandMeta),
   Command.withDescription("Render content in a bordered box"),
   Command.withExamples([
     {

@@ -38,6 +38,9 @@ export const makeStubAgent = (id: AgentId): CodingAgent => ({
       warnings: [],
     }),
   removeCommand: () => Effect.succeed({ _tag: "success", renderedFilePath: "", warnings: [] }),
+  resolveEffectiveSubagentsDir: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
+  addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
+  removeSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
 });
 
 // -----------------------------------------------------------------------------
@@ -109,6 +112,15 @@ export const makeWorkspaceMock = (
   removeCommand: () => Effect.void,
   updateCommandEntry: () => Effect.void,
   setCommandEntry: () => Effect.void,
+  getLockedSubagents: () => Effect.succeed({}),
+  getLockedSubagent: () => Effect.succeed(Option.none()),
+  setSubagent: () => Effect.void,
+  setSubagentLock: () => Effect.void,
+  removeSubagent: () => Effect.void,
+  updateSubagentEntry: () => Effect.void,
+  setSubagentEntry: () => Effect.void,
+  removeSubagentSettings: () => Effect.void,
+  removeSubagentLock: () => Effect.void,
   getLockedMcpServers: () => Effect.succeed({}),
   getLockedMcpServer: () => Effect.succeed(Option.none()),
   setMcpServer: () => Effect.void,

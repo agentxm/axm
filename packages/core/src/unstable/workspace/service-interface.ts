@@ -28,25 +28,32 @@ import type {
   ExtensionPacksLockMap,
   SkillLockEntry,
   SkillsLockMap,
+  SubagentLockEntry,
+  SubagentsLockMap,
 } from "../lockfile/index.js";
 import type {
   NormalizedCommandEntry,
   NormalizedSkillEntry,
+  NormalizedSubagentEntry,
   SourceHostConfig,
 } from "../settings/index.js";
 import type {
   ClassifiedCommand,
   ClassifiedExtensionRef,
   ClassifiedSkill,
+  ClassifiedSubagent,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
+  ConfiguredSubagent,
   ImplicitCommand,
   ImplicitExtensionRef,
   ImplicitSkill,
+  ImplicitSubagent,
   InstalledCommand,
   InstalledExtensionRef,
   InstalledSkill,
+  InstalledSubagent,
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
@@ -104,6 +111,11 @@ export interface McpServerExtensionTarget {
   readonly name: string;
 }
 
+export interface SubagentExtensionTarget {
+  readonly type: "subagent";
+  readonly name: string;
+}
+
 /**
  * Identifies a specific extension by type and name.
  */
@@ -111,7 +123,8 @@ export type ExtensionTarget =
   | SkillExtensionTarget
   | PackExtensionTarget
   | CommandExtensionTarget
-  | McpServerExtensionTarget;
+  | McpServerExtensionTarget
+  | SubagentExtensionTarget;
 
 /**
  * Maps an ExtensionRef type to its corresponding ExtensionTarget type.
@@ -186,6 +199,14 @@ export type SetExtensionPackArgs = RegistryExtensionPackLockEntryArgs & {
 export interface SetCommandArgs {
   readonly name: string;
   readonly lockEntry: CommandLockEntry;
+}
+
+/**
+ * Arguments for `setSubagent` -- bundles the subagent name with the lock entry.
+ */
+export interface SetSubagentArgs {
+  readonly name: string;
+  readonly lockEntry: SubagentLockEntry;
 }
 
 /**
@@ -436,6 +457,53 @@ export interface WorkspaceContextService {
     name: string,
     entry: NormalizedCommandEntry,
   ) => Effect.Effect<void, AppError>;
+  /** Configured subagents from settings with source metadata. */
+  readonly getConfiguredSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredSubagent>,
+    AppError
+  >;
+  /** Implicit subagents (lockfile-only native entries). */
+  readonly getImplicitSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ImplicitSubagent>,
+    AppError
+  >;
+  /** Installed subagents (configured + implicit). */
+  readonly getInstalledSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledSubagent>,
+    AppError
+  >;
+  /** All classified subagents. */
+  readonly getClassifiedSubagents: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ClassifiedSubagent>,
+    AppError
+  >;
+  /** Read lockfile and return the subagents lock map. */
+  readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, AppError>;
+  /** Read lockfile and return the entry for a specific subagent, or Option.none(). */
+  readonly getLockedSubagent: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
+  /** Add or update a subagent in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
+  /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
+  readonly setSubagentLock: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
+  /** Remove a subagent from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeSubagent: (name: string) => Effect.Effect<void, AppError>;
+  /** Update a subagent entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
+  readonly updateSubagentEntry: (
+    name: string,
+    updater: (entry: NormalizedSubagentEntry) => NormalizedSubagentEntry,
+  ) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a subagent entry in settings only (no lockfile). Serialized by semaphore. */
+  readonly setSubagentEntry: (
+    name: string,
+    entry: NormalizedSubagentEntry,
+  ) => Effect.Effect<void, AppError>;
+  // --- Granular subagent removal methods (settings-only or lockfile-only) ---
+  /** Remove a subagent from settings only (keep lockfile entry). Serialized by semaphore. */
+  readonly removeSubagentSettings: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a subagent from lockfile only (keep settings entry). Serialized by semaphore. */
+  readonly removeSubagentLock: (name: string) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the MCP servers lock map. */
   readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, AppError>;
   /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */

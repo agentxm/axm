@@ -1617,6 +1617,7 @@ describe("WorkspaceContextService", () => {
     resolvedSkills: {},
     resolvedCommands: {},
     resolvedMcpServers: {},
+    resolvedSubagents: {},
     versionConstraint: Option.none(),
     ...overrides,
   });
@@ -1705,6 +1706,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -1751,6 +1753,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -1848,6 +1851,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
             "other-pack": {
               type: "registry",
@@ -1861,6 +1865,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -2359,6 +2364,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -2394,6 +2400,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
           {
@@ -2440,6 +2447,7 @@ describe("WorkspaceContextService", () => {
                 "@acme/commands/linter": "2.0.0",
               },
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -2752,6 +2760,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -2812,6 +2821,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -2845,6 +2855,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
             "@axm/packs/default": {
               type: "registry",
@@ -2858,6 +2869,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -3912,6 +3924,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -3968,6 +3981,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -4036,6 +4050,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: { "@acme/skills/code-review": "1.0.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );
@@ -4072,6 +4087,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: { "@acme/commands/my-cmd": "1.0.0" },
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
           {
@@ -4118,6 +4134,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: { "@acme/mcp-servers/my-mcp": "1.0.0" },
+              resolvedSubagents: {},
             },
           },
           undefined,
@@ -4164,6 +4181,7 @@ describe("WorkspaceContextService", () => {
               resolvedSkills: {},
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         );

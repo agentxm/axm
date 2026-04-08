@@ -8,10 +8,11 @@ import type {
   McpServerLockEntry,
   ExtensionPackLockEntry,
   SkillLockEntry,
+  SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { Settings } from "../settings/index.js";
 
-export type ReconcileExtensionType = "skills" | "commands" | "mcp-servers" | "packs";
+export type ReconcileExtensionType = "skills" | "commands" | "mcp-servers" | "subagents" | "packs";
 
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 
@@ -60,6 +61,11 @@ export type ReconstructedLockEntry =
       readonly type: "mcp-servers";
       readonly name: ExtensionName;
       readonly entry: McpServerLockEntry;
+    }
+  | {
+      readonly type: "subagents";
+      readonly name: ExtensionName;
+      readonly entry: SubagentLockEntry;
     }
   | {
       readonly type: "packs";

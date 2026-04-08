@@ -36,6 +36,25 @@ export interface AgentCommandsDescriptor {
 }
 
 // -----------------------------------------------------------------------------
+// Agent Subagents Configuration
+// -----------------------------------------------------------------------------
+
+/**
+ * Subagents-specific configuration for an agent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface AgentSubagentsDescriptor {
+  /** Subagents directory, relative to cwd (e.g., ".claude/agents") */
+  readonly dir: string;
+  /**
+   * When true, the path is a single file (e.g., ".roomodes") rather than a
+   * directory containing subagent files.
+   */
+  readonly isFile?: boolean;
+}
+
+// -----------------------------------------------------------------------------
 // Agent Identifiers
 // -----------------------------------------------------------------------------
 
@@ -111,6 +130,8 @@ export interface AgentDescriptor {
   readonly skills: AgentSkillsDescriptor;
   /** Commands installation configuration (optional — not all agents support commands) */
   readonly commands?: AgentCommandsDescriptor;
+  /** Subagents installation configuration (optional — not all agents support subagents) */
+  readonly subagents?: AgentSubagentsDescriptor;
 }
 
 // -----------------------------------------------------------------------------

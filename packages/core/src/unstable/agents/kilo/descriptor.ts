@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".kilo/commands",
   },
+  subagents: {
+    dir: ".kilo/agents",
+  },
 };

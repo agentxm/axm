@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".cursor/commands",
   },
+  subagents: {
+    dir: ".cursor/agents",
+  },
 };

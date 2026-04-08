@@ -11,6 +11,10 @@
 // Detection (effectful)
 export { detectAgent, detectAgents } from "./detection.js";
 
+// Subagent file detection
+export { scanAgentSubagentFiles, scanAllSubagentFiles } from "./subagent-detection.js";
+export type { DetectedSubagentFile, AgentSubagentSummary } from "./subagent-detection.js";
+
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 
@@ -22,12 +26,14 @@ export type {
   AgentId,
   AgentRegistry,
   AgentSkillsDescriptor,
+  AgentSubagentsDescriptor,
 } from "./types.js";
 
 // Coding agent service contracts (used by extension managers)
 export type {
   AddCommandArgs,
   AddMcpServerArgs,
+  AddSubagentArgs,
   CodingAgent,
   CodingAgentRepositoryService,
   CodingAgentRepositoryShape,
@@ -37,10 +43,15 @@ export type {
   McpServerSyncOutcome,
   RemoveCommandArgs,
   RemoveMcpServerArgs,
+  RemoveSubagentArgs,
   ResolveCommandsDirArgs,
   ResolveCommandsDirOutcome,
   ResolveSkillsDirArgs,
   ResolveSkillsDirOutcome,
+  ResolveSubagentsDirArgs,
+  ResolveSubagentsDirOutcome,
+  SubagentScope,
+  SubagentSyncOutcome,
 } from "./coding-agent.js";
 export { CodingAgentRepository } from "./coding-agent.js";
 
@@ -59,6 +70,16 @@ export {
 
 // Agent factory
 export { makeProjectOnlyCodingAgent, type ProjectOnlyAgentConfig } from "./project-only-agent.js";
+
+// Subagent sync helpers
+export {
+  writeSubagentFiles,
+  removeSubagentFiles,
+  addSubagentViaResolve,
+  removeSubagentViaResolve,
+  addRooSubagent,
+  removeRooSubagent,
+} from "./subagent-sync.js";
 
 // MCP sync helpers
 export {

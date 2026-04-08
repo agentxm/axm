@@ -481,6 +481,112 @@ describe("init.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Subagent Detection
+  // ---------------------------------------------------------------------------
+
+  describe("subagent detection in init", () => {
+    it.effect("notes unmanaged subagent files", () => {
+      const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
+      });
+      const BaseLayer = Layer.mergeAll(
+        NodeServices.layer,
+        iRendererLayer,
+        iPromptLayer,
+        TestFlagsLayer(),
+      );
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({
+          scope: "project",
+          agents: ["claude-code"],
+        }),
+        BaseLayer,
+      );
+      return Effect.gen(function* () {
+        // Create .claude/agents with an unmanaged subagent file
+        const agentsDir = path.join(tempDir, ".claude", "agents");
+        fs.mkdirSync(agentsDir, { recursive: true });
+        fs.writeFileSync(path.join(agentsDir, "my-agent.md"), "# My Agent\nInstructions");
+
+        yield* handleInit();
+
+        const warnMessages = iRendererState.logs
+          .filter((l) => l._tag === "warn")
+          .map((l) => l.message);
+        expect(warnMessages.some((m) => m.includes("not managed by axm"))).toBe(true);
+        expect(warnMessages.some((m) => m.includes("Claude Code"))).toBe(true);
+      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+    });
+
+    it.effect("notes managed subagent files", () => {
+      const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
+      });
+      const BaseLayer = Layer.mergeAll(
+        NodeServices.layer,
+        iRendererLayer,
+        iPromptLayer,
+        TestFlagsLayer(),
+      );
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({
+          scope: "project",
+          agents: ["claude-code"],
+        }),
+        BaseLayer,
+      );
+      return Effect.gen(function* () {
+        // Create .claude/agents with a managed subagent file
+        const agentsDir = path.join(tempDir, ".claude", "agents");
+        fs.mkdirSync(agentsDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(agentsDir, "managed-agent.md"),
+          `<!-- Managed by axm \u2014 see "axm subagents --help" -->\n# Managed Agent`,
+        );
+
+        yield* handleInit();
+
+        const infoMessages = iRendererState.logs
+          .filter((l) => l._tag === "info")
+          .map((l) => l.message);
+        expect(infoMessages.some((m) => m.includes("managed subagent file(s)"))).toBe(true);
+        expect(infoMessages.some((m) => m.includes("Claude Code"))).toBe(true);
+      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+    });
+
+    it.effect("does not show subagent messages when no subagent files found", () => {
+      const { layer: iRendererLayer, state: iRendererState } = TestRenderer.make();
+      const [iPromptLayer] = makeTestPrompt({
+        confirmResponses: [true],
+        multiselectResponses: [[]],
+      });
+      const BaseLayer = Layer.mergeAll(
+        NodeServices.layer,
+        iRendererLayer,
+        iPromptLayer,
+        TestFlagsLayer(),
+      );
+      const WsLayer = Layer.provide(
+        coreWorkspaceLayer({
+          scope: "project",
+          agents: ["claude-code"],
+        }),
+        BaseLayer,
+      );
+      return Effect.gen(function* () {
+        yield* handleInit();
+
+        const allMessages = iRendererState.logs.map((l) => l.message);
+        expect(allMessages.some((m) => m.includes("subagent"))).toBe(false);
+      }).pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Error Handling
   // ---------------------------------------------------------------------------
 

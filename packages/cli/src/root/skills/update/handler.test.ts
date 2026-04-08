@@ -115,6 +115,7 @@ const makePackLockEntry = (owner: string, name: string) => ({
   resolvedSkills: {},
   resolvedCommands: {},
   resolvedMcpServers: {},
+  resolvedSubagents: {},
 });
 
 const writeRegistrySkill = ({

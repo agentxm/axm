@@ -34,6 +34,10 @@ import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
 } from "../mcp-servers/manifest-schema.js";
+import {
+  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
+  SubagentManifestSchema,
+} from "../subagents/manifest-schema.js";
 import { satisfiesConstraint } from "../version-constraints/version-constraints.js";
 import type { AppError } from "../app-error/index.js";
 import {
@@ -166,9 +170,10 @@ const makeManifestDecoder = <A extends DependencyManifest>(
 const decodeSkillManifest = makeManifestDecoder(SkillManifestSchema);
 const decodeCommandManifest = makeManifestDecoder(CommandManifestSchema);
 const decodeMcpServerManifest = makeManifestDecoder(McpServerManifestSchema);
+const decodeSubagentManifest = makeManifestDecoder(SubagentManifestSchema);
 
 const readInstalledDependencyVersion = (
-  type: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers" | "subagents",
   fqn: string,
   constraint: VersionConstraint,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
@@ -229,14 +234,23 @@ const readInstalledDependencyVersion = (
               "command",
               env,
             )
-          : yield* readAndDecodeManifest(
-              dependencyDeclaration,
-              canonicalPath,
-              MCP_SERVER_MANIFEST_FILENAME,
-              decodeMcpServerManifest,
-              "MCP server",
-              env,
-            );
+          : type === "mcp-servers"
+            ? yield* readAndDecodeManifest(
+                dependencyDeclaration,
+                canonicalPath,
+                MCP_SERVER_MANIFEST_FILENAME,
+                decodeMcpServerManifest,
+                "MCP server",
+                env,
+              )
+            : yield* readAndDecodeManifest(
+                dependencyDeclaration,
+                canonicalPath,
+                SUBAGENT_MANIFEST_FILENAME,
+                decodeSubagentManifest,
+                "subagent",
+                env,
+              );
 
     if (result._tag !== "ok") {
       return {
@@ -267,7 +281,7 @@ const readInstalledDependencyVersion = (
   });
 
 const resolveInstalledDependencyMap = (
-  type: "skills" | "commands" | "mcp-servers",
+  type: "skills" | "commands" | "mcp-servers" | "subagents",
   dependencies: ExtensionDependencyConstraintMap | undefined,
   context: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[1],
   env: Parameters<ReconciliationAdapter["checkDiskCompatibility"]>[2],
@@ -489,6 +503,20 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
         } satisfies DeclarationResolution;
       }
 
+      const resolvedSubagents = yield* resolveInstalledDependencyMap(
+        "subagents",
+        manifest.subagents,
+        context,
+        env,
+      );
+      if (resolvedSubagents._tag === "Unresolved") {
+        return {
+          _tag: "Unresolved",
+          declaration,
+          reason: resolvedSubagents.reason,
+        } satisfies DeclarationResolution;
+      }
+
       return {
         _tag: "Compatible",
         reconstructed: {
@@ -505,6 +533,7 @@ export const extensionPackReconciliationAdapter: ReconciliationAdapter = {
             resolvedSkills: resolvedSkills.resolved,
             resolvedCommands: resolvedCommands.resolved,
             resolvedMcpServers: resolvedMcpServers.resolved,
+            resolvedSubagents: resolvedSubagents.resolved,
           }),
         },
       } satisfies DeclarationResolution;

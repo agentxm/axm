@@ -19,7 +19,7 @@ export const EXTENSION_PACK_MANIFEST_SCHEMA_URL =
 /**
  * Schema for pack manifest files (extension-pack.json).
  *
- * Extension packs bundle multiple extensions (skills, commands, MCP servers)
+ * Extension packs bundle multiple extensions (skills, commands, MCP servers, subagents)
  * for convenient distribution and installation. Each extension entry
  * maps a fully qualified name to a semver version range.
  *
@@ -35,6 +35,7 @@ export const ExtensionPackManifestSchema = Schema.Struct({
   skills: Schema.optional(ExtensionDependencyConstraintMapSchema),
   commands: Schema.optional(ExtensionDependencyConstraintMapSchema),
   "mcp-servers": Schema.optional(ExtensionDependencyConstraintMapSchema),
+  subagents: Schema.optional(ExtensionDependencyConstraintMapSchema),
 }).annotate({
   identifier: "ExtensionPackManifest",
   title: "Extension Pack Manifest",

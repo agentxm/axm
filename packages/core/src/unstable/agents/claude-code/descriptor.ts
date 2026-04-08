@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".claude/commands",
   },
+  subagents: {
+    dir: ".claude/agents",
+  },
 };

@@ -65,6 +65,21 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
       _tag: "unsupported",
       reason: `Command remove is not supported for ${descriptor.id}`,
     } as const),
+  resolveEffectiveSubagentsDir: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Subagents are not supported for ${descriptor.id}`,
+    } as const),
+  addSubagent: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Subagent add is not supported for ${descriptor.id}`,
+    } as const),
+  removeSubagent: () =>
+    Effect.succeed({
+      _tag: "unsupported",
+      reason: `Subagent remove is not supported for ${descriptor.id}`,
+    } as const),
 });
 
 const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {

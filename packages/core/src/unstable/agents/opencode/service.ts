@@ -14,6 +14,9 @@ import {
 /** @experimental */
 export const OPENCODE_COMMANDS_PROJECT_DIR = ".opencode/commands";
 
+/** @experimental */
+export const OPENCODE_SUBAGENTS_PROJECT_DIR = ".opencode/agents";
+
 export const opencodeMcpStrategy: ConfigFirstStrategy = {
   configPath: "{workspaceRoot}/.opencode/mcp.json",
   verifyCommand: ["opencode", "mcp", "list"],
@@ -24,6 +27,7 @@ export const opencodeCodingAgent = makeProjectOnlyCodingAgent({
   displayName: "OpenCode",
   skillsProjectDir: ".opencode/skills",
   commandsProjectDir: OPENCODE_COMMANDS_PROJECT_DIR,
+  subagentsProjectDir: OPENCODE_SUBAGENTS_PROJECT_DIR,
   mcp: {
     addMcpServer: (args) => addMcpServerConfigFirst(opencodeMcpStrategy, args),
     removeMcpServer: (args) => removeMcpServerConfigFirst(opencodeMcpStrategy, args),

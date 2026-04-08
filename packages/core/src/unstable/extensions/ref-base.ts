@@ -102,6 +102,17 @@ export type McpServerExtensionRefBase<
 };
 
 /** @experimental */
+export type SubagentExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"subagent", TRefType, TSource> & {
+  readonly subagent: {
+    readonly name: ExtensionName;
+    readonly description: Option.Option<string>;
+  };
+};
+
+/** @experimental */
 export type ExtensionPackRefBase<
   TRefType extends RefType,
   TSource extends Source,
@@ -112,5 +123,6 @@ export type ExtensionPackRefBase<
     readonly skills: ExtensionDependencyConstraintMap;
     readonly commands: ExtensionDependencyConstraintMap;
     readonly mcpServers: ExtensionDependencyConstraintMap;
+    readonly subagents: ExtensionDependencyConstraintMap;
   };
 };

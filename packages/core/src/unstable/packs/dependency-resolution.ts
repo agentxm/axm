@@ -11,6 +11,7 @@ import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcp-servers/registry-ref-builder.js";
+import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
 import {
   decodeExactSemverVersionSync,
   type VersionConstraint,
@@ -28,6 +29,7 @@ export interface ResolvedExtensionPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
   readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
+  readonly resolvedSubagents: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
@@ -148,11 +150,18 @@ export const resolveExtensionPackDependencies = (
       "mcp-server",
       sources,
     );
+    const resolvedSubagents = yield* resolveDependencyGroup(
+      pack,
+      pack.pack.subagents,
+      "subagent",
+      sources,
+    );
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
       resolvedCommands: toResolvedMap(resolvedCommands),
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
+      resolvedSubagents: toResolvedMap(resolvedSubagents),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
           buildRegistrySkillRef(
@@ -174,6 +183,15 @@ export const resolveExtensionPackDependencies = (
         ),
         ...resolvedMcpServers.map((dependency) =>
           buildRegistryMcpServerRef(
+            dependency.owner,
+            dependency.name,
+            dependency.ref.version,
+            dependency.source,
+            dependency.ref.compatiblePackages,
+          ),
+        ),
+        ...resolvedSubagents.map((dependency) =>
+          buildRegistrySubagentRef(
             dependency.owner,
             dependency.name,
             dependency.ref.version,

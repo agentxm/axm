@@ -200,6 +200,7 @@ describe("enable.handler", () => {
               resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
+              resolvedSubagents: {},
             },
           },
         },

@@ -38,6 +38,7 @@ import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import * as Schema from "effect/Schema";
@@ -150,6 +151,7 @@ describe("packs install handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
+      SubagentManagerLive,
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
@@ -198,6 +200,7 @@ describe("packs install handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
+      SubagentManagerLive,
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
@@ -416,6 +419,7 @@ describe("packs install handler", () => {
           skills: {},
           commands: {},
           mcpServers: {},
+          subagents: {},
         },
         source: {
           type: "registry",
@@ -457,6 +461,7 @@ describe("packs install handler", () => {
             resolvedSkills: {},
             resolvedCommands: {},
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       });
@@ -520,6 +525,7 @@ describe("packs install handler", () => {
           skills: constraints({ "@acme/skills/react-testing": "^1.0.0" }),
           commands: {},
           mcpServers: {},
+          subagents: {},
         },
         source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
         owner: ACME,
@@ -591,6 +597,7 @@ describe("packs install handler", () => {
           skills: constraints({ "@acme/skills/plain-skill": "^1.0.0" }),
           commands: {},
           mcpServers: {},
+          subagents: {},
         },
         source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
         owner: ACME,
@@ -676,6 +683,7 @@ describe("packs install handler", () => {
         skills: opts?.skills ?? {},
         commands: opts?.commands ?? {},
         mcpServers: opts?.mcpServers ?? {},
+        subagents: {},
       },
       source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
       owner: ACME,
@@ -857,6 +865,7 @@ describe("packs install handler", () => {
             resolvedSkills: {},
             resolvedCommands: {},
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       });

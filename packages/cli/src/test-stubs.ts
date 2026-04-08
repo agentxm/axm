@@ -21,6 +21,10 @@ import type {
   UnmanagedCommand,
   InstalledCommand,
   ClassifiedCommand,
+  ConfiguredSubagent,
+  ImplicitSubagent,
+  InstalledSubagent,
+  ClassifiedSubagent,
   ConfiguredExtensionRef,
   ImplicitExtensionRef,
   UnmanagedExtensionRef,
@@ -109,6 +113,11 @@ export const taxonomyStubs = {
   getConfiguredExternalMcpServers: empty<ConfiguredExtensionRef>,
   getUnmanagedExternalMcpServers: empty<UnmanagedExtensionRef>,
   getIgnoredMcpServerPatterns: emptyArr,
+  // Subagent taxonomy
+  getConfiguredSubagents: empty<ConfiguredSubagent>,
+  getImplicitSubagents: empty<ImplicitSubagent>,
+  getInstalledSubagents: empty<InstalledSubagent>,
+  getClassifiedSubagents: empty<ClassifiedSubagent>,
   // Pack taxonomy
   getConfiguredPacks: empty<ConfiguredExtensionRef>,
   getImplicitPacks: empty<ImplicitExtensionRef>,
@@ -177,6 +186,15 @@ export const makeBaseWorkspaceMock = (
     setCommand: () => Effect.void,
     setCommandLock: () => Effect.void,
     removeCommand: () => Effect.void,
+    getLockedSubagents: () => Effect.succeed({}),
+    getLockedSubagent: () => Effect.succeed(Option.none()),
+    setSubagent: () => Effect.void,
+    setSubagentLock: () => Effect.void,
+    removeSubagent: () => Effect.void,
+    updateSubagentEntry: () => Effect.void,
+    setSubagentEntry: () => Effect.void,
+    removeSubagentSettings: () => Effect.void,
+    removeSubagentLock: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed({}),
     getLockedMcpServer: () => Effect.succeed(Option.none()),
     setMcpServer: () => Effect.void,
@@ -237,6 +255,8 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfileCommands?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
+  readonly subagents?: Record<string, unknown> | undefined;
+  readonly lockfileSubagents?: Record<string, unknown> | undefined;
 }
 
 export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
@@ -245,6 +265,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(opts.profile && { profile: opts.profile }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
+    ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts["mcp-servers"]) && { "mcp-servers": opts["mcp-servers"] }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(opts.sources && { sources: opts.sources }),
@@ -254,6 +275,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     lockfileVersion: 1,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
+    ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { "mcp-servers": opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
   };
@@ -306,6 +328,7 @@ export const makeRegistryExtensionPackLockEntry = (opts: {
   readonly resolvedSkills?: ResolvedExtensionMap;
   readonly resolvedCommands?: ResolvedExtensionMap;
   readonly resolvedMcpServers?: ResolvedExtensionMap;
+  readonly resolvedSubagents?: ResolvedExtensionMap;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
 }): RegistryExtensionPackLockEntry =>
@@ -320,4 +343,5 @@ export const makeRegistryExtensionPackLockEntry = (opts: {
     resolvedSkills: opts.resolvedSkills ?? {},
     resolvedCommands: opts.resolvedCommands ?? {},
     resolvedMcpServers: opts.resolvedMcpServers ?? {},
+    resolvedSubagents: opts.resolvedSubagents ?? {},
   });

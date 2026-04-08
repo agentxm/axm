@@ -54,6 +54,8 @@ export interface InstallExtensionPackOperationArgs {
   readonly resolvedCommands: ResolvedExtensionMap;
   /** Resolved MCP server FQNs to exact versions */
   readonly resolvedMcpServers: ResolvedExtensionMap;
+  /** Resolved subagent FQNs to exact versions */
+  readonly resolvedSubagents: ResolvedExtensionMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionConstraint: Option<string>;
   /** Pack extension ref for fetching the archive. */
@@ -103,6 +105,10 @@ export const installExtensionPack: OperationHandler<
       `packs.${op.args.packName}.resolvedMcpServers`,
       op.args.resolvedMcpServers,
     );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedSubagents`,
+      op.args.resolvedSubagents,
+    );
 
     // Extract to managed location
     const packDir = computeExtensionPackPaths(
@@ -150,6 +156,7 @@ export const installExtensionPack: OperationHandler<
         resolvedSkills: op.args.resolvedSkills,
         resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,
+        resolvedSubagents: op.args.resolvedSubagents,
         versionConstraint: op.args.versionConstraint,
       })
       .pipe(

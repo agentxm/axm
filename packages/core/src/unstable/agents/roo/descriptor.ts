@@ -21,4 +21,8 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".roo/commands",
   },
+  subagents: {
+    dir: ".roomodes",
+    isFile: true,
+  },
 };

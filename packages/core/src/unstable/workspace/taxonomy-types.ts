@@ -74,6 +74,38 @@ export type ClassifiedCommand =
   | ({ readonly lifecycle: "unmanaged" } & UnmanagedCommand);
 
 // ---------------------------------------------------------------------------
+// Subagent taxonomy
+// ---------------------------------------------------------------------------
+
+/** Configured subagent with source metadata. Includes `enabled`. */
+export interface ConfiguredSubagent {
+  readonly source: string;
+  readonly enabled: boolean;
+  readonly packagingKind: PackagingKind;
+}
+
+export interface ImplicitSubagent {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+}
+
+export interface UnmanagedSubagent {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+}
+
+export type InstalledSubagent =
+  | ({ readonly lifecycle: "configured" } & ConfiguredSubagent)
+  | ({ readonly lifecycle: "implicit" } & ImplicitSubagent);
+
+export type ClassifiedSubagent =
+  | ({ readonly lifecycle: "configured" } & ConfiguredSubagent)
+  | ({ readonly lifecycle: "implicit" } & ImplicitSubagent)
+  | ({ readonly lifecycle: "unmanaged" } & UnmanagedSubagent);
+
+// ---------------------------------------------------------------------------
 // Generic extension ref taxonomy (MCP servers, packs)
 // ---------------------------------------------------------------------------
 

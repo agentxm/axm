@@ -6,6 +6,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src/**/*.test.ts", "vitest.config.ts"],
+  "include": ["src/**/*.test.ts", "src/**/test-helpers.ts", "vitest.config.ts"],
   "references": [{ "path": "./tsconfig.lib.json" }]
 }

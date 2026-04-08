@@ -755,6 +755,7 @@ describe("lockfile schema", () => {
         resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
         resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
@@ -772,6 +773,7 @@ describe("lockfile schema", () => {
       expect(result.resolvedSkills).toEqual({ "@acme/skills/code-review": "1.2.0" });
       expect(result.resolvedCommands).toEqual({ "@acme/commands/formatter": "1.0.0" });
       expect(result.resolvedMcpServers).toEqual({});
+      expect(result.resolvedSubagents).toEqual({});
     });
 
     it("accepts pack lock entry with empty resolved maps", () => {
@@ -787,6 +789,7 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
@@ -794,6 +797,28 @@ describe("lockfile schema", () => {
       expect(result.resolvedSkills).toEqual({});
       expect(result.resolvedCommands).toEqual({});
       expect(result.resolvedMcpServers).toEqual({});
+      expect(result.resolvedSubagents).toEqual({});
+    });
+
+    it("accepts pack lock entry with resolvedSubagents", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-abc123def456",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: { "@acme/subagents/reviewer": "2.0.0" },
+      };
+
+      const result = Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input);
+
+      expect(result.resolvedSubagents).toEqual({ "@acme/subagents/reviewer": "2.0.0" });
     });
 
     it("rejects pack lock entry with range resolvedVersion", () => {
@@ -809,6 +834,7 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -827,6 +853,7 @@ describe("lockfile schema", () => {
         resolvedSkills: { "@acme/skills/code-review": "^1.2.0" },
         resolvedCommands: { "@acme/commands/formatter": "~1.0.0" },
         resolvedMcpServers: { "@acme/mcp-servers/local-tools": ">=1.0.0 <2.0.0" },
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -844,6 +871,7 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -861,6 +889,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -878,6 +907,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -895,6 +925,25 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
         resolvedCommands: {},
+        resolvedSubagents: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry missing resolvedSubagents", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -913,6 +962,7 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
       };
 
       expect(() => Schema.decodeUnknownSync(ExtensionPackLockEntrySchema)(input)).toThrow();
@@ -940,6 +990,7 @@ describe("lockfile schema", () => {
           resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
           resolvedCommands: {},
           resolvedMcpServers: {},
+          resolvedSubagents: {},
         },
       };
 
@@ -970,6 +1021,7 @@ describe("lockfile schema", () => {
             resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
             resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       };
@@ -1022,6 +1074,7 @@ describe("lockfile schema", () => {
             resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
             resolvedCommands: {},
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       };

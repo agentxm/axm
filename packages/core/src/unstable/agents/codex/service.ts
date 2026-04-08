@@ -12,11 +12,17 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
 /** @experimental */
 export const CODEX_COMMANDS_USER_DIR = ".codex/prompts";
+
+/** @experimental */
+export const CODEX_SUBAGENTS_PROJECT_DIR = ".codex/agents";
+/** @experimental */
+export const CODEX_SUBAGENTS_USER_DIR = ".codex/agents";
 
 const codexCommandConfig: CommandSyncConfig = {
   agentId: "codex",
@@ -65,4 +71,25 @@ export const codexCodingAgent: CodingAgent = {
       args,
       codexCommandConfig,
     ),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      if (scope === "user") {
+        const home = yield* getHome;
+        return {
+          _tag: "supported",
+          dir: path.join(home, CODEX_SUBAGENTS_USER_DIR),
+          warnings: [],
+        } as const;
+      }
+      return {
+        _tag: "supported",
+        dir: path.resolve(workspaceRoot, CODEX_SUBAGENTS_PROJECT_DIR),
+        warnings: [],
+      } as const;
+    }),
+  addSubagent: (args) =>
+    addSubagentViaResolve(codexCodingAgent.resolveEffectiveSubagentsDir(args), args),
+  removeSubagent: (args) =>
+    removeSubagentViaResolve(codexCodingAgent.resolveEffectiveSubagentsDir(args), args),
 };

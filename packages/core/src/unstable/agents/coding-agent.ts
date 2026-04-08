@@ -18,6 +18,8 @@ import type { AppError } from "../app-error/index.js";
 import type { CommandFrontmatter } from "../commands/command-content.js";
 import type { CommandManifest } from "../commands/manifest-schema.js";
 import type { Handle } from "../extensions/handle.js";
+import type { RenderedFilePath } from "../extensions/rendered-files.js";
+import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import type { Workspace } from "../workspace/service-interface.js";
 import type { AgentId } from "./types.js";
 
@@ -122,6 +124,69 @@ export type CommandSyncOutcome =
   | { readonly _tag: "conflict"; readonly reason: string };
 
 // ---------------------------------------------------------------------------
+// Subagent types
+// ---------------------------------------------------------------------------
+
+/**
+ * Scope for subagent directory resolution.
+ */
+export type SubagentScope = "project" | "user";
+
+/**
+ * Inputs for resolving an agent's effective subagents directory.
+ */
+export interface ResolveSubagentsDirArgs {
+  readonly workspaceRoot: string;
+  readonly scope: SubagentScope;
+}
+
+/**
+ * Tagged outcome for subagents-directory resolution.
+ */
+export type ResolveSubagentsDirOutcome =
+  | { readonly _tag: "supported"; readonly dir: string; readonly warnings: ReadonlyArray<string> }
+  | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "disabled"; readonly reason: string }
+  | { readonly _tag: "misconfigured"; readonly reason: string };
+
+/**
+ * Inputs for adding a subagent to an agent's subagents directory.
+ */
+export interface AddSubagentArgs {
+  readonly workspaceRoot: string;
+  readonly scope: SubagentScope;
+  readonly input: SubagentRenderInput;
+  readonly force: boolean;
+}
+
+/**
+ * Inputs for removing a subagent from an agent's subagents directory.
+ */
+export interface RemoveSubagentArgs {
+  readonly workspaceRoot: string;
+  readonly scope: SubagentScope;
+  readonly subagentName: string;
+  /** Rendered file paths from the lockfile, used to know which files to delete. */
+  readonly renderedFilePaths: ReadonlyArray<RenderedFilePath>;
+}
+
+/**
+ * Outcome of a subagent sync operation (add or remove).
+ */
+export type SubagentSyncOutcome =
+  | {
+      readonly _tag: "success";
+      readonly renderedFilePaths: ReadonlyArray<string>;
+      readonly warnings: ReadonlyArray<string>;
+    }
+  | {
+      readonly _tag: "skipped";
+      readonly reason: string;
+    }
+  | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "conflict"; readonly reason: string };
+
+// ---------------------------------------------------------------------------
 // MCP types
 // ---------------------------------------------------------------------------
 
@@ -165,6 +230,15 @@ export interface CodingAgent {
   readonly removeCommand: (
     args: RemoveCommandArgs,
   ) => Effect.Effect<CommandSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
+  readonly resolveEffectiveSubagentsDir: (
+    args: ResolveSubagentsDirArgs,
+  ) => Effect.Effect<ResolveSubagentsDirOutcome, AppError, FileSystem.FileSystem | Path.Path>;
+  readonly addSubagent: (
+    args: AddSubagentArgs,
+  ) => Effect.Effect<SubagentSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
+  readonly removeSubagent: (
+    args: RemoveSubagentArgs,
+  ) => Effect.Effect<SubagentSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
 }
 
 /**

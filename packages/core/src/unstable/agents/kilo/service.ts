@@ -17,11 +17,15 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 
 /** @experimental */
 export const KILO_COMMANDS_OPENCODE_DIR = ".opencode/commands";
 /** @experimental */
 export const KILO_COMMANDS_FALLBACK_DIR = ".kilo/commands";
+
+/** @experimental */
+export const KILO_SUBAGENTS_PROJECT_DIR = ".kilo/agents";
 
 const kiloCommandConfig: CommandSyncConfig = {
   agentId: "kilo",
@@ -92,4 +96,23 @@ export const kiloCodingAgent: CodingAgent = {
       args,
       kiloCommandConfig,
     ),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      if (scope === "user") {
+        return {
+          _tag: "unsupported",
+          reason: "Kilo Code does not support user-scope subagents",
+        } as const;
+      }
+      return {
+        _tag: "supported",
+        dir: path.resolve(workspaceRoot, KILO_SUBAGENTS_PROJECT_DIR),
+        warnings: [],
+      } as const;
+    }),
+  addSubagent: (args) =>
+    addSubagentViaResolve(kiloCodingAgent.resolveEffectiveSubagentsDir(args), args),
+  removeSubagent: (args) =>
+    removeSubagentViaResolve(kiloCodingAgent.resolveEffectiveSubagentsDir(args), args),
 };

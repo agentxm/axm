@@ -8,6 +8,7 @@ import { commandReconciliationAdapter } from "../commands/reconciliation-adapter
 import { writeLockfile } from "../lockfile/index.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { createDefaultSettings, DEFAULT_PROFILE, readSettings } from "../settings/index.js";
 import {
   ensureSkillAgentArtifact,
@@ -42,6 +43,7 @@ if (getReconciliationAdapters().length === 0) {
   setReconciliationAdapters([
     skillReconciliationAdapter,
     commandReconciliationAdapter,
+    subagentReconciliationAdapter,
     mcpServerReconciliationAdapter,
     extensionPackReconciliationAdapter,
   ]);

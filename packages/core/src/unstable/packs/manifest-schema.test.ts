@@ -41,9 +41,43 @@ describe("ExtensionPackManifestSchema", () => {
       skills: { "@wayne/skills/grappling-hook": "^1.0.0", "@wayne/skills/batarang": "~2.0.0" },
       commands: { "@wayne/commands/batcomputer-sync": "^1.0.0" },
       "mcp-servers": { "@wayne/mcp-servers/batcomputer": "^3.0.0" },
+      subagents: { "@wayne/subagents/robin": "^1.0.0" },
     };
     const result = decode(input);
     expect(result.commands).toEqual({ "@wayne/commands/batcomputer-sync": "^1.0.0" });
+    expect(result.subagents).toEqual({ "@wayne/subagents/robin": "^1.0.0" });
+  });
+
+  it("accepts manifest with subagents field", () => {
+    const input = {
+      owner: "@wayne",
+      type: "pack",
+      name: "utility-belt",
+      version: "1.0.0",
+      subagents: {
+        "@wayne/subagents/robin": "^1.0.0",
+        "@wayne/subagents/alfred": "~2.0.0",
+      },
+    };
+    const result = decode(input);
+    expect(result.subagents).toEqual({
+      "@wayne/subagents/robin": "^1.0.0",
+      "@wayne/subagents/alfred": "~2.0.0",
+    });
+  });
+
+  it("accepts manifest with subagents and other extension types", () => {
+    const input = {
+      owner: "@wayne",
+      type: "pack",
+      name: "utility-belt",
+      version: "1.0.0",
+      skills: { "@wayne/skills/grappling-hook": "^1.0.0" },
+      subagents: { "@wayne/subagents/robin": "^1.0.0" },
+    };
+    const result = decode(input);
+    expect(result.skills).toEqual({ "@wayne/skills/grappling-hook": "^1.0.0" });
+    expect(result.subagents).toEqual({ "@wayne/subagents/robin": "^1.0.0" });
   });
 
   it("accepts manifest with common optional fields", () => {
@@ -110,10 +144,12 @@ describe("ExtensionPackManifestSchema", () => {
       skills: {},
       commands: {},
       "mcp-servers": {},
+      subagents: {},
     };
     const result = decode(input);
     expect(result.skills).toEqual({});
     expect(result.commands).toEqual({});
     expect(result["mcp-servers"]).toEqual({});
+    expect(result.subagents).toEqual({});
   });
 });

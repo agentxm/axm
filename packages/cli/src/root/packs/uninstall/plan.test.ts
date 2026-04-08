@@ -43,6 +43,7 @@ const makePackLockEntry = (
     resolvedSkills?: ResolvedExtensionMap;
     resolvedCommands?: ResolvedExtensionMap;
     resolvedMcpServers?: ResolvedExtensionMap;
+    resolvedSubagents?: ResolvedExtensionMap;
   },
 ): ExtensionPackLockEntry => ({
   type: "registry",
@@ -56,6 +57,7 @@ const makePackLockEntry = (
   resolvedSkills: overrides?.resolvedSkills ?? {},
   resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
+  resolvedSubagents: overrides?.resolvedSubagents ?? {},
 });
 
 const resolved = resolvedExtensionMap;

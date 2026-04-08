@@ -103,6 +103,7 @@ describe("unpackExtensionPack", () => {
             resolvedSkills: { "@acme/skills/my-skill": "1.0.0" },
             resolvedCommands: { "@acme/commands/my-cmd": "2.0.0" },
             resolvedMcpServers: { "@acme/mcp-servers/my-server": "3.0.0" },
+            resolvedSubagents: {},
           }),
         ),
       setSkill,
@@ -139,6 +140,7 @@ describe("unpackExtensionPack", () => {
             resolvedSkills: {},
             resolvedCommands: { "@acme/commands/existing-cmd": "1.0.0" },
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           }),
         ),
       getConfiguredCommands: () =>

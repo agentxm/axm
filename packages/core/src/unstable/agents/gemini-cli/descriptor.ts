@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".gemini/commands",
   },
+  subagents: {
+    dir: ".gemini/agents",
+  },
 };

@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".junie/commands",
   },
+  subagents: {
+    dir: ".junie/agents",
+  },
 };

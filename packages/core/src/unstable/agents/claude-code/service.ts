@@ -14,6 +14,7 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
@@ -24,6 +25,11 @@ const CLAUDE_ENV_OVERRIDE = "AXM_CLAUDE_SKILLS_DIR";
 export const CLAUDE_CODE_COMMANDS_PROJECT_DIR = ".claude/commands";
 /** @experimental */
 export const CLAUDE_CODE_COMMANDS_USER_DIR = ".claude/commands";
+
+/** @experimental */
+export const CLAUDE_CODE_SUBAGENTS_PROJECT_DIR = ".claude/agents";
+/** @experimental */
+export const CLAUDE_CODE_SUBAGENTS_USER_DIR = ".claude/agents";
 
 const claudeCodeCommandConfig: CommandSyncConfig = {
   agentId: "claude-code",
@@ -92,4 +98,25 @@ export const claudeCodeCodingAgent: CodingAgent = {
       args,
       claudeCodeCommandConfig,
     ),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      if (scope === "user") {
+        const home = yield* getHome;
+        return {
+          _tag: "supported",
+          dir: path.join(home, CLAUDE_CODE_SUBAGENTS_USER_DIR),
+          warnings: [],
+        } as const;
+      }
+      return {
+        _tag: "supported",
+        dir: path.resolve(workspaceRoot, CLAUDE_CODE_SUBAGENTS_PROJECT_DIR),
+        warnings: [],
+      } as const;
+    }),
+  addSubagent: (args) =>
+    addSubagentViaResolve(claudeCodeCodingAgent.resolveEffectiveSubagentsDir(args), args),
+  removeSubagent: (args) =>
+    removeSubagentViaResolve(claudeCodeCodingAgent.resolveEffectiveSubagentsDir(args), args),
 };

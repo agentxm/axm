@@ -22,6 +22,7 @@ import { skillsCommand } from "./root/skills/command.js";
 import { packsCommand } from "./root/packs/command.js";
 import { commandsCommand } from "./root/commands/command.js";
 import { mcpServersCommand } from "./root/mcp-servers/command.js";
+import { subagentsCommand } from "./root/subagents/command.js";
 import { authCommand } from "./root/auth/command.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
@@ -58,7 +59,14 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     { group: "GETTING STARTED", commands: [initCommand] },
     {
       group: "EXTENSIONS",
-      commands: [skillsCommand, packsCommand, commandsCommand, mcpServersCommand, discoverCommand],
+      commands: [
+        skillsCommand,
+        packsCommand,
+        commandsCommand,
+        mcpServersCommand,
+        subagentsCommand,
+        discoverCommand,
+      ],
     },
     {
       group: "AUTH AND CONFIG",

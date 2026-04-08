@@ -9,6 +9,7 @@ import type {
   McpServerLockEntry,
   ExtensionPackLockEntry,
   SkillLockEntry,
+  SubagentLockEntry,
 } from "../lockfile/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import type {
@@ -43,8 +44,9 @@ export const getReconciliationAdapters = (): ReadonlyArray<ReconciliationAdapter
 const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   skills: 0,
   commands: 1,
-  packs: 2,
-  "mcp-servers": 3,
+  subagents: 2,
+  packs: 3,
+  "mcp-servers": 4,
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
@@ -65,6 +67,7 @@ export interface ReconciliationSnapshot {
 const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lockfile => {
   const skills: Record<string, SkillLockEntry> = {};
   const commands: Record<string, CommandLockEntry> = {};
+  const subagents: Record<string, SubagentLockEntry> = {};
   const mcpServers: Record<string, McpServerLockEntry> = {};
   const packs: Record<string, ExtensionPackLockEntry> = {};
 
@@ -82,6 +85,9 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
       case "commands":
         commands[reconstructed.name] = reconstructed.entry;
         break;
+      case "subagents":
+        subagents[reconstructed.name] = reconstructed.entry;
+        break;
       case "mcp-servers":
         mcpServers[reconstructed.name] = reconstructed.entry;
         break;
@@ -95,6 +101,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
     lockfileVersion: 1,
     skills,
     commands,
+    subagents,
     mcpServers,
     packs,
   } satisfies Lockfile;
@@ -217,6 +224,7 @@ export const runReadRecoverOperation = (
     const reconstructedCount =
       Object.keys(snapshot.lockfile.skills).length +
       Object.keys(snapshot.lockfile.commands ?? {}).length +
+      Object.keys(snapshot.lockfile.subagents ?? {}).length +
       Object.keys(snapshot.lockfile.mcpServers ?? {}).length +
       Object.keys(snapshot.lockfile.packs ?? {}).length;
 

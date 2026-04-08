@@ -10,6 +10,9 @@ import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } fro
 /** @experimental */
 export const CURSOR_COMMANDS_PROJECT_DIR = ".cursor/commands";
 
+/** @experimental */
+export const CURSOR_SUBAGENTS_PROJECT_DIR = ".cursor/agents";
+
 export const cursorMcpStrategy: MixedStrategyConfig = {
   configPath: "{workspaceRoot}/.cursor/mcp.json",
   cliAdd: ["cursor", "mcp", "add", "{serverName}"],
@@ -21,6 +24,7 @@ export const cursorCodingAgent = makeProjectOnlyCodingAgent({
   displayName: "Cursor",
   skillsProjectDir: ".cursor/skills",
   commandsProjectDir: CURSOR_COMMANDS_PROJECT_DIR,
+  subagentsProjectDir: CURSOR_SUBAGENTS_PROJECT_DIR,
   mcp: {
     addMcpServer: (args) => addMcpServerMixed(cursorMcpStrategy, args),
     removeMcpServer: (args) => removeMcpServerMixed(cursorMcpStrategy, args),

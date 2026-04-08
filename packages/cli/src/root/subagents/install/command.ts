@@ -1,0 +1,84 @@
+import { Argument, Command, Flag } from "effect/unstable/cli";
+
+import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import {
+  annotateCommandMeta,
+  registryCommandMeta,
+  withCommandRuntime,
+} from "../../../command-meta.js";
+import { scopeFlag } from "../../../cli-flags.js";
+import { handleInstall } from "./handler.js";
+import { withWorkspace } from "../../../runtime.js";
+
+const installConfig = {
+  source: Argument.string("source").pipe(
+    Argument.withDescription(
+      "Registry reference (@owner/subagents/name), GitHub shorthand (owner/repo), local path, or URL",
+    ),
+  ),
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Install to project (default) or user-level configuration"),
+  ),
+  subagent: Flag.string("subagent").pipe(
+    Flag.withDescription("Cherry-pick specific subagent(s) from a multi-subagent source"),
+    Flag.atLeast(0),
+  ),
+  agent: Flag.string("agent").pipe(
+    Flag.withDescription("Restrict rendering to specified agent(s)"),
+    Flag.atLeast(0),
+  ),
+  all: Flag.boolean("all").pipe(
+    Flag.withDescription("Install every subagent found in the source without prompting"),
+  ),
+  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
+  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the subagent already exists")),
+  preview: previewFlag.pipe(
+    Flag.withDescription("Show what would be installed without making changes"),
+  ),
+} as const;
+const commandMeta = registryCommandMeta("subagents install", { json: true });
+
+export const installCommand = Command.make(
+  "install",
+  installConfig,
+  ({ source, scope, subagent, all, yes, force, preview }) =>
+    handleInstall({ source, subagents: subagent, all }, { yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withCommandRuntime(commandMeta),
+    ),
+).pipe(
+  withArgvTracking(installConfig),
+  annotateCommandMeta(commandMeta),
+  Command.withDescription("Install subagents from a registry, GitHub, or local path"),
+  Command.withExamples([
+    {
+      command: "axm subagents install @acme/subagents/researcher",
+      description: "Add a researcher subagent to your agents",
+    },
+    {
+      command: "axm subagents install @acme/subagents/researcher@^1.0.0",
+      description: "Pin to a specific version range",
+    },
+    {
+      command: "axm subagents install owner/repo",
+      description: "Install from a GitHub repository",
+    },
+    {
+      command: "axm subagents install ./path/to/subagents",
+      description: "Install from a local directory during development",
+    },
+    {
+      command: "axm subagents install owner/repo --all --yes",
+      description: "CI: install all subagents without prompts",
+    },
+    {
+      command: "axm subagents install @acme/subagents/researcher --preview",
+      description: "See what would be installed before committing",
+    },
+    {
+      command: "",
+      description: "See also: subagents list, subagents update, subagents uninstall",
+    },
+  ]),
+);

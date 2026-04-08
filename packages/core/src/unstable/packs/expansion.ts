@@ -66,6 +66,7 @@ export interface UninstallSettingsContext {
   readonly skills: Readonly<Record<string, string>>;
   readonly commands: Readonly<Record<string, string>>;
   readonly mcpServers: Readonly<Record<string, string>>;
+  readonly subagents: Readonly<Record<string, string>>;
 }
 
 /**
@@ -103,6 +104,9 @@ export const expandExtensionPackUninstallTargets = (args: {
   const candidateMcpServers = supportedDependencyTypes.includes("mcp-server")
     ? Object.keys(packEntry.resolvedMcpServers)
     : [];
+  const candidateSubagents = supportedDependencyTypes.includes("subagent")
+    ? Object.keys(packEntry.resolvedSubagents)
+    : [];
 
   // Collect dependencies still referenced by OTHER installed packs
   const retainedByOtherPacks = new Set<string>();
@@ -117,6 +121,9 @@ export const expandExtensionPackUninstallTargets = (args: {
     for (const fqn of Object.keys(entry.resolvedMcpServers)) {
       retainedByOtherPacks.add(fqn);
     }
+    for (const fqn of Object.keys(entry.resolvedSubagents)) {
+      retainedByOtherPacks.add(fqn);
+    }
   }
 
   // Collect directly-configured extensions from settings
@@ -128,6 +135,9 @@ export const expandExtensionPackUninstallTargets = (args: {
     directlyConfigured.add(name);
   }
   for (const name of Object.keys(settings.mcpServers)) {
+    directlyConfigured.add(name);
+  }
+  for (const name of Object.keys(settings.subagents)) {
     directlyConfigured.add(name);
   }
 
@@ -152,6 +162,13 @@ export const expandExtensionPackUninstallTargets = (args: {
     const name = nameFromFqn(fqn);
     if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
       orphanedTargets.push({ type: "mcp-server", name });
+    }
+  }
+
+  for (const fqn of candidateSubagents) {
+    const name = nameFromFqn(fqn);
+    if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
+      orphanedTargets.push({ type: "subagent", name });
     }
   }
 

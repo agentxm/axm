@@ -21,6 +21,7 @@ import {
 } from "@axm.sh/core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
+import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
 import {
   buildUninstallOperation,
   toLabel,
@@ -87,6 +88,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const mcpServerMgr = yield* McpServerManager;
+    const subagentMgr = yield* SubagentManager;
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
@@ -165,11 +167,13 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const configuredSkills = yield* ws.getConfiguredSkills();
         const configuredCommands = yield* ws.getConfiguredCommands();
         const configuredMcpServers = yield* ws.getConfiguredMcpServers();
+        const configuredSubagents = yield* ws.getConfiguredSubagents();
 
         const settings: UninstallSettingsContext = {
           skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),
           commands: Object.fromEntries(Object.keys(configuredCommands).map((k) => [k, k])),
           mcpServers: Object.fromEntries(Object.keys(configuredMcpServers).map((k) => [k, k])),
+          subagents: Object.fromEntries(Object.keys(configuredSubagents).map((k) => [k, k])),
         };
 
         // Expand each pack and collect all targets, deduplicating by type+name
@@ -178,7 +182,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         for (const pack of intent.packsToUninstall) {
           const targets = yield* expandExtensionPackUninstallTargets({
             pack,
-            supportedDependencyTypes: ["skill", "command", "mcp-server"],
+            supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent"],
             lockfile,
             settings,
           });
@@ -217,6 +221,12 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (target.type === "mcp-server") {
             return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "subagent") {
+            return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
               target,
             });
           }

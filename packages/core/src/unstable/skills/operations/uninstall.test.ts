@@ -737,6 +737,7 @@ describe("uninstallSkill", () => {
       resolvedSkills,
       resolvedCommands: {},
       resolvedMcpServers: {},
+      resolvedSubagents: {},
     });
 
     it.effect("full uninstall when skill is NOT referenced by any pack", () =>

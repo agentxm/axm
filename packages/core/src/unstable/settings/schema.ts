@@ -325,6 +325,75 @@ export const McpServersMapSchema = Schema.Record(Schema.String, Schema.String)
 export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
 
 // -----------------------------------------------------------------------------
+// Subagent Entry Schemas
+// -----------------------------------------------------------------------------
+
+/**
+ * Managed subagent with source and optional config flags.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentEntryObjectSchema = Schema.Struct({
+  source: Schema.String.pipe(
+    Schema.annotateKey({ messageMissingKey: "subagent source is required" }),
+  ),
+  enabled: Schema.optional(Schema.Boolean),
+}).annotate({
+  identifier: "SubagentEntryObject",
+  title: "Subagent Entry Object",
+  description: "A subagent with its source location and whether it's enabled.",
+});
+
+/**
+ * Union of subagent entry forms: plain source string or object with source + enabled.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentEntrySchema = Schema.Union([
+  Schema.String,
+  SubagentEntryObjectSchema,
+]).annotate({
+  identifier: "SubagentEntry",
+  title: "Subagent Entry",
+  description:
+    "A subagent reference — either a source string like @owner/subagents/name or an object with source and enabled.",
+});
+
+/**
+ * Inferred type for SubagentEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
+
+/**
+ * Subagents map - maps subagent names to subagent entries.
+ *
+ * Keys must be valid extension names per agentskills.io specification:
+ * - Max 64 characters
+ * - Lowercase letters, numbers, and hyphens only
+ * - Must not start or end with a hyphen
+ *
+ * Values are subagent entries: plain source strings or objects with source + enabled.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
+  .check(Schema.makeFilter(validateNamedRecordKeys("subagent", decodeExtensionNameSync)))
+  .annotate({
+    identifier: "SubagentsMap",
+    title: "Subagents Map",
+    description: "Your installed subagents, keyed by name.",
+  });
+
+/**
+ * Inferred type for SubagentsMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
+
+// -----------------------------------------------------------------------------
 // Pack Entry Schemas
 // -----------------------------------------------------------------------------
 
@@ -404,6 +473,7 @@ export type ExtensionPacksMap = Schema.Schema.Type<typeof ExtensionPacksMapSchem
 export const IgnoredSettingsSchema = Schema.Struct({
   skills: Schema.optional(Schema.Array(Schema.String)),
   commands: Schema.optional(Schema.Array(Schema.String)),
+  subagents: Schema.optional(Schema.Array(Schema.String)),
   mcpServers: Schema.optional(Schema.Array(Schema.String)),
   packs: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
@@ -434,6 +504,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "agents",
   "skills",
   "commands",
+  "subagents",
   "packs",
   "mcpServers",
   "ignored",
@@ -459,6 +530,7 @@ export const SettingsSchema = Schema.Struct({
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(CommandsMapSchema),
+  subagents: Schema.optional(SubagentsMapSchema),
   mcpServers: Schema.optional(McpServersMapSchema),
   packs: Schema.optional(ExtensionPacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),

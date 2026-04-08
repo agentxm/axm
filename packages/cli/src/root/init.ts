@@ -7,7 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { getAgentById } from "@axm.sh/core/unstable/agents";
+import { getAgentById, scanAllSubagentFiles } from "@axm.sh/core/unstable/agents";
+import type { AgentSubagentSummary } from "@axm.sh/core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
@@ -17,12 +18,25 @@ import { Workspace } from "@axm.sh/core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as ServiceMap from "effect/ServiceMap";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { annotateCommandMeta, registryCommandMeta, withCommandRuntime } from "../command-meta.js";
 import { scopeFlag } from "../cli-flags.js";
 import { emitResultDocument } from "../json-output.js";
 import { withWorkspace } from "../runtime.js";
+
+const SubagentFileSchema = Schema.Struct({
+  path: Schema.String,
+  managed: Schema.Boolean,
+});
+
+const SubagentSummarySchema = Schema.Struct({
+  agentId: Schema.String,
+  agentName: Schema.String,
+  subagentDir: Schema.String,
+  files: Schema.Array(SubagentFileSchema),
+});
 
 const InitResultSchema = Schema.Struct({
   scope: Schema.String,
@@ -34,7 +48,42 @@ const InitResultSchema = Schema.Struct({
   ),
   settingsPath: Schema.String,
   telemetryEnabled: Schema.Boolean,
+  subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Render subagent file summary to the CLI output.
+ *
+ * Shows managed files as part of configuration and notes unmanaged files
+ * without attempting to import or convert them.
+ */
+const renderSubagentSummary = (
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  summaries: ReadonlyArray<AgentSubagentSummary>,
+) =>
+  Effect.gen(function* () {
+    if (summaries.length === 0) return;
+
+    for (const summary of summaries) {
+      const managed = summary.files.filter((f) => f.managed);
+      const unmanaged = summary.files.filter((f) => !f.managed);
+
+      if (managed.length > 0) {
+        yield* renderer.info(
+          `${summary.agentName}: ${String(managed.length)} managed subagent file(s) in ${summary.subagentDir}`,
+        );
+      }
+      if (unmanaged.length > 0) {
+        yield* renderer.warn(
+          `${summary.agentName}: ${String(unmanaged.length)} existing subagent file(s) in ${summary.subagentDir} (not managed by axm)`,
+        );
+      }
+    }
+  });
 
 // -----------------------------------------------------------------------------
 // Handler
@@ -62,25 +111,35 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
     },
     {},
   );
-  const agents = agentIds.map((id) => ({
-    id,
-    name: Option.getOrElse(
-      Option.map(getAgentById(id), (a) => a.name),
-      () => id,
-    ),
-  }));
-  const agentNames = agents.map((agent) => agent.name).join(", ");
+  const agentDescriptors = agentIds.flatMap((id) => {
+    const opt = getAgentById(id);
+    return Option.isSome(opt) ? [opt.value] : [];
+  });
+  const agents = agentDescriptors.map((a) => ({ id: a.id, name: a.name }));
+  // Include agents without descriptors (unknown agents) by ID
+  const unknownAgents = agentIds
+    .filter((id) => Option.isNone(getAgentById(id)))
+    .map((id) => ({ id, name: id }));
+  const allAgents = [...agents, ...unknownAgents];
+  const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
   const settingsPath = `${context.path}/settings.json`;
+
+  // Scan subagent directories for existing files
+  const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
+    agentDescriptors.length > 0
+      ? yield* scanAllSubagentFiles(agentDescriptors, context.baseDir)
+      : [];
 
   if (
     yield* emitResultDocument(
       "init",
       {
         scope: context.scope,
-        agents,
+        agents: allAgents,
         settingsPath,
         telemetryEnabled,
+        ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
       },
       InitResultSchema,
     )
@@ -90,12 +149,16 @@ export const handleInit = Effect.fn("Init.handle")(function* () {
 
   // Show intro
   yield* renderer.info(`axm init (${context.scope})`);
-  if (agentIds.length > 0) {
+  if (allAgents.length > 0) {
     yield* renderer.info(`Agents: ${agentNames}`);
   }
   yield* renderer.info(`Settings: ${settingsPath}`);
+
+  // Show subagent file summary
+  yield* renderSubagentSummary(renderer, subagentSummaries);
+
   yield* renderer.success(
-    agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
+    allAgents.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
   );
 
   // Show telemetry notice (unless telemetry is off)

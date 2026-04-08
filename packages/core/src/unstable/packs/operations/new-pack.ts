@@ -142,6 +142,7 @@ export const newExtensionPack: OperationHandler<
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+        resolvedSubagents: {},
         versionConstraint: Option.none(),
       })
       .pipe(Effect.ignore);

@@ -28,6 +28,7 @@ import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 
 // -----------------------------------------------------------------------------
@@ -74,6 +75,7 @@ const makePackLockEntry = (
     resolvedSkills?: Record<string, string>;
     resolvedCommands?: Record<string, string>;
     resolvedMcpServers?: Record<string, string>;
+    resolvedSubagents?: Record<string, string>;
   },
 ) => ({
   type: "registry",
@@ -87,6 +89,7 @@ const makePackLockEntry = (
   resolvedSkills: overrides?.resolvedSkills ?? {},
   resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
+  resolvedSubagents: overrides?.resolvedSubagents ?? {},
 });
 
 // -----------------------------------------------------------------------------
@@ -141,6 +144,7 @@ describe("packs uninstall handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       McpServerManagerLive,
+      SubagentManagerLive,
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);

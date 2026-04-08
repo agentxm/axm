@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".opencode/commands",
   },
+  subagents: {
+    dir: ".opencode/agents",
+  },
 };

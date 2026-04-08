@@ -15,7 +15,7 @@ import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { decodeExtensionNameSync, formatFqn } from "@axm.sh/core/unstable/extensions";
-import type { Lockfile } from "@axm.sh/core/unstable/lockfile";
+import type { Lockfile, ResolvedExtensionMap } from "@axm.sh/core/unstable/lockfile";
 import type { RegistryExtensionPackRef } from "@axm.sh/core/unstable/packs";
 import type { JobStepResult, Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
 import { installSkill, type InstallSkillOperation } from "@axm.sh/core/unstable/skills";
@@ -160,6 +160,8 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       ),
     );
 
+    const resolvedSubagents: ResolvedExtensionMap = {};
+
     // Build InstallExtensionPackOperation from the ref
     const packOp: InstallExtensionPackOperation = {
       name: "install-pack",
@@ -172,6 +174,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         resolvedSkills,
         resolvedCommands,
         resolvedMcpServers,
+        resolvedSubagents,
         versionConstraint,
         ref,
       },

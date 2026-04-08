@@ -117,6 +117,7 @@ const makePackLockEntry = (
   resolvedSkills,
   resolvedCommands: {},
   resolvedMcpServers: {},
+  resolvedSubagents: {},
 });
 
 const defaultArgs = (

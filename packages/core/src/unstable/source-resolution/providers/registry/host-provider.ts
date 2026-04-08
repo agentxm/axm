@@ -272,15 +272,17 @@ const toExtensionRef = (
       const skills: Record<string, ExtensionDependencyConstraintMap[string]> = {};
       const commands: Record<string, ExtensionDependencyConstraintMap[string]> = {};
       const mcpServers: Record<string, ExtensionDependencyConstraintMap[string]> = {};
+      const subagents: Record<string, ExtensionDependencyConstraintMap[string]> = {};
       for (const [key, version] of Object.entries(dependencies)) {
         if (key.includes("/skills/")) skills[key] = version;
         else if (key.includes("/commands/")) commands[key] = version;
         else if (key.includes("/mcp-servers/")) mcpServers[key] = version;
+        else if (key.includes("/subagents/")) subagents[key] = version;
       }
       return Option.some({
         type: "pack",
         refType: "registry" as const,
-        pack: { name: entry.name, skills, commands, mcpServers },
+        pack: { name: entry.name, skills, commands, mcpServers, subagents },
         source,
         ...details,
       });
@@ -299,6 +301,8 @@ const refName = (ref: ExtensionRef): ExtensionName => {
       return ref.server.name;
     case "pack":
       return ref.pack.name;
+    case "subagent":
+      return ref.subagent.name;
   }
 };
 

@@ -2,8 +2,9 @@
  * Factory for project-only coding agent implementations.
  *
  * Most agents share the same structure: project-scoped skills directory,
- * project-scoped commands directory, no user scope, and optionally MCP
- * support via a strategy object. This factory eliminates the boilerplate.
+ * project-scoped commands directory, project-scoped subagents directory,
+ * no user scope, and optionally MCP support via a strategy object.
+ * This factory eliminates the boilerplate.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,6 +22,7 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "./command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync.js";
 import type { AgentId } from "./types.js";
 import type * as FileSystem from "effect/FileSystem";
 import type { AppError } from "../app-error/index.js";
@@ -49,14 +51,16 @@ export interface ProjectOnlyAgentConfig {
   readonly skillsProjectDir: string;
   /** Commands directory relative to workspace root (e.g. ".junie/commands"). */
   readonly commandsProjectDir: string;
+  /** Subagents directory relative to workspace root (e.g. ".junie/agents"). */
+  readonly subagentsProjectDir: string;
   /** Optional MCP handlers. When omitted, MCP operations return "unsupported". */
   readonly mcp?: McpHandlers;
 }
 
 /**
  * Create a CodingAgent for an agent that only supports project-scoped
- * skills and commands. The returned agent rejects user-scope commands
- * and, unless MCP handlers are provided, reports MCP as unsupported.
+ * skills, commands, and subagents. The returned agent rejects user-scope
+ * operations and, unless MCP handlers are provided, reports MCP as unsupported.
  */
 export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): CodingAgent => {
   const commandSyncConfig: CommandSyncConfig = {
@@ -107,6 +111,24 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
       addCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
     removeCommand: (args) =>
       removeCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
+    resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        if (scope === "user") {
+          return {
+            _tag: "unsupported",
+            reason: `${config.displayName} does not support user-scope subagents`,
+          } as const;
+        }
+        return {
+          _tag: "supported",
+          dir: path.resolve(workspaceRoot, config.subagentsProjectDir),
+          warnings: [],
+        } as const;
+      }),
+    addSubagent: (args) => addSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
+    removeSubagent: (args) =>
+      removeSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
   };
 
   return agent;

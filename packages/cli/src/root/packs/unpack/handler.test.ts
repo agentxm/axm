@@ -205,6 +205,7 @@ describe("packs unpack.handler", () => {
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       });
@@ -296,6 +297,7 @@ describe("packs unpack.handler", () => {
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
+            resolvedSubagents: {},
           },
         },
       });

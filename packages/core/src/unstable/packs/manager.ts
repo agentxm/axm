@@ -60,6 +60,7 @@ const buildSetExtensionPackArgs = (
       resolvedSkills: resolved.resolvedSkills,
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
+      resolvedSubagents: resolved.resolvedSubagents,
       versionConstraint,
     } satisfies SetExtensionPackArgs;
   });

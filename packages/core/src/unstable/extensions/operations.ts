@@ -36,6 +36,8 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "command", name: ref.command.name };
     case "mcp-server":
       return { type: "mcp-server", name: ref.server.name };
+    case "subagent":
+      return { type: "subagent", name: ref.subagent.name };
   }
 };
 

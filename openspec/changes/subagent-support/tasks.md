@@ -15,14 +15,14 @@ Creates the `@axm.sh/core/unstable/subagents` module with manifest schema (`suba
 - Use `Schema.withConstructorDefault` for boolean fields (`background: false`)
 - Use branded types from shared infrastructure: `SourceHash`, `RenderedFilePath`, `ManagedMarker`
 
-- [ ] 1.1 Create `packages/core/src/unstable/subagents/` directory structure
-- [ ] 1.2 Define `SubagentManifestSchema` as `Schema.Class` in `manifest-schema.ts` extending `CommonManifestBaseFields` with subagent-specific fields: `model` (enum `"fast" | "default" | "powerful" | "inherit"` or concrete model ID string), `toolAccess` (`"full" | "readonly" | "none"`), `background` (boolean, `withConstructorDefault(() => false)`), `agents` (optional `string[]`). Set manifest filename to `subagent.json` and schema URL to `https://axm.sh/schemas/subagent.schema.json`. Follow patterns from `packages/core/src/unstable/skills/manifest-schema.ts`
-- [ ] 1.3 Create `subagent-content.ts` in `packages/core/src/unstable/subagents/` — the subagent-specific content file module. Define `SubagentFrontmatterSchema` as `Schema.Class` for SUBAGENT.md frontmatter fields: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). Define `parseSubagentMd(content)` that calls the shared `parseFrontmatter` utility from `core/unstable/extensions/frontmatter.ts` and applies `SubagentFrontmatterSchema` to the result. Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description`, `model`, `toolAccess`, `background` from frontmatter to manifest shape for publish-time sync. The Markdown body after frontmatter is the instructions content
-- [ ] 1.4 Define directory layout constants: canonical path `.axm/extensions/<owner>/subagents/<name>/`, manifest at `subagent.json`, content at `src/SUBAGENT.md`. Follow pattern from skills
-- [ ] 1.5 Create `subagent.example.json` example manifest file (analogous to `packages/core/src/unstable/skills/skill.example.json`)
-- [ ] 1.6 Export from `packages/core/src/unstable/subagents/index.ts` barrel
-- [ ] 1.7 Wire into `packages/core/src/unstable/index.ts` top-level barrel
-- [ ] 1.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 1.1 Create `packages/core/src/unstable/subagents/` directory structure
+- [x] 1.2 Define `SubagentManifestSchema` as `Schema.Class` in `manifest-schema.ts` extending `CommonManifestBaseFields` with subagent-specific fields: `model` (enum `"fast" | "default" | "powerful" | "inherit"` or concrete model ID string), `toolAccess` (`"full" | "readonly" | "none"`), `background` (boolean, `withConstructorDefault(() => false)`), `agents` (optional `string[]`). Set manifest filename to `subagent.json` and schema URL to `https://axm.sh/schemas/subagent.schema.json`. Follow patterns from `packages/core/src/unstable/skills/manifest-schema.ts`
+- [x] 1.3 Create `subagent-content.ts` in `packages/core/src/unstable/subagents/` — the subagent-specific content file module. Define `SubagentFrontmatterSchema` as `Schema.Class` for SUBAGENT.md frontmatter fields: `name`, `description`, `model`, `toolAccess`, `background`, `overrides` (optional map keyed by agent ID with arbitrary agent-native fields). Define `parseSubagentMd(content)` that calls the shared `parseFrontmatter` utility from `core/unstable/extensions/frontmatter.ts` and applies `SubagentFrontmatterSchema` to the result. Define `FrontmatterToManifestFields` as a `Schema.encodeTo` transformation projecting `description`, `model`, `toolAccess`, `background` from frontmatter to manifest shape for publish-time sync. The Markdown body after frontmatter is the instructions content
+- [x] 1.4 Define directory layout constants: canonical path `.axm/extensions/<owner>/subagents/<name>/`, manifest at `subagent.json`, content at `src/SUBAGENT.md`. Follow pattern from skills
+- [x] 1.5 Create `subagent.example.json` example manifest file (analogous to `packages/core/src/unstable/skills/skill.example.json`)
+- [x] 1.6 Export from `packages/core/src/unstable/subagents/index.ts` barrel
+- [x] 1.7 Wire into `packages/core/src/unstable/index.ts` top-level barrel
+- [x] 1.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 2. Settings and Lockfile Schema Extensions
 
@@ -32,14 +32,14 @@ Extends the settings schema with a `subagents` map and the lockfile schema with 
 
 **Reference:** `subagents/spec.md` — Lockfile subagent entries; proposal §Settings Integration, §Lockfile Integration.
 
-- [ ] 2.1 Add `SubagentSettingsEntrySchema` to `packages/core/src/unstable/settings/schema.ts` — union of string (source) or object `{source, enabled}`, following `SkillEntrySchema` pattern. Add `subagents: optional Record<string, SubagentSettingsEntry>` to `SettingsSchema`
-- [ ] 2.2 Add workspace service accessors for subagent settings in the settings service — `getSubagent`, `setSubagent`, `removeSubagent`, `getAllSubagents` following patterns from existing skill/command settings accessors
-- [ ] 2.3 Write tests for subagent settings CRUD operations
-- [ ] 2.4 Define `SubagentLockEntry` schema — union of source types (github, gitlab, bitbucket, azurerepos, git, local, registry) with fields: `agents`, `installedAt`, `updatedAt`, `gitTreeHash` (optional), `sourceHash` (entry-level, hash of SUBAGENT.md frontmatter + body), `renderedFiles` (map of agent ID → array of `{ path }`) — reuse the shared `RenderedFilesMapSchema` from `core/unstable/extensions/rendered-files.ts` (created in command-support)
-- [ ] 2.5 Add `subagents: optional Record<string, SubagentLockEntry>` to `LockfileSchema`
-- [ ] 2.6 Add lockfile service accessors for subagent entries — `getSubagentEntry`, `setSubagentEntry`, `removeSubagentEntry`, `getAllSubagentEntries`
-- [ ] 2.7 Write tests for subagent lockfile entry CRUD and schema validation (including `sourceHash` and `renderedFiles` map)
-- [ ] 2.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 2.1 Add `SubagentSettingsEntrySchema` to `packages/core/src/unstable/settings/schema.ts` — union of string (source) or object `{source, enabled}`, following `SkillEntrySchema` pattern. Add `subagents: optional Record<string, SubagentSettingsEntry>` to `SettingsSchema`
+- [x] 2.2 Add workspace service accessors for subagent settings in the settings service — `getSubagent`, `setSubagent`, `removeSubagent`, `getAllSubagents` following patterns from existing skill/command settings accessors
+- [x] 2.3 Write tests for subagent settings CRUD operations
+- [x] 2.4 Define `SubagentLockEntry` schema — union of source types (github, gitlab, bitbucket, azurerepos, git, local, registry) with fields: `agents`, `installedAt`, `updatedAt`, `gitTreeHash` (optional), `sourceHash` (entry-level, hash of SUBAGENT.md frontmatter + body), `renderedFiles` (map of agent ID → array of `{ path }`) — reuse the shared `RenderedFilesMapSchema` from `core/unstable/extensions/rendered-files.ts` (created in command-support)
+- [x] 2.5 Add `subagents: optional Record<string, SubagentLockEntry>` to `LockfileSchema`
+- [x] 2.6 Add lockfile service accessors for subagent entries — `getSubagentEntry`, `setSubagentEntry`, `removeSubagentEntry`, `getAllSubagentEntries`
+- [x] 2.7 Write tests for subagent lockfile entry CRUD and schema validation (including `sourceHash` and `renderedFiles` map)
+- [x] 2.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 3. Pack Manifest Schema Extension
 
@@ -49,11 +49,11 @@ Extends the pack manifest schema and resolution logic to include `subagents` alo
 
 **Reference:** `extension-packs/spec.md` — Pack manifest includes subagents field; proposal §Pack Integration.
 
-- [ ] 3.1 Add `subagents: optional ExtensionDependencyConstraintMap` to `ExtensionPackManifestSchema` in `packages/core/src/unstable/packs/manifest-schema.ts`
-- [ ] 3.2 Add `resolvedSubagents` field to `ExtensionPackLockEntry` in `packages/core/src/unstable/lockfile/schema.ts` — map of FQN to resolved version, following `resolvedSkills` pattern
-- [ ] 3.3 Update pack resolution logic to resolve subagent dependencies alongside existing extension types
-- [ ] 3.4 Write tests for pack manifest with subagents field and pack resolution including subagent dependencies
-- [ ] 3.5 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 3.1 Add `subagents: optional ExtensionDependencyConstraintMap` to `ExtensionPackManifestSchema` in `packages/core/src/unstable/packs/manifest-schema.ts`
+- [x] 3.2 Add `resolvedSubagents` field to `ExtensionPackLockEntry` in `packages/core/src/unstable/lockfile/schema.ts` — map of FQN to resolved version, following `resolvedSkills` pattern
+- [x] 3.3 Update pack resolution logic to resolve subagent dependencies alongside existing extension types
+- [x] 3.4 Write tests for pack manifest with subagents field and pack resolution including subagent dependencies
+- [x] 3.5 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 4. Subagent Rendering Engine
 
@@ -71,22 +71,22 @@ Implements the core rendering engine that translates portable SUBAGENT.md into a
 - Each rendering adapter is a pure function `(input: RenderInput) => Effect<RenderOutcome>` — compose via `Effect.forEach` across agents
 - Roo Code read-modify-write uses `Effect.acquireRelease` to ensure `.roomodes` file integrity during concurrent operations
 
-- [ ] 4.1 Define rendering types as `Schema.Class` in `packages/core/src/unstable/subagents/rendering/types.ts` — `RenderInput` (parsed SUBAGENT.md frontmatter + body), `RenderOutput` (rendered file content + `RenderedFilePath`), `RenderOutcome` (tagged: `Rendered` with optional `LossyRenderingWarning[]`, or `Skipped` with reason)
-- [ ] 4.2 Reuse shared managed marker utilities from `core/unstable/extensions/managed-marker.ts` (created in command-support) — subagent markers use the same `generateMarker("subagent", format)` pattern with the extension type parameterized, returns `ManagedMarker` branded type
-- [ ] 4.3 Reuse shared source hash computation from `core/unstable/extensions/rendered-files.ts` (created in command-support) — SHA-256 hash of SUBAGENT.md frontmatter + body (portable inputs only, not overrides), returns `SourceHash` branded type
-- [ ] 4.4 Implement model tier mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/model-mapping.ts` — maps `"fast" | "default" | "powerful" | "inherit"` to agent-specific values per the proposal mapping table. Concrete model IDs pass through verbatim. Returns both the mapped value and any `LossyRenderingWarning` for lossy mappings
-- [ ] 4.5 Implement tool access mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/tool-access-mapping.ts` — maps `"full" | "readonly" | "none"` to agent-native tool control fields. Document lossy mappings (Codex readonly=none, Cursor readonly=none) and return warnings
-- [ ] 4.6 Implement Markdown+YAML adapter in `packages/core/src/unstable/subagents/rendering/adapters/markdown-yaml.ts` — covers Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE. Each agent has field-name and semantics differences; use per-agent config `Schema.Struct` with `withConstructorDefault` for agent-specific defaults within the shared adapter. Merge `overrides` on top of portable fields
-- [ ] 4.7 Implement TOML adapter in `packages/core/src/unstable/subagents/rendering/adapters/toml.ts` — covers Codex only. Maps body to `developer_instructions`, model/sandbox_mode fields. Merge overrides
-- [ ] 4.8 Implement JSON adapter in `packages/core/src/unstable/subagents/rendering/adapters/json.ts` — covers Kiro CLI only. Maps body to `prompt` field. Include `_axm_managed` marker
-- [ ] 4.9 Implement Roo Code adapter in `packages/core/src/unstable/subagents/rendering/adapters/roo.ts` — read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope) using `Effect.acquireRelease` to ensure file integrity during concurrent operations. Split body: first paragraph → `roleDefinition`, remainder → `customInstructions`. Add `_axm_managed` field to mode entry. Preserve manually-defined modes
-- [ ] 4.10 Implement adapter registry in `packages/core/src/unstable/subagents/rendering/index.ts` using `Layer.suspend()` to defer adapter construction — maps agent ID to appropriate adapter, constructing only adapters for configured agents. Handle Kiro dual-format (returns two `RenderOutput` items — `.md` for IDE and `.json` for CLI)
-- [ ] 4.11 Write comprehensive tests for each adapter covering: all three `toolAccess` levels, all four `model` tiers, `background` flag rendering, override merging, managed marker injection, lossy mapping warnings
-- [ ] 4.12 Write tests for Kiro dual-format rendering (two files per agent)
-- [ ] 4.13 Write tests for Roo Code read-modify-write: preserving manual modes, updating existing AXM mode, adding new AXM mode, removing AXM mode
-- [ ] 4.14 Write tests for source hash computation (shared utility from command-support)
-- [ ] 4.15 Export rendering module from subagents barrel
-- [ ] 4.16 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 4.1 Define rendering types as `Schema.Class` in `packages/core/src/unstable/subagents/rendering/types.ts` — `RenderInput` (parsed SUBAGENT.md frontmatter + body), `RenderOutput` (rendered file content + `RenderedFilePath`), `RenderOutcome` (tagged: `Rendered` with optional `LossyRenderingWarning[]`, or `Skipped` with reason)
+- [x] 4.2 Reuse shared managed marker utilities from `core/unstable/extensions/managed-marker.ts` (created in command-support) — subagent markers use the same `generateMarker("subagent", format)` pattern with the extension type parameterized, returns `ManagedMarker` branded type
+- [x] 4.3 Reuse shared source hash computation from `core/unstable/extensions/rendered-files.ts` (created in command-support) — SHA-256 hash of SUBAGENT.md frontmatter + body (portable inputs only, not overrides), returns `SourceHash` branded type
+- [x] 4.4 Implement model tier mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/model-mapping.ts` — maps `"fast" | "default" | "powerful" | "inherit"` to agent-specific values per the proposal mapping table. Concrete model IDs pass through verbatim. Returns both the mapped value and any `LossyRenderingWarning` for lossy mappings
+- [x] 4.5 Implement tool access mapping as a `Schema.encodeTo` transformation in `packages/core/src/unstable/subagents/rendering/tool-access-mapping.ts` — maps `"full" | "readonly" | "none"` to agent-native tool control fields. Document lossy mappings (Codex readonly=none, Cursor readonly=none) and return warnings
+- [x] 4.6 Implement Markdown+YAML adapter in `packages/core/src/unstable/subagents/rendering/adapters/markdown-yaml.ts` — covers Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE. Each agent has field-name and semantics differences; use per-agent config `Schema.Struct` with `withConstructorDefault` for agent-specific defaults within the shared adapter. Merge `overrides` on top of portable fields
+- [x] 4.7 Implement TOML adapter in `packages/core/src/unstable/subagents/rendering/adapters/toml.ts` — covers Codex only. Maps body to `developer_instructions`, model/sandbox_mode fields. Merge overrides
+- [x] 4.8 Implement JSON adapter in `packages/core/src/unstable/subagents/rendering/adapters/json.ts` — covers Kiro CLI only. Maps body to `prompt` field. Include `_axm_managed` marker
+- [x] 4.9 Implement Roo Code adapter in `packages/core/src/unstable/subagents/rendering/adapters/roo.ts` — read-modify-write on `.roomodes` (project scope) or `settings/custom_modes.yaml` (user scope) using `Effect.acquireRelease` to ensure file integrity during concurrent operations. Split body: first paragraph → `roleDefinition`, remainder → `customInstructions`. Add `_axm_managed` field to mode entry. Preserve manually-defined modes
+- [x] 4.10 Implement adapter registry in `packages/core/src/unstable/subagents/rendering/index.ts` using `Layer.suspend()` to defer adapter construction — maps agent ID to appropriate adapter, constructing only adapters for configured agents. Handle Kiro dual-format (returns two `RenderOutput` items — `.md` for IDE and `.json` for CLI)
+- [x] 4.11 Write comprehensive tests for each adapter covering: all three `toolAccess` levels, all four `model` tiers, `background` flag rendering, override merging, managed marker injection, lossy mapping warnings
+- [x] 4.12 Write tests for Kiro dual-format rendering (two files per agent)
+- [x] 4.13 Write tests for Roo Code read-modify-write: preserving manual modes, updating existing AXM mode, adding new AXM mode, removing AXM mode
+- [x] 4.14 Write tests for source hash computation (shared utility from command-support)
+- [x] 4.15 Export rendering module from subagents barrel
+- [x] 4.16 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 5. CodingAgent Interface Extensions
 
@@ -102,10 +102,10 @@ Extends the `CodingAgent` interface with subagent-specific methods and implement
 - Use `Effect.all` with `concurrency: "unbounded"` for concurrent conflict detection before any writes
 - Use `Effect.acquireRelease` for the multi-agent render lifecycle — rollback rendered files on partial failure
 
-- [ ] 5.1 Extend `CodingAgent` interface in `packages/core/src/unstable/agents/coding-agent.ts` with: `resolveEffectiveSubagentsDir(args)` returning supported/unsupported/disabled/misconfigured outcome (same pattern as `resolveEffectiveSkillsDir`), `addSubagent(args)` returning sync outcome with warnings, `removeSubagent(args)` returning sync outcome
-- [ ] 5.2 Define `AddSubagentArgs` — includes `RenderInput`, scope (project/user), force flag. Define `RemoveSubagentArgs` — includes subagent name, scope, rendered file paths from lockfile
-- [ ] 5.3 Implement subagent methods for Claude Code agent (`packages/core/src/unstable/agents/claude-code/`). Project dir: `.claude/agents/`, user dir: `~/.claude/agents/`
-- [ ] 5.4 Implement subagent methods for remaining 10 agents, using the rendering engine adapters. Each agent's `addSubagent` calls the appropriate rendering adapter and writes to the correct directory:
+- [x] 5.1 Extend `CodingAgent` interface in `packages/core/src/unstable/agents/coding-agent.ts` with: `resolveEffectiveSubagentsDir(args)` returning supported/unsupported/disabled/misconfigured outcome (same pattern as `resolveEffectiveSkillsDir`), `addSubagent(args)` returning sync outcome with warnings, `removeSubagent(args)` returning sync outcome
+- [x] 5.2 Define `AddSubagentArgs` — includes `RenderInput`, scope (project/user), force flag. Define `RemoveSubagentArgs` — includes subagent name, scope, rendered file paths from lockfile
+- [x] 5.3 Implement subagent methods for Claude Code agent (`packages/core/src/unstable/agents/claude-code/`). Project dir: `.claude/agents/`, user dir: `~/.claude/agents/`
+- [x] 5.4 Implement subagent methods for remaining 10 agents, using the rendering engine adapters. Each agent's `addSubagent` calls the appropriate rendering adapter and writes to the correct directory:
   - Copilot: `.github/agents/` / VS Code profile dir
   - Codex: `.codex/agents/` / `~/.codex/agents/`
   - Cursor: `.cursor/agents/` / `~/.cursor/agents/`
@@ -116,10 +116,10 @@ Extends the `CodingAgent` interface with subagent-specific methods and implement
   - Kilo Code: `.kilo/agents/` / `~/.config/kilo/agents/`
   - Kiro: `.kiro/agents/` / `~/.kiro/agents/` (dual-format: `.md` + `.json`)
   - Roo Code: `.roomodes` / `settings/custom_modes.yaml` (read-modify-write)
-- [ ] 5.5 Implement conflict detection in `addSubagent` — check for existing file without managed marker before writing; return conflict error unless force flag is set
-- [ ] 5.6 Write tests for `addSubagent` and `removeSubagent` for representative agents (at minimum: one Markdown+YAML agent, Codex TOML, Kiro dual-format, Roo Code read-modify-write)
-- [ ] 5.7 Write tests for conflict detection (unmanaged file exists, managed file exists, no file exists)
-- [ ] 5.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 5.5 Implement conflict detection in `addSubagent` — check for existing file without managed marker before writing; return conflict error unless force flag is set
+- [x] 5.6 Write tests for `addSubagent` and `removeSubagent` for representative agents (at minimum: one Markdown+YAML agent, Codex TOML, Kiro dual-format, Roo Code read-modify-write)
+- [x] 5.7 Write tests for conflict detection (unmanaged file exists, managed file exists, no file exists)
+- [x] 5.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 6. SubagentManager Service
 
@@ -137,19 +137,19 @@ Implements the `SubagentManager` Effect service for subagent CRUD operations: ma
 - Use `Effect.all` with `concurrency: "unbounded"` for batch conflict detection
 - Use `Stream.mergeAll` for multi-source discovery when resolving from registry + git + local simultaneously
 
-- [ ] 6.1 Define `SubagentExtensionRef` types in `packages/core/src/unstable/subagents/refs.ts` — union of `GitHostedSubagentRef`, `RegistrySubagentRef`, `LocalSubagentRef`, following patterns from `packages/core/src/unstable/skills/refs.ts`
-- [ ] 6.2 Define `SubagentExtensionTarget` in `packages/core/src/unstable/workspace/service-interface.ts` — `{type: "subagent", name: string}`. Add to the `ExtensionTarget` union type
-- [ ] 6.3 Create `SubagentManager` service in `packages/core/src/unstable/subagents/manager.ts` implementing `ExtensionManager<SubagentExtensionRef>`:
+- [x] 6.1 Define `SubagentExtensionRef` types in `packages/core/src/unstable/subagents/refs.ts` — union of `GitHostedSubagentRef`, `RegistrySubagentRef`, `LocalSubagentRef`, following patterns from `packages/core/src/unstable/skills/refs.ts`
+- [x] 6.2 Define `SubagentExtensionTarget` in `packages/core/src/unstable/workspace/service-interface.ts` — `{type: "subagent", name: string}`. Add to the `ExtensionTarget` union type
+- [x] 6.3 Create `SubagentManager` service in `packages/core/src/unstable/subagents/manager.ts` implementing `ExtensionManager<SubagentExtensionRef>`:
   - `isInstalled` — checks settings for existing entry
   - `materializeInstall` — copies canonical source to `.axm/extensions/`, reads SUBAGENT.md, renders to all configured agents concurrently via `Effect.forEach(agents, addSubagent, { concurrency: "unbounded" })`, uses `Effect.acquireRelease` for rollback on partial failure, records `renderedFiles` map in lockfile
   - `materializeUninstall` — removes rendered files concurrently using lockfile `renderedFiles` paths via `Effect.forEach`, removes canonical source directory
   - `upsertSettingsEntry` / `removeSettingsEntry`
   - `upsertLockfileEntry` / `removeLockfileEntry`
-- [ ] 6.4 Implement source-hash-based skip logic in `materializeInstall` — use `decodeResult` (synchronous) to compare lockfile `sourceHash` with current SUBAGENT.md hash; skip re-rendering when unchanged
-- [ ] 6.5 Create `SubagentManagerLive` layer wiring dependencies (FileSystem, Path, CodingAgentRepository, Settings, Lockfile)
-- [ ] 6.6 Write tests for `SubagentManager` covering: fresh install with rendering, re-install with source hash skip, uninstall removing rendered files, settings/lockfile CRUD
-- [ ] 6.7 Export from subagents barrel and wire into workspace service
-- [ ] 6.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 6.4 Implement source-hash-based skip logic in `materializeInstall` — use `decodeResult` (synchronous) to compare lockfile `sourceHash` with current SUBAGENT.md hash; skip re-rendering when unchanged
+- [x] 6.5 Create `SubagentManagerLive` layer wiring dependencies (FileSystem, Path, CodingAgentRepository, Settings, Lockfile)
+- [x] 6.6 Write tests for `SubagentManager` covering: fresh install with rendering, re-install with source hash skip, uninstall removing rendered files, settings/lockfile CRUD
+- [x] 6.7 Export from subagents barrel and wire into workspace service
+- [x] 6.8 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 7. Subagent Reconciliation Adapter
 
@@ -165,18 +165,18 @@ Implements the `ReconciliationAdapter` for subagents in the workspace reconcilia
 - Use `Effect.forEach` with concurrency for parallel re-rendering when source changes
 - Use `Effect.all` for concurrent agent list change detection (new agents added, old removed)
 
-- [ ] 7.1 Create `packages/core/src/unstable/subagents/reconciliation-adapter.ts` implementing `ReconciliationAdapter` with `type: "subagents"`:
+- [x] 7.1 Create `packages/core/src/unstable/subagents/reconciliation-adapter.ts` implementing `ReconciliationAdapter` with `type: "subagents"`:
   - `scanDeclarations` — reads settings `subagents` map, builds declarations including enabled/disabled state
   - `checkDiskCompatibility` — validates canonical source exists, reads SUBAGENT.md, uses `decodeResult` (synchronous) for source hash comparison against lockfile
-- [ ] 7.2 Implement render-on-reconcile logic: when source hash has changed, re-render all agent-native files. Overwrite rendered files that contain the managed marker (no per-file content hash drift detection)
-- [ ] 7.3 Implement agent list change handling: when `agents` in settings changes, render for newly added agents (respecting each subagent's `agents` filter), remove rendered files for removed agents
-- [ ] 7.4 Implement disabled subagent cleanup: if `enabled: false`, remove rendered files but keep canonical source and lockfile entry
-- [ ] 7.5 Implement orphan cleanup: remove rendered files and lockfile entries for subagents absent from settings and packs
-- [ ] 7.6 Implement managed marker verification: before overwriting a rendered file, verify it contains the AXM managed marker. Files without marker are treated as conflicts
-- [ ] 7.7 Implement frontmatter-to-manifest sync during reconciliation: sync `description`, `model`, `toolAccess`, `background` from SUBAGENT.md frontmatter to `subagent.json`
-- [ ] 7.8 Register the subagent reconciliation adapter in the adapter registry (`packages/core/src/unstable/workspace/reconciliation.ts`)
-- [ ] 7.9 Write tests: source unchanged (skip render), source changed (re-render + overwrite), agent added (render for new agent), agent removed (delete files), disabled subagent (remove files), orphan cleanup, managed marker conflict
-- [ ] 7.10 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 7.2 Implement render-on-reconcile logic: when source hash has changed, re-render all agent-native files. Overwrite rendered files that contain the managed marker (no per-file content hash drift detection)
+- [x] 7.3 Implement agent list change handling: when `agents` in settings changes, render for newly added agents (respecting each subagent's `agents` filter), remove rendered files for removed agents
+- [x] 7.4 Implement disabled subagent cleanup: if `enabled: false`, remove rendered files but keep canonical source and lockfile entry
+- [x] 7.5 Implement orphan cleanup: remove rendered files and lockfile entries for subagents absent from settings and packs
+- [x] 7.6 Implement managed marker verification: before overwriting a rendered file, verify it contains the AXM managed marker. Files without marker are treated as conflicts
+- [x] 7.7 Implement frontmatter-to-manifest sync during reconciliation: sync `description`, `model`, `toolAccess`, `background` from SUBAGENT.md frontmatter to `subagent.json`
+- [x] 7.8 Register the subagent reconciliation adapter in the adapter registry (`packages/core/src/unstable/workspace/reconciliation.ts`)
+- [x] 7.9 Write tests: source unchanged (skip render), source changed (re-render + overwrite), agent added (render for new agent), agent removed (delete files), disabled subagent (remove files), orphan cleanup, managed marker conflict
+- [x] 7.10 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 8. CLI Parent Command Group
 
@@ -186,10 +186,10 @@ Creates the `axm subagents` parent command with subcommand stubs. Depends on Pha
 
 **Reference:** proposal §CLI Commands — parent command.
 
-- [ ] 8.1 Create `packages/cli/src/root/subagents/command.ts` — parent command `subagents` with description "Install, update, and manage subagents". Wire nine subcommand imports (install, uninstall, list, update, new, publish, enable, disable, rename) — initially as stubs returning "not yet implemented"
-- [ ] 8.2 Wire the subagents parent command into `packages/cli/src/app.ts` in the EXTENSIONS group alongside skills, packs, commands, and mcp-servers
-- [ ] 8.3 Verify `pnpm axm subagents --help` shows the parent help with subcommand list
-- [ ] 8.4 Run `pnpm typecheck`, `pnpm lint` — fix any failures
+- [x] 8.1 Create `packages/cli/src/root/subagents/command.ts` — parent command `subagents` with description "Install, update, and manage subagents". Wire nine subcommand imports (install, uninstall, list, update, new, publish, enable, disable, rename) — initially as stubs returning "not yet implemented"
+- [x] 8.2 Wire the subagents parent command into `packages/cli/src/app.ts` in the EXTENSIONS group alongside skills, packs, commands, and mcp-servers
+- [x] 8.3 Verify `pnpm axm subagents --help` shows the parent help with subcommand list
+- [x] 8.4 Run `pnpm typecheck`, `pnpm lint` — fix any failures
 
 ## 9. CLI — `axm subagents install`
 
@@ -199,18 +199,18 @@ Implements the install subcommand. Depends on Phases 6 and 8.
 
 **Reference:** `cli-subagents-install/spec.md` — all requirements; proposal §`axm subagents install`.
 
-- [ ] 9.1 Create `packages/cli/src/root/subagents/install/` directory with `command.ts`, `handler.ts`, and `plan.ts`
-- [ ] 9.2 Define install command with flags: `--scope` (project/user), `--subagent` (repeatable string[]), `--agent` (repeatable string[]), `--all` (boolean), `--yes`, `--force`, `--preview`. Positional argument: `source` (required)
-- [ ] 9.3 Implement install handler flow: resolve source → discover subagents in source → prompt for selection (unless `--subagent` or `--all`) → materialize package → read manifest + SUBAGENT.md → render to agents → update settings + lockfile
-- [ ] 9.4 Implement source resolution supporting: FQN (`@owner/subagents/name@version`), bare name (resolve via default owner), local path (`./path`), `file://` URL, git sources (`github:owner/repo`)
-- [ ] 9.5 Implement multi-subagent discovery: scan source for `subagent.json` files when source is a repo or directory
-- [ ] 9.6 Implement `--agent` flag: restrict rendering to specified agents, intersected with manifest `agents` filter
-- [ ] 9.7 Implement `--preview` flag: show install plan (files to create, agents to render for) without making changes
-- [ ] 9.8 Implement conflict handling: detect name collision (same source = idempotent re-render; different source = error unless `--force`)
-- [ ] 9.9 Implement lossy rendering warnings at install time — display per-agent warnings for unsupported features
-- [ ] 9.10 Write tests for install handler: fresh install, re-install (idempotent), conflict detection, `--agent` filtering, `--preview`, multi-subagent discovery, `--scope user`
-- [ ] 9.11 Replace the install stub in the parent command with the real implementation
-- [ ] 9.12 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 9.1 Create `packages/cli/src/root/subagents/install/` directory with `command.ts`, `handler.ts`, and `plan.ts`
+- [x] 9.2 Define install command with flags: `--scope` (project/user), `--subagent` (repeatable string[]), `--agent` (repeatable string[]), `--all` (boolean), `--yes`, `--force`, `--preview`. Positional argument: `source` (required)
+- [x] 9.3 Implement install handler flow: resolve source → discover subagents in source → prompt for selection (unless `--subagent` or `--all`) → materialize package → read manifest + SUBAGENT.md → render to agents → update settings + lockfile
+- [x] 9.4 Implement source resolution supporting: FQN (`@owner/subagents/name@version`), bare name (resolve via default owner), local path (`./path`), `file://` URL, git sources (`github:owner/repo`)
+- [x] 9.5 Implement multi-subagent discovery: scan source for `subagent.json` files when source is a repo or directory
+- [x] 9.6 Implement `--agent` flag: restrict rendering to specified agents, intersected with manifest `agents` filter
+- [x] 9.7 Implement `--preview` flag: show install plan (files to create, agents to render for) without making changes
+- [x] 9.8 Implement conflict handling: detect name collision (same source = idempotent re-render; different source = error unless `--force`)
+- [x] 9.9 Implement lossy rendering warnings at install time — display per-agent warnings for unsupported features
+- [x] 9.10 Write tests for install handler: fresh install, re-install (idempotent), conflict detection, `--agent` filtering, `--preview`, multi-subagent discovery, `--scope user`
+- [x] 9.11 Replace the install stub in the parent command with the real implementation
+- [x] 9.12 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 10. CLI — `axm subagents uninstall`
 
@@ -220,12 +220,12 @@ Implements the uninstall subcommand. Depends on Phases 6 and 8.
 
 **Reference:** `cli-subagents-uninstall/spec.md` — all requirements; proposal §`axm subagents uninstall`.
 
-- [ ] 10.1 Create `packages/cli/src/root/subagents/uninstall/` directory with `command.ts` and `handler.ts`
-- [ ] 10.2 Define uninstall command with flags: `--scope`, `--yes`, `--force`, `--preview`. Positional argument: `subagent` (required)
-- [ ] 10.3 Implement uninstall handler: validate subagent exists → remove rendered files (using lockfile `renderedFiles` paths) → remove canonical source → update settings + lockfile
-- [ ] 10.4 Write tests: successful uninstall, subagent not found error, `--preview`
-- [ ] 10.5 Replace the uninstall stub in the parent command
-- [ ] 10.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 10.1 Create `packages/cli/src/root/subagents/uninstall/` directory with `command.ts` and `handler.ts`
+- [x] 10.2 Define uninstall command with flags: `--scope`, `--yes`, `--force`, `--preview`. Positional argument: `subagent` (required)
+- [x] 10.3 Implement uninstall handler: validate subagent exists → remove rendered files (using lockfile `renderedFiles` paths) → remove canonical source → update settings + lockfile
+- [x] 10.4 Write tests: successful uninstall, subagent not found error, `--preview`
+- [x] 10.5 Replace the uninstall stub in the parent command
+- [x] 10.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 11. CLI — `axm subagents list`
 
@@ -235,13 +235,13 @@ Implements the list subcommand. Depends on Phase 8 (and Phase 2 for settings/loc
 
 **Reference:** `cli-subagents-list/spec.md` — all requirements; proposal §`axm subagents list`.
 
-- [ ] 11.1 Create `packages/cli/src/root/subagents/list/` directory with `command.ts` and `handler.ts`
-- [ ] 11.2 Define list command with flags: `--scope`, `--agent` (repeatable string[]). Alias: `ls`
-- [ ] 11.3 Implement list handler: read lockfile `subagents` section → format output with columns: name, source type, enabled/disabled, agents list. Filter by `--agent` using OR logic
-- [ ] 11.4 Implement `--json` output: structured `subagents.list` items
-- [ ] 11.5 Write tests: list with subagents present, empty list, `--agent` filter, `--json` output
-- [ ] 11.6 Replace the list stub in the parent command
-- [ ] 11.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 11.1 Create `packages/cli/src/root/subagents/list/` directory with `command.ts` and `handler.ts`
+- [x] 11.2 Define list command with flags: `--scope`, `--agent` (repeatable string[]). Alias: `ls`
+- [x] 11.3 Implement list handler: read lockfile `subagents` section → format output with columns: name, source type, enabled/disabled, agents list. Filter by `--agent` using OR logic
+- [x] 11.4 Implement `--json` output: structured `subagents.list` items
+- [x] 11.5 Write tests: list with subagents present, empty list, `--agent` filter, `--json` output
+- [x] 11.6 Replace the list stub in the parent command
+- [x] 11.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 12. CLI — `axm subagents new`
 
@@ -251,13 +251,13 @@ Implements the new (scaffold) subcommand. Depends on Phases 6 and 8.
 
 **Reference:** `cli-subagents-new/spec.md` — all requirements; proposal §`axm subagents new`.
 
-- [ ] 12.1 Create `packages/cli/src/root/subagents/new/` directory with `command.ts` and `handler.ts`
-- [ ] 12.2 Define new command with flags: `--profile`, `--agent` (repeatable), `--model` (`fast | default | powerful | inherit`), `--tool-access` (`full | readonly | none`), `--background`, `--yes`, `--force`, `--preview`. Positional argument: `name` (required)
-- [ ] 12.3 Implement new handler: validate name (`[a-z0-9][a-z0-9-]*`, max 64 chars) → check name collision → scaffold `subagent.json` + `src/SUBAGENT.md` with starter content → render to configured agents immediately → update settings + lockfile
-- [ ] 12.4 Implement starter `SUBAGENT.md` template with frontmatter (name, description placeholder, model, toolAccess, background) and a starter instructions body
-- [ ] 12.5 Write tests: scaffold with defaults, custom flags, name collision (error and `--force`), name validation failure, `--preview`, immediate rendering after scaffold
-- [ ] 12.6 Replace the new stub in the parent command
-- [ ] 12.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 12.1 Create `packages/cli/src/root/subagents/new/` directory with `command.ts` and `handler.ts`
+- [x] 12.2 Define new command with flags: `--profile`, `--agent` (repeatable), `--model` (`fast | default | powerful | inherit`), `--tool-access` (`full | readonly | none`), `--background`, `--yes`, `--force`, `--preview`. Positional argument: `name` (required)
+- [x] 12.3 Implement new handler: validate name (`[a-z0-9][a-z0-9-]*`, max 64 chars) → check name collision → scaffold `subagent.json` + `src/SUBAGENT.md` with starter content → render to configured agents immediately → update settings + lockfile
+- [x] 12.4 Implement starter `SUBAGENT.md` template with frontmatter (name, description placeholder, model, toolAccess, background) and a starter instructions body
+- [x] 12.5 Write tests: scaffold with defaults, custom flags, name collision (error and `--force`), name validation failure, `--preview`, immediate rendering after scaffold
+- [x] 12.6 Replace the new stub in the parent command
+- [x] 12.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 13. CLI — `axm subagents publish`
 
@@ -267,13 +267,13 @@ Implements the publish subcommand. Depends on Phase 8.
 
 **Reference:** `cli-subagents-publish/spec.md` — all requirements; proposal §`axm subagents publish`.
 
-- [ ] 13.1 Create `packages/cli/src/root/subagents/publish/` directory with `command.ts` and `handler.ts`
-- [ ] 13.2 Define publish command with flags: `--registry`, `--yes`, `--force`, `--preview`. Positional argument: `extensions` (variadic, required)
-- [ ] 13.3 Implement publish handler: validate manifest completeness → validate version bump from published version → sync frontmatter to manifest (`description`, `model`, `toolAccess`, `background`) → upload both `subagent.json` and `SUBAGENT.md` to registry
-- [ ] 13.4 Implement glob pattern support for batch publishing (e.g., `"code-*"`)
-- [ ] 13.5 Write tests: successful publish, validation failure, frontmatter sync, glob matching, `--preview`, `--registry` targeting
-- [ ] 13.6 Replace the publish stub in the parent command
-- [ ] 13.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 13.1 Create `packages/cli/src/root/subagents/publish/` directory with `command.ts` and `handler.ts`
+- [x] 13.2 Define publish command with flags: `--registry`, `--yes`, `--force`, `--preview`. Positional argument: `extensions` (variadic, required)
+- [x] 13.3 Implement publish handler: validate manifest completeness → validate version bump from published version → sync frontmatter to manifest (`description`, `model`, `toolAccess`, `background`) → upload both `subagent.json` and `SUBAGENT.md` to registry
+- [x] 13.4 Implement glob pattern support for batch publishing (e.g., `"code-*"`)
+- [x] 13.5 Write tests: successful publish, validation failure, frontmatter sync, glob matching, `--preview`, `--registry` targeting
+- [x] 13.6 Replace the publish stub in the parent command
+- [x] 13.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 14. CLI — `axm subagents update`
 
@@ -283,13 +283,13 @@ Implements the update subcommand with re-rendering after version bumps. Depends 
 
 **Reference:** `cli-subagents-update/spec.md` — all requirements; proposal §`axm subagents update`.
 
-- [ ] 14.1 Create `packages/cli/src/root/subagents/update/` directory with `command.ts` and `handler.ts`
-- [ ] 14.2 Define update command with flags: `--scope`, `--subagent` (repeatable), `--agent` (repeatable), `--yes`, `--force`, `--preview`. Optional positional argument: `source`
-- [ ] 14.3 Implement update handler: fetch latest versions matching constraints → update canonical `SUBAGENT.md` → re-render all agent-native files → update lockfile (sourceHash, renderedFiles)
-- [ ] 14.4 Implement `--subagent` flag for selective update
-- [ ] 14.5 Write tests: update with version bump + re-render, selective update, `--preview`, no updates available
-- [ ] 14.6 Replace the update stub in the parent command
-- [ ] 14.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 14.1 Create `packages/cli/src/root/subagents/update/` directory with `command.ts` and `handler.ts`
+- [x] 14.2 Define update command with flags: `--scope`, `--subagent` (repeatable), `--agent` (repeatable), `--yes`, `--force`, `--preview`. Optional positional argument: `source`
+- [x] 14.3 Implement update handler: fetch latest versions matching constraints → update canonical `SUBAGENT.md` → re-render all agent-native files → update lockfile (sourceHash, renderedFiles)
+- [x] 14.4 Implement `--subagent` flag for selective update
+- [x] 14.5 Write tests: update with version bump + re-render, selective update, `--preview`, no updates available
+- [x] 14.6 Replace the update stub in the parent command
+- [x] 14.7 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 15. CLI — `axm subagents enable` and `disable`
 
@@ -299,16 +299,16 @@ Implements enable and disable subcommands. These are new CLI patterns not presen
 
 **Reference:** `cli-subagents-enable/spec.md`, `cli-subagents-disable/spec.md` — all requirements.
 
-- [ ] 15.1 Create `packages/cli/src/root/subagents/enable/` with `command.ts` and `handler.ts`
-- [ ] 15.2 Define enable command: positional `name`, flags `--scope`, `--yes`, `--force`, `--preview`
-- [ ] 15.3 Implement enable handler: set `enabled: true` in settings → re-render agent-native files from canonical source → update lockfile `renderedFiles`. Handle conflict detection (unmanaged file at render path)
-- [ ] 15.4 Create `packages/cli/src/root/subagents/disable/` with `command.ts` and `handler.ts`
-- [ ] 15.5 Define disable command: positional `name`, flags `--scope`, `--yes`, `--force`, `--preview`
-- [ ] 15.6 Implement disable handler: set `enabled: false` in settings → remove all rendered agent-native files (using lockfile paths) → keep canonical source and lockfile entry
-- [ ] 15.7 Write tests for enable: enable a disabled subagent re-renders files, conflict detection on enable, `--preview`
-- [ ] 15.8 Write tests for disable: disable removes rendered files, preserves canonical source, `--preview`, round-trip (disable then enable)
-- [ ] 15.9 Replace the enable/disable stubs in the parent command
-- [ ] 15.10 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 15.1 Create `packages/cli/src/root/subagents/enable/` with `command.ts` and `handler.ts`
+- [x] 15.2 Define enable command: positional `name`, flags `--scope`, `--yes`, `--force`, `--preview`
+- [x] 15.3 Implement enable handler: set `enabled: true` in settings → re-render agent-native files from canonical source → update lockfile `renderedFiles`. Handle conflict detection (unmanaged file at render path)
+- [x] 15.4 Create `packages/cli/src/root/subagents/disable/` with `command.ts` and `handler.ts`
+- [x] 15.5 Define disable command: positional `name`, flags `--scope`, `--yes`, `--force`, `--preview`
+- [x] 15.6 Implement disable handler: set `enabled: false` in settings → remove all rendered agent-native files (using lockfile paths) → keep canonical source and lockfile entry
+- [x] 15.7 Write tests for enable: enable a disabled subagent re-renders files, conflict detection on enable, `--preview`
+- [x] 15.8 Write tests for disable: disable removes rendered files, preserves canonical source, `--preview`, round-trip (disable then enable)
+- [x] 15.9 Replace the enable/disable stubs in the parent command
+- [x] 15.10 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 16. CLI — `axm subagents rename`
 
@@ -318,12 +318,12 @@ Implements the rename subcommand. Restricted to locally-authored subagents. Depe
 
 **Reference:** `cli-subagents-rename/spec.md` — all requirements; proposal §rename decision.
 
-- [ ] 16.1 Create `packages/cli/src/root/subagents/rename/` with `command.ts` and `handler.ts`
-- [ ] 16.2 Define rename command: positional `old-name` and `new-name`, flags `--scope`, `--yes`, `--force`, `--preview`
-- [ ] 16.3 Implement rename handler: validate new name format → check subagent exists and is locally-authored (reject registry/pack-installed with error) → check new name collision → rename canonical source directory → update `subagent.json` name + `SUBAGENT.md` frontmatter name → remove old rendered files → render new ones → update settings key + lockfile key
-- [ ] 16.4 Write tests: successful rename, registry-installed rejection, pack-installed rejection, new name collision, name validation failure, `--preview`
-- [ ] 16.5 Replace the rename stub in the parent command
-- [ ] 16.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 16.1 Create `packages/cli/src/root/subagents/rename/` with `command.ts` and `handler.ts`
+- [x] 16.2 Define rename command: positional `old-name` and `new-name`, flags `--scope`, `--yes`, `--force`, `--preview`
+- [x] 16.3 Implement rename handler: validate new name format → check subagent exists and is locally-authored (reject registry/pack-installed with error) → check new name collision → rename canonical source directory → update `subagent.json` name + `SUBAGENT.md` frontmatter name → remove old rendered files → render new ones → update settings key + lockfile key
+- [x] 16.4 Write tests: successful rename, registry-installed rejection, pack-installed rejection, new name collision, name validation failure, `--preview`
+- [x] 16.5 Replace the rename stub in the parent command
+- [x] 16.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 17. Pack Integration — Transitive Subagent Visibility
 
@@ -333,12 +333,12 @@ Wires subagent support into pack install/uninstall flows for transitive visibili
 
 **Reference:** `extension-packs/spec.md` — all requirements.
 
-- [ ] 17.1 Update pack install flow to materialize and render pack-resolved subagents to all configured agents (similar to how pack-resolved skills are symlinked)
-- [ ] 17.2 Update pack uninstall flow to remove rendered files for orphaned subagents (subagent not in other packs or direct settings)
-- [ ] 17.3 Implement transitive subagent visibility: pack-provided subagents appear in `axm subagents list` output. Direct settings entries take precedence over pack-provided entries with the same name
-- [ ] 17.4 Implement direct entry promotion on disable: disabling a transitive (pack-provided) subagent creates a direct settings entry with `enabled: false`
-- [ ] 17.5 Write tests: pack install renders subagents, pack uninstall removes orphaned subagent files, transitive visibility in list, direct entry override, disable promotion
-- [ ] 17.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 17.1 Update pack install flow to materialize and render pack-resolved subagents to all configured agents (similar to how pack-resolved skills are symlinked)
+- [x] 17.2 Update pack uninstall flow to remove rendered files for orphaned subagents (subagent not in other packs or direct settings)
+- [x] 17.3 Implement transitive subagent visibility: pack-provided subagents appear in `axm subagents list` output. Direct settings entries take precedence over pack-provided entries with the same name
+- [x] 17.4 Implement direct entry promotion on disable: disabling a transitive (pack-provided) subagent creates a direct settings entry with `enabled: false`
+- [x] 17.5 Write tests: pack install renders subagents, pack uninstall removes orphaned subagent files, transitive visibility in list, direct entry override, disable promotion
+- [x] 17.6 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 18. Init Integration
 
@@ -348,10 +348,10 @@ Updates `axm init` to detect agent directories that support subagents and note e
 
 **Reference:** `cli-init/spec.md` — all requirements.
 
-- [ ] 18.1 Update agent detection in `packages/cli/src/root/init.ts` (or equivalent init module) to check for subagent directories (`.claude/agents/`, `.github/agents/`, `.codex/agents/`, `.cursor/agents/`, etc.) in addition to existing skill and command directory checks
-- [ ] 18.2 When existing subagent files are found without AXM managed markers, note their existence in the init summary (do NOT import or convert them). When AXM-managed subagent files are found, include them in the configuration summary
-- [ ] 18.3 Write tests: init detects agent with subagent files, init notes unmanaged files, init recognizes managed files
-- [ ] 18.4 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 18.1 Update agent detection in `packages/cli/src/root/init.ts` (or equivalent init module) to check for subagent directories (`.claude/agents/`, `.github/agents/`, `.codex/agents/`, `.cursor/agents/`, etc.) in addition to existing skill and command directory checks
+- [x] 18.2 When existing subagent files are found without AXM managed markers, note their existence in the init summary (do NOT import or convert them). When AXM-managed subagent files are found, include them in the configuration summary
+- [x] 18.3 Write tests: init detects agent with subagent files, init notes unmanaged files, init recognizes managed files
+- [x] 18.4 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 19. Telemetry Events
 
@@ -359,9 +359,9 @@ Updates `axm init` to detect agent directories that support subagents and note e
 
 Adds telemetry event emission for subagent operations following existing extension event patterns. Can be worked after any CLI command phase is complete.
 
-- [ ] 19.1 Define subagent telemetry events following existing patterns (e.g., `subagent.install`, `subagent.uninstall`, `subagent.publish`, `subagent.new`, `subagent.update`, `subagent.enable`, `subagent.disable`, `subagent.rename`)
-- [ ] 19.2 Wire telemetry emission into each CLI command handler
-- [ ] 19.3 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
+- [x] 19.1 Define subagent telemetry events following existing patterns (e.g., `subagent.install`, `subagent.uninstall`, `subagent.publish`, `subagent.new`, `subagent.update`, `subagent.enable`, `subagent.disable`, `subagent.rename`)
+- [x] 19.2 Wire telemetry emission into each CLI command handler
+- [x] 19.3 Run `pnpm typecheck`, `pnpm lint`, `pnpm test` — fix any failures
 
 ## 20. End-to-End Validation
 
@@ -369,8 +369,8 @@ Adds telemetry event emission for subagent operations following existing extensi
 
 Full integration verification across all phases. Depends on all prior phases.
 
-- [ ] 20.1 Write E2E tests in `packages/cli-e2e/` covering the core subagent lifecycle: `new` → verify scaffolded files and rendered output → `list` → `disable` → verify rendered files removed → `enable` → verify re-rendered → `rename` → verify old files removed and new files exist → `uninstall` → verify all files cleaned up
-- [ ] 20.2 Write E2E test for install from a local source with multi-agent rendering — verify each agent gets the correct format (Markdown for Claude Code, TOML for Codex, JSON for Kiro CLI)
-- [ ] 20.3 Write E2E test for `axm sync` reconciliation: modify SUBAGENT.md source → run sync → verify re-rendered files reflect changes
-- [ ] 20.4 Run full CI pipeline: `pnpm run ci` — fix any failures
-- [ ] 20.5 Kill any lingering vitest worker processes
+- [x] 20.1 Write E2E tests in `packages/cli-e2e/` covering the core subagent lifecycle: `new` → verify scaffolded files and rendered output → `list` → `disable` → verify rendered files removed → `enable` → verify re-rendered → `rename` → verify old files removed and new files exist → `uninstall` → verify all files cleaned up
+- [x] 20.2 Write E2E test for install from a local source with multi-agent rendering — verify each agent gets the correct format (Markdown for Claude Code, TOML for Codex, JSON for Kiro CLI)
+- [x] 20.3 Write E2E test for `axm sync` reconciliation: modify SUBAGENT.md source → run sync → verify re-rendered files reflect changes
+- [x] 20.4 Run full CI pipeline: `pnpm run ci` — fix any failures
+- [x] 20.5 Kill any lingering vitest worker processes

@@ -49,6 +49,7 @@ const makePackRef = (
     skills?: ExtensionDependencyConstraintMap;
     commands?: ExtensionDependencyConstraintMap;
     mcpServers?: ExtensionDependencyConstraintMap;
+    subagents?: ExtensionDependencyConstraintMap;
     version?: ExactSemverVersion;
   },
 ): RegistryExtensionPackRef => ({
@@ -60,6 +61,7 @@ const makePackRef = (
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
+    subagents: opts?.subagents ?? {},
   },
   owner: ACME,
   name: extensionName(name),

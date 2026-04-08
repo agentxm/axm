@@ -186,6 +186,7 @@ describe("lockfile", () => {
                   },
                   resolvedCommands: {},
                   resolvedMcpServers: {},
+                  resolvedSubagents: {},
                 },
               },
             }),

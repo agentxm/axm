@@ -1,0 +1,326 @@
+/**
+ * Update command handler - Effect-based orchestration for `axm subagents update`.
+ *
+ * Re-resolves installed subagents from their sources and updates those that have
+ * changed. Uses buildUpdatePlan to diff current vs re-resolved state.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
+import { SubagentManager } from "@axm.sh/core/unstable/subagents";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import * as Array from "effect/Array";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { expandGlobs } from "@axm.sh/core/unstable/utils";
+import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+
+import { Workspace } from "@axm.sh/core/unstable/workspace";
+import type { Handle } from "@axm.sh/core/unstable/extensions";
+import { parseRegistrySourcePatternParts } from "@axm.sh/core/unstable/extensions";
+import { resolveSource } from "@axm.sh/core/unstable/source-resolution";
+import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
+import { resolvePlan } from "@axm.sh/core/unstable/workspace";
+import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
+import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Arguments for the update command.
+ */
+export interface UpdateHandlerArgs {
+  /** Optional source to filter subagents by */
+  readonly source: Option.Option<string>;
+  /** Target agent(s) */
+  readonly agents: readonly string[];
+  /** Specific subagent(s) to update (by name/glob) */
+  readonly subagents: readonly string[];
+  /** Override constraints that would cause failure. */
+  readonly force: boolean;
+  /** Auto-accept confirmation prompts. */
+  readonly yes: boolean;
+  /** Display plan without applying. */
+  readonly preview: boolean;
+}
+
+const toRegistrySubagentPattern = (source: string) => {
+  const parsed = parseRegistrySourcePatternParts(source);
+  if (parsed === undefined) return Option.none();
+  if (parsed.type !== undefined && parsed.type !== "subagents") {
+    return Option.none();
+  }
+  return Option.some(parsed);
+};
+
+// -----------------------------------------------------------------------------
+// Main Handler
+// -----------------------------------------------------------------------------
+
+/**
+ * Handles the `axm subagents update` command.
+ *
+ * Flow:
+ * 1. Load configured subagents from settings and filter to enabled
+ * 2. If no eligible subagents, log info and return
+ * 3. Filter by source argument if provided
+ * 4. Filter by --subagent glob patterns
+ * 5. Re-resolve each source and discover subagents
+ * 6. Build operations
+ * 7. Build update plan
+ * 8. Resolve plan via workspace
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
+  args: UpdateHandlerArgs,
+) {
+  const ws = yield* Workspace;
+  const sources = yield* SourceHostProviders;
+  const renderer = yield* CliRenderer;
+
+  yield* renderer.info(`axm subagents update (${ws.scope})`);
+
+  // Step 1: Load configured subagents and filter to enabled
+  const allSubagents = yield* ws.getConfiguredSubagents();
+  const lockedSubagents = yield* ws.getLockedSubagents();
+
+  const subagentEntries = yield* Effect.forEach(Object.entries(allSubagents), ([name, entry]) =>
+    Effect.gen(function* () {
+      if (!entry.enabled) {
+        yield* renderer.info(`Skipping ${name} (disabled)`);
+        return Option.none<readonly [string, string]>();
+      }
+      return Option.some([name, entry.source] as const);
+    }),
+  ).pipe(Effect.map(Array.getSomes));
+
+  if (subagentEntries.length === 0) {
+    if (
+      yield* emitNoOpResult("subagents.update", {
+        planName: "Update subagent(s)",
+        planDescription: "Update installed subagents",
+        message: "No subagents installed. Nothing to update.",
+      })
+    ) {
+      return;
+    }
+
+    yield* renderer.info("No subagents installed. Nothing to update.");
+    return;
+  }
+
+  // Step 2: Filter by source argument if provided
+  const sourceValue = Option.getOrUndefined(args.source);
+  const sourceFilteredEntries =
+    sourceValue !== undefined
+      ? yield* Effect.gen(function* () {
+          const sourceArg = yield* resolveSource(sourceValue).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "INVALID_SOURCE",
+                what: `Invalid source: ${error.message}`,
+                details: [`Provided: ${sourceValue}`],
+                cause: error,
+              }),
+            ),
+          );
+          const sourceArgOrigin = sources.origin(sourceArg);
+          return yield* Effect.forEach(
+            subagentEntries,
+            ([name, sourceStr]) =>
+              resolveSource(sourceStr).pipe(
+                Effect.map((resolved) =>
+                  sources.origin(resolved) === sourceArgOrigin
+                    ? Option.some<readonly [string, string]>([name, sourceStr])
+                    : Option.none<[string, string]>(),
+                ),
+                Effect.catch(() => Effect.succeed(Option.none<[string, string]>())),
+              ),
+            { concurrency: "unbounded" },
+          ).pipe(Effect.map(Array.getSomes));
+        })
+      : subagentEntries;
+
+  // Step 3: Filter by --subagent glob patterns
+  const filteredEntries = (() => {
+    if (args.subagents.length === 0) return sourceFilteredEntries;
+    const allNames = sourceFilteredEntries.map(([name]) => name);
+    const matchedNames = expandGlobs(args.subagents, allNames);
+    const matchedSet = new Set(matchedNames);
+    return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
+  })();
+  if (args.subagents.length > 0) {
+    if (filteredEntries.length === 0) {
+      if (
+        yield* emitNoOpResult("subagents.update", {
+          planName: "Update subagent(s)",
+          planDescription: "Update installed subagents",
+          message: "No installed subagents match the --subagent filter. Nothing to update.",
+        })
+      ) {
+        return;
+      }
+
+      yield* renderer.warn(
+        "No installed subagents match the --subagent filter. Nothing to update.",
+      );
+      return;
+    }
+  }
+
+  // Step 4: Re-resolve each source and discover subagents
+  const findSubagentRefs = (
+    source: SubagentExtensionRef["source"],
+    options: {
+      readonly subagentNames: ReadonlyArray<string>;
+      readonly owner: Option.Option<Handle>;
+      readonly versionConstraint: Option.Option<string>;
+    },
+  ) =>
+    sources
+      .find(source, {
+        skillNames: options.subagentNames,
+        type: "subagent",
+        owner: options.owner,
+        versionConstraint: options.versionConstraint,
+      })
+      .pipe(
+        Effect.map((refs) =>
+          Array.filter(refs, (ref): ref is SubagentExtensionRef => ref.type === "subagent"),
+        ),
+      );
+
+  type ResolveResult = {
+    readonly type: "match";
+    readonly ref: SubagentExtensionRef;
+  };
+
+  const results = yield* renderer.withSpinner(
+    "Resolving sources...",
+    () =>
+      Effect.forEach(
+        filteredEntries,
+        ([name, sourceStr]) =>
+          Effect.gen(function* () {
+            const source = yield* resolveSource(sourceStr);
+            const registryPattern = toRegistrySubagentPattern(sourceStr);
+
+            const requestedOwner = Option.match(registryPattern, {
+              onNone: () => Option.none<Handle>(),
+              onSome: (pattern) => Option.some(pattern.owner),
+            });
+
+            // Try with name filter (fast path)
+            const namedRefs = yield* findSubagentRefs(source, {
+              subagentNames: [name],
+              owner: requestedOwner,
+              versionConstraint: Option.none(),
+            });
+            const subagentRef = namedRefs.find((r) => r.subagent.name === name);
+
+            if (subagentRef) {
+              return Option.some<ResolveResult>({
+                type: "match",
+                ref: subagentRef,
+              });
+            }
+
+            // Subagent not found by name — re-resolve without name filter
+            const allSubagentRefs = yield* findSubagentRefs(source, {
+              subagentNames: [],
+              owner: requestedOwner,
+              versionConstraint: Option.none(),
+            });
+
+            if (allSubagentRefs.length === 1) {
+              const [newRef] = allSubagentRefs;
+              if (newRef === undefined) {
+                return Option.none<ResolveResult>();
+              }
+              return Option.some<ResolveResult>({
+                type: "match",
+                ref: newRef,
+              });
+            } else if (allSubagentRefs.length > 1) {
+              const availableNames = allSubagentRefs.map((r) => r.subagent.name).join(", ");
+              yield* renderer.warn(
+                `Subagent "${name}" not found in source. Available subagents: ${availableNames}. Use \`axm subagents rename ${name} <new-name>\` to update.`,
+              );
+              return Option.none<ResolveResult>();
+            } else {
+              yield* renderer.warn(
+                `Subagent "${name}" not found in source ${sources.origin(source)}`,
+              );
+              return Option.none<ResolveResult>();
+            }
+          }).pipe(
+            Effect.catch((error) => {
+              return renderer
+                .warn(`Failed to resolve "${name}": ${String(error)}`)
+                .pipe(Effect.map(() => Option.none<ResolveResult>()));
+            }),
+          ),
+        { concurrency: "unbounded" },
+      ),
+    { successMessage: "Sources resolved" },
+  );
+
+  // Step 5: Collect successful resolutions
+  const resolved = Array.getSomes(results);
+  if (resolved.length === 0) {
+    return yield* makeAppError({
+      code: "UPDATE_FAILED",
+      what: "All source re-resolutions failed. Nothing to update.",
+      howToFix: "Verify the original source paths are still accessible.",
+    });
+  }
+
+  // Step 6: Capture services for run closures
+  const subagentMgr = yield* SubagentManager;
+
+  const makeRunClosure: MakeRunClosure = (op) => {
+    const step = buildInstallOperation(subagentMgr, {
+      ref: op.ref,
+      versionConstraint: Option.none(),
+    });
+    if (step.readiness === "error") {
+      return Effect.fail(
+        makeAppError({
+          code: "UPDATE_INSTALL_BLOCKED",
+          what: step.errorMessage,
+        }),
+      );
+    }
+    return step.run;
+  };
+
+  // Step 7: Build operations
+  const ops: ReadonlyArray<UpdateOperation> = resolved.map((item) => ({
+    ref: item.ref,
+    force: args.force,
+  }));
+
+  // Step 8: Build plan
+  const plan = buildUpdatePlan(
+    ops,
+    { lockfileVersion: 1, subagents: lockedSubagents },
+    "Update subagent(s)",
+    Option.some("Update installed subagents"),
+    makeRunClosure,
+  );
+
+  // Step 9: Resolve plan
+  const resolution = yield* resolvePlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+  });
+  yield* emitPlanResolutionResult("subagents.update", resolution);
+
+  yield* renderer.success("Done");
+});

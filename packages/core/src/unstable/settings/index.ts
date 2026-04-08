@@ -24,6 +24,8 @@ export type {
   Settings,
   SkillEntry,
   SkillsMap,
+  SubagentEntry,
+  SubagentsMap,
   SourceHostConfig,
 } from "./schema.js";
 export {
@@ -40,6 +42,9 @@ export {
   SkillEntryObjectSchema,
   SkillEntrySchema,
   SkillsMapSchema,
+  SubagentEntryObjectSchema,
+  SubagentEntrySchema,
+  SubagentsMapSchema,
   SourceHostConfigSchema,
 } from "./schema.js";
 
@@ -54,6 +59,14 @@ export {
   getCommandEntrySource,
   normalizeCommandEntry,
 } from "./command-entry.js";
+
+// Subagent entry normalization
+export type { NormalizedSubagentEntry } from "./subagent-entry.js";
+export {
+  collapseSubagentEntry,
+  getSubagentEntrySource,
+  normalizeSubagentEntry,
+} from "./subagent-entry.js";
 
 // Ignored patterns
 export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";

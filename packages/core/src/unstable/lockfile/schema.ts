@@ -203,6 +203,55 @@ export const CommandsLockMapSchema = Schema.Record(Schema.String, CommandLockEnt
 export type CommandsLockMap = Schema.Schema.Type<typeof CommandsLockMapSchema>;
 
 // =============================================================================
+// Subagent Lock Entry (union of all source types, with agents)
+// =============================================================================
+
+/**
+ * Common fields for subagent lock entries (includes agents + rendered files).
+ */
+const SubagentLockEntryCommonFields = {
+  ...CommonFields,
+  sourceHash: Schema.optional(Schema.String),
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+};
+
+/**
+ * Lock entry for a single installed subagent.
+ * Discriminated union by the `type` field.
+ *
+ * Includes `agents` array (like skills), plus `sourceHash` and `renderedFiles`
+ * for tracking rendered output.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentLockEntrySchema = makeSourceLockUnion(SubagentLockEntryCommonFields);
+
+/**
+ * Inferred type for SubagentLockEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SubagentLockEntry = Schema.Schema.Type<typeof SubagentLockEntrySchema>;
+
+// =============================================================================
+// Subagents Lock Map
+// =============================================================================
+
+/**
+ * Map of subagent names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SubagentsLockMapSchema = Schema.Record(Schema.String, SubagentLockEntrySchema);
+
+/**
+ * Inferred type for SubagentsLockMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>;
+
+// =============================================================================
 // MCP Server Lock Entry (union of all source types, no agents)
 // =============================================================================
 
@@ -278,6 +327,7 @@ export const RegistryExtensionPackLockEntrySchema = Schema.Struct({
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
+  resolvedSubagents: ResolvedExtensionMapSchema,
 }).annotate({
   identifier: "RegistryExtensionPackLockEntry",
   title: "Registry Extension Pack Lock Entry",
@@ -376,6 +426,7 @@ export const LockfileSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "skills map is required" }),
   ),
   commands: Schema.optional(CommandsLockMapSchema),
+  subagents: Schema.optional(SubagentsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
   packs: Schema.optional(ExtensionPacksLockMapSchema),
 }).annotate({

@@ -14,6 +14,8 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
+import { getHome } from "../constants.js";
 import { addMcpServerMixed, type MixedStrategyConfig, removeMcpServerMixed } from "../mcp-sync.js";
 
 const GEMINI_DOCS_DEFAULT_DIR = ".gemini/skills";
@@ -21,6 +23,11 @@ const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
 
 /** @experimental */
 export const GEMINI_CLI_COMMANDS_PROJECT_DIR = ".gemini/commands";
+
+/** @experimental */
+export const GEMINI_CLI_SUBAGENTS_PROJECT_DIR = ".gemini/agents";
+/** @experimental */
+export const GEMINI_CLI_SUBAGENTS_USER_DIR = ".gemini/agents";
 
 const geminiCommandConfig: CommandSyncConfig = {
   agentId: "gemini-cli",
@@ -87,4 +94,25 @@ export const geminiCliCodingAgent: CodingAgent = {
       args,
       geminiCommandConfig,
     ),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      if (scope === "user") {
+        const home = yield* getHome;
+        return {
+          _tag: "supported",
+          dir: path.join(home, GEMINI_CLI_SUBAGENTS_USER_DIR),
+          warnings: [],
+        } as const;
+      }
+      return {
+        _tag: "supported",
+        dir: path.resolve(workspaceRoot, GEMINI_CLI_SUBAGENTS_PROJECT_DIR),
+        warnings: [],
+      } as const;
+    }),
+  addSubagent: (args) =>
+    addSubagentViaResolve(geminiCliCodingAgent.resolveEffectiveSubagentsDir(args), args),
+  removeSubagent: (args) =>
+    removeSubagentViaResolve(geminiCliCodingAgent.resolveEffectiveSubagentsDir(args), args),
 };

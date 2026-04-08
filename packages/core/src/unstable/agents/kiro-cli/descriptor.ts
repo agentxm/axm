@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".kiro/prompts",
   },
+  subagents: {
+    dir: ".kiro/agents",
+  },
 };

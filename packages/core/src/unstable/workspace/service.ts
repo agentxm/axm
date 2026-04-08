@@ -34,6 +34,7 @@ import {
   type McpServersLockMap,
   type ExtensionPacksLockMap,
   type RegistryExtensionPackLockEntry,
+  type SubagentsLockMap,
 } from "../lockfile/index.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computeExtensionPackPaths } from "../packs/paths.js";
@@ -51,20 +52,25 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   collapseCommandEntry,
   collapseSkillEntry,
+  collapseSubagentEntry,
   type CommandsMap,
   createDefaultSettings,
   DEFAULT_PROFILE,
   getCommandEntrySource,
   getSkillEntrySource,
+  getSubagentEntrySource,
   type McpServersMap,
   type NormalizedCommandEntry,
   normalizeCommandEntry,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
+  type NormalizedSubagentEntry,
+  normalizeSubagentEntry,
   type ExtensionPacksMap,
   readSettings,
   type Settings,
   type SkillsMap,
+  type SubagentsMap,
   type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
@@ -72,7 +78,7 @@ import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js"
 
 type WorkspaceManagedExtensionType = Extract<
   ExtensionType,
-  "skill" | "command" | "mcp-server" | "pack"
+  "skill" | "command" | "mcp-server" | "pack" | "subagent"
 >;
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
@@ -84,6 +90,7 @@ import {
   type SetExtensionPackArgs,
   type SetCommandArgs,
   type SetMcpServerArgs,
+  type SetSubagentArgs,
   type SkillPathSource,
   type ExtensionTarget,
 } from "./service-interface.js";
@@ -121,6 +128,10 @@ import {
   toUnmanagedExternalSkillRecord,
   toUnmanagedExtensionRefRecord,
   toUnmanagedSkillRecord,
+  toConfiguredSubagentRecord,
+  toImplicitSubagentRecord,
+  toInstalledSubagentRecord,
+  toClassifiedSubagentRecord,
 } from "./classifier-records.js";
 /**
  * Collect extension names from pack resolvedExtension maps.
@@ -130,7 +141,7 @@ import {
  */
 const collectTransitiveNames = (
   packLockEntries: ExtensionPacksLockMap,
-  resolvedKey: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers",
+  resolvedKey: "resolvedSkills" | "resolvedCommands" | "resolvedMcpServers" | "resolvedSubagents",
 ): ReadonlyArray<string> => {
   const names: Array<string> = [];
   for (const packEntry of Object.values(packLockEntries)) {
@@ -400,6 +411,53 @@ const make = (options: WorkspaceLayerOptions) =>
               detectedNames: [],
               ignoredPatterns: settings.ignored?.packs ?? [],
               sourceMetaByName: deriveSourceMetaForPacks(packSettings, packLockEntries),
+            });
+          }
+          case "subagent": {
+            const subagentSettings = settings.subagents ?? {};
+            const subagentLockEntries: SubagentsLockMap = lockfile.subagents ?? {};
+            const configured = Object.fromEntries(
+              Object.entries(subagentSettings).map(([name, entry]) => {
+                const normalized = normalizeSubagentEntry(entry);
+                return [name, { source: normalized.source, enabled: normalized.enabled }];
+              }),
+            );
+
+            // Collect transitive subagent names from pack resolvedSubagents
+            const directLockedNames = Object.keys(subagentLockEntries);
+            const transitiveNames = collectTransitiveNames(
+              lockfile.packs ?? {},
+              "resolvedSubagents",
+            );
+            const allLockedNames = Array.dedupe([...directLockedNames, ...transitiveNames]);
+
+            // Build source metadata including transitive subagents as native
+            const directSourceMeta = deriveSourceMetaForNonSkill(
+              Object.fromEntries(
+                Object.entries(subagentSettings).map(([name, entry]) => [
+                  name,
+                  getSubagentEntrySource(entry),
+                ]),
+              ),
+              subagentLockEntries,
+            );
+            const sourceMetaByName: Record<
+              string,
+              { readonly packagingKind: "native" | "non-native" }
+            > = { ...directSourceMeta };
+            for (const name of transitiveNames) {
+              if (!(name in sourceMetaByName)) {
+                sourceMetaByName[name] = { packagingKind: "native" };
+              }
+            }
+
+            return yield* classifyExtensions({
+              type,
+              configured,
+              lockedNames: allLockedNames,
+              detectedNames: [],
+              ignoredPatterns: settings.ignored?.subagents ?? [],
+              sourceMetaByName,
             });
           }
         }
@@ -1110,6 +1168,177 @@ const make = (options: WorkspaceLayerOptions) =>
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("Workspace.setCommandEntry")),
+
+      // -----------------------------------------------------------------------
+      // Subagent taxonomy
+      // -----------------------------------------------------------------------
+
+      getConfiguredSubagents: () =>
+        getClassifiedExtensions("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
+
+      getImplicitSubagents: () =>
+        getClassifiedExtensions("subagent").pipe(Effect.map(toImplicitSubagentRecord)),
+
+      getInstalledSubagents: () =>
+        getClassifiedExtensions("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
+
+      getClassifiedSubagents: () =>
+        getClassifiedExtensions("subagent").pipe(Effect.map(toClassifiedSubagentRecord)),
+
+      // -----------------------------------------------------------------------
+      // Subagent methods
+      // -----------------------------------------------------------------------
+
+      getLockedSubagents: () =>
+        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.subagents ?? {})),
+
+      getLockedSubagent: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromUndefinedOr((lf.subagents ?? {})[name])),
+        ),
+
+      setSubagent: ({ name, lockEntry }: SetSubagentArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            const sourceInput = lockEntryToSourceParams(lockEntry);
+            const source = printSourceParams(sourceInput);
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              subagents: { ...currentSubagents, [name]: source },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedSubagents = currentLockfile.subagents ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              subagents: {
+                ...currentLockedSubagents,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.setSubagent")),
+
+      setSubagentLock: ({ name, lockEntry }: SetSubagentArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update lockfile only (skip settings) — used for pack dependencies
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedSubagents = currentLockfile.subagents ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              subagents: {
+                ...currentLockedSubagents,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeSubagent: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            const hasSettingsEntry = name in currentSubagents;
+
+            if (hasSettingsEntry) {
+              const { [name]: _, ...remainingSubagents } = currentSubagents;
+              void _;
+              const updatedSettings = { ...currentSettings, subagents: remainingSubagents };
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedSubagents = currentLockfile.subagents ?? {};
+            if (name in currentLockedSubagents) {
+              const { [name]: __, ...remainingLockedSubagents } = currentLockedSubagents;
+              void __;
+              const updatedLockfile = {
+                ...currentLockfile,
+                subagents: remainingLockedSubagents,
+              };
+              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            }
+          }),
+        ).pipe(Effect.withSpan("Workspace.removeSubagent")),
+
+      updateSubagentEntry: (
+        name: string,
+        updater: (entry: NormalizedSubagentEntry) => NormalizedSubagentEntry,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            const existingEntry = currentSubagents[name];
+            if (existingEntry === undefined) return;
+            const normalized = normalizeSubagentEntry(existingEntry);
+            const updated = updater(normalized);
+            const collapsed = collapseSubagentEntry(updated);
+            const updatedSettings = {
+              ...currentSettings,
+              subagents: { ...currentSubagents, [name]: collapsed },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.updateSubagentEntry")),
+
+      setSubagentEntry: (name: string, entry: NormalizedSubagentEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            const collapsed = collapseSubagentEntry(entry);
+            const updatedSettings = {
+              ...currentSettings,
+              subagents: { ...currentSubagents, [name]: collapsed },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.setSubagentEntry")),
+
+      removeSubagentSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
+            if (!(name in currentSubagents)) return; // no-op
+
+            const { [name]: _, ...remainingSubagents } = currentSubagents;
+            void _;
+            const updatedSettings = { ...currentSettings, subagents: remainingSubagents };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeSubagentLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedSubagents: SubagentsLockMap = currentLockfile.subagents ?? {};
+            if (!(name in currentLockedSubagents)) return;
+            const { [name]: _, ...remaining } = currentLockedSubagents;
+            void _;
+            const updatedLockfile = { ...currentLockfile, subagents: remaining };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("Workspace.removeSubagentLock")),
 
       // -----------------------------------------------------------------------
       // MCP Server methods

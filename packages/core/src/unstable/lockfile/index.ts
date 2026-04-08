@@ -22,6 +22,8 @@ export type {
   RegistryExtensionPackLockEntry,
   SkillLockEntry,
   SkillsLockMap,
+  SubagentLockEntry,
+  SubagentsLockMap,
 } from "./schema.js";
 export {
   CommandLockEntrySchema,
@@ -36,6 +38,8 @@ export {
   ResolvedExtensionMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
+  SubagentLockEntrySchema,
+  SubagentsLockMapSchema,
 } from "./schema.js";
 
 // Lockfile I/O

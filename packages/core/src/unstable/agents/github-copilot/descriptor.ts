@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".github/prompts",
   },
+  subagents: {
+    dir: ".github/agents",
+  },
 };

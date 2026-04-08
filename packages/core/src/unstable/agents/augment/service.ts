@@ -18,11 +18,15 @@ import {
   resolveFileExtension,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { CLAUDE_CODE_COMMANDS_PROJECT_DIR } from "../claude-code/service.js";
 import { isManagedByAxm } from "../../extensions/managed-marker.js";
 
 /** @experimental */
 export const AUGMENT_COMMANDS_PROJECT_DIR = ".augment/commands";
+
+/** @experimental */
+export const AUGMENT_SUBAGENTS_PROJECT_DIR = ".augment/agents";
 
 const augmentCommandConfig: CommandSyncConfig = {
   agentId: "augment",
@@ -115,4 +119,23 @@ export const augmentCodingAgent: CodingAgent = {
       args,
       augmentCommandConfig,
     ),
+  resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      if (scope === "user") {
+        return {
+          _tag: "unsupported",
+          reason: "Augment does not support user-scope subagents",
+        } as const;
+      }
+      return {
+        _tag: "supported",
+        dir: path.resolve(workspaceRoot, AUGMENT_SUBAGENTS_PROJECT_DIR),
+        warnings: [],
+      } as const;
+    }),
+  addSubagent: (args) =>
+    addSubagentViaResolve(augmentCodingAgent.resolveEffectiveSubagentsDir(args), args),
+  removeSubagent: (args) =>
+    removeSubagentViaResolve(augmentCodingAgent.resolveEffectiveSubagentsDir(args), args),
 };

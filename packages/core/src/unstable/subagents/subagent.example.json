@@ -1,0 +1,22 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@acme",
+  "type": "subagent",
+  "name": "code-reviewer",
+  "version": "1.0.0",
+  "description": "Automated code review subagent",
+  "model": "default",
+  "toolAccess": "readonly",
+  "background": false,
+  "keywords": ["code-review", "automation"],
+  "repository": "https://github.com/acme/code-reviewer",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Acme Corp",
+      "email": "dev@acme.com",
+      "url": "https://acme.com"
+    }
+  ],
+  "agents": ["claude-code", "cursor", "codex"]
+}

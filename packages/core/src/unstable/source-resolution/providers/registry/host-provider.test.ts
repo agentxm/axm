@@ -393,6 +393,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.skills).toEqual({});
         expect(packRef.pack.commands).toEqual({});
         expect(packRef.pack.mcpServers).toEqual({});
+        expect(packRef.pack.subagents).toEqual({});
         expect(packRef.owner).toBe("@test");
         expect(packRef.name).toBe("my-pack");
         expect(packRef.version).toBe("3.0.0");
@@ -447,6 +448,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.mcpServers).toEqual({
           "@acme/mcp-servers/db": "^3.0.0",
         });
+        expect(packRef.pack.subagents).toEqual({});
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
@@ -491,6 +493,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.skills).toEqual({ "@acme/skills/valid": "^1.0.0" });
         expect(packRef.pack.commands).toEqual({});
         expect(packRef.pack.mcpServers).toEqual({});
+        expect(packRef.pack.subagents).toEqual({});
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

@@ -30,12 +30,14 @@ import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js"
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcp-servers/reconciliation-adapter.js";
 import { extensionPackReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "./display-plan.js";
 
 // Register reconciliation adapters with core
 setReconciliationAdapters([
   skillReconciliationAdapter,
   commandReconciliationAdapter,
+  subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
   extensionPackReconciliationAdapter,
 ]);

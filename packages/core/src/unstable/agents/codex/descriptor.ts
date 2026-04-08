@@ -21,4 +21,7 @@ export const descriptor: AgentDescriptor = {
   commands: {
     dir: ".codex/prompts",
   },
+  subagents: {
+    dir: ".codex/agents",
+  },
 };

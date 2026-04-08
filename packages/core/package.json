@@ -155,6 +155,10 @@
     "./unstable/discover": {
       "types": "./src/unstable/discover/index.ts",
       "default": "./dist/src/unstable/discover/index.js"
+    },
+    "./unstable/subagents": {
+      "types": "./src/unstable/subagents/index.ts",
+      "default": "./dist/src/unstable/subagents/index.js"
     }
   },
   "files": [

@@ -27,6 +27,7 @@ import { SkillManagerLive } from "@axm.sh/core/unstable/skills";
 import { ExtensionPackManagerLive } from "@axm.sh/core/unstable/packs";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { McpServerManagerLive } from "@axm.sh/core/unstable/mcp-servers";
+import { SubagentManagerLive } from "@axm.sh/core/unstable/subagents";
 import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import {
@@ -44,6 +45,8 @@ import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/comm
 import { UninstallPackCommandWorkflowActionsLive } from "./root/packs/uninstall/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "./root/skills/install/command-actions.js";
 import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstall/command-actions.js";
+import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/install/command-actions.js";
+import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
 import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { WorkspaceContextOptions, WorkspaceScope } from "@axm.sh/core/unstable/workspace";
 import { getBuiltInSources, layer as coreWorkspaceLayer } from "@axm.sh/core/unstable/workspace";
@@ -182,11 +185,23 @@ const makeWorkspaceProgramLayer = (
     ),
     SkillManagerLive,
   );
+  const subagentsLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallSubagentCommandWorkflowActionsLive,
+      UninstallSubagentCommandWorkflowActionsLive,
+    ),
+    SubagentManagerLive,
+  );
   const packsLayer = Layer.provideMerge(
     Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
     ExtensionPackManagerLive,
   );
-  const coreExtensions = Layer.mergeAll(commandsLayer, mcpServersLayer, skillsLayer);
+  const coreExtensions = Layer.mergeAll(
+    commandsLayer,
+    mcpServersLayer,
+    skillsLayer,
+    subagentsLayer,
+  );
   const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
 
   return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);

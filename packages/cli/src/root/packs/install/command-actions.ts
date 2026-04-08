@@ -31,6 +31,7 @@ import {
 } from "@axm.sh/core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { McpServerManager, type McpServerExtensionRef } from "@axm.sh/core/unstable/mcp-servers";
+import { SubagentManager, type SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
 import { buildInstallOperation, targetFromRef, toLabel } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@axm.sh/core/unstable/workspace";
@@ -170,6 +171,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const mcpServerMgr = yield* McpServerManager;
+    const subagentMgr = yield* SubagentManager;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -472,7 +474,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const refs = yield* expandExtensionPackInstallRefs({
           pack: intent.packToInstall,
-          supportedDependencyTypes: ["skill", "command", "mcp-server"],
+          supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent"],
           sources,
         });
 
@@ -504,6 +506,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (ref.type === "mcp-server") {
             return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
+              ref,
+              versionConstraint: Option.none(),
+              skipSettings: true,
+            });
+          }
+
+          if (ref.type === "subagent") {
+            return buildInstallOperation<SubagentExtensionRef>(subagentMgr, {
               ref,
               versionConstraint: Option.none(),
               skipSettings: true,

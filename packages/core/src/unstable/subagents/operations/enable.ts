@@ -1,0 +1,197 @@
+/**
+ * Enable subagent executor — re-renders agent-native files for a previously disabled subagent.
+ *
+ * Two paths:
+ * - Lock entry present: full enable (render files + update lock + settings)
+ * - No lock entry: settings-only toggle (configured subagent with no lock backing)
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { CodingAgentRepository } from "../../agents/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import type { OperationHandler } from "../../workspace/apply-plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { JobStepResult } from "../../workspace/plan.js";
+import { Workspace } from "../../workspace/service-interface.js";
+import { sanitizeName } from "../../extensions/utils.js";
+import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import { computeSubagentPaths, SUBAGENT_CONTENT_FILENAME } from "../paths.js";
+import type { SubagentPathSource } from "../paths.js";
+import { parseSubagentMd } from "../subagent-content.js";
+import type { SubagentLockEntry } from "../../lockfile/index.js";
+
+// -----------------------------------------------------------------------------
+// Operation types
+// -----------------------------------------------------------------------------
+
+/**
+ * Enable a previously disabled subagent (re-render files and update state).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type EnableSubagentOperation = Operation<
+  "enable-subagent",
+  { readonly subagentName: string }
+>;
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Derive a SubagentPathSource from a lock entry type. */
+const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource =>
+  lockEntry.type === "registry"
+    ? { refType: "registry", owner: lockEntry.owner }
+    : lockEntry.type === "local"
+      ? { refType: "local" }
+      : { refType: "git-hosted" };
+
+// -----------------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------------
+
+/**
+ * Enable-subagent operation handler.
+ *
+ * Lock-backed path:
+ * 1. Read configured agents, lock entry
+ * 2. Compute canonical path
+ * 3. Verify canonical directory exists
+ * 4. Read and parse SUBAGENT.md
+ * 5. Render to all agents (concurrent)
+ * 6. Update lockfile with rendered files and source hash
+ * 7. Update settings entry to set enabled: true
+ *
+ * Settings-only path (no lock entry):
+ * 1. Update settings entry to set enabled: true
+ */
+export const enableSubagent: OperationHandler<
+  EnableSubagentOperation,
+  FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
+> = (op) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* Workspace;
+    const agentRepo = yield* CodingAgentRepository;
+
+    // Check for lock entry to determine path
+    const lockEntryOption = yield* ws.getLockedSubagent(op.args.subagentName);
+
+    // Settings-only path: no lock entry, just toggle enabled flag
+    if (Option.isNone(lockEntryOption)) {
+      yield* ws
+        .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
+        .pipe(Effect.catch(() => Effect.void));
+
+      return {
+        result: "success",
+        message: `Enabled ${op.args.subagentName}`,
+      } satisfies JobStepResult;
+    }
+
+    // Lock-backed path: full enable with rendering
+    const lockEntry = lockEntryOption.value;
+    const baseDir = ws.baseDir;
+    const pathSource = lockEntryToPathSource(lockEntry);
+    const sanitized = sanitizeName(op.args.subagentName);
+    const paths = computeSubagentPaths(path.join, baseDir, pathSource, sanitized);
+
+    // Verify canonical source exists
+    const exists = yield* fs
+      .exists(paths.subagentSrcPath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) {
+      return yield* makeAppError({
+        code: "ENABLE_SUBAGENT_MISSING_FILES",
+        what: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
+        howToFix: "Try reinstalling the subagent with `axm subagents install`",
+      });
+    }
+
+    // Read and parse SUBAGENT.md
+    const contentPath = path.join(paths.subagentSrcPath, SUBAGENT_CONTENT_FILENAME);
+    const rawContent = yield* fs.readFileString(contentPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "SUBAGENT_CONTENT_READ_FAILED",
+          what: `Failed to read ${SUBAGENT_CONTENT_FILENAME} from ${paths.subagentSrcPath}`,
+          cause: error,
+        }),
+      ),
+    );
+    const parsed = yield* parseSubagentMd(rawContent);
+    const currentHash = computeSourceHash(rawContent);
+    const frontmatter = Option.getOrUndefined(parsed.frontmatter);
+
+    // Build a layer to provide FileSystem + Path to inner effects
+    const fsPathLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+
+    // Render to all configured agents
+    const configuredAgents = yield* agentRepo
+      .getConfiguredAgents()
+      .pipe(Effect.provideService(Workspace, ws));
+
+    const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
+
+    yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent
+          .addSubagent({
+            workspaceRoot: baseDir,
+            scope: "project",
+            input: {
+              agentId: agent.id,
+              name: op.args.subagentName,
+              description: frontmatter?.description ?? "",
+              model: frontmatter?.model,
+              toolAccess: frontmatter?.toolAccess,
+              background: frontmatter?.background,
+              body: parsed.body,
+              agentOverrides: frontmatter?.overrides,
+            },
+            force: false,
+          })
+          .pipe(
+            Effect.provide(fsPathLayer),
+            Effect.map((outcome) => {
+              if (outcome._tag === "success") {
+                renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({
+                  path: p,
+                }));
+              }
+            }),
+          ),
+      { concurrency: "unbounded" },
+    );
+
+    // Update lockfile with rendered files and source hash
+    const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
+    const updatedLockEntry = {
+      ...lockEntry,
+      sourceHash: currentHash,
+      renderedFiles: decodeRenderedFiles(renderedFilesMap),
+    };
+    yield* ws.setSubagentLock({ name: op.args.subagentName, lockEntry: updatedLockEntry });
+
+    // Update settings entry to set enabled: true
+    yield* ws
+      .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
+      .pipe(Effect.catch(() => Effect.void));
+
+    return {
+      result: "success",
+      message: `Enabled ${op.args.subagentName}`,
+    } satisfies JobStepResult;
+  });

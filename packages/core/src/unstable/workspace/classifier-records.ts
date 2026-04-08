@@ -15,18 +15,23 @@ import type {
   ClassifiedCommand,
   ClassifiedExtensionRef,
   ClassifiedSkill,
+  ClassifiedSubagent,
   ConfiguredCommand,
   ConfiguredExtensionRef,
   ConfiguredSkill,
+  ConfiguredSubagent,
   ImplicitCommand,
   ImplicitExtensionRef,
   ImplicitSkill,
+  ImplicitSubagent,
   InstalledCommand,
   InstalledExtensionRef,
   InstalledSkill,
+  InstalledSubagent,
   UnmanagedCommand,
   UnmanagedExtensionRef,
   UnmanagedSkill,
+  UnmanagedSubagent,
 } from "./taxonomy-types.js";
 
 type ConfiguredRow = Extract<ClassifiedExtension, { lifecycle: "configured" }>;
@@ -260,3 +265,56 @@ export const toConfiguredExternalExtensionRefRecord = (rows: ReadonlyArray<Class
 
 export const toUnmanagedExternalExtensionRefRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
   collectRecord(rows, isExternalUnmanaged, toUnmanagedExtensionRef);
+
+// ---------------------------------------------------------------------------
+// Subagent record converters
+// ---------------------------------------------------------------------------
+
+const toConfiguredSubagent = (row: ConfiguredRow): ConfiguredSubagent => ({
+  source: row.source,
+  enabled: row.enabled,
+  packagingKind: row.packagingKind,
+});
+
+const toImplicitSubagent = (row: NonConfiguredRow): ImplicitSubagent => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+});
+
+const toUnmanagedSubagent = (row: NonConfiguredRow): UnmanagedSubagent => ({
+  source: row.source,
+  enabled: true,
+  packagingKind: row.packagingKind,
+});
+
+const toInstalledSubagent = (row: InstalledRow): InstalledSubagent =>
+  row.lifecycle === "configured"
+    ? { lifecycle: "configured", ...toConfiguredSubagent(row) }
+    : { lifecycle: "implicit", ...toImplicitSubagent(row) };
+
+const toClassifiedSubagent = (row: ClassifiedExtension): ClassifiedSubagent => {
+  switch (row.lifecycle) {
+    case "configured":
+      return { lifecycle: "configured", ...toConfiguredSubagent(row) };
+    case "implicit":
+      return { lifecycle: "implicit", ...toImplicitSubagent(row) };
+    case "unmanaged":
+      return { lifecycle: "unmanaged", ...toUnmanagedSubagent(row) };
+  }
+};
+
+export const toConfiguredSubagentRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+  collectRecord(rows, isConfigured, toConfiguredSubagent);
+
+export const toImplicitSubagentRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+  collectRecord(rows, isImplicit, toImplicitSubagent);
+
+export const toUnmanagedSubagentRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+  collectRecord(rows, isUnmanaged, toUnmanagedSubagent);
+
+export const toInstalledSubagentRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+  collectRecord(rows, isInstalled, toInstalledSubagent);
+
+export const toClassifiedSubagentRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+  mapRecord(rows, toClassifiedSubagent);

@@ -124,6 +124,8 @@ output and renderer contracts.
 ### Global Flags
 
 - `--non-interactive` applies to every command
+- `--json` / `-j` outputs machine-readable JSON
+- `--verbose` / `-v`, `--debug`, `--quiet` / `-q` control verbosity
 - No prompt may block in non-interactive mode
 - Resolution chain: explicit `--non-interactive` → `CI=true` → `!stdin.isTTY`
 

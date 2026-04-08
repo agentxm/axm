@@ -112,7 +112,7 @@ Export schema and type together:
 
 ```typescript
 export const SkillsListOutputSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  _version: Schema.Literal(1),
   command: Schema.Literal("skills.list"),
   items: Schema.Array(SkillListItemSchema),
   count: Schema.Number,
@@ -205,7 +205,7 @@ Define that top-level object as an Effect Schema v4 schema.
 
 ```json
 {
-  "schemaVersion": 1,
+  "_version": 1,
   "command": "skills.list",
   "items": [
     {
@@ -227,7 +227,7 @@ Why an object, even for lists:
 
 Recommended top-level fields:
 
-- `schemaVersion`: integer, required
+- `_version`: integer, required
 - `command`: stable command id such as `skills.list`, required
 - exactly one primary payload key:
   - `data` for single resources
@@ -268,7 +268,7 @@ JSON errors should preserve the structured data already present in `AppError`.
 ```json
 {
   "type": "error",
-  "schemaVersion": 1,
+  "_version": 1,
   "code": "AUTH_TOKEN_REQUIRED",
   "message": "No authentication token is available",
   "details": ["Checked AXM_TOKEN and persisted credentials"],

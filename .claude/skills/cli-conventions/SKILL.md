@@ -182,8 +182,10 @@ mycli skills install owner/repo --scope project
 
 ```
 src/
-├── main.ts                     # Root command, global flags, run()
-└── commands/
+├── main.ts                     # Entry point (shebang + delegates to app)
+├── app.ts                      # Root command, global flags, run()
+├── runtime.ts                  # withRuntime() + service provisioning
+└── root/
     └── skills/
         ├── command.ts           # Parent command — composes subcommands
         ├── install.ts           # Required arg + choice flag + multi-value flag + boolean flag
@@ -239,38 +241,48 @@ Command.withExamples([
 
 ## Global and Per-Command Flags
 
-`--non-interactive` is a global flag (applies to every command). `--yes`, `--force`, `--preview` are per-command flags — import and include in `Command.make()` only for commands that need them.
+Global flags (`--non-interactive`, `--json`/`-j`, `--verbose`/`-v`, `--debug`,
+`--quiet`/`-q`) apply to every command. `--yes`, `--force`, `--preview` are
+per-command flags — import and include in `Command.make()` only for commands
+that need them.
 
 ```typescript
 import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
 import { yesFlag, forceFlag, previewFlag } from "../../cli-flags/index.js";
 
-// Global flag — defined once, registered on root command
+// Global flags — defined once, registered on root command
 const nonInteractiveFlag = GlobalFlag.setting("app-non-interactive")({
   flag: Flag.boolean("non-interactive").pipe(
     Flag.optional,
     Flag.withDescription("Disable all interactive prompts"),
   ),
 });
-const globalFlags = [nonInteractiveFlag, outputFormatFlag] as const;
+const jsonFlag = GlobalFlag.setting("axm-json")({
+  flag: Flag.boolean("json").pipe(
+    Flag.withAlias("j"),
+    Flag.withDescription("Output machine-readable JSON"),
+    Flag.optional,
+  ),
+});
+const globalFlags = [nonInteractiveFlag, jsonFlag, verboseFlag, debugFlag, quietFlag] as const;
 Command.withGlobalFlags(globalFlags);
 
-// Per-command flags — add to Command.make() for commands that need them
+// Per-command flags — add to Command.make() for commands that need them.
+// Flag values are explicit handler arguments, not read from a service.
 Command.make("install", {
   source: Argument.string("source").pipe(...),
   yes: yesFlag,
   force: forceFlag,
   preview: previewFlag,
-}, ({ source, yes, force, preview }) =>
-  withCommandRuntime(handleInstall({ source }), {
-    command: "skills install",
-    flags: { yes, force, preview },
-  }),
+}, (config) =>
+  withRuntime(
+    Effect.gen(function* () {
+      if (config.preview) { /* show plan only */ }
+      yield* handleInstall({ source: config.source });
+    }),
+    { command: "skills install" },
+  ),
 );
-
-// Handlers read from the CliFlags service (unchanged)
-const flags = yield* CliFlags;
-if (flags.preview) { /* show plan only */ }
 ```
 
 ---
@@ -310,14 +322,11 @@ import { CliError, Command } from "effect/unstable/cli";
 const VERSION = "0.0.1";
 
 // Resolve format OUTSIDE Effect — must work even when CLI parsing fails
-const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
-  const idx = args.indexOf("--output-format");
-  if (idx !== -1 && idx + 1 < args.length) {
-    const value = args[idx + 1];
-    if (value === "json" || value === "stream-json" || value === "text") return value;
-  }
-  return process.stdout.isTTY ? "text" : "json";
-};
+const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
+  args.includes("--json") || args.includes("-j");
+
+const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat =>
+  hasExplicitJsonFlag(args) ? "json" : "text";
 
 const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   const format = resolveFormatFromArgv(args);
@@ -364,27 +373,47 @@ Format errors with recovery guidance:
 
 ## Structured Output
 
-Every command produces output in one of three modes: `text` (TTY), `json`
-(piped instant commands), `stream-json` (piped long-running commands).
+Handlers are format-agnostic. `CliRenderer` owns channel discipline — text
+mode uses Clack terminal UI, JSON mode emits structured data. Handlers do not
+branch on format; the renderer does.
 
 ### Command Handler Pattern
 
-All commands follow the same 3-step pattern:
-
 ```typescript
 (config) =>
-  Effect.gen(function* () {
-    // 1. Resolve format — yield global flag, detect TTY
-    const format = resolveOutputFormat(yield* outputFormatFlag);
-    // For long-running commands, pass isLongRunning=true:
-    // const format = resolveOutputFormat(yield* outputFormatFlag, true);
+  withRuntime(
+    Effect.gen(function* () {
+      const renderer = yield* CliRenderer;
 
-    // 2. Do work
-    const data = yield* doWork(config);
+      const pets = yield* renderer.withSpinner(
+        `Logging intake from ${config.source}`,
+        (handle) =>
+          Effect.gen(function* () {
+            yield* handle.update("Downloading intake sheet...");
+            yield* handle.update("Registering pets...");
+            return yield* IntakeService.process(config.source, config.habitat);
+          }),
+        { successMessage: "Intake complete" },
+      );
 
-    // 3. Write output — format-aware, schema-validated
-    yield* writeOutput(format, OutputSchema, data, renderText);
-  });
+      yield* renderer.success(renderText(config.source, pets));
+    }),
+    { command: "pets intake" },
+  ),
+```
+
+For commands that support `--json` output with structured result data:
+
+```typescript
+const renderer = yield * CliRenderer;
+const json = Option.getOrElse(yield * jsonFlag, () => false);
+
+if (json) {
+  yield * renderer.result(data, OutputSchema);
+} else {
+  yield * renderer.success(`Pet: ${data.name}`);
+  yield * renderer.info(`Species: ${data.species}`);
+}
 ```
 
 ### Output Schema Convention
@@ -403,9 +432,8 @@ export const SkillInfoSchema = Schema.Struct({
 
 ### Long-Running Commands (NDJSON)
 
-Long-running commands emit progress events before the final result in
-`stream-json` mode. See `packages/cli-spike/src/commands/skills/install.ts`
-for the complete pattern.
+Long-running commands emit progress events before the final result. See
+`packages/cli-spike/src/root/pets/intake.ts` for the complete pattern.
 
 ---
 

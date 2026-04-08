@@ -52,71 +52,83 @@ for optional behavior"_
 _Before_ — Verb-first naming with flags for primary input:
 
 ```
-axm install-skill --name @craig/my-skill --from github --force-overwrite
+axm-spike intake-pet --source partner-feed --habitat showroom --force-overwrite
 ```
 
 _After_ — Noun-verb naming with positional primary input:
 
 ```
-axm skills install @craig/my-skill --force
+axm-spike pets intake partner-feed --habitat showroom --force
 ```
 
-The before example buries the resource in the verb, uses flags for the obvious
-primary input, and couples source into a flag. The after example follows
-`<resource> <action>`, uses a positional for the one obvious input, and keeps
-`--force` for optional behavior only.
+The before example buries the resource in the verb and uses flags for the obvious
+primary input. The after example follows `<resource> <action>`, uses a positional
+for the one obvious input, and keeps `--habitat` and `--force` for optional
+behavior only.
 
 ### Handler Boundary
 
-_Illustrates: "Handler boundary," "Render once," and "Non-interactive path"_
+_Illustrates: "Handler boundary," "Render once," and "Domain via services"_
 
-_Before_ — parsing, prompts, business logic, and rendering tangled together:
+_Before_ — parsing, business logic, and rendering tangled together:
 
 ```typescript
-Command.make(
-  "intake",
-  { source: Args.text({ name: "source" }).pipe(Args.optional) },
-  ({ source }) =>
-    Effect.gen(function* () {
-      // Parsing concern leaked into handler
-      const resolvedSource = source ?? (yield* prompt("Source URL or path:"));
-      // Business logic mixed with rendering
-      const plan = yield* computeIntakePlan(resolvedSource);
-      console.log(`Will intake ${plan.items.length} items`);
-      if (!(yield* confirm("Proceed?"))) return;
-      for (const item of plan.items) {
-        const result = yield* processItem(item);
-        console.log(`  ✓ ${result.name}`); // Line-by-line rendering
-      }
-    }),
+Command.make("intake", { source: Argument.string("source").pipe(Argument.optional) }, (config) =>
+  Effect.gen(function* () {
+    // Parsing concern leaked into handler
+    const src = config.source ?? (yield* prompt("Source URL or path:"));
+    // Business logic mixed with rendering
+    const pets = yield* fetchPetsFromSource(src);
+    console.log(`Will intake ${pets.length} pets`);
+    if (!(yield* confirm("Proceed?"))) return;
+    for (const pet of pets) {
+      yield* registerPet(pet);
+      console.log(`  ✓ ${pet.name}`); // Line-by-line rendering
+    }
+  }),
 );
 ```
 
-_After_ — clean boundary between parsing, handler, and rendering:
+_After_ — typed config at the boundary, services for domain work, `CliRenderer`
+for output (based on `cli-spike/src/root/pets/intake.ts`):
 
 ```typescript
-// command.ts — parsing at the boundary
-Command.make(
-  "intake",
-  { source: Args.text({ name: "source" }).pipe(Args.optional) },
-  ({ source }) => intakeHandler({ source: Option.fromNullable(source) }),
-);
+const intakeConfig = {
+  source: Argument.string("source").pipe(
+    Argument.withDescription("Partner intake feed, local file, or URL"),
+  ),
+  habitat: Flag.choice("habitat", ["showroom", "foster"] as const).pipe(
+    Flag.withDefault("showroom" as const),
+  ),
+  yes: yesFlag,
+} as const;
 
-// handler.ts — accepts parsed values, returns structured result
-const intakeHandler = ({ source }: IntakeHandlerArgs) =>
-  Effect.gen(function* () {
-    const resolved = yield* ResolveSource.resolve(source);
-    const plan = yield* IntakeService.plan(resolved);
-    yield* CliRenderer.render(IntakePreview, plan);
-    yield* CliPrompt.confirm("Proceed?");
-    const result = yield* IntakeService.execute(plan);
-    yield* CliRenderer.render(IntakeResult, result);
-  });
+export const intakeCommand = Command.make("intake", intakeConfig, (config) =>
+  withRuntime(
+    Effect.gen(function* () {
+      const renderer = yield* CliRenderer;
+      const pets = yield* renderer.withSpinner(
+        `Logging intake from ${config.source}`,
+        (handle) =>
+          Effect.gen(function* () {
+            yield* handle.update("Downloading intake sheet...");
+            yield* handle.update("Registering pets...");
+            return yield* IntakeService.process(config.source, config.habitat);
+          }),
+        { successMessage: "Intake complete" },
+      );
+      yield* renderer.success(renderText(config.source, pets));
+    }),
+    { command: "pets intake" },
+  ),
+);
 ```
 
 The before example tangles parsing, prompts, domain logic, and output. The after
-example keeps parsing at the command boundary, accepts `Option` types in the
-handler, builds structured results, and renders once through `CliRenderer`.
+example declares typed config at the command boundary, provides services via
+`withRuntime`, delegates domain work to `IntakeService`, and renders once
+through `CliRenderer`. The spinner is format-agnostic — text mode shows an
+animated spinner; JSON mode emits NDJSON progress on stderr.
 
 ---
 
@@ -192,10 +204,10 @@ services. See [Handlers](#handlers) for why this separation matters and the
 [Handler Checklist](#handler-checklist) for verification.
 
 **Depth note:** Not every command needs the same design effort. A simple
-`auth whoami` needs minimal ceremony — one file, no prompts, no flags beyond
-globals. A multi-step `pets intake` with source resolution, interactive pet
-selection, preview mode, and force-override earns a directory, dedicated helper
-tests, and careful flag design. Scale effort to command complexity.
+`pets list` needs minimal ceremony — one file, a couple of flags, no prompts.
+A multi-step `pets intake` with source resolution, interactive pet selection,
+and force-override earns a directory, dedicated helper tests, and careful flag
+design. Scale effort to command complexity.
 
 ---
 
@@ -210,8 +222,8 @@ Examples:
 
 - `axm-spike pets intake <source>`
 - `axm-spike pets register <name>`
-- `axm packs new <name>`
-- `axm auth whoami`
+- `axm-spike pets list`
+- `axm-spike pets adopt <pet>`
 
 ### Command Shape Checklist
 
@@ -345,10 +357,15 @@ of global and per-command flags.
 Registered once at the root:
 
 - `--non-interactive`
-- `--json`
-- `--verbose`
+- `--json` / `-j`
+- `--verbose` / `-v`
 - `--debug`
-- `--quiet`
+- `--quiet` / `-q`
+
+`--log-level` is not an axm global flag. Effect CLI currently bakes it in
+automatically; see
+[effect-smol#1954](https://github.com/Effect-TS/effect-smol/issues/1954) for
+the open issue to make it removable.
 
 ### Per-Command Flag Semantics
 
@@ -501,17 +518,17 @@ particular way. See [Testing Guide](./testing.md) for depth.
 
 ## Common Pitfalls
 
-| Pitfall                    | Example                                                           | Problem                                                                 |
-| -------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Group command fails        | `axm-spike pets` exits non-zero with no subcommand                | Scolds users instead of orienting; breaks scripted `--help` flows       |
-| Inconsistent flag meaning  | `--force` skips confirms on one command, overrides on another     | Users can't build muscle memory; scripts break across resources         |
-| Raw parser types in handler | Handler receives `string \| undefined` instead of `Option`       | Parsing concern leaks past the boundary; handler logic gets noisy       |
-| Line-by-line rendering     | `console.log` calls interleaved with business logic               | No structured result; can't switch to JSON output; hard to test         |
-| Premature `--json`         | Flag advertised before a result schema exists                     | Machine consumers build on an unstable contract                         |
-| Formatted machine output   | JSON piped through a human formatter                              | Breaks both audiences — unreadable for humans, unparseable for machines |
-| Premature directory split  | `list/command.ts` + `list/handler.ts` for a 30-line command       | Extra files without testable complexity to justify them                 |
-| Single-use named types     | `IntakeIntent` interface used in one file                         | Ceremony without value; clutters the module graph                       |
-| Premature generic          | Shared workflow service used by two commands                      | Premature abstraction harder to change than duplicated code             |
+| Pitfall                     | Example                                                       | Problem                                                                 |
+| --------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Group command fails         | `axm-spike pets` exits non-zero with no subcommand            | Scolds users instead of orienting; breaks scripted `--help` flows       |
+| Inconsistent flag meaning   | `--force` skips confirms on one command, overrides on another | Users can't build muscle memory; scripts break across resources         |
+| Raw parser types in handler | Handler receives `string \| undefined` instead of `Option`    | Parsing concern leaks past the boundary; handler logic gets noisy       |
+| Line-by-line rendering      | `console.log` calls interleaved with business logic           | No structured result; can't switch to JSON output; hard to test         |
+| Premature `--json`          | Flag advertised before a result schema exists                 | Machine consumers build on an unstable contract                         |
+| Formatted machine output    | JSON piped through a human formatter                          | Breaks both audiences — unreadable for humans, unparseable for machines |
+| Premature directory split   | `list/command.ts` + `list/handler.ts` for a 30-line command   | Extra files without testable complexity to justify them                 |
+| Single-use named types      | `IntakeIntent` interface used in one file                     | Ceremony without value; clutters the module graph                       |
+| Premature generic           | Shared workflow service used by two commands                  | Premature abstraction harder to change than duplicated code             |
 
 ### Pitfalls Checklist
 
@@ -550,6 +567,15 @@ checklists above.
 - [ ] **Validation Checklist** — All items pass
 - [ ] **Testing Checklist** — All items pass
 - [ ] **Pitfalls Checklist** — All items pass
+
+### Overall Quality
+
+- [ ] **Depth proportional** — Design effort matches command complexity (simple
+      commands need minimal ceremony; complex commands earn directories and tests)
+- [ ] **Agent-consumable** — Consistent terminology throughout;
+      counterintuitive conventions are explicit
+- [ ] **Reference-aligned** — Cross-references to CLI Renderer, Testing, and
+      Effect guides point to specific sections
 
 ---
 

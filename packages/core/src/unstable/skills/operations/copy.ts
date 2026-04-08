@@ -21,6 +21,7 @@ import { REGISTRY_EXTENSIONS_DIR, parseFqn } from "../../extensions/index.js";
 import type { SkillExtensionRef } from "../refs.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import { stripFileProtocol } from "../../utils/index.js";
+import { isManagedByAxm, stripMarker } from "../../extensions/managed-marker.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -99,6 +100,22 @@ export const copySkill: OperationHandler<
         }),
       ),
     );
+
+    // Strip managed marker from copied SKILL.md (forked skills are user-owned)
+    const copiedSkillMdPath = path.join(targetDir, "src", "SKILL.md");
+    const skillMdExists = yield* fs
+      .exists(copiedSkillMdPath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (skillMdExists) {
+      const skillMdContent = yield* fs
+        .readFileString(copiedSkillMdPath)
+        .pipe(Effect.catch(() => Effect.succeed("")));
+      if (isManagedByAxm(skillMdContent)) {
+        yield* fs
+          .writeFileString(copiedSkillMdPath, stripMarker(skillMdContent))
+          .pipe(Effect.catch(() => Effect.void));
+      }
+    }
 
     // Generate skill.json manifest
     const manifest = {

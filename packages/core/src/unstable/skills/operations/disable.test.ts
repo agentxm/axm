@@ -7,7 +7,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
+import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
+import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service-interface.js";
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
@@ -16,6 +18,8 @@ import { disableSkill } from "./disable.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 /** Creates a workspace mock for disable tests. */
 const makeWorkspaceMock = (
@@ -745,6 +749,76 @@ describe("disableSkill", () => {
 
         expect(result.result).toBe("error");
         expect(result.message).toContain("Cannot determine source");
+      }),
+    );
+  });
+
+  describe("rendered files tracking", () => {
+    it.effect("removes copy-mode paths from renderedFiles while preserving canonical", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        // Create the canonical source (should be preserved after disable)
+        const canonicalPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
+        fs.mkdirSync(canonicalPath, { recursive: true });
+        fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), "# my-skill");
+
+        // Create the copied skill directory at a tracked rendered path
+        const renderedPath = path.join(base, ".claude", "skills", "my-skill");
+        fs.mkdirSync(renderedPath, { recursive: true });
+        fs.writeFileSync(path.join(renderedPath, "SKILL.md"), "# my-skill");
+
+        const lockEntry: SkillLockEntry = {
+          ...makeLocalLockEntry(["claude-code"]),
+          renderedFiles: {
+            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+          },
+        };
+
+        const result = yield* disableSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),
+        );
+
+        expect(result.result).toBe("success");
+        // The rendered agent path should be removed
+        expect(fs.existsSync(renderedPath)).toBe(false);
+        // The canonical source should be preserved
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
+      }),
+    );
+
+    it.effect("handles missing rendered files gracefully during disable", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        // Don't create the rendered path — it doesn't exist on disk
+        const renderedPath = path.join(base, ".claude", "skills", "my-skill");
+
+        const lockEntry: SkillLockEntry = {
+          ...makeLocalLockEntry(["claude-code"]),
+          renderedFiles: {
+            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+          },
+        };
+
+        const result = yield* disableSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),
+        );
+
+        // Should succeed even if rendered path doesn't exist
+        expect(result.result).toBe("success");
       }),
     );
   });

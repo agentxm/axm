@@ -19,6 +19,9 @@ export type {
 // Skill domain type
 export type { Skill } from "./types.js";
 
+// Skill content parsing
+export { parseSkillMd, SkillFrontmatterSchema } from "./skill-content.js";
+
 // Manager
 export { SkillManager, SkillManagerLive } from "./manager.js";
 

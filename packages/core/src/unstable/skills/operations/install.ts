@@ -14,6 +14,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
+import {
+  computeSourceHash,
+  type RenderedFilePath,
+  type RenderedFilesMap,
+  RenderedFilePathSchema,
+} from "../../extensions/index.js";
+import * as Schema from "effect/Schema";
 import type {
   GitHostedSkillRef,
   LocalSkillRef,
@@ -39,6 +46,7 @@ import type { Operation } from "../../workspace/plan.js";
 import type { JobStepResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
+import { prependManagedMarkerToSkillMd } from "../managed-marker-ops.js";
 import type { InstallResult } from "./install-result.js";
 
 // -----------------------------------------------------------------------------
@@ -101,6 +109,50 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     );
   });
 
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+
+/**
+ * Compute a source hash from the canonical skill directory by reading
+ * file names and their contents, then hashing the combined result.
+ *
+ * @internal Exported for testing only.
+ */
+export const computeSkillSourceHash = (canonicalPath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const entries = yield* fs
+      .readDirectory(canonicalPath)
+      .pipe(Effect.catch(() => Effect.succeed([])));
+    const sorted = [...entries].sort();
+    const parts = yield* Effect.forEach(sorted, (entry) =>
+      fs.readFileString(path.join(canonicalPath, entry)).pipe(
+        Effect.map((content) => `${entry}\n${content}`),
+        Effect.catch(() => Effect.succeed(entry)),
+      ),
+    );
+    return computeSourceHash(parts.join("\n"));
+  });
+
+/**
+ * Build a RenderedFilesMap from per-agent copy-mode install results.
+ * Only includes agents where mode === "copy" and success === true.
+ *
+ * @internal Exported for testing only.
+ */
+export const buildRenderedFilesFromResults = (
+  installableTargets: ReadonlyArray<{ agentId: AgentId; targetDir: string }>,
+  agentResults: ReadonlyArray<InstallResult>,
+): RenderedFilesMap => {
+  const result: Record<string, Array<{ path: RenderedFilePath }>> = {};
+  for (const [target, installResult] of Array.zip(installableTargets, agentResults)) {
+    if (installResult.mode === "copy" && installResult.success) {
+      result[target.agentId] = [{ path: decodeRenderedFilePath(installResult.path) }];
+    }
+  }
+  return result;
+};
+
 // -----------------------------------------------------------------------------
 // Per-refType install functions
 // -----------------------------------------------------------------------------
@@ -116,6 +168,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+    yield* prependManagedMarkerToSkillMd(skillSrcPath);
 
     return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
   });
@@ -207,6 +260,8 @@ const installFromRegistry = (
         fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
       );
     }
+
+    yield* prependManagedMarkerToSkillMd(skillSrcPath);
 
     return { skillSrcPath, versionConstraint } satisfies MaterializedSkill;
   });
@@ -445,14 +500,28 @@ export const installSkill: OperationHandler<
       return matched.result;
     });
 
+    // ── Shared: compute rendered files tracking for copy-mode ──────
+    const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
+    const renderedFiles = hasCopyResults
+      ? buildRenderedFilesFromResults(installableTargets, agentResults)
+      : undefined;
+    const sourceHash = hasCopyResults
+      ? yield* computeSkillSourceHash(materialized.skillSrcPath)
+      : undefined;
+
     // ── Shared: update lockfile + settings ──────────────────────────
-    const lockEntry = sourceToLockEntry({
+    const baseLockEntry = sourceToLockEntry({
       ref,
       agents,
       now: new Date(),
       sourceName: op.args.sourceName,
       existingInstalledAt: op.args.existingInstalledAt,
     });
+    const lockEntry = {
+      ...baseLockEntry,
+      ...(sourceHash !== undefined ? { sourceHash } : {}),
+      ...(renderedFiles !== undefined ? { renderedFiles } : {}),
+    };
 
     if (lockEntry.type === "registry") {
       yield* validateExactResolvedVersion(

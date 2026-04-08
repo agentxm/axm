@@ -8,7 +8,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import * as Schema from "effect/Schema";
 import type { ExtensionPackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
+import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
 import {
   Workspace,
@@ -23,6 +25,8 @@ import { uninstallSkill } from "./uninstall.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 /** Creates a workspace mock backed by in-memory skills + on-disk YAML. */
 const makeWorkspaceMock = (
@@ -1079,6 +1083,77 @@ describe("uninstallSkill", () => {
 
         // Registry path should be removed
         expect(fs.existsSync(registryPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("rendered files tracking", () => {
+    it.effect("removes copy-mode paths from renderedFiles in lock entry", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        // Create the copied skill directory at a tracked rendered path
+        const renderedPath = path.join(base, ".claude", "skills", "my-skill");
+        fs.mkdirSync(renderedPath, { recursive: true });
+        fs.writeFileSync(path.join(renderedPath, "SKILL.md"), "# my-skill");
+
+        // Create canonical path so existsInAnyCanonicalLocation resolves true
+        const canonicalPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
+        fs.mkdirSync(canonicalPath, { recursive: true });
+        fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), "# my-skill");
+
+        const lockEntry: SkillLockEntry = {
+          ...makeLocalLockEntry(["claude-code"]),
+          renderedFiles: {
+            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+          },
+        };
+
+        writeLockfileYaml(axmDir, {});
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, { "my-skill": lockEntry })),
+        );
+
+        expect(result.result).toBe("success");
+        // The rendered path should be removed
+        expect(fs.existsSync(renderedPath)).toBe(false);
+      }),
+    );
+
+    it.effect("handles missing rendered files gracefully", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        // Don't create the rendered path — it doesn't exist on disk
+        const renderedPath = path.join(base, ".claude", "skills", "my-skill");
+
+        const lockEntry: SkillLockEntry = {
+          ...makeLocalLockEntry(["claude-code"]),
+          renderedFiles: {
+            "claude-code": [{ path: makeRenderedFilePath(renderedPath) }],
+          },
+        };
+
+        writeLockfileYaml(axmDir, {});
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, { "my-skill": lockEntry })),
+        );
+
+        // Should succeed even if rendered path doesn't exist
+        expect(result.result).toBe("success");
       }),
     );
   });

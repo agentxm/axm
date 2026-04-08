@@ -113,10 +113,25 @@ export const disableSkill: OperationHandler<
       const lockAgents: readonly string[] = lockEntry.agents;
       const allAgents = [...new Set([...lockAgents, ...configuredAgents])];
 
-      // Remove agent symlinks (concurrent) — files before state
+      // Remove agent symlinks/copies (concurrent) — files before state.
+      // When renderedFiles are tracked (copy-mode), prefer tracked paths;
+      // otherwise fall back to agent descriptor-based path resolution.
+      const renderedFiles = lockEntry.renderedFiles;
       yield* Effect.forEach(
         allAgents,
         (agentId) => {
+          // Check renderedFiles for tracked copy-mode paths
+          const tracked = renderedFiles?.[agentId];
+          if (tracked !== undefined && tracked.length > 0) {
+            return Effect.forEach(
+              tracked,
+              (entry) =>
+                fs.remove(entry.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+              { concurrency: "unbounded" },
+            );
+          }
+
+          // Fall back to agent descriptor-based path resolution
           const maybeAgent = getAgentById(agentId);
           if (Option.isNone(maybeAgent)) return Effect.void;
           const agent = maybeAgent.value;

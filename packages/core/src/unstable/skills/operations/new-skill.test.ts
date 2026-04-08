@@ -12,6 +12,7 @@ import { Workspace, type WorkspaceContextService } from "../../workspace/service
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
 import type { NewSkillOperation } from "./new-skill.js";
 import { newSkill } from "./new-skill.js";
+import { isManagedByAxm } from "../../extensions/managed-marker.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -215,6 +216,31 @@ describe("newSkill", () => {
         expect(manifest.type).toBe("skill");
         expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.0.1");
+      }),
+    );
+  });
+
+  describe("managed marker", () => {
+    it.effect("does NOT include managed marker in scaffolded SKILL.md", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+
+        const result = yield* newSkill(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const skillMdPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@myorg",
+          "skills",
+          "my-skill",
+          "src",
+          "SKILL.md",
+        );
+        const content = fs.readFileSync(skillMdPath, "utf-8");
+        expect(isManagedByAxm(content)).toBe(false);
       }),
     );
   });

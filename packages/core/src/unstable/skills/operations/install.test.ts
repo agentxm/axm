@@ -36,8 +36,10 @@ import {
 } from "../../agents/index.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
-import { installSkill } from "./install.js";
+import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import type { InstallResult } from "./install-result.js";
+import { isManagedByAxm } from "../../extensions/managed-marker.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (
@@ -986,6 +988,208 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledOnce();
         const args = at(setSkillFn.mock.calls, 0)[0];
         expect(Option.isNone(args.versionConstraint)).toBe(true);
+      }),
+    );
+  });
+
+  describe("rendered files tracking", () => {
+    it.effect("symlink-mode install does not populate renderedFiles or sourceHash", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+        const setSkillFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { setSkillFn, configuredAgents: ["claude-code"] })),
+        );
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const lockEntry = at(setSkillFn.mock.calls, 0)[0].lockEntry as Record<string, unknown>;
+        expect(lockEntry.renderedFiles).toBeUndefined();
+        expect(lockEntry.sourceHash).toBeUndefined();
+      }),
+    );
+
+    it("buildRenderedFilesFromResults maps copy-mode results to renderedFiles", () => {
+      const targets = [
+        { agentId: "claude-code" as AgentId, targetDir: "/project/.claude/skills" },
+        { agentId: "cursor" as AgentId, targetDir: "/project/.cursor/skills" },
+      ];
+      const results: ReadonlyArray<InstallResult> = [
+        {
+          success: true,
+          mode: "copy",
+          symlinkFailed: true,
+          error: Option.none(),
+          path: "/project/.claude/skills/my-skill",
+          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+        },
+        {
+          success: true,
+          mode: "symlink",
+          symlinkFailed: false,
+          error: Option.none(),
+          path: "/project/.cursor/skills/my-skill",
+          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+        },
+      ];
+
+      const renderedFiles = buildRenderedFilesFromResults(targets, results);
+
+      // Only the copy-mode agent should be in renderedFiles
+      expect(renderedFiles["claude-code"]).toBeDefined();
+      expect(renderedFiles["claude-code"]?.[0]?.path).toBe("/project/.claude/skills/my-skill");
+      // Symlink-mode agent should NOT be in renderedFiles
+      expect(renderedFiles["cursor"]).toBeUndefined();
+    });
+
+    it("buildRenderedFilesFromResults excludes failed copy-mode results", () => {
+      const targets = [{ agentId: "claude-code" as AgentId, targetDir: "/project/.claude/skills" }];
+      const results: ReadonlyArray<InstallResult> = [
+        {
+          success: false,
+          mode: "copy",
+          symlinkFailed: true,
+          error: Option.some("copy failed"),
+          path: "/project/.claude/skills/my-skill",
+          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+        },
+      ];
+
+      const renderedFiles = buildRenderedFilesFromResults(targets, results);
+
+      expect(Object.keys(renderedFiles)).toHaveLength(0);
+    });
+
+    it.effect("computeSkillSourceHash produces a stable hash from directory contents", () =>
+      Effect.gen(function* () {
+        const dir = path.join(tmpDir, "hash-test");
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, "SKILL.md"), "# Test");
+        fs.writeFileSync(path.join(dir, "prompt.md"), "prompt");
+
+        const hash1 = yield* computeSkillSourceHash(dir).pipe(Effect.provide(NodeServices.layer));
+        const hash2 = yield* computeSkillSourceHash(dir).pipe(Effect.provide(NodeServices.layer));
+
+        expect(hash1).toBe(hash2);
+        expect(typeof hash1).toBe("string");
+        expect(hash1.length).toBeGreaterThan(0);
+      }),
+    );
+  });
+
+  describe("managed marker", () => {
+    it.effect("prepends managed marker to SKILL.md for git-hosted source", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "github",
+              url: new URL("https://github.com"),
+              owner: "test-owner",
+              repo: "test-repo",
+              ref: Option.none(),
+              subPath: Option.none(),
+            },
+            sourcePath: src,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
+        const content = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(content)).toBe(true);
+        expect(content).toContain('<!-- Managed by axm \u2014 see "axm skills --help" -->');
+        // Original content should follow the marker
+        expect(content).toContain("# my-skill");
+      }),
+    );
+
+    it.effect("prepends managed marker to SKILL.md for registry source", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              owner: Option.none(),
+            },
+            owner: "@community",
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const srcDir = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "src",
+        );
+        const content = fs.readFileSync(path.join(srcDir, "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(content)).toBe(true);
+      }),
+    );
+
+    it.effect("does NOT modify SKILL.md for local-path source", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir)),
+        );
+
+        expect(result.result).toBe("success");
+
+        // The original source SKILL.md should NOT have a marker
+        const sourceContent = fs.readFileSync(path.join(src, "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(sourceContent)).toBe(false);
+
+        // The copied canonical SKILL.md should also NOT have a marker (local source)
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
+        const canonicalContent = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(canonicalContent)).toBe(false);
+      }),
+    );
+
+    it.effect("marker survives copy-mode fallback from canonical to agent dir", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        // Install from git-hosted to get marker in canonical
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "github",
+              url: new URL("https://github.com"),
+              owner: "test-owner",
+              repo: "test-repo",
+              ref: Option.none(),
+              subPath: Option.none(),
+            },
+            sourcePath: src,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })));
+
+        expect(result.result).toBe("success");
+
+        // Agent dir may be a symlink or copy — either way content should have marker
+        const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
+        const agentContent = fs.readFileSync(path.join(agentSkillDir, "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(agentContent)).toBe(true);
       }),
     );
   });

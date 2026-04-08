@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
@@ -162,6 +163,65 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("code-review")).pipe(Effect.flip);
           expect(getAppError(error).what).toContain("is not installed");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Preview flag
+  // ---------------------------------------------------------------------------
+
+  describe("preview flag", () => {
+    it.effect("previews disable without modifying settings or lockfile", () => {
+      const { provide, logs } = makeLayers();
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-skill": "local" },
+        { "my-skill": makeLockEntry() },
+      );
+      // Create canonical skill directory (preserved after disable)
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
+      fs.mkdirSync(canonicalDir, { recursive: true });
+      fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
+
+      // Create agent symlink directory (would be removed on actual disable)
+      const agentSkillDir = path.join(tempDir, ".claude", "skills", "my-skill");
+      fs.mkdirSync(agentSkillDir, { recursive: true });
+      fs.writeFileSync(path.join(agentSkillDir, "SKILL.md"), "# my-skill");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleDisable(defaultArgs("my-skill", { preview: true }));
+
+          // Settings should still show enabled (preview = no side effects)
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.["my-skill"]).toBe("local");
+
+          // Canonical directory should still exist
+          expect(fs.existsSync(canonicalDir)).toBe(true);
+
+          // Agent symlink should still exist (not removed in preview)
+          expect(fs.existsSync(agentSkillDir)).toBe(true);
+
+          // Lockfile should be unchanged
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.skills["my-skill"]).toBeDefined();
+
+          // Preview info should be displayed
+          expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
         }),
       );
     });

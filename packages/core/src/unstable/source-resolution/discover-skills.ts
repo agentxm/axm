@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { getAllAgents } from "../agents/index.js";
 import { parseManifests } from "./parse-manifests.js";
-import { parseSkillMd } from "./parse-skill-md.js";
+import { parseSkillMd } from "../skills/skill-content.js";
 import type { Skill } from "../skills/types.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";

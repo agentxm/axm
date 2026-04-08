@@ -263,6 +263,57 @@ describe("enable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Preview flag
+  // ---------------------------------------------------------------------------
+
+  describe("preview flag", () => {
+    it.effect("previews enable without modifying settings or lockfile", () => {
+      const { provide, logs } = makeLayers();
+      // Create a disabled skill
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-skill": { source: "local", enabled: false } },
+        { "my-skill": makeLockEntry() },
+      );
+      // Create canonical skill directory
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
+      fs.mkdirSync(canonicalDir, { recursive: true });
+      fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnable(defaultArgs("my-skill", { preview: true }));
+
+          // Settings should still show disabled (preview = no side effects)
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.["my-skill"]).toEqual({
+            source: "local",
+            enabled: false,
+          });
+
+          // Agent symlink should NOT have been created
+          const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");
+          expect(fs.existsSync(agentSkillPath)).toBe(false);
+
+          // Preview info should be displayed
+          expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Plan building and execution
   // ---------------------------------------------------------------------------
 

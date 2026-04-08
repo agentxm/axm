@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import { parseSkillMd } from "./parse-skill-md.js";
+import { parseSkillMd } from "./skill-content.js";
 
 // -----------------------------------------------------------------------------
 // Tests

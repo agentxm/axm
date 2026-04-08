@@ -629,6 +629,56 @@ describe("lockfile schema", () => {
 
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
+
+    it("accepts skill lock entry with sourceHash and renderedFiles", () => {
+      const input = {
+        type: "local",
+        path: "./my-skill",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        sourceHash: "abc123def456",
+        renderedFiles: {
+          "claude-code": [{ path: ".claude/skills/my-skill" }],
+        },
+      };
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+      expect(result.sourceHash).toBe("abc123def456");
+      expect(result.renderedFiles).toBeDefined();
+    });
+
+    it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
+      const input = {
+        type: "github",
+        owner: "example",
+        repo: "skills",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+      expect(result.sourceHash).toBeUndefined();
+      expect(result.renderedFiles).toBeUndefined();
+    });
+
+    it("roundtrips skill lock entry with sourceHash and renderedFiles", () => {
+      const decode = Schema.decodeUnknownSync(SkillLockEntrySchema);
+      const encode = Schema.encodeUnknownSync(SkillLockEntrySchema);
+      const input = {
+        type: "local",
+        path: "./my-skill",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+        sourceHash: "abc123",
+        renderedFiles: {
+          "claude-code": [{ path: ".claude/skills/my-skill" }],
+        },
+      };
+      const decoded = decode(input);
+      const encoded = encode(decoded);
+      expect(encoded).toEqual(input);
+    });
   });
 
   describe("SkillsLockMap", () => {

@@ -388,3 +388,175 @@ describe("update.handler — error recovery", () => {
     );
   });
 });
+
+// -----------------------------------------------------------------------------
+// Preview flag
+// -----------------------------------------------------------------------------
+
+describe("update.handler — preview flag", () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-update-preview-test-"));
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const makeLayers = () => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      prompt: {
+        confirmResponses: [true],
+      },
+    });
+    const SPLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
+    );
+    const FullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      SPLayer,
+      CodingAgentRepositoryLive,
+    );
+    const provide = makeEffectProvide(FullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
+  };
+
+  it.effect("previews single skill update without modifying files or lockfile", () => {
+    const { provide, logs } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1.0" },
+      ],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review@^1.0.0",
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ preview: true }));
+
+        // Lockfile should still have original version (preview = no side effects)
+        const lockfile = expectRecord(
+          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          "Expected lockfile object",
+        );
+        const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
+        const lockedSkill = expectRecord(
+          lockedSkills["code-review"],
+          "Expected code-review lock entry",
+        );
+        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("1.0.0");
+
+        // Settings should be unchanged
+        const settings = expectRecord(
+          JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8")),
+          "Expected settings object",
+        );
+        const skills = expectRecord(settings["skills"], "Expected settings.skills");
+        expect(skills["code-review"]).toBe("@acme/skills/code-review@^1.0.0");
+
+        // Preview info should be displayed
+        expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("previews batch update without modifying files or lockfile", () => {
+    const { provide, logs } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1.0" },
+      ],
+    });
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "testing",
+      versions: [
+        { version: "3.0.0", skillBody: "# testing v3" },
+        { version: "1.0.0", skillBody: "# testing v1.0" },
+      ],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review",
+        testing: "@acme/skills/testing",
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+        testing: makeRegistryLockEntry("@acme", "testing", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ preview: true }));
+
+        // Both skills should still have original versions (preview = no side effects)
+        const lockfile = expectRecord(
+          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          "Expected lockfile object",
+        );
+        const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
+
+        const lockedCodeReview = expectRecord(
+          lockedSkills["code-review"],
+          "Expected code-review lock entry",
+        );
+        expect(stringProperty(lockedCodeReview, "resolvedVersion")).toBe("1.0.0");
+
+        const lockedTesting = expectRecord(lockedSkills["testing"], "Expected testing lock entry");
+        expect(stringProperty(lockedTesting, "resolvedVersion")).toBe("1.0.0");
+
+        // Preview info should be displayed
+        expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+      }),
+    );
+  });
+});

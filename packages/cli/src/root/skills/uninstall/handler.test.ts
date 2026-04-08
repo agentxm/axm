@@ -434,6 +434,107 @@ describe("uninstall.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Preview flag
+  // ---------------------------------------------------------------------------
+
+  describe("preview flag", () => {
+    it.effect(
+      "previews single skill uninstall without deleting files or modifying lockfile",
+      () => {
+        const { provide, logs } = makeLayers();
+        initWorkspace(path.join(tempDir, ".axm"), {
+          "my-skill": makeLockEntry(),
+        });
+        createCanonicalSkill(tempDir, "my-skill");
+        createAgentSymlink(tempDir, ".claude", "my-skill");
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUninstall(defaultArgs("my-skill"), {
+              yes: false,
+              force: false,
+              preview: true,
+            });
+
+            // Canonical directory should still exist (preview = no side effects)
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+              ),
+            ).toBe(true);
+
+            // Agent symlink should still exist
+            expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(true);
+
+            // Lockfile should still have the skill
+            const lockContent = fs.readFileSync(
+              path.join(tempDir, ".axm", "axm-lock.yaml"),
+              "utf-8",
+            );
+            const lockfile = YAML.parse(lockContent);
+            expect(lockfile.skills["my-skill"]).toBeDefined();
+
+            // Settings should still have the skill
+            const settingsContent = fs.readFileSync(
+              path.join(tempDir, ".axm", "settings.json"),
+              "utf-8",
+            );
+            const settings = JSON.parse(settingsContent);
+            expect(settings.skills?.["my-skill"]).toBeDefined();
+
+            // Preview info should be displayed
+            expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+          }),
+        );
+      },
+    );
+
+    it.effect(
+      "previews multi-agent skill uninstall without deleting files or modifying lockfile",
+      () => {
+        const { provide } = makeLayers();
+        initWorkspace(
+          path.join(tempDir, ".axm"),
+          { "my-skill": makeLockEntry(["claude-code", "cursor"]) },
+          ["claude-code", "cursor"],
+        );
+        createCanonicalSkill(tempDir, "my-skill");
+        createAgentSymlink(tempDir, ".claude", "my-skill");
+        createAgentSymlink(tempDir, ".cursor", "my-skill");
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUninstall(defaultArgs("my-skill"), {
+              yes: false,
+              force: false,
+              preview: true,
+            });
+
+            // Canonical directory should still exist
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+              ),
+            ).toBe(true);
+
+            // Both agent symlinks should still exist
+            expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(true);
+            expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(true);
+
+            // Lockfile should still have the skill
+            const lockContent = fs.readFileSync(
+              path.join(tempDir, ".axm", "axm-lock.yaml"),
+              "utf-8",
+            );
+            const lockfile = YAML.parse(lockContent);
+            expect(lockfile.skills["my-skill"]).toBeDefined();
+          }),
+        );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Taxonomy: ignored skill excluded from candidates
   // ---------------------------------------------------------------------------
 

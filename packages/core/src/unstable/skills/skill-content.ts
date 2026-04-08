@@ -1,17 +1,18 @@
 /**
- * SKILL.md frontmatter parser.
+ * Skill content file module for SKILL.md parsing and frontmatter schemas.
  *
- * Parses YAML frontmatter from SKILL.md files to extract skill metadata.
+ * Defines the frontmatter schema for SKILL.md files and a parser that
+ * combines the shared frontmatter utility with skill-specific validation.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import matter from "gray-matter";
-import * as Result from "effect/Result";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import type { Skill } from "../skills/types.js";
+import { parseFrontmatterSync } from "../extensions/frontmatter.js";
+import type { Skill } from "./types.js";
 
 const NonEmptyTrimmedStringSchema = Schema.String.pipe(
   Schema.check(
@@ -20,7 +21,13 @@ const NonEmptyTrimmedStringSchema = Schema.String.pipe(
     ),
   ),
 );
-const SkillFrontmatterSchema = Schema.Struct({
+
+/**
+ * Schema for SKILL.md frontmatter fields.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillFrontmatterSchema = Schema.Struct({
   name: NonEmptyTrimmedStringSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skill name is required in SKILL.md frontmatter" }),
   ),
@@ -35,6 +42,7 @@ const SkillFrontmatterSchema = Schema.Struct({
   title: "Skill Frontmatter",
   description: "Metadata at the top of a SKILL.md file — must include a name and description.",
 });
+
 const decodeMetadata = Schema.decodeUnknownResult(Schema.Record(Schema.String, Schema.Unknown));
 
 /**
@@ -46,11 +54,19 @@ const decodeMetadata = Schema.decodeUnknownResult(Schema.Record(Schema.String, S
  */
 export const parseSkillMd = (content: string): Option.Option<Skill> => {
   try {
-    const { data } = matter(content);
-    const frontmatter = Result.match(Schema.decodeUnknownResult(SkillFrontmatterSchema)(data), {
-      onFailure: () => undefined,
-      onSuccess: (validated) => validated,
-    });
+    const parsed = parseFrontmatterSync(content);
+
+    if (parsed.frontmatter === undefined) {
+      return Option.none();
+    }
+
+    const frontmatter = Result.match(
+      Schema.decodeUnknownResult(SkillFrontmatterSchema)(parsed.frontmatter),
+      {
+        onFailure: () => undefined,
+        onSuccess: (validated) => validated,
+      },
+    );
     if (frontmatter === undefined) {
       return Option.none();
     }

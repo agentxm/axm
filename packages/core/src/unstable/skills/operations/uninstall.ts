@@ -93,10 +93,25 @@ export const uninstallSkill: OperationHandler<
     const isPartialUninstall = agentFilter.length > 0;
     const agentsToRemove = isPartialUninstall ? agentFilter : lockAgents;
 
-    // Remove agent symlinks/copies concurrently
+    // Remove agent symlinks/copies concurrently.
+    // When renderedFiles are tracked (copy-mode), prefer tracked paths;
+    // otherwise fall back to agent descriptor-based path resolution.
+    const renderedFiles = lockEntry?.renderedFiles;
     yield* Effect.forEach(
       agentsToRemove,
       (agentId) => {
+        // Check renderedFiles for tracked copy-mode paths
+        const tracked = renderedFiles?.[agentId];
+        if (tracked !== undefined && tracked.length > 0) {
+          return Effect.forEach(
+            tracked,
+            (entry) =>
+              fs.remove(entry.path, { recursive: true }).pipe(Effect.catch(() => Effect.void)),
+            { concurrency: "unbounded" },
+          );
+        }
+
+        // Fall back to agent descriptor-based path resolution
         const maybeAgent = getAgentById(agentId);
         if (Option.isNone(maybeAgent)) return Effect.void;
         const agent = maybeAgent.value;

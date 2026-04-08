@@ -16,9 +16,6 @@ export {
   type DiscoveryOptions,
 } from "./discover-skills.js";
 
-// Skill markdown parsing
-export { parseSkillMd } from "./parse-skill-md.js";
-
 // Plugin manifest parsing
 export { parseManifests } from "./parse-manifests.js";
 

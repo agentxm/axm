@@ -13,6 +13,7 @@ import {
   FullyQualifiedNameSchema,
   HandleSchema,
   RenderedFilesMapSchema,
+  SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import { ExactSemverVersionSchema } from "../version-constraints/version-constraints.js";
@@ -38,6 +39,15 @@ const BaseCommonFields = {
 const CommonFields = {
   agents: Schema.Array(Schema.String),
   ...BaseCommonFields,
+};
+
+/**
+ * Common fields for skill lock entries (includes agents + rendered files).
+ */
+const SkillCommonFields = {
+  ...CommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
 };
 
 // =============================================================================
@@ -120,12 +130,14 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
+ * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
+ * - renderedFiles: Map of agent ID to rendered file paths (copy-mode only, optional)
  *
  * Source-specific fields are at the top level based on source type.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = makeSourceLockUnion(CommonFields);
+export const SkillLockEntrySchema = makeSourceLockUnion(SkillCommonFields);
 
 /**
  * Inferred type for SkillLockEntry schema.

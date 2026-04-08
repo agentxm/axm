@@ -11,6 +11,7 @@ import { Workspace, type WorkspaceContextService } from "../../workspace/service
 import { taxonomyStubs } from "../../workspace/test-stubs.js";
 import { copySkill } from "./copy.js";
 import type { CopySkillOperation } from "./copy.js";
+import { generateMarker, isManagedByAxm } from "../../extensions/managed-marker.js";
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string) => {
@@ -220,6 +221,48 @@ describe("copySkill", () => {
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.version).toBe("0.1.0");
+      }),
+    );
+  });
+
+  describe("managed marker stripping", () => {
+    it.effect("strips managed marker from SKILL.md after copy (fork scenario)", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        // Simulate a source SKILL.md that has a managed marker (from materialization)
+        const marker = generateMarker("skills", "markdown");
+        fs.writeFileSync(path.join(src, "SKILL.md"), `${marker}\n# my-skill`);
+
+        const { axmDir, base } = setupBase();
+
+        const result = yield* copySkill(
+          makeOp({ targetName: "@community/skills/my-skill", location: `file://${src}` }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // The copied SKILL.md should NOT have the managed marker
+        const targetDir = path.join(base, ".axm", "extensions", "@community", "skills", "my-skill");
+        const content = fs.readFileSync(path.join(targetDir, "src", "SKILL.md"), "utf-8");
+        expect(isManagedByAxm(content)).toBe(false);
+        expect(content).toBe("# my-skill");
+      }),
+    );
+
+    it.effect("leaves SKILL.md unchanged if no marker present", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        const result = yield* copySkill(
+          makeOp({ targetName: "@community/skills/my-skill", location: `file://${src}` }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        const targetDir = path.join(base, ".axm", "extensions", "@community", "skills", "my-skill");
+        const content = fs.readFileSync(path.join(targetDir, "src", "SKILL.md"), "utf-8");
+        expect(content).toBe("# my-skill");
       }),
     );
   });

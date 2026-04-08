@@ -1,42 +1,23 @@
-# cli-skills Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Preview flag on skills enable
 
-TBD - created by archiving change add-cli-skills. Update Purpose after archive.
+`axm skills enable --preview` SHALL display the enable plan without applying changes. The flag is already wired through `resolvePlan`; this requirement covers verified end-to-end behavior.
 
-## Requirements
+#### Scenario: Preview enable displays plan without applying
 
-### Requirement: Skills Sub-command
+- **WHEN** user runs `axm skills enable code-review --preview`
+- **THEN** the CLI SHALL display what would be enabled
+- **AND** SHALL NOT modify settings or the lockfile
+- **AND** SHALL return a `PreviewedPlan` result
 
-The CLI SHALL provide a `skills` sub-command for managing agent skills.
+### Requirement: Preview flag on skills disable
 
-#### Scenario: Skills command invoked without sub-command
+`axm skills disable --preview` SHALL display the disable plan without applying changes. The flag is already wired through `resolvePlan`; this requirement covers verified end-to-end behavior.
 
-- **WHEN** the user runs `axm skills`
-- **THEN** the CLI displays available skills sub-commands, examples, and usage
-  information
-- **AND** exits with code 0
+#### Scenario: Preview disable displays plan without applying
 
-_Note: Changed from displaying "sub-commands or error" to explicitly requiring
-help display and exit 0, per CLI design guidelines._
-
-#### Scenario: Skills command displays help
-
-- **WHEN** the user runs `axm skills --help`
-- **THEN** the CLI displays detailed help for the skills command including all
-  sub-commands and their options
-
-#### Scenario: List sub-command is registered
-
-- **WHEN** the user runs `axm skills --help`
-- **THEN** `list` (alias `ls`) appears in the available sub-commands
-
-#### Scenario: Update sub-command is registered
-
-- **WHEN** the user runs `axm skills --help`
-- **THEN** `update` appears in the available sub-commands
-
-#### Scenario: New sub-command is registered
-
-- **WHEN** the user runs `axm skills --help`
-- **THEN** `new` appears in the available sub-commands
+- **WHEN** user runs `axm skills disable code-review --preview`
+- **THEN** the CLI SHALL display what would be disabled
+- **AND** SHALL NOT delete any files, modify settings, or update the lockfile
+- **AND** SHALL return a `PreviewedPlan` result

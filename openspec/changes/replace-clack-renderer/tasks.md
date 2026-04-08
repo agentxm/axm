@@ -1,8 +1,6 @@
-> **Orchestration:** The main agent thread MUST NOT execute any tasks directly. Delegate each phase to subagents as directed below. The main agent's role is strictly to orchestrate: launch subagents, verify phase completion, and proceed to the next phase. This directive takes precedence over any apply-phase instructions that say to execute tasks in the main thread — always use subagents for implementation work.
+> **Scope:** This change replaces clack-backed renderer chrome in `InteractiveRenderer`. Migrating the primary CLI off `CliPrompt` or removing `@clack/prompts` from prompt-layer code is out of scope here.
 
 ## 1. ANSI chrome primitives
-
-> **Subagent:** Run this entire phase in a single subagent.
 
 Build the shared stderr rendering module that replaces clack's chrome helpers.
 
@@ -20,10 +18,6 @@ Build the shared stderr rendering module that replaces clack's chrome helpers.
 
 ## 2. InteractiveRenderer integration
 
-> **Subagent:** Run this entire phase in a single subagent.
-
-Depends on: Phase 1.
-
 - [ ] 2.1 Rewrite `packages/core/src/unstable/cli-renderer/cli-renderer-interactive.ts` to depend on `ansi-chrome.ts` instead of `@clack/prompts`, keeping the `CliRenderer` service interface unchanged
 - [ ] 2.2 Reimplement `withSpinner`, `withProgress`, `taskLog`, `withTaskLog`, and `runTasks` on top of the new handles, preserving success/failure/interrupt semantics and sequential task execution
 - [ ] 2.3 Update table formatter to drop the `│  ` guide prefix while preserving column sizing and truncation behavior
@@ -35,42 +29,18 @@ Depends on: Phase 1.
 - [ ] 2.9 Run `pnpm test` and fix any failures
 - [ ] 2.10 Kill any vitest worker processes
 
-## 3. Retire the clack-backed CliPrompt layer
+## 3. Renderer docs and verification
 
-> **Subagent:** Run this entire phase in a single subagent.
+- [ ] 3.1 Update `AGENTS.md` and `CLAUDE.md` so the CLI UI description reflects the new custom renderer without claiming the primary CLI prompt layer has been removed
+- [ ] 3.2 Run a repo-wide sweep for non-archive clack-specific renderer wording in docs and tests; update only references made stale by the renderer replacement
+- [ ] 3.3 Run `pnpm typecheck` and fix any errors including `@effect/language-service` diagnostics
+- [ ] 3.4 Run `pnpm lint` and fix any errors
+- [ ] 3.5 Run `pnpm test` and fix any failures
+- [ ] 3.6 Run `pnpm test:e2e` and fix any failures
+- [ ] 3.7 Kill any vitest worker processes
 
-No dependency on Phases 1-2. Can run in parallel with them.
+## 4. Final verification
 
-- [ ] 3.1 Introduce a new Effect-backed interactive `CliPrompt` module under `packages/core/src/unstable/cli-prompt/` using native `Prompt` plus `@axm.sh/core/unstable/cli/prompt` helpers, while preserving the existing `CliPrompt` service interface and `PromptCancelled` / `AppError` boundary behavior
-- [ ] 3.2 Update `packages/core/src/unstable/cli-runtime/runtime-envelope.ts` and `packages/core/src/unstable/cli-runtime/runtime-envelope.test.ts` to load the new interactive prompt layer instead of the clack-specific module
-- [ ] 3.3 Add prompt-layer coverage for `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path`, and non-interactive guards so removing tokenization adapters does not lose behavior coverage
-- [ ] 3.4 Delete `packages/core/src/unstable/cli-prompt/cli-prompt-interactive.ts`, `packages/core/src/unstable/cli-prompt/clack-prompt-options.ts`, and the old clack-specific test file after the new module is wired; update `packages/core/src/unstable/cli-prompt/index.ts` exports
-- [ ] 3.5 Run `pnpm typecheck` and fix any errors including `@effect/language-service` diagnostics
-- [ ] 3.6 Run `pnpm lint` and fix any errors
-- [ ] 3.7 Run `pnpm test` and fix any failures
-- [ ] 3.8 Kill any vitest worker processes
-
-## 4. Remove dependency and stale docs
-
-> **Subagent:** Run this entire phase in a single subagent.
-
-Depends on: Phases 2 and 3.
-
-- [ ] 4.1 Remove `@clack/prompts` from `packages/core/package.json` and `packages/cli/package.json`; run `pnpm install` to update the lockfile
-- [ ] 4.2 Update `AGENTS.md` and `CLAUDE.md` to describe the native prompt + custom renderer stack and remove the `@clack/prompts` entry from the external dependency tables
-- [ ] 4.3 Run a repo-wide sweep for non-archive `@clack/prompts` references and clack-specific renderer wording; clean or replace any remaining references
-- [ ] 4.4 Run `pnpm typecheck` and fix any errors including `@effect/language-service` diagnostics
-- [ ] 4.5 Run `pnpm lint` and fix any errors
-- [ ] 4.6 Run `pnpm test` and fix any failures
-- [ ] 4.7 Run `pnpm test:e2e` and fix any failures
-- [ ] 4.8 Kill any vitest worker processes
-
-## 5. Final verification
-
-> **Subagent:** Run this entire phase in a single subagent.
-
-Depends on: All previous phases complete.
-
-- [ ] 5.1 Run `pnpm run ci:affected` and fix any failures
-- [ ] 5.2 Smoke-test at least one interactive text-mode CLI flow that exercises both `CliPrompt` and `CliRenderer` in the same session to confirm the output no longer mixes clack and Effect styles
-- [ ] 5.3 Kill any vitest worker processes
+- [ ] 4.1 Run `pnpm run ci:affected` and fix any failures
+- [ ] 4.2 Smoke-test at least one interactive text-mode CLI flow that exercises both `CliPrompt` and `CliRenderer` in the same session to confirm the output no longer mixes clack and Effect styles
+- [ ] 4.3 Kill any vitest worker processes

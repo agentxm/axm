@@ -9,7 +9,7 @@ import {
 } from "./release-shared.js";
 
 describe("release tag helpers", () => {
-  it("validates release tags through the scripts target", () => {
+  it("validates release tags through the root target", () => {
     const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
       readonly version: string;
     };
@@ -20,7 +20,7 @@ describe("release tag helpers", () => {
         "exec",
         "nx",
         "run",
-        "scripts:validate-release-tag",
+        "axm:validate-release-tag",
         "--outputStyle=stream-without-prefixes",
         "--",
         tag,
@@ -40,7 +40,7 @@ describe("release tag helpers", () => {
     expect(output).toContain(cliPackageJson.version);
   });
 
-  it("emits release metadata through the scripts target", () => {
+  it("emits release metadata through the root target", () => {
     const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
       readonly version: string;
     };
@@ -65,7 +65,7 @@ describe("release tag helpers", () => {
           "exec",
           "nx",
           "run",
-          "scripts:resolve-release-meta",
+          "axm:resolve-release-meta",
           "--outputStyle=stream-without-prefixes",
           "--",
           tag,

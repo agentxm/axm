@@ -10,10 +10,158 @@
         "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
       }
     },
+    "scripts-lint": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/eslint.config.mjs"
+      ],
+      "options": {
+        "command": "pnpm scripts-lint",
+        "cwd": "."
+      }
+    },
+    "scripts-typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "options": {
+        "command": "pnpm scripts-typecheck",
+        "cwd": "."
+      }
+    },
+    "scripts-test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["utils:build"],
+      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "options": {
+        "command": "pnpm scripts-test",
+        "cwd": "."
+      }
+    },
+    "release-prepare": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm release-prepare",
+        "cwd": "."
+      }
+    },
+    "release-publish": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm release-publish",
+        "cwd": "."
+      }
+    },
+    "validate-release-tag": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm validate-release-tag",
+        "cwd": "."
+      }
+    },
+    "resolve-release-meta": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm resolve-release-meta",
+        "cwd": "."
+      }
+    },
+    "download-ci-binaries": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm download-ci-binaries",
+        "cwd": "."
+      }
+    },
+    "validate-release-assets": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm validate-release-assets",
+        "cwd": "."
+      }
+    },
+    "update-homebrew-formula": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm update-homebrew-formula",
+        "cwd": "."
+      }
+    },
+    "verify-e2e-boundaries": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/packages/e2e-utils/package.json",
+        "{workspaceRoot}/packages/e2e-utils/**/tsconfig*.json",
+        "{workspaceRoot}/packages/cli-e2e/package.json",
+        "{workspaceRoot}/packages/cli-e2e/**/tsconfig*.json",
+        "{workspaceRoot}/packages/cli-spike-e2e/package.json",
+        "{workspaceRoot}/packages/cli-spike-e2e/**/tsconfig*.json"
+      ],
+      "options": {
+        "command": "pnpm verify-e2e-boundaries",
+        "cwd": "."
+      }
+    },
+    "generate-registry": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm generate-registry",
+        "cwd": "."
+      }
+    },
+    "generate-telemetry": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build"],
+      "options": {
+        "command": "pnpm generate-telemetry",
+        "cwd": "."
+      }
+    },
     "ci": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+        "parallel": false,
+        "commands": [
+          {
+            "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:scripts-lint --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:scripts-typecheck --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:scripts-test --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
+          }
+        ]
       }
     },
     "verify": {
@@ -28,10 +176,7 @@
             "command": "pnpm exec nx format:check"
           },
           {
-            "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run scripts:verify-e2e-boundaries --outputStyle=static"
+            "command": "pnpm exec nx run axm:ci --outputStyle=static"
           }
         ]
       }
@@ -51,7 +196,16 @@
             "command": "pnpm exec nx affected -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
           },
           {
-            "command": "pnpm exec nx run scripts:verify-e2e-boundaries --outputStyle=static"
+            "command": "pnpm exec nx run axm:scripts-lint --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:scripts-typecheck --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:scripts-test --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
           }
         ]
       }

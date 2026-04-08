@@ -34,22 +34,6 @@
         "cwd": "packages/core"
       }
     },
-    "generate-registry-client": {
-      "dependsOn": ["utils:build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/generate-registry-client.ts"],
-        "cwd": "packages/core"
-      }
-    },
-    "generate-telemetry-client": {
-      "dependsOn": ["utils:build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/generate-telemetry-client.ts"],
-        "cwd": "packages/core"
-      }
-    },
     "nx-release-publish": {
       "cache": false,
       "dependsOn": ["build", "^nx-release-publish"],

@@ -10,18 +10,18 @@ import {
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: pnpm exec nx run scripts:resolve-release-meta -- <cli-vX.Y.Z>");
+  console.log("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z>");
   process.exit(0);
 }
 
 if (args.length > 1) {
-  fail("Usage: pnpm exec nx run scripts:resolve-release-meta -- <cli-vX.Y.Z>");
+  fail("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z>");
 }
 
 const tag =
   args[0] ??
   process.env["RELEASE_TAG"] ??
-  fail("Usage: pnpm exec nx run scripts:resolve-release-meta -- <cli-vX.Y.Z>");
+  fail("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z>");
 const version = releaseVersionFromTag(tag);
 const releaseVersion = requireMatchingReleasePackageVersions();
 

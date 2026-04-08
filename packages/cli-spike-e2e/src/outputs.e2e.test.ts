@@ -123,7 +123,7 @@ describe("outputs commands", () => {
   it("outputs result renders human-readable output", async () => {
     const result = await runCli(["outputs", "result"]);
     expectExitCode(result, 0);
-    expectStdout(result, "pr-review");
+    expectStdout(result, "Mochi");
   });
 
   it("outputs result --json emits structured data to stdout", async () => {
@@ -131,9 +131,9 @@ describe("outputs commands", () => {
     expectExitCode(result, 0);
     // Machine mode: result() writes pretty JSON, resultStream() writes NDJSON lines
     // stdout contains a pretty-printed JSON object followed by NDJSON lines
-    expectStdout(result, "pr-review");
-    expectStdout(result, "test-gen");
-    expectStdout(result, "doc-writer");
+    expectStdout(result, "Mochi");
+    expectStdout(result, "Pickles");
+    expectStdout(result, "Juniper");
     // Verify the NDJSON lines are valid JSON
     const lines = result.stdout.trim().split("\n");
     // Last 3 lines should be valid NDJSON from resultStream
@@ -157,7 +157,7 @@ describe("outputs commands", () => {
     expect(parsed).toEqual({
       name: "axm-spike",
       version: "0.0.1",
-      skills: ["pr-review", "test-gen", "doc-writer"],
+      pets: ["Mochi", "Pickles", "Juniper"],
     });
   });
 });

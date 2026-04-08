@@ -17,7 +17,7 @@ import { resolveTelemetryMode } from "@axm.sh/core/unstable/telemetry";
 import type { AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 
-import { FakeSkillsManagerLive } from "./fake-skills-manager.js";
+import { FakePetStoreLive } from "./fake-pet-store.js";
 
 export const ROOT_COMMAND = "axm-spike";
 export const VERSION = "0.0.1";
@@ -44,7 +44,7 @@ export const withRuntime = <A, R>(
   Effect.gen(function* () {
     const format = yield* resolveCliFormat;
     const foundationLayer = makeFoundationLayer(format);
-    const appLayer = Layer.provideMerge(FakeSkillsManagerLive, foundationLayer);
+    const appLayer = Layer.provideMerge(FakePetStoreLive, foundationLayer);
     const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
     return yield* withCliErrorHandling(provided, {

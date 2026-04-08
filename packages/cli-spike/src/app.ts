@@ -20,7 +20,7 @@ import {
 import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
 
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
-import { skillsCommand } from "./root/skills/command.js";
+import { petsCommand } from "./root/pets/command.js";
 import { telemetryCommand } from "./root/telemetry/command.js";
 import { outputsCommand } from "./root/outputs/command.js";
 import { promptsCommand } from "./root/prompts/command.js";
@@ -28,16 +28,21 @@ import { promptsCommand } from "./root/prompts/command.js";
 const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, quietFlag, jsonFlag] as const;
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
-  Command.withDescription("Effect v4 CLI spike — proving out idiomatic command/flag patterns."),
+  Command.withDescription(
+    "Effect v4 CLI spike — a pet store reference app for command and flag patterns.",
+  ),
   Command.withExamples([
-    { command: "axm-spike skills list", description: "List installed skills" },
-    { command: "axm-spike skills install owner/repo", description: "Install skills from GitHub" },
+    { command: "axm-spike pets list", description: "List pets in the showroom" },
+    {
+      command: "axm-spike pets intake partner-feed",
+      description: "Intake pets from a sample feed",
+    },
     {
       command: "axm-spike telemetry handled",
       description: "Send a handled AppError to telemetry",
     },
   ]),
-  Command.withSubcommands([skillsCommand, telemetryCommand, promptsCommand, outputsCommand]),
+  Command.withSubcommands([petsCommand, telemetryCommand, promptsCommand, outputsCommand]),
   Command.withGlobalFlags(globalFlags),
 );
 

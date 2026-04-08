@@ -5,22 +5,22 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withRuntime } from "../../runtime.js";
 
-interface SampleSkillDetail {
+interface SamplePetDetail {
   readonly name: string;
-  readonly source: string;
-  readonly version: string;
-  readonly enabled: boolean;
-  readonly installedAt: string;
-  readonly scope: string;
+  readonly species: string;
+  readonly age: string;
+  readonly adoptable: boolean;
+  readonly intakeDate: string;
+  readonly habitat: string;
 }
 
-const sampleItem: SampleSkillDetail = {
-  name: "pr-review",
-  source: "acme/tools",
-  version: "1.2.0",
-  enabled: true,
-  installedAt: "2026-03-20T10:30:00Z",
-  scope: "project",
+const sampleItem: SamplePetDetail = {
+  name: "Mochi",
+  species: "cat",
+  age: "2 years",
+  adoptable: true,
+  intakeDate: "2026-03-20T10:30:00Z",
+  habitat: "showroom",
 };
 
 const detailConfig = {
@@ -37,47 +37,47 @@ export const detailCommand = Command.make("detail", detailConfig, (config) =>
           {
             key: "name",
             header: "Name",
-            value: (s: SampleSkillDetail) => s.name,
+            value: (s: SamplePetDetail) => s.name,
             priority: 1,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "source",
-            header: "Source",
-            value: (s: SampleSkillDetail) => s.source,
+            key: "species",
+            header: "Species",
+            value: (s: SamplePetDetail) => s.species,
             priority: 2,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "version",
-            header: "Version",
-            value: (s: SampleSkillDetail) => s.version,
+            key: "age",
+            header: "Age",
+            value: (s: SamplePetDetail) => s.age,
             priority: 3,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "enabled",
-            header: "Enabled",
-            value: (s: SampleSkillDetail) => (s.enabled ? "yes" : "no"),
+            key: "adoptable",
+            header: "Adoptable",
+            value: (s: SamplePetDetail) => (s.adoptable ? "yes" : "no"),
             priority: 4,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "installedAt",
-            header: "Installed At",
-            value: (s: SampleSkillDetail) => s.installedAt,
+            key: "intakeDate",
+            header: "Intake Date",
+            value: (s: SamplePetDetail) => s.intakeDate,
             priority: 5,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "scope",
-            header: "Scope",
-            value: (s: SampleSkillDetail) => s.scope,
+            key: "habitat",
+            header: "Habitat",
+            value: (s: SamplePetDetail) => s.habitat,
             priority: 6,
             align: "left" as const,
             width: "auto" as const,

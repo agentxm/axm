@@ -8,24 +8,24 @@ import { jsonFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withRuntime } from "../../runtime.js";
 
-const SkillResult = Schema.Struct({
+const PetResult = Schema.Struct({
   name: Schema.String,
-  version: Schema.String,
-  source: Schema.String,
-  enabled: Schema.Boolean,
+  species: Schema.String,
+  age: Schema.String,
+  adoptable: Schema.Boolean,
 });
 
 const sampleData = {
-  name: "pr-review",
-  version: "1.2.0",
-  source: "acme/tools",
-  enabled: true,
+  name: "Mochi",
+  species: "cat",
+  age: "2 years",
+  adoptable: true,
 };
 
 const sampleStreamData = [
-  { name: "pr-review", version: "1.2.0", source: "acme/tools", enabled: true },
-  { name: "test-gen", version: "1.2.0", source: "acme/tools", enabled: true },
-  { name: "doc-writer", version: "0.5.1", source: "local/path", enabled: false },
+  { name: "Mochi", species: "cat", age: "2 years", adoptable: true },
+  { name: "Pickles", species: "dog", age: "4 months", adoptable: true },
+  { name: "Juniper", species: "rabbit", age: "1 year", adoptable: false },
 ];
 
 const resultConfig = {} as const;
@@ -37,15 +37,16 @@ export const resultCommand = Command.make("result", resultConfig, () =>
       const json = Option.getOrElse(yield* jsonFlag, () => false);
 
       if (json) {
-        yield* renderer.result(sampleData, SkillResult);
-        yield* renderer.resultStream(Stream.fromIterable(sampleStreamData), SkillResult);
+        yield* renderer.result(sampleData, PetResult);
+        yield* renderer.resultStream(Stream.fromIterable(sampleStreamData), PetResult);
       } else {
-        yield* renderer.success(`Skill: ${sampleData.name} v${sampleData.version}`);
-        yield* renderer.info(`Source: ${sampleData.source}`);
-        yield* renderer.info(`Enabled: ${sampleData.enabled ? "yes" : "no"}`);
+        yield* renderer.success(`Pet: ${sampleData.name}`);
+        yield* renderer.info(`Species: ${sampleData.species}`);
+        yield* renderer.info(`Age: ${sampleData.age}`);
+        yield* renderer.info(`Adoptable: ${sampleData.adoptable ? "yes" : "no"}`);
         yield* renderer.info("--- Stream items ---");
         yield* Effect.forEach(sampleStreamData, (item) =>
-          renderer.info(`  ${item.name} v${item.version} (${item.source})`),
+          renderer.info(`  ${item.name} (${item.species}, ${item.age})`),
         );
       }
     }),

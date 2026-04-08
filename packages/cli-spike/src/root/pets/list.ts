@@ -11,7 +11,7 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-import { type FakeSkillInfo, FakeSkillsManager } from "../../fake-skills-manager.js";
+import { type FakePetRecord, FakePetStore } from "../../fake-pet-store.js";
 import { withRuntime } from "../../runtime.js";
 
 // ---------------------------------------------------------------------------
@@ -22,14 +22,14 @@ import { withRuntime } from "../../runtime.js";
 // column-based data display pattern.
 // ---------------------------------------------------------------------------
 
-const renderText = (skills: ReadonlyArray<FakeSkillInfo>): string => {
-  if (skills.length === 0) return "No skills installed.";
+const renderText = (pets: ReadonlyArray<FakePetRecord>): string => {
+  if (pets.length === 0) return "No pets available.";
 
-  const header = `${"Name".padEnd(16)} ${"Source".padEnd(16)} ${"Version".padEnd(10)} ${"Enabled".padEnd(8)} Scope`;
+  const header = `${"Name".padEnd(16)} ${"Species".padEnd(12)} ${"Age".padEnd(10)} ${"Adoptable".padEnd(10)} Habitat`;
   const separator = "\u2500".repeat(header.length);
-  const rows = skills.map(
-    (s) =>
-      `${s.name.padEnd(16)} ${s.source.padEnd(16)} ${(s.version ?? "\u2014").padEnd(10)} ${(s.enabled ? "yes" : "no").padEnd(8)} ${s.scope}`,
+  const rows = pets.map(
+    (pet) =>
+      `${pet.name.padEnd(16)} ${pet.species.padEnd(12)} ${pet.age.padEnd(10)} ${(pet.adoptable ? "yes" : "no").padEnd(10)} ${pet.habitat}`,
   );
   return [header, separator, ...rows].join("\n");
 };
@@ -39,33 +39,41 @@ const renderText = (skills: ReadonlyArray<FakeSkillInfo>): string => {
 // ---------------------------------------------------------------------------
 
 const listConfig = {
-  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
-    Flag.withDescription("Configuration scope"),
-    Flag.withDefault("project" as const),
+  habitat: Flag.choice("habitat", ["showroom", "foster"] as const).pipe(
+    Flag.withDescription("Pet habitat to inspect"),
+    Flag.withDefault("showroom" as const),
   ),
-  agent: Flag.string("agent").pipe(Flag.withDescription("Filter by agent(s)"), Flag.atLeast(0)),
+  species: Flag.string("species").pipe(Flag.withDescription("Filter by species"), Flag.atLeast(0)),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, (config) =>
   withRuntime(
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
-      const fakeSkillsManager = yield* FakeSkillsManager;
-      const skills = yield* fakeSkillsManager.listSkills(config.scope);
-      yield* renderer.raw(renderText(skills));
+      const fakePetStore = yield* FakePetStore;
+      const pets = yield* fakePetStore.listPets(config.habitat);
+      const filteredPets =
+        config.species.length === 0
+          ? pets
+          : pets.filter((pet) => config.species.includes(pet.species));
+
+      yield* renderer.raw(renderText(filteredPets));
     }),
-    { command: "skills list" },
+    { command: "pets list" },
   ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
-  Command.withDescription("List installed skills"),
+  Command.withDescription("List sample pets"),
   Command.withExamples([
-    { command: "axm-spike skills list", description: "List all installed skills" },
-    { command: "axm-spike skills list --scope user", description: "List user-scope skills" },
+    { command: "axm-spike pets list", description: "List showroom pets" },
     {
-      command: "axm-spike skills list --agent claude-code",
-      description: "List skills for an agent",
+      command: "axm-spike pets list --habitat foster",
+      description: "List foster pets",
+    },
+    {
+      command: "axm-spike pets list --species cat",
+      description: "Filter pets by species",
     },
   ]),
 );

@@ -144,7 +144,8 @@ operations. Shallow hierarchy keeps commands typeable and memorable.
 
 Examples:
 
-- `axm skills install <source>`
+- `axm-spike pets intake <source>`
+- `axm-spike pets register <name>`
 - `axm packs new <name>`
 - `axm auth whoami`
 
@@ -164,26 +165,81 @@ Examples:
 
 One file per leaf command makes commands discoverable in the file system, reduces
 merge conflicts during parallel work, and keeps tests colocated with the code
-they exercise.
+they exercise. Start with a flat file; promote to a directory only when
+complexity demands it.
 
-Typical layout:
+### Default: flat files
 
 ```text
 src/root/
-  skills/
-    command.ts
-    install.ts
+  pets/
+    command.ts        # parent/group command
+    intake.ts         # leaf: config + handler + helpers
+    intake.test.ts
     list.ts
-    update.ts
+    register.ts
+    adopt.ts
 ```
+
+### When to promote to a directory
+
+A leaf command earns its own directory when it has **testable helper logic that
+is meaningfully independent** from the handler — e.g., source resolution with
+multiple code paths, interactive pet selection, or intake plan construction
+with its own edge cases. The bar is: the helper has enough branching to warrant
+its own test file.
+
+```text
+src/root/
+  pets/
+    command.ts
+    intake/
+      command.ts                       # config + wiring only
+      handler.ts                       # orchestration
+      handler.test.ts
+      resolve-intake-source.ts         # complex, independently testable
+      resolve-intake-source.test.ts
+    list.ts
+    register.ts
+    adopt.ts
+```
+
+A directory is not justified by:
+
+- having a handler (every command has one — keep it in the same file)
+- having an args interface (inline it or co-locate with the handler)
+- having an intent type used in one place (inline it)
+- wanting symmetry with other commands that are more complex
+
+### Types and abstractions
+
+- **Inline first.** If a type is used in one file, define it there. Do not
+  create `intent.ts` for a single interface consumed by one neighbor.
+- **Infer when possible.** Prefer Effect's type inference over explicit
+  intermediate type aliases. Name a type when it appears in more than one file
+  or clarifies a non-obvious contract.
+- **Earn abstractions.** A shared generic workflow service earns its keep when
+  three or more commands use it and their shared logic is non-trivial. Until
+  then, inline the logic. Duplication across two commands is cheaper than a
+  premature generic.
+- **No ceremony.** Skip `@experimental` JSDoc on internal CLI code, section
+  banner comments (`// -----`), and doc comments on self-evident interfaces.
 
 ### File Organization Checklist
 
-- [ ] **One file per leaf** — Each leaf command is a single file
+- [ ] **One file per leaf** — Each leaf command defaults to a single file
 - [ ] **Group uses command.ts** — Parent/group command lives in `command.ts`
 - [ ] **Single export** — Leaf files export one command
 - [ ] **Colocated tests** — Tests live next to the command file
 - [ ] **Local helpers** — Shared helpers stay inside the feature folder
+- [ ] **Flat by default** — Leaf promoted to directory only when independently
+      testable helpers emerge
+- [ ] **No premature types** — Intermediate types are inferred or inline, not
+      in separate files
+- [ ] **Earned abstractions** — Shared services exist only when 3+ commands use
+      non-trivial shared logic
+- [ ] **No ceremony** — No `@experimental` JSDoc, section banners, or doc
+      comments on self-evident interfaces
 
 ---
 
@@ -381,14 +437,17 @@ particular way. See [Testing Guide](./testing.md) for depth.
 
 ## Common Pitfalls
 
-| Pitfall                    | Example                                                            | Problem                                                         |
-| -------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
-| Group commands that fail   | `axm skills` → error exit                                          | Punishes exploration; users expect help output                  |
+| Pitfall                    | Example                                                           | Problem                                                         |
+| -------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| Group commands that fail   | `axm skills` → error exit                                         | Punishes exploration; users expect help output                  |
 | Inconsistent flag meanings | `--force` skips confirmations in one command, overrides in another | Users can't build intuition; scripts break when switching       |
-| Parser types in handlers   | Handler receives `Options` object from CLI framework               | Couples domain logic to CLI framework; handler can't be reused  |
-| Mixed rendering            | Business logic interleaved with `console.log`                      | Output is unstructured; `--json` can't work; tests need stdout  |
-| Premature `--json`         | `--json` flag advertised before result schema exists               | Consumers depend on unstable shape; breaking changes inevitable |
-| Formatted machine output   | JSON contains ANSI codes or table formatting                       | Parsers break; consumers must strip presentation artifacts      |
+| Parser types in handlers   | Handler receives `Options` object from CLI framework              | Couples domain logic to CLI framework; handler can't be reused  |
+| Mixed rendering            | Business logic interleaved with `console.log`                     | Output is unstructured; `--json` can't work; tests need stdout  |
+| Premature `--json`         | `--json` flag advertised before result schema exists              | Consumers depend on unstable shape; breaking changes inevitable |
+| Formatted machine output   | JSON contains ANSI codes or table formatting                      | Parsers break; consumers must strip presentation artifacts      |
+| Premature directory split  | Leaf command split into directory before helpers warrant tests     | Navigation overhead without testing benefit                     |
+| Single-use named types     | `intent.ts` with one interface consumed by one neighbor           | Extra file and import for no reuse                              |
+| Premature generic          | Workflow abstraction shared by only 2 commands                    | Premature coupling; inline duplication is cheaper               |
 
 ### Pitfalls Checklist
 
@@ -402,6 +461,11 @@ particular way. See [Testing Guide](./testing.md) for depth.
       published
 - [ ] **No formatted machine output** — JSON contains data, not presentation
       artifacts
+- [ ] **No premature directories** — Leaf commands stay flat until independently
+      testable helpers emerge
+- [ ] **No single-use type files** — Types used in one file are defined inline
+- [ ] **No premature generics** — Shared abstractions exist only when 3+
+      commands use them
 
 ---
 

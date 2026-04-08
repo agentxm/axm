@@ -1,5 +1,5 @@
 // ==========================================================================
-// install.ts — Reference pattern for LONG-RUNNING commands using CliRenderer
+// intake.ts — Reference pattern for LONG-RUNNING commands using CliRenderer
 //
 // Demonstrates how CliRenderer.withSpinner() replaces manual NDJSON streaming:
 //   - In text mode: shows an interactive spinner with status updates
@@ -20,10 +20,10 @@ import { withRuntime } from "../../runtime.js";
 // Text renderer
 // ---------------------------------------------------------------------------
 
-const renderText = (source: string, installed: ReadonlyArray<string>): string => {
+const renderText = (source: string, pets: ReadonlyArray<string>): string => {
   const lines = [
-    `\u2713 Installed ${installed.length} skill(s) from ${source}`,
-    ...installed.map((s) => `  \u2022 ${s}`),
+    `\u2713 Logged intake for ${pets.length} pet(s) from ${source}`,
+    ...pets.map((pet) => `  \u2022 ${pet}`),
   ];
   return lines.join("\n");
 };
@@ -37,23 +37,25 @@ const renderText = (source: string, installed: ReadonlyArray<string>): string =>
 //   - Per-command --yes flag imported from core (demonstrates the pattern)
 // ---------------------------------------------------------------------------
 
-const installConfig = {
+const intakeConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription("GitHub shorthand (owner/repo), local path, or URL"),
+    Argument.withDescription("Partner intake feed, local file, or URL"),
   ),
-  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
-    Flag.withDescription("Configuration scope"),
-    Flag.withDefault("project" as const),
+  habitat: Flag.choice("habitat", ["showroom", "foster"] as const).pipe(
+    Flag.withDescription("Destination habitat"),
+    Flag.withDefault("showroom" as const),
   ),
-  skill: Flag.string("skill").pipe(
-    Flag.withDescription("Install only specified skill(s) by name"),
+  pet: Flag.string("pet").pipe(
+    Flag.withDescription("Intake only specified pet name(s)"),
     Flag.atLeast(0),
   ),
-  all: Flag.boolean("all").pipe(Flag.withDescription("Install all discovered skills")),
+  all: Flag.boolean("all").pipe(Flag.withDescription("Intake all discovered pets")),
   yes: yesFlag,
 } as const;
 
-export const installCommand = Command.make("install", installConfig, (config) =>
+const availablePets = ["Mochi", "Pickles", "Juniper"] as const;
+
+export const intakeCommand = Command.make("intake", intakeConfig, (config) =>
   withRuntime(
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
@@ -61,41 +63,50 @@ export const installCommand = Command.make("install", installConfig, (config) =>
       // CliRenderer.withSpinner handles format differences:
       //   text        → shows animated spinner with status messages
       //   json        → emits NDJSON progress events on stderr
-      const skills = yield* renderer.withSpinner(
-        `Installing from ${config.source}`,
+      const pets = yield* renderer.withSpinner(
+        `Logging intake from ${config.source}`,
         (handle) =>
           Effect.gen(function* () {
-            yield* handle.update("Downloading...");
+            yield* handle.update("Downloading intake sheet...");
             yield* Effect.sleep("200 millis");
-            yield* handle.update("Resolving skills from manifest...");
+            yield* handle.update(`Reviewing ${config.habitat} pet records...`);
             yield* Effect.sleep("100 millis");
-            yield* handle.update("Installing skills...");
+            yield* handle.update("Registering pets...");
             yield* Effect.sleep("100 millis");
-            return ["pr-review", "test-gen", "doc-writer"] as const;
+
+            if (config.pet.length > 0) {
+              return config.pet;
+            }
+
+            if (config.all) {
+              return [...availablePets];
+            }
+
+            return availablePets.slice(0, 2);
           }),
-        { successMessage: "Installation complete" },
+        { successMessage: "Intake complete" },
       );
 
-      yield* renderer.success(renderText(config.source, skills));
+      yield* renderer.success(renderText(config.source, pets));
     }),
-    { command: "skills install" },
+    { command: "pets intake" },
   ),
 ).pipe(
-  withArgvTracking(installConfig),
-  Command.withDescription("Install skills from GitHub or local path"),
+  withArgvTracking(intakeConfig),
+  Command.withDescription("Intake sample pets from a feed or file"),
   Command.withExamples([
-    { command: "axm-spike skills install owner/repo", description: "Install skills interactively" },
+    { command: "axm-spike pets intake partner-feed", description: "Intake a sample feed" },
     {
-      command: "axm-spike skills install owner/repo@v1.0.0",
-      description: "Install from a specific version",
+      command: "axm-spike pets intake partner-feed@spring",
+      description: "Intake from a versioned feed",
     },
     {
-      command: "axm-spike skills install ./local/path",
-      description: "Install from a local directory",
+      command: "axm-spike pets intake ./sample-pets.json",
+      description: "Intake from a local file",
     },
     {
-      command: "axm-spike skills install owner/repo --all --yes",
-      description: "Install all without prompts",
+      command: "axm-spike pets intake partner-feed --all --yes",
+      description: "Intake all pets without prompts",
     },
   ]),
 );

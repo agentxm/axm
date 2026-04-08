@@ -5,18 +5,18 @@ import { Command, Flag } from "effect/unstable/cli";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withRuntime } from "../../runtime.js";
 
-interface SampleSkill {
+interface SamplePet {
   readonly name: string;
-  readonly source: string;
-  readonly version: string;
-  readonly enabled: boolean;
+  readonly species: string;
+  readonly age: string;
+  readonly adoptable: boolean;
 }
 
-const sampleSkills: ReadonlyArray<SampleSkill> = [
-  { name: "pr-review", source: "acme/tools", version: "1.2.0", enabled: true },
-  { name: "test-gen", source: "acme/tools", version: "1.2.0", enabled: true },
-  { name: "doc-writer", source: "local/path", version: "0.5.1", enabled: false },
-  { name: "code-explain", source: "acme/utils", version: "2.0.0", enabled: true },
+const samplePets: ReadonlyArray<SamplePet> = [
+  { name: "Mochi", species: "cat", age: "2 years", adoptable: true },
+  { name: "Pickles", species: "dog", age: "4 months", adoptable: true },
+  { name: "Juniper", species: "rabbit", age: "1 year", adoptable: false },
+  { name: "Waffles", species: "guinea pig", age: "9 months", adoptable: true },
 ];
 
 const tableConfig = {
@@ -28,36 +28,36 @@ export const tableCommand = Command.make("table", tableConfig, (config) =>
     Effect.gen(function* () {
       const renderer = yield* CliRenderer;
       yield* renderer.table(
-        sampleSkills,
+        samplePets,
         [
           {
             key: "name",
             header: "Name",
-            value: (s: SampleSkill) => s.name,
+            value: (s: SamplePet) => s.name,
             priority: 1,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "source",
-            header: "Source",
-            value: (s: SampleSkill) => s.source,
+            key: "species",
+            header: "Species",
+            value: (s: SamplePet) => s.species,
             priority: 2,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "version",
-            header: "Version",
-            value: (s: SampleSkill) => s.version,
+            key: "age",
+            header: "Age",
+            value: (s: SamplePet) => s.age,
             priority: 3,
             align: "left" as const,
             width: "auto" as const,
           },
           {
-            key: "enabled",
-            header: "Enabled",
-            value: (s: SampleSkill) => (s.enabled ? "yes" : "no"),
+            key: "adoptable",
+            header: "Adoptable",
+            value: (s: SamplePet) => (s.adoptable ? "yes" : "no"),
             priority: 4,
             align: "left" as const,
             width: "auto" as const,

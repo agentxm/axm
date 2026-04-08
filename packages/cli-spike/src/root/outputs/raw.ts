@@ -9,7 +9,7 @@ import { withRuntime } from "../../runtime.js";
 const sampleData = {
   name: "axm-spike",
   version: "0.0.1",
-  skills: ["pr-review", "test-gen", "doc-writer"],
+  pets: ["Mochi", "Pickles", "Juniper"],
 };
 
 const rawConfig = {} as const;
@@ -27,7 +27,7 @@ export const rawCommand = Command.make("raw", rawConfig, () =>
           [
             `Name: ${sampleData.name}`,
             `Version: ${sampleData.version}`,
-            `Skills: ${sampleData.skills.join(", ")}`,
+            `Pets: ${sampleData.pets.join(", ")}`,
           ].join("\n"),
         );
       }

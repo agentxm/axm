@@ -17,7 +17,7 @@ describe("cli-spike smoke", () => {
   it("shows subcommands in help output", async () => {
     const result = await runCli(["--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("skills");
+    expect(result.stdout).toContain("pets");
     expect(result.stdout).toContain("telemetry");
   });
 

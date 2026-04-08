@@ -310,14 +310,21 @@ Errors are routed to three channels to serve both humans and machines:
 
 ### Run Boundary
 
-`Command.runWith()` handles `--help` and `--version` automatically. Resolve
-the output format _before_ Effect runs (raw argv scan) so errors from CLI
-parsing can still be routed to the correct channel:
+`Command.runWith()` handles `--help` and `--version` automatically. The
+production entry point uses `runCliMain` from `@axm.sh/core/unstable/cli-runtime`,
+which owns signal handling, three-channel error routing, and graceful shutdown.
+
+Output format must be resolved _before_ Effect runs (raw argv scan) because CLI
+parse failures (`CliError.UnrecognizedOption`, `CliError.MissingOption`, etc.)
+happen before any handler or `GlobalFlag.setting` executes. Without pre-Effect
+format detection, those errors cannot route to the correct output channel.
 
 ```typescript
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
-import { CliError, Command } from "effect/unstable/cli";
+import * as Layer from "effect/Layer";
+import { CliOutput, Command } from "effect/unstable/cli";
+import { runCliMain } from "@axm.sh/core/unstable/cli-runtime";
+import { InteractiveRenderer, MachineRenderer } from "@axm.sh/core/unstable/cli-renderer";
 
 const VERSION = "0.0.1";
 
@@ -325,25 +332,26 @@ const VERSION = "0.0.1";
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
 
-const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat =>
-  hasExplicitJsonFlag(args) ? "json" : "text";
+export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
+  await runCliMain(
+    (argv) => {
+      const isJson = hasExplicitJsonFlag(argv);
+      const commandProgram = Command.runWith(rootCommand, { version: VERSION })(argv);
+      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer();
 
-const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
-  const format = resolveFormatFromArgv(args);
-  try {
-    await Effect.runPromise(
-      withGracefulShutdown(
-        Command.runWith(rootCommand, { version: VERSION })(args).pipe(
-          Effect.provide(NodeServices.layer),
-        ) as Effect.Effect<void>,
-      ),
-    );
-  } catch (error) {
-    handleError(error, format);
-  }
+      return commandProgram.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            baseLayer,
+            rendererLayer,
+            CliOutput.layer(makeAxmFormatter({ json: isJson })),
+          ),
+        ),
+      );
+    },
+    { args },
+  );
 };
-
-void run();
 ```
 
 The entry point file uses `#!/usr/bin/env bun` shebang and `void run()` to
@@ -461,24 +469,34 @@ import { skillsCommand } from "./commands/skills/command.js";
 
 ## Testing Commands
 
-Test Effect handlers independently of CLI parsing:
+Test Effect handlers independently of CLI parsing using `@effect/vitest`:
 
 ```typescript
-// Effect handler test (no CLI parsing)
-it("installs skill", async () => {
-  const TestLayer = Layer.succeed(SkillService, mockService);
-  const result = await Effect.runPromise(
-    handleInstall({ source: "owner/repo", scope: "project", skill: [], all: false }).pipe(
-      Effect.provide(TestLayer),
-    ),
-  );
-  expect(result).toEqual({ installed: true });
-});
+import { it } from "@effect/vitest";
+import * as Layer from "effect/Layer";
+
+// Handler unit test — uses it.effect, not manual Effect.runPromise
+it.effect("installs skill", () =>
+  Effect.gen(function* () {
+    const result = yield* handleInstall({
+      source: "owner/repo",
+      scope: "project",
+      skill: [],
+      all: false,
+    });
+    expect(result).toEqual({ installed: true });
+  }).pipe(Effect.provide(Layer.succeed(SkillService, testService))),
+);
 ```
+
+Use `it.effect` for handler unit tests and subprocess spawning for CLI E2E
+tests. These are distinct test levels — handler tests exercise domain logic
+with test layers; E2E tests exercise the full CLI binary.
 
 ### Testing Checklist
 
-- [ ] **Handler unit tests** — Effect handlers tested independently of CLI parsing
+- [ ] **Handler unit tests** — Effect handlers tested via `it.effect` from
+      `@effect/vitest`, independently of CLI parsing
 - [ ] **Test layers provided** — Handler tests provide test layers
 - [ ] **Co-located E2E tests** — CLI tested via subprocess for user-visible behavior (`*.e2e.test.ts`)
 - [ ] **Distribution E2E tests** — Built artifact tested in `packages/<cli>-e2e/` (zero internal deps)

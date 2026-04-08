@@ -481,7 +481,8 @@ Command.make("tasks").pipe(
 ```
 
 Per-subcommand layers use `Command.provide` when subcommands need different
-services or flag-dependent layers:
+services or flag-dependent layers. `Command.provide` accepts a static layer or
+a function from parsed config to a layer:
 
 ```ts
 const deployCommand = Command.make(
@@ -489,18 +490,46 @@ const deployCommand = Command.make(
   { env: Flag.choice("env", ["staging", "prod"]) },
   ({ env }) =>
     Effect.gen(function* () {
-      /* ... */
+      const infra = yield* InfraService;
+      yield* infra.deploy();
     }),
 ).pipe(Command.provide(({ env }) => (env === "prod" ? ProdInfraLayer : StagingInfraLayer)));
 ```
 
+For providing a single service implementation (not a full layer), use
+`Command.provideSync` or `Command.provideEffect` — these take a service tag as
+the first argument:
+
+```ts
+// Static implementation
+Command.provideSync(Logger, createLogger());
+
+// Config-dependent implementation
+Command.provideSync(Logger, (config) => createLogger(config.verbose));
+
+// Effect-based (async/fallible construction)
+Command.provideEffect(
+  DbClient,
+  Effect.gen(function* () {
+    const url = yield* Config.string("DATABASE_URL");
+    return yield* makeDbClient(url);
+  }),
+);
+```
+
+The production axm CLI uses `Command.provideSync` for wiring command-argv
+tracking into commands.
+
 ### CLI Application Checklist
 
 - [ ] **Edge provision** -- All layers provided once via `Effect.provide` at the
-      `Command.run` call site
-- [ ] **runMain entry point** -- `BunRuntime.runMain` used as the CLI entry point
+      `Command.run` / `Command.runWith` call site
+- [ ] **runCliMain entry point** -- `runCliMain` from `@axm.sh/core` used as the
+      CLI entry point (handles signal handling, error routing, graceful shutdown)
 - [ ] **Per-subcommand layers** -- `Command.provide` used when subcommands need
       different services or flag-dependent layers
+- [ ] **Single-service provision** -- `Command.provideSync` / `Command.provideEffect`
+      used for injecting individual services from parsed config
 - [ ] **Schema-validated config** — Config validated with `Schema.decode` at
       layer construction (not raw `Config.mapOrFail`)
 

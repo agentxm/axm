@@ -209,6 +209,82 @@ A multi-step `pets intake` with source resolution, interactive pet selection,
 and force-override earns a directory, dedicated helper tests, and careful flag
 design. Scale effort to command complexity.
 
+### Runtime Provision
+
+The cli-spike uses a single `withRuntime()` wrapper that provides all services
+and error handling. The production CLI has evolved to a two-layer model:
+
+- **`withCommandRuntime(commandMeta)`** — provides foundation services
+  (`CliRenderer`, telemetry, error handling), checks `--json` capability, and
+  selects the output format. Every command uses this.
+- **`withWorkspace(scope)`** — provides workspace context, extension managers,
+  and source resolution. Only commands that operate on a workspace use this.
+
+Commands compose them in their handler callback:
+
+```typescript
+(config) =>
+  handleInstall(config).pipe(
+    withWorkspace(config.scope),
+    withCommandRuntime(commandMeta),
+  ),
+```
+
+Auth-only commands (login, whoami) use `withAuthRuntime` instead of
+`withWorkspace`. The spike's single `withRuntime()` is the simpler teaching
+model; production uses the split model because workspace services are expensive
+and not every command needs them.
+
+### Shared Flags vs Global Flag Settings
+
+Effect v4 offers two mechanisms for cross-command flags:
+
+- **`Command.withSharedFlags()`** — Declares flags on a parent command.
+  Subcommands access the parsed values by yielding the parent command
+  (`yield* parentCommand`). Values are plain config, not services.
+- **`GlobalFlag.setting()`** — Declares flags as Effect services. Handlers
+  access them by yielding the service tag (`yield* jsonFlag`). Registered once
+  on the root command.
+
+The axm CLI uses `GlobalFlag.setting()` for all cross-cutting flags
+(`--json`, `--non-interactive`, `--verbose`, `--debug`, `--quiet`). This is a
+deliberate choice: global flag settings compose with Effect's service model,
+work at any depth in the command tree without yielding a parent, and integrate
+naturally with layer-based testing. `withSharedFlags` is not used in the axm
+CLI.
+
+### Help & Error Formatting
+
+Effect v4 provides `CliOutput` as a service for customizing how `--help`,
+`--version`, and CLI errors are rendered. The production CLI provides a custom
+formatter via `CliOutput.layer(makeAxmFormatter({ json: isJson }))` at the
+run boundary. This controls brand-consistent help output and ensures JSON-mode
+`--help` emits structured data instead of ANSI text.
+
+Custom formatters implement `CliOutput.Formatter`:
+
+```typescript
+const formatter: CliOutput.Formatter = {
+  formatHelpDoc: (doc) => /* ... */,
+  formatCliError: (error) => /* ... */,
+  formatVersion: (name, version) => /* ... */,
+};
+```
+
+### Pre-Effect Format Detection
+
+Output format is resolved _before_ Effect runs via raw argv scanning:
+
+```typescript
+const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
+  args.includes("--json") || args.includes("-j");
+```
+
+This is required because CLI parse failures (`CliError.UnrecognizedOption`,
+`CliError.MissingOption`) happen before any handler or `GlobalFlag.setting`
+executes. Without pre-Effect detection, parse errors cannot route to the
+correct output channel (JSON on stdout vs text on stderr).
+
 ---
 
 ## Command Shape
@@ -225,6 +301,17 @@ Examples:
 - `axm-spike pets list`
 - `axm-spike pets adopt <pet>`
 
+Every leaf command should include at least one example via
+`Command.withExamples()`. Examples are the primary way users learn commands from
+`--help` output — they show real invocations rather than abstract syntax.
+
+```typescript
+Command.withExamples([
+  { command: "axm skills install owner/repo", description: "Install interactively" },
+  { command: "axm skills install owner/repo --all --yes", description: "Install all, no prompts" },
+]),
+```
+
 ### Command Shape Checklist
 
 - [ ] **Noun-verb order** — Command follows `<resource> <action>` pattern
@@ -234,6 +321,8 @@ Examples:
       argument
 - [ ] **Flags for options** — Multiple values and optional behavior use flags,
       not positionals
+- [ ] **Examples provided** — Every leaf command has at least one
+      `Command.withExamples()` entry
 
 ---
 
@@ -583,5 +672,7 @@ checklists above.
 
 - [CLI Renderer Guide](./cli-renderer.md) — stdout/stderr and JSON contracts
 - [Testing Guide](./testing.md) — Handler and CLI tests
+- [Effect Layers Guide](./effect-layers.md) — Layer construction and CLI
+  application patterns
 - [Feature Delivery Guide](./feature-delivery.md) — Delivery checks around
   behavior changes

@@ -11,9 +11,12 @@ depends-on:
 # CLI Design Guide
 
 Conventions for designing `axm` commands as a clear human interface and a
-stable command surface. This guide is the entry point for command authoring:
-shape, naming, flags, prompts, validation, and handler boundaries. It covers
-how commands are authored and how they behave for users and agents.
+stable command surface. The primary value of this guide is as a **design
+constraint**: it prevents command interfaces from diverging across resources,
+keeping the CLI learnable and scriptable for both humans and agents.
+
+This guide is the entry point for command authoring: shape, naming, flags,
+prompts, validation, and handler boundaries.
 
 Does not cover machine-readable output contracts — see
 [CLI Renderer Guide](./cli-renderer.md) for JSON document shapes, error
@@ -41,6 +44,8 @@ payloads, and stderr event contracts.
 
 ## Quick Example
 
+### Command Shape
+
 _Illustrates: "Noun-verb naming," "Positional for primary input," and "Flags
 for optional behavior"_
 
@@ -61,18 +66,71 @@ primary input, and couples source into a flag. The after example follows
 `<resource> <action>`, uses a positional for the one obvious input, and keeps
 `--force` for optional behavior only.
 
+### Handler Boundary
+
+_Illustrates: "Handler boundary," "Render once," and "Non-interactive path"_
+
+_Before_ — parsing, prompts, business logic, and rendering tangled together:
+
+```typescript
+Command.make(
+  "intake",
+  { source: Args.text({ name: "source" }).pipe(Args.optional) },
+  ({ source }) =>
+    Effect.gen(function* () {
+      // Parsing concern leaked into handler
+      const resolvedSource = source ?? (yield* prompt("Source URL or path:"));
+      // Business logic mixed with rendering
+      const plan = yield* computeIntakePlan(resolvedSource);
+      console.log(`Will intake ${plan.items.length} items`);
+      if (!(yield* confirm("Proceed?"))) return;
+      for (const item of plan.items) {
+        const result = yield* processItem(item);
+        console.log(`  ✓ ${result.name}`); // Line-by-line rendering
+      }
+    }),
+);
+```
+
+_After_ — clean boundary between parsing, handler, and rendering:
+
+```typescript
+// command.ts — parsing at the boundary
+Command.make(
+  "intake",
+  { source: Args.text({ name: "source" }).pipe(Args.optional) },
+  ({ source }) => intakeHandler({ source: Option.fromNullable(source) }),
+);
+
+// handler.ts — accepts parsed values, returns structured result
+const intakeHandler = ({ source }: IntakeHandlerArgs) =>
+  Effect.gen(function* () {
+    const resolved = yield* ResolveSource.resolve(source);
+    const plan = yield* IntakeService.plan(resolved);
+    yield* CliRenderer.render(IntakePreview, plan);
+    yield* CliPrompt.confirm("Proceed?");
+    const result = yield* IntakeService.execute(plan);
+    yield* CliRenderer.render(IntakeResult, result);
+  });
+```
+
+The before example tangles parsing, prompts, domain logic, and output. The after
+example keeps parsing at the command boundary, accepts `Option` types in the
+handler, builds structured results, and renders once through `CliRenderer`.
+
 ---
 
-## Guide Split
+## Guide Scope
 
-Use the two CLI guides like this:
+Use this guide and the related CLI guides like this:
 
-- `cli-design.md` — how commands are authored and how they behave
-- `cli-renderer.md` — what machines can rely on from stdout and stderr
-
-If a question starts with "how should this command read or behave for a user?",
-it belongs here. If it starts with "what exact JSON or event shape do we
-guarantee?", it belongs in [CLI Renderer Guide](./cli-renderer.md).
+| If the question starts with...                       | It belongs in...                                |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| "How should this command read or behave for a user?" | This guide (`cli-design.md`)                    |
+| "What exact JSON or event shape do we guarantee?"    | [CLI Renderer Guide](./cli-renderer.md)         |
+| "How do I test this handler or command?"             | [Testing Guide](./testing.md)                   |
+| "What Effect pattern should I use here?"             | [Effect Guide](./effect.md)                     |
+| "Is this change ready to ship?"                      | [Feature Delivery Guide](./feature-delivery.md) |
 
 At the output boundary: commands decide whether they are human-only or
 JSON-capable, and handlers build structured results before rendering.
@@ -132,6 +190,12 @@ The parsing/handler boundary is the central architectural constraint. Parsing
 concerns stay at the command boundary; domain work lives in handlers and
 services. See [Handlers](#handlers) for why this separation matters and the
 [Handler Checklist](#handler-checklist) for verification.
+
+**Depth note:** Not every command needs the same design effort. A simple
+`auth whoami` needs minimal ceremony — one file, no prompts, no flags beyond
+globals. A multi-step `pets intake` with source resolution, interactive pet
+selection, preview mode, and force-override earns a directory, dedicated helper
+tests, and careful flag design. Scale effort to command complexity.
 
 ---
 
@@ -437,17 +501,17 @@ particular way. See [Testing Guide](./testing.md) for depth.
 
 ## Common Pitfalls
 
-| Pitfall                    | Example                                                           | Problem                                                         |
-| -------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
-| Group commands that fail   | `axm skills` → error exit                                         | Punishes exploration; users expect help output                  |
-| Inconsistent flag meanings | `--force` skips confirmations in one command, overrides in another | Users can't build intuition; scripts break when switching       |
-| Parser types in handlers   | Handler receives `Options` object from CLI framework              | Couples domain logic to CLI framework; handler can't be reused  |
-| Mixed rendering            | Business logic interleaved with `console.log`                     | Output is unstructured; `--json` can't work; tests need stdout  |
-| Premature `--json`         | `--json` flag advertised before result schema exists              | Consumers depend on unstable shape; breaking changes inevitable |
-| Formatted machine output   | JSON contains ANSI codes or table formatting                      | Parsers break; consumers must strip presentation artifacts      |
-| Premature directory split  | Leaf command split into directory before helpers warrant tests     | Navigation overhead without testing benefit                     |
-| Single-use named types     | `intent.ts` with one interface consumed by one neighbor           | Extra file and import for no reuse                              |
-| Premature generic          | Workflow abstraction shared by only 2 commands                    | Premature coupling; inline duplication is cheaper               |
+| Pitfall                    | Example                                                           | Problem                                                                 |
+| -------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Group command fails        | `axm-spike pets` exits non-zero with no subcommand                | Scolds users instead of orienting; breaks scripted `--help` flows       |
+| Inconsistent flag meaning  | `--force` skips confirms on one command, overrides on another     | Users can't build muscle memory; scripts break across resources         |
+| Raw parser types in handler | Handler receives `string \| undefined` instead of `Option`       | Parsing concern leaks past the boundary; handler logic gets noisy       |
+| Line-by-line rendering     | `console.log` calls interleaved with business logic               | No structured result; can't switch to JSON output; hard to test         |
+| Premature `--json`         | Flag advertised before a result schema exists                     | Machine consumers build on an unstable contract                         |
+| Formatted machine output   | JSON piped through a human formatter                              | Breaks both audiences — unreadable for humans, unparseable for machines |
+| Premature directory split  | `list/command.ts` + `list/handler.ts` for a 30-line command       | Extra files without testable complexity to justify them                 |
+| Single-use named types     | `IntakeIntent` interface used in one file                         | Ceremony without value; clutters the module graph                       |
+| Premature generic          | Shared workflow service used by two commands                      | Premature abstraction harder to change than duplicated code             |
 
 ### Pitfalls Checklist
 

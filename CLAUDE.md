@@ -256,7 +256,8 @@ Local source checkouts of key dependencies live at
 understand internal behavior beyond public API docs, learn idiomatic patterns
 from reference implementations, and research bugs or breaking changes via
 upstream issues and discussions. Each checkout should be on the tag matching the
-dependency version so the source you read matches the code you run.
+dependency version so the source you read matches the code you run. For Effect,
+use `../external/Effect-TS/effect-smol`, not `../../Effect-TS/effect-smol`.
 
 | Package                  | Version         | Local path                          | Upstream                                                          | Tag                    |
 | ------------------------ | --------------- | ----------------------------------- | ----------------------------------------------------------------- | ---------------------- |
@@ -271,8 +272,9 @@ See [Effect Guide](contributing/guides/effect.md),
 [Effect Option Guide](contributing/guides/effect-option.md), and
 [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md).
 
-- Refer to `../external/Effect-TS/effect-smol` for idiomatic Effect v4
-  reference implementations and Effect v4 capability/API questions.
+- Refer to `../external/Effect-TS/effect-smol` (repo-root-relative) for
+  idiomatic Effect v4 reference implementations and Effect v4 capability/API
+  questions.
 
 - Use Effect collection types in signatures
 - Prefer `Option<T>` internally; convert nullable values at boundaries

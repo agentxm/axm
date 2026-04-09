@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-04-03
+last-reviewed: 2026-04-09
 version: 0.2.0
 description: Common v3 to v4 renames and migration patterns
 depends-on: [./effect.md]
@@ -19,8 +19,10 @@ projects.
 - [Effect Guide](./effect.md) - Main Effect orientation for this repo
 - [Effect Option Guide](./effect-option.md) - Option and nullable boundaries
 - [effect-smol source](../../../external/Effect-TS/effect-smol) - Effect v4
-  source, tests, and API reference; see `MIGRATION.md` and `migration/` there
-  for v3 → v4 details by topic
+  source, tests, and API reference; repo-root path
+  `../external/Effect-TS/effect-smol`; this guide uses `../../../...` because
+  it lives under `contributing/guides/`; see `MIGRATION.md` and `migration/`
+  there for v3 → v4 details by topic
 
 ---
 

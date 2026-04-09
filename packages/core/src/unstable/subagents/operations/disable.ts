@@ -12,7 +12,6 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
@@ -85,8 +84,6 @@ export const disableSubagent: OperationHandler<
   FileSystem.FileSystem | Path.Path | Workspace | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* Workspace;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -112,29 +109,19 @@ export const disableSubagent: OperationHandler<
       const lockEntry = lockEntryOption.value;
       const renderedFiles = lockEntry.renderedFiles ?? {};
 
-      // Build a layer to provide FileSystem + Path to inner effects
-      const fsPathLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, fs),
-        Layer.succeed(Path.Path, path),
-      );
-
       // Remove rendered files via CodingAgent.removeSubagent()
-      const configuredAgents = yield* agentRepo
-        .getConfiguredAgents()
-        .pipe(Effect.provideService(Workspace, ws));
+      const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
       yield* Effect.forEach(
         configuredAgents,
         (agent) => {
           const agentFiles = renderedFiles[agent.id] ?? [];
-          return agent
-            .removeSubagent({
-              workspaceRoot: ws.baseDir,
-              scope: "project",
-              subagentName: op.args.subagentName,
-              renderedFilePaths: agentFiles.map((f) => f.path),
-            })
-            .pipe(Effect.provide(fsPathLayer));
+          return agent.removeSubagent({
+            workspaceRoot: ws.baseDir,
+            scope: "project",
+            subagentName: op.args.subagentName,
+            renderedFilePaths: agentFiles.map((f) => f.path),
+          });
         },
         { concurrency: "unbounded" },
       );

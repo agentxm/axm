@@ -1,6 +1,5 @@
 import { autocompleteMultiselect } from "./autocomplete-multiselect.js";
 import { groupMultiselect } from "./group-multiselect.js";
-import { autoConfirm, unless } from "./helpers.js";
 import { selectKey } from "./select-key.js";
 
 export {
@@ -14,21 +13,10 @@ export {
   type GroupMultiselectGroup,
   type GroupMultiselectOptions,
 } from "./group-multiselect.js";
-export {
-  autoConfirm,
-  fromFlagOrInteractivePrompt,
-  fromInteractivePrompt,
-  fromValuesOrInteractivePrompt,
-  promptOrValue,
-  promptRequired,
-  runPrompt,
-  unless,
-} from "./helpers.js";
+export { requireInteractive } from "./helpers.js";
 export { selectKey, type SelectKeyChoice, type SelectKeyOptions } from "./select-key.js";
 
 export const AxmPrompt = {
-  unless,
-  autoConfirm,
   selectKey,
   groupMultiselect,
   autocompleteMultiselect,

@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const speciesValues = ["cat", "dog", "rabbit", "bird", "hamster"] as const;
@@ -41,18 +41,22 @@ const handleSelect = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Pick a species:";
-    const choice = yield* fromFlagOrInteractivePrompt(
-      args.value,
-      Prompt.select({
-        message,
-        choices: speciesChoices.map((c) => ({
-          ...c,
-          ...(Option.isSome(args.initial) && c.value === args.initial.value && { selected: true }),
-        })),
-        ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
-      }),
-      { message },
-    );
+    const choice = yield* Option.match(args.value, {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          Prompt.select({
+            message,
+            choices: speciesChoices.map((c) => ({
+              ...c,
+              ...(Option.isSome(args.initial) &&
+                c.value === args.initial.value && { selected: true }),
+            })),
+            ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
+          }),
+          { message },
+        ),
+    });
 
     yield* renderer.success(`You picked: ${choice}`);
   });

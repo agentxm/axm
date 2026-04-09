@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromValuesOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const listConfig = {
@@ -18,9 +18,10 @@ const handleList = (args: { readonly value: ReadonlyArray<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Pet tags (comma-separated):";
-    const tags = yield* fromValuesOrInteractivePrompt(args.value, Prompt.list({ message }), {
-      message,
-    });
+    const tags =
+      args.value.length > 0
+        ? args.value
+        : yield* requireInteractive(Prompt.list({ message }), { message });
 
     yield* renderer.success(`Tags: ${tags.join(", ")}`);
   });

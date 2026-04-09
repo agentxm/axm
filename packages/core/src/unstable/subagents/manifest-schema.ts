@@ -7,6 +7,7 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { CommonManifestBaseFields, ExtensionNameSchema } from "../extensions/common.js";
+import { ToolAccessLevelSchema } from "./tool-access.js";
 
 /**
  * Filename for subagent manifest files.
@@ -39,7 +40,7 @@ export const SubagentManifestSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "subagent name is required" }),
   ),
   model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(Schema.Literals(["full", "readonly", "none"])),
+  toolAccess: Schema.optional(ToolAccessLevelSchema),
   background: Schema.optional(
     Schema.Boolean.pipe(Schema.withConstructorDefault(() => Option.some(false))),
   ),

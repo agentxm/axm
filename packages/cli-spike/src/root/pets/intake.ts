@@ -2,11 +2,11 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
 
 import { yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { type FakePetHabitat, FakePetStore } from "../../fake-pet-store.js";
-import { fromInteractivePrompt } from "../prompts/helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const renderIntakeSummary = (source: string, pets: ReadonlyArray<string>): string =>
@@ -51,7 +51,7 @@ const handleIntake = (args: {
     const confirmationMessage = `Intake ${pets.length} pet(s) into ${args.habitat}: ${pets.join(", ")}?`;
     const confirmed = args.yes
       ? true
-      : yield* fromInteractivePrompt(Prompt.confirm({ message: confirmationMessage }), {
+      : yield* requireInteractive(Prompt.confirm({ message: confirmationMessage }), {
           message: confirmationMessage,
         });
 

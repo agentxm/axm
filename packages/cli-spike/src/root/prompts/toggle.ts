@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const toBoolean = (value: "yes" | "no"): boolean => value === "yes";
@@ -21,15 +21,18 @@ const handleToggle = (args: { readonly value: Option.Option<"yes" | "no"> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Adoptable?";
-    const adoptable = yield* fromFlagOrInteractivePrompt(
-      Option.map(args.value, toBoolean),
-      Prompt.toggle({
-        message,
-        active: "yes",
-        inactive: "no",
-      }),
-      { message },
-    );
+    const adoptable = yield* Option.match(Option.map(args.value, toBoolean), {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          Prompt.toggle({
+            message,
+            active: "yes",
+            inactive: "no",
+          }),
+          { message },
+        ),
+    });
 
     yield* renderer.success(`Adoptable: ${adoptable ? "yes" : "no"}`);
   });

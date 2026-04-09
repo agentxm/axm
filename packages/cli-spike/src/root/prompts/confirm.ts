@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const toBoolean = (value: "yes" | "no"): boolean => value === "yes";
@@ -38,26 +38,29 @@ const handleConfirm = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Confirm pet intake?";
-    const confirmed = yield* fromFlagOrInteractivePrompt(
-      Option.map(args.answer, toBoolean),
-      Prompt.confirm({
-        message,
-        ...(Option.isSome(args.active) &&
-          Option.isSome(args.inactive) && {
-            label: { confirm: args.active.value, deny: args.inactive.value },
+    const confirmed = yield* Option.match(Option.map(args.answer, toBoolean), {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          Prompt.confirm({
+            message,
+            ...(Option.isSome(args.active) &&
+              Option.isSome(args.inactive) && {
+                label: { confirm: args.active.value, deny: args.inactive.value },
+              }),
+            ...(Option.isSome(args.active) &&
+              Option.isNone(args.inactive) && {
+                label: { confirm: args.active.value, deny: "No" },
+              }),
+            ...(Option.isNone(args.active) &&
+              Option.isSome(args.inactive) && {
+                label: { confirm: "Yes", deny: args.inactive.value },
+              }),
+            ...(Option.isSome(args.initial) && { initial: toBoolean(args.initial.value) }),
           }),
-        ...(Option.isSome(args.active) &&
-          Option.isNone(args.inactive) && {
-            label: { confirm: args.active.value, deny: "No" },
-          }),
-        ...(Option.isNone(args.active) &&
-          Option.isSome(args.inactive) && {
-            label: { confirm: "Yes", deny: args.inactive.value },
-          }),
-        ...(Option.isSome(args.initial) && { initial: toBoolean(args.initial.value) }),
-      }),
-      { message },
-    );
+          { message },
+        ),
+    });
 
     yield* renderer.success(`You chose: ${confirmed ? "Yes" : "No"}`);
   });

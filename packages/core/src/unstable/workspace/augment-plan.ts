@@ -26,10 +26,12 @@ import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./rec
 /** Lockfile health state used for reconciliation decisions. */
 export type LockfileState = "ok" | "missing" | "invalid";
 
+export type DegradedLockfileState = Exclude<LockfileState, "ok">;
+
 export interface AugmentedPlanResult {
   readonly plan: Plan;
   readonly reconciliationTriggered: boolean;
-  readonly reason?: "missing" | "invalid";
+  readonly reason?: DegradedLockfileState;
 }
 
 // -----------------------------------------------------------------------------
@@ -61,7 +63,7 @@ export const augmentPlanWithReconciliation = (
       };
     }
 
-    const reason: "missing" | "invalid" = lockfileState;
+    const reason: DegradedLockfileState = lockfileState;
     const settings = yield* readSettingsSafe(workspaceDir);
     const reconciliationContext: ReconciliationContext = {
       baseDir,

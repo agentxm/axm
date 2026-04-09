@@ -88,12 +88,9 @@ const syncConfiguredAgentsOnUninstall = (args: {
 }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const ws = yield* Workspace;
     const agentRepo = yield* CodingAgentRepository;
 
-    const unknownConfiguredAgentIds = yield* agentRepo
-      .getUnknownConfiguredAgentIds()
-      .pipe(Effect.provideService(Workspace, ws));
+    const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds();
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
       const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
       return yield* makeAppError({
@@ -109,9 +106,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
       );
     }
 
-    const configuredAgents = yield* agentRepo
-      .getConfiguredAgents()
-      .pipe(Effect.provideService(Workspace, ws));
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     const outcomes = yield* Effect.forEach(
       configuredAgents,

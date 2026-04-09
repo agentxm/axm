@@ -9,7 +9,7 @@ import {
   makePersistedCredentialsUnsupportedError,
   runDeviceLogin,
 } from "@axm.sh/core/unstable/auth";
-import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { isNonInteractive, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
@@ -22,7 +22,7 @@ interface LoginInteractions {
 }
 
 const confirmRelogin = (message: string) =>
-  fromInteractivePrompt(Prompt.confirm({ message }), { message });
+  requireInteractive(Prompt.confirm({ message }), { message });
 
 export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   options: { yes: boolean },

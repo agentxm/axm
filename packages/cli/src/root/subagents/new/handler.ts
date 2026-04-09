@@ -2,7 +2,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import {
@@ -16,6 +15,7 @@ import {
   MANIFEST_SCHEMA_URL,
   SUBAGENT_CONTENT_FILENAME,
   computeSubagentPaths,
+  isToolAccessLevel,
   type SubagentManifest,
 } from "@axm.sh/core/unstable/subagents";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -42,11 +42,6 @@ export interface SubagentsNewHandlerArgs {
 }
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
-
-type ToolAccessLevel = "full" | "readonly" | "none";
-
-const isToolAccessLevel = (value: string): value is ToolAccessLevel =>
-  value === "full" || value === "readonly" || value === "none";
 
 const makeSubagentMd = (args: {
   readonly name: string;
@@ -133,11 +128,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const fqn = `${owner}/subagents/${args.name}`;
   const base = ws.baseDir;
 
-  const fsPathLayer = Layer.mergeAll(
-    Layer.succeed(FileSystem.FileSystem, fs),
-    Layer.succeed(Path.Path, path),
-  );
-
   const step: PlannedJobStep = {
     readiness: "ready",
     label: fqn,
@@ -220,9 +210,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       });
 
       // Render to configured agents
-      const configuredAgents = yield* agentRepo
-        .getConfiguredAgents()
-        .pipe(Effect.provideService(Workspace, ws));
+      const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
       const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
@@ -249,7 +237,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
               force: args.force,
             })
             .pipe(
-              Effect.provide(fsPathLayer),
               Effect.map((outcome) => {
                 if (outcome._tag === "success") {
                   renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({

@@ -17,6 +17,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { Handle } from "@axm.sh/core/unstable/extensions";
@@ -246,6 +247,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const ws = yield* Workspace;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
+    const terminal = yield* Terminal.Terminal;
     const nonInteractive = yield* nonInteractiveFlag;
 
     // Build a service layer providing all services needed by inner effects
@@ -256,6 +258,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(Workspace, ws),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
+      Layer.succeed(Terminal.Terminal, terminal),
       Layer.succeed(nonInteractiveFlag, nonInteractive),
     );
 

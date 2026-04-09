@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
+import { CliRenderer, type LogLevel } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { withRuntime } from "../../runtime.js";
@@ -18,23 +18,23 @@ const buildLogLines = [
   "[5/5] Done in 3.42s",
 ];
 
+const logLevels = [
+  "message",
+  "info",
+  "success",
+  "step",
+  "warn",
+  "error",
+] as const satisfies ReadonlyArray<LogLevel>;
+
 const streamLogConfig = {
-  level: Flag.choice("level", [
-    "message",
-    "info",
-    "success",
-    "step",
-    "warn",
-    "error",
-  ] as const).pipe(
+  level: Flag.choice("level", logLevels).pipe(
     Flag.withDescription("Log level for the streamed lines"),
     Flag.withDefault("info" as const),
   ),
 } as const;
 
-const handleStreamLog = (args: {
-  readonly level: "message" | "info" | "success" | "step" | "warn" | "error";
-}) =>
+const handleStreamLog = (args: { readonly level: LogLevel }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const logStream = Stream.fromIterable(buildLogLines).pipe(

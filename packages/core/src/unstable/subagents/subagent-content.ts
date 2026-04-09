@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/frontmatter.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { ToolAccessLevelSchema } from "./tool-access.js";
 
 /**
  * Schema for SUBAGENT.md frontmatter fields.
@@ -23,7 +24,7 @@ export const SubagentFrontmatterSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.String,
   model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(Schema.Literals(["full", "readonly", "none"])),
+  toolAccess: Schema.optional(ToolAccessLevelSchema),
   background: Schema.optional(Schema.Boolean),
   overrides: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotate({
@@ -93,7 +94,7 @@ export const parseSubagentMd = (content: string): Effect.Effect<SubagentContentR
 export const ManifestFieldsFromFrontmatterSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
   model: Schema.optional(Schema.String),
-  toolAccess: Schema.optional(Schema.Literals(["full", "readonly", "none"])),
+  toolAccess: Schema.optional(ToolAccessLevelSchema),
   background: Schema.optional(Schema.Boolean),
 }).annotate({
   identifier: "SubagentManifestFieldsFromFrontmatter",

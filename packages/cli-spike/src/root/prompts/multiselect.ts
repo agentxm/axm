@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromValuesOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const careValues = [
@@ -48,16 +48,18 @@ const handleMultiselect = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Select care requirements:";
-    const choices = yield* fromValuesOrInteractivePrompt(
-      args.value,
-      Prompt.multiSelect({
-        message,
-        choices: careChoices,
-        ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
-        ...(args.required && { min: 1 }),
-      }),
-      { message },
-    );
+    const choices =
+      args.value.length > 0
+        ? args.value
+        : yield* requireInteractive(
+            Prompt.multiSelect({
+              message,
+              choices: careChoices,
+              ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
+              ...(args.required && { min: 1 }),
+            }),
+            { message },
+          );
 
     yield* renderer.success(`You picked: ${choices.length === 0 ? "(none)" : choices.join(", ")}`);
   });

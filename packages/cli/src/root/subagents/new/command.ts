@@ -3,6 +3,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { decodeExtensionNameSync } from "@axm.sh/core/unstable/extensions";
 import { forceFlag, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
+import { TOOL_ACCESS_LEVELS } from "@axm.sh/core/unstable/subagents";
 import { DEFAULT_WORKSPACE_SCOPE } from "@axm.sh/core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
@@ -24,7 +25,7 @@ const newConfig = {
     Flag.withDescription("Model tier for the subagent"),
     Flag.optional,
   ),
-  toolAccess: Flag.choice("tool-access", ["full", "readonly", "none"]).pipe(
+  toolAccess: Flag.choice("tool-access", TOOL_ACCESS_LEVELS).pipe(
     Flag.withDescription("Tool access level for the subagent"),
     Flag.optional,
   ),

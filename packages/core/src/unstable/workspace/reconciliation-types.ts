@@ -1,7 +1,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
-import type { ExtensionName } from "../extensions/index.js";
+import type { ExtensionName, ExtensionTypePlural } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type {
   CommandLockEntry,
@@ -12,7 +12,10 @@ import type {
 } from "../lockfile/index.js";
 import type { Settings } from "../settings/index.js";
 
-export type ReconcileExtensionType = "skills" | "commands" | "mcp-servers" | "subagents" | "packs";
+export type ReconcileExtensionType = Extract<
+  ExtensionTypePlural,
+  "skills" | "commands" | "mcp-servers" | "subagents" | "packs"
+>;
 
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
 

@@ -7,16 +7,20 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
 import type { SubagentExtensionRef } from "@axm.sh/core/unstable/subagents";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 
 // -----------------------------------------------------------------------------
@@ -31,7 +35,11 @@ interface SelectSubagentsArgs {
 interface SelectSubagentsInteractions {
   readonly selectSubagents?: (
     subagents: Array.NonEmptyReadonlyArray<SubagentExtensionRef>,
-  ) => Effect.Effect<ReadonlyArray<SubagentExtensionRef>, PromptCancelled | AppError>;
+  ) => Effect.Effect<
+    ReadonlyArray<SubagentExtensionRef>,
+    PromptCancelled | AppError,
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal
+  >;
 }
 
 // -----------------------------------------------------------------------------
@@ -98,19 +106,30 @@ export const confirmSubagentsToInstall = (
   subagents: Array.NonEmptyReadonlyArray<SubagentExtensionRef>,
   selectSubagents: SelectSubagentsInteractions["selectSubagents"] = (availableSubagents) => {
     const message = "Select subagents to install";
-    return fromInteractivePrompt(
-      Prompt.multiSelect({
-        message,
-        choices: availableSubagents.map((subagent) => ({
-          title: subagent.subagent.name,
-          value: subagent,
-          ...(Option.isSome(subagent.subagent.description)
-            ? { description: subagent.subagent.description.value }
-            : {}),
-        })),
-        min: 1,
-      }),
-      { message },
-    );
+    return Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const terminal = yield* Terminal.Terminal;
+      const promptEnvironment = Layer.mergeAll(
+        Layer.succeed(FileSystem.FileSystem, fileSystem),
+        Layer.succeed(Path.Path, path),
+        Layer.succeed(Terminal.Terminal, terminal),
+      );
+
+      return yield* requireInteractive(
+        Prompt.multiSelect({
+          message,
+          choices: availableSubagents.map((subagent) => ({
+            title: subagent.subagent.name,
+            value: subagent,
+            ...(Option.isSome(subagent.subagent.description)
+              ? { description: subagent.subagent.description.value }
+              : {}),
+          })),
+          min: 1,
+        }),
+        { message },
+      ).pipe(Effect.provide(promptEnvironment));
+    });
   },
 ) => selectSubagents(subagents);

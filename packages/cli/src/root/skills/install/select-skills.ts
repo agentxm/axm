@@ -7,16 +7,20 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "effect/FileSystem";
 import type { SkillExtensionRef } from "@axm.sh/core/unstable/skills";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
-import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@axm.sh/core/unstable/app-error";
 import type { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { expandGlobs } from "@axm.sh/core/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 
 // -----------------------------------------------------------------------------
@@ -31,7 +35,11 @@ interface SelectSkillsArgs {
 interface SelectSkillsInteractions {
   readonly selectSkills?: (
     skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>,
-  ) => Effect.Effect<ReadonlyArray<SkillExtensionRef>, PromptCancelled | AppError>;
+  ) => Effect.Effect<
+    ReadonlyArray<SkillExtensionRef>,
+    PromptCancelled | AppError,
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal
+  >;
 }
 
 // -----------------------------------------------------------------------------
@@ -96,20 +104,31 @@ export const determineSkillsToInstall = (
  */
 const selectSkillsPrompt = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) => {
   const message = "Select skills to install";
-  return fromInteractivePrompt(
-    Prompt.multiSelect({
-      message,
-      choices: skills.map((skill) => ({
-        title: skill.skill.name,
-        value: skill,
-        ...(Option.isSome(skill.skill.description)
-          ? { description: skill.skill.description.value }
-          : {}),
-      })),
-      min: 1,
-    }),
-    { message },
-  );
+  return Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const terminal = yield* Terminal.Terminal;
+    const promptEnvironment = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fileSystem),
+      Layer.succeed(Path.Path, path),
+      Layer.succeed(Terminal.Terminal, terminal),
+    );
+
+    return yield* requireInteractive(
+      Prompt.multiSelect({
+        message,
+        choices: skills.map((skill) => ({
+          title: skill.skill.name,
+          value: skill,
+          ...(Option.isSome(skill.skill.description)
+            ? { description: skill.skill.description.value }
+            : {}),
+        })),
+        min: 1,
+      }),
+      { message },
+    ).pipe(Effect.provide(promptEnvironment));
+  });
 };
 
 export const confirmSkillsToInstall = (

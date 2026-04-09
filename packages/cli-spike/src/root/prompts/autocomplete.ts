@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const petNameValues = [
@@ -57,16 +57,19 @@ const handleAutocomplete = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Search for a pet:";
-    const choice = yield* fromFlagOrInteractivePrompt(
-      args.value,
-      Prompt.autoComplete({
-        message,
-        choices: petNameChoices,
-        ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
-        ...(Option.isSome(args.placeholder) && { filterPlaceholder: args.placeholder.value }),
-      }),
-      { message },
-    );
+    const choice = yield* Option.match(args.value, {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          Prompt.autoComplete({
+            message,
+            choices: petNameChoices,
+            ...(Option.isSome(args.maxItems) && { maxPerPage: args.maxItems.value }),
+            ...(Option.isSome(args.placeholder) && { filterPlaceholder: args.placeholder.value }),
+          }),
+          { message },
+        ),
+    });
 
     yield* renderer.success(`Selected: ${choice}`);
   });

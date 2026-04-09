@@ -12,12 +12,14 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import type { DegradedLockfileState } from "./augment-plan.js";
 import type {
   DeclarationResolution,
   ReconciliationAdapter,
   ReconciliationContext,
   ReconciliationDeclaration,
   ReconcileExtensionType,
+  UnresolvedReason,
 } from "./reconciliation-types.js";
 import type { JobStepResult } from "./plan.js";
 
@@ -59,7 +61,7 @@ export interface ReconciliationSnapshot {
   readonly lockfile: Lockfile;
   readonly unresolved: ReadonlyArray<{
     readonly declaration: ReconciliationDeclaration;
-    readonly reason: "missing" | "invalid" | "declaration-mismatch";
+    readonly reason: UnresolvedReason;
   }>;
   readonly warnings: ReadonlyArray<string>;
 }
@@ -261,7 +263,7 @@ const backupInvalidLockfile = (
 export const runReconcileMaterializeOperation = (
   context: ReconciliationContext,
   lockfileDir: string,
-  lockfileState: "missing" | "invalid",
+  lockfileState: DegradedLockfileState,
   options?: {
     readonly allowMissingDeclarations?: boolean;
   },

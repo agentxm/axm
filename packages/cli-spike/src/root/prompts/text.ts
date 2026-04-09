@@ -3,10 +3,10 @@ import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const validatePetName = (value: string) =>
@@ -39,16 +39,19 @@ const handleText = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Enter pet name:";
-    const name = yield* fromFlagOrInteractivePrompt(
-      args.value,
-      Prompt.text({
-        message,
-        ...(Option.isSome(args.placeholder) && { placeholder: args.placeholder.value }),
-        ...(Option.isSome(args.defaultValue) && { default: args.defaultValue.value }),
-        ...(args.validate && { validate: validatePetName }),
-      }),
-      { message },
-    );
+    const name = yield* Option.match(args.value, {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          Prompt.text({
+            message,
+            ...(Option.isSome(args.placeholder) && { placeholder: args.placeholder.value }),
+            ...(Option.isSome(args.defaultValue) && { default: args.defaultValue.value }),
+            ...(args.validate && { validate: validatePetName }),
+          }),
+          { message },
+        ),
+    });
 
     if (args.validate && Option.isSome(args.value) && name.length < 1) {
       return yield* makeAppError({

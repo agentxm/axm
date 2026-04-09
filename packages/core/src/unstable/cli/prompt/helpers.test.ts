@@ -1,114 +1,89 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import { Prompt } from "effect/unstable/cli";
 import * as Terminal from "effect/Terminal";
-import { autoConfirm, unless } from "./helpers.js";
+import * as Option from "effect/Option";
+import { nonInteractiveFlag } from "../../cli-flags/index.js";
+import { requireInteractive } from "./helpers.js";
 
-const PromptLayer = Layer.mergeAll(
-  FileSystem.layerNoop({}),
-  Path.layer,
-  Layer.succeed(
-    Terminal.Terminal,
-    Terminal.make({
-      columns: Effect.succeed(80),
-      readInput: Queue.unbounded<Terminal.UserInput>().pipe(Effect.map(Queue.asDequeue)),
-      readLine: Effect.fail(new Terminal.QuitError({})),
-      display: () => Effect.void,
-    }),
-  ),
-);
-
-describe("unless", () => {
-  it.effect("returns the flag value when Option is Some", () =>
-    Effect.gen(function* () {
-      let called = false;
-      const prompt = Prompt.succeed("from-prompt").pipe(
-        Prompt.map(() => {
-          called = true;
-          return "from-prompt";
-        }),
-      );
-
-      const result = yield* unless(prompt, Option.some("from-flag"));
-
-      expect(result).toBe("from-flag");
-      expect(called).toBe(false);
-    }).pipe(Effect.provide(PromptLayer)),
+const makeHarness = Effect.gen(function* () {
+  const queue = yield* Queue.make<Terminal.UserInput, Cause.Done>();
+  const layer = Layer.mergeAll(
+    FileSystem.layerNoop({}),
+    Path.layer,
+    Layer.succeed(
+      Terminal.Terminal,
+      Terminal.make({
+        columns: Effect.succeed(80),
+        readInput: Effect.succeed(Queue.asDequeue(queue)),
+        readLine: Effect.succeed(""),
+        display: () => Effect.void,
+      }),
+    ),
   );
 
-  it.effect("runs the prompt when Option is None", () =>
-    Effect.gen(function* () {
-      let called = false;
-      const prompt = Prompt.succeed("from-prompt").pipe(
-        Prompt.map(() => {
-          called = true;
-          return "from-prompt";
-        }),
-      );
-
-      const result = yield* unless(prompt, Option.none());
-
-      expect(result).toBe("from-prompt");
-      expect(called).toBe(true);
-    }).pipe(Effect.provide(PromptLayer)),
-  );
-
-  it.effect("pipe style matches direct call", () =>
-    Effect.gen(function* () {
-      const direct = yield* unless(Prompt.succeed("value"), Option.none());
-      const piped = yield* Prompt.succeed("value").pipe(unless(Option.none()));
-
-      expect(piped).toBe(direct);
-    }).pipe(Effect.provide(PromptLayer)),
-  );
+  return { layer, queue };
 });
 
-describe("autoConfirm", () => {
-  it.effect("returns true immediately when yes is true", () =>
+describe("requireInteractive", () => {
+  it.effect("runs the prompt when interactive", () =>
     Effect.gen(function* () {
-      let called = false;
-      const prompt = Prompt.succeed(false).pipe(
-        Prompt.map(() => {
-          called = true;
-          return false;
-        }),
+      const harness = yield* makeHarness;
+      const result = yield* requireInteractive(Prompt.succeed("from-prompt"), {
+        message: "Prompt value",
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(harness.layer, Layer.succeed(nonInteractiveFlag, Option.some(false))),
+        ),
       );
 
-      const result = yield* autoConfirm(prompt, true);
-
-      expect(result).toBe(true);
-      expect(called).toBe(false);
-    }).pipe(Effect.provide(PromptLayer)),
+      expect(result).toBe("from-prompt");
+    }),
   );
 
-  it.effect("runs the prompt when yes is false", () =>
+  it.effect("fails with PROMPT_REQUIRED when non-interactive", () =>
     Effect.gen(function* () {
-      let called = false;
-      const prompt = Prompt.succeed(true).pipe(
-        Prompt.map(() => {
-          called = true;
-          return true;
-        }),
+      const harness = yield* makeHarness;
+      const exit = yield* requireInteractive(Prompt.succeed("from-prompt"), {
+        message: "Prompt value",
+      }).pipe(
+        Effect.flip,
+        Effect.provide(
+          Layer.mergeAll(harness.layer, Layer.succeed(nonInteractiveFlag, Option.some(true))),
+        ),
       );
 
-      const result = yield* autoConfirm(prompt, false);
+      expect(exit._tag).toBe("AppError");
+      if (exit._tag !== "AppError") {
+        throw new Error("Expected AppError");
+      }
 
-      expect(result).toBe(true);
-      expect(called).toBe(true);
-    }).pipe(Effect.provide(PromptLayer)),
+      expect(exit.code).toBe("PROMPT_REQUIRED");
+      expect(exit.what).toContain("Prompt value");
+    }),
   );
 
-  it.effect("pipe style matches direct call", () =>
+  it.effect("maps QuitError to PromptCancelled", () =>
     Effect.gen(function* () {
-      const direct = yield* autoConfirm(Prompt.succeed(true), false);
-      const piped = yield* Prompt.succeed(true).pipe(autoConfirm(false));
+      const harness = yield* makeHarness;
+      yield* Queue.end(harness.queue);
 
-      expect(piped).toBe(direct);
-    }).pipe(Effect.provide(PromptLayer)),
+      const exit = yield* requireInteractive(Prompt.text({ message: "Pet name:" }), {
+        message: "Pet name:",
+      }).pipe(
+        Effect.flip,
+        Effect.provide(
+          Layer.mergeAll(harness.layer, Layer.succeed(nonInteractiveFlag, Option.some(false))),
+        ),
+      );
+
+      expect(exit._tag).toBe("PromptCancelled");
+      expect(exit.message).toBe("Operation cancelled.");
+    }),
   );
 });

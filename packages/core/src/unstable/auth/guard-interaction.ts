@@ -6,7 +6,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type { AppError } from "../app-error/index.js";
-import { runPrompt } from "../cli/prompt/index.js";
+import { requireInteractive } from "../cli/prompt/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const confirmLoginMessage = "You need to sign in to publish. Sign in now?";
@@ -34,9 +34,9 @@ export const AuthGuardInteractionLive = Layer.effect(
 
     return {
       confirmLogin: () =>
-        runPrompt(Prompt.confirm({ message: confirmLoginMessage })).pipe(
-          Effect.provide(promptEnvironment),
-        ),
+        requireInteractive(Prompt.confirm({ message: confirmLoginMessage }), {
+          message: confirmLoginMessage,
+        }).pipe(Effect.provide(promptEnvironment)),
     } satisfies AuthGuardInteractionService;
   }),
 );

@@ -7,7 +7,7 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type { AgentDescriptor } from "../agents/index.js";
 import type { AppError } from "../app-error/index.js";
-import { runPrompt } from "../cli/prompt/index.js";
+import { requireInteractive } from "../cli/prompt/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const selectAgentsMessage = "Select agents to configure";
@@ -38,7 +38,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
 
     return {
       selectAgents: ({ allAgents, detectedIds }) =>
-        runPrompt(
+        requireInteractive(
           Prompt.multiSelect({
             message: selectAgentsMessage,
             choices: allAgents.map((agent) => ({
@@ -48,6 +48,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
               selected: detectedIds.includes(agent.id),
             })),
           }),
+          { message: selectAgentsMessage },
         ).pipe(Effect.provide(promptEnvironment)),
     } satisfies WorkspaceInitializationInteractionService;
   }),

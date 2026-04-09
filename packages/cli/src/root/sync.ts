@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { CodingAgentRepository } from "@axm.sh/core/unstable/agents";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
-import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
@@ -76,7 +76,7 @@ const resolveSyncPlan = Effect.fn("Sync.resolvePlan")(function* (
 
     if (!resolvedYes) {
       const message = "Apply changes?";
-      const confirmed = yield* fromInteractivePrompt(Prompt.confirm({ message }), { message });
+      const confirmed = yield* requireInteractive(Prompt.confirm({ message }), { message });
       if (!confirmed) {
         yield* renderer.success("Cancelled.");
         return {

@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -30,7 +31,7 @@ const makeSkill = (name: string): SkillExtensionRef => ({
 
 const { layer: rendererLayer } = TestRenderer.make();
 const makeTestLayer = (envOverrides: Parameters<typeof TestFlagsLayer>[0] = {}) =>
-  Layer.mergeAll(rendererLayer, TestFlagsLayer(envOverrides));
+  Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer(envOverrides));
 
 type TestR = Layer.Success<ReturnType<typeof makeTestLayer>>;
 

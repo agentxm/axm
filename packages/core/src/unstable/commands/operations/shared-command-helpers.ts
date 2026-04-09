@@ -22,7 +22,6 @@ import { selectRenderer } from "../renderers/index.js";
 import type { RendererCommandFrontmatter } from "../renderers/types.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import type { CodingAgent, CommandSyncOutcome } from "../../agents/coding-agent.js";
-import { Workspace } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { decodeExtensionNameSync, decodeHandleSync } from "../../extensions/index.js";
@@ -154,13 +153,10 @@ export interface RenderToAgentsResult {
  */
 export const renderToAgents = (args: RenderToAgentsArgs) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
     const agentRepo = yield* CodingAgentRepository;
 
     // Resolve agents
-    const configuredAgents = yield* agentRepo
-      .getConfiguredAgents()
-      .pipe(Effect.provideService(Workspace, ws));
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
     const targetAgents = args.manifest?.agents
       ? configuredAgents.filter((agent) => args.manifest?.agents?.includes(agent.id))
       : configuredAgents;

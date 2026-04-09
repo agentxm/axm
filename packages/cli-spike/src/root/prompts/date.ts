@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const dateConfig = {
@@ -19,8 +19,9 @@ const handleDate = (args: { readonly value: Option.Option<Date> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Intake date:";
-    const intake = yield* fromFlagOrInteractivePrompt(args.value, Prompt.date({ message }), {
-      message,
+    const intake = yield* Option.match(args.value, {
+      onSome: Effect.succeed,
+      onNone: () => requireInteractive(Prompt.date({ message }), { message }),
     });
 
     yield* renderer.success(`Intake date: ${intake.toISOString().slice(0, 10)}`);

@@ -37,7 +37,6 @@ export type {
   CodingAgent,
   CodingAgentRepositoryService,
   CodingAgentRepositoryShape,
-  CommandScope,
   CommandSyncOutcome,
   McpServerSyncFallbackSource,
   McpServerSyncOutcome,
@@ -50,7 +49,6 @@ export type {
   ResolveSkillsDirOutcome,
   ResolveSubagentsDirArgs,
   ResolveSubagentsDirOutcome,
-  SubagentScope,
   SubagentSyncOutcome,
 } from "./coding-agent.js";
 export { CodingAgentRepository } from "./coding-agent.js";

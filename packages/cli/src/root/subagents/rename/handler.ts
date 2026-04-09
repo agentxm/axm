@@ -3,7 +3,6 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import matter from "gray-matter";
 import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
@@ -100,12 +99,6 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
     });
   }
 
-  // Build layer for providing deps into agent rendering
-  const fsPathLayer = Layer.mergeAll(
-    Layer.succeed(FileSystem.FileSystem, fs),
-    Layer.succeed(Path.Path, path),
-  );
-
   // Build the rename step — capture all deps from handler scope
   const renameStep: PlannedJobStep = {
     readiness: "ready",
@@ -138,22 +131,18 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
 
       // 3. Remove old rendered files
       const renderedFiles = lockEntry.renderedFiles ?? {};
-      const configuredAgents = yield* agentRepo
-        .getConfiguredAgents()
-        .pipe(Effect.provideService(Workspace, ws));
+      const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
       yield* Effect.forEach(
         configuredAgents,
         (agent) => {
           const agentFiles = renderedFiles[agent.id] ?? [];
-          return agent
-            .removeSubagent({
-              workspaceRoot: baseDir,
-              scope: "project",
-              subagentName: args.oldName,
-              renderedFilePaths: agentFiles.map((f) => f.path),
-            })
-            .pipe(Effect.provide(fsPathLayer));
+          return agent.removeSubagent({
+            workspaceRoot: baseDir,
+            scope: "project",
+            subagentName: args.oldName,
+            renderedFilePaths: agentFiles.map((f) => f.path),
+          });
         },
         { concurrency: "unbounded" },
       );
@@ -195,7 +184,6 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
               force: false,
             })
             .pipe(
-              Effect.provide(fsPathLayer),
               Effect.map((outcome) => {
                 if (outcome._tag === "success") {
                   newRenderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({
@@ -234,7 +222,11 @@ export const handleRenameSubagent = Effect.fn("RenameSubagent.handle")(function*
         result: "success",
         message: `Renamed ${args.oldName} to ${args.newName}`,
       } satisfies JobStepResult;
-    }),
+    }).pipe(
+      Effect.provideService(Workspace, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
   };
 
   const plan: Plan = {

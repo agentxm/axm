@@ -3,12 +3,11 @@ import * as Option from "effect/Option";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
 
+import { makeAppError } from "@axm.sh/core/unstable/app-error";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
-
 import { isNonInteractive } from "@axm.sh/core/unstable/cli-flags";
-
-import { promptOrValue, promptRequired, runPrompt } from "./helpers.js";
+import { PromptCancelled } from "@axm.sh/core/unstable/prompt-cancelled";
 import { withRuntime } from "../../runtime.js";
 
 const speciesValues = ["cat", "dog", "rabbit", "bird", "hamster"] as const;
@@ -26,6 +25,22 @@ interface RegistrationInfo {
 interface Registration extends RegistrationInfo {
   readonly habitat: (typeof habitatValues)[number] | "pending";
 }
+
+const promptRequired = (message: string) =>
+  makeAppError({
+    code: "PROMPT_REQUIRED",
+    what: `Interactive prompt required: ${message}`,
+    howToFix: "Pass the value via a flag or remove --non-interactive.",
+  });
+
+const providedOrPrompt = <A>(
+  value: Option.Option<A>,
+  prompt: PromptTypes.Prompt<A>,
+): PromptTypes.Prompt<A> =>
+  Option.match(value, {
+    onNone: () => prompt,
+    onSome: Prompt.succeed,
+  });
 
 const compositionConfig = {
   name: Flag.string("name").pipe(
@@ -62,16 +77,16 @@ const handleComposition = (args: {
     const nonInteractive = yield* isNonInteractive;
 
     if (nonInteractive && Option.isNone(args.name)) {
-      return yield* promptRequired({ message: "Pet name:" });
+      return yield* promptRequired("Pet name:");
     }
     if (nonInteractive && Option.isNone(args.species)) {
-      return yield* promptRequired({ message: "Species:" });
+      return yield* promptRequired("Species:");
     }
     if (nonInteractive && Option.isNone(args.age)) {
-      return yield* promptRequired({ message: "Age in months:" });
+      return yield* promptRequired("Age in months:");
     }
     if (nonInteractive && Option.isNone(args.adoptable)) {
-      return yield* promptRequired({ message: "Adoptable?" });
+      return yield* promptRequired("Adoptable?");
     }
     if (
       nonInteractive &&
@@ -79,12 +94,12 @@ const handleComposition = (args: {
       toBoolean(args.adoptable.value) &&
       Option.isNone(args.habitat)
     ) {
-      return yield* promptRequired({ message: "Select habitat:" });
+      return yield* promptRequired("Select habitat:");
     }
 
     const finalizeRegistration = (petInfo: RegistrationInfo): PromptTypes.Prompt<Registration> =>
       petInfo.adoptable
-        ? promptOrValue(
+        ? providedOrPrompt(
             args.habitat,
             Prompt.select({
               message: "Select habitat:",
@@ -97,10 +112,10 @@ const handleComposition = (args: {
           ).pipe(Prompt.map((habitat) => ({ ...petInfo, habitat }) satisfies Registration))
         : Prompt.succeed({ ...petInfo, habitat: "pending" } satisfies Registration);
 
-    const registration = yield* runPrompt(
+    const registration = yield* Prompt.run(
       Prompt.all({
-        name: promptOrValue(args.name, Prompt.text({ message: "Pet name:" })),
-        species: promptOrValue(
+        name: providedOrPrompt(args.name, Prompt.text({ message: "Pet name:" })),
+        species: providedOrPrompt(
           args.species,
           Prompt.select({
             message: "Species:",
@@ -113,15 +128,19 @@ const handleComposition = (args: {
             ],
           }),
         ),
-        age: promptOrValue(
+        age: providedOrPrompt(
           args.age,
           Prompt.integer({ message: "Age in months:", min: 1, max: 360 }),
         ),
-        adoptable: promptOrValue(
+        adoptable: providedOrPrompt(
           Option.map(args.adoptable, toBoolean),
           Prompt.toggle({ message: "Adoptable?", active: "yes", inactive: "no" }),
         ),
       }).pipe(Prompt.flatMap(finalizeRegistration)),
+    ).pipe(
+      Effect.catchTag("QuitError", () =>
+        Effect.fail(new PromptCancelled({ message: "Operation cancelled." })),
+      ),
     );
 
     yield* renderer.success(

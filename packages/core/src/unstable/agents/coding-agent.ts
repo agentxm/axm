@@ -20,6 +20,7 @@ import type { CommandManifest } from "../commands/manifest-schema.js";
 import type { Handle } from "../extensions/handle.js";
 import type { RenderedFilePath } from "../extensions/rendered-files.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
 import type { Workspace } from "../workspace/service-interface.js";
 import type { AgentId } from "./types.js";
 
@@ -63,16 +64,11 @@ export interface RemoveMcpServerArgs {
 // ---------------------------------------------------------------------------
 
 /**
- * Scope for command directory resolution.
- */
-export type CommandScope = "project" | "user";
-
-/**
  * Inputs for resolving an agent's effective commands directory.
  */
 export interface ResolveCommandsDirArgs {
   readonly workspaceRoot: string;
-  readonly scope: CommandScope;
+  readonly scope: WorkspaceScope;
 }
 
 /**
@@ -89,7 +85,7 @@ export type ResolveCommandsDirOutcome =
  */
 export interface AddCommandArgs {
   readonly workspaceRoot: string;
-  readonly scope: CommandScope;
+  readonly scope: WorkspaceScope;
   readonly commandName: string;
   readonly frontmatter: Option.Option<CommandFrontmatter>;
   readonly body: string;
@@ -103,7 +99,7 @@ export interface AddCommandArgs {
  */
 export interface RemoveCommandArgs {
   readonly workspaceRoot: string;
-  readonly scope: CommandScope;
+  readonly scope: WorkspaceScope;
   readonly commandName: string;
 }
 
@@ -128,16 +124,11 @@ export type CommandSyncOutcome =
 // ---------------------------------------------------------------------------
 
 /**
- * Scope for subagent directory resolution.
- */
-export type SubagentScope = "project" | "user";
-
-/**
  * Inputs for resolving an agent's effective subagents directory.
  */
 export interface ResolveSubagentsDirArgs {
   readonly workspaceRoot: string;
-  readonly scope: SubagentScope;
+  readonly scope: WorkspaceScope;
 }
 
 /**
@@ -154,7 +145,7 @@ export type ResolveSubagentsDirOutcome =
  */
 export interface AddSubagentArgs {
   readonly workspaceRoot: string;
-  readonly scope: SubagentScope;
+  readonly scope: WorkspaceScope;
   readonly input: SubagentRenderInput;
   readonly force: boolean;
 }
@@ -164,7 +155,7 @@ export interface AddSubagentArgs {
  */
 export interface RemoveSubagentArgs {
   readonly workspaceRoot: string;
-  readonly scope: SubagentScope;
+  readonly scope: WorkspaceScope;
   readonly subagentName: string;
   /** Rendered file paths from the lockfile, used to know which files to delete. */
   readonly renderedFilePaths: ReadonlyArray<RenderedFilePath>;

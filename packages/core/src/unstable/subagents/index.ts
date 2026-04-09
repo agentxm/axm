@@ -13,6 +13,14 @@ export {
   type SubagentManifest,
 } from "./manifest-schema.js";
 
+// Tool access
+export {
+  TOOL_ACCESS_LEVELS,
+  isToolAccessLevel,
+  ToolAccessLevelSchema,
+  type ToolAccessLevel,
+} from "./tool-access.js";
+
 // Content parsing
 export {
   SubagentFrontmatterSchema,

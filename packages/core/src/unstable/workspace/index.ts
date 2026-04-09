@@ -102,6 +102,7 @@ export {
 // Doctor
 export {
   diagnoseWorkspaceDoctor,
+  WORKSPACE_DOCTOR_CHECK_STATUSES,
   type WorkspaceDoctorCheck,
   type WorkspaceDoctorCheckStatus,
   type WorkspaceDoctorDiagnosis,
@@ -143,6 +144,7 @@ export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readine
 export {
   augmentPlanWithReconciliation,
   type AugmentedPlanResult,
+  type DegradedLockfileState,
   type LockfileState,
 } from "./augment-plan.js";
 

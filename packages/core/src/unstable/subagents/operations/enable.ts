@@ -11,7 +11,6 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -131,16 +130,8 @@ export const enableSubagent: OperationHandler<
     const currentHash = computeSourceHash(rawContent);
     const frontmatter = Option.getOrUndefined(parsed.frontmatter);
 
-    // Build a layer to provide FileSystem + Path to inner effects
-    const fsPathLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
-
     // Render to all configured agents
-    const configuredAgents = yield* agentRepo
-      .getConfiguredAgents()
-      .pipe(Effect.provideService(Workspace, ws));
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
@@ -164,7 +155,6 @@ export const enableSubagent: OperationHandler<
             force: false,
           })
           .pipe(
-            Effect.provide(fsPathLayer),
             Effect.map((outcome) => {
               if (outcome._tag === "success") {
                 renderedFilesMap[agent.id] = outcome.renderedFilePaths.map((p) => ({

@@ -2,11 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { AxmPrompt, requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const actionValues = ["adopt", "intake", "list", "register"] as const;
@@ -35,15 +34,18 @@ const handleSelectKey = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Quick action:";
-    const choice = yield* fromFlagOrInteractivePrompt(
-      args.value,
-      AxmPrompt.selectKey({
-        message,
-        choices: [...actionChoices],
-        ...(args.caseSensitive && { caseSensitive: true }),
-      }),
-      { message },
-    );
+    const choice = yield* Option.match(args.value, {
+      onSome: Effect.succeed,
+      onNone: () =>
+        requireInteractive(
+          AxmPrompt.selectKey({
+            message,
+            choices: [...actionChoices],
+            ...(args.caseSensitive && { caseSensitive: true }),
+          }),
+          { message },
+        ),
+    });
 
     yield* renderer.success(`You chose: ${choice}`);
   });

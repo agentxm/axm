@@ -5,14 +5,16 @@ import { CliRenderer, type TableView } from "@axm.sh/core/unstable/cli-renderer"
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 import {
   diagnoseWorkspaceDoctor,
+  WORKSPACE_DOCTOR_CHECK_STATUSES,
   type WorkspaceDoctorCheck,
+  type WorkspaceDoctorCheckStatus,
   Workspace,
 } from "@axm.sh/core/unstable/workspace";
 
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 
-const DoctorCheckStatusSchema = Schema.Literals(["pass", "warn", "fail", "skip"] as const);
+const DoctorCheckStatusSchema = Schema.Literals(WORKSPACE_DOCTOR_CHECK_STATUSES);
 
 const DoctorCheckSchema = Schema.Struct({
   name: Schema.String,
@@ -20,8 +22,6 @@ const DoctorCheckSchema = Schema.Struct({
   message: Schema.String,
   hint: Schema.optional(Schema.String),
 });
-type DoctorCheckStatus = typeof DoctorCheckStatusSchema.Type;
-
 const DoctorDataSchema = Schema.Struct({
   scope: Schema.String,
   workspacePath: Schema.String,
@@ -39,7 +39,7 @@ const DoctorDocumentFields = {
 
 interface DoctorCheckRow {
   readonly name: string;
-  readonly status: DoctorCheckStatus;
+  readonly status: WorkspaceDoctorCheckStatus;
   readonly message: string;
   readonly hint: string;
 }

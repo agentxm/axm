@@ -11,7 +11,9 @@ import {
   type WorkspaceSkillState,
 } from "./skill-state.js";
 
-export type WorkspaceDoctorCheckStatus = "pass" | "warn" | "fail" | "skip";
+export const WORKSPACE_DOCTOR_CHECK_STATUSES = ["pass", "warn", "fail", "skip"] as const;
+
+export type WorkspaceDoctorCheckStatus = (typeof WORKSPACE_DOCTOR_CHECK_STATUSES)[number];
 
 export interface WorkspaceDoctorCheck {
   readonly name: string;

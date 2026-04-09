@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -94,6 +95,7 @@ const makeLayers = (opts?: {
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
+    NodeServices.layer,
     rendererLayer,
     interactionLayer,
     flagsLayer,
@@ -294,6 +296,7 @@ describe("auth login handler", () => {
     const interactionLayer2 = AuthLoginInteractionTest().layer;
 
     const layer = Layer.mergeAll(
+      NodeServices.layer,
       rendererLayer2,
       interactionLayer2,
       TestFlagsLayer({ nonInteractive: false }),

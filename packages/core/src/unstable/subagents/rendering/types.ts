@@ -9,6 +9,7 @@
 
 import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
 import type { RenderedFilePath } from "../../extensions/rendered-files.js";
+import type { ToolAccessLevel } from "../tool-access.js";
 
 /**
  * Agent-specific overrides from SUBAGENT.md frontmatter `overrides` field.
@@ -34,7 +35,7 @@ export interface SubagentRenderInput {
   /** Portable model tier or concrete model ID. */
   readonly model: string | undefined;
   /** Portable tool access level. */
-  readonly toolAccess: "full" | "readonly" | "none" | undefined;
+  readonly toolAccess: ToolAccessLevel | undefined;
   /** Whether the subagent runs in background mode. */
   readonly background: boolean | undefined;
   /** SUBAGENT.md body text (after frontmatter). */

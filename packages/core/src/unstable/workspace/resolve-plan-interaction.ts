@@ -6,7 +6,7 @@ import * as ServiceMap from "effect/ServiceMap";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type { AppError } from "../app-error/index.js";
-import { runPrompt } from "../cli/prompt/index.js";
+import { requireInteractive } from "../cli/prompt/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const confirmApplyChangesMessage = "Apply changes?";
@@ -34,9 +34,9 @@ export const ResolvePlanInteractionLive = Layer.effect(
 
     return {
       confirmApplyChanges: () =>
-        runPrompt(Prompt.confirm({ message: confirmApplyChangesMessage })).pipe(
-          Effect.provide(promptEnvironment),
-        ),
+        requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
+          message: confirmApplyChangesMessage,
+        }).pipe(Effect.provide(promptEnvironment)),
     } satisfies ResolvePlanInteractionService;
   }),
 );

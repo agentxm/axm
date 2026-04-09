@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 import { Argument, Command, Prompt } from "effect/unstable/cli";
 
 import { forceFlag, isNonInteractive, previewFlag, yesFlag } from "@axm.sh/core/unstable/cli-flags";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
 import { type AdoptionOutcome, FakePetStore } from "../../fake-pet-store.js";
-import { fromInteractivePrompt } from "../prompts/helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const renderPreview = (args: {
@@ -73,7 +73,7 @@ const handleAdopt = (args: {
 
     const confirmed = args.yes
       ? true
-      : yield* fromInteractivePrompt(Prompt.confirm({ message: confirmationMessage }), {
+      : yield* requireInteractive(Prompt.confirm({ message: confirmationMessage }), {
           message: confirmationMessage,
         });
 

@@ -89,9 +89,7 @@ export const disableCommand: OperationHandler<
         );
       } else if (lockEntry.agents.length > 0) {
         // Fallback: remove via agent removeCommand
-        const configuredAgents = yield* agentRepo
-          .getConfiguredAgents()
-          .pipe(Effect.provideService(Workspace, ws));
+        const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
         yield* Effect.forEach(
           configuredAgents,

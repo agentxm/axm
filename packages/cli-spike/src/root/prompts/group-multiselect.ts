@@ -1,11 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { AxmPrompt, requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromValuesOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const serviceValues = [
@@ -65,15 +64,17 @@ const handleGroupMultiselect = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Select pet services:";
-    const choices = yield* fromValuesOrInteractivePrompt(
-      args.value,
-      AxmPrompt.groupMultiselect({
-        message,
-        groups: makeServiceGroups(args.selectableGroups),
-        ...(args.required && { min: 1 }),
-      }),
-      { message },
-    );
+    const choices =
+      args.value.length > 0
+        ? args.value
+        : yield* requireInteractive(
+            AxmPrompt.groupMultiselect({
+              message,
+              groups: makeServiceGroups(args.selectableGroups),
+              ...(args.required && { min: 1 }),
+            }),
+            { message },
+          );
 
     yield* renderer.success(`Selected: ${choices.length === 0 ? "(none)" : choices.join(", ")}`);
   });

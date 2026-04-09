@@ -208,16 +208,13 @@ const buildAgentState = (
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
     const path = yield* Path.Path;
-    const ws = yield* Workspace;
 
-    const configuredAgents = yield* agentRepo.getConfiguredAgents().pipe(
-      Effect.provideService(Workspace, ws),
-      Effect.orElseSucceed(() => []),
-    );
-    const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds().pipe(
-      Effect.provideService(Workspace, ws),
-      Effect.orElseSucceed(() => []),
-    );
+    const configuredAgents = yield* agentRepo
+      .getConfiguredAgents()
+      .pipe(Effect.orElseSucceed(() => []));
+    const unknownConfiguredAgentIds = yield* agentRepo
+      .getUnknownConfiguredAgentIds()
+      .pipe(Effect.orElseSucceed(() => []));
 
     const resolved = yield* Effect.forEach(
       configuredAgents,

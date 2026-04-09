@@ -8,6 +8,7 @@
  */
 
 import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
+import type { ToolAccessLevel } from "../tool-access.js";
 
 /**
  * Result of mapping a portable tool access level to agent-native fields.
@@ -20,8 +21,6 @@ export interface ToolAccessMappingResult {
   /** Optional warnings for lossy mappings. */
   readonly warnings: ReadonlyArray<LossyRenderingWarning>;
 }
-
-type ToolAccessLevel = "full" | "readonly" | "none";
 
 /**
  * Per-agent tool access mapping definitions.

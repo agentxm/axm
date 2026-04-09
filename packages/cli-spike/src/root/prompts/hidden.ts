@@ -3,10 +3,10 @@ import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 import { CliRenderer } from "@axm.sh/core/unstable/cli-renderer";
 import { withArgvTracking } from "@axm.sh/core/unstable/cli-runtime";
 
-import { fromFlagOrInteractivePrompt } from "./helpers.js";
 import { withRuntime } from "../../runtime.js";
 
 const hiddenConfig = {
@@ -20,11 +20,10 @@ const handleHidden = (args: { readonly value: Option.Option<string> }) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const message = "Admin override code:";
-    const code = yield* fromFlagOrInteractivePrompt(
-      Option.map(args.value, Redacted.make),
-      Prompt.hidden({ message }),
-      { message },
-    );
+    const code = yield* Option.match(Option.map(args.value, Redacted.make), {
+      onSome: Effect.succeed,
+      onNone: () => requireInteractive(Prompt.hidden({ message }), { message }),
+    });
 
     yield* renderer.success(`Code received (${String(Redacted.value(code).length)} chars)`);
   });

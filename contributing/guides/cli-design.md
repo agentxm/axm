@@ -562,13 +562,13 @@ Use prompts to resolve missing choices, not to hide essential command behavior.
 The CLI spike uses Effect v4 native `Prompt` from `effect/unstable/cli`
 directly. `Prompt` is `Yieldable`, but command-local flows should still prefer
 the helper wrappers in `@axm.sh/core/unstable/cli/prompt` when they need
-non-interactive guards, prompt environment provisioning, or flag bypasses.
+non-interactive guards or flag bypasses.
 
 > **Note:** `CliPrompt` still exists for shared interaction adapters and test
 > harnesses in the primary CLI. New command-local prompt flows in both
 > `packages/cli/` and `packages/cli-spike/` should usually use
-> `fromInteractivePrompt`, `fromFlagOrInteractivePrompt`, or
-> `fromValuesOrInteractivePrompt` from `@axm.sh/core/unstable/cli/prompt`.
+> `requireInteractive` from `@axm.sh/core/unstable/cli/prompt` and inline
+> simple `Option.match` / length checks at the call site.
 
 **Direct `yield* Prompt.xxx()`:**
 
@@ -580,38 +580,31 @@ const name = yield * Prompt.text({ message: "Pet name:" });
 **Non-interactive guard at call site:**
 
 ```typescript
-import { fromInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 
 const name =
   yield *
-  fromInteractivePrompt(Prompt.text({ message: "Pet name:" }), {
+  requireInteractive(Prompt.text({ message: "Pet name:" }), {
     message: "Pet name:",
   });
 ```
 
-**Flag bypass with helper wrappers:**
+**Flag bypass stays explicit:**
 
 ```typescript
-import { fromFlagOrInteractivePrompt } from "@axm.sh/core/unstable/cli/prompt";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { requireInteractive } from "@axm.sh/core/unstable/cli/prompt";
 
 const name =
   yield *
-  fromFlagOrInteractivePrompt(args.name, Prompt.text({ message: "Pet name:" }), {
-    message: "Pet name:",
+  Option.match(args.name, {
+    onSome: Effect.succeed,
+    onNone: () =>
+      requireInteractive(Prompt.text({ message: "Pet name:" }), {
+        message: "Pet name:",
+      }),
   });
-```
-
-**Lower-level flag bypass with `AxmPrompt.unless`** (pipe style):
-
-```typescript
-import { AxmPrompt } from "@axm.sh/core/unstable/cli/prompt";
-const name = yield * Prompt.text({ message: "Pet name:" }).pipe(AxmPrompt.unless(args.name));
-```
-
-**Auto-confirm with `AxmPrompt.autoConfirm`:**
-
-```typescript
-const ok = yield * Prompt.confirm({ message: "Proceed?" }).pipe(AxmPrompt.autoConfirm(args.yes));
 ```
 
 **`Prompt.all` for multi-field forms:**

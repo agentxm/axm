@@ -19,6 +19,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import type { CommandExtensionRef } from "@axm.sh/core/unstable/commands";
 import { toJobStepResult } from "./job-step-result.js";
+import { combinePlanSections, makeItemSection } from "./preview-sections.js";
 
 export interface UpdateCommandHandlerArgs {
   readonly name: Option.Option<string>;
@@ -85,13 +86,6 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
       `Command "${nameValue}" is not installed or is disabled. Nothing to update.`,
     );
     return;
-  }
-
-  // Display preview info
-  if (args.preview) {
-    yield* renderer.info(
-      `Would update ${filteredEntries.length} command(s):\n${filteredEntries.map(([name]) => `  - ${name}`).join("\n")}`,
-    );
   }
 
   // Step 3: Re-resolve each source and discover commands
@@ -176,12 +170,19 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
       Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   }));
+  const planSections = combinePlanSections(
+    makeItemSection(
+      `Would update ${resolvedEntries.length} command(s)`,
+      resolvedEntries.map((entry) => entry.name),
+    ),
+  );
 
   const plan: Plan = {
     _tag: "Plan",
     name: "Update command(s)",
     description: Option.some("Update installed commands"),
     jobs: [{ concurrency: 1 as const, steps: [...steps] }],
+    ...(planSections === undefined ? {} : { sections: planSections }),
   };
 
   // Step 5: Resolve plan

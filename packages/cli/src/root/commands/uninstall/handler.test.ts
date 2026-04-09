@@ -14,7 +14,11 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
 import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 import { handleUninstallCommand } from "./handler.js";
 import {
   UninstallCommandCommandWorkflowActionsLive,
@@ -119,26 +123,26 @@ describe("commands uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallCommand(defaultArgs("my-cmd"), defaultFlags({ preview: true }));
 
-          expect(logs.info.some((m) => m.includes("Affected agents"))).toBe(true);
-          expect(logs.info.some((m) => m.includes("claude-code"))).toBe(true);
-          expect(logs.info.some((m) => m.includes("Files that would be removed"))).toBe(true);
+          const allMessages = [...logs.info, ...logs.message];
+          expect(allMessages.some((m) => m.includes("Affected agents"))).toBe(true);
+          expect(allMessages.some((m) => m.includes("claude-code"))).toBe(true);
+          expect(allMessages.some((m) => m.includes("Files that would be removed"))).toBe(true);
         }),
       );
     });
 
-    it.effect("shows no lockfile entry message when command is not installed", () => {
-      const { provide, logs } = makeLayers();
+    it.effect("fails when command is not installed", () => {
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          // The handler will fail with COMMAND_NOT_INSTALLED after displaying preview info
-          yield* handleUninstallCommand(
+          const error = yield* handleUninstallCommand(
             defaultArgs("nonexistent"),
             defaultFlags({ preview: true }),
-          ).pipe(Effect.catch(() => Effect.void));
+          ).pipe(Effect.flip);
 
-          expect(logs.info.some((m) => m.includes("no lockfile entry"))).toBe(true);
+          expect(getAppError(error).what).toContain("is not installed");
         }),
       );
     });

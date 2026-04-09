@@ -13,8 +13,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import type { RegistryCommandRef } from "@axm.sh/core/unstable/commands";
+import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
+import { exactVersion, extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleUpdateCommand, type UpdateCommandHandlerArgs } from "./update.js";
 
@@ -43,6 +44,22 @@ const defaultArgs = (
   force: false,
   preview: false,
   ...overrides,
+});
+
+const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
+  type: "command",
+  refType: "registry",
+  source: {
+    type: "registry",
+    location: new URL("file:///tmp/registry"),
+    owner: Option.none(),
+  },
+  command: { name: extensionName(name) },
+  owner: handle("@acme"),
+  name: extensionName(name),
+  version: exactVersion("1.0.0"),
+  integrity: Option.none(),
+  compatiblePackages: [],
 });
 
 // -----------------------------------------------------------------------------
@@ -108,23 +125,27 @@ describe("commands update.handler", () => {
 
   it.effect("displays commands that would be updated in preview mode", () => {
     const ctx = makeWorkspaceHandlerTestContext();
-    const sourcesLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
+    const sourcesLayer = Layer.succeed(SourceHostProviders, {
+      find: () => Effect.succeed([makeRegistryRef()]),
+      fetch: () => Effect.die("unused"),
+      cloneUrl: () => Option.none(),
+      origin: () => "test",
+    });
     const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive, sourcesLayer);
     const provide = makeEffectProvide(fullLayer);
     const { logs } = ctx;
 
-    initWorkspace(path.join(tempDir, ".axm"), { "my-cmd": "@acme/commands/my-cmd" }, {});
+    initWorkspace(path.join(tempDir, ".axm"), { "my-cmd": path.join(tempDir, "my-cmd") }, {});
 
     return provide(
       Effect.gen(function* () {
-        // The handler will fail at source resolution but preview info should appear before that
-        yield* handleUpdateCommand(defaultArgs({ preview: true })).pipe(
-          Effect.catch(() => Effect.void),
-        );
+        yield* handleUpdateCommand(defaultArgs({ preview: true }));
 
-        expect(logs.info.some((m) => m.includes("Would update") && m.includes("my-cmd"))).toBe(
-          true,
-        );
+        const allMessages = [...logs.info, ...logs.message];
+        expect(
+          allMessages.some((message) => message.includes("Would update 1 command")) &&
+            allMessages.some((message) => message.includes("my-cmd")),
+        ).toBe(true);
       }),
     );
   });

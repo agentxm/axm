@@ -18,6 +18,7 @@ import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { toJobStepResult } from "./job-step-result.js";
+import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 
 export interface EnableCommandHandlerArgs {
   readonly name: ExtensionName;
@@ -67,20 +68,23 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     return;
   }
 
-  // Display preview info
-  if (args.preview) {
-    const lockedEntry = yield* ws.getLockedCommand(args.name);
-    if (Option.isSome(lockedEntry) && lockedEntry.value.agents) {
-      yield* renderer.info(
-        `Would re-render to agents:\n${lockedEntry.value.agents.map((a: string) => `  - ${a}`).join("\n") || "  (no agents recorded)"}`,
+  const lockedEntry = yield* ws.getLockedCommand(args.name);
+  const configuredAgentIds = Option.isSome(lockedEntry) ? [] : yield* ws.getConfiguredAgents();
+  const planSections = Option.isSome(lockedEntry)
+    ? combinePlanSections(
+        makeAgentSection(
+          "Would re-render to agents",
+          lockedEntry.value.agents,
+          "(no agents recorded)",
+        ),
+      )
+    : combinePlanSections(
+        makeAgentSection(
+          "Would render to configured agents",
+          configuredAgentIds,
+          "(no agents configured)",
+        ),
       );
-    } else {
-      const configuredAgentIds = yield* ws.getConfiguredAgents();
-      yield* renderer.info(
-        `Would render to configured agents:\n${configuredAgentIds.map((a: string) => `  - ${a}`).join("\n")}`,
-      );
-    }
-  }
 
   // Build operation
   const op = {
@@ -106,6 +110,7 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     name: "Enable command",
     description: Option.some(`Enable ${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
+    ...(planSections === undefined ? {} : { sections: planSections }),
   };
 
   const resolution = yield* previewOrApplyPlan(plan, {

@@ -29,12 +29,17 @@ import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraint
 import type { RegistrySource } from "@axm.sh/core/unstable/sources";
 import { resolveSource, SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { CommandManager, type CommandExtensionRef } from "@axm.sh/core/unstable/commands";
+import {
+  CommandManager,
+  selectRenderer,
+  type CommandExtensionRef,
+} from "@axm.sh/core/unstable/commands";
 import type { Plan } from "@axm.sh/core/unstable/workspace";
 import { buildInstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
+import { combinePlanSections, makeAgentSection, makeGroupedSection } from "../preview-sections.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -269,22 +274,55 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       });
 
     const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Install command",
-        description: Option.some(`Install command ${intent.ref.command.name}`),
-        jobs: [
-          {
-            concurrency: 1 as const,
-            steps: [
-              buildInstallOperation(commandMgr, {
-                ref: intent.ref,
-                versionConstraint: intent.versionConstraint,
-              }),
-            ],
-          },
-        ],
-      } satisfies Plan);
+      Effect.gen(function* () {
+        const configuredAgents = yield* ws.getConfiguredAgents();
+        const warningsByAgent: Record<string, ReadonlyArray<string>> = {};
+
+        for (const agentId of configuredAgents) {
+          const rendererFn = selectRenderer(agentId);
+          const output = rendererFn({
+            frontmatter: {},
+            body: "",
+            agentId,
+            commandName: intent.ref.command.name,
+          });
+
+          const warnings = output.warnings
+            .filter((warning) => warning.feature && warning.message)
+            .map((warning) => `${warning.feature} - ${warning.message}`);
+
+          if (warnings.length > 0) {
+            warningsByAgent[agentId] = warnings;
+          }
+        }
+
+        const sections = combinePlanSections(
+          makeAgentSection(
+            "Target agents",
+            configuredAgents,
+            "No agents configured. No files would be rendered.",
+          ),
+          makeGroupedSection("Potential rendering warnings", warningsByAgent),
+        );
+
+        return {
+          _tag: "Plan",
+          name: "Install command",
+          description: Option.some(`Install command ${intent.ref.command.name}`),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps: [
+                buildInstallOperation(commandMgr, {
+                  ref: intent.ref,
+                  versionConstraint: intent.versionConstraint,
+                }),
+              ],
+            },
+          ],
+          ...(sections === undefined ? {} : { sections }),
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

@@ -152,8 +152,9 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd", { preview: true }));
 
+          const allMessages = [...logs.info, ...logs.message];
           expect(
-            logs.info.some(
+            allMessages.some(
               (m) => m.includes("Would re-render to agents") || m.includes("Would render"),
             ),
           ).toBe(true);
@@ -186,8 +187,9 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd", { preview: true }));
 
+          const allMessages = [...logs.info, ...logs.message];
           expect(
-            logs.info.some(
+            allMessages.some(
               (m) =>
                 m.includes("Would render to configured agents") || m.includes("Would re-render"),
             ),

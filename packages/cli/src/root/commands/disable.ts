@@ -18,6 +18,11 @@ import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { toJobStepResult } from "./job-step-result.js";
+import {
+  combinePlanSections,
+  makeAgentSection,
+  makeRenderedFilesSection,
+} from "./preview-sections.js";
 
 export interface DisableCommandHandlerArgs {
   readonly name: ExtensionName;
@@ -67,28 +72,20 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     return;
   }
 
-  // Display preview info
-  if (args.preview) {
-    const lockedEntry = yield* ws.getLockedCommand(args.name);
-    if (Option.isSome(lockedEntry) && lockedEntry.value.agents) {
-      yield* renderer.info(
-        `Would remove rendered files from agents:\n${lockedEntry.value.agents.map((a: string) => `  - ${a}`).join("\n") || "  (no agents recorded)"}`,
-      );
-    }
-
-    if (Option.isSome(lockedEntry) && lockedEntry.value.renderedFiles) {
-      const entries = Object.entries(lockedEntry.value.renderedFiles);
-      if (entries.length > 0) {
-        const filesByAgent = entries
-          .map(([agentId, files]) => {
-            const filePaths = files.map((f: { path: string }) => `    - ${f.path}`).join("\n");
-            return `  ${agentId}:\n${filePaths}`;
-          })
-          .join("\n");
-        yield* renderer.info(`Files that would be removed:\n${filesByAgent}`);
-      }
-    }
-  }
+  const lockedEntry = yield* ws.getLockedCommand(args.name);
+  const planSections = Option.isSome(lockedEntry)
+    ? combinePlanSections(
+        makeAgentSection(
+          "Would remove rendered files from agents",
+          lockedEntry.value.agents,
+          "(no agents recorded)",
+        ),
+        makeRenderedFilesSection(
+          "Files that would be removed",
+          lockedEntry.value.renderedFiles ?? {},
+        ),
+      )
+    : undefined;
 
   // Build operation
   const op = {
@@ -114,6 +111,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     name: "Disable command",
     description: Option.some(`Disable ${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
+    ...(planSections === undefined ? {} : { sections: planSections }),
   };
 
   const resolution = yield* previewOrApplyPlan(plan, {

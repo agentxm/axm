@@ -20,6 +20,11 @@ import type { CommandExtensionTarget, ExtensionTarget } from "@axm.sh/core/unsta
 import { buildUninstallOperation } from "@axm.sh/core/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@axm.sh/core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
+import {
+  combinePlanSections,
+  makeAgentSection,
+  makeRenderedFilesSection,
+} from "../preview-sections.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -105,29 +110,43 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
           buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, { target }),
         );
 
-        // Collect affected agents from lockfile for confirmation display
-        const agentNames = yield* Effect.forEach(
+        const lockEntries = yield* Effect.forEach(
           intent.targets,
-          (target) =>
-            ws
-              .getLockedCommand(target.name)
-              .pipe(
-                Effect.map((lockEntry) =>
-                  Option.isSome(lockEntry) && lockEntry.value.agents ? lockEntry.value.agents : [],
-                ),
-              ),
+          (target) => ws.getLockedCommand(target.name),
           { concurrency: "inherit" },
-        ).pipe(Effect.map((nested) => nested.flat()));
+        );
 
         const targetNames = intent.targets.map((t) => t.name).join(", ");
-        const agentSuffix =
-          agentNames.length > 0 ? `\nAffected agents: ${[...new Set(agentNames)].join(", ")}` : "";
+        const affectedAgents = [
+          ...new Set(
+            lockEntries.flatMap((lockEntry) =>
+              Option.isSome(lockEntry) ? [...lockEntry.value.agents] : [],
+            ),
+          ),
+        ];
+        const filesByAgent: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
+
+        for (const lockEntry of lockEntries) {
+          if (Option.isNone(lockEntry) || lockEntry.value.renderedFiles === undefined) {
+            continue;
+          }
+
+          for (const [agentId, files] of Object.entries(lockEntry.value.renderedFiles)) {
+            filesByAgent[agentId] = [...(filesByAgent[agentId] ?? []), ...files];
+          }
+        }
+
+        const sections = combinePlanSections(
+          makeAgentSection("Affected agents", affectedAgents),
+          makeRenderedFilesSection("Files that would be removed", filesByAgent),
+        );
 
         return {
           _tag: "Plan",
           name: "Uninstall command",
-          description: Option.some(`Uninstall command ${targetNames}${agentSuffix}`),
+          description: Option.some(`Uninstall command ${targetNames}`),
           jobs: [{ concurrency: 1 as const, steps }],
+          ...(sections === undefined ? {} : { sections }),
         } satisfies Plan;
       });
 

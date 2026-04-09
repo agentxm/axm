@@ -1,85 +1,109 @@
 /**
  * Unit tests for the commands install handler.
  *
- * Tests preview mode display of target agents and lossy-rendering warnings.
+ * Verifies preview rendering flows through plan sections rather than a
+ * handler-local preview branch.
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@axm.sh/core/unstable/agents";
-import { CommandManagerLive } from "@axm.sh/core/unstable/commands";
-import { SourceHostProvidersLive } from "@axm.sh/core/unstable/source-resolution";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import * as Option from "effect/Option";
+import { describe, expect, it } from "@effect/vitest";
+import type { RegistryCommandRef } from "@axm.sh/core/unstable/commands";
+import type { VersionConstraint } from "@axm.sh/core/unstable/version-constraints";
+import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleInstallCommand } from "./handler.js";
-import { InstallCommandCommandWorkflowActionsLive } from "./command-actions.js";
+import {
+  InstallCommandCommandWorkflowActions,
+  type CommandInstallSourceRequest,
+  type ParsedCommandInstallArgs,
+} from "./command-actions.js";
+import type { InstallCommandCommandIntent } from "./intent.js";
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const initWorkspace = (axmDir: string, agents: string[] = ["claude-code"]) => {
-  writeWorkspaceFiles(axmDir, { agents });
+const commandRef: RegistryCommandRef = {
+  type: "command",
+  refType: "registry",
+  source: {
+    type: "registry",
+    location: new URL("file:///tmp/registry"),
+    owner: Option.none(),
+  },
+  command: { name: extensionName("my-cmd") },
+  owner: handle("@acme"),
+  name: extensionName("my-cmd"),
+  version: exactVersion("1.0.0"),
+  integrity: Option.none(),
+  compatiblePackages: [],
 };
 
-// -----------------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------------
+const parsedArgs: ParsedCommandInstallArgs = {
+  owner: handle("@acme"),
+  commandName: extensionName("my-cmd"),
+  versionConstraint: Option.none<VersionConstraint>(),
+  resolvedInput: "@acme/commands/my-cmd",
+  force: false,
+};
+
+const sourceRequest: CommandInstallSourceRequest = {
+  source: {
+    type: "registry",
+    location: new URL("file:///tmp/registry"),
+    owner: Option.none(),
+  },
+  owner: handle("@acme"),
+  commandName: extensionName("my-cmd"),
+  versionConstraint: Option.none<VersionConstraint>(),
+};
+
+const installIntent: InstallCommandCommandIntent = {
+  ref: commandRef,
+  versionConstraint: Option.none<VersionConstraint>(),
+  force: false,
+};
 
 describe("commands install.handler preview", () => {
-  let tempDir: string;
-  let originalCwd: string;
-
-  beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "commands-install-handler-test-"));
-    process.chdir(tempDir);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
   const makeLayers = () => {
     const ctx = makeWorkspaceHandlerTestContext();
-    const cmdMgrLayer = Layer.provide(CommandManagerLive, ctx.fullLayer);
-    const sourcesLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const baseWithDeps = Layer.mergeAll(ctx.fullLayer, cmdMgrLayer, sourcesLayer);
-    const actionsLayer = Layer.provide(InstallCommandCommandWorkflowActionsLive, baseWithDeps);
-    const fullLayer = Layer.mergeAll(baseWithDeps, CodingAgentRepositoryLive, actionsLayer);
-    return { ...ctx, fullLayer, provide: makeEffectProvide(fullLayer) };
+    const actionsLayer = Layer.succeed(InstallCommandCommandWorkflowActions, {
+      parseArgs: () => Effect.succeed(parsedArgs),
+      resolveSourceRequests: () => Effect.succeed([sourceRequest]),
+      discoverRefs: () => Effect.succeed([commandRef]),
+      finalizeIntent: () => Effect.succeed(installIntent),
+      buildPlan: () =>
+        Effect.succeed({
+          _tag: "Plan" as const,
+          name: "Install command",
+          description: Option.some("Install command my-cmd"),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps: [
+                {
+                  readiness: "ready" as const,
+                  label: "my-cmd",
+                  run: Effect.succeed({
+                    result: "success" as const,
+                    message: "Installed my-cmd",
+                  }),
+                },
+              ],
+            },
+          ],
+          sections: [
+            {
+              title: "Target agents",
+              items: ["claude-code", "cursor"],
+            },
+          ],
+        }),
+    });
+    const fullLayer = Layer.mergeAll(ctx.fullLayer, actionsLayer);
+    return { ...ctx, provide: makeEffectProvide(fullLayer) };
   };
 
-  it.effect("displays target agents in preview mode", () => {
+  it.effect("renders preview sections from the plan", () => {
     const { provide, logs } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), ["claude-code", "cursor"]);
-
-    return provide(
-      Effect.gen(function* () {
-        // The workflow will fail to resolve source but preview info should appear first
-        yield* handleInstallCommand({
-          source: "my-cmd",
-          yes: false,
-          force: false,
-          preview: true,
-        }).pipe(Effect.ignore);
-
-        expect(logs.info.some((m) => m.includes("Target agents"))).toBe(true);
-        expect(logs.info.some((m) => m.includes("claude-code"))).toBe(true);
-        expect(logs.info.some((m) => m.includes("cursor"))).toBe(true);
-      }),
-    );
-  });
-
-  it.effect("shows no agents message when none are configured", () => {
-    const { provide, logs } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), []);
 
     return provide(
       Effect.gen(function* () {
@@ -88,27 +112,28 @@ describe("commands install.handler preview", () => {
           yes: false,
           force: false,
           preview: true,
-        }).pipe(Effect.ignore);
+        });
 
-        expect(logs.info.some((m) => m.includes("No agents configured"))).toBe(true);
+        expect(logs.message.some((message) => message.includes("Target agents"))).toBe(true);
+        expect(logs.message.some((message) => message.includes("claude-code"))).toBe(true);
+        expect(logs.message.some((message) => message.includes("cursor"))).toBe(true);
       }),
     );
   });
 
-  it.effect("does not display preview info when preview is false", () => {
+  it.effect("does not render preview sections when preview is false", () => {
     const { provide, logs } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), ["claude-code"]);
 
     return provide(
       Effect.gen(function* () {
         yield* handleInstallCommand({
           source: "my-cmd",
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
-        }).pipe(Effect.ignore);
+        });
 
-        expect(logs.info.some((m) => m.includes("Target agents"))).toBe(false);
+        expect(logs.message.some((message) => message.includes("Target agents"))).toBe(false);
       }),
     );
   });

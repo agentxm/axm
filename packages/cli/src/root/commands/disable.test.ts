@@ -144,10 +144,15 @@ describe("commands disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisableCommand(defaultArgs("my-cmd", { preview: true }));
 
-          expect(logs.info.some((m) => m.includes("Would remove rendered files from agents"))).toBe(
-            true,
-          );
-          expect(logs.info.some((m) => m.includes("Files that would be removed"))).toBe(true);
+          const allMessages = [...logs.info, ...logs.message];
+          expect(
+            allMessages.some((message) =>
+              message.includes("Would remove rendered files from agents"),
+            ),
+          ).toBe(true);
+          expect(
+            allMessages.some((message) => message.includes("Files that would be removed")),
+          ).toBe(true);
         }),
       );
     });

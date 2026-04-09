@@ -16,8 +16,8 @@ import * as ServiceMap from "effect/ServiceMap";
 import { normalizeHandle } from "@axm.sh/core/unstable/extensions";
 import { TestFlagsLayer } from "@axm.sh/core/unstable/cli-flags";
 import { Workspace } from "@axm.sh/core/unstable/workspace";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { CommandManager } from "@axm.sh/core/unstable/commands";
+import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { CommandManager, type RegistryCommandRef } from "@axm.sh/core/unstable/commands";
 import { SourceHostProviders } from "@axm.sh/core/unstable/source-resolution";
 import {
   InstallCommandCommandWorkflowActions,
@@ -46,15 +46,17 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
-const testLayer = Layer.mergeAll(
-  Layer.succeed(Workspace, mockWorkspace),
-  Layer.succeed(CommandManager, mockCommandManager),
-  Layer.succeed(SourceHostProviders, mockSourceHostProviders),
-  NodeServices.layer,
-  TestFlagsLayer(),
-);
-
-const actionsLayer = Layer.provide(InstallCommandCommandWorkflowActionsLive, testLayer);
+const makeActionsLayer = (workspace = mockWorkspace) =>
+  Layer.provide(
+    InstallCommandCommandWorkflowActionsLive,
+    Layer.mergeAll(
+      Layer.succeed(Workspace, workspace),
+      Layer.succeed(CommandManager, mockCommandManager),
+      Layer.succeed(SourceHostProviders, mockSourceHostProviders),
+      NodeServices.layer,
+      TestFlagsLayer(),
+    ),
+  );
 
 const defaultFlags = { yes: false, force: false, preview: false } as const;
 
@@ -62,11 +64,28 @@ const runWithActions = <A, E>(
   fn: (
     actions: ServiceMap.Service.Shape<typeof InstallCommandCommandWorkflowActions>,
   ) => Effect.Effect<A, E>,
+  layer = makeActionsLayer(),
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallCommandCommandWorkflowActions;
     return yield* fn(actions);
-  }).pipe(Effect.provide(actionsLayer));
+  }).pipe(Effect.provide(layer));
+
+const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
+  type: "command",
+  refType: "registry",
+  source: {
+    type: "registry",
+    location: new URL("file:///tmp/registry"),
+    owner: Option.none(),
+  },
+  command: { name: extensionName(name) },
+  owner: handle("@acme"),
+  name: extensionName(name),
+  version: exactVersion("1.0.0"),
+  integrity: Option.none(),
+  compatiblePackages: [],
+});
 
 describe("parseCommandInstallArgs", () => {
   it.effect("parses @owner/commands/name registry pattern", () =>
@@ -156,6 +175,57 @@ describe("parseCommandInstallArgs", () => {
         });
       }).pipe(Effect.provide(forceActionsLayer));
       expect(result.force).toBe(false);
+    }),
+  );
+});
+
+describe("buildPlan", () => {
+  it.effect("includes a target agents section", () =>
+    Effect.gen(function* () {
+      const plan = yield* runWithActions((actions) =>
+        actions.buildPlan({
+          ref: makeRegistryRef(),
+          versionConstraint: Option.none(),
+          force: false,
+        }),
+      );
+
+      expect(plan.sections).toEqual(
+        expect.arrayContaining([
+          {
+            title: "Target agents",
+            items: ["claude-code"],
+          },
+        ]),
+      );
+    }),
+  );
+
+  it.effect("includes a no-agents preview note when nothing is configured", () =>
+    Effect.gen(function* () {
+      const workspace = makeBaseWorkspaceMock("/tmp/axm", {
+        getConfiguredProfile: () => Effect.succeed(normalizeHandle("@test-ns")),
+        getConfiguredAgents: () => Effect.succeed([]),
+      });
+
+      const plan = yield* runWithActions(
+        (actions) =>
+          actions.buildPlan({
+            ref: makeRegistryRef(),
+            versionConstraint: Option.none(),
+            force: false,
+          }),
+        makeActionsLayer(workspace),
+      );
+
+      expect(plan.sections).toEqual(
+        expect.arrayContaining([
+          {
+            title: "Target agents",
+            items: ["No agents configured. No files would be rendered."],
+          },
+        ]),
+      );
     }),
   );
 });
